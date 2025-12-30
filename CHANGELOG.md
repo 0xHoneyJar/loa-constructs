@@ -5,6 +5,59 @@ All notable changes to Loa will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2025-12-30
+
+### Why This Release
+
+**CRITICAL UPGRADE**: Version 0.9.0 was released with project-specific artifacts (PRD, SDD, sprint plans, A2A files) that should never have been in the template. This polluted the template and caused new installations to include irrelevant documentation.
+
+This release cleans up the template and adds strict CI guards to prevent this from happening again.
+
+### Fixed
+
+- **Template Pollution**: Removed all project-specific files from `loa-grimoire/`
+  - Deleted: `prd.md`, `sdd.md`, `sprint.md`, `NOTES.md`
+  - Deleted: All `a2a/sprint-*` directories and files
+  - Deleted: `deployment/`, `reality/`, `analytics/`, `research/` contents
+  - Each directory now contains only a README.md explaining its purpose
+
+### Added
+
+- **Template Protection CI Guard**: New GitHub Actions job that blocks forbidden files
+  - Runs first, all other CI jobs depend on it passing
+  - Blocks: `prd.md`, `sdd.md`, `sprint.md`, `NOTES.md`, `a2a/*`, `deployment/*`, `reality/*`, `analytics/*`, `research/*`
+  - Escape hatch: `[skip-template-guard]` in commit message for exceptional cases
+  - `.github/BRANCH_PROTECTION.md` documents required GitHub settings
+
+- **Branch Protection**: GitHub API configured to enforce strict checks
+  - `Template Protection` status check required
+  - `Validate Framework Files` status check required
+  - Admin bypass disabled (`enforce_admins: true`)
+
+### Changed
+
+- **`.gitignore`**: Now excludes all template-specific files by default
+  - README.md files in each directory are preserved
+  - Projects using Loa as a base will automatically ignore generated artifacts
+
+### Upgrade Instructions
+
+**If you installed v0.9.0**, you have polluted template files. To clean up:
+
+```bash
+# Pull the clean template
+/update
+
+# Or manually remove polluted files
+rm -rf loa-grimoire/prd.md loa-grimoire/sdd.md loa-grimoire/sprint.md
+rm -rf loa-grimoire/NOTES.md loa-grimoire/a2a/* loa-grimoire/deployment/*
+rm -rf loa-grimoire/reality/* loa-grimoire/analytics/* loa-grimoire/research/*
+```
+
+**New installations** from v0.9.1+ will start clean automatically.
+
+---
+
 ## [0.9.0] - 2025-12-27
 
 ### Why This Release
@@ -638,6 +691,7 @@ loa-grimoire/           # Loa process artifacts
 └── deployment/         # Production infrastructure docs
 ```
 
+[0.9.1]: https://github.com/0xHoneyJar/loa/releases/tag/v0.9.1
 [0.9.0]: https://github.com/0xHoneyJar/loa/releases/tag/v0.9.0
 [0.8.0]: https://github.com/0xHoneyJar/loa/releases/tag/v0.8.0
 [0.7.0]: https://github.com/0xHoneyJar/loa/releases/tag/v0.7.0
