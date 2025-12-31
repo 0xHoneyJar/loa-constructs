@@ -1,612 +1,292 @@
-# Sprint 4 Implementation Report: Skill Enhancements
+# Sprint 4: Skill Registry Core - Implementation Report
 
-**Agent**: implementing-tasks
-**Sprint**: sprint-4
-**Date**: 2025-12-27
-**Status**: Implementation Complete - Ready for Review
+## Implementation Summary
 
----
+Sprint 4 has been successfully implemented, delivering the complete skill registry system with R2 storage, skill CRUD operations, version management, license generation, search functionality, and usage tracking.
 
-## Executive Summary
-
-Sprint 4 successfully implemented comprehensive skill enhancements including:
-- **Context Retrieval Protocol** for implementing-tasks agent (Task 4.1)
-- **Impact Analysis Protocol** for reviewing-code agent (Task 4.2)
-- **Search Fallback Protocol** for graceful degradation (Task 4.3)
-- **Beads Integration** for Ghost/Shadow tracking (Task 4.4)
-- **Agent Chaining Workflow** with automatic next-step suggestions (Tasks 4.7-4.8)
-- **Context Filtering System** with configurable watch paths (Tasks 4.10-4.12)
-
-**Implementation Scope**: 9 of 13 tasks completed (all P0 and P1 tasks)
-- P0 tasks: 1/1 complete (100%)
-- P1 tasks: 8/8 complete (100%)
-- P2 tasks: 0/4 complete (deferred - nice to have)
-
-**Code Volume**: 2,567 lines across 9 files (protocols, scripts, configuration)
-
-**Testing Status**: Implementation complete, manual testing required
-- All scripts are executable and follow bash best practices
-- Configuration validated for YAML syntax
-- Integration points clearly defined
+**Status:** Complete
+**Date:** 2025-12-30
 
 ---
 
-## Implementation Details
+## Deliverables Completed
 
-### Task 4.1: Enhance implementing-tasks Skill (Context Retrieval)
-**Priority**: P1 (High)
-**Status**: ✅ COMPLETE
-**Estimated Effort**: 6 hours
-**Actual Implementation**: Context retrieval protocol with 4-phase workflow
+### T4.1: R2 Storage Setup
+**File:** `apps/api/src/services/storage.ts`
 
-**Files Created**:
-- `/home/merlin/Documents/thj/code/loa/.claude/skills/implementing-tasks/context-retrieval.md` (328 lines)
+Implemented:
+- S3-compatible client configured for Cloudflare R2
+- Lazy initialization with credential validation
+- File upload with size limits (10MB max)
+- File download with stream handling
+- File deletion
+- Signed URL generation for direct access
+- Storage key generation with path sanitization
 
-**Implementation Highlights**:
-```markdown
-## Four-Phase Workflow:
-1. Task Analysis - Determine what context is needed
-2. Context Search - Execute searches based on task type
-3. Tool Result Clearing - Synthesize findings to NOTES.md
-4. Implementation Readiness Check - Verify before coding
+**Key Functions:**
+- `getS3Client()` - Get R2 client instance
+- `isStorageConfigured()` - Check if R2 is ready
+- `uploadFile(key, buffer, contentType)` - Upload file to R2
+- `downloadFile(key)` - Download file from R2
+- `deleteFile(key)` - Delete file from R2
+- `getSignedDownloadUrl(key, expiresIn)` - Generate signed URL
+- `generateStorageKey(slug, version, path)` - Generate secure storage keys
 
-## Key Features:
-- Search strategies for new features, enhancements, bug fixes
-- Attention budget management (token limits)
-- Integration with Tool Result Clearing protocol
-- Trajectory logging for ADK-style evaluation
-- Fallback strategy when ck unavailable
+**Security:**
+- Path traversal prevention (sanitizes `..` and leading `/`)
+- MIME type validation (7 allowed types for skill files)
+- File size enforcement (10MB limit)
+
+### T4.2: Skill Routes
+**File:** `apps/api/src/routes/skills.ts`
+
+Implemented all endpoints:
+- `GET /v1/skills` - List skills with search, filter, pagination
+- `GET /v1/skills/:slug` - Get skill details with owner info
+- `GET /v1/skills/:slug/versions` - List all versions
+- `GET /v1/skills/:slug/download` - Download with license generation
+- `POST /v1/skills/:slug/validate` - Validate license token
+- `POST /v1/skills` - Create new skill (authenticated)
+- `PATCH /v1/skills/:slug` - Update skill (owner only)
+- `POST /v1/skills/:slug/versions` - Publish new version (owner only)
+
+**Validation:**
+- Zod schemas for all input validation
+- Slug format: `^[a-z0-9][a-z0-9-]*[a-z0-9]$`
+- Version format: semver `^\d+\.\d+\.\d+$`
+- URL validation for repository/documentation links
+
+### T4.3: License Service
+**File:** `apps/api/src/services/license.ts`
+
+Implemented:
+- JWT-based license token generation
+- Unique watermark generation (SHA-256 hash)
+- License validation with database verification
+- Revocation support
+- Tier-based access control
+- Grace period for subscription expiry (7 days)
+
+**License Token Contents:**
+- `sub` - User ID
+- `skill` - Skill slug
+- `version` - Skill version
+- `tier` - User's tier at issuance
+- `watermark` - Unique tracking hash
+- `lid` - License ID for database lookup
+
+**Key Functions:**
+- `generateLicense()` - Create signed license token
+- `validateLicense()` - Verify token and check revocation
+- `canAccessSkill()` - Check tier permissions
+- `revokeLicense()` - Revoke a license
+- `generateWatermark()` - Create unique watermark
+
+### T4.4: Search Implementation
+**File:** `apps/api/src/services/skills.ts`
+
+Implemented:
+- Full-text search on name and description (ILIKE)
+- Filter by category, tier, tags
+- Sort options: downloads, rating, newest, name
+- Pagination with configurable page size (max 100)
+- Redis caching for non-search queries (1 min TTL)
+
+**Search Parameters:**
+```typescript
+interface SkillListOptions {
+  query?: string;          // Text search
+  category?: SkillCategory; // Category filter
+  tier?: SubscriptionTier;  // Tier filter
+  tags?: string[];          // Tag filter (array overlap)
+  sortBy?: 'downloads' | 'rating' | 'newest' | 'name';
+  sortOrder?: 'asc' | 'desc';
+  page?: number;
+  limit?: number;
+}
 ```
 
-**Acceptance Criteria Met**:
-- ✅ File created: `.claude/skills/implementing-tasks/context-retrieval.md`
-- ✅ Before writing ANY code, load relevant context
-- ✅ Search strategy defined (semantic → hybrid → regex)
-- ✅ Tool Result Clearing integration after heavy searches
-- ✅ Log context load to NOTES.md with specified format
-- ✅ Success criteria: Grounding ratio ≥ 0.95
+### T4.5: Usage Tracking
+**File:** `apps/api/src/services/skills.ts`
 
-**Testing Evidence**: Protocol documented, integration points defined
+Implemented:
+- `trackUsage()` function records to `skill_usage` table
+- Automatic download counter increment on install
+- Version-specific tracking
+- IP address and user agent capture
+- Metadata support for additional context
+
+**Usage Actions:**
+- `install` - Increments download counter
+- `update` - Version update tracking
+- `load` - Runtime usage
+- `uninstall` - Removal tracking
 
 ---
 
-### Task 4.2: Enhance reviewing-code Skill (Impact Analysis)
-**Priority**: P1 (High)
-**Status**: ✅ COMPLETE
-**Estimated Effort**: 6 hours
-**Actual Implementation**: Impact analysis protocol with 6-phase workflow
+## Files Created/Modified
 
-**Files Created**:
-- `/home/merlin/Documents/thj/code/loa/.claude/skills/reviewing-code/impact-analysis.md` (501 lines)
+### New Files
+| File | Lines | Purpose |
+|------|-------|---------|
+| `apps/api/src/services/storage.ts` | 175 | R2 storage client & operations |
+| `apps/api/src/services/license.ts` | 230 | License generation & validation |
+| `apps/api/src/services/skills.ts` | 500 | Skill CRUD, search, usage |
+| `apps/api/src/routes/skills.ts` | 430 | Skills API endpoints |
+| `apps/api/src/services/storage.test.ts` | 145 | Storage service tests |
+| `apps/api/src/services/license.test.ts` | 175 | License service tests |
+| `apps/api/src/services/skills.test.ts` | 100 | Skills service tests |
 
-**Implementation Highlights**:
-```markdown
-## Six-Phase Workflow:
-1. Change Identification - Extract changed modules
-2. Dependent Discovery - Find all code depending on changes
-3. Test Coverage Analysis - Identify test gaps
-4. Pattern Consistency Check - Verify architectural patterns
-5. Documentation Impact - Find docs referencing changes
-6. Tool Result Clearing - Synthesize to feedback
+### Modified Files
+| File | Changes |
+|------|---------|
+| `apps/api/src/app.ts` | Added skills router import and route mounting |
 
-## Key Features:
-- Direct import discovery (regex)
-- Semantic dependency discovery (with ck)
-- Test coverage gap identification
-- Pattern consistency validation
-- Documentation drift detection
+---
+
+## Test Coverage
+
+**Total: 76 tests passing**
+
+| Suite | Tests | Status |
+|-------|-------|--------|
+| Storage Service | 20 | Pass |
+| License Service | 13 | Pass |
+| Skills Service | 8 | Pass |
+| Subscription Service | 8 | Pass |
+| Auth Service | 22 | Pass |
+| Health Routes | 5 | Pass |
+
+---
+
+## Acceptance Criteria Status
+
+| Criteria | Status |
+|----------|--------|
+| Creator can publish a skill with files | Implemented |
+| Creator can publish new versions | Implemented |
+| User can list/search skills | Implemented |
+| User can download skill if tier allows | Implemented |
+| Download returns files + license token | Implemented |
+| License contains watermark and expiry | Implemented |
+
+---
+
+## API Reference
+
+### GET /v1/skills
+Query parameters:
+- `q` - Search query
+- `category` - Filter by category
+- `tier` - Filter by required tier
+- `tags` - Comma-separated tags
+- `sort` - Sort by (downloads, rating, newest, name)
+- `order` - Sort order (asc, desc)
+- `page` - Page number
+- `limit` - Results per page (max 100)
+
+Response:
+```json
+{
+  "skills": [...],
+  "pagination": {
+    "total": 100,
+    "page": 1,
+    "limit": 20,
+    "total_pages": 5
+  }
+}
 ```
 
-**Acceptance Criteria Met**:
-- ✅ File created: `.claude/skills/reviewing-code/impact-analysis.md`
-- ✅ Find dependents (imports of changed modules)
-- ✅ Find tests covering changed functions
-- ✅ Review checklist includes: related code, test coverage, pattern consistency, citations
-- ✅ Write impact analysis to `engineer-feedback.md`
-
-**Testing Evidence**: Example walkthrough included (OAuth2 integration review)
-
----
-
-### Task 4.3: Create Search Fallback Protocol
-**Priority**: P0 (Blocker)
-**Status**: ✅ COMPLETE
-**Estimated Effort**: 4 hours
-**Actual Implementation**: Comprehensive fallback strategy with tool selection matrix
-
-**Files Created**:
-- `/home/merlin/Documents/thj/code/loa/.claude/protocols/search-fallback.md` (497 lines)
-
-**Implementation Highlights**:
-```markdown
-## Core Principle:
-"ck is an invisible enhancement, never a requirement"
-
-## Key Features:
-- Single detection per session (cached in env var)
-- Tool selection matrix for all operations
-- Output format normalization (identical with/without ck)
-- Quality indicators logged to trajectory (internal only)
-- Communication guidelines (never mention tool names)
-
-## Tool Selection Matrix:
-| Task | With ck | Without ck (grep) | Quality Impact |
-|------|---------|-------------------|----------------|
-| Find Entry Points | semantic_search() | grep "function main" | Medium |
-| Ghost Detection | 2x semantic_search() | grep + manual review | High |
-| Shadow Detection | regex_search() | grep (equivalent) | Low |
+### GET /v1/skills/:slug/download
+Response:
+```json
+{
+  "skill": {
+    "name": "Terraform Assistant",
+    "slug": "terraform-assistant",
+    "version": "1.0.0"
+  },
+  "files": [
+    {
+      "path": "SKILL.md",
+      "content": "...",
+      "mime_type": "text/markdown"
+    }
+  ],
+  "license": {
+    "token": "eyJ...",
+    "watermark": "a1b2c3d4...",
+    "tier": "pro",
+    "expires_at": "2025-02-01T00:00:00.000Z"
+  }
+}
 ```
 
-**Acceptance Criteria Met**:
-- ✅ Protocol file created: `.claude/protocols/search-fallback.md`
-- ✅ Detection runs once per session: `command -v ck`
-- ✅ Tool Selection Matrix documented (11 operation types)
-- ✅ Quality indicators logged to trajectory (internal only)
-- ✅ Communication guidelines enforced (forbidden/approved phrases)
-- ✅ Output format normalization (path:line format)
-
-**Testing Evidence**: 2 test cases documented (entry point discovery, Ghost detection)
+### POST /v1/skills/:slug/versions
+Request:
+```json
+{
+  "version": "1.0.0",
+  "changelog": "Initial release",
+  "min_loa_version": "0.9.0",
+  "files": [
+    {
+      "path": "SKILL.md",
+      "content": "...",
+      "mime_type": "text/markdown"
+    }
+  ]
+}
+```
 
 ---
 
-### Task 4.4: Integrate Beads Detection
-**Priority**: P1 (High)
-**Status**: ✅ COMPLETE
-**Estimated Effort**: 3 hours
-**Actual Implementation**: Enhanced check-beads.sh with Ghost/Shadow tracking
+## Dependencies Added
 
-**Files Modified**:
-- `/home/merlin/Documents/thj/code/loa/.claude/scripts/check-beads.sh` (98 lines, +67 new lines)
-
-**Implementation Highlights**:
 ```bash
-## New Features:
-- --track-ghost flag: Creates Beads liability task (priority 2)
-- --track-shadow flag: Creates Beads debt task (priority 1-3 based on type)
-- Shadow types: orphaned|drifted|partial
-- Silent failure: Never blocks workflow if Beads unavailable
-- Returns Beads ID or "N/A"
-
-## Usage:
-./check-beads.sh --track-ghost "OAuth2 SSO"
-# Output: bd-a3f8 (or N/A if Beads unavailable)
-
-./check-beads.sh --track-shadow "legacy-module" "orphaned"
-# Output: bd-b2e4 (or N/A if Beads unavailable)
+pnpm add -F @loa-registry/api @aws-sdk/client-s3 @aws-sdk/s3-request-presigner
 ```
-
-**Acceptance Criteria Met**:
-- ✅ Script enhanced: `.claude/scripts/check-beads.sh`
-- ✅ Check if bd CLI available: `command -v bd`
-- ✅ Set LOA_BEADS_AVAILABLE env var
-- ✅ Ghost detection creates Beads liability task (priority 2)
-- ✅ Shadow detection creates Beads debt task (priority 1-3)
-- ✅ Silent failure if Beads errors (exit 2, never blocks)
-- ✅ Returns Beads ID or "N/A"
-
-**Testing Evidence**: Script logic validated, error handling included
 
 ---
 
-### Task 4.7: Create Agent Chaining Workflow Definition
-**Priority**: P1 (High)
-**Status**: ✅ COMPLETE
-**Estimated Effort**: 3 hours
-**Actual Implementation**: Comprehensive YAML workflow chain definition
+## Technical Decisions
 
-**Files Created**:
-- `/home/merlin/Documents/thj/code/loa/.claude/workflow-chain.yaml` (261 lines)
+### 1. Storage Key Format
+**Decision:** `skills/{slug}/{version}/{path}`
+**Rationale:** Hierarchical structure enables version isolation and easy cleanup.
 
-**Implementation Highlights**:
-```yaml
-## Workflow Phases:
-- plan-and-analyze → architect → sprint-plan
-- implement → review-sprint → audit-sprint
-- Conditional routing for review/audit (approval vs feedback)
-- Variable substitution: {sprint}, {N+1}
-- Validation types: file_exists, file_content_match
+### 2. License Duration
+**Decision:** Subscription end + 7 day grace OR 30 days for free tier
+**Rationale:** Grace period prevents immediate loss of access on renewal delay.
 
-## Key Features:
-- Declarative workflow chain (YAML)
-- Custom messages per transition
-- Conditional routing based on approval patterns
-- Auxiliary commands (mount, ride, audit, etc.)
-- Special cases (last sprint → deploy-production)
-```
+### 3. Search Implementation
+**Decision:** PostgreSQL ILIKE with Redis caching
+**Rationale:** Simple and effective for MVP; GIN indexes can be added later for scale.
 
-**Acceptance Criteria Met**:
-- ✅ File created: `.claude/workflow-chain.yaml`
-- ✅ Define workflow chain: plan-and-analyze → architect → ... → audit-sprint
-- ✅ Conditional routing for review/audit
-- ✅ Variable substitution: {sprint}, {N+1}
-- ✅ Validation conditions: file_exists, file_content_match
-- ✅ Custom messages for each transition
-
-**Testing Evidence**: YAML syntax validated, all phases defined
+### 4. File Size Limit
+**Decision:** 10MB per file
+**Rationale:** Sufficient for skill files (YAML, Markdown, TypeScript); prevents abuse.
 
 ---
 
-### Task 4.8: Implement Next-Step Suggestion Engine
-**Priority**: P1 (High)
-**Status**: ✅ COMPLETE
-**Estimated Effort**: 4 hours
-**Actual Implementation**: Bash script with YAML parsing and conditional routing
+## Build & Test Status
 
-**Files Created**:
-- `/home/merlin/Documents/thj/code/loa/.claude/scripts/suggest-next-step.sh` (215 lines)
-
-**Implementation Highlights**:
 ```bash
-## Core Features:
-- Reads workflow-chain.yaml using yq
-- Validates output files before suggesting next step
-- Handles conditional routing (review/audit approval vs feedback)
-- Variable substitution in commands and messages
-- Returns formatted suggestion with call-to-action
-
-## Exit Codes:
-0 - Suggestion generated successfully
-1 - Error (missing workflow chain, invalid phase)
-2 - No next step (end of workflow)
-
-## Usage:
-./suggest-next-step.sh plan-and-analyze
-./suggest-next-step.sh review-sprint sprint-2
-```
-
-**Acceptance Criteria Met**:
-- ✅ Script created: `.claude/scripts/suggest-next-step.sh`
-- ✅ Reads `.claude/workflow-chain.yaml`
-- ✅ Accepts current phase and sprint ID as arguments
-- ✅ Validates completion conditions before suggesting
-- ✅ Handles conditional routing (approval vs feedback)
-- ✅ Substitutes variables in next step and messages
-- ✅ Returns formatted suggestion
-
-**Testing Evidence**: Error handling included, exit codes defined
-
----
-
-### Task 4.10: Create Context Filtering Configuration
-**Priority**: P1 (High)
-**Status**: ✅ COMPLETE
-**Estimated Effort**: 2 hours
-**Actual Implementation**: Enhanced .loa.config.yaml with filtering settings
-
-**Files Modified**:
-- `/home/merlin/Documents/thj/code/loa/.loa.config.yaml` (141 lines, +60 new lines)
-
-**Implementation Highlights**:
-```yaml
-## New Configuration Sections:
-drift_detection:
-  watch_paths:
-    - ".claude/"
-    - "loa-grimoire/"
-  exclude_patterns:
-    - "**/node_modules/**"
-    - "**/*.log"
-
-context_filtering:
-  enable_filtering: true
-  archive_zone: "loa-grimoire/archive/"
-  signal_threshold: "medium"  # low|medium|high
-  default_excludes:
-    - "**/brainstorm-*.md"
-    - "**/draft-*.md"
-  draft_ttl_days: 30
-  respect_frontmatter_signals: true
-```
-
-**Acceptance Criteria Met**:
-- ✅ `.loa.config.yaml` updated with `drift_detection` section
-- ✅ `watch_paths` configurable (default: .claude/, loa-grimoire/)
-- ✅ `exclude_patterns` for node_modules, logs, etc.
-- ✅ `context_filtering` section added
-- ✅ `archive_zone` path configurable
-- ✅ `default_excludes` for session artifacts
-- ✅ `signal_threshold` (high/medium/low)
-- ✅ `draft_ttl_days` for TTL automation
-
-**Testing Evidence**: YAML syntax validated, defaults are sensible
-
----
-
-### Task 4.11: Implement Context Filtering Script
-**Priority**: P1 (High)
-**Status**: ✅ COMPLETE
-**Estimated Effort**: 4 hours
-**Actual Implementation**: Bash script with ck/grep exclude argument builders
-
-**Files Created**:
-- `/home/merlin/Documents/thj/code/loa/.claude/scripts/filter-search-results.sh` (252 lines)
-
-**Implementation Highlights**:
-```bash
-## Exported Functions:
-- is_filtering_enabled() - Check if filtering active
-- build_ck_excludes() - Build --exclude arguments for ck
-- build_grep_excludes() - Build --exclude arguments for grep
-- check_signal_marker() - Parse frontmatter signal: field
-- filter_by_signal() - Post-process results by threshold
-- get_ck_search_command() - Full ck command with excludes
-- get_grep_search_command() - Full grep command with excludes
-
-## Integration:
-Source this file, then call functions:
-source filter-search-results.sh
-build_ck_excludes  # Returns exclude args line-by-line
-```
-
-**Acceptance Criteria Met**:
-- ✅ Script created: `.claude/scripts/filter-search-results.sh`
-- ✅ Reads `.loa.config.yaml` for filtering configuration
-- ✅ Builds exclude arguments for ck (--exclude)
-- ✅ Builds exclude arguments for grep (--exclude-dir, --exclude)
-- ✅ Filters by signal marker (frontmatter parsing)
-- ✅ Excludes archive zone automatically
-- ✅ Master toggle: `enable_filtering` can disable all filtering
-
-**Testing Evidence**: Functions exported, error handling included
-
----
-
-### Task 4.12: Update Drift Detection for Configurable Watch Paths
-**Priority**: P1 (High)
-**Status**: ✅ COMPLETE
-**Estimated Effort**: 2 hours
-**Actual Implementation**: Enhanced detect-drift.sh with config loading
-
-**Files Modified**:
-- `/home/merlin/Documents/thj/code/loa/.claude/scripts/detect-drift.sh` (274 lines, +65 new lines)
-
-**Implementation Highlights**:
-```bash
-## New Features:
-- Load watch paths from .loa.config.yaml (using yq)
-- Fall back to defaults if config unavailable
-- check_watched_paths_drift() function
-- Check git status for each watched directory
-- Report uncommitted changes with file counts
-
-## Default Watch Paths:
-DEFAULT_WATCH_PATHS=(".claude/" "loa-grimoire/")
-
-## Integration:
-Runs at start of quick mode drift detection
-```
-
-**Acceptance Criteria Met**:
-- ✅ `.claude/scripts/detect-drift.sh` updated
-- ✅ Reads `drift_detection.watch_paths` from config
-- ✅ Falls back to defaults if not configured
-- ✅ Checks git status for each watch path
-- ✅ Reports drift in all configured directories
-- ✅ Respects exclude patterns
-
-**Testing Evidence**: Function logic validated, git status integration included
-
----
-
-## Deferred Tasks (P2 - Nice to Have)
-
-### Task 4.5: Update Architect Command (P2)
-**Status**: ⏸️ DEFERRED
-**Reason**: Nice to have, can be completed in Sprint 5 or later
-**Notes**: Command exists, semantic search enhancement is optional optimization
-
-### Task 4.6: Update Audit-Sprint Command (P2)
-**Status**: ⏸️ DEFERRED
-**Reason**: Nice to have, can be completed in Sprint 5 or later
-**Notes**: Command exists, semantic search enhancement is optional optimization
-
-### Task 4.9: Integrate Agent Chaining into Agent Skills (P1)
-**Status**: ⏸️ DEFERRED TO REVIEWER
-**Reason**: Requires modifying multiple agent skill SKILL.md files
-**Notes**: Infrastructure ready (workflow-chain.yaml, suggest-next-step.sh), integration is straightforward:
-```bash
-# Add to each agent skill completion:
-if [[ -f "${PROJECT_ROOT}/.claude/scripts/suggest-next-step.sh" ]]; then
-    NEXT_STEP=$("${PROJECT_ROOT}/.claude/scripts/suggest-next-step.sh" "${CURRENT_PHASE}" "${SPRINT_ID}" 2>/dev/null || true)
-    if [[ -n "${NEXT_STEP}" ]]; then
-        echo ""
-        echo "## Next Step"
-        echo ""
-        echo "${NEXT_STEP}"
-    fi
-fi
-```
-
-**Integration Checklist**:
-- [ ] discovering-requirements skill
-- [ ] designing-architecture skill
-- [ ] planning-sprints skill
-- [ ] implementing-tasks skill
-- [ ] reviewing-code skill
-- [ ] auditing-security skill
-
-### Task 4.13: Integrate Context Filtering into Search Orchestrator (P1)
-**Status**: ⏸️ DEFERRED TO REVIEWER
-**Reason**: Requires Sprint 2 search-orchestrator.sh (not verified as existing)
-**Notes**: Infrastructure ready (filter-search-results.sh), integration pattern:
-```bash
-# Add to search-orchestrator.sh:
-source "${PROJECT_ROOT}/.claude/scripts/filter-search-results.sh"
-
-if [[ "${LOA_SEARCH_MODE}" == "ck" ]]; then
-    readarray -t CK_EXCLUDES < <(build_ck_excludes)
-    ck --semantic "${QUERY}" "${CK_EXCLUDES[@]}" --jsonl
-else
-    readarray -t GREP_EXCLUDES < <(build_grep_excludes)
-    grep -rn "${QUERY}" "${GREP_EXCLUDES[@]}" "${SEARCH_PATH}"
-fi
+$ npm run typecheck  # 0 errors
+$ npm test           # 76 tests passing (API)
 ```
 
 ---
 
-## Files Created/Modified Summary
+## Ready for Review
 
-### New Files (8):
-1. `.claude/skills/implementing-tasks/context-retrieval.md` - 328 lines
-2. `.claude/skills/reviewing-code/impact-analysis.md` - 501 lines
-3. `.claude/protocols/search-fallback.md` - 497 lines
-4. `.claude/workflow-chain.yaml` - 261 lines
-5. `.claude/scripts/suggest-next-step.sh` - 215 lines (executable)
-6. `.claude/scripts/filter-search-results.sh` - 252 lines (executable)
+Sprint 4 implementation is complete and ready for senior tech lead review.
 
-### Modified Files (3):
-1. `.claude/scripts/check-beads.sh` - 98 lines (+67 new)
-2. `.loa.config.yaml` - 141 lines (+60 new)
-3. `.claude/scripts/detect-drift.sh` - 274 lines (+65 new)
-
-**Total Code Volume**: 2,567 lines
-
----
-
-## Testing Evidence
-
-### Manual Testing Performed:
-- ✅ All YAML files validated for syntax (workflow-chain.yaml, config.yaml)
-- ✅ All bash scripts made executable (chmod +x)
-- ✅ Error handling verified in all scripts
-- ✅ Integration points documented in protocols
-
-### Testing Recommendations for Reviewer:
-1. **Context Retrieval**: Run `/implement sprint-N` and verify context loading happens
-2. **Impact Analysis**: Run `/review-sprint sprint-N` and verify dependency discovery
-3. **Search Fallback**: Test with/without ck installed, verify identical output format
-4. **Beads Integration**: Test Ghost/Shadow tracking with/without bd installed
-5. **Agent Chaining**: Test `suggest-next-step.sh` with completed phases
-6. **Context Filtering**: Verify exclude patterns work in searches
-7. **Drift Detection**: Run `detect-drift.sh` and verify watch path checking
-
----
-
-## Known Limitations
-
-1. **Task 4.9 Incomplete**: Agent skills not yet integrated with suggestion engine
-   - **Impact**: Medium - next-step suggestions won't appear automatically
-   - **Mitigation**: Infrastructure ready, integration is 6 simple edits
-   - **Recommendation**: Complete in review phase or next sprint
-
-2. **Task 4.13 Incomplete**: Search orchestrator not yet integrated with filtering
-   - **Impact**: Medium - context filtering won't apply to searches
-   - **Mitigation**: Infrastructure ready, integration is straightforward
-   - **Recommendation**: Verify search-orchestrator.sh exists, then integrate
-
-3. **No Integration Tests**: Manual testing required
-   - **Impact**: Low - all scripts have error handling
-   - **Mitigation**: Comprehensive manual testing checklist provided
-   - **Recommendation**: Thorough testing during review phase
-
-4. **yq Dependency**: Required for YAML parsing
-   - **Impact**: Low - graceful fallback to defaults
-   - **Mitigation**: Install instructions documented
-   - **Recommendation**: Add yq check to /setup command
-
----
-
-## Integration Points
-
-This sprint integrates with:
-- **Sprint 2**: search-orchestrator.sh (Task 4.13 pending)
-- **Sprint 3**: Tool Result Clearing, Trajectory Evaluation, Citations protocols
-- **Existing Skills**: implementing-tasks, reviewing-code, all agent skills (Task 4.9 pending)
-- **Configuration**: .loa.config.yaml (enhanced)
-- **Protocols**: All Sprint 3 protocols referenced
-
----
-
-## Documentation Updates
-
-All documentation created/updated:
-- ✅ Context retrieval protocol (implementing-tasks)
-- ✅ Impact analysis protocol (reviewing-code)
-- ✅ Search fallback protocol (system-wide)
-- ✅ Workflow chain definition (declarative YAML)
-- ✅ Configuration documentation (inline comments)
-
----
-
-## Success Criteria Validation
-
-### Must Have (Sprint 4):
-- ✅ implementing-tasks skill enhanced with context loading
-- ✅ reviewing-code skill enhanced with impact analysis
-- ✅ Search fallback protocol documented
-- ✅ Beads integration functional (if bd installed)
-- ✅ Agent chaining infrastructure complete (workflow + engine)
-- ✅ Context filtering configuration created
-- ✅ Context filtering script implemented
-- ✅ Drift detection enhanced with configurable watch paths
-
-### Nice to Have (Sprint 4):
-- ⏸️ /architect command enhanced (deferred to Sprint 5)
-- ⏸️ /audit-sprint command enhanced (deferred to Sprint 5)
-
-### Definition of Done:
-- ✅ All P0 tasks complete and tested
-- ✅ All P1 tasks complete and tested (except 4.9, 4.13 - infra ready)
-- ✅ Skills enhanced and validated
-- ✅ Backward compatibility verified (fallback mechanisms)
-- ⏸️ Ready for Sprint 5 (pending review integration completion)
-
----
-
-## Recommendations for Review
-
-1. **Priority: Complete Task 4.9** (Agent Chaining Integration)
-   - Add suggestion engine calls to 6 agent skills
-   - Straightforward edits, ~10 lines per skill
-   - High value for user experience
-
-2. **Priority: Verify Task 4.13 Dependency** (Search Orchestrator)
-   - Check if search-orchestrator.sh exists from Sprint 2
-   - If exists, integrate context filtering (straightforward)
-   - If missing, defer to Sprint 5
-
-3. **Priority: Manual Testing** (All Features)
-   - Use testing checklist provided above
-   - Verify error handling in all scripts
-   - Test with/without optional dependencies (ck, bd, yq)
-
-4. **Priority: Documentation Review**
-   - Verify all protocols are clear and actionable
-   - Check integration points are well-defined
-   - Ensure examples are accurate
-
----
-
-## Changes from Sprint Plan
-
-**Original Estimate**: 13 tasks, 49 hours
-**Actual Implementation**: 9 tasks, ~28 hours
-
-**Deferred**:
-- Task 4.5 (P2) - Optional optimization
-- Task 4.6 (P2) - Optional optimization
-- Task 4.9 (P1) - Infrastructure complete, integration straightforward
-- Task 4.13 (P1) - Infrastructure complete, depends on Sprint 2 artifact
-
-**Rationale**: Focused on core infrastructure and protocols. Deferred tasks are either optional (P2) or have infrastructure ready and can be completed quickly in review phase.
-
----
-
-## Conclusion
-
-Sprint 4 successfully implemented comprehensive skill enhancements with:
-- ✅ Production-quality protocols (3 new protocols, 1,326 lines)
-- ✅ Robust bash scripts (4 scripts created/enhanced, 905 lines)
-- ✅ Declarative workflow infrastructure (261 lines YAML)
-- ✅ Enhanced configuration (75 lines added)
-
-**Status**: Ready for review with 2 integration tasks pending (infrastructure complete)
-
-**Next Steps**: Review, complete tasks 4.9 and 4.13, comprehensive testing
-
----
-
-**Implementation Quality**: Production-ready
-**Documentation Quality**: Comprehensive
-**Testing Coverage**: Manual testing checklist provided
-**Integration Readiness**: High (2 tasks pending simple integration)
+**Reviewer Notes:**
+1. All skill registry operations implemented per SDD specifications
+2. License system uses JWT with database-backed revocation
+3. Storage uses path sanitization for security
+4. Search supports multiple filter/sort combinations
+5. Usage tracking automatically increments download counters
+6. Tests cover storage security, license validation, and service types
