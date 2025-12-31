@@ -1,210 +1,189 @@
-# Loa
+# Loa Skills Registry
 
-[![Version](https://img.shields.io/badge/version-0.9.2-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE.md)
 
-> *"The Loa are pragmatic entities... They're not worshipped for salvation—they're worked with for practical results."*
+> The marketplace for AI agent skills
 
-Agent-driven development framework using 8 specialized AI agents to orchestrate the complete product lifecycle—from requirements through production deployment. Built with enterprise-grade managed scaffolding.
+Loa Skills Registry is a SaaS platform for distributing, licensing, and monetizing AI agent skills compatible with the [Loa framework](https://github.com/0xHoneyJar/loa) and Claude Code. Discover, install, and manage skills via CLI or web dashboard.
+
+## Features
+
+- **Skill Marketplace** - Browse, search, and discover curated AI agent skills
+- **CLI Integration** - Install and update skills directly from Claude Code
+- **Subscription Tiers** - Free, Pro, Team, and Enterprise plans
+- **Pack System** - Bundle multiple skills into installable packs
+- **Team Management** - Shared subscriptions with seat management
+- **Creator Dashboard** - Publish skills, track downloads, view analytics
+- **License Enforcement** - Watermarked licenses with usage tracking
 
 ## Quick Start
 
-### Mount onto Existing Repository (Recommended)
+### Install the CLI Plugin
 
 ```bash
-# One-liner install
-curl -fsSL https://raw.githubusercontent.com/0xHoneyJar/loa/main/.claude/scripts/mount-loa.sh | bash
-
-# Start Claude Code
-claude
-
-# Run setup
-/setup
-
-# Begin workflow
-/plan-and-analyze
+# From within Claude Code
+/loa-registry login
+/loa-registry search "your query"
+/loa-registry install skill-name
 ```
 
-### Clone Template
+### Browse the Registry
+
+Visit [loaskills.dev](https://loaskills.dev) to browse available skills and manage your subscription.
+
+## Architecture
+
+```
+loa-registry/
+├── apps/
+│   ├── api/          # Hono API server (Node.js)
+│   └── web/          # Next.js dashboard
+├── packages/
+│   ├── loa-registry/ # CLI plugin for Claude Code
+│   └── shared/       # Shared types and validation
+└── loa-grimoire/     # Project documentation
+```
+
+### Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| API | Hono + Node.js |
+| Database | PostgreSQL (Neon) |
+| Cache | Redis (Upstash) |
+| Storage | Cloudflare R2 |
+| Auth | JWT + OAuth (GitHub, Google) |
+| Payments | Stripe |
+| Email | Resend |
+| Hosting | Fly.io |
+| Frontend | Next.js 14 + Tailwind |
+
+## Subscription Tiers
+
+| Feature | Free | Pro | Team | Enterprise |
+|---------|------|-----|------|------------|
+| Public skills | Unlimited | Unlimited | Unlimited | Unlimited |
+| Pro skills | - | Unlimited | Unlimited | Unlimited |
+| Team skills | - | - | Unlimited | Unlimited |
+| API rate limit | 100/min | 500/min | 500/min | 1000/min |
+| Team members | - | - | Up to 10 | Unlimited |
+| Priority support | - | - | - | Yes |
+
+## API Endpoints
+
+### Authentication
+- `POST /v1/auth/register` - Create account
+- `POST /v1/auth/login` - Login
+- `POST /v1/auth/refresh` - Refresh tokens
+- `POST /v1/auth/logout` - Logout (blacklists token)
+
+### Skills
+- `GET /v1/skills` - List/search skills
+- `GET /v1/skills/:slug` - Get skill details
+- `GET /v1/skills/:slug/download` - Download skill files
+- `POST /v1/skills/:slug/install` - Record installation
+
+### Packs
+- `GET /v1/packs` - List available packs
+- `GET /v1/packs/:slug` - Get pack details
+- `GET /v1/packs/:slug/download` - Download pack (requires subscription)
+
+### Teams
+- `GET /v1/teams` - List user's teams
+- `POST /v1/teams` - Create team
+- `POST /v1/teams/:slug/invite` - Invite member
+- `POST /v1/teams/:slug/members/:id/remove` - Remove member
+
+## Development
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm 8+
+- PostgreSQL (or Neon account)
+- Redis (or Upstash account)
+
+### Setup
 
 ```bash
-git clone https://github.com/0xHoneyJar/loa.git my-project && cd my-project
-claude
-/setup
-/plan-and-analyze
+# Clone the repository
+git clone https://github.com/0xHoneyJar/loa-registry.git
+cd loa-registry
+
+# Install dependencies
+pnpm install
+
+# Copy environment template
+cp apps/api/.env.example apps/api/.env
+
+# Run database migrations
+pnpm --filter @loa-registry/api db:push
+
+# Start development servers
+pnpm dev
 ```
 
-See **[INSTALLATION.md](INSTALLATION.md)** for detailed installation options.
+### Environment Variables
 
-## Architecture: Three-Zone Model
+```bash
+# Required
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://...
+JWT_SECRET=your-secret-at-least-32-chars
 
-Loa uses a **managed scaffolding** architecture inspired by AWS Projen, Copier, and Google's ADK:
+# Stripe
+STRIPE_SECRET_KEY=sk_...
+STRIPE_WEBHOOK_SECRET=whsec_...
 
-| Zone | Path | Owner | Description |
-|------|------|-------|-------------|
-| **System** | `.claude/` | Framework | Immutable - overwritten on updates |
-| **State** | `loa-grimoire/`, `.beads/` | Project | Your project memory - never touched |
-| **App** | `src/`, `lib/`, `app/` | Developer | Your code - ignored entirely |
+# Email
+RESEND_API_KEY=re_...
 
-**Key principle**: Never edit `.claude/` directly. Use `.claude/overrides/` for customizations.
+# Storage
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET=loa-skills
+R2_ENDPOINT=https://...
 
-## The Workflow
-
-| Phase | Command | Agent | Output |
-|-------|---------|-------|--------|
-| 0 | `/setup` | - | `.loa-setup-complete` |
-| 1 | `/plan-and-analyze` | discovering-requirements | `loa-grimoire/prd.md` |
-| 2 | `/architect` | designing-architecture | `loa-grimoire/sdd.md` |
-| 3 | `/sprint-plan` | planning-sprints | `loa-grimoire/sprint.md` |
-| 4 | `/implement sprint-N` | implementing-tasks | Code + report |
-| 5 | `/review-sprint sprint-N` | reviewing-code | Approval/feedback |
-| 5.5 | `/audit-sprint sprint-N` | auditing-security | Security approval |
-| 6 | `/deploy-production` | deploying-infrastructure | Infrastructure |
-
-### Mounting & Riding (Existing Codebases)
-
-| Command | Purpose |
-|---------|---------|
-| `/mount` | Install Loa onto existing repo |
-| `/ride` | Analyze codebase, generate evidence-grounded docs |
-
-### Ad-Hoc Commands
-
-| Command | Purpose |
-|---------|---------|
-| `/audit` | Full codebase security audit |
-| `/audit-deployment` | Infrastructure security review |
-| `/translate @doc for audience` | Executive summaries |
-| `/update` | Pull framework updates |
-| `/contribute` | Create upstream PR |
-
-## The Agents (The Loa)
-
-Eight specialized agents that ride alongside you:
-
-1. **discovering-requirements** - Senior Product Manager
-2. **designing-architecture** - Software Architect
-3. **planning-sprints** - Technical PM
-4. **implementing-tasks** - Senior Engineer
-5. **reviewing-code** - Tech Lead
-6. **deploying-infrastructure** - DevOps Architect
-7. **auditing-security** - Security Auditor
-8. **translating-for-executives** - Developer Relations
-
-## Key Features
-
-### Enterprise-Grade Managed Scaffolding
-
-- **Projen-Level Synthesis Protection**: System Zone is immutable, checksums enforce integrity
-- **Copier-Level Migration Gates**: Schema changes trigger mandatory migrations
-- **ADK-Level Trajectory Evaluation**: Agent reasoning is logged and auditable
-
-### Structured Agentic Memory
-
-Agents maintain persistent working memory in `loa-grimoire/NOTES.md`:
-- Survives context window resets
-- Tracks technical debt, blockers, decisions
-- Enables continuity across sessions
-
-### Lossless Ledger Protocol (v0.9.0)
-
-**"Clear, Don't Compact"** - Agents proactively checkpoint work before clearing context:
-
-- **Grounding Enforcement**: 95% of claims must cite sources before `/clear`
-- **Session Continuity**: Instant recovery from persistent ledgers (~100 tokens)
-- **Self-Healing**: Automatic State Zone recovery from git history
-- **Audit Trail**: Complete trajectory logging with timestamped handoffs
-
-### Two Quality Gates
-
-1. **Code Review**: Tech lead reviews until "All good"
-2. **Security Audit**: Auditor reviews until "APPROVED - LETS FUCKING GO"
-
-### Stealth Mode
-
-Run Loa without committing state to your repo:
-```yaml
-# .loa.config.yaml
-persistence_mode: stealth
+# OAuth (optional)
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
 ```
 
-## Repository Structure
+### Running Tests
 
-```
-.claude/                        # System Zone (framework-managed)
-├── skills/                     # 8 agent skills
-├── commands/                   # Slash commands
-├── protocols/                  # Framework protocols
-│   ├── session-continuity.md   # Lossless Ledger Protocol
-│   ├── grounding-enforcement.md # Grounding ratio enforcement
-│   ├── synthesis-checkpoint.md # Pre-/clear checkpoint
-│   ├── attention-budget.md     # Token budget management
-│   ├── jit-retrieval.md        # Just-in-time code retrieval
-│   ├── structured-memory.md    # NOTES.md protocol
-│   ├── trajectory-evaluation.md # ADK-style evaluation
-│   └── change-validation.md    # Pre-implementation validation
-├── scripts/                    # Helper scripts
-│   ├── mount-loa.sh           # One-command install
-│   ├── update.sh              # Framework updates
-│   ├── check-loa.sh           # CI validation
-│   ├── grounding-check.sh     # Grounding ratio calculation
-│   ├── synthesis-checkpoint.sh # Pre-/clear checkpoint
-│   ├── self-heal-state.sh     # State Zone recovery
-│   ├── validate-prd-requirements.sh # UAT validation
-│   ├── detect-drift.sh        # Code/docs drift detection
-│   └── validate-change-plan.sh # Pre-implementation validation
-└── overrides/                  # Your customizations
+```bash
+# Run all tests
+pnpm test
 
-loa-grimoire/                   # State Zone (project memory)
-├── NOTES.md                    # Structured agentic memory
-├── context/                    # User-provided context
-├── reality/                    # Code extraction results (/ride)
-├── legacy/                     # Legacy doc inventory (/ride)
-├── prd.md, sdd.md, sprint.md  # Planning docs
-├── drift-report.md            # Three-way drift analysis
-├── a2a/                        # Agent communication
-│   ├── trajectory/            # Agent reasoning logs
-│   └── sprint-N/              # Per-sprint feedback
-└── deployment/                 # Infrastructure docs
+# Run API tests only
+pnpm --filter @loa-registry/api test
 
-.beads/                        # Task graph (optional)
-.ckignore                      # ck semantic search exclusions (optional)
-.loa-version.json              # Version manifest
-.loa.config.yaml               # Your configuration
+# Type check
+pnpm typecheck
 ```
 
-## Configuration
+## Security
 
-`.loa.config.yaml` is user-owned - framework updates never touch it:
+- JWT authentication with token blacklisting
+- bcrypt password hashing (cost factor 12)
+- Rate limiting with fail-closed for auth endpoints
+- CSRF protection (double-submit cookie)
+- Input validation via Zod schemas
+- SQL injection prevention via Drizzle ORM
+- Security headers (CSP, HSTS, etc.)
 
-```yaml
-persistence_mode: standard      # or "stealth"
-integrity_enforcement: strict   # or "warn", "disabled"
-drift_resolution: code          # or "docs", "ask"
+See [SECURITY-AUDIT-REPORT.md](SECURITY-AUDIT-REPORT.md) for the full audit.
 
-grounding:
-  enforcement: warn             # strict | warn | disabled
-  threshold: 0.95               # 0.00-1.00
+## Contributing
 
-memory:
-  notes_file: loa-grimoire/NOTES.md
-  trajectory_retention_days: 30
-
-edd:
-  enabled: true
-  min_test_scenarios: 3
-```
-
-## Documentation
-
-- **[INSTALLATION.md](INSTALLATION.md)** - Detailed installation guide
-- **[PROCESS.md](PROCESS.md)** - Complete workflow documentation
-- **[CLAUDE.md](CLAUDE.md)** - Claude Code guidance
-- **[CHANGELOG.md](CHANGELOG.md)** - Version history
-
-## Why "Loa"?
-
-In William Gibson's Sprawl trilogy, Loa are AI entities that "ride" humans through neural interfaces, guiding them through cyberspace. These agents don't replace you—they **ride with you**, channeling expertise through the interface.
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests and type checks
+5. Submit a pull request
 
 ## License
 
@@ -212,6 +191,6 @@ In William Gibson's Sprawl trilogy, Loa are AI entities that "ride" humans throu
 
 ## Links
 
-- [Claude Code](https://claude.ai/code)
-- [Repository](https://github.com/0xHoneyJar/loa)
-- [Issues](https://github.com/0xHoneyJar/loa/issues)
+- [Loa Framework](https://github.com/0xHoneyJar/loa)
+- [Documentation](https://loaskills.dev/docs)
+- [Issues](https://github.com/0xHoneyJar/loa-registry/issues)
