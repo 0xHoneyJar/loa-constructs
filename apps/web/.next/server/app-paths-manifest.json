@@ -1,0 +1,22 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/page": "app/page.js",
+  "/(auth)/register/page": "app/(auth)/register/page.js",
+  "/(auth)/forgot-password/page": "app/(auth)/forgot-password/page.js",
+  "/(auth)/verify-email/page": "app/(auth)/verify-email/page.js",
+  "/(auth)/reset-password/page": "app/(auth)/reset-password/page.js",
+  "/(dashboard)/analytics/page": "app/(dashboard)/analytics/page.js",
+  "/(dashboard)/api-keys/page": "app/(dashboard)/api-keys/page.js",
+  "/(dashboard)/billing/page": "app/(dashboard)/billing/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(dashboard)/creator/new/page": "app/(dashboard)/creator/new/page.js",
+  "/(dashboard)/creator/skills/[id]/page": "app/(dashboard)/creator/skills/[id]/page.js",
+  "/(dashboard)/creator/page": "app/(dashboard)/creator/page.js",
+  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
+  "/(dashboard)/teams/[slug]/billing/page": "app/(dashboard)/teams/[slug]/billing/page.js",
+  "/(dashboard)/profile/page": "app/(dashboard)/profile/page.js",
+  "/(dashboard)/skills/page": "app/(dashboard)/skills/page.js",
+  "/(dashboard)/teams/page": "app/(dashboard)/teams/page.js",
+  "/(dashboard)/skills/[slug]/page": "app/(dashboard)/skills/[slug]/page.js",
+  "/(dashboard)/teams/[slug]/page": "app/(dashboard)/teams/[slug]/page.js"
+}

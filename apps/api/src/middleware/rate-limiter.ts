@@ -73,6 +73,24 @@ export const SEARCH_RATE_LIMITS: RateLimitOptions['limits'] = {
   default: { limit: 30, window: 60 },
 };
 
+// --- Auth Endpoints (fail closed on error) ---
+
+/**
+ * Auth endpoints that should fail closed on Redis errors
+ * @see sprint-v2.md T15.4: Rate Limiter Resilience (L5)
+ */
+const AUTH_ENDPOINTS = [
+  '/v1/auth/',
+  '/auth/',
+];
+
+/**
+ * Check if a path is an auth endpoint
+ */
+function isAuthEndpoint(path: string): boolean {
+  return AUTH_ENDPOINTS.some(ep => path.startsWith(ep));
+}
+
 // --- Rate Limiter Implementation ---
 
 /**
@@ -176,8 +194,27 @@ export const rateLimiter = (options: RateLimitOptions): MiddlewareHandler => {
         throw error;
       }
 
-      // Log Redis errors but don't block requests
-      logger.error({ error, prefix }, 'Rate limiter error');
+      const path = c.req.path;
+
+      // Log Redis errors
+      logger.error({ error, prefix, path }, 'Rate limiter error');
+
+      // L5: Fail closed for auth endpoints (security-critical)
+      if (isAuthEndpoint(path)) {
+        logger.warn({ path }, 'Rate limiter failing closed for auth endpoint');
+        return c.json(
+          {
+            error: {
+              code: 'SERVICE_UNAVAILABLE',
+              message: 'Rate limiting service temporarily unavailable',
+            },
+          },
+          503
+        );
+      }
+
+      // Fail open for other endpoints with warning header
+      c.header('X-RateLimit-Degraded', 'true');
       await next();
     }
   };

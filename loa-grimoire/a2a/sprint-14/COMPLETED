@@ -1,0 +1,25 @@
+Sprint 14: GTM Collective Import
+Completed: 2025-12-31
+Status: APPROVED
+
+Implementation: Claude Code (implementing-tasks)
+Review: Senior Technical Lead (reviewing-code) - "All good"
+Audit: Paranoid Cypherpunk Auditor (auditing-security) - "APPROVED - LETS FUCKING GO"
+
+Tasks Completed:
+- T14.1: GTM Collective Import Script
+- T14.2: Pack Version Upload API (from Sprint 13)
+- T14.3: Pack Download with Subscription Check
+- T14.4: Pack License Generation
+- T14.5: Email Service Production Validation (L3)
+- T14.6: Path Validation Consistency (L4)
+
+Security Fixes:
+- L3: Email service fails loudly in production if unconfigured
+- L4: Path validation prevents traversal attacks on pack uploads
+
+Files Modified:
+- apps/api/src/services/email.ts
+- apps/api/src/lib/security.ts (new)
+- apps/api/src/routes/packs.ts
+- scripts/import-gtm-collective.ts (new)

@@ -15,6 +15,8 @@ import { analyticsRouter } from './routes/analytics.js';
 import { creatorRouter } from './routes/creator.js';
 import { auditRouter } from './routes/audit.js';
 import { docsRouter } from './routes/docs.js';
+import { packsRouter } from './routes/packs.js';
+import { adminRouter } from './routes/admin.js';
 import { apiRateLimiter } from './middleware/rate-limiter.js';
 import { env } from './config/env.js';
 
@@ -95,6 +97,12 @@ v1.route('/creator', creatorRouter);
 
 // Audit routes (audit log queries)
 v1.route('/audit', auditRouter);
+
+// Pack routes
+v1.route('/packs', packsRouter);
+
+// Admin routes (requires admin role)
+v1.route('/admin', adminRouter);
 
 // Documentation routes (OpenAPI/Swagger)
 v1.route('/docs', docsRouter);

@@ -5,6 +5,9 @@
 
 import type { SubscriptionTier, SkillVersion, SkillDownload } from '@loa-registry/shared';
 
+// Re-export pack types from shared for consumers
+export type { Pack, PackDownload, PackManifest, PackLicense } from '@loa-registry/shared';
+
 // --- Registry Configuration ---
 
 export interface RegistryConfig {
@@ -171,4 +174,46 @@ export interface LoaPlugin {
   version: string;
   description: string;
   commands: Command[];
+}
+
+// --- Pack Types ---
+
+export interface PackSummary {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  tier_required: SubscriptionTier;
+  downloads: number;
+  rating: number | null;
+  latest_version?: string;
+}
+
+export interface PackDetail extends PackSummary {
+  long_description?: string;
+  pricing_type: 'free' | 'one_time' | 'subscription';
+  is_featured: boolean;
+  latest_version_info?: {
+    version: string;
+    changelog?: string;
+    file_count: number;
+    total_size_bytes: number;
+    published_at?: string;
+  };
+}
+
+export interface PackListResponse {
+  data: PackSummary[];
+  pagination: Pagination;
+}
+
+export interface InstalledPack {
+  name: string;
+  slug: string;
+  version: string;
+  skills: string[];
+  commands: string[];
+  licenseValid: boolean;
+  expiresAt?: string;
+  installedAt: string;
 }

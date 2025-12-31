@@ -3,7 +3,7 @@
  * @see sprint.md T7.2: API Client
  */
 
-import type { SkillDownload } from '@loa-registry/shared';
+import type { SkillDownload, PackDownload } from '@loa-registry/shared';
 import type {
   RegistryClientConfig,
   SkillListOptions,
@@ -12,6 +12,8 @@ import type {
   UserResponse,
   LicenseValidation,
   SkillInstallRecord,
+  PackListResponse,
+  PackDetail,
 } from './types.js';
 
 /**
@@ -229,6 +231,64 @@ export class RegistryClient {
    */
   async recordUninstall(slug: string): Promise<void> {
     await this.request<void>('DELETE', `/installs/${encodeURIComponent(slug)}`);
+  }
+
+  // ========================================================================
+  // Packs
+  // ========================================================================
+
+  /**
+   * List packs with optional filtering
+   */
+  async listPacks(options?: {
+    query?: string;
+    tag?: string;
+    featured?: boolean;
+    page?: number;
+    perPage?: number;
+  }): Promise<PackListResponse> {
+    const query: Record<string, string> = {};
+    if (options?.query) query.q = options.query;
+    if (options?.tag) query.tag = options.tag;
+    if (options?.featured !== undefined) query.featured = String(options.featured);
+    if (options?.page) query.page = String(options.page);
+    if (options?.perPage) query.per_page = String(options.perPage);
+
+    return this.request<PackListResponse>('GET', '/packs', { query });
+  }
+
+  /**
+   * Get detailed information about a pack
+   */
+  async getPack(slug: string): Promise<PackDetail> {
+    return this.request<PackDetail>('GET', `/packs/${encodeURIComponent(slug)}`);
+  }
+
+  /**
+   * Download pack files with license
+   */
+  async downloadPack(slug: string, version?: string): Promise<PackDownload> {
+    const query: Record<string, string> = {};
+    if (version) query.version = version;
+
+    return this.request<PackDownload>('GET', `/packs/${encodeURIComponent(slug)}/download`, {
+      query,
+    });
+  }
+
+  /**
+   * Get pack versions
+   */
+  async getPackVersions(slug: string): Promise<Array<{
+    id: string;
+    version: string;
+    changelog?: string;
+    is_latest: boolean;
+    file_count: number;
+    total_size_bytes: number;
+    published_at?: string;
+  }>> {
+    return this.request('GET', `/packs/${encodeURIComponent(slug)}/versions`);
   }
 }
 

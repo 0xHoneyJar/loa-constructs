@@ -179,3 +179,89 @@ export interface AuthUser {
   name: string;
   tier: SubscriptionTier;
 }
+
+// --- Pack Types ---
+
+export interface Pack {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+  long_description?: string;
+  tier_required: SubscriptionTier;
+  pricing_type: 'free' | 'one_time' | 'subscription';
+  downloads: number;
+  is_featured: boolean;
+  rating: number | null;
+  rating_count: number;
+  latest_version?: PackVersionSummary;
+  owner?: {
+    name: string;
+    type: 'user' | 'team';
+  };
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PackVersionSummary {
+  version: string;
+  changelog?: string;
+  file_count: number;
+  total_size_bytes: number;
+  published_at?: string;
+}
+
+export interface PackFile {
+  path: string;
+  content: string;
+}
+
+export interface PackManifest {
+  name: string;
+  slug: string;
+  version: string;
+  description?: string;
+  author?: {
+    name: string;
+    email?: string;
+    url?: string;
+  };
+  skills?: Array<{ slug: string; path: string }>;
+  commands?: Array<{ name: string; path: string }>;
+  protocols?: Array<{ name: string; path: string }>;
+  dependencies?: {
+    loa_version?: string;
+    skills?: string[];
+    packs?: string[];
+  };
+  pricing?: {
+    type: string;
+    tier: string;
+  };
+  tags?: string[];
+  license?: string;
+}
+
+export interface PackDownload {
+  pack: {
+    name: string;
+    slug: string;
+    version: string;
+    manifest: PackManifest;
+    files: PackFile[];
+  };
+  license: {
+    token: string;
+    expires_at: string;
+    watermark: string;
+  };
+}
+
+export interface PackLicense {
+  pack: string;
+  version: string;
+  token: string;
+  expires_at: string;
+  watermark: string;
+  installed_at: string;
+}

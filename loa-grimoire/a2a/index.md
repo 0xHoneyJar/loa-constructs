@@ -21,6 +21,9 @@
 | Sprint 10 | COMPLETED | [reviewer.md](sprint-10/reviewer.md) | [engineer-feedback.md](sprint-10/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-10/auditor-sprint-feedback.md) |
 | Sprint 11 | COMPLETED | [reviewer.md](sprint-11/reviewer.md) | [engineer-feedback.md](sprint-11/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-11/auditor-sprint-feedback.md) |
 | Sprint 12 | COMPLETED | [reviewer.md](sprint-12/reviewer.md) | [engineer-feedback.md](sprint-12/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-12/auditor-sprint-feedback.md) |
+| Sprint 13 | COMPLETED | [reviewer.md](sprint-13/reviewer.md) | [engineer-feedback.md](sprint-13/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-13/auditor-sprint-feedback.md) |
+| Sprint 14 | COMPLETED | [reviewer.md](sprint-14/reviewer.md) | [engineer-feedback.md](sprint-14/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-14/auditor-sprint-feedback.md) |
+| Sprint 15 | COMPLETED | [reviewer.md](sprint-15/reviewer.md) | [engineer-feedback.md](sprint-15/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-15/auditor-sprint-feedback.md) |
 
 ---
 
@@ -39,6 +42,37 @@
 ## Recent Activity
 
 ### 2025-12-31
+
+- **Sprint 15 implementation completed** (CLI Pack Commands & Polish)
+- Report submitted: `sprint-15/reviewer.md`
+- Tasks completed: T15.1 (CLI Pack Install), T15.2 (CLI Pack List), T15.3 (CLI Pack Update), T15.4 (L5 Rate Limiter), T15.5 (Admin API), T15.6 (E2E Tests)
+- New files: `pack-install.ts`, `pack-list.ts`, `pack-update.ts`, `admin.ts` (middleware), `admin.ts` (routes), test files
+- Modified: `app.ts`, `auth.ts`, `types.ts`, `validation.ts`
+- All 76 API tests passing, typecheck passes
+- **Senior lead review: APPROVED** (`sprint-15/engineer-feedback.md`)
+- **Security audit: APPROVED - LETS FUCKING GO** (`sprint-15/auditor-sprint-feedback.md`)
+- **Sprint 15 COMPLETED** - v2 implementation complete!
+
+- **Sprint 14 implementation completed** (GTM Collective Import)
+- Report submitted: `sprint-14/reviewer.md`
+- Tasks completed: T14.1 (GTM Import Script), T14.3 (Pack Download w/ Subscription), T14.4 (Pack License), T14.5 (L3 Fix), T14.6 (L4 Fix)
+- Security fixes: L3 email production validation, L4 path validation consistency
+- New files: `lib/security.ts`, `scripts/import-gtm-collective.ts`
+- Modified: `services/email.ts`, `routes/packs.ts`
+- All 76 API tests passing, typecheck passes
+- **Senior lead review: APPROVED** (`sprint-14/engineer-feedback.md`)
+- **Security audit: APPROVED - LETS FUCKING GO** (`sprint-14/auditor-sprint-feedback.md`)
+- **Sprint 14 COMPLETED** - GTM Collective pack ready for import
+
+- **Sprint 13 implementation completed** (Security Hardening & Pack Foundation)
+- Report submitted: `sprint-13/reviewer.md`
+- Tasks completed: T13.1 (Token Blacklist), T13.2 (JWT Enforcement), T13.3 (Pack Schema), T13.4 (Pack API), T13.5 (Manifest Validation)
+- Security hardening: token blacklisting for true logout, production JWT secret enforcement
+- Pack system foundation: 5 DB tables, 7 API endpoints, manifest validation
+- All 76 API tests passing, typecheck passes
+- **Senior lead review: APPROVED** (`sprint-13/engineer-feedback.md`)
+- **Security audit: APPROVED - LETS FUCKING GO** (`sprint-13/auditor-sprint-feedback.md`)
+- **Sprint 13 COMPLETED** - Ready for Sprint 14
 
 - **Sprint 12 implementation completed** (Polish & Launch Prep - FINAL SPRINT)
 - Report submitted: `sprint-12/reviewer.md`

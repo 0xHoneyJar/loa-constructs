@@ -19,6 +19,9 @@ import { installCommand } from './commands/install.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { updateCommand } from './commands/update.js';
 import { cacheCommand } from './commands/cache.js';
+import { packInstallCommand } from './commands/pack-install.js';
+import { packListCommand } from './commands/pack-list.js';
+import { packUpdateCommand } from './commands/pack-update.js';
 
 /**
  * Loa Registry Plugin
@@ -26,7 +29,7 @@ import { cacheCommand } from './commands/cache.js';
  */
 export const registryPlugin: LoaPlugin = {
   name: 'loa-registry',
-  version: '0.2.0',
+  version: '0.3.0',
   description: 'Skills Registry integration for Loa',
 
   commands: [
@@ -39,6 +42,10 @@ export const registryPlugin: LoaPlugin = {
     uninstallCommand,
     updateCommand,
     cacheCommand,
+    // Pack commands
+    packInstallCommand,
+    packListCommand,
+    packUpdateCommand,
   ],
 };
 

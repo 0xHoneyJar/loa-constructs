@@ -57,6 +57,26 @@ export const usageActionEnum = pgEnum('usage_action', [
   'uninstall',
 ]);
 
+export const packStatusEnum = pgEnum('pack_status', [
+  'draft',
+  'pending_review',
+  'published',
+  'rejected',
+  'deprecated',
+]);
+
+export const packPricingTypeEnum = pgEnum('pack_pricing_type', [
+  'free',
+  'one_time',
+  'subscription',
+]);
+
+export const packInstallActionEnum = pgEnum('pack_install_action', [
+  'install',
+  'update',
+  'uninstall',
+]);
+
 // --- Tables ---
 
 /**
@@ -75,6 +95,7 @@ export const users = pgTable(
     oauthProvider: varchar('oauth_provider', { length: 50 }),
     oauthId: varchar('oauth_id', { length: 255 }),
     stripeCustomerId: varchar('stripe_customer_id', { length: 255 }).unique(),
+    isAdmin: boolean('is_admin').default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
@@ -395,6 +416,176 @@ export const teamInvitations = pgTable(
   })
 );
 
+/**
+ * Packs table
+ * @see sdd-v2.md §3.1 Entity: Packs
+ */
+export const packs = pgTable(
+  'packs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: varchar('name', { length: 255 }).notNull(),
+    slug: varchar('slug', { length: 100 }).unique().notNull(),
+    description: text('description'),
+    longDescription: text('long_description'),
+    ownerId: uuid('owner_id').notNull(),
+    ownerType: ownerTypeEnum('owner_type').notNull().default('user'),
+
+    // Pricing
+    pricingType: packPricingTypeEnum('pricing_type').default('free'),
+    tierRequired: subscriptionTierEnum('tier_required').default('free'),
+    stripeProductId: varchar('stripe_product_id', { length: 255 }),
+    stripeMonthlyPriceId: varchar('stripe_monthly_price_id', { length: 255 }),
+    stripeAnnualPriceId: varchar('stripe_annual_price_id', { length: 255 }),
+
+    // Status
+    status: packStatusEnum('status').notNull().default('draft'),
+    reviewNotes: text('review_notes'),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+
+    // Metadata
+    repositoryUrl: text('repository_url'),
+    homepageUrl: text('homepage_url'),
+    documentationUrl: text('documentation_url'),
+    isFeatured: boolean('is_featured').default(false),
+    thjBypass: boolean('thj_bypass').default(false),
+
+    // Stats
+    downloads: integer('downloads').default(0),
+    ratingSum: integer('rating_sum').default(0),
+    ratingCount: integer('rating_count').default(0),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    slugIdx: index('idx_packs_slug').on(table.slug),
+    ownerIdx: index('idx_packs_owner').on(table.ownerId, table.ownerType),
+    statusIdx: index('idx_packs_status').on(table.status),
+    featuredIdx: index('idx_packs_featured')
+      .on(table.isFeatured)
+      .where(sql`is_featured = true`),
+  })
+);
+
+/**
+ * Pack Versions table
+ * @see sdd-v2.md §3.1 Entity: Pack Versions
+ */
+export const packVersions = pgTable(
+  'pack_versions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    version: varchar('version', { length: 50 }).notNull(),
+    changelog: text('changelog'),
+    manifest: jsonb('manifest').notNull(),
+
+    // Compatibility
+    minLoaVersion: varchar('min_loa_version', { length: 50 }),
+    maxLoaVersion: varchar('max_loa_version', { length: 50 }),
+
+    // Status
+    isLatest: boolean('is_latest').default(false),
+    publishedAt: timestamp('published_at', { withTimezone: true }),
+
+    // Size tracking
+    totalSizeBytes: integer('total_size_bytes').default(0),
+    fileCount: integer('file_count').default(0),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    packIdx: index('idx_pack_versions_pack').on(table.packId),
+    uniqueVersion: uniqueIndex('idx_pack_versions_unique').on(table.packId, table.version),
+    latestIdx: index('idx_pack_versions_latest')
+      .on(table.packId)
+      .where(sql`is_latest = true`),
+  })
+);
+
+/**
+ * Pack Files table
+ * @see sdd-v2.md §3.1 Entity: Pack Files
+ */
+export const packFiles = pgTable(
+  'pack_files',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => packVersions.id, { onDelete: 'cascade' }),
+    path: varchar('path', { length: 500 }).notNull(),
+    contentHash: varchar('content_hash', { length: 64 }).notNull(),
+    storageKey: varchar('storage_key', { length: 500 }).notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    mimeType: varchar('mime_type', { length: 100 }).default('text/plain'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    versionIdx: index('idx_pack_files_version').on(table.versionId),
+    uniquePath: uniqueIndex('idx_pack_files_unique_path').on(table.versionId, table.path),
+  })
+);
+
+/**
+ * Pack Subscriptions table (join table)
+ * @see sdd-v2.md §3.1 Entity: Pack Subscriptions
+ */
+export const packSubscriptions = pgTable(
+  'pack_subscriptions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    subscriptionId: uuid('subscription_id')
+      .notNull()
+      .references(() => subscriptions.id, { onDelete: 'cascade' }),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    grantedAt: timestamp('granted_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    subIdx: index('idx_pack_subscriptions_sub').on(table.subscriptionId),
+    packIdx: index('idx_pack_subscriptions_pack').on(table.packId),
+    uniquePackSub: uniqueIndex('idx_pack_subscriptions_unique').on(
+      table.subscriptionId,
+      table.packId
+    ),
+  })
+);
+
+/**
+ * Pack Installations table (usage tracking)
+ * @see sdd-v2.md §3.1 Entity: Pack Installations
+ */
+export const packInstallations = pgTable(
+  'pack_installations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    versionId: uuid('version_id')
+      .notNull()
+      .references(() => packVersions.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    teamId: uuid('team_id').references(() => teams.id, { onDelete: 'set null' }),
+    action: packInstallActionEnum('action').notNull(),
+    metadata: jsonb('metadata').default({}),
+    ipAddress: inet('ip_address'),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    packIdx: index('idx_pack_installations_pack').on(table.packId),
+    userIdx: index('idx_pack_installations_user').on(table.userId),
+    createdIdx: index('idx_pack_installations_created').on(table.createdAt),
+  })
+);
+
 // --- Relations ---
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -470,5 +661,59 @@ export const skillFilesRelations = relations(skillFiles, ({ one }) => ({
   version: one(skillVersions, {
     fields: [skillFiles.versionId],
     references: [skillVersions.id],
+  }),
+}));
+
+// --- Pack Relations ---
+
+export const packsRelations = relations(packs, ({ many }) => ({
+  versions: many(packVersions),
+  subscriptions: many(packSubscriptions),
+  installations: many(packInstallations),
+}));
+
+export const packVersionsRelations = relations(packVersions, ({ one, many }) => ({
+  pack: one(packs, {
+    fields: [packVersions.packId],
+    references: [packs.id],
+  }),
+  files: many(packFiles),
+  installations: many(packInstallations),
+}));
+
+export const packFilesRelations = relations(packFiles, ({ one }) => ({
+  version: one(packVersions, {
+    fields: [packFiles.versionId],
+    references: [packVersions.id],
+  }),
+}));
+
+export const packSubscriptionsRelations = relations(packSubscriptions, ({ one }) => ({
+  subscription: one(subscriptions, {
+    fields: [packSubscriptions.subscriptionId],
+    references: [subscriptions.id],
+  }),
+  pack: one(packs, {
+    fields: [packSubscriptions.packId],
+    references: [packs.id],
+  }),
+}));
+
+export const packInstallationsRelations = relations(packInstallations, ({ one }) => ({
+  pack: one(packs, {
+    fields: [packInstallations.packId],
+    references: [packs.id],
+  }),
+  version: one(packVersions, {
+    fields: [packInstallations.versionId],
+    references: [packVersions.id],
+  }),
+  user: one(users, {
+    fields: [packInstallations.userId],
+    references: [users.id],
+  }),
+  team: one(teams, {
+    fields: [packInstallations.teamId],
+    references: [teams.id],
   }),
 }));

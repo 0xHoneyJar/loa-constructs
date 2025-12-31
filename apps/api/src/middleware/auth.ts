@@ -19,6 +19,7 @@ export interface AuthUser {
   name: string;
   emailVerified: boolean;
   tier: 'free' | 'pro' | 'team' | 'enterprise';
+  role?: 'user' | 'admin' | 'super_admin';
 }
 
 // Type augmentation for Hono context

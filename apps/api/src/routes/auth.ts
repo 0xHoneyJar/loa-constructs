@@ -18,7 +18,9 @@ import {
   generateResetToken,
   verifyVerificationToken,
   verifyResetToken,
+  type RefreshTokenPayload,
 } from '../services/auth.js';
+import { blacklistService } from '../services/blacklist.js';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.js';
 import { logAuthEvent, logUserAccountEvent } from '../services/audit.js';
 import { Errors } from '../lib/errors.js';
@@ -244,17 +246,38 @@ auth.post('/refresh', zValidator('json', refreshSchema), async (c) => {
   }
 });
 
+const logoutSchema = z.object({
+  refresh_token: z.string().min(1, 'Refresh token is required'),
+});
+
 /**
  * POST /v1/auth/logout
- * Invalidate current tokens
- * Note: Stateless JWT doesn't truly invalidate, but client should discard tokens
+ * Invalidate current tokens by blacklisting the refresh token
+ * @see sdd-v2.md §4.1 L1: Token Blacklist Service
  */
-auth.post('/logout', requireAuth(), async (c) => {
+auth.post('/logout', requireAuth(), zValidator('json', logoutSchema), async (c) => {
   const userId = c.get('userId');
   const requestId = c.get('requestId');
+  const { refresh_token } = c.req.valid('json');
 
-  // TODO: Add refresh token to blacklist in Redis for true revocation
-  // For now, client-side token discard is sufficient
+  try {
+    // Verify and decode the refresh token to get its JTI
+    const payload = (await verifyRefreshToken(refresh_token)) as RefreshTokenPayload;
+
+    // Calculate remaining TTL for the token
+    const now = Math.floor(Date.now() / 1000);
+    const exp = payload.exp || now;
+    const remainingTTL = Math.max(0, exp - now);
+
+    // Blacklist the token if it has a JTI
+    if (payload.jti && remainingTTL > 0) {
+      await blacklistService.add(payload.jti, remainingTTL);
+      logger.info({ userId, jti: payload.jti, requestId }, 'Refresh token blacklisted');
+    }
+  } catch (error) {
+    // Log but don't fail - token might already be invalid/expired
+    logger.warn({ userId, requestId, error }, 'Failed to blacklist refresh token');
+  }
 
   // Audit log
   await logAuthEvent('user.logout', userId, {

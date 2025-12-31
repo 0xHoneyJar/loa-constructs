@@ -7,6 +7,8 @@
 import bcrypt from 'bcrypt';
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { env } from '../config/env.js';
+import { blacklistService } from './blacklist.js';
+import { Errors } from '../lib/errors.js';
 
 // --- Constants ---
 
@@ -69,10 +71,19 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 /**
  * Get the secret key for JWT signing
  * Uses a simple HMAC approach with HS256 for simplicity
+ * @see sdd-v2.md §4.1 L2: JWT Secret Production Enforcement
  * Note: For production, consider RS256 with key pair
  */
 function getSecretKey(): Uint8Array {
+  // In production, JWT_SECRET is enforced by env.ts validation
+  // This fallback is only for development/test convenience
   const secret = env.JWT_SECRET || 'development-secret-at-least-32-chars';
+
+  // Defense-in-depth: runtime check for production
+  if (env.NODE_ENV === 'production' && !env.JWT_SECRET) {
+    throw new Error('JWT_SECRET must be configured in production');
+  }
+
   return new TextEncoder().encode(secret);
 }
 
@@ -135,6 +146,8 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenPaylo
 
 /**
  * Verify and decode a refresh token
+ * Checks blacklist to ensure token hasn't been revoked
+ * @see sdd-v2.md §4.1 L1: Token Blacklist Service
  */
 export async function verifyRefreshToken(token: string): Promise<RefreshTokenPayload> {
   const secretKey = getSecretKey();
@@ -147,7 +160,17 @@ export async function verifyRefreshToken(token: string): Promise<RefreshTokenPay
     throw new Error('Invalid token type');
   }
 
-  return payload as RefreshTokenPayload;
+  const refreshPayload = payload as RefreshTokenPayload;
+
+  // Check if token has been blacklisted (revoked)
+  if (refreshPayload.jti) {
+    const isBlacklisted = await blacklistService.isBlacklisted(refreshPayload.jti);
+    if (isBlacklisted) {
+      throw Errors.Unauthorized('Token has been revoked');
+    }
+  }
+
+  return refreshPayload;
 }
 
 // --- Email Verification Token ---
