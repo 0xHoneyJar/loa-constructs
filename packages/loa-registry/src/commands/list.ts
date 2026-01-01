@@ -124,7 +124,7 @@ export const listCommand: Command = {
               console.log(`       ${desc}`);
             }
           }
-          console.log(`\n   Upgrade at: https://loaskills.dev/billing`);
+          console.log(`\n   Upgrade at: https://constructs.network/billing`);
         }
 
         // Show pagination info

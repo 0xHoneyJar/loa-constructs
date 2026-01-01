@@ -11,11 +11,11 @@ import { RegistryClient, DEFAULT_REGISTRY_URL } from './client.js';
 
 /**
  * Configuration store using conf
- * Stores config in ~/.loa-registry/config.json
+ * Stores config in ~/.loa-constructs/config.json
  */
 const configStore = new Conf<PluginConfig>({
-  projectName: 'loa-registry',
-  cwd: path.join(homedir(), '.loa-registry'),
+  projectName: 'loa-constructs',
+  cwd: path.join(homedir(), '.loa-constructs'),
   defaults: {
     registries: [
       {
@@ -38,11 +38,11 @@ const configStore = new Conf<PluginConfig>({
 
 /**
  * Credentials store
- * Stores credentials in ~/.loa-registry/credentials.json
+ * Stores credentials in ~/.loa-constructs/credentials.json
  */
 const credentialsStore = new Conf<CredentialsStore>({
-  projectName: 'loa-registry-credentials',
-  cwd: path.join(homedir(), '.loa-registry'),
+  projectName: 'loa-constructs-credentials',
+  cwd: path.join(homedir(), '.loa-constructs'),
   defaults: {},
 });
 
@@ -51,7 +51,7 @@ const credentialsStore = new Conf<CredentialsStore>({
  */
 export function getRegistryUrl(registryName: string = 'default'): string {
   // Check environment variable override
-  const envUrl = process.env.LOA_SKILLS_REGISTRY_URL;
+  const envUrl = process.env.LOA_CONSTRUCTS_URL;
   if (envUrl && registryName === 'default') {
     return envUrl;
   }
@@ -71,7 +71,7 @@ export function getRegistryUrl(registryName: string = 'default'): string {
  */
 export function getCredentials(registryName: string = 'default'): Credentials | null {
   // Check environment variable for API key
-  const envApiKey = process.env.LOA_SKILLS_API_KEY;
+  const envApiKey = process.env.LOA_CONSTRUCTS_API_KEY;
   if (envApiKey && registryName === 'default') {
     return {
       type: 'api_key',
@@ -225,7 +225,7 @@ export function getDefaultRegistry(): string {
  * Get config store path (for debugging)
  */
 export function getConfigPath(): string {
-  return path.join(homedir(), '.loa-registry');
+  return path.join(homedir(), '.loa-constructs');
 }
 
 /**

@@ -14,10 +14,10 @@ export default function Home() {
           {/* Logo/Brand */}
           <div className="space-y-2">
             <h1 className="text-4xl font-bold tracking-tight sm:text-6xl">
-              Loa Skills Registry
+              Loa Constructs
             </h1>
             <p className="text-xl text-muted-foreground">
-              Discover, install, and manage AI agent skills for the Loa framework
+              Discover, install, and manage AI agent constructs for the Loa framework
             </p>
           </div>
 
@@ -61,7 +61,7 @@ export default function Home() {
       {/* Feature Grid */}
       <section className="border-t bg-muted/40 px-4 py-16">
         <div className="mx-auto max-w-5xl">
-          <h2 className="mb-8 text-center text-2xl font-bold">Why Loa Skills Registry?</h2>
+          <h2 className="mb-8 text-center text-2xl font-bold">Why Loa Constructs?</h2>
           <div className="grid gap-8 md:grid-cols-3">
             <div className="space-y-2">
               <h3 className="font-semibold">Curated Quality</h3>
@@ -88,7 +88,7 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t px-4 py-8">
         <div className="mx-auto max-w-5xl text-center text-sm text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Loa Skills Registry. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Loa Constructs. All rights reserved.</p>
         </div>
       </footer>
     </main>

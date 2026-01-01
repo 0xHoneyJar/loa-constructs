@@ -83,7 +83,7 @@ function generateInvitationEmail(
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">Loa Skills Registry</h1>
+    <h1 style="color: white; margin: 0; font-size: 24px;">Loa Constructs</h1>
   </div>
 
   <div style="background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
@@ -100,7 +100,7 @@ function generateInvitationEmail(
     </div>
 
     <p style="color: #6b7280; font-size: 14px;">
-      This invitation expires in ${INVITATION_EXPIRY_DAYS} days. If you don't have a Loa Skills Registry account, you'll be able to create one when you accept.
+      This invitation expires in ${INVITATION_EXPIRY_DAYS} days. If you don't have a Loa Constructs account, you'll be able to create one when you accept.
     </p>
 
     <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 30px 0;">
@@ -183,14 +183,14 @@ export async function sendInvitationEmail(
 ): Promise<boolean> {
   const baseUrl =
     env.NODE_ENV === 'production'
-      ? 'https://loaskills.dev'
+      ? 'https://constructs.network'
       : 'http://localhost:3001';
 
   const inviteUrl = `${baseUrl}/teams/invite/${invitation.token}`;
 
   const result = await sendEmail({
     to: invitation.email,
-    subject: `You've been invited to join ${teamName} on Loa Skills Registry`,
+    subject: `You've been invited to join ${teamName} on Loa Constructs`,
     html: generateInvitationEmail(inviterName, teamName, inviteUrl, invitation.role),
     text: `${inviterName} has invited you to join ${teamName} as a ${invitation.role}. Accept the invitation: ${inviteUrl}`,
   });

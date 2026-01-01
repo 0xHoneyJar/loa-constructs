@@ -1,4 +1,4 @@
-# Dockerfile for Loa Skills Registry API
+# Dockerfile for Loa Constructs API
 # @see sdd.md §1.7 Deployment Architecture
 # @see sprint.md T1.6: Fly.io Deployment
 

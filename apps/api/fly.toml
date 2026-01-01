@@ -1,8 +1,8 @@
-# Fly.io Configuration for Loa Skills Registry API
+# Fly.io Configuration for Loa Constructs API
 # @see sdd.md §1.7 Deployment Architecture
 # @see sprint.md T1.6: Fly.io Deployment, T12.5: Production Deployment
 
-app = "loa-skills-api"
+app = "loa-constructs-api"
 primary_region = "iad"
 
 [build]
@@ -14,8 +14,8 @@ primary_region = "iad"
   # Logging
   LOG_LEVEL = "info"
   # API URLs (set via secrets for sensitive values)
-  API_URL = "https://api.loaskills.dev"
-  DASHBOARD_URL = "https://loaskills.dev"
+  API_URL = "https://api.constructs.network"
+  DASHBOARD_URL = "https://constructs.network"
 
 [http_service]
   internal_port = 3000

@@ -10,7 +10,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background to-muted p-4">
       {/* Logo and Branding */}
       <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold tracking-tight">Loa Skills Registry</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Loa Constructs</h1>
         <p className="text-muted-foreground mt-2">Agent-driven development framework</p>
       </div>
 

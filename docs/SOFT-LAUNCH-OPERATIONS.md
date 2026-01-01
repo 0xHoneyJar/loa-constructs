@@ -1,10 +1,10 @@
 # Soft Launch Operations Guide
 
-> Loa Skills Registry - Production Operations Without Billing
+> Loa Constructs - Production Operations Without Billing
 
 ## Overview
 
-This guide covers operating the Loa Skills Registry during soft launch, where:
+This guide covers operating Loa Constructs during soft launch, where:
 - Billing is not yet configured (Reap Global integration planned)
 - Users are created and managed manually
 - Subscriptions are granted via scripts
@@ -40,7 +40,7 @@ RESEND_API_KEY="re_..."
 R2_ACCOUNT_ID="..."
 R2_ACCESS_KEY_ID="..."
 R2_SECRET_ACCESS_KEY="..."
-R2_BUCKET="loa-skills"
+R2_BUCKET="loa-constructs"
 
 # OAuth (disabled without credentials)
 GITHUB_CLIENT_ID="..."
@@ -119,7 +119,7 @@ Validates that:
 2. **Create App** (first time only):
    ```bash
    cd apps/api
-   fly apps create loa-skills-api
+   fly apps create loa-constructs-api
    ```
 
 3. **Set Secrets**:
@@ -149,9 +149,9 @@ fly deploy
 ### Check Status
 
 ```bash
-fly status --app loa-skills-api
-fly logs --app loa-skills-api
-curl https://loa-skills-api.fly.dev/v1/health
+fly status --app loa-constructs-api
+fly logs --app loa-constructs-api
+curl https://loa-constructs-api.fly.dev/v1/health
 ```
 
 ## User Onboarding Flow
@@ -206,7 +206,7 @@ Or create new import scripts following the same pattern.
 ### Health Check
 
 ```bash
-curl https://loa-skills-api.fly.dev/v1/health
+curl https://loa-constructs-api.fly.dev/v1/health
 ```
 
 Expected response:
@@ -221,7 +221,7 @@ Expected response:
 ### Logs
 
 ```bash
-fly logs --app loa-skills-api
+fly logs --app loa-constructs-api
 ```
 
 ### Database Inspection
@@ -238,7 +238,7 @@ DATABASE_URL="..." npx drizzle-kit studio
 
 1. Check DATABASE_URL is valid
 2. Ensure JWT_SECRET is at least 32 characters
-3. Check Fly logs: `fly logs --app loa-skills-api`
+3. Check Fly logs: `fly logs --app loa-constructs-api`
 
 ### User Can't Access Pack
 

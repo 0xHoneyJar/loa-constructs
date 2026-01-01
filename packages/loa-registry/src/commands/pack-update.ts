@@ -6,7 +6,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { Command } from '../types.js';
-import type { PackManifest, PackLicense } from '@loa-registry/shared';
+import type { PackManifest, PackLicense } from '@loa-constructs/shared';
 import { getClient, getCredentials, canAccessTier } from '../auth.js';
 import { RegistryError } from '../client.js';
 

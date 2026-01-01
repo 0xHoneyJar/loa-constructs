@@ -6,7 +6,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { homedir } from 'os';
-import type { SkillDownload } from '@loa-registry/shared';
+import type { SkillDownload } from '@loa-constructs/shared';
 import type { CachedSkill, InstalledSkill } from './types.js';
 
 /**

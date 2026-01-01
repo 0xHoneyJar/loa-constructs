@@ -1,12 +1,12 @@
 /**
- * Loa Skills Registry CLI Plugin
+ * Loa Constructs CLI Plugin
  * @see sprint.md T7.1: Plugin Structure
  *
  * This plugin adds commands to Loa CLI for:
- * - Authenticating with the Skills Registry
- * - Browsing, installing, and updating skills
+ * - Authenticating with Loa Constructs
+ * - Browsing, installing, and updating constructs
  * - Managing API keys and subscriptions
- * - Validating skill licenses at runtime
+ * - Validating construct licenses at runtime
  */
 
 import type { LoaPlugin } from './types.js';
@@ -24,13 +24,13 @@ import { packListCommand } from './commands/pack-list.js';
 import { packUpdateCommand } from './commands/pack-update.js';
 
 /**
- * Loa Registry Plugin
- * Provides skill registry integration for Loa CLI
+ * Loa Constructs Plugin
+ * Provides constructs registry integration for Loa CLI
  */
 export const registryPlugin: LoaPlugin = {
-  name: 'loa-registry',
+  name: 'loa-constructs',
   version: '0.3.0',
-  description: 'Skills Registry integration for Loa',
+  description: 'Loa Constructs integration for Loa CLI',
 
   commands: [
     loginCommand,

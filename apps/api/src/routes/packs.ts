@@ -724,8 +724,8 @@ async function generatePackLicense(
   const token = await new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setIssuer('https://api.loaskills.dev')
-    .setAudience('loa-skills-client')
+    .setIssuer('https://api.constructs.network')
+    .setAudience('loa-constructs-client')
     .setExpirationTime(expiresAt)
     .sign(secret);
 

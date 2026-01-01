@@ -372,7 +372,7 @@ export default function TeamBillingPage() {
                       className="w-full"
                       variant="outline"
                       onClick={() =>
-                        (window.location.href = 'mailto:sales@loaskills.dev')
+                        (window.location.href = 'mailto:sales@constructs.network')
                       }
                     >
                       Contact Sales

@@ -1,11 +1,11 @@
 #!/bin/bash
-# Deploy Loa Skills Registry API to Fly.io (Soft Launch)
+# Deploy Loa Constructs API to Fly.io (Soft Launch)
 # @see sprint.md T17.4: Deploy API to Fly.io
 #
 # Prerequisites:
 #   1. Install Fly CLI: curl -L https://fly.io/install.sh | sh
 #   2. Authenticate: fly auth login
-#   3. Create app (first time): fly apps create loa-skills-api
+#   3. Create app (first time): fly apps create loa-constructs-api
 #
 # Usage:
 #   ./scripts/deploy-soft-launch.sh
@@ -13,7 +13,7 @@
 set -e
 
 echo ""
-echo "Loa Skills Registry - Soft Launch Deployment"
+echo "Loa Constructs - Soft Launch Deployment"
 echo "============================================="
 echo ""
 
@@ -39,16 +39,16 @@ $FLY_CMD auth whoami || {
 
 echo ""
 echo "Checking app status..."
-APP_EXISTS=$($FLY_CMD apps list --json 2>/dev/null | grep -c '"loa-skills-api"' || true)
+APP_EXISTS=$($FLY_CMD apps list --json 2>/dev/null | grep -c '"loa-constructs-api"' || true)
 
 if [ "$APP_EXISTS" -eq 0 ]; then
-    echo "App 'loa-skills-api' not found. Creating..."
-    $FLY_CMD apps create loa-skills-api --org personal
+    echo "App 'loa-constructs-api' not found. Creating..."
+    $FLY_CMD apps create loa-constructs-api --org personal
 fi
 
 echo ""
 echo "Current secrets configuration:"
-$FLY_CMD secrets list --app loa-skills-api 2>/dev/null || echo "(no secrets set)"
+$FLY_CMD secrets list --app loa-constructs-api 2>/dev/null || echo "(no secrets set)"
 
 echo ""
 echo "============================================="
@@ -72,17 +72,17 @@ echo ""
 if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo ""
     echo "Deploying to Fly.io..."
-    $FLY_CMD deploy --app loa-skills-api
+    $FLY_CMD deploy --app loa-constructs-api
 
     echo ""
     echo "Deployment complete! Checking health..."
     sleep 5
 
-    $FLY_CMD status --app loa-skills-api
+    $FLY_CMD status --app loa-constructs-api
 
     echo ""
     echo "Health check:"
-    curl -s https://loa-skills-api.fly.dev/v1/health | jq . || echo "(waiting for deployment)"
+    curl -s https://loa-constructs-api.fly.dev/v1/health | jq . || echo "(waiting for deployment)"
 
     echo ""
     echo "============================================="
@@ -94,8 +94,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "   DATABASE_URL=\"...\" npx tsx scripts/grant-subscription.ts admin@thehoneyjar.xyz pro"
     echo ""
     echo "2. Verify API is working:"
-    echo "   curl https://loa-skills-api.fly.dev/v1/health"
-    echo "   curl https://loa-skills-api.fly.dev/v1/packs"
+    echo "   curl https://loa-constructs-api.fly.dev/v1/health"
+    echo "   curl https://loa-constructs-api.fly.dev/v1/packs"
     echo ""
 else
     echo ""

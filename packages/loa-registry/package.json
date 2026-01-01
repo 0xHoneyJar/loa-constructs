@@ -1,9 +1,9 @@
 {
-  "name": "@loa-registry/cli",
+  "name": "@loa-constructs/cli",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "CLI plugin for Loa Skills Registry",
+  "description": "CLI plugin for Loa Constructs",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -21,7 +21,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@loa-registry/shared": "workspace:*",
+    "@loa-constructs/shared": "workspace:*",
     "conf": "^12.0.0"
   },
   "devDependencies": {

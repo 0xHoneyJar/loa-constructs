@@ -88,7 +88,7 @@ export const updateCommand: Command = {
       if (!canAccessTier(userTier, skill.tier_required)) {
         console.error(`\nThis skill requires a ${skill.tier_required} subscription.`);
         console.log(`Your current tier: ${userTier}`);
-        console.log('\nUpgrade at: https://loaskills.dev/billing');
+        console.log('\nUpgrade at: https://constructs.network/billing');
         return;
       }
 

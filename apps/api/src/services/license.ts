@@ -47,12 +47,12 @@ export interface LicenseValidationResult {
 /**
  * License token issuer
  */
-const LICENSE_ISSUER = 'https://api.loaskills.dev';
+const LICENSE_ISSUER = 'https://api.constructs.network';
 
 /**
  * License token audience
  */
-const LICENSE_AUDIENCE = 'loa-skills-client';
+const LICENSE_AUDIENCE = 'loa-constructs-client';
 
 /**
  * Default license duration (30 days) for free tier

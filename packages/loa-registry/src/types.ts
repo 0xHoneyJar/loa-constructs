@@ -3,10 +3,10 @@
  * @see sprint.md T7.1: Plugin Structure
  */
 
-import type { SubscriptionTier, SkillVersion, SkillDownload } from '@loa-registry/shared';
+import type { SubscriptionTier, SkillVersion, SkillDownload } from '@loa-constructs/shared';
 
 // Re-export pack types from shared for consumers
-export type { Pack, PackDownload, PackManifest, PackLicense } from '@loa-registry/shared';
+export type { Pack, PackDownload, PackManifest, PackLicense } from '@loa-constructs/shared';
 
 // --- Registry Configuration ---
 

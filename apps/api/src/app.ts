@@ -49,7 +49,7 @@ app.use(
   '*',
   cors({
     origin: env.NODE_ENV === 'production'
-      ? ['https://loaskills.dev', 'https://www.loaskills.dev']
+      ? ['https://constructs.network', 'https://www.constructs.network']
       : '*',
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],

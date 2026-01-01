@@ -63,7 +63,7 @@ export const installCommand: Command = {
       if (!canAccessTier(userTier, skill.tier_required)) {
         console.error(`\nThis skill requires a ${skill.tier_required} subscription.`);
         console.log(`Your current tier: ${userTier}`);
-        console.log('\nUpgrade at: https://loaskills.dev/billing');
+        console.log('\nUpgrade at: https://constructs.network/billing');
         return;
       }
 
@@ -149,7 +149,7 @@ export const installCommand: Command = {
         }
         if (error.isTierRequired()) {
           console.error(`\nThis skill requires a higher subscription tier.`);
-          console.log('Upgrade at: https://loaskills.dev/billing');
+          console.log('Upgrade at: https://constructs.network/billing');
           return;
         }
         console.error(`Error: ${error.message}`);

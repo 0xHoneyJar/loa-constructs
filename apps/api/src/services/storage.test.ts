@@ -29,7 +29,7 @@ vi.mock('../config/env.js', () => ({
     R2_ACCOUNT_ID: undefined,
     R2_ACCESS_KEY_ID: undefined,
     R2_SECRET_ACCESS_KEY: undefined,
-    R2_BUCKET: 'loa-skills',
+    R2_BUCKET: 'loa-constructs',
   },
 }));
 

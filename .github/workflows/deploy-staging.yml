@@ -56,9 +56,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build web app
-        run: pnpm --filter @loa-registry/web build
+        run: pnpm --filter @loa-constructs/web build
         env:
-          NEXT_PUBLIC_API_URL: https://loa-skills-api-staging.fly.dev/v1
+          NEXT_PUBLIC_API_URL: https://loa-constructs-api-staging.fly.dev/v1
 
       # Note: For production, consider deploying to Vercel or Cloudflare Pages
       # This example deploys to Fly.io for consistency
@@ -81,7 +81,7 @@ jobs:
 
       - name: Check API health
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://loa-skills-api-staging.fly.dev/v1/health)
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://loa-constructs-api-staging.fly.dev/v1/health)
           if [ "$response" != "200" ]; then
             echo "API health check failed with status: $response"
             exit 1
@@ -90,7 +90,7 @@ jobs:
 
       - name: Check Web health
         run: |
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://loa-skills-staging.fly.dev/)
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://loa-constructs-staging.fly.dev/)
           if [ "$response" != "200" ]; then
             echo "Web health check failed with status: $response"
             exit 1

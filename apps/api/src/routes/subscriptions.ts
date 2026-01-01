@@ -39,7 +39,7 @@ const checkoutSchema = z.object({
  * Get dashboard URL based on environment
  */
 function getDashboardUrl(): string {
-  return env.NODE_ENV === 'production' ? 'https://loaskills.dev' : 'http://localhost:3001';
+  return env.NODE_ENV === 'production' ? 'https://constructs.network' : 'http://localhost:3001';
 }
 
 // --- Routes ---

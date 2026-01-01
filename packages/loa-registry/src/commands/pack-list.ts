@@ -6,7 +6,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { Command, InstalledPack } from '../types.js';
-import type { PackManifest, PackLicense } from '@loa-registry/shared';
+import type { PackManifest, PackLicense } from '@loa-constructs/shared';
 
 /**
  * Pack list command implementation

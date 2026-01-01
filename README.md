@@ -1,11 +1,11 @@
-# Loa Skills Registry
+# Loa Constructs
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE.md)
 
-> The marketplace for AI agent skills
+> The marketplace for AI agent constructs
 
-Loa Skills Registry is a SaaS platform for distributing, licensing, and monetizing AI agent skills compatible with the [Loa framework](https://github.com/0xHoneyJar/loa) and Claude Code. Discover, install, and manage skills via CLI or web dashboard.
+Loa Constructs is a SaaS platform for distributing, licensing, and monetizing AI agent constructs compatible with the [Loa framework](https://github.com/0xHoneyJar/loa) and Claude Code. Discover, install, and manage constructs via CLI or web dashboard.
 
 ## Features
 
@@ -23,19 +23,19 @@ Loa Skills Registry is a SaaS platform for distributing, licensing, and monetizi
 
 ```bash
 # From within Claude Code
-/loa-registry login
-/loa-registry search "your query"
-/loa-registry install skill-name
+/loa-constructs login
+/loa-constructs search "your query"
+/loa-constructs install construct-name
 ```
 
 ### Browse the Registry
 
-Visit [loaskills.dev](https://loaskills.dev) to browse available skills and manage your subscription.
+Visit [constructs.network](https://constructs.network) to browse available constructs and manage your subscription.
 
 ## Architecture
 
 ```
-loa-registry/
+loa-constructs/
 ├── apps/
 │   ├── api/          # Hono API server (Node.js)
 │   └── web/          # Next.js dashboard
@@ -108,8 +108,8 @@ loa-registry/
 
 ```bash
 # Clone the repository
-git clone https://github.com/0xHoneyJar/loa-registry.git
-cd loa-registry
+git clone https://github.com/0xHoneyJar/loa.git
+cd loa
 
 # Install dependencies
 pnpm install
@@ -118,7 +118,7 @@ pnpm install
 cp apps/api/.env.example apps/api/.env
 
 # Run database migrations
-pnpm --filter @loa-registry/api db:push
+pnpm --filter @loa-constructs/api db:push
 
 # Start development servers
 pnpm dev
@@ -142,7 +142,7 @@ RESEND_API_KEY=re_...
 # Storage
 R2_ACCESS_KEY_ID=...
 R2_SECRET_ACCESS_KEY=...
-R2_BUCKET=loa-skills
+R2_BUCKET=loa-constructs
 R2_ENDPOINT=https://...
 
 # OAuth (optional)
@@ -159,7 +159,7 @@ GOOGLE_CLIENT_SECRET=...
 pnpm test
 
 # Run API tests only
-pnpm --filter @loa-registry/api test
+pnpm --filter @loa-constructs/api test
 
 # Type check
 pnpm typecheck
@@ -192,5 +192,5 @@ See [SECURITY-AUDIT-REPORT.md](SECURITY-AUDIT-REPORT.md) for the full audit.
 ## Links
 
 - [Loa Framework](https://github.com/0xHoneyJar/loa)
-- [Documentation](https://loaskills.dev/docs)
-- [Issues](https://github.com/0xHoneyJar/loa-registry/issues)
+- [Documentation](https://constructs.network/docs)
+- [Issues](https://github.com/0xHoneyJar/loa/issues)

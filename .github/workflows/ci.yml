@@ -274,7 +274,7 @@ jobs:
         run: yamllint .github/ || true
         # Note: Using || true to not fail on lint warnings for now
 
-  # --- Loa Skills Registry CI Jobs ---
+  # --- Loa Constructs CI Jobs ---
   # @see sprint.md T1.5: CI/CD Pipeline
 
   registry-lint:

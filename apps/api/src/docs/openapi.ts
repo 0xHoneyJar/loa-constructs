@@ -1,15 +1,15 @@
 /**
- * OpenAPI Specification for Loa Skills Registry API
+ * OpenAPI Specification for Loa Constructs API
  * @see sprint.md T12.3: Documentation
  */
 
 export const openApiSpec = {
   openapi: '3.1.0',
   info: {
-    title: 'Loa Skills Registry API',
+    title: 'Loa Constructs API',
     version: '1.0.0',
     description: `
-The Loa Skills Registry API allows you to manage AI agent skills, subscriptions, and teams.
+The Loa Constructs API allows you to manage AI agent constructs, subscriptions, and teams.
 
 ## Authentication
 
@@ -39,22 +39,22 @@ Rate limit headers are included in all responses:
 - \`X-RateLimit-Reset\`: Unix timestamp when limit resets
     `,
     contact: {
-      name: 'Loa Skills Registry Support',
-      email: 'support@loaskills.dev',
-      url: 'https://loaskills.dev',
+      name: 'Loa Constructs Support',
+      email: 'support@constructs.network',
+      url: 'https://constructs.network',
     },
     license: {
       name: 'Proprietary',
-      url: 'https://loaskills.dev/terms',
+      url: 'https://constructs.network/terms',
     },
   },
   servers: [
     {
-      url: 'https://api.loaskills.dev',
+      url: 'https://api.constructs.network',
       description: 'Production',
     },
     {
-      url: 'https://api-staging.loaskills.dev',
+      url: 'https://api-staging.constructs.network',
       description: 'Staging',
     },
     {

@@ -12,11 +12,11 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
  */
 export const metadata: Metadata = {
   title: {
-    default: 'Loa Skills Registry',
-    template: '%s | Loa Skills Registry',
+    default: 'Loa Constructs',
+    template: '%s | Loa Constructs',
   },
-  description: 'Discover, install, and manage AI agent skills for the Loa framework',
-  keywords: ['AI skills', 'Claude', 'Loa framework', 'agent skills', 'marketplace'],
+  description: 'Discover, install, and manage AI agent constructs for the Loa framework',
+  keywords: ['AI constructs', 'Claude', 'Loa framework', 'agent constructs', 'marketplace'],
 };
 
 export default function RootLayout({

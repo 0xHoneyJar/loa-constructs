@@ -77,13 +77,13 @@ function verifyOAuthState(c: any, state: string): boolean {
 
 function getBaseUrl(): string {
   return env.NODE_ENV === 'production'
-    ? 'https://api.loaskills.dev'
+    ? 'https://api.constructs.network'
     : 'http://localhost:3000';
 }
 
 function getDashboardUrl(): string {
   return env.NODE_ENV === 'production'
-    ? 'https://loaskills.dev'
+    ? 'https://constructs.network'
     : 'http://localhost:3001';
 }
 

@@ -28,7 +28,7 @@ export interface EmailResult {
 // Initialize Resend client (use dummy key in test/dev without API key)
 const resend = new Resend(env.RESEND_API_KEY || 're_dummy_key_for_testing');
 
-const FROM_EMAIL = 'Loa Skills Registry <noreply@loaskills.dev>';
+const FROM_EMAIL = 'Loa Constructs <noreply@constructs.network>';
 
 // --- Templates ---
 
@@ -46,13 +46,13 @@ export function generateVerificationEmail(name: string, verificationUrl: string)
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">Loa Skills Registry</h1>
+    <h1 style="color: white; margin: 0; font-size: 24px;">Loa Constructs</h1>
   </div>
 
   <div style="background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
     <h2 style="margin-top: 0;">Welcome, ${escapeHtml(name)}!</h2>
 
-    <p>Thank you for signing up for Loa Skills Registry. Please verify your email address to complete your registration.</p>
+    <p>Thank you for signing up for Loa Constructs. Please verify your email address to complete your registration.</p>
 
     <div style="text-align: center; margin: 30px 0;">
       <a href="${escapeHtml(verificationUrl)}" style="background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 500;">
@@ -95,7 +95,7 @@ export function generatePasswordResetEmail(name: string, resetUrl: string): stri
 </head>
 <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 10px 10px 0 0;">
-    <h1 style="color: white; margin: 0; font-size: 24px;">Loa Skills Registry</h1>
+    <h1 style="color: white; margin: 0; font-size: 24px;">Loa Constructs</h1>
   </div>
 
   <div style="background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 10px 10px;">
@@ -198,16 +198,16 @@ export async function sendVerificationEmail(
   token: string
 ): Promise<EmailResult> {
   const baseUrl = env.NODE_ENV === 'production'
-    ? 'https://loaskills.dev'
+    ? 'https://constructs.network'
     : 'http://localhost:3001';
 
   const verificationUrl = `${baseUrl}/auth/verify?token=${encodeURIComponent(token)}`;
 
   return sendEmail({
     to: email,
-    subject: 'Verify your email - Loa Skills Registry',
+    subject: 'Verify your email - Loa Constructs',
     html: generateVerificationEmail(name, verificationUrl),
-    text: `Welcome to Loa Skills Registry, ${name}! Please verify your email by visiting: ${verificationUrl}`,
+    text: `Welcome to Loa Constructs, ${name}! Please verify your email by visiting: ${verificationUrl}`,
   });
 }
 
@@ -220,14 +220,14 @@ export async function sendPasswordResetEmail(
   token: string
 ): Promise<EmailResult> {
   const baseUrl = env.NODE_ENV === 'production'
-    ? 'https://loaskills.dev'
+    ? 'https://constructs.network'
     : 'http://localhost:3001';
 
   const resetUrl = `${baseUrl}/auth/reset-password?token=${encodeURIComponent(token)}`;
 
   return sendEmail({
     to: email,
-    subject: 'Reset your password - Loa Skills Registry',
+    subject: 'Reset your password - Loa Constructs',
     html: generatePasswordResetEmail(name, resetUrl),
     text: `Hi ${name}, reset your password by visiting: ${resetUrl}. This link expires in 1 hour.`,
   });

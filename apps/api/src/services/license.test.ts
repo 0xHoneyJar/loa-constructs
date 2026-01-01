@@ -98,13 +98,13 @@ describe('License Service', () => {
 
   describe('License Constants', () => {
     it('should define license issuer', () => {
-      const issuer = 'https://api.loaskills.dev';
-      expect(issuer).toBe('https://api.loaskills.dev');
+      const issuer = 'https://api.constructs.network';
+      expect(issuer).toBe('https://api.constructs.network');
     });
 
     it('should define license audience', () => {
-      const audience = 'loa-skills-client';
-      expect(audience).toBe('loa-skills-client');
+      const audience = 'loa-constructs-client';
+      expect(audience).toBe('loa-constructs-client');
     });
 
     it('should define free tier duration', () => {

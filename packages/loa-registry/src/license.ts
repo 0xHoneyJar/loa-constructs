@@ -240,7 +240,7 @@ export async function skillBeforeLoadHook(
         console.log(`Skill: ${result.skill}`);
         console.log('\nTo fix this:');
         console.log('1. Connect to the internet and run /skill-update ' + result.skill);
-        console.log('2. Or renew your subscription at https://loaskills.dev/billing');
+        console.log('2. Or renew your subscription at https://constructs.network/billing');
       }
     }
     return false;

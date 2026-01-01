@@ -6,7 +6,7 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { Command } from '../types.js';
-import type { PackLicense } from '@loa-registry/shared';
+import type { PackLicense } from '@loa-constructs/shared';
 import { getClient, getCredentials, canAccessTier } from '../auth.js';
 import { RegistryError } from '../client.js';
 
@@ -67,7 +67,7 @@ export const packInstallCommand: Command = {
         console.log('  Pro:        $29/month or $290/year');
         console.log('  Team:       $99/month or $990/year');
         console.log('  Enterprise: Contact sales');
-        console.log('\nUpgrade at: https://loaskills.dev/billing');
+        console.log('\nUpgrade at: https://constructs.network/billing');
         return;
       }
 
@@ -90,7 +90,7 @@ export const packInstallCommand: Command = {
               console.log(`  ${key}: ${value}`);
             });
           }
-          console.log('\nUpgrade at: https://loaskills.dev/billing');
+          console.log('\nUpgrade at: https://constructs.network/billing');
           return;
         }
         throw error;
@@ -228,7 +228,7 @@ export const packInstallCommand: Command = {
         }
         if (error.isTierRequired()) {
           console.error(`\nThis pack requires a higher subscription tier.`);
-          console.log('Upgrade at: https://loaskills.dev/billing');
+          console.log('Upgrade at: https://constructs.network/billing');
           return;
         }
         console.error(`Error: ${error.message}`);

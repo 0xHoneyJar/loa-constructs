@@ -22,7 +22,7 @@ const envSchema = z
     R2_ACCOUNT_ID: z.string().optional(),
     R2_ACCESS_KEY_ID: z.string().optional(),
     R2_SECRET_ACCESS_KEY: z.string().optional(),
-    R2_BUCKET: z.string().default('loa-skills'),
+    R2_BUCKET: z.string().default('loa-constructs'),
 
     // Stripe
     STRIPE_SECRET_KEY: z.string().optional(),
@@ -35,7 +35,7 @@ const envSchema = z
 
     // JWT - Required in production, optional in dev/test
     JWT_SECRET: z.string().optional(),
-    JWT_ISSUER: z.string().default('https://api.loaskills.dev'),
+    JWT_ISSUER: z.string().default('https://api.constructs.network'),
 
     // OAuth
     GITHUB_CLIENT_ID: z.string().optional(),

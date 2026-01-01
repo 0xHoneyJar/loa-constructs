@@ -3,7 +3,7 @@
  * @see sprint.md T7.2: API Client
  */
 
-import type { SkillDownload, PackDownload } from '@loa-registry/shared';
+import type { SkillDownload, PackDownload } from '@loa-constructs/shared';
 import type {
   RegistryClientConfig,
   SkillListOptions,
@@ -295,4 +295,4 @@ export class RegistryClient {
 /**
  * Default registry URL
  */
-export const DEFAULT_REGISTRY_URL = 'https://api.loaskills.dev/v1';
+export const DEFAULT_REGISTRY_URL = 'https://api.constructs.network/v1';

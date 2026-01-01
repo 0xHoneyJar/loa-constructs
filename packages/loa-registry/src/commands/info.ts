@@ -149,7 +149,7 @@ export const infoCommand: Command = {
         console.log(`  This skill requires a ${skill.tier_required} subscription.`);
         console.log(`  Your current tier: ${userTier}`);
         console.log('');
-        console.log('  Upgrade at: https://loaskills.dev/billing');
+        console.log('  Upgrade at: https://constructs.network/billing');
       }
       console.log('');
     } catch (error) {

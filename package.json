@@ -1,8 +1,8 @@
 {
-  "name": "loa-skills-registry",
+  "name": "loa-constructs",
   "private": true,
   "version": "1.0.0",
-  "description": "SaaS platform for distributing, licensing, and monetizing AI agent skills",
+  "description": "SaaS platform for distributing, licensing, and monetizing AI agent constructs",
   "packageManager": "pnpm@9.15.0",
   "engines": {
     "node": ">=20.0.0"
