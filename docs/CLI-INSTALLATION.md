@@ -10,6 +10,16 @@ The Loa Constructs CLI integrates with Claude Code to provide:
 - License validation for premium content
 - Automatic updates and caching
 
+## Deployed Services
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| **API** | `https://loa-constructs-api.fly.dev` | REST API (Fly.io) |
+| **Dashboard** | Vercel (behind SSO during soft launch) | Web interface |
+| **Database** | Neon PostgreSQL | Data storage |
+
+> **Note**: During soft launch, the web dashboard is behind Vercel SSO. Use the CLI or API directly for access.
+
 ## Prerequisites
 
 - **Claude Code** (Claude CLI) installed
@@ -37,11 +47,16 @@ pnpm --filter @loa-constructs/cli build
 For the soft launch, the API is hosted at `loa-constructs-api.fly.dev`:
 
 ```bash
-# Set the production API URL
+# Set the production API URL (add to your shell profile)
 export LOA_CONSTRUCTS_URL="https://loa-constructs-api.fly.dev/v1"
 ```
 
-Add this to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) for persistence.
+Add this to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) for persistence:
+
+```bash
+echo 'export LOA_CONSTRUCTS_URL="https://loa-constructs-api.fly.dev/v1"' >> ~/.zshrc
+source ~/.zshrc
+```
 
 ### 3. Authenticate
 
@@ -66,16 +81,22 @@ Enter your email and password when prompted.
 export LOA_CONSTRUCTS_API_KEY="sk_your_api_key_here"
 ```
 
-API keys can be generated from the dashboard at https://constructs.network (when available).
+API keys can be generated from the dashboard once it's publicly accessible.
 
 ### 4. Verify Connection
 
 ```bash
-# List available packs
+# Test API health
+curl https://loa-constructs-api.fly.dev/v1/health
+
+# List available packs (public endpoint)
+curl https://loa-constructs-api.fly.dev/v1/packs
+
+# Or with authentication
 curl -H "Authorization: Bearer $LOA_CONSTRUCTS_API_KEY" \
   https://loa-constructs-api.fly.dev/v1/packs
 
-# Or test with the CLI
+# Using Claude Code commands
 /skill-pack-list
 ```
 
