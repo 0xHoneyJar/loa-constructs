@@ -1,7 +1,7 @@
 # Agent-to-Agent Communication Index
 
-**Project:** Loa Skills Registry
-**Last Updated:** 2026-01-01
+**Project:** Loa Constructs (formerly Loa Skills Registry)
+**Last Updated:** 2026-01-02
 
 ---
 
@@ -9,23 +9,32 @@
 
 | Sprint | Status | Reviewer | Engineer | Auditor |
 |--------|--------|----------|----------|---------|
-| Sprint 1 | COMPLETED | [reviewer.md](sprint-1/reviewer.md) | [engineer-feedback.md](sprint-1/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-1/auditor-sprint-feedback.md) |
-| Sprint 2 | COMPLETED | [reviewer.md](sprint-2/reviewer.md) | [engineer-feedback.md](sprint-2/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-2/auditor-sprint-feedback.md) |
-| Sprint 3 | COMPLETED | [reviewer.md](sprint-3/reviewer.md) | [engineer-feedback.md](sprint-3/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-3/auditor-sprint-feedback.md) |
-| Sprint 4 | COMPLETED | [reviewer.md](sprint-4/reviewer.md) | [engineer-feedback.md](sprint-4/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-4/auditor-sprint-feedback.md) |
-| Sprint 5 | COMPLETED | [reviewer.md](sprint-5/reviewer.md) | [engineer-feedback.md](sprint-5/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-5/auditor-sprint-feedback.md) |
-| Sprint 6 | COMPLETED | [reviewer.md](sprint-6/reviewer.md) | [engineer-feedback.md](sprint-6/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-6/auditor-sprint-feedback.md) |
-| Sprint 7 | COMPLETED | [reviewer.md](sprint-7/reviewer.md) | [engineer-feedback.md](sprint-7/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-7/auditor-sprint-feedback.md) |
-| Sprint 8 | COMPLETED | [reviewer.md](sprint-8/reviewer.md) | [engineer-feedback.md](sprint-8/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-8/auditor-sprint-feedback.md) |
-| Sprint 9 | COMPLETED | [reviewer.md](sprint-9/reviewer.md) | [engineer-feedback.md](sprint-9/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-9/auditor-sprint-feedback.md) |
-| Sprint 10 | COMPLETED | [reviewer.md](sprint-10/reviewer.md) | [engineer-feedback.md](sprint-10/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-10/auditor-sprint-feedback.md) |
-| Sprint 11 | COMPLETED | [reviewer.md](sprint-11/reviewer.md) | [engineer-feedback.md](sprint-11/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-11/auditor-sprint-feedback.md) |
-| Sprint 12 | COMPLETED | [reviewer.md](sprint-12/reviewer.md) | [engineer-feedback.md](sprint-12/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-12/auditor-sprint-feedback.md) |
-| Sprint 13 | COMPLETED | [reviewer.md](sprint-13/reviewer.md) | [engineer-feedback.md](sprint-13/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-13/auditor-sprint-feedback.md) |
-| Sprint 14 | COMPLETED | [reviewer.md](sprint-14/reviewer.md) | [engineer-feedback.md](sprint-14/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-14/auditor-sprint-feedback.md) |
-| Sprint 15 | COMPLETED | [reviewer.md](sprint-15/reviewer.md) | [engineer-feedback.md](sprint-15/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-15/auditor-sprint-feedback.md) |
-| Sprint 16 | COMPLETED | [reviewer.md](sprint-16/reviewer.md) | [engineer-feedback.md](sprint-16/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-16/auditor-sprint-feedback.md) |
-| Sprint 17 | IN_REVIEW | [reviewer.md](sprint-17/reviewer.md) | - | - |
+| Sprint 1-17 | COMPLETED | Various | Various | Various |
+| Sprint 18 | PENDING | TUI Foundation & Global Styles | - | - |
+| Sprint 19 | PENDING | Dashboard & Navigation Redesign | - | - |
+| Sprint 20 | PENDING | Page Redesigns & Polish | - | - |
+
+### Previous Sprints (v1 - Registry Backend)
+
+| Sprint | Status | Description |
+|--------|--------|-------------|
+| Sprint 1 | COMPLETED | Database Schema & Core Models |
+| Sprint 2 | COMPLETED | Authentication System |
+| Sprint 3 | COMPLETED | Skills API |
+| Sprint 4 | COMPLETED | Subscription & Billing |
+| Sprint 5 | COMPLETED | Dashboard Auth |
+| Sprint 6 | COMPLETED | Dashboard Core Pages |
+| Sprint 7 | COMPLETED | CLI Plugin Core |
+| Sprint 8 | COMPLETED | CLI Install & License |
+| Sprint 9 | COMPLETED | Team Management |
+| Sprint 10 | COMPLETED | Analytics & Creator Dashboard |
+| Sprint 11 | COMPLETED | Enterprise Features |
+| Sprint 12 | COMPLETED | Polish & Launch Prep |
+| Sprint 13 | COMPLETED | Security Hardening & Pack Foundation |
+| Sprint 14 | COMPLETED | GTM Collective Import |
+| Sprint 15 | COMPLETED | CLI Pack Commands & Polish |
+| Sprint 16 | COMPLETED | GTM Collective Pack Integration |
+| Sprint 17 | COMPLETED | Soft Launch (No Billing) |
 
 ---
 
@@ -45,15 +54,31 @@
 
 ### 2026-01-02
 
-- **Sprint 17 implementation completed** (Soft Launch - No Billing)
+- **Project renamed from Loa Skills Registry to Loa Constructs**
+  - Domain: `constructs.network` (was `loaskills.dev`)
+  - All packages renamed: `@loa-registry/*` → `@loa-constructs/*`
+  - 44 files updated, committed and pushed
+  - GitHub repository renamed to `loa-constructs`
+
+- **Sprint Plan v2.0.0 created** - TUI-Style UI Redesign
+  - Sprint 18: TUI Foundation & Global Styles (9 tasks)
+  - Sprint 19: Dashboard & Navigation Redesign (7 tasks)
+  - Sprint 20: Page Redesigns & Polish (10 tasks)
+  - Design reference: `loa-grimoire/context/loa-constructs.html`
+  - Goals: Terminal aesthetic, keyboard navigation, IBM Plex Mono, minimal dependencies
+  - Next command: `/implement sprint-18`
+
+- **Sprint 17 FULLY COMPLETED** (Soft Launch - No Billing)
 - Report submitted: `sprint-17/reviewer.md`
-- Tasks completed: T17.1-T17.8 (all tasks)
+- Tasks completed: T17.1-T17.8 (T17.6 deferred as optional)
 - New scripts: `grant-subscription.ts`, `create-user.ts`, `seed-thj-team.ts`, `test-env-config.ts`, `deploy-soft-launch.sh`
-- New docs: `docs/SOFT-LAUNCH-OPERATIONS.md`
+- New docs: `docs/SOFT-LAUNCH-OPERATIONS.md` (302 lines)
 - Modified: `email.ts` (graceful degradation), `fly.toml` (secrets docs), `.env.example` (annotations)
 - All 102 API tests passing, typecheck passes
 - Note: Billing will use Reap Global instead of Stripe
-- Awaiting senior lead review
+- **Senior lead review: APPROVED** (`sprint-17/engineer-feedback.md`)
+- **Security audit: APPROVED - LETS FUCKING GO** (`sprint-17/auditor-sprint-feedback.md`)
+- **Sprint 17 COMPLETED** - Ready for production deployment to Fly.io!
 
 ### 2026-01-01
 

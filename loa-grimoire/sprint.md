@@ -1,1275 +1,886 @@
-# Sprint Plan: Loa Skills Registry
+# Sprint Plan: Loa Constructs
 
-**Version:** 1.0
-**Date:** 2025-12-30
-**Author:** Sprint Planner Agent
-**Team:** Loa Framework + Janidev (2 developers)
-**Sprint Duration:** 2.5 days each
-**Total Sprints:** 12
+**Version**: 2.0.0
+**Date**: 2026-01-02
+**Author**: Sprint Planner Agent
+**Status**: Ready for Implementation
 
 ---
 
-## Executive Summary
+## Sprint Overview
 
-This sprint plan covers the complete Loa Skills Registry implementation:
-- **Phase 1 (Sprints 1-4)**: Foundation & Core API
-- **Phase 2 (Sprints 5-8)**: Dashboard & CLI Plugin
-- **Phase 3 (Sprints 9-10)**: Teams & Analytics
-- **Phase 4 (Sprints 11-12)**: Enterprise & Polish
+### Project Summary
 
-**Existing Assets:**
-- `api/checkout/create.ts` - Stripe checkout (adaptable)
-- `api/webhook/stripe.ts` - Stripe webhooks (reusable)
-- `api/subscription/verify.ts` - Subscription verification (adaptable)
+Transform the Loa Constructs web application from a standard GUI dashboard to a TUI-style (Terminal User Interface) design that emulates the visual appearance of a terminal. The design reference is `loa-grimoire/context/loa-constructs.html` which implements this aesthetic using pure HTML/CSS with minimal JavaScript.
 
-**Key Dependencies:**
-- Neon PostgreSQL account
-- Upstash Redis account
-- Cloudflare R2 bucket
-- Stripe account with products/prices configured
-- Fly.io account for deployment
-- Resend account for email
+### Design Goals
+
+1. **TUI Aesthetic**: Emulate a terminal environment, not a graphical UI
+2. **Minimal Dependencies**: Reduce reliance on UI frameworks - use vanilla CSS where possible
+3. **Keyboard Navigation**: Full keyboard control with vim-style keybindings
+4. **IBM Plex Mono**: Monospace typography throughout
+5. **Transparent Panels**: Semi-transparent boxes with visible background
+6. **JWST Background**: Space imagery with low opacity
+7. **Scanlines Effect**: CRT-style overlay for authenticity
+
+### Sprint Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| **Sprint Count** | 3 (Sprints 18-20) |
+| **Estimated Duration** | 3-4 days |
+| **Total Effort** | ~24-32 hours |
+| **Team Size** | 1 engineer |
+| **Risk Level** | Medium |
+
+### Success Criteria
+
+- [ ] All pages use TUI styling consistent with the HTML prototype
+- [ ] Keyboard navigation works throughout the app (arrows, numbers, vim keys)
+- [ ] IBM Plex Mono font loaded and applied globally
+- [ ] JWST background visible behind transparent panels
+- [ ] Scanlines effect renders correctly
+- [ ] Mobile responsive (sidebar collapses, simplified layout)
+- [ ] No increase in Lighthouse performance score degradation
+- [ ] All existing functionality preserved (auth, skills, packs, billing)
 
 ---
 
-## Sprint 1: Project Foundation
+## Sprint 18: TUI Foundation & Global Styles
 
-**Goal:** Establish monorepo structure, CI/CD pipeline, and database foundation.
+**Goal**: Establish the core TUI design system, global styles, and font configuration. Create reusable TUI components.
 
-**Duration:** 2.5 days
+**Duration**: 1 day
 
-### Deliverables
-- [ ] Monorepo initialized with Turborepo
-- [ ] API server skeleton (Hono)
-- [ ] Dashboard skeleton (Next.js)
-- [ ] Database schema deployed to Neon
-- [ ] GitHub Actions CI pipeline
-- [ ] Fly.io staging deployment
+### Tasks
 
-### Acceptance Criteria
-- [ ] `pnpm install && pnpm build` succeeds
-- [ ] `pnpm test` runs (even if minimal tests)
-- [ ] API responds to `GET /v1/health` with 200
-- [ ] Dashboard loads at localhost:3000
-- [ ] CI runs on every PR
-- [ ] Staging URL accessible at `loa-skills-staging.fly.dev`
+---
 
-### Technical Tasks
+#### T18.1: Replace Font System with IBM Plex Mono
 
-#### T1.1: Initialize Monorepo
-> From sdd.md: §11.C Project Structure
+**Description**: Remove Inter font, add IBM Plex Mono from Google Fonts, and configure as the primary font family.
 
-- [ ] Create repo structure with `apps/api`, `apps/web`, `packages/shared`
-- [ ] Configure `turbo.json` for build pipeline
-- [ ] Set up `pnpm-workspace.yaml`
-- [ ] Add root `package.json` with scripts
-- [ ] Configure TypeScript with shared `tsconfig.base.json`
-- [ ] Set up ESLint + Prettier with shared config
+**Acceptance Criteria**:
+- [ ] Add IBM Plex Mono font via Google Fonts (400, 500, 600 weights)
+- [ ] Update `layout.tsx` to use IBM Plex Mono
+- [ ] Remove Inter font configuration
+- [ ] Apply monospace font family to all text elements
+- [ ] Set base font-size to 14px
 
-**Files:**
+**Effort**: Small (1 hour)
+
+**Dependencies**: None
+
+**Files to Modify**:
+- `apps/web/src/app/layout.tsx`
+- `apps/web/src/app/globals.css`
+
+---
+
+#### T18.2: Create TUI Color Palette & CSS Variables
+
+**Description**: Define the TUI color scheme using CSS custom properties, matching the prototype.
+
+**Acceptance Criteria**:
+- [ ] Define color variables in `globals.css`:
+  - `--bg: #0a0a0a` (background)
+  - `--fg: #c0c0c0` (foreground/text)
+  - `--fg-bright: #ffffff` (bright text)
+  - `--fg-dim: #606060` (dimmed text)
+  - `--accent: #5fafff` (blue accent)
+  - `--green: #5fff87` (success/code)
+  - `--yellow: #ffff5f` (warning)
+  - `--red: #ff5f5f` (error)
+  - `--cyan: #5fffff` (links)
+  - `--border: #5f5f5f` (box borders)
+  - `--selection-bg: #5fafff` (selection background)
+  - `--selection-fg: #000000` (selection text)
+- [ ] Apply dark background to html/body
+- [ ] Configure text selection styles
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T18.1
+
+**Files to Modify**:
+- `apps/web/src/app/globals.css`
+
+---
+
+#### T18.3: Add JWST Background & Scanlines Effect
+
+**Description**: Implement the space imagery background with low opacity and CRT scanlines overlay.
+
+**Acceptance Criteria**:
+- [ ] Add JWST image as fixed background via `body::before`
+- [ ] Set background opacity to ~0.3 (visible but not distracting)
+- [ ] Implement scanlines via `body::after` with repeating gradient
+- [ ] Scanlines should be non-interactive (pointer-events: none)
+- [ ] Background and scanlines should cover full viewport
+- [ ] Ensure proper z-index layering (bg < content < scanlines)
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T18.2
+
+**Files to Modify**:
+- `apps/web/src/app/globals.css`
+
+---
+
+#### T18.4: Create TUI Box Component
+
+**Description**: Create a reusable `TuiBox` component that renders a bordered container with optional title, matching the prototype's `.box` styling.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/components/tui/tui-box.tsx`
+- [ ] Component accepts props: `title`, `className`, `children`
+- [ ] Renders semi-transparent background (`rgba(0, 0, 0, 0.75)`)
+- [ ] Renders 1px solid border using `--border` color
+- [ ] Title appears as inline element positioned over top border
+- [ ] Content area is scrollable with hidden scrollbar
+- [ ] Component uses CSS modules or inline styles (minimal JS)
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T18.2
+
+**Files to Create**:
+- `apps/web/src/components/tui/tui-box.tsx`
+- `apps/web/src/components/tui/tui-box.module.css` (optional)
+
+---
+
+#### T18.5: Create TUI Navigation Item Component
+
+**Description**: Create a `TuiNavItem` component for sidebar navigation with keyboard navigation support.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/components/tui/tui-nav-item.tsx`
+- [ ] Props: `href`, `label`, `shortcut`, `active`, `indicator`
+- [ ] Active state: blue background, black text
+- [ ] Hover state: slight blue tint background
+- [ ] Shows `▸` indicator for active item, space for inactive
+- [ ] Shows keyboard shortcut on right side (e.g., `[1]`)
+- [ ] Uses `next/link` for navigation
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T18.2
+
+**Files to Create**:
+- `apps/web/src/components/tui/tui-nav-item.tsx`
+
+---
+
+#### T18.6: Create TUI Status Bar Component
+
+**Description**: Create a bottom status bar component showing keyboard hints and meta information.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/components/tui/tui-status-bar.tsx`
+- [ ] Renders fixed at bottom of viewport
+- [ ] Left side: keyboard shortcuts (↑↓ navigate, Enter select, etc.)
+- [ ] Right side: version info, external links
+- [ ] Semi-transparent background matching boxes
+- [ ] Keyboard hints use `<kbd>` elements with border styling
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T18.2
+
+**Files to Create**:
+- `apps/web/src/components/tui/tui-status-bar.tsx`
+
+---
+
+#### T18.7: Create TUI Typography Components
+
+**Description**: Create styled text components for headings, paragraphs, links, and code blocks.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/components/tui/tui-text.tsx` with:
+  - `TuiH1` - Green text, 14px, font-weight 600
+  - `TuiH2` - Blue accent, 14px, with bottom border
+  - `TuiP` - Normal foreground color
+  - `TuiLink` - Cyan text, underline on hover
+  - `TuiCode` - Green text, dark background, border
+  - `TuiDivider` - Horizontal line made of `─` characters
+- [ ] All use the same 14px base font size (monospace scale)
+- [ ] Export all from single file
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T18.2
+
+**Files to Create**:
+- `apps/web/src/components/tui/tui-text.tsx`
+
+---
+
+#### T18.8: Create TUI Button Component
+
+**Description**: Create a button component styled like terminal UI buttons.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/components/tui/tui-button.tsx`
+- [ ] Props: `variant` (primary, secondary, danger), `disabled`, `onClick`
+- [ ] Border-style buttons (no heavy backgrounds)
+- [ ] Primary: accent border and text
+- [ ] Hover: inverted colors (accent bg, black text)
+- [ ] Keyboard accessible (focus ring visible)
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T18.2
+
+**Files to Create**:
+- `apps/web/src/components/tui/tui-button.tsx`
+
+---
+
+#### T18.9: Create TUI Input Components
+
+**Description**: Create form input components styled for terminal aesthetic.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/components/tui/tui-input.tsx`
+- [ ] Create `apps/web/src/components/tui/tui-select.tsx`
+- [ ] Transparent background with border
+- [ ] Monospace text
+- [ ] Focus state: accent border color
+- [ ] Error state: red border color
+- [ ] Label above input with dim color
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T18.2
+
+**Files to Create**:
+- `apps/web/src/components/tui/tui-input.tsx`
+- `apps/web/src/components/tui/tui-select.tsx`
+
+---
+
+### Sprint 18 Summary
+
+| Task | Description | Effort | Status |
+|------|-------------|--------|--------|
+| T18.1 | IBM Plex Mono font | S | Pending |
+| T18.2 | TUI color palette | S | Pending |
+| T18.3 | JWST background & scanlines | S | Pending |
+| T18.4 | TUI Box component | M | Pending |
+| T18.5 | TUI Nav Item component | S | Pending |
+| T18.6 | TUI Status Bar component | S | Pending |
+| T18.7 | TUI Typography components | M | Pending |
+| T18.8 | TUI Button component | S | Pending |
+| T18.9 | TUI Input components | M | Pending |
+
+**Total Estimated Effort**: ~12 hours
+
+---
+
+## Sprint 19: Dashboard & Navigation Redesign
+
+**Goal**: Redesign the main dashboard layout, sidebar navigation, and implement keyboard navigation system.
+
+**Duration**: 1 day
+
+### Tasks
+
+---
+
+#### T19.1: Create TUI Layout Shell
+
+**Description**: Create the main layout structure with sidebar, content area, and status bar.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/components/tui/tui-layout.tsx`
+- [ ] Three-panel layout: sidebar (fixed width), content (flex), status bar (fixed bottom)
+- [ ] All panels use `TuiBox` component
+- [ ] Proper z-index layering with background effects
+- [ ] Mobile: sidebar collapses to hamburger menu
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T18.4, T18.6
+
+**Files to Create**:
+- `apps/web/src/components/tui/tui-layout.tsx`
+
+---
+
+#### T19.2: Implement Global Keyboard Navigation Hook
+
+**Description**: Create a React hook for handling global keyboard shortcuts throughout the app.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/hooks/use-keyboard-nav.ts`
+- [ ] Support arrow keys (up/down) for item navigation
+- [ ] Support number keys (1-9) for direct section jump
+- [ ] Support vim keys (j/k) as alternative navigation
+- [ ] Support Enter for selection
+- [ ] Support `g` for go to top, `G` for go to bottom
+- [ ] Ignore when focus is on input/textarea elements
+- [ ] Provide current index and navigation functions
+
+**Effort**: Medium (2-3 hours)
+
+**Dependencies**: None
+
+**Files to Create**:
+- `apps/web/src/hooks/use-keyboard-nav.ts`
+
+---
+
+#### T19.3: Redesign Dashboard Sidebar
+
+**Description**: Replace existing sidebar with TUI-styled navigation using `TuiNavItem` components.
+
+**Acceptance Criteria**:
+- [ ] Replace `apps/web/src/components/dashboard/sidebar.tsx`
+- [ ] Use `TuiBox` with title "≡ Menu"
+- [ ] Navigation items:
+  - Overview [1]
+  - Skills [2]
+  - Packs [3]
+  - API Keys [4]
+  - Profile [5]
+  - Billing [6]
+- [ ] Integrate keyboard navigation hook
+- [ ] Show active route with `▸` indicator
+- [ ] User info at bottom (name, tier badge)
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T19.1, T19.2
+
+**Files to Modify**:
+- `apps/web/src/components/dashboard/sidebar.tsx`
+
+---
+
+#### T19.4: Redesign Dashboard Header
+
+**Description**: Simplify header to match TUI aesthetic - minimal, no heavy branding.
+
+**Acceptance Criteria**:
+- [ ] Replace or remove heavy header
+- [ ] Show current section title in content box title
+- [ ] Move user actions to sidebar or status bar
+- [ ] Mobile: add hamburger menu trigger
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T19.1
+
+**Files to Modify**:
+- `apps/web/src/components/dashboard/header.tsx`
+
+---
+
+#### T19.5: Update Dashboard Layout Page
+
+**Description**: Integrate new TUI layout into the dashboard layout component.
+
+**Acceptance Criteria**:
+- [ ] Update `apps/web/src/app/(dashboard)/layout.tsx`
+- [ ] Use `TuiLayout` as wrapper
+- [ ] Pass children to content area
+- [ ] Ensure auth context still works
+- [ ] Update any layout-specific styling
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T19.1, T19.3, T19.4
+
+**Files to Modify**:
+- `apps/web/src/app/(dashboard)/layout.tsx`
+
+---
+
+#### T19.6: Create TUI List Component for Skills/Packs
+
+**Description**: Create a list component for displaying skills and packs in TUI style.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/components/tui/tui-list.tsx`
+- [ ] Each item shows: title, meta info, description
+- [ ] Arrow indicator (`→`) on hover
+- [ ] Support keyboard navigation within list
+- [ ] Focused item has background highlight
+- [ ] Click or Enter navigates to detail page
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T19.2
+
+**Files to Create**:
+- `apps/web/src/components/tui/tui-list.tsx`
+
+---
+
+#### T19.7: Redesign Skill Card Component
+
+**Description**: Replace graphical skill cards with TUI-styled list items.
+
+**Acceptance Criteria**:
+- [ ] Replace `apps/web/src/components/dashboard/skill-card.tsx`
+- [ ] Use `TuiList` item styling
+- [ ] Show: skill name, version, category tag (cyan), description
+- [ ] Tier badge if premium
+- [ ] Download count in dim text
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T19.6
+
+**Files to Modify**:
+- `apps/web/src/components/dashboard/skill-card.tsx`
+
+---
+
+### Sprint 19 Summary
+
+| Task | Description | Effort | Status |
+|------|-------------|--------|--------|
+| T19.1 | TUI Layout Shell | M | Pending |
+| T19.2 | Keyboard Navigation Hook | M | Pending |
+| T19.3 | Dashboard Sidebar | M | Pending |
+| T19.4 | Dashboard Header | S | Pending |
+| T19.5 | Dashboard Layout Page | M | Pending |
+| T19.6 | TUI List Component | M | Pending |
+| T19.7 | Skill Card Redesign | M | Pending |
+
+**Total Estimated Effort**: ~12 hours
+
+---
+
+## Sprint 20: Page Redesigns & Polish
+
+**Goal**: Redesign individual pages, add polish effects, and ensure mobile responsiveness.
+
+**Duration**: 1-2 days
+
+### Tasks
+
+---
+
+#### T20.1: Redesign Skills Browse Page
+
+**Description**: Update the skills listing page with TUI styling.
+
+**Acceptance Criteria**:
+- [ ] Update `apps/web/src/app/(dashboard)/skills/page.tsx`
+- [ ] Use `TuiList` for skill display
+- [ ] Search input uses `TuiInput`
+- [ ] Filters use `TuiSelect` or tab-style buttons
+- [ ] Pagination styled as terminal commands
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T19.6, T18.9
+
+**Files to Modify**:
+- `apps/web/src/app/(dashboard)/skills/page.tsx`
+- `apps/web/src/components/dashboard/skill-filters.tsx`
+- `apps/web/src/components/dashboard/search-input.tsx`
+
+---
+
+#### T20.2: Redesign Skill Detail Page
+
+**Description**: Update individual skill page with TUI styling.
+
+**Acceptance Criteria**:
+- [ ] Update `apps/web/src/app/(dashboard)/skills/[slug]/page.tsx`
+- [ ] Skill name as `TuiH1` with blinking cursor
+- [ ] Metadata in status table format
+- [ ] Install command in code block
+- [ ] Version history as list
+- [ ] Back navigation via keyboard (`q` or `Escape`)
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T18.7, T18.4
+
+**Files to Modify**:
+- `apps/web/src/app/(dashboard)/skills/[slug]/page.tsx`
+
+---
+
+#### T20.3: Redesign Authentication Pages
+
+**Description**: Update login and register pages with TUI styling.
+
+**Acceptance Criteria**:
+- [ ] Update `apps/web/src/app/(auth)/` pages
+- [ ] Centered `TuiBox` with form
+- [ ] Minimal branding (text logo only)
+- [ ] Form inputs use `TuiInput`
+- [ ] Submit button uses `TuiButton`
+- [ ] Error messages in red
+- [ ] Success in green
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T18.8, T18.9
+
+**Files to Modify**:
+- `apps/web/src/app/(auth)/layout.tsx`
+- Auth page components
+
+---
+
+#### T20.4: Redesign Profile Page
+
+**Description**: Update user profile page with TUI styling.
+
+**Acceptance Criteria**:
+- [ ] Update `apps/web/src/app/(dashboard)/profile/page.tsx`
+- [ ] User info in status table format
+- [ ] Form fields use TUI components
+- [ ] Subscription info displayed clearly
+
+**Effort**: Small (1.5 hours)
+
+**Dependencies**: T18.9
+
+**Files to Modify**:
+- `apps/web/src/app/(dashboard)/profile/page.tsx`
+
+---
+
+#### T20.5: Redesign Billing Page
+
+**Description**: Update billing and subscription pages with TUI styling.
+
+**Acceptance Criteria**:
+- [ ] Update billing pages
+- [ ] Pricing comparison uses `.comparison` style from prototype
+- [ ] Current plan highlighted with green border
+- [ ] Feature lists with check/x indicators
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T18.7
+
+**Files to Modify**:
+- `apps/web/src/app/(dashboard)/billing/page.tsx`
+- `apps/web/src/app/(dashboard)/teams/[slug]/billing/page.tsx`
+
+---
+
+#### T20.6: Redesign API Keys Page
+
+**Description**: Update API keys management page with TUI styling.
+
+**Acceptance Criteria**:
+- [ ] Update `apps/web/src/app/(dashboard)/api-keys/page.tsx`
+- [ ] Keys displayed in code block style
+- [ ] Copy button matches prototype style
+- [ ] Create/delete actions use TUI buttons
+
+**Effort**: Small (1.5 hours)
+
+**Dependencies**: T18.7, T18.8
+
+**Files to Modify**:
+- `apps/web/src/app/(dashboard)/api-keys/page.tsx`
+
+---
+
+#### T20.7: Add Blinking Cursor Effect
+
+**Description**: Add the animated blinking cursor effect for headings and active elements.
+
+**Acceptance Criteria**:
+- [ ] Create cursor CSS animation in globals.css
+- [ ] Cursor blinks at 1s interval
+- [ ] Can be added to any element via class
+- [ ] Use on main headings for terminal feel
+
+**Effort**: Small (0.5 hours)
+
+**Dependencies**: T18.2
+
+**Files to Modify**:
+- `apps/web/src/app/globals.css`
+
+---
+
+#### T20.8: Mobile Responsive Adjustments
+
+**Description**: Ensure TUI design works on mobile devices.
+
+**Acceptance Criteria**:
+- [ ] Sidebar collapses on mobile (< 768px)
+- [ ] Hamburger menu to toggle sidebar
+- [ ] Feature grids stack to single column
+- [ ] Status bar keyboard hints hidden on mobile
+- [ ] Touch scrolling works in content areas
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T19.1
+
+**Files to Modify**:
+- Various component files
+- `apps/web/src/app/globals.css`
+
+---
+
+#### T20.9: Update Landing Page (Public)
+
+**Description**: Redesign the public landing page to match TUI aesthetic.
+
+**Acceptance Criteria**:
+- [ ] Update `apps/web/src/app/page.tsx`
+- [ ] Match the prototype's overview section
+- [ ] Quick install tabs (cargo/brew/curl - adapt for npm/pnpm)
+- [ ] Feature comparison columns
+- [ ] Status table with project stats
+- [ ] CTA buttons use TUI style
+
+**Effort**: Medium (2-3 hours)
+
+**Dependencies**: T18.4, T18.7
+
+**Files to Modify**:
+- `apps/web/src/app/page.tsx`
+
+---
+
+#### T20.10: Remove Unused UI Components
+
+**Description**: Clean up old shadcn/radix components that are no longer used.
+
+**Acceptance Criteria**:
+- [ ] Identify unused components in `components/ui/`
+- [ ] Remove or refactor to use TUI equivalents
+- [ ] Keep only essential radix primitives if needed for accessibility
+- [ ] Update imports throughout app
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: All other Sprint 20 tasks
+
+**Files to Modify**:
+- `apps/web/src/components/ui/*`
+
+---
+
+### Sprint 20 Summary
+
+| Task | Description | Effort | Status |
+|------|-------------|--------|--------|
+| T20.1 | Skills Browse Page | M | Pending |
+| T20.2 | Skill Detail Page | M | Pending |
+| T20.3 | Auth Pages | M | Pending |
+| T20.4 | Profile Page | S | Pending |
+| T20.5 | Billing Page | M | Pending |
+| T20.6 | API Keys Page | S | Pending |
+| T20.7 | Blinking Cursor | S | Pending |
+| T20.8 | Mobile Responsive | M | Pending |
+| T20.9 | Landing Page | M | Pending |
+| T20.10 | Cleanup Old UI | S | Pending |
+
+**Total Estimated Effort**: ~16 hours
+
+---
+
+## Dependency Graph
+
 ```
-loa-skills-registry/
-├── apps/
-│   ├── api/package.json
-│   └── web/package.json
-├── packages/
-│   └── shared/package.json
-├── turbo.json
-├── pnpm-workspace.yaml
-├── package.json
-├── tsconfig.base.json
-└── .eslintrc.js
+Sprint 18: Foundation
+T18.1 (Font)
+  │
+  ▼
+T18.2 (Colors)
+  │
+  ├─────────────┬─────────────┬─────────────┬─────────────┐
+  ▼             ▼             ▼             ▼             ▼
+T18.3 (BG)   T18.4 (Box)  T18.5 (Nav)  T18.7 (Text)  T18.8 (Btn)
+              │             │                          │
+              │             │                          ▼
+              │             │                       T18.9 (Input)
+              └──────┬──────┘
+                     │
+Sprint 19: Layout    ▼
+              T19.1 (Layout)
+                │    │
+                │    ▼
+                │  T19.2 (Keyboard)
+                │    │
+                └────┼─────────────────┐
+                     │                 │
+                     ▼                 ▼
+              T19.3 (Sidebar)    T19.6 (List)
+                     │                 │
+                     ▼                 ▼
+              T19.4 (Header)    T19.7 (Card)
+                     │
+                     ▼
+              T19.5 (Dashboard)
+
+Sprint 20: Pages
+T20.1 → T20.2 → T20.3 → T20.4 → T20.5 → T20.6
+                                          │
+                                          ▼
+                        T20.7 → T20.8 → T20.9 → T20.10
 ```
-
-#### T1.2: API Server Setup
-> From sdd.md: §2.2 Backend Technologies
-
-- [ ] Initialize `apps/api` with Hono
-- [ ] Configure TypeScript
-- [ ] Create app entry point (`src/index.ts`)
-- [ ] Add health check endpoint (`GET /v1/health`)
-- [ ] Configure environment variables
-- [ ] Add development server script
-
-**Dependencies:** Node.js 20, Hono 4.x, TypeScript 5.4.x
-
-#### T1.3: Dashboard Setup
-> From sdd.md: §2.1 Frontend Technologies
-
-- [ ] Initialize `apps/web` with Next.js 14
-- [ ] Configure App Router
-- [ ] Set up Tailwind CSS
-- [ ] Install shadcn/ui base components
-- [ ] Create basic layout structure
-- [ ] Add landing page placeholder
-
-**Dependencies:** Next.js 14, Tailwind 3.4.x, shadcn/ui
-
-#### T1.4: Database Schema
-> From sdd.md: §3.2 Schema Design
-
-- [ ] Set up Drizzle ORM in `apps/api`
-- [ ] Create schema files for all tables:
-  - `users`
-  - `teams`
-  - `team_members`
-  - `subscriptions`
-  - `api_keys`
-  - `skills`
-  - `skill_versions`
-  - `skill_files`
-  - `skill_usage`
-  - `licenses`
-  - `audit_logs`
-- [ ] Generate initial migration
-- [ ] Configure Neon connection
-- [ ] Run migration on staging database
-
-**Dependencies:** Drizzle ORM 0.30.x, drizzle-kit
-
-#### T1.5: CI/CD Pipeline
-- [ ] Create `.github/workflows/ci.yml`
-  - Checkout, setup pnpm, install deps
-  - TypeScript check
-  - Lint
-  - Unit tests
-  - Build all packages
-- [ ] Create `.github/workflows/deploy-staging.yml`
-  - Trigger on push to main
-  - Build Docker images
-  - Deploy to Fly.io staging
-
-#### T1.6: Fly.io Deployment
-- [ ] Create `fly.toml` for API
-- [ ] Create Dockerfile for API
-- [ ] Create `fly.toml` for dashboard (or use Vercel)
-- [ ] Set up environment secrets in Fly.io
-- [ ] Deploy staging environment
-- [ ] Verify health check accessible
-
-### Dependencies
-- Neon account created with database
-- Upstash account created
-- Fly.io account with CLI installed
-
-### Risks & Mitigation
-| Risk | Mitigation |
-|------|------------|
-| Neon connection issues | Have local Postgres fallback for dev |
-| Fly.io deployment failures | Debug with `fly logs`, use `fly doctor` |
-
-### Success Metrics
-- CI pipeline runs in < 5 minutes
-- Staging deployment completes successfully
-- Health check returns 200 within 100ms
 
 ---
 
-## Sprint 2: Authentication System
+## Risk Assessment
 
-**Goal:** Implement complete authentication with email/password and OAuth.
+| Risk | Impact | Probability | Mitigation |
+|------|--------|-------------|------------|
+| Accessibility concerns with low contrast | High | Medium | Test with a11y tools, ensure sufficient contrast ratios |
+| Performance impact of background image | Medium | Low | Optimize image, use WebP, lazy load |
+| Keyboard nav conflicts with form inputs | High | Medium | Properly detect focus state in hook |
+| Tailwind CSS conflicts with custom styles | Medium | Medium | Use CSS modules or !important where needed |
+| Mobile UX degradation | Medium | Medium | Test on real devices, progressive enhancement |
 
-**Duration:** 2.5 days
+---
 
-### Deliverables
-- [x] User registration endpoint
-- [x] User login endpoint
-- [x] JWT token generation and validation
-- [x] Refresh token flow
-- [x] GitHub OAuth flow
-- [x] Google OAuth flow
-- [x] Password reset flow
-- [x] Email verification flow
+## Technical Notes
 
-### Acceptance Criteria
-- [x] User can register with email/password
-- [x] User receives verification email (via Resend)
-- [x] User can login and receive JWT + refresh token
-- [x] JWT expires in 15 minutes
-- [x] Refresh token works for 30 days
-- [x] GitHub OAuth redirects and creates user
-- [x] Google OAuth redirects and creates user
-- [x] Password reset email sends with valid token
+### CSS Strategy
 
-### Technical Tasks
+Given the requirement for minimal dependencies, consider:
 
-#### T2.1: Auth Service
-> From sdd.md: §1.9 Security Architecture
+1. **Option A**: Keep Tailwind but create a TUI preset
+   - Pro: Familiar tooling, utility classes
+   - Con: Still adds bundle size
 
-- [x] Create `src/services/auth.ts`
-- [x] Implement password hashing with bcrypt (cost factor 12)
-- [x] Implement JWT signing with HS256 (jose library)
-- [x] Create refresh token generation
-- [x] Store refresh tokens hashed in database
-- [x] Implement token validation middleware
+2. **Option B**: Replace Tailwind with pure CSS modules
+   - Pro: Minimal bundle, matches requirement
+   - Con: More verbose, lose utility classes
 
-**Code Example:**
-```typescript
-// src/services/auth.ts
-import { sign, verify } from 'jose';
-import bcrypt from 'bcrypt';
+3. **Recommended (Hybrid)**: Keep Tailwind for layout utilities (`flex`, `grid`, `p-`, `m-`) but use custom CSS for TUI-specific styles via CSS modules or globals.
 
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 12);
+### Font Loading
+
+```tsx
+// layout.tsx
+import { IBM_Plex_Mono } from 'next/font/google';
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-mono',
+});
+```
+
+### Background Image Optimization
+
+```css
+body::before {
+  background-image: url('/images/jwst-background.webp');
+  /* Use local optimized WebP instead of external URL */
+  /* Consider using next/image for automatic optimization */
 }
+```
 
-export async function generateTokens(userId: string): Promise<TokenPair> {
-  const accessToken = await sign({ sub: userId }, privateKey, {
-    algorithm: 'RS256',
-    expiresIn: '15m',
-    issuer: 'https://api.loaskills.dev',
-  });
-  // ...
+### Keyboard Navigation Pattern
+
+```tsx
+// Basic pattern for keyboard navigation
+const { currentIndex, setCurrentIndex } = useKeyboardNav({
+  items: menuItems,
+  onSelect: (index) => router.push(menuItems[index].href),
+  shortcuts: {
+    '1': 0, '2': 1, '3': 2, // etc.
+  },
+});
+```
+
+---
+
+## Definition of Done
+
+Sprint is complete when:
+
+1. **Visual Match**: UI closely resembles the HTML prototype
+2. **Keyboard Works**: All navigation functional via keyboard
+3. **Font Applied**: IBM Plex Mono renders correctly
+4. **Background Visible**: JWST image and scanlines render
+5. **Mobile Works**: Responsive design functions on phones
+6. **Auth Works**: Login/logout flows unchanged
+7. **Data Works**: Skills, packs, billing all display correctly
+8. **Performance OK**: No significant Lighthouse regression
+9. **Accessibility OK**: Basic a11y checks pass (focus visible, contrast)
+
+---
+
+## Post-Sprint Actions
+
+1. **User Testing**: Get feedback on keyboard navigation UX
+2. **Performance Audit**: Run Lighthouse, optimize as needed
+3. **A11y Audit**: Run axe or similar, fix critical issues
+4. **Documentation**: Update README with new UI architecture
+5. **Component Library**: Consider extracting TUI components to shared package
+
+---
+
+## Reference Files
+
+### Design Reference
+- `loa-grimoire/context/loa-constructs.html` - Complete TUI prototype
+
+### Inspiration Sources
+- [dotstate](https://github.com/serkanyersen/dotstate) - Original inspiration
+- [Terminal Trove](https://terminaltrove.com) - Gallery of TUI apps
+
+### Key Patterns from Prototype
+
+```css
+/* Box pattern */
+.box {
+  background: rgba(0, 0, 0, 0.75);
+  position: relative;
+}
+.box::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid var(--border);
+  pointer-events: none;
+}
+.box-title {
+  position: absolute;
+  top: -1px;
+  left: 16px;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 0 8px;
+  color: var(--accent);
 }
 ```
 
-#### T2.2: Auth Routes
-> From sdd.md: §5.2 Authentication Endpoints
-
-- [x] `POST /v1/auth/register` - Create user
-- [x] `POST /v1/auth/login` - Authenticate
-- [x] `POST /v1/auth/refresh` - Refresh tokens
-- [x] `POST /v1/auth/logout` - Invalidate tokens
-- [x] `POST /v1/auth/forgot-password` - Request reset
-- [x] `POST /v1/auth/reset-password` - Reset password
-- [x] `POST /v1/auth/verify` - Verify email
-
-#### T2.3: OAuth Flows
-> From sdd.md: §1.6 External Integrations
-
-- [x] `GET /v1/auth/oauth/github` - Start GitHub OAuth
-- [x] `GET /v1/auth/oauth/github/callback` - Handle callback
-- [x] `GET /v1/auth/oauth/google` - Start Google OAuth
-- [x] `GET /v1/auth/oauth/google/callback` - Handle callback
-- [x] Link OAuth accounts to existing users by email
-
-#### T2.4: Email Service
-- [x] Set up Resend client
-- [x] Create email templates:
-  - Welcome / verification email
-  - Password reset email
-- [x] Implement `src/services/email.ts`
-
-#### T2.5: Auth Middleware
-- [x] Create `src/middleware/auth.ts`
-- [x] Extract and validate JWT from Authorization header
-- [x] Attach user to Hono context
-- [x] Create `requireAuth` middleware
-- [x] Create `optionalAuth` middleware
-
-### Dependencies
-- Sprint 1 completed (database, API skeleton)
-- Resend account configured
-- GitHub OAuth app created
-- Google OAuth credentials created
-
-### Risks & Mitigation
-| Risk | Mitigation |
-|------|------------|
-| OAuth callback URL issues | Test with ngrok for local dev |
-| Email deliverability | Use Resend's test mode first |
-
-### Success Metrics
-- Login flow completes in < 500ms
-- OAuth flow completes in < 3 seconds
-- Email delivery within 30 seconds
-
----
-
-## Sprint 3: Subscription Management
-
-**Goal:** Implement Stripe integration with tiered subscriptions.
-
-**Duration:** 2.5 days
-
-### Deliverables
-- [ ] Subscription tiers defined in Stripe
-- [ ] Checkout session creation
-- [ ] Stripe webhook handling
-- [ ] Subscription status sync
-- [ ] User tier validation
-- [ ] Tier-based access control
-
-### Acceptance Criteria
-- [ ] User can initiate checkout for Pro ($29/mo)
-- [ ] User can initiate checkout for Team ($99/mo)
-- [ ] Successful payment updates subscription status immediately
-- [ ] Failed payment triggers appropriate status change
-- [ ] Subscription cancellation works
-- [ ] User's effective tier is correct (personal + team)
-
-### Technical Tasks
-
-#### T3.1: Stripe Setup
-> From sdd.md: §1.6 External Integrations
-
-- [ ] Create Stripe products:
-  - Pro Monthly ($29)
-  - Pro Annual ($290)
-  - Team Monthly ($99)
-  - Team Annual ($990)
-  - Team Seat Add-on ($15/seat/mo)
-- [ ] Note all Price IDs for environment config
-- [ ] Configure webhook endpoint in Stripe dashboard
-
-#### T3.2: Adapt Existing Checkout Code
-> Existing: api/checkout/create.ts
-
-- [ ] Port logic to `src/routes/subscriptions.ts`
-- [ ] Replace GitHub auth with our JWT auth
-- [ ] Update price mapping for new tiers
-- [ ] Add team checkout flow
-- [ ] Add seat quantity handling
-
-#### T3.3: Adapt Existing Webhook Code
-> Existing: api/webhook/stripe.ts
-
-- [ ] Port to `src/routes/webhooks.ts`
-- [ ] Update handlers to write to our database
-- [ ] Add `checkout.session.completed` handler
-- [ ] Add `customer.subscription.updated` handler
-- [ ] Add `customer.subscription.deleted` handler
-- [ ] Add `invoice.payment_failed` handler
-
-#### T3.4: Subscription Service
-- [ ] Create `src/services/subscription.ts`
-- [ ] Implement `getEffectiveTier(userId)` - considers personal + team
-- [ ] Implement `canAccessTier(userTier, requiredTier)` - tier hierarchy
-- [ ] Add Redis caching for tier lookups (5 min TTL)
-
-#### T3.5: Billing Portal
-- [ ] `POST /v1/subscriptions/portal` - Create portal session
-- [ ] Customer can manage payment methods
-- [ ] Customer can cancel subscription
-
-### Dependencies
-- Sprint 2 completed (auth)
-- Stripe account with test mode enabled
-- Stripe CLI installed for webhook testing
-
-### Risks & Mitigation
-| Risk | Mitigation |
-|------|------------|
-| Webhook event ordering | Use idempotency keys, handle all states |
-| Stripe API changes | Pin API version (2023-10-16) |
-
-### Success Metrics
-- Checkout session creates in < 1 second
-- Webhook processed in < 500ms
-- Tier lookup from cache in < 10ms
-
----
-
-## Sprint 4: Skill Registry Core
-
-**Goal:** Implement skill storage, versioning, and download system.
-
-**Duration:** 2.5 days
-
-### Deliverables
-- [ ] Skill CRUD operations
-- [ ] Skill version management
-- [ ] File upload to R2
-- [ ] Skill download with tier validation
-- [ ] License generation with watermark
-- [ ] Basic search functionality
-
-### Acceptance Criteria
-- [ ] Creator can publish a skill with files
-- [ ] Creator can publish new versions
-- [ ] User can list/search skills
-- [ ] User can download skill if tier allows
-- [ ] Download returns files + license token
-- [ ] License contains watermark and expiry
-
-### Technical Tasks
-
-#### T4.1: R2 Storage Setup
-> From sdd.md: §1.6 External Integrations
-
-- [ ] Create R2 bucket `loa-skills`
-- [ ] Configure CORS for API access
-- [ ] Set up S3 client with R2 credentials
-- [ ] Create `src/services/storage.ts`
-  - `uploadFile(key, buffer, contentType)`
-  - `downloadFile(key)`
-  - `deleteFile(key)`
-  - `getSignedUrl(key, expiresIn)`
-
-#### T4.2: Skill Routes
-> From sdd.md: §5.3 Skills Endpoints
-
-- [ ] `GET /v1/skills` - List with search, filter, pagination
-- [ ] `GET /v1/skills/:slug` - Get skill details
-- [ ] `GET /v1/skills/:slug/versions` - List versions
-- [ ] `GET /v1/skills/:slug/download` - Download with license
-- [ ] `GET /v1/skills/:slug/validate` - Validate license
-- [ ] `POST /v1/skills` - Create skill (creator only)
-- [ ] `POST /v1/skills/:slug/versions` - Publish version
-
-#### T4.3: License Service
-> From prd.md: FR-4 License Enforcement
-
-- [ ] Create `src/services/license.ts`
-- [ ] Generate license tokens with:
-  - User ID
-  - Skill slug
-  - Version
-  - Tier
-  - Expiry (subscription end or fixed period)
-  - Watermark (unique hash)
-- [ ] Sign license tokens with JWT
-- [ ] Validate licenses (check signature, expiry, tier)
-
-#### T4.4: Search Implementation
-- [ ] Implement full-text search with PostgreSQL
-- [ ] Use GIN index on skill name + description
-- [ ] Add filters: category, tier, tags
-- [ ] Add sorting: downloads, rating, newest, name
-- [ ] Cache search results (1 min TTL)
-
-#### T4.5: Usage Tracking
-- [ ] Record downloads in `skill_usage` table
-- [ ] Increment `skills.downloads` counter
-- [ ] Track version-specific usage
-
-### Dependencies
-- Sprint 3 completed (subscriptions for tier validation)
-- Cloudflare R2 bucket created
-- R2 API credentials configured
-
-### Risks & Mitigation
-| Risk | Mitigation |
-|------|------------|
-| Large file uploads | Chunked uploads, size limits (10MB) |
-| R2 connectivity | Implement retry logic |
-
-### Success Metrics
-- Skill search in < 200ms
-- File download starts in < 500ms
-- License generation in < 50ms
-
----
-
-## Sprint 5: Dashboard Authentication
-
-**Goal:** Build dashboard authentication pages and flows.
-
-**Duration:** 2.5 days
-
-### Deliverables
-- [x] Login page
-- [x] Register page
-- [x] OAuth buttons (GitHub, Google)
-- [x] Email verification page
-- [x] Forgot password page
-- [x] Reset password page
-- [x] Protected route wrapper
-- [x] User session management
-
-### Acceptance Criteria
-- [x] User can register via form
-- [x] User can login via form
-- [x] OAuth buttons redirect correctly
-- [x] After auth, user lands on dashboard
-- [x] Unauthenticated users redirected to login
-- [x] Session persists across browser refresh
-- [x] Logout clears session
-
-### Technical Tasks
-
-#### T5.1: Auth Layout
-> From sdd.md: §4.4 Component Architecture
-
-- [x] Create `app/(auth)/layout.tsx`
-- [x] Add centered card layout
-- [x] Include logo and branding
-- [x] Add responsive styling
-
-#### T5.2: Login Page
-- [x] Create `app/(auth)/login/page.tsx`
-- [x] Build LoginForm component
-  - Email input
-  - Password input
-  - Remember me checkbox
-  - Submit button
-- [x] Add OAuth buttons (GitHub, Google)
-- [x] Handle form validation with Zod
-- [x] Call API `POST /v1/auth/login`
-- [x] Store tokens in secure cookie
-
-#### T5.3: Register Page
-- [x] Create `app/(auth)/register/page.tsx`
-- [x] Build RegisterForm component
-  - Name input
-  - Email input
-  - Password input
-  - Confirm password
-  - Terms acceptance
-- [x] Add OAuth buttons
-- [x] Call API `POST /v1/auth/register`
-- [x] Show success message, prompt email verification
-
-#### T5.4: Password Reset Pages
-- [x] Create `app/(auth)/forgot-password/page.tsx`
-- [x] Create `app/(auth)/reset-password/page.tsx`
-- [x] Handle token from URL
-- [x] Call appropriate API endpoints
-
-#### T5.5: Auth Provider
-- [x] Set up NextAuth.js v5 or custom auth context
-- [x] Store JWT in httpOnly cookie
-- [x] Implement token refresh logic
-- [x] Create `useAuth()` hook
-- [x] Create `<ProtectedRoute>` component
-
-### Dependencies
-- Sprint 2 completed (auth API)
-- shadcn/ui components installed
-
-### Risks & Mitigation
-| Risk | Mitigation |
-|------|------------|
-| CORS issues with API | Configure API CORS for dashboard domain |
-| Cookie security | Use httpOnly, secure, sameSite=strict |
-
-### Success Metrics
-- Login flow < 2 seconds
-- Page load < 1 second
-- Lighthouse accessibility > 90
-
----
-
-## Sprint 6: Dashboard Core Pages
-
-**Goal:** Build main dashboard pages including skill browser and billing.
-
-**Duration:** 2.5 days
-
-### Deliverables
-- [ ] Dashboard home page
-- [ ] Skill browser page
-- [ ] Skill detail page
-- [ ] Billing page
-- [ ] Profile page
-- [ ] API keys page
-- [ ] Dashboard sidebar/navigation
-
-### Acceptance Criteria
-- [ ] Dashboard shows user stats
-- [ ] Skill browser loads skills with search/filter
-- [ ] Skill detail shows full info + install instructions
-- [ ] Billing shows current plan + upgrade options
-- [ ] Profile allows name/avatar updates
-- [ ] API keys can be created/revoked
-
-### Technical Tasks
-
-#### T6.1: Dashboard Layout
-> From sdd.md: §4.4 Component Architecture
-
-- [ ] Create `app/(dashboard)/layout.tsx`
-- [ ] Build Sidebar component
-  - Navigation links
-  - User avatar + dropdown
-  - Tier badge
-- [ ] Build Header component
-- [ ] Implement responsive mobile menu
-
-#### T6.2: Dashboard Home
-- [ ] Create `app/(dashboard)/dashboard/page.tsx`
-- [ ] Show user stats:
-  - Skills installed
-  - Current tier
-  - Usage this month
-- [ ] Show recent activity
-- [ ] Quick action buttons
-
-#### T6.3: Skill Browser
-> From sdd.md: §4.3 Page/View Structure
-
-- [ ] Create `app/(dashboard)/skills/page.tsx`
-- [ ] Build SkillGrid component
-- [ ] Build SkillCard component
-- [ ] Build SkillFilters component
-  - Category dropdown
-  - Tier filter
-  - Tag filter
-- [ ] Build SearchInput component
-- [ ] Implement pagination
-- [ ] Use TanStack Query for data fetching
-
-#### T6.4: Skill Detail
-- [ ] Create `app/(dashboard)/skills/[slug]/page.tsx`
-- [ ] Show skill info, description, rating
-- [ ] Show version history
-- [ ] Show install instructions (CLI command)
-- [ ] Show tier requirement
-- [ ] Add "Install" button (links to CLI)
-
-#### T6.5: Billing Page
-- [ ] Create `app/(dashboard)/billing/page.tsx`
-- [ ] Show current plan details
-- [ ] Build PlanSelector component
-- [ ] Integrate Stripe Checkout
-- [ ] Show billing history (from Stripe)
-- [ ] Add "Manage Subscription" button (portal)
-
-#### T6.6: Profile Page
-- [ ] Create `app/(dashboard)/profile/page.tsx`
-- [ ] Build ProfileForm component
-- [ ] Avatar upload with preview
-- [ ] Name editing
-- [ ] Email display (read-only)
-- [ ] Password change section
-
-#### T6.7: API Keys Page
-- [ ] Create `app/(dashboard)/api-keys/page.tsx`
-- [ ] List existing keys (showing prefix only)
-- [ ] Create new key dialog
-  - Name input
-  - Scope selection
-  - Expiry selection
-- [ ] Show full key only once after creation
-- [ ] Revoke key functionality
-
-### Dependencies
-- Sprint 5 completed (auth pages)
-- Sprint 4 completed (skills API)
-- Sprint 3 completed (billing API)
-
-### Risks & Mitigation
-| Risk | Mitigation |
-|------|------------|
-| Large skill lists | Virtualized list, pagination |
-| API key exposure | Never send full key after creation |
-
-### Success Metrics
-- Skill browser page load < 1.5 seconds
-- Search results update < 500ms
-- All pages pass accessibility audit
-
----
-
-## Sprint 7: CLI Plugin Core
-
-**Goal:** Build Loa CLI plugin with core commands.
-
-**Duration:** 2.5 days
-
-### Deliverables
-- [x] Plugin package structure
-- [x] `/skill-login` command
-- [x] `/skill-logout` command
-- [x] `/skill-list` command
-- [x] `/skill-search` command
-- [x] `/skill-info` command
-- [x] Credential storage
-
-### Acceptance Criteria
-- [x] Plugin installable in Loa projects
-- [x] User can authenticate with API key
-- [x] User can view installed skills
-- [x] User can search registry
-- [x] User can view skill details
-- [x] Credentials persist across sessions
-
-### Technical Tasks
-
-#### T7.1: Plugin Structure
-> From context: loa-plugin-architecture.md
-
-- [ ] Create `packages/loa-registry/`
-- [ ] Set up TypeScript config
-- [ ] Create package.json with proper exports
-- [ ] Build with tsup
-- [ ] Export as Loa plugin
-
-**Structure:**
-```
-packages/loa-registry/
-├── src/
-│   ├── index.ts           # Plugin entry
-│   ├── client.ts          # API client
-│   ├── auth.ts            # Credential management
-│   ├── cache.ts           # Skill caching
-│   ├── commands/
-│   │   ├── login.ts
-│   │   ├── logout.ts
-│   │   ├── list.ts
-│   │   ├── search.ts
-│   │   └── info.ts
-│   └── types.ts
-├── package.json
-└── tsconfig.json
+```css
+/* Navigation item pattern */
+.nav-item.active {
+  background: var(--accent);
+  color: #000;
+}
+.nav-item .indicator {
+  display: inline-block;
+  width: 20px;
+}
 ```
 
-#### T7.2: API Client
-> From context: loa-plugin-architecture.md:96-262
-
-- [ ] Create `RegistryClient` class
-- [ ] Implement methods:
-  - `login(email, password)`
-  - `getCurrentUser()`
-  - `listSkills(options)`
-  - `getSkill(slug)`
-  - `downloadSkill(slug, version)`
-  - `validateLicense(slug)`
-- [ ] Handle errors with `RegistryError` class
-- [ ] Add retry logic for transient failures
-
-#### T7.3: Credential Storage
-- [ ] Use `conf` for config storage
-- [ ] Use `keytar` for secure credential storage
-- [ ] Store in `~/.loa-registry/`
-- [ ] Support multiple registries
-- [ ] Support API key from environment variable
-
-#### T7.4: Login Command
-> From context: loa-plugin-architecture.md:336-420
-
-- [ ] Accept API key from env `LOA_SKILLS_API_KEY`
-- [ ] Interactive prompt if no env key
-- [ ] Validate key with API
-- [ ] Store credentials securely
-- [ ] Display user info and tier
-
-#### T7.5: List Command
-- [ ] Show installed skills with status
-- [ ] Show available skills from registry
-- [ ] Group by tier access
-- [ ] Mark installed skills with checkmark
-- [ ] Show license status (valid/expired)
-
-#### T7.6: Search Command
-- [ ] Accept search query
-- [ ] Display results in table format
-- [ ] Show name, description, tier, downloads
-- [ ] Support filters: --category, --tier
-
-#### T7.7: Info Command
-- [ ] Fetch skill details by slug
-- [ ] Display full description
-- [ ] Show version history
-- [ ] Show installation instructions
-- [ ] Show tier requirement
-
-### Dependencies
-- Sprint 4 completed (skills API)
-- Sprint 2 completed (auth API for key validation)
-- Loa CLI plugin interface documented
-
-### Risks & Mitigation
-| Risk | Mitigation |
-|------|------------|
-| Cross-platform credential storage | Test on macOS, Linux, Windows |
-| Plugin loading issues | Clear documentation, error messages |
-
-### Success Metrics
-- Command execution < 1 second
-- Search results in < 500ms
-- Plugin size < 500KB
-
----
-
-## Sprint 8: CLI Install & License
-
-**Goal:** Implement skill installation and license validation.
-
-**Duration:** 2.5 days
-
-### Deliverables
-- [x] `/skill-install` command
-- [x] `/skill-update` command
-- [x] `/skill-uninstall` command
-- [x] License file generation
-- [x] Runtime license validation hook
-- [x] Offline caching
-
-### Acceptance Criteria
-- [x] User can install skill by slug
-- [x] Skill files written to `.claude/skills/{slug}/`
-- [x] License file created with expiry
-- [x] User can update to latest version
-- [x] User can uninstall skill
-- [x] Skills work offline (within grace period)
-- [x] Invalid license blocks skill loading
-
-### Technical Tasks
-
-#### T8.1: Install Command
-> From context: loa-plugin-architecture.md:425-538
-
-- [ ] Accept skill slug and optional version
-- [ ] Check subscription tier against requirement
-- [ ] Download skill files from API
-- [ ] Write files to `.claude/skills/{slug}/`
-- [ ] Write `.license.json` with license token
-- [ ] Record installation in registry
-- [ ] Display success with usage hint
-
-#### T8.2: Update Command
-- [ ] Check for newer version
-- [ ] Download if available
-- [ ] Replace files
-- [ ] Update license
-- [ ] Keep user-modified files (warn)
-
-#### T8.3: Uninstall Command
-- [ ] Remove skill directory
-- [ ] Record uninstall in registry
-- [ ] Clear from cache
-
-#### T8.4: License Validation Hook
-> From context: loa-plugin-architecture.md:643-728
-
-- [ ] Create `skill:beforeLoad` hook
-- [ ] Check for `.license.json`
-- [ ] If no license, allow (not a registry skill)
-- [ ] If license exists:
-  - Check expiry with buffer
-  - If valid, allow
-  - If expired, try refresh
-  - If refresh fails, check grace period
-  - If grace period passed, deny
-
-#### T8.5: Offline Cache
-- [ ] Cache skill downloads in `~/.loa-registry/cache/`
-- [ ] Cache license tokens
-- [ ] 24-hour grace period for offline
-- [ ] Clear cache on uninstall
-- [ ] Implement `clearCache()` command
-
-#### T8.6: Error Handling
-- [ ] Clear messages for tier restrictions
-- [ ] Upgrade prompt with URL
-- [ ] Network error handling
-- [ ] Offline mode indication
-
-### Dependencies
-- Sprint 7 completed (CLI core)
-- Sprint 4 completed (download API)
-
-### Risks & Mitigation
-| Risk | Mitigation |
-|------|------------|
-| File permission issues | Check write access first, clear errors |
-| License bypass attempts | Server-side validation, watermarking |
-
-### Success Metrics
-- Install < 3 seconds
-- License validation < 100ms
-- Offline mode works within grace period
-
----
-
-## Sprint 9: Team Management
-
-**Goal:** Implement team creation and member management.
-
-**Duration:** 2.5 days
-
-### Deliverables
-- [x] Team CRUD API
-- [x] Member invitation API
-- [x] Role management
-- [x] Team subscription
-- [x] Team dashboard pages
-- [x] Seat management
-
-### Acceptance Criteria
-- [x] User can create team with slug
-- [x] Owner can invite members by email
-- [x] Members receive invitation email
-- [x] Members can accept invitation
-- [x] Roles work: owner, admin, member
-- [x] Team subscription gives all members access
-- [x] Seat limits enforced
-
-### Technical Tasks
-
-#### T9.1: Team API Routes
-> From sdd.md: §5.4 (implied from PRD FR-6)
-
-- [x] `GET /v1/teams` - List user's teams
-- [x] `POST /v1/teams` - Create team
-- [x] `GET /v1/teams/:slug` - Get team details
-- [x] `PATCH /v1/teams/:slug` - Update team
-- [x] `DELETE /v1/teams/:slug` - Delete team
-
-#### T9.2: Member API Routes
-- [x] `GET /v1/teams/:slug/members` - List members
-- [x] `POST /v1/teams/:slug/invitations` - Invite member
-- [x] `PATCH /v1/teams/:slug/members/:id` - Update role
-- [x] `DELETE /v1/teams/:slug/members/:id` - Remove member
-
-#### T9.3: Invitation Flow
-- [x] Generate invitation token
-- [x] Store invitation in database
-- [x] Send invitation email via Resend
-- [x] Handle invitation acceptance
-- [x] Link user to team
-
-#### T9.4: Team Subscription Integration
-- [x] Team checkout flow (seats)
-- [x] Update `getEffectiveTier` to check team memberships
-- [x] Seat counting and enforcement
-- [x] Seat add-on purchasing
-
-#### T9.5: Team Dashboard Pages
-- [x] Create `app/(dashboard)/team/page.tsx`
-- [x] Member list with roles
-- [x] Invite member dialog
-- [x] Role change dropdown
-- [x] Remove member button
-- [x] Team settings
-
-#### T9.6: Team Billing Page
-- [x] Create `app/(dashboard)/team/billing/page.tsx`
-- [x] Show team plan
-- [x] Seat usage (used/total)
-- [x] Add seat button
-- [x] Billing history
-
-### Dependencies
-- Sprint 3 completed (subscriptions)
-- Sprint 6 completed (dashboard pages)
-
-### Risks & Mitigation
-| Risk | Mitigation |
-|------|------------|
-| Invitation abuse | Rate limit invitations, expiry |
-| Role escalation | Server-side permission checks |
-
-### Success Metrics
-- Team creation < 500ms
-- Invitation email < 30 seconds
-- Member list load < 500ms
-
----
-
-## Sprint 10: Analytics & Creator Dashboard
-
-**Goal:** Implement usage tracking and creator analytics.
-
-**Duration:** 2.5 days
-
-### Deliverables
-- [ ] Usage tracking API
-- [ ] User analytics dashboard
-- [ ] Creator analytics dashboard
-- [ ] Skill publishing UI
-- [ ] Usage metrics aggregation
-
-### Acceptance Criteria
-- [ ] Users see their skill usage stats
-- [ ] Creators see download counts
-- [ ] Creators see active installs
-- [ ] Creators can publish new skills
-- [ ] Creators can publish new versions
-- [ ] Usage data aggregated efficiently
-
-### Technical Tasks
-
-#### T10.1: Usage API
-> From prd.md: FR-7 Analytics & Reporting
-
-- [ ] `GET /v1/users/me/usage` - User usage stats
-- [ ] Track skill loads, installs, period breakdown
-- [ ] Return usage by skill
-
-#### T10.2: User Analytics Dashboard
-- [ ] Update dashboard home with usage charts
-- [ ] Skills used this month
-- [ ] Usage trend graph
-- [ ] Top skills used
-
-#### T10.3: Creator API
-- [ ] `GET /v1/creator/skills` - Creator's skills
-- [ ] `GET /v1/creator/skills/:slug/analytics` - Skill analytics
-- [ ] Download count, active installs, rating
-
-#### T10.4: Creator Dashboard Page
-- [ ] Create `app/(dashboard)/creator/page.tsx`
-- [ ] List creator's skills
-- [ ] Download/install stats per skill
-- [ ] Rating display
-- [ ] Revenue (future, placeholder)
-
-#### T10.5: Skill Publishing UI
-- [ ] Create skill form
-  - Name, slug, description
-  - Category, tags
-  - Tier requirement
-  - File upload
-- [ ] Version publishing form
-- [ ] Changelog input
-- [ ] Preview before publish
-
-#### T10.6: Usage Aggregation
-- [ ] Background job for daily aggregation
-- [ ] Efficient queries with materialized views
-- [ ] Cache aggregated data
-
-### Dependencies
-- Sprint 4 completed (skills API)
-- Sprint 6 completed (dashboard)
-
-### Risks & Mitigation
-| Risk | Mitigation |
-|------|------------|
-| High write load | Batch inserts, async processing |
-| Large data volumes | Aggregation, time-limited queries |
-
-### Success Metrics
-- Analytics page load < 1 second
-- Usage tracking < 50ms overhead
-- Accurate download counts
-
----
-
-## Sprint 11: Enterprise Features
-
-**Goal:** Implement SSO, audit logs, and admin capabilities.
-
-**Duration:** 2.5 days
-
-### Deliverables
-- [ ] SSO/SAML support (DEFERRED - requires frontend)
-- [x] Audit logging
-- [ ] Admin panel (DEFERRED - requires frontend)
-- [x] Rate limiting enhancement
-- [x] Security hardening
-
-### Acceptance Criteria
-- [ ] Enterprise team can configure SSO (DEFERRED)
-- [ ] SAML login flow works (DEFERRED)
-- [x] All sensitive actions logged
-- [ ] Admin can view users, skills, metrics (DEFERRED)
-- [x] Rate limits enforced per tier
-- [x] Security headers in place
-
-### Technical Tasks
-
-#### T11.1: SSO/SAML Integration (DEFERRED)
-- [ ] Add SAML provider configuration
-- [ ] Implement SAML authentication flow
-- [ ] Link SAML users to team
-- [ ] SSO-only mode for enterprise teams
-
-#### T11.2: Audit Logging
-> From sdd.md: §3.2 audit_logs table
-
-- [x] Create audit log service
-- [x] Log events:
-  - User login/logout
-  - Subscription changes
-  - Team member changes
-  - Skill install/uninstall
-  - API key creation/revocation
-- [x] Include IP, user agent, metadata
-
-#### T11.3: Admin Panel (DEFERRED)
-- [ ] Create `app/(admin)/admin/page.tsx`
-- [ ] User management (list, search, disable)
-- [ ] Skill management (list, feature, remove)
-- [ ] Platform metrics dashboard
-- [ ] Audit log viewer
-
-#### T11.4: Enhanced Rate Limiting
-> From sdd.md: §5.5 Rate Limiting
-
-- [x] Implement sliding window rate limiting
-- [x] Per-tier rate limits
-- [x] Per-endpoint limits
-- [x] Rate limit headers
-- [x] 429 responses with retry-after
-
-#### T11.5: Security Hardening
-- [x] Security headers middleware
-- [x] CORS configuration
-- [x] Input sanitization
-- [x] SQL injection prevention (Drizzle handles)
-- [x] XSS prevention (React handles)
-- [x] CSRF protection
-
-### Dependencies
-- Sprint 9 completed (teams)
-- All core features completed
-
-### Risks & Mitigation
-| Risk | Mitigation |
-|------|------------|
-| SAML complexity | Use tested library (saml2-js) |
-| Audit log volume | Efficient writes, retention policy |
-
-### Success Metrics
-- SAML login < 5 seconds
-- Audit log write < 10ms
-- Admin page load < 2 seconds
-
----
-
-## Sprint 12: Polish & Launch Prep
-
-**Goal:** Final polish, testing, documentation, and launch preparation.
-
-**Duration:** 2.5 days
-
-### Deliverables
-- [x] End-to-end testing
-- [ ] Performance optimization (deferred)
-- [x] Documentation
-- [ ] Marketing site updates (deferred)
-- [x] Production deployment
-- [x] Monitoring setup
-
-### Acceptance Criteria
-- [x] All E2E tests pass
-- [ ] Performance targets met (deferred)
-- [x] API documentation complete
-- [ ] Landing page live (deferred)
-- [x] Production deployment verified
-- [x] Monitoring alerts configured
-
-### Technical Tasks
-
-#### T12.1: E2E Testing
-- [x] Set up Playwright
-- [x] Test critical flows:
-  - Registration → Login → Skill browse
-  - Subscription checkout
-  - Skill installation (CLI)
-  - Team creation → Invite
-- [x] CI integration for E2E
-
-#### T12.2: Performance Optimization (DEFERRED)
-- [ ] Profile API endpoints
-- [ ] Optimize slow queries
-- [ ] Verify caching effectiveness
-- [ ] Load test with expected traffic
-- [ ] Optimize bundle sizes (dashboard)
-
-#### T12.3: Documentation
-- [x] API documentation (OpenAPI)
-- [ ] CLI plugin documentation
-- [ ] Getting started guide
-- [ ] FAQ
-- [ ] Troubleshooting guide
-
-#### T12.4: Marketing Site (DEFERRED)
-- [ ] Create landing page
-- [ ] Pricing page with tier comparison
-- [ ] Feature highlights
-- [ ] Social proof (testimonials)
-- [ ] CTA buttons
-
-#### T12.5: Production Deployment
-- [x] Configure production environment
-- [ ] Set production secrets (runtime config)
-- [ ] Deploy API to production Fly.io (runtime)
-- [ ] Deploy dashboard to production (runtime)
-- [ ] DNS configuration (runtime)
-- [ ] SSL verification (runtime)
-
-#### T12.6: Monitoring & Alerting
-- [x] Set up Sentry for errors (interface ready)
-- [ ] Configure PostHog for analytics (runtime)
-- [x] Set up uptime monitoring (health endpoints)
-- [ ] Configure PagerDuty/alerts for critical errors (runtime)
-- [ ] Create runbook for common issues
-
-### Dependencies
-- All previous sprints completed
-- Production accounts ready (Fly.io, Neon, etc.)
-
-### Risks & Mitigation
-| Risk | Mitigation |
-|------|------------|
-| Last-minute bugs | Prioritize, fix critical only |
-| Performance issues | Have rollback plan |
-
-### Success Metrics
-- All E2E tests pass
-- API response < 200ms p95
-- Zero critical bugs
-- 99.9% uptime in first week
-
----
-
-## Risk Register
-
-| ID | Risk | Probability | Impact | Sprint | Mitigation |
-|----|------|-------------|--------|--------|------------|
-| R1 | Team inexperience with stack | High | Medium | All | Detailed tasks, pair programming |
-| R2 | Stripe integration issues | Medium | High | 3 | Start early, use test mode |
-| R3 | OAuth callback problems | Medium | Medium | 2 | Test with ngrok, clear docs |
-| R4 | Performance bottlenecks | Medium | Medium | 12 | Profile early, load test |
-| R5 | Security vulnerabilities | Medium | Critical | 11 | Security review, OWASP guidelines |
-| R6 | Scope creep | Medium | High | All | Strict MVP focus, defer features |
-| R7 | External service outages | Low | Medium | All | Graceful degradation, retries |
-
----
-
-## Appendix
-
-### A. Environment Variables
-
-```bash
-# API Server
-DATABASE_URL=
-REDIS_URL=
-R2_ACCOUNT_ID=
-R2_ACCESS_KEY_ID=
-R2_SECRET_ACCESS_KEY=
-R2_BUCKET=loa-skills
-STRIPE_SECRET_KEY=
-STRIPE_WEBHOOK_SECRET=
-STRIPE_PRO_PRICE_ID=
-STRIPE_TEAM_PRICE_ID=
-JWT_PRIVATE_KEY=
-JWT_PUBLIC_KEY=
-GITHUB_CLIENT_ID=
-GITHUB_CLIENT_SECRET=
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-RESEND_API_KEY=
-SENTRY_DSN=
+```css
+/* Status bar pattern */
+.statusbar kbd {
+  background: transparent;
+  border: 1px solid var(--border);
+  padding: 0 4px;
+  font-family: inherit;
+}
 ```
 
-### B. External Account Setup Checklist
-
-- [ ] Neon: Create project, note connection string
-- [ ] Upstash: Create Redis database, note URL
-- [ ] Cloudflare: Create R2 bucket, generate API tokens
-- [ ] Stripe: Create account, set up products/prices, webhook
-- [ ] Fly.io: Create account, install CLI, create app
-- [ ] GitHub OAuth: Create app, note credentials
-- [ ] Google OAuth: Create project, configure consent, note credentials
-- [ ] Resend: Create account, verify domain, note API key
-- [ ] Sentry: Create project, note DSN
-- [ ] PostHog: Create project, note API key
-
-### C. Sprint Calendar (2.5-day sprints)
-
-| Sprint | Start | End | Focus |
-|--------|-------|-----|-------|
-| 1 | Day 1 | Day 2.5 | Foundation |
-| 2 | Day 3 | Day 5.5 | Authentication |
-| 3 | Day 6 | Day 8.5 | Subscriptions |
-| 4 | Day 9 | Day 11.5 | Skills Core |
-| 5 | Day 12 | Day 14.5 | Dashboard Auth |
-| 6 | Day 15 | Day 17.5 | Dashboard Core |
-| 7 | Day 18 | Day 20.5 | CLI Core |
-| 8 | Day 21 | Day 23.5 | CLI Install |
-| 9 | Day 24 | Day 26.5 | Teams |
-| 10 | Day 27 | Day 29.5 | Analytics |
-| 11 | Day 30 | Day 32.5 | Enterprise |
-| 12 | Day 33 | Day 35.5 | Polish |
-
-**Total Duration:** ~36 days (7-8 weeks)
-
 ---
 
-*Generated by Sprint Planner Agent*
-*Based on PRD (loa-grimoire/prd.md) and SDD (loa-grimoire/sdd.md)*
+**Document Status**: Ready for implementation
+**Next Command**: `/implement sprint-18`
