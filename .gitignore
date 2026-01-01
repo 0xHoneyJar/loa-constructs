@@ -125,3 +125,5 @@ app/ecosystem.config.js
 
 # Turbo cache
 .turbo/
+.vercel
+.env*.local

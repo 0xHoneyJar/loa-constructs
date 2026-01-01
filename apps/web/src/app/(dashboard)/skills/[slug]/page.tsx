@@ -9,8 +9,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { TuiBox } from '@/components/tui/tui-box';
-import { TuiH1, TuiH2, TuiDim, TuiCode, TuiTag, TuiSuccess, TuiBright } from '@/components/tui/tui-text';
-import { TuiButton, TuiIconButton } from '@/components/tui/tui-button';
+import { TuiH1, TuiDim, TuiCode, TuiTag, TuiSuccess, TuiBright } from '@/components/tui/tui-text';
+import { TuiButton } from '@/components/tui/tui-button';
 
 // Mock skill data - in production would fetch by slug
 const mockSkillDetails = {

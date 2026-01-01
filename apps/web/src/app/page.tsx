@@ -9,7 +9,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { TuiBox } from '@/components/tui/tui-box';
 import { TuiButton } from '@/components/tui/tui-button';
-import { TuiH1, TuiH2, TuiDim, TuiCode, TuiSuccess, TuiTag } from '@/components/tui/tui-text';
+import { TuiH2, TuiDim, TuiCode, TuiTag } from '@/components/tui/tui-text';
 
 type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
 

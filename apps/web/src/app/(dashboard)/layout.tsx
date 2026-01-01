@@ -9,8 +9,7 @@ import { ProtectedRoute } from '@/components/auth/protected-route';
 import { TuiLayout } from '@/components/tui/tui-layout';
 import { TuiSidebar } from '@/components/dashboard/sidebar';
 import { useKeyboardNav } from '@/hooks/use-keyboard-nav';
-import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { usePathname } from 'next/navigation';
 
 const routes = [
   { href: '/dashboard', label: 'Overview' },
@@ -32,7 +31,6 @@ interface DashboardLayoutProps {
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
-  const router = useRouter();
   const pathname = usePathname();
 
   // Map keyboard shortcuts to routes

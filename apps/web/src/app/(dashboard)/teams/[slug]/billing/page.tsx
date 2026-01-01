@@ -13,8 +13,6 @@ import {
   CreditCard,
   Check,
   Users,
-  Package,
-  Zap,
   ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -82,8 +80,8 @@ const TEAM_PLANS = [
 
 export default function TeamBillingPage() {
   const params = useParams();
-  const router = useRouter();
-  const { user } = useAuth();
+  const _router = useRouter();
+  const _user = useAuth();
   const [team, setTeam] = useState<Team | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);

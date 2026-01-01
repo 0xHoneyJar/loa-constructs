@@ -45,12 +45,28 @@ app.use('*', requestId());
 app.use('*', securityHeaders());
 
 // CORS configuration
+// Production allows: constructs.network, *.vercel.app (for preview deployments)
+const allowedOrigins = [
+  'https://constructs.network',
+  'https://www.constructs.network',
+];
+
+function isAllowedOrigin(origin: string): boolean {
+  if (env.NODE_ENV !== 'production') return true;
+  if (allowedOrigins.includes(origin)) return true;
+  // Allow Vercel preview/production deployments
+  if (origin.endsWith('.vercel.app')) return true;
+  return false;
+}
+
 app.use(
   '*',
   cors({
-    origin: env.NODE_ENV === 'production'
-      ? ['https://constructs.network', 'https://www.constructs.network']
-      : '*',
+    origin: (origin) => {
+      if (env.NODE_ENV !== 'production') return '*';
+      if (!origin) return allowedOrigins[0]; // Default for non-browser requests
+      return isAllowedOrigin(origin) ? origin : allowedOrigins[0];
+    },
     allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
     exposeHeaders: ['X-Request-ID', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset'],

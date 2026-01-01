@@ -15,7 +15,6 @@ import {
   Crown,
   Shield,
   UserMinus,
-  MoreHorizontal,
   ArrowLeft,
   CreditCard,
 } from 'lucide-react';
@@ -64,7 +63,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function TeamDetailPage() {
   const params = useParams();
-  const router = useRouter();
+  const _router = useRouter();
   const { user } = useAuth();
   const [team, setTeam] = useState<Team | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);

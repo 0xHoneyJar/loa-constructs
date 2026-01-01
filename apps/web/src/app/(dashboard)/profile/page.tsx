@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { TuiBox } from '@/components/tui/tui-box';
 import { TuiInput } from '@/components/tui/tui-input';
 import { TuiButton } from '@/components/tui/tui-button';
-import { TuiH1, TuiH2, TuiDim, TuiSuccess, TuiError } from '@/components/tui/tui-text';
+import { TuiH1, TuiDim, TuiSuccess } from '@/components/tui/tui-text';
 import { useAuth } from '@/contexts/auth-context';
 
 const profileSchema = z.object({

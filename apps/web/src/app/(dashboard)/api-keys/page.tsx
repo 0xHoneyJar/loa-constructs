@@ -10,9 +10,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { TuiBox } from '@/components/tui/tui-box';
-import { TuiInput, TuiSelect, TuiCheckbox } from '@/components/tui/tui-input';
+import { TuiInput, TuiSelect } from '@/components/tui/tui-input';
 import { TuiButton } from '@/components/tui/tui-button';
-import { TuiH1, TuiH2, TuiDim, TuiCode, TuiSuccess, TuiError, TuiTag } from '@/components/tui/tui-text';
+import { TuiH1, TuiDim, TuiCode, TuiSuccess, TuiError, TuiTag } from '@/components/tui/tui-text';
 
 interface ApiKey {
   id: string;
@@ -416,7 +416,7 @@ export default function ApiKeysPage() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {keys.map((key, idx) => {
+            {keys.map((key, _idx) => {
               const isExpired = key.expiresAt && new Date(key.expiresAt) < new Date();
               return (
                 <div

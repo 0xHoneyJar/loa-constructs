@@ -1,0 +1,10 @@
+# Build output
+.next
+out
+
+# Dependencies
+node_modules
+
+# Vercel
+.vercel
+.env*.local
