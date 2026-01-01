@@ -1,672 +1,491 @@
-# Product Requirements Document: Loa Skills Registry
+# Product Requirements Document: GTM Collective Pack Integration
 
-**Version:** 1.0
-**Date:** 2025-12-30
-**Author:** PRD Architect Agent
-**Status:** Draft
-
----
-
-## Table of Contents
-
-1. [Executive Summary](#executive-summary)
-2. [Problem Statement](#problem-statement)
-3. [Goals & Success Metrics](#goals--success-metrics)
-4. [User Personas & Use Cases](#user-personas--use-cases)
-5. [Functional Requirements](#functional-requirements)
-6. [Non-Functional Requirements](#non-functional-requirements)
-7. [User Experience](#user-experience)
-8. [Technical Considerations](#technical-considerations)
-9. [Scope & Prioritization](#scope--prioritization)
-10. [Success Criteria](#success-criteria)
-11. [Risks & Mitigation](#risks--mitigation)
-12. [Timeline & Milestones](#timeline--milestones)
-13. [Appendix](#appendix)
+**Version**: 1.0.0
+**Date**: 2025-12-31
+**Author**: Product Manager Agent
+**Status**: Draft
 
 ---
 
-## Executive Summary
+## 1. Executive Summary
 
-Loa Skills Registry is a SaaS platform for distributing, licensing, and monetizing AI agent skills compatible with the Loa framework and Claude Code. The platform provides a subscription-based marketplace where skill creators can publish skills and users can discover, install, and use them seamlessly via CLI integration.
+### 1.1 Problem Statement
 
-The registry solves three critical problems in the Loa ecosystem: (1) skill creators have no way to monetize their work or control distribution, (2) users lack centralized discovery, update mechanisms, and quality assurance, and (3) teams cannot manage skills across their organization. By providing tiered subscriptions (Free, Pro, Team, Enterprise), robust license enforcement, and deep CLI integration, Loa Skills Registry enables a sustainable ecosystem for AI agent skill development and distribution.
+The GTM Collective—a premium suite of 8 Go-To-Market skills designed for the Loa framework—was migrated from the open-source `loa` repository to `loa-registry` to enable premium content distribution. However, these skills currently exist only in an archive directory (`loa-grimoire/context/archive/`) and have not been integrated into the registry's pack distribution system.
 
-> **Sources**: README.md:1-18, prd.md:1-26
+The registry infrastructure (API, CLI, database schema) is fully implemented and supports pack creation, versioning, and subscription-gated downloads. The GTM skills need to be packaged and published as a registry pack to enable distribution to paying subscribers.
 
----
+### 1.2 Solution Overview
 
-## Problem Statement
+Package the 8 GTM skills, 14 commands, and associated resources as the `gtm-collective` pack in the Loa Registry. This involves:
 
-### The Problem
+1. **Restructuring files** from archive format to pack distribution format
+2. **Creating pack metadata** (manifest, version info, pricing)
+3. **Publishing to registry** via API or seeding script
+4. **Validating end-to-end** installation flow
 
-AI agent skills for Loa and Claude Code are currently distributed through ad-hoc methods with no formal distribution, licensing, or monetization infrastructure.
+### 1.3 Business Value
 
-> From prd.md:9-16: "Currently, Loa skills are distributed via: Copy/paste from repositories, Manual file sharing, No access control or monetization"
-
-### User Pain Points
-
-**For Skill Creators:**
-- No way to monetize skills or control distribution
-- No visibility into usage or adoption
-- No mechanism for version management or updates
-
-**For Skill Consumers:**
-- No central discovery mechanism
-- No update mechanism for installed skills
-- No quality assurance or curation
-
-**For Teams:**
-- No way to manage skills across an organization
-- No seat management or shared subscriptions
-- No usage analytics or audit trails
-
-> **Sources**: prd.md:12-16
-
-### Current State
-
-Users discover skills through word-of-mouth, GitHub repositories, or manual sharing. Installation requires copying files manually into the `.claude/skills/` directory. There's no way to track versions, receive updates, or validate that skills are legitimate and safe.
-
-### Desired State
-
-A centralized registry where:
-- Creators publish, version, and monetize skills
-- Users discover, install, and update skills via CLI
-- Teams manage subscriptions, seats, and usage
-- The platform ensures license compliance and tracks usage
-
-> **Sources**: prd.md:18-26
+| Metric | Impact |
+|--------|--------|
+| **Revenue Enablement** | First premium pack ready for paying subscribers |
+| **Product Completeness** | Demonstrates full SaaS capability (creation → purchase → installation) |
+| **GTM for GTM** | Dogfooding—using the registry to distribute GTM skills |
 
 ---
 
-## Goals & Success Metrics
+## 2. Goals and Success Criteria
 
-### Primary Goals
+### 2.1 Business Goals
 
-1. **Build the marketplace infrastructure** - Core registry API, skill storage, and CLI integration
-2. **Enable monetization** - Subscription tiers with Stripe integration
-3. **Support teams** - Multi-seat subscriptions with analytics and management
+1. **G1**: Enable premium content distribution through the registry
+2. **G2**: Validate the pack lifecycle (publish → download → install → use)
+3. **G3**: Establish a reference implementation for future premium packs
 
-> **Sources**: prd.md:243-246
+### 2.2 Success Criteria
 
-### Key Performance Indicators (KPIs)
-
-| Metric | Current Baseline | Target | Timeline |
-|--------|------------------|--------|----------|
-| Registered Users | 0 | 1,000 | 6 months |
-| Free-to-Paid Conversion | N/A | 10% | 6 months |
-| Monthly Retention (Paid) | N/A | 80% | Ongoing |
-| NPS Score | N/A | >40 | 6 months |
-
-> **Sources**: prd.md:234-239
-
-### Constraints
-
-- Must integrate with existing Loa CLI architecture
-- Skill format must remain compatible with `.claude/skills/` structure
-- AGPL-3.0 license for the platform itself
-
-> **Sources**: README.md:232-233
+| Criterion | Measurement | Target |
+|-----------|-------------|--------|
+| Pack Published | `gtm-collective` exists in registry with status `published` | 100% |
+| CLI Installation | `/pack-install gtm-collective` succeeds for pro+ subscribers | Works |
+| Skills Functional | All 8 skills load and execute in Claude Code | 8/8 |
+| Commands Available | All 14 commands accessible after installation | 14/14 |
+| Subscription Gating | Free tier users receive 402 on download attempt | Enforced |
 
 ---
 
-## User Personas & Use Cases
+## 3. User Context
 
-### Primary Persona: Skill Creator (Developer Dana)
+### 3.1 Primary Persona: Loa Pro Subscriber
 
-**Demographics:**
-- Role: Independent developer or technical consultant
-- Technical Proficiency: High (builds custom AI workflows)
-- Goals: Monetize expertise, build reputation, track adoption
+**Profile**: Developer or technical founder building a product who needs GTM strategy support.
 
-**Behaviors:**
-- Creates specialized skills for specific domains (DevOps, marketing, security)
-- Wants to iterate quickly with version updates
-- Needs visibility into downloads and usage
+**Goals**:
+- Get market research and competitive analysis without hiring consultants
+- Create positioning, pricing, and launch materials
+- Review GTM strategy for consistency before execution
 
-**Pain Points:**
-- No distribution channel for skills
-- Cannot monetize work
-- No feedback loop on skill usage
+**Pain Points**:
+- GTM strategy is expensive when done by agencies
+- Generic AI lacks structured methodology
+- Coordinating multiple tools for different GTM tasks
 
-> **Sources**: prd.md:29-33
+**Buying Behavior**:
+- Subscribes to Pro ($29/month) or Team ($99/month) for access to premium packs
+- Expects seamless installation via CLI
+- Values comprehensive, integrated tooling
 
-### Secondary Persona: Skill Consumer (Engineer Eric)
+### 3.2 Secondary Persona: Registry Administrator (Internal)
 
-**Demographics:**
-- Role: Software developer using Loa/Claude Code
-- Technical Proficiency: Medium-High
-- Goals: Find and install useful skills quickly
+**Profile**: THJ team member managing the registry.
 
-**Behaviors:**
-- Searches for skills by function/category
-- Prefers CLI-based workflows
-- Wants automatic updates
-
-**Pain Points:**
-- Manual skill discovery is time-consuming
-- No way to validate skill quality
-- Keeping skills updated is tedious
-
-> **Sources**: prd.md:34-37
-
-### Tertiary Persona: Team Admin (Manager Maria)
-
-**Demographics:**
-- Role: Engineering manager or DevOps lead
-- Technical Proficiency: Medium
-- Goals: Standardize team workflows, control costs
-
-**Behaviors:**
-- Manages team subscriptions and seats
-- Reviews usage analytics
-- Approves skill installations for the team
-
-**Pain Points:**
-- No visibility into team skill usage
-- Cannot control which skills team uses
-- No centralized billing
-
-> **Sources**: prd.md:35-37, US-050 to US-054
-
-### Use Cases
-
-#### UC-1: Install a Skill via CLI
-
-**Actor:** Skill Consumer (Engineer Eric)
-**Preconditions:** User has Loa CLI installed, is authenticated with registry
-**Flow:**
-1. User runs `/skill-search devops`
-2. User reviews results showing skill names, descriptions, and tier requirements
-3. User runs `/skill-install terraform-assistant`
-4. CLI validates subscription tier and downloads skill
-5. Skill files are written to `.claude/skills/terraform-assistant/`
-6. License file created with watermark and expiry
-
-**Postconditions:** Skill available for use, usage tracked
-**Acceptance Criteria:**
-- [ ] Skill files correctly placed in project
-- [ ] License validated before download
-- [ ] Usage recorded in registry
-
-> **Sources**: loa-plugin-architecture.md:425-538, US-030 to US-035
-
-#### UC-2: Subscribe to Pro Tier
-
-**Actor:** Skill Consumer
-**Preconditions:** User has free account
-**Flow:**
-1. User visits dashboard or runs `/skill-upgrade`
-2. User selects Pro tier ($29/month)
-3. User redirected to Stripe Checkout
-4. User completes payment
-5. Subscription activated immediately
-
-**Postconditions:** User has Pro tier access, can download Pro skills
-**Acceptance Criteria:**
-- [ ] Stripe checkout completes successfully
-- [ ] Subscription status updated in real-time
-- [ ] Pro skills accessible immediately
-
-> **Sources**: openapi.yaml:648-686, US-010 to US-014
-
-#### UC-3: Manage Team Seats
-
-**Actor:** Team Admin
-**Preconditions:** User has Team subscription, is team owner/admin
-**Flow:**
-1. Admin opens team dashboard
-2. Admin clicks "Invite Member"
-3. Admin enters email and role (admin/member)
-4. Invitation email sent
-5. New member accepts, gains team subscription access
-
-**Postconditions:** New member has skill access via team subscription
-**Acceptance Criteria:**
-- [ ] Invitation email sent
-- [ ] Seat count validated against subscription
-- [ ] New member inherits team tier
-
-> **Sources**: openapi.yaml:867-899, US-050 to US-054
+**Goals**:
+- Publish and maintain premium packs
+- Monitor installation metrics
+- Handle subscription verification
 
 ---
 
-## Functional Requirements
+## 4. Functional Requirements
 
-### FR-1: Authentication System
+### 4.1 Pack Structure
 
-**Priority:** Must Have
-**Description:** Multi-method authentication supporting email/password, OAuth (GitHub, Google), SSO/SAML for enterprise, and API keys for CLI access.
+The GTM Collective pack must include:
 
-**Acceptance Criteria:**
-- [ ] Email/password registration with email verification
-- [ ] OAuth flow for GitHub and Google
-- [ ] JWT access tokens (15 min expiry) with refresh tokens (30 day)
-- [ ] API key generation with scopes and expiry
-- [ ] Password reset flow
+#### Skills (8)
 
-**Dependencies:** None
+| Skill Slug | Purpose | Triggers |
+|------------|---------|----------|
+| `analyzing-market` | Market research, TAM/SAM/SOM, competitive analysis | `/analyze-market` |
+| `positioning-product` | Product positioning, messaging frameworks | `/position` |
+| `pricing-strategist` | Pricing models, value metrics | `/price` |
+| `crafting-narratives` | Launch plans, release announcements, content | `/plan-launch`, `/announce-release` |
+| `educating-developers` | DevRel strategy | `/plan-devrel` |
+| `building-partnerships` | Partnership and BD strategy | `/plan-partnerships` |
+| `translating-for-stakeholders` | Executive communication, pitch decks | `/create-deck` |
+| `reviewing-gtm` | GTM strategy review and validation | `/review-gtm` |
 
-> **Sources**: prd.md:157-163, sdd.md:714-749, openapi.yaml:107-334
+#### Commands (14)
 
-### FR-2: Subscription Management
+**Workflow Commands** (5):
+- `gtm-setup.md` - Initialize GTM workflow
+- `gtm-adopt.md` - Adopt technical reality from SDD
+- `gtm-feature-requests.md` - Feature requests for dev team
+- `sync-from-gtm.md` - Sync from GTM to dev
+- `review-gtm.md` - Review GTM strategy
 
-**Priority:** Must Have
-**Description:** Stripe-based subscription system with four tiers: Free, Pro ($29/mo), Team ($99/mo + $15/seat), Enterprise (custom).
+**Routing Commands** (9):
+- `analyze-market.md` → `analyzing-market` skill
+- `position.md` → `positioning-product` skill
+- `price.md` → `pricing-strategist` skill
+- `plan-launch.md` → `crafting-narratives` skill
+- `announce-release.md` → `crafting-narratives` skill
+- `plan-devrel.md` → `educating-developers` skill
+- `plan-partnerships.md` → `building-partnerships` skill
+- `create-deck.md` → `translating-for-stakeholders` skill
+- `sync-from-dev.md` - Sync from dev to GTM
 
-**Acceptance Criteria:**
-- [ ] Stripe Checkout integration for upgrades
-- [ ] Customer Portal for subscription management
-- [ ] Webhook handling for subscription lifecycle events
-- [ ] Proration handling for upgrades/downgrades
-- [ ] Usage metering for free tier limits (100 loads/month)
+#### Resources
 
-**Dependencies:** Stripe account configuration
+Each skill includes template resources:
+- `analyzing-market`: market-landscape, competitive-analysis, icp-profiles templates
+- `positioning-product`: positioning, messaging-framework templates
+- `pricing-strategist`: pricing-strategy, value-metric-worksheet templates
+- `crafting-narratives`: content-calendar, launch-plan templates
+- `educating-developers`: devrel-strategy template
+- `building-partnerships`: partnership-strategy template
+- `translating-for-stakeholders`: pitch-deck template
+- `reviewing-gtm`: gtm-review template
 
-> **Sources**: prd.md:115-153, 164-169, openapi.yaml:634-735
+**Total Resource Templates**: 12
 
-### FR-3: Skill Registry
+### 4.2 Pack Manifest
 
-**Priority:** Must Have
-**Description:** Core skill storage, versioning, and discovery system.
-
-**Acceptance Criteria:**
-- [ ] Skill CRUD operations
-- [ ] Semantic versioning (semver) for skill versions
-- [ ] Category and tag-based organization
-- [ ] Full-text search across skill names and descriptions
-- [ ] Skill file storage in S3/R2
-
-**Dependencies:** S3-compatible storage
-
-> **Sources**: prd.md:170-176, sdd.md:279-330, openapi.yaml:392-541
-
-### FR-4: License Enforcement
-
-**Priority:** Must Have
-**Description:** Runtime license validation ensuring users can only access skills their subscription tier permits.
-
-**Acceptance Criteria:**
-- [ ] Tier validation on skill download
-- [ ] License tokens with expiry (cache_ttl)
-- [ ] Watermarking for tracking
-- [ ] 24-hour offline grace period
-- [ ] Clear error messages with upgrade prompts
-
-**Dependencies:** FR-2 (Subscription Management)
-
-> **Sources**: prd.md:177-182, loa-plugin-architecture.md:643-728, openapi.yaml:499-573
-
-### FR-5: CLI Integration (Loa Plugin)
-
-**Priority:** Must Have
-**Description:** Loa CLI plugin enabling skill discovery, installation, and management.
-
-**Commands:**
-- `/skill-login` - Authenticate with registry
-- `/skill-logout` - Clear credentials
-- `/skill-list` - List installed and available skills
-- `/skill-search` - Search registry
-- `/skill-install` - Install skill
-- `/skill-update` - Update skill to latest version
-- `/skill-uninstall` - Remove skill
-- `/skill-info` - Show skill details
-
-**Acceptance Criteria:**
-- [ ] All commands implemented per specification
-- [ ] Offline caching with license validation
-- [ ] Clear error messages for tier restrictions
-- [ ] Progress indication for downloads
-
-**Dependencies:** Registry API (FR-1 through FR-4)
-
-> **Sources**: loa-plugin-architecture.md:1-947, IMPLEMENTATION-PROMPT.md:124-144
-
-### FR-6: Team Management
-
-**Priority:** Should Have (Phase 2)
-**Description:** Team creation, member management, and shared subscriptions.
-
-**Acceptance Criteria:**
-- [ ] Team creation with slug
-- [ ] Member invitation via email
-- [ ] Role-based access (owner, admin, member)
-- [ ] Seat management against subscription limit
-- [ ] Team-level usage analytics
-
-**Dependencies:** FR-2 (Subscription Management)
-
-> **Sources**: prd.md:190-194, sdd.md:189-214, openapi.yaml:737-949
-
-### FR-7: Analytics & Reporting
-
-**Priority:** Should Have (Phase 2)
-**Description:** Usage tracking for users, teams, creators, and platform admins.
-
-**Acceptance Criteria:**
-- [ ] User usage stats (skill loads, installs by period)
-- [ ] Team aggregate analytics
-- [ ] Creator dashboards (downloads, active installs)
-- [ ] Platform-level metrics
-
-**Dependencies:** FR-3 (Skill Registry), FR-6 (Team Management)
-
-> **Sources**: prd.md:195-200, sdd.md:362-378, openapi.yaml:372-391
-
----
-
-## Non-Functional Requirements
-
-### Performance
-
-- API response time < 200ms (p95)
-- Skill download < 2 seconds
-- Support 10,000 concurrent users
-
-> **Sources**: prd.md:204-208
-
-### Scalability
-
-- Horizontal scaling for API servers
-- CDN caching for skill file delivery (24h TTL)
-- Database connection pooling
-
-> **Sources**: prd.md:221-224, sdd.md:810-840
-
-### Security
-
-- All traffic over HTTPS
-- API keys hashed with bcrypt before storage
-- JWT with short expiry (15 min) + refresh tokens
-- Audit logging for sensitive actions
-- License watermarking for tracking
-
-> **Sources**: prd.md:213-218, sdd.md:709-806
-
-### Reliability
-
-- 99.9% uptime SLA
-- Graceful degradation (cached skills work offline)
-- Multi-region deployment capability
-
-> **Sources**: prd.md:209-212
-
-### Compliance
-
-- SOC 2 compliance (future roadmap)
-- GDPR considerations for EU users
-
-> **Sources**: prd.md:218
-
----
-
-## User Experience
-
-### Key User Flows
-
-#### Flow 1: First-Time Skill Installation
-```
-/skill-login → Enter credentials → /skill-search → Review results → /skill-install <slug> → Skill ready
+```yaml
+name: "GTM Collective"
+slug: "gtm-collective"
+version: "1.0.0"
+description: "Go-to-market strategy skills for product launches, positioning, pricing, and market analysis"
+author:
+  name: "The Honey Jar"
+  url: "https://loaskills.dev"
+skills:
+  - slug: analyzing-market
+    path: skills/analyzing-market/
+  - slug: positioning-product
+    path: skills/positioning-product/
+  - slug: pricing-strategist
+    path: skills/pricing-strategist/
+  - slug: crafting-narratives
+    path: skills/crafting-narratives/
+  - slug: educating-developers
+    path: skills/educating-developers/
+  - slug: building-partnerships
+    path: skills/building-partnerships/
+  - slug: translating-for-stakeholders
+    path: skills/translating-for-stakeholders/
+  - slug: reviewing-gtm
+    path: skills/reviewing-gtm/
+commands:
+  - name: gtm-setup
+    path: commands/gtm-setup.md
+  - name: gtm-adopt
+    path: commands/gtm-adopt.md
+  - name: gtm-feature-requests
+    path: commands/gtm-feature-requests.md
+  - name: sync-from-gtm
+    path: commands/sync-from-gtm.md
+  - name: review-gtm
+    path: commands/review-gtm.md
+  - name: analyze-market
+    path: commands/analyze-market.md
+  - name: position
+    path: commands/position.md
+  - name: price
+    path: commands/price.md
+  - name: plan-launch
+    path: commands/plan-launch.md
+  - name: announce-release
+    path: commands/announce-release.md
+  - name: plan-devrel
+    path: commands/plan-devrel.md
+  - name: plan-partnerships
+    path: commands/plan-partnerships.md
+  - name: create-deck
+    path: commands/create-deck.md
+  - name: sync-from-dev
+    path: commands/sync-from-dev.md
+dependencies:
+  loa_version: ">=0.9.0"
+pricing:
+  type: subscription
+  tier: pro
+tags:
+  - marketing
+  - gtm
+  - positioning
+  - pricing
+  - launch
+  - devrel
+license: "Proprietary"
 ```
 
-#### Flow 2: Subscription Upgrade
+### 4.3 Pricing Configuration
+
+| Field | Value |
+|-------|-------|
+| `pricing_type` | `subscription` |
+| `tier_required` | `pro` |
+| `stripe_product_id` | (To be created) |
+| `stripe_monthly_price_id` | (Included in Pro subscription) |
+| `stripe_annual_price_id` | (Included in Pro subscription) |
+
+**Access Rules**:
+- Free tier: 402 Payment Required
+- Pro tier: Full access
+- Team tier: Full access
+- Enterprise tier: Full access
+- Pack owner (THJ admin): Full access regardless of tier
+
+### 4.4 Installation Behavior
+
+When user runs `/pack-install gtm-collective`:
+
+1. **Auth Check**: Verify user is logged in
+2. **Tier Check**: Verify user has `pro` or higher subscription
+3. **Download**: Fetch pack files from API
+4. **Extract Skills**: Install to `.claude/skills/{skill-slug}/`
+5. **Extract Commands**: Install to `.claude/commands/{command}.md`
+6. **Write Manifest**: Save to `.claude/packs/gtm-collective/manifest.json`
+7. **Write License**: Save to `.claude/packs/gtm-collective/.license.json`
+
+### 4.5 State Directory (GTM Grimoire)
+
+The pack expects a `gtm-grimoire/` directory for state:
+
 ```
-Dashboard → View tiers → Select Pro → Stripe Checkout → Payment → Access unlocked
+gtm-grimoire/
+├── NOTES.md           # GTM agent memory
+├── context/           # User-provided GTM context
+│   ├── product-brief.md
+│   └── product-reality.md
+├── research/          # Market research outputs
+│   ├── market-landscape.md
+│   ├── competitive-analysis.md
+│   └── icp-profiles.md
+├── strategy/          # Strategy documents
+│   ├── positioning.md
+│   ├── messaging-framework.md
+│   └── pricing-strategy.md
+├── execution/         # Launch artifacts
+│   ├── launch-plan.md
+│   ├── content-calendar.md
+│   └── pitch-deck.md
+└── a2a/               # Agent-to-agent communication
+    ├── reviews/
+    └── trajectory/
 ```
 
-#### Flow 3: Team Onboarding
+**Note**: This directory structure should be created by `/gtm-setup` command, not by installation.
+
+---
+
+## 5. Technical Requirements
+
+### 5.1 File Restructuring
+
+Transform archive structure to pack distribution format:
+
+**Current Location**: `loa-grimoire/context/archive/gtm-skills-import/`
+
+**Target Structure** (for upload):
 ```
-Create team → Subscribe to Team tier → Invite members → Members accept → Team skills accessible
+gtm-collective/
+├── manifest.json
+├── skills/
+│   ├── analyzing-market/
+│   │   ├── index.yaml
+│   │   ├── SKILL.md
+│   │   └── resources/
+│   │       ├── market-landscape-template.md
+│   │       ├── competitive-analysis-template.md
+│   │       └── icp-profiles-template.md
+│   ├── positioning-product/
+│   │   └── ...
+│   └── ... (6 more skills)
+└── commands/
+    ├── gtm-setup.md
+    ├── analyze-market.md
+    └── ... (12 more commands)
 ```
 
-> **Sources**: loa-plugin-architecture.md:336-420
+### 5.2 API Integration
 
-### Interaction Patterns
+Use existing endpoints:
 
-- CLI-first for developers (all core functionality via commands)
-- Web dashboard for account management, billing, analytics
-- Email for notifications (invitations, subscription changes)
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /v1/packs` | Create pack metadata |
+| `POST /v1/packs/gtm-collective/versions` | Upload version with files |
+| `PATCH /v1/packs/gtm-collective` | Set status to `published` |
 
-### Accessibility Requirements
+### 5.3 Seeding Script
 
-- Web dashboard meets WCAG 2.1 AA standards
-- CLI provides clear, parseable output for automation
-- Error messages include actionable next steps
+Create `scripts/seed-gtm-collective.ts`:
 
----
+```typescript
+// Script to:
+// 1. Read files from archive
+// 2. Transform to pack structure
+// 3. Upload via API with admin credentials
+// 4. Set THJ bypass flag for testing
+```
 
-## Technical Considerations
+### 5.4 Skill Compatibility Updates
 
-### Architecture Notes
+Each skill's `index.yaml` references:
+- `pack.id: "gtm-collective"`
+- `pack.requires_subscription: true`
 
-Three-tier architecture:
-1. **API Layer**: Hono (Node.js) REST API
-2. **Data Layer**: PostgreSQL (Neon) + Redis (Upstash)
-3. **Storage Layer**: Cloudflare R2 (S3-compatible)
-
-> **Sources**: sdd.md:1-68, README.md:17-39
-
-### Integrations
-
-| System | Integration Type | Purpose |
-|--------|------------------|---------|
-| Stripe | API + Webhooks | Payment processing, subscription management |
-| GitHub OAuth | OAuth 2.0 | User authentication |
-| Google OAuth | OAuth 2.0 | User authentication |
-| Cloudflare R2 | S3 API | Skill file storage |
-| Resend | API | Transactional email |
-| PostHog | SDK | Product analytics |
-
-> **Sources**: sdd.md:584-616
-
-### Dependencies
-
-- Node.js 20 LTS
-- PostgreSQL 16
-- Redis 7
-- Hono framework
-- Drizzle ORM
-
-> **Sources**: sdd.md:584-594, README.md:53-59
-
-### Technical Constraints
-
-- Skill files must maintain compatibility with `.claude/skills/` structure
-- API versioned at `/v1/` for future compatibility
-- AGPL-3.0 license requires source release for modifications
-
-> **Sources**: README.md:232-233
+These are informational only—the actual access control is handled by the API.
 
 ---
 
-## Scope & Prioritization
+## 6. Non-Functional Requirements
 
-### In Scope (MVP - Phase 1)
+### 6.1 Performance
 
-- Core registry API (auth, skills, subscriptions)
-- Free and Pro tiers
-- CLI plugin with core commands
-- Basic web dashboard
-- Stripe integration
+| Metric | Requirement |
+|--------|-------------|
+| Pack download size | < 500KB (text files only) |
+| Installation time | < 5 seconds |
+| API response time | < 1 second for download |
 
-> **Sources**: prd.md:243
+### 6.2 Security
 
-### In Scope (Phase 2 - Teams)
+| Requirement | Implementation |
+|-------------|----------------|
+| Subscription verification | API checks tier before download |
+| License watermarking | User ID hash embedded in license |
+| File path validation | Server-side path sanitization |
 
-- Team management
-- Team tier with seat management
-- Usage analytics
-- SSO add-on
+### 6.3 Compatibility
 
-> **Sources**: prd.md:244
-
-### In Scope (Phase 3 - Enterprise)
-
-- SSO/SAML included
-- Audit logs
-- Custom skill development service
-- On-premises option
-
-> **Sources**: prd.md:245
-
-### Explicitly Out of Scope (v1)
-
-- Skill marketplace with creator revenue share - Reason: Complexity, legal considerations
-- Custom skill development service - Reason: Services business, not SaaS
-- Mobile app - Reason: CLI is primary interface
-- IDE plugins (VS Code, JetBrains) - Reason: Future enhancement
-- Skill dependency management - Reason: Complexity
-- Skill testing/validation service - Reason: Future enhancement
-
-> **Sources**: prd.md:225-232
-
-### Priority Matrix
-
-| Feature | Priority | Effort | Impact |
-|---------|----------|--------|--------|
-| Authentication System | P0 | M | High |
-| Skill Registry | P0 | L | High |
-| CLI Plugin | P0 | L | High |
-| Subscription Management | P0 | M | High |
-| License Enforcement | P0 | M | High |
-| Team Management | P1 | M | Medium |
-| Analytics | P1 | M | Medium |
-| SSO/SAML | P2 | M | Low |
-| Audit Logs | P2 | S | Low |
+| Constraint | Value |
+|------------|-------|
+| Minimum Loa version | 0.9.0 |
+| Claude Code compatibility | Yes |
+| Protocol dependencies | session-continuity, grounding-enforcement |
 
 ---
 
-## Success Criteria
+## 7. Scope Definition
 
-### Launch Criteria (MVP)
+### 7.1 In Scope (MVP)
 
-- [ ] All P0 features implemented and tested
-- [ ] Stripe integration functional (test mode validated)
-- [ ] CLI plugin installable and functional
-- [ ] Basic monitoring and alerting in place
-- [ ] Documentation complete
+- [x] Pack structure with 8 skills and 14 commands
+- [x] Manifest with pricing configuration
+- [x] Seeding script to publish pack
+- [x] CLI installation verification
+- [x] Subscription tier gating
 
-### Post-Launch Success (30 days)
+### 7.2 Out of Scope
 
-- [ ] 100+ registered users
-- [ ] 5+ skills published
-- [ ] No critical security vulnerabilities
-- [ ] <1% error rate on API
+- Stripe product/price creation (use existing Pro subscription)
+- Web UI for pack browsing (future sprint)
+- Pack update notifications
+- Usage analytics dashboard
+- GTM Grimoire state directory creation (handled by `/gtm-setup`)
 
-### Long-term Success (90 days)
+### 7.3 Future Considerations
 
-- [ ] 500+ registered users
-- [ ] 5% free-to-paid conversion
-- [ ] 10+ skills in registry
-- [ ] Team tier adoption by 3+ organizations
-
----
-
-## Risks & Mitigation
-
-| Risk | Probability | Impact | Mitigation Strategy |
-|------|-------------|--------|---------------------|
-| Stripe integration delays | Medium | High | Start integration early, use test mode extensively |
-| Low skill creator adoption | Medium | High | Seed registry with internal skills, creator outreach |
-| Security breach | Low | Critical | Security audit before launch, penetration testing |
-| Loa framework changes | Medium | Medium | Maintain close communication with Loa maintainers |
-| Vendor lock-in (Neon/Upstash) | Low | Medium | Use standard PostgreSQL/Redis APIs, document migration path |
-| Scaling issues at launch | Low | Medium | Load testing, auto-scaling configuration |
-| Payment processing failures | Low | High | Implement retry logic, fallback notifications |
-
-### Assumptions
-
-- Loa framework will maintain backward compatibility
-- Stripe will remain available and stable
-- Users will accept subscription model for premium skills
-- CLI integration is preferred over web-only access
-
-### Dependencies on External Factors
-
-- Stripe API availability and pricing
-- GitHub/Google OAuth API availability
-- Cloudflare R2 pricing and availability
-- Loa framework development roadmap
+1. **Version Updates**: Mechanism for updating installed packs
+2. **Dependency Resolution**: If packs depend on other packs
+3. **Web Marketplace**: Browsable pack catalog with reviews
 
 ---
 
-## Timeline & Milestones
+## 8. Risks and Mitigations
 
-| Milestone | Duration | Deliverables |
-|-----------|----------|--------------|
-| Phase 1: MVP | 4 weeks | Core registry, Pro tier, CLI plugin |
-| Phase 2: Teams | 4 weeks | Team management, analytics, Team tier |
-| Phase 3: Enterprise | 4 weeks | SSO, audit logs, on-prem option |
-
-> **Sources**: prd.md:243-246
-
----
-
-## Appendix
-
-### A. Competitive Analysis
-
-| Feature | Loa Skills Registry | npm | GitHub Packages |
-|---------|---------------------|-----|-----------------|
-| Skill-specific | ✅ | ❌ | ❌ |
-| Subscription tiers | ✅ | ❌ | ❌ |
-| Loa integration | ✅ | ❌ | ❌ |
-| Team management | ✅ | ✅ | ✅ |
-| Analytics | ✅ | Limited | Limited |
-| License enforcement | ✅ | ❌ | ❌ |
-
-> **Sources**: prd.md:249-257
-
-### B. Subscription Tier Details
-
-| Tier | Price | Skills | Limits | Features |
-|------|-------|--------|--------|----------|
-| Free | $0/mo | Community | 100 loads/month | Community support |
-| Pro | $29/mo | Community + Pro | Unlimited | Email support, priority updates |
-| Team | $99/mo (+$15/seat) | All | Unlimited | 5 seats, analytics, SSO add-on |
-| Enterprise | Custom | All + custom | Unlimited | SLA, audit logs, on-prem |
-
-> **Sources**: prd.md:115-153, README.md:110-117
-
-### C. API Endpoint Summary
-
-See `specs/openapi.yaml` for complete specification.
-
-**Key Endpoints:**
-- `POST /v1/auth/login` - User authentication
-- `POST /v1/auth/register` - User registration
-- `GET /v1/skills` - List/search skills
-- `GET /v1/skills/{slug}/download` - Download skill files
-- `GET /v1/skills/{slug}/validate` - Validate license
-- `POST /v1/subscriptions/checkout` - Create Stripe checkout
-- `POST /v1/webhooks/stripe` - Stripe webhook handler
-
-> **Sources**: openapi.yaml:80-1039
-
-### D. Glossary
-
-| Term | Definition |
-|------|------------|
-| Skill | A folder containing SKILL.md and supporting files that extend Claude's capabilities |
-| Tier | Subscription level (Free, Pro, Team, Enterprise) |
-| Seat | A licensed user slot within a team subscription |
-| Creator | A user who publishes skills to the registry |
-| Watermark | Unique identifier embedded in skill license for tracking |
-| Cache TTL | Time-to-live for cached license validation |
-
-> **Sources**: prd.md:259-265
-
-### E. Source Documents
-
-| Document | Lines | Purpose |
-|----------|-------|---------|
-| README.md | 238 | Project overview, quick start |
-| prd.md | 265 | Original product requirements |
-| sdd.md | 911 | System design, database schema |
-| loa-plugin-architecture.md | 947 | CLI plugin specification |
-| openapi.yaml | 1,415 | Complete API specification |
-| IMPLEMENTATION-PROMPT.md | 326 | Implementation guide |
+| Risk | Impact | Probability | Mitigation |
+|------|--------|-------------|------------|
+| Skill files have incorrect paths | High | Medium | Validate all file paths during transformation |
+| Commands conflict with core Loa commands | High | Low | Use `gtm-` prefix for workflow commands |
+| Subscription check bypass | High | Low | Server-side enforcement, not client-side |
+| Large pack size causes timeout | Medium | Low | Pack is text-only, ~200KB expected |
 
 ---
 
-*Generated by PRD Architect Agent*
-*Source tracing enabled: All sections cite original documentation*
+## 9. Dependencies
+
+### 9.1 Technical Dependencies
+
+| Dependency | Status | Notes |
+|------------|--------|-------|
+| Pack API endpoints | Implemented | `apps/api/src/routes/packs.ts` |
+| Pack CLI commands | Implemented | `packages/loa-registry/src/commands/pack-*.ts` |
+| Database schema | Implemented | `packs`, `pack_versions`, `pack_files` tables |
+| Subscription service | Implemented | Tier checking via `getEffectiveTier` |
+
+### 9.2 Content Dependencies
+
+| Content | Location | Status |
+|---------|----------|--------|
+| 8 GTM skills | `loa-grimoire/context/archive/gtm-skills-import/` | Ready |
+| 5 workflow commands | `loa-grimoire/context/archive/gtm-skills-import/commands/` | Ready |
+| 9 routing commands | `loa-grimoire/context/archive/gtm-commands/` | Ready |
+| 2 command resources | `loa-grimoire/context/archive/gtm-commands/resources/` | Ready |
+
+---
+
+## 10. Implementation Checklist
+
+### Phase 1: Preparation
+- [ ] Create `packs/gtm-collective/` staging directory
+- [ ] Copy and restructure skills from archive
+- [ ] Copy and restructure commands from archive
+- [ ] Generate `manifest.json` from template
+
+### Phase 2: Publication
+- [ ] Create seeding script `scripts/seed-gtm-collective.ts`
+- [ ] Run script to publish pack to registry database
+- [ ] Set `status: published` and `thj_bypass: true` for testing
+- [ ] Verify pack appears in `GET /v1/packs`
+
+### Phase 3: Validation
+- [ ] Test `/pack-install gtm-collective` as pro user
+- [ ] Verify all skills installed to `.claude/skills/`
+- [ ] Verify all commands installed to `.claude/commands/`
+- [ ] Test 402 response for free tier user
+- [ ] Run one GTM command (e.g., `/gtm-setup`) to verify functionality
+
+### Phase 4: Cleanup
+- [ ] Remove archive files after successful validation
+- [ ] Update CHANGELOG with pack publication
+- [ ] Document pack in registry README
+
+---
+
+## 11. Appendix
+
+### A. File Inventory
+
+**Skills** (8 directories, ~50 files total):
+1. `analyzing-market/` - 5 files
+2. `positioning-product/` - 5 files
+3. `pricing-strategist/` - 5 files
+4. `crafting-narratives/` - 5 files
+5. `educating-developers/` - 4 files
+6. `building-partnerships/` - 4 files
+7. `translating-for-stakeholders/` - 4 files
+8. `reviewing-gtm/` - 4 files
+
+**Commands** (14 files):
+- 5 workflow commands
+- 9 routing commands
+
+**Resources** (2 files):
+- `product-brief-template.md`
+- `product-reality-template.md`
+
+### B. Source Locations
+
+| Content Type | Archive Path |
+|--------------|--------------|
+| Skills | `loa-grimoire/context/archive/gtm-skills-import/{skill-slug}/` |
+| Workflow Commands | `loa-grimoire/context/archive/gtm-skills-import/commands/` |
+| Routing Commands | `loa-grimoire/context/archive/gtm-commands/` |
+| Command Resources | `loa-grimoire/context/archive/gtm-commands/resources/` |
+| Reference Docs | `loa-grimoire/context/archive/gtm-*.md` |
+
+### C. Related Documentation
+
+- GTM Migration Summary: `loa-grimoire/context/archive/GTM-MIGRATION-SUMMARY.md`
+- GTM PRD Reference: `loa-grimoire/context/archive/gtm-prd-reference.md`
+- GTM SDD Reference: `loa-grimoire/context/archive/gtm-sdd-reference.md`
+- GTM Sprint Reference: `loa-grimoire/context/archive/gtm-sprint-reference.md`
+
+---
+
+**Document Status**: Ready for review
+**Next Step**: `/architect` to create Software Design Document

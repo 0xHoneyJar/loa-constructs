@@ -14,6 +14,7 @@
 | Sprint 19 | COMPLETED | Dashboard & Navigation Redesign | All good | APPROVED |
 | Sprint 20 | COMPLETED | Page Redesigns & Polish | All good | APPROVED |
 | Sprint 21 | COMPLETED | Production Deployment | All good | APPROVED |
+| Sprint 22 | PENDING | Soft Launch (No Domains) | - | - |
 
 ### Previous Sprints (v1 - Registry Backend)
 
@@ -54,6 +55,12 @@
 ## Recent Activity
 
 ### 2026-01-02
+
+- **Sprint 22 plan created** (Soft Launch - No Custom Domains)
+- Deploy using auto-generated URLs: `*.fly.dev` and `*.vercel.app`
+- 7 tasks: T22.1-T22.7 (~2.5 hours estimated)
+- Prerequisites: `fly auth login`, `vercel login`
+- Ready for implementation: `/implement sprint-22`
 
 - **Sprint 21 implementation started** (Production Deployment)
 - Report submitted: `sprint-21/reviewer.md`

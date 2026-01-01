@@ -1119,6 +1119,200 @@ DATABASE_URL="..." npx tsx scripts/seed-thj-team.ts
 
 ---
 
+## Sprint 22: Soft Launch Deployment (No Custom Domains)
+
+**Goal**: Deploy to production using auto-generated URLs (Fly.dev and Vercel.app) without custom domain configuration. Allows immediate testing before DNS setup.
+
+**Duration**: 2-3 hours
+
+### Sprint Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| **API URL** | `https://loa-constructs-api.fly.dev` |
+| **Web URL** | `https://loa-constructs.vercel.app` (TBD after deploy) |
+| **Database** | Neon PostgreSQL (already configured) |
+| **Risk Level** | Low |
+
+### Prerequisites
+
+```bash
+# Install Fly CLI (if not installed)
+curl -L https://fly.io/install.sh | sh
+
+# Authenticate Fly
+fly auth login
+
+# Authenticate Vercel
+vercel login
+```
+
+### Tasks
+
+---
+
+#### T22.1: Install & Authenticate CLI Tools
+
+**Description**: Ensure Fly and Vercel CLIs are installed and authenticated.
+
+**Acceptance Criteria**:
+- [ ] Fly CLI installed (`fly version` works)
+- [ ] Fly authenticated (`fly auth whoami` shows user)
+- [ ] Vercel CLI installed (`vercel --version` works)
+- [ ] Vercel authenticated (`vercel whoami` shows user)
+
+**Effort**: Small (15 min)
+
+**Commands**:
+```bash
+# Install Fly
+curl -L https://fly.io/install.sh | sh
+fly auth login
+
+# Vercel (already installed via npm)
+vercel login
+```
+
+---
+
+#### T22.2: Deploy API to Fly.io
+
+**Description**: Deploy the Hono API to Fly.io using auto-generated URL.
+
+**Acceptance Criteria**:
+- [ ] Secrets configured (DATABASE_URL, JWT_SECRET)
+- [ ] Deploy completes successfully
+- [ ] Health check passes at `https://loa-constructs-api.fly.dev/v1/health`
+- [ ] API responds with 200 OK
+
+**Effort**: Small (20 min)
+
+**Dependencies**: T22.1
+
+**Commands**:
+```bash
+cd apps/api
+fly secrets set DATABASE_URL="postgresql://neondb_owner:...@neon.tech/neondb?sslmode=require"
+fly secrets set JWT_SECRET="your-production-jwt-secret-minimum-32-chars"
+fly deploy
+curl https://loa-constructs-api.fly.dev/v1/health
+```
+
+---
+
+#### T22.3: Update CORS for Vercel Auto-URL
+
+**Description**: Update API CORS configuration to allow Vercel's auto-generated URL pattern.
+
+**Acceptance Criteria**:
+- [ ] CORS allows `*.vercel.app` in production
+- [ ] CORS allows `loa-constructs*.vercel.app` pattern
+- [ ] Typecheck passes
+- [ ] Changes committed
+
+**Effort**: Small (15 min)
+
+**Dependencies**: T22.2
+
+**Files to Modify**:
+- `apps/api/src/app.ts`
+
+---
+
+#### T22.4: Deploy Web to Vercel
+
+**Description**: Deploy the Next.js web app to Vercel using CLI.
+
+**Acceptance Criteria**:
+- [ ] Environment variable set (NEXT_PUBLIC_API_URL)
+- [ ] Deploy to production
+- [ ] Site loads at Vercel URL
+- [ ] TUI styling renders correctly
+
+**Effort**: Small (20 min)
+
+**Dependencies**: T22.2, T22.3
+
+**Commands**:
+```bash
+cd apps/web
+vercel --prod
+# Set env var in Vercel dashboard or:
+vercel env add NEXT_PUBLIC_API_URL production
+# Enter: https://loa-constructs-api.fly.dev
+```
+
+---
+
+#### T22.5: Redeploy API with Vercel URL in CORS
+
+**Description**: After getting the Vercel URL, update CORS and redeploy API.
+
+**Acceptance Criteria**:
+- [ ] CORS includes exact Vercel URL
+- [ ] API redeployed with new CORS
+- [ ] Cross-origin requests work from Vercel to Fly
+
+**Effort**: Small (15 min)
+
+**Dependencies**: T22.4
+
+---
+
+#### T22.6: Seed Production Users
+
+**Description**: Create initial THJ team users in production database.
+
+**Acceptance Criteria**:
+- [ ] Run seed script with production DATABASE_URL
+- [ ] Users created successfully
+- [ ] Subscriptions granted
+
+**Effort**: Small (15 min)
+
+**Dependencies**: T22.2
+
+**Commands**:
+```bash
+DATABASE_URL="postgresql://..." npx tsx scripts/seed-thj-team.ts
+```
+
+---
+
+#### T22.7: Smoke Test Full Journey
+
+**Description**: Test the deployed application end-to-end.
+
+**Acceptance Criteria**:
+- [ ] Landing page loads
+- [ ] Login page renders
+- [ ] API health endpoint responds
+- [ ] Dashboard loads (if auth works)
+- [ ] TUI styling visible
+- [ ] Skills page loads
+
+**Effort**: Medium (30 min)
+
+**Dependencies**: T22.5, T22.6
+
+---
+
+### Sprint 22 Summary
+
+| Task | Description | Effort | Status |
+|------|-------------|--------|--------|
+| T22.1 | Install & Auth CLI Tools | S | ⬜ Pending |
+| T22.2 | Deploy API to Fly.io | S | ⬜ Pending |
+| T22.3 | Update CORS for Vercel | S | ⬜ Pending |
+| T22.4 | Deploy Web to Vercel | S | ⬜ Pending |
+| T22.5 | Redeploy API with CORS | S | ⬜ Pending |
+| T22.6 | Seed Production Users | S | ⬜ Pending |
+| T22.7 | Smoke Test | M | ⬜ Pending |
+
+**Total Estimated Effort**: ~2.5 hours
+
+---
+
 ## Deployment Architecture Summary
 
 ```
