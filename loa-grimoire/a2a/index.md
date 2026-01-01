@@ -12,7 +12,7 @@
 | Sprint 1-17 | COMPLETED | Various | Various | Various |
 | Sprint 18 | COMPLETED | TUI Foundation & Global Styles | All good | APPROVED |
 | Sprint 19 | COMPLETED | Dashboard & Navigation Redesign | All good | APPROVED |
-| Sprint 20 | IN_REVIEW | Page Redesigns & Polish | Pending | - |
+| Sprint 20 | REVIEW_APPROVED | Page Redesigns & Polish | All good | Pending |
 
 ### Previous Sprints (v1 - Registry Backend)
 
@@ -62,7 +62,8 @@
 - Removed 6 unused components (checkbox.tsx, skill-filters.tsx, skill-grid.tsx, search-input.tsx, pagination.tsx, header.tsx)
 - Bug fixes: TuiListItem export, TuiCheckbox label type, skills page onSelect handler
 - All packages pass typecheck
-- Awaiting senior lead review
+- **Senior lead review: APPROVED** (`sprint-20/engineer-feedback.md`)
+- Awaiting security audit
 
 - **Sprint 19 FULLY COMPLETED** (Dashboard & Navigation Redesign)
 - Report submitted: `sprint-19/reviewer.md`

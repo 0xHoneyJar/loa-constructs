@@ -674,16 +674,16 @@ Transform the Loa Constructs web application from a standard GUI dashboard to a 
 
 | Task | Description | Effort | Status |
 |------|-------------|--------|--------|
-| T20.1 | Skills Browse Page | M | Pending |
-| T20.2 | Skill Detail Page | M | Pending |
-| T20.3 | Auth Pages | M | Pending |
-| T20.4 | Profile Page | S | Pending |
-| T20.5 | Billing Page | M | Pending |
-| T20.6 | API Keys Page | S | Pending |
-| T20.7 | Blinking Cursor | S | Pending |
-| T20.8 | Mobile Responsive | M | Pending |
-| T20.9 | Landing Page | M | Pending |
-| T20.10 | Cleanup Old UI | S | Pending |
+| T20.1 | Skills Browse Page | M | ✅ Complete |
+| T20.2 | Skill Detail Page | M | ✅ Complete |
+| T20.3 | Auth Pages | M | ✅ Complete |
+| T20.4 | Profile Page | S | ✅ Complete |
+| T20.5 | Billing Page | M | ✅ Complete |
+| T20.6 | API Keys Page | S | ✅ Complete |
+| T20.7 | Blinking Cursor | S | ✅ Complete |
+| T20.8 | Mobile Responsive | M | ✅ Complete |
+| T20.9 | Landing Page | M | ✅ Complete |
+| T20.10 | Cleanup Old UI | S | ✅ Complete |
 
 **Total Estimated Effort**: ~16 hours
 
