@@ -1301,13 +1301,13 @@ DATABASE_URL="postgresql://..." npx tsx scripts/seed-thj-team.ts
 
 | Task | Description | Effort | Status |
 |------|-------------|--------|--------|
-| T22.1 | Install & Auth CLI Tools | S | ⬜ Pending |
-| T22.2 | Deploy API to Fly.io | S | ⬜ Pending |
-| T22.3 | Update CORS for Vercel | S | ⬜ Pending |
-| T22.4 | Deploy Web to Vercel | S | ⬜ Pending |
-| T22.5 | Redeploy API with CORS | S | ⬜ Pending |
-| T22.6 | Seed Production Users | S | ⬜ Pending |
-| T22.7 | Smoke Test | M | ⬜ Pending |
+| T22.1 | Install & Auth CLI Tools | S | ✅ Complete |
+| T22.2 | Deploy API to Fly.io | S | ✅ Complete |
+| T22.3 | Update CORS for Vercel | S | ✅ Complete |
+| T22.4 | Deploy Web to Vercel | S | ✅ Complete |
+| T22.5 | Redeploy API with CORS | S | ✅ Complete |
+| T22.6 | Seed Production Users | S | ✅ Complete |
+| T22.7 | Smoke Test | M | ✅ Complete |
 
 **Total Estimated Effort**: ~2.5 hours
 
