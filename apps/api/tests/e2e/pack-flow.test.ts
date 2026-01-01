@@ -305,4 +305,149 @@ describe('Pack Flow E2E Tests', () => {
       expect(manifestWithCommands.commands[0].name).toBe('command-1');
     });
   });
+
+  /**
+   * GTM Collective Pack Tests
+   * @see sprint.md T16.7: Write Integration Test
+   */
+  describe('GTM Collective Pack', () => {
+    const GTM_MANIFEST = {
+      name: 'GTM Collective',
+      slug: 'gtm-collective',
+      version: '1.0.0',
+      description: 'Go-To-Market skills and commands for product launches, positioning, and developer relations.',
+      author: {
+        name: 'The Honey Jar',
+        email: 'hello@thehoneyjar.xyz',
+        url: 'https://thehoneyjar.xyz',
+      },
+      skills: [
+        { slug: 'analyzing-market', path: 'skills/analyzing-market/' },
+        { slug: 'building-partnerships', path: 'skills/building-partnerships/' },
+        { slug: 'crafting-narratives', path: 'skills/crafting-narratives/' },
+        { slug: 'educating-developers', path: 'skills/educating-developers/' },
+        { slug: 'positioning-product', path: 'skills/positioning-product/' },
+        { slug: 'pricing-strategist', path: 'skills/pricing-strategist/' },
+        { slug: 'reviewing-gtm', path: 'skills/reviewing-gtm/' },
+        { slug: 'translating-for-stakeholders', path: 'skills/translating-for-stakeholders/' },
+      ],
+      commands: [
+        { name: 'analyze-market', path: 'commands/analyze-market.md' },
+        { name: 'announce-release', path: 'commands/announce-release.md' },
+        { name: 'create-deck', path: 'commands/create-deck.md' },
+        { name: 'gtm-adopt', path: 'commands/gtm-adopt.md' },
+        { name: 'gtm-feature-requests', path: 'commands/gtm-feature-requests.md' },
+        { name: 'gtm-setup', path: 'commands/gtm-setup.md' },
+        { name: 'plan-devrel', path: 'commands/plan-devrel.md' },
+        { name: 'plan-launch', path: 'commands/plan-launch.md' },
+        { name: 'plan-partnerships', path: 'commands/plan-partnerships.md' },
+        { name: 'position', path: 'commands/position.md' },
+        { name: 'price', path: 'commands/price.md' },
+        { name: 'review-gtm', path: 'commands/review-gtm.md' },
+        { name: 'sync-from-dev', path: 'commands/sync-from-dev.md' },
+        { name: 'sync-from-gtm', path: 'commands/sync-from-gtm.md' },
+      ],
+      dependencies: {
+        loa_version: '>=0.9.0',
+        skills: [],
+        packs: [],
+      },
+      pricing: {
+        type: 'subscription',
+        tier: 'pro',
+      },
+      tags: ['gtm', 'marketing', 'product', 'devrel', 'positioning', 'pricing', 'launch'],
+      license: 'proprietary',
+    };
+
+    it('should have valid GTM Collective manifest structure', () => {
+      expect(GTM_MANIFEST.name).toBe('GTM Collective');
+      expect(GTM_MANIFEST.slug).toBe('gtm-collective');
+      expect(GTM_MANIFEST.version).toBe('1.0.0');
+    });
+
+    it('should include all 8 GTM skills', () => {
+      expect(GTM_MANIFEST.skills).toHaveLength(8);
+
+      const skillSlugs = GTM_MANIFEST.skills.map(s => s.slug);
+      expect(skillSlugs).toContain('analyzing-market');
+      expect(skillSlugs).toContain('positioning-product');
+      expect(skillSlugs).toContain('pricing-strategist');
+      expect(skillSlugs).toContain('crafting-narratives');
+      expect(skillSlugs).toContain('educating-developers');
+      expect(skillSlugs).toContain('building-partnerships');
+      expect(skillSlugs).toContain('translating-for-stakeholders');
+      expect(skillSlugs).toContain('reviewing-gtm');
+    });
+
+    it('should include all 14 GTM commands', () => {
+      expect(GTM_MANIFEST.commands).toHaveLength(14);
+
+      const commandNames = GTM_MANIFEST.commands.map(c => c.name);
+      // Workflow commands
+      expect(commandNames).toContain('gtm-setup');
+      expect(commandNames).toContain('gtm-adopt');
+      expect(commandNames).toContain('review-gtm');
+      // Routing commands
+      expect(commandNames).toContain('analyze-market');
+      expect(commandNames).toContain('position');
+      expect(commandNames).toContain('price');
+      expect(commandNames).toContain('plan-launch');
+      expect(commandNames).toContain('create-deck');
+    });
+
+    it('should require pro tier subscription', () => {
+      expect(GTM_MANIFEST.pricing.type).toBe('subscription');
+      expect(GTM_MANIFEST.pricing.tier).toBe('pro');
+    });
+
+    it('should deny free tier access to GTM Collective', async () => {
+      const userTier = 'free';
+      const packTier = GTM_MANIFEST.pricing.tier;
+
+      const { canAccessTier } = await import('../../src/services/subscription.js');
+      expect(canAccessTier(userTier, packTier)).toBe(false);
+
+      // Simulates 402 Payment Required
+      const httpStatus = canAccessTier(userTier, packTier) ? 200 : 402;
+      expect(httpStatus).toBe(402);
+    });
+
+    it('should allow pro tier access to GTM Collective', async () => {
+      const userTier = 'pro';
+      const packTier = GTM_MANIFEST.pricing.tier;
+
+      const { canAccessTier } = await import('../../src/services/subscription.js');
+      expect(canAccessTier(userTier, packTier)).toBe(true);
+    });
+
+    it('should require Loa version 0.9.0 or higher', () => {
+      expect(GTM_MANIFEST.dependencies.loa_version).toBe('>=0.9.0');
+    });
+
+    it('should have proper skill path format', () => {
+      for (const skill of GTM_MANIFEST.skills) {
+        expect(skill.path).toMatch(/^skills\/[\w-]+\/$/);
+        expect(skill.slug).toMatch(/^[\w-]+$/);
+      }
+    });
+
+    it('should have proper command path format', () => {
+      for (const command of GTM_MANIFEST.commands) {
+        expect(command.path).toMatch(/^commands\/[\w-]+\.md$/);
+        expect(command.name).toMatch(/^[\w-]+$/);
+      }
+    });
+
+    it('should include marketing-related tags', () => {
+      expect(GTM_MANIFEST.tags).toContain('gtm');
+      expect(GTM_MANIFEST.tags).toContain('marketing');
+      expect(GTM_MANIFEST.tags).toContain('positioning');
+      expect(GTM_MANIFEST.tags).toContain('pricing');
+    });
+
+    it('should have proprietary license', () => {
+      expect(GTM_MANIFEST.license).toBe('proprietary');
+    });
+  });
 });

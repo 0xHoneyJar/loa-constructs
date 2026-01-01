@@ -1,7 +1,7 @@
 # Agent-to-Agent Communication Index
 
 **Project:** Loa Skills Registry
-**Last Updated:** 2025-12-31
+**Last Updated:** 2026-01-01
 
 ---
 
@@ -24,6 +24,7 @@
 | Sprint 13 | COMPLETED | [reviewer.md](sprint-13/reviewer.md) | [engineer-feedback.md](sprint-13/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-13/auditor-sprint-feedback.md) |
 | Sprint 14 | COMPLETED | [reviewer.md](sprint-14/reviewer.md) | [engineer-feedback.md](sprint-14/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-14/auditor-sprint-feedback.md) |
 | Sprint 15 | COMPLETED | [reviewer.md](sprint-15/reviewer.md) | [engineer-feedback.md](sprint-15/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-15/auditor-sprint-feedback.md) |
+| Sprint 16 | COMPLETED | [reviewer.md](sprint-16/reviewer.md) | [engineer-feedback.md](sprint-16/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-16/auditor-sprint-feedback.md) |
 
 ---
 
@@ -40,6 +41,24 @@
 ---
 
 ## Recent Activity
+
+### 2026-01-01
+
+- **Sprint 16 FULLY COMPLETED** (GTM Collective Pack Integration)
+- ALL 8 TASKS COMPLETED:
+  - T16.1: Enhance seeding script with direct DB import
+  - T16.2: Run import script - GTM Collective published to Neon DB
+  - T16.3: Validate pack in API - Pack ID: 113d4686-1c8c-4953-a8f9-8b433e6ee909
+  - T16.4: Test subscription tier gating - PASS (free denied, pro/enterprise allowed)
+  - T16.5: Test CLI pack installation - PASS (8 skills, 14 commands)
+  - T16.6: Test GTM command execution - PASS (14/14 commands, 8/8 skills, all routes)
+  - T16.7: Write integration test
+  - T16.8: Clean up archive - Imported content moved to `.imported/`
+- Database setup: Neon PostgreSQL, schema pushed via drizzle-kit
+- New validation scripts: `validate-pack.ts`, `test-subscription-gating.ts`, `test-cli-install.ts`, `test-gtm-commands.ts`
+- **Senior lead review: APPROVED** (`sprint-16/engineer-feedback.md`)
+- **Security audit: APPROVED - LETS FUCKING GO** (`sprint-16/auditor-sprint-feedback.md`)
+- **Sprint 16 COMPLETED** - GTM Collective pack live in production database!
 
 ### 2025-12-31
 

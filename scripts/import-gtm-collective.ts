@@ -2,11 +2,13 @@
 /**
  * GTM Collective Import Script
  * @see sprint-v2.md T14.1: GTM Skill Migration
+ * @see sprint.md T16.1: Direct DB Import
  *
  * Imports the GTM Collective pack (8 skills, 14 commands) into the registry.
  *
  * Usage:
- *   npx tsx scripts/import-gtm-collective.ts
+ *   npx tsx scripts/import-gtm-collective.ts          # Generate payload only
+ *   npx tsx scripts/import-gtm-collective.ts --import # Import directly to DB
  *
  * Prerequisites:
  *   - DATABASE_URL environment variable set
@@ -14,21 +16,51 @@
  *   - Admin user exists in database (or set ADMIN_USER_ID)
  */
 
-import { readFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, readdirSync, statSync, writeFileSync } from 'fs';
 import { join, relative } from 'path';
 import { createHash } from 'crypto';
+import { eq } from 'drizzle-orm';
 
 // Import from the API package
 const API_PATH = join(process.cwd(), 'apps/api/src');
+
+// Configuration
+const ADMIN_USER_ID = process.env.ADMIN_USER_ID || '';
+const IMPORT_TO_DB = process.argv.includes('--import');
+
+interface ImportPayload {
+  pack: {
+    name: string;
+    slug: string;
+    description: string;
+    long_description: string;
+    pricing: {
+      type: string;
+      tier_required: string;
+    };
+    thj_bypass: boolean;
+  };
+  version: {
+    version: string;
+    changelog: string;
+    manifest: Record<string, unknown>;
+    min_loa_version: string;
+  };
+  files: Array<{
+    path: string;
+    content: string; // base64
+    mime_type: string;
+  }>;
+}
 
 async function main() {
   console.log('GTM Collective Import Script');
   console.log('============================\n');
 
-  // Paths
-  const CONTEXT_PATH = join(process.cwd(), 'loa-grimoire/context');
-  const SKILLS_PATH = join(CONTEXT_PATH, 'gtm-skills-import');
-  const COMMANDS_PATH = join(CONTEXT_PATH, 'gtm-commands');
+  // Paths - files are in the archive directory
+  const ARCHIVE_PATH = join(process.cwd(), 'loa-grimoire/context/archive');
+  const SKILLS_PATH = join(ARCHIVE_PATH, 'gtm-skills-import');
+  const COMMANDS_PATH = join(ARCHIVE_PATH, 'gtm-commands');
   const COMMANDS_IN_SKILLS_PATH = join(SKILLS_PATH, 'commands');
 
   // Verify paths exist
@@ -181,7 +213,6 @@ Requires Pro subscription or higher.`,
 
   // Write to file for review
   const outputPath = join(process.cwd(), 'scripts/gtm-collective-import-payload.json');
-  const { writeFileSync } = await import('fs');
   writeFileSync(outputPath, JSON.stringify(importPayload, null, 2));
   console.log(`\nImport payload written to: ${outputPath}`);
 
@@ -193,13 +224,172 @@ Requires Pro subscription or higher.`,
   console.log(`  Total files: ${files.length}`);
   console.log(`  Total size: ${formatBytes(files.reduce((sum, f) => sum + f.content.length, 0))}`);
 
-  console.log('\nTo import, use the API or run:');
-  console.log('  curl -X POST http://localhost:3000/v1/packs \\');
-  console.log('    -H "Authorization: Bearer <token>" \\');
-  console.log('    -H "Content-Type: application/json" \\');
-  console.log('    -d @scripts/gtm-collective-import-payload.json');
+  // Import to database if --import flag is set
+  if (IMPORT_TO_DB) {
+    console.log('\n============================');
+    console.log('Importing to database...\n');
+    await importToDatabase(importPayload);
+  } else {
+    console.log('\nTo import, use the API or run:');
+    console.log('  curl -X POST http://localhost:3000/v1/packs \\');
+    console.log('    -H "Authorization: Bearer <token>" \\');
+    console.log('    -H "Content-Type: application/json" \\');
+    console.log('    -d @scripts/gtm-collective-import-payload.json');
+    console.log('\nOr run with --import flag:');
+    console.log('  npx tsx scripts/import-gtm-collective.ts --import');
+  }
+}
 
-  console.log('\nOr import directly using the packs service...');
+/**
+ * Import pack directly to database
+ * @see sdd.md §3.1 Seeding Script Enhancement
+ */
+async function importToDatabase(payload: ImportPayload): Promise<void> {
+  // Validate ADMIN_USER_ID
+  if (!ADMIN_USER_ID) {
+    console.error('Error: ADMIN_USER_ID environment variable not set');
+    console.error('Set it to the UUID of the admin user who will own the pack');
+    process.exit(1);
+  }
+
+  // Validate DATABASE_URL
+  if (!process.env.DATABASE_URL) {
+    console.error('Error: DATABASE_URL environment variable not set');
+    process.exit(1);
+  }
+
+  try {
+    // Dynamic imports for ESM compatibility with API code
+    // Use .ts extension when running with tsx
+    const { db } = await import('../apps/api/src/db/index.ts');
+    const {
+      packs,
+      packVersions,
+      packFiles,
+    } = await import('../apps/api/src/db/schema.ts');
+
+    let uploadFile: ((key: string, content: Buffer, mimeType: string) => Promise<void>) | null = null;
+    let storageConfigured = false;
+
+    try {
+      const storage = await import('../apps/api/src/services/storage.ts');
+      uploadFile = storage.uploadFile;
+      storageConfigured = storage.isStorageConfigured();
+    } catch {
+      console.log('  Storage service not available, files will be stored in DB only');
+    }
+
+    // Check if pack already exists
+    const [existing] = await db
+      .select()
+      .from(packs)
+      .where(eq(packs.slug, payload.pack.slug))
+      .limit(1);
+
+    if (existing) {
+      console.log(`Pack "${payload.pack.slug}" already exists (ID: ${existing.id})`);
+      console.log('To update, delete the existing pack first or use version update');
+      return;
+    }
+
+    // Create pack record
+    console.log('Creating pack record...');
+    const [pack] = await db
+      .insert(packs)
+      .values({
+        name: payload.pack.name,
+        slug: payload.pack.slug,
+        description: payload.pack.description,
+        longDescription: payload.pack.long_description,
+        ownerId: ADMIN_USER_ID,
+        ownerType: 'user',
+        pricingType: 'subscription',
+        tierRequired: 'pro',
+        status: 'published',
+        thjBypass: payload.pack.thj_bypass,
+        isFeatured: true,
+      })
+      .returning();
+
+    console.log(`  Created pack: ${pack.name} (${pack.id})`);
+
+    // Create version record
+    console.log('Creating version record...');
+    const [version] = await db
+      .insert(packVersions)
+      .values({
+        packId: pack.id,
+        version: payload.version.version,
+        changelog: payload.version.changelog,
+        manifest: payload.version.manifest,
+        minLoaVersion: payload.version.min_loa_version,
+        isLatest: true,
+        publishedAt: new Date(),
+      })
+      .returning();
+
+    console.log(`  Created version: ${version.version} (${version.id})`);
+
+    // Process and upload files
+    console.log(`Processing ${payload.files.length} files...`);
+    let totalSize = 0;
+    let uploadedCount = 0;
+
+    for (const file of payload.files) {
+      const content = Buffer.from(file.content, 'base64');
+      const contentHash = createHash('sha256').update(content).digest('hex');
+      const storageKey = `packs/${pack.slug}/${version.version}/${file.path}`;
+
+      // Upload to R2 storage if configured
+      if (storageConfigured && uploadFile) {
+        try {
+          await uploadFile(storageKey, content, file.mime_type);
+          uploadedCount++;
+        } catch (err) {
+          console.warn(`  Warning: Failed to upload ${file.path} to storage`);
+        }
+      }
+
+      // Create file record
+      await db.insert(packFiles).values({
+        versionId: version.id,
+        path: file.path,
+        contentHash,
+        storageKey,
+        sizeBytes: content.length,
+        mimeType: file.mime_type,
+      });
+
+      totalSize += content.length;
+    }
+
+    console.log(`  Created ${payload.files.length} file records`);
+    if (storageConfigured) {
+      console.log(`  Uploaded ${uploadedCount} files to storage`);
+    }
+
+    // Update version stats
+    await db
+      .update(packVersions)
+      .set({
+        fileCount: payload.files.length,
+        totalSizeBytes: totalSize,
+      })
+      .where(eq(packVersions.id, version.id));
+
+    console.log('\n============================');
+    console.log('Import successful!');
+    console.log(`  Pack ID: ${pack.id}`);
+    console.log(`  Version: ${version.version}`);
+    console.log(`  Files: ${payload.files.length}`);
+    console.log(`  Total size: ${formatBytes(totalSize)}`);
+    console.log(`  Status: ${pack.status}`);
+    console.log(`  Tier required: ${pack.tierRequired}`);
+    console.log(`  THJ bypass: ${pack.thjBypass}`);
+  } catch (error) {
+    console.error('Import failed:', error);
+    process.exit(1);
+  }
 }
 
 function collectFilesRecursively(
