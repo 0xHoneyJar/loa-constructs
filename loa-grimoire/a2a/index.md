@@ -13,6 +13,7 @@
 | Sprint 18 | COMPLETED | TUI Foundation & Global Styles | All good | APPROVED |
 | Sprint 19 | COMPLETED | Dashboard & Navigation Redesign | All good | APPROVED |
 | Sprint 20 | COMPLETED | Page Redesigns & Polish | All good | APPROVED |
+| Sprint 21 | PENDING | Production Deployment | - | - |
 
 ### Previous Sprints (v1 - Registry Backend)
 
@@ -54,7 +55,12 @@
 
 ### 2026-01-02
 
-- **Sprint 20 implementation completed** (Page Redesigns & Polish)
+- **Sprint 21 plan created** (Production Deployment)
+- Plan: Deploy API to Fly.io, Web to Vercel, configure domains
+- 10 tasks: T21.1-T21.10 (~6 hours estimated)
+- Ready for implementation: `/implement sprint-21`
+
+- **Sprint 20 FULLY COMPLETED** (Page Redesigns & Polish)
 - Report submitted: `sprint-20/reviewer.md`
 - Tasks completed: T20.1-T20.10 (10 tasks)
 - Redesigned pages: Skills Browse, Skill Detail, Login, Register, Profile, Billing, API Keys, Landing Page

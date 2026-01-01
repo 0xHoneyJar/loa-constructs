@@ -882,5 +882,291 @@ Sprint is complete when:
 
 ---
 
+## Sprint 21: Production Deployment
+
+**Goal**: Deploy the complete platform to production - API on Fly.io, Web on Vercel, with full DNS and HTTPS configuration.
+
+**Duration**: 1 day
+
+### Sprint Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| **Domains** | `constructs.network` (web), `api.constructs.network` (API) |
+| **API Host** | Fly.io (loa-constructs-api) |
+| **Web Host** | Vercel |
+| **Database** | Neon PostgreSQL (already configured) |
+| **Risk Level** | Medium |
+
+### Tasks
+
+---
+
+#### T21.1: Deploy API to Fly.io
+
+**Description**: Deploy the Hono API to Fly.io production environment.
+
+**Acceptance Criteria**:
+- [ ] Fly CLI installed and authenticated
+- [ ] Secrets configured (DATABASE_URL, JWT_SECRET)
+- [ ] Deploy completes successfully
+- [ ] Health check passes at `/v1/health`
+- [ ] API responds at `https://loa-constructs-api.fly.dev/v1/health`
+
+**Effort**: Small (30 min)
+
+**Dependencies**: None
+
+**Commands**:
+```bash
+cd apps/api
+fly auth login
+fly secrets set DATABASE_URL="..." JWT_SECRET="..."
+fly deploy
+```
+
+---
+
+#### T21.2: Configure Vercel Project for Web App
+
+**Description**: Set up Vercel project and configuration for the Next.js web app.
+
+**Acceptance Criteria**:
+- [ ] Create `vercel.json` with monorepo configuration
+- [ ] Configure root directory as `apps/web`
+- [ ] Set build output directory
+- [ ] Configure environment variables for API URL
+- [ ] Test build locally with `vercel build`
+
+**Effort**: Small (30 min)
+
+**Dependencies**: None
+
+**Files to Create**:
+- `apps/web/vercel.json`
+
+---
+
+#### T21.3: Deploy Web App to Vercel
+
+**Description**: Deploy the Next.js web app to Vercel production.
+
+**Acceptance Criteria**:
+- [ ] Vercel CLI installed (`npm i -g vercel`)
+- [ ] Link project to Vercel account
+- [ ] Set environment variables (NEXT_PUBLIC_API_URL)
+- [ ] Deploy to production
+- [ ] Verify site loads at Vercel URL
+
+**Effort**: Small (30 min)
+
+**Dependencies**: T21.1, T21.2
+
+**Commands**:
+```bash
+cd apps/web
+vercel --prod
+```
+
+---
+
+#### T21.4: Configure Custom Domain for Web (constructs.network)
+
+**Description**: Configure the `constructs.network` domain to point to Vercel.
+
+**Acceptance Criteria**:
+- [ ] Add domain in Vercel dashboard
+- [ ] Configure DNS records (A/CNAME) at registrar
+- [ ] Verify domain propagation
+- [ ] HTTPS certificate issued automatically
+- [ ] Site accessible at `https://constructs.network`
+
+**Effort**: Small (30 min)
+
+**Dependencies**: T21.3
+
+---
+
+#### T21.5: Configure Custom Domain for API (api.constructs.network)
+
+**Description**: Configure the `api.constructs.network` subdomain to point to Fly.io.
+
+**Acceptance Criteria**:
+- [ ] Create SSL certificate in Fly.io
+- [ ] Add custom domain to Fly app
+- [ ] Configure DNS CNAME at registrar
+- [ ] Verify domain propagation
+- [ ] API accessible at `https://api.constructs.network/v1/health`
+
+**Effort**: Small (30 min)
+
+**Dependencies**: T21.1
+
+**Commands**:
+```bash
+fly certs create api.constructs.network --app loa-constructs-api
+```
+
+---
+
+#### T21.6: Update Environment Variables for Production URLs
+
+**Description**: Update both apps to use production URLs instead of localhost/fly.dev URLs.
+
+**Acceptance Criteria**:
+- [ ] Web app's NEXT_PUBLIC_API_URL set to `https://api.constructs.network`
+- [ ] API's DASHBOARD_URL set to `https://constructs.network`
+- [ ] API's API_URL set to `https://api.constructs.network`
+- [ ] OAuth redirect URLs updated (if OAuth enabled)
+- [ ] CORS configured for production domain
+
+**Effort**: Small (30 min)
+
+**Dependencies**: T21.4, T21.5
+
+---
+
+#### T21.7: Seed Production Users
+
+**Description**: Create initial user accounts for THJ team in production.
+
+**Acceptance Criteria**:
+- [ ] Run seed-thj-team.ts with production DATABASE_URL
+- [ ] Verify users exist in database
+- [ ] Verify subscriptions are granted
+- [ ] Test login with seeded account
+
+**Effort**: Small (30 min)
+
+**Dependencies**: T21.1
+
+**Commands**:
+```bash
+DATABASE_URL="..." npx tsx scripts/seed-thj-team.ts
+```
+
+---
+
+#### T21.8: Verify GTM Collective Pack in Production
+
+**Description**: Ensure the GTM Collective pack is accessible in production.
+
+**Acceptance Criteria**:
+- [ ] Pack appears in `GET /v1/packs` endpoint
+- [ ] Pack download works for pro tier users
+- [ ] Pack returns 402 for free tier users
+- [ ] Subscription gating enforced correctly
+
+**Effort**: Small (30 min)
+
+**Dependencies**: T21.1, T21.7
+
+---
+
+#### T21.9: Smoke Test Full User Journey
+
+**Description**: Complete end-to-end testing of the production deployment.
+
+**Acceptance Criteria**:
+- [ ] Landing page loads at `https://constructs.network`
+- [ ] Login works with credentials
+- [ ] Dashboard displays correctly
+- [ ] Skills page loads with TUI styling
+- [ ] API keys page works
+- [ ] Profile page displays user info
+- [ ] Navigation keyboard shortcuts work
+- [ ] Mobile responsive layout functions
+
+**Effort**: Medium (1 hour)
+
+**Dependencies**: T21.6
+
+---
+
+#### T21.10: Create Production Deployment Documentation
+
+**Description**: Document the production deployment process and monitoring procedures.
+
+**Acceptance Criteria**:
+- [ ] Update `docs/SOFT-LAUNCH-OPERATIONS.md` with production URLs
+- [ ] Document DNS configuration
+- [ ] Document deployment commands
+- [ ] Document monitoring endpoints
+- [ ] Add troubleshooting section
+
+**Effort**: Small (30 min)
+
+**Dependencies**: T21.9
+
+---
+
+### Sprint 21 Summary
+
+| Task | Description | Effort | Status |
+|------|-------------|--------|--------|
+| T21.1 | Deploy API to Fly.io | S | ⬜ Pending |
+| T21.2 | Configure Vercel for Web | S | ⬜ Pending |
+| T21.3 | Deploy Web to Vercel | S | ⬜ Pending |
+| T21.4 | Custom Domain (Web) | S | ⬜ Pending |
+| T21.5 | Custom Domain (API) | S | ⬜ Pending |
+| T21.6 | Update Production URLs | S | ⬜ Pending |
+| T21.7 | Seed Production Users | S | ⬜ Pending |
+| T21.8 | Verify GTM Pack | S | ⬜ Pending |
+| T21.9 | Smoke Test | M | ⬜ Pending |
+| T21.10 | Documentation | S | ⬜ Pending |
+
+**Total Estimated Effort**: ~6 hours
+
+---
+
+## Deployment Architecture Summary
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Production Architecture                      │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   ┌─────────────────┐         ┌─────────────────┐                   │
+│   │    Vercel       │         │    Fly.io       │                   │
+│   │                 │         │                 │                   │
+│   │  constructs.    │ ──────▶ │  api.constructs.│                   │
+│   │    network      │  API    │    network      │                   │
+│   │                 │ calls   │                 │                   │
+│   │  Next.js App    │         │  Hono API       │                   │
+│   └─────────────────┘         └────────┬────────┘                   │
+│                                        │                            │
+│                                        ▼                            │
+│                               ┌─────────────────┐                   │
+│                               │    Neon         │                   │
+│                               │    PostgreSQL   │                   │
+│                               └─────────────────┘                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### DNS Configuration
+
+| Record Type | Name | Value |
+|-------------|------|-------|
+| CNAME | `constructs.network` | `cname.vercel-dns.com` |
+| CNAME | `api.constructs.network` | `loa-constructs-api.fly.dev` |
+
+### Environment Variables
+
+**Vercel (Web)**:
+| Variable | Value |
+|----------|-------|
+| `NEXT_PUBLIC_API_URL` | `https://api.constructs.network` |
+
+**Fly.io (API)**:
+| Variable | Value |
+|----------|-------|
+| `DATABASE_URL` | `postgresql://...@neon.tech/...` |
+| `JWT_SECRET` | `<secret>` |
+| `API_URL` | `https://api.constructs.network` |
+| `DASHBOARD_URL` | `https://constructs.network` |
+
+---
+
 **Document Status**: Ready for implementation
-**Next Command**: `/implement sprint-18`
+**Next Command**: `/implement sprint-21`
