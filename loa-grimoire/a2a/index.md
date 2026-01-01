@@ -13,7 +13,7 @@
 | Sprint 18 | COMPLETED | TUI Foundation & Global Styles | All good | APPROVED |
 | Sprint 19 | COMPLETED | Dashboard & Navigation Redesign | All good | APPROVED |
 | Sprint 20 | COMPLETED | Page Redesigns & Polish | All good | APPROVED |
-| Sprint 21 | IN_REVIEW | Production Deployment | - | - |
+| Sprint 21 | AUDIT | Production Deployment | All good | - |
 
 ### Previous Sprints (v1 - Registry Backend)
 
@@ -63,7 +63,8 @@
 - Files modified: `apps/web/next.config.js`, `apps/web/.env.example`, `apps/api/src/routes/oauth.ts`
 - Bug fixed: OAuth redirect port (3000 -> 3001)
 - All packages pass typecheck
-- Ready for senior lead review
+- **Senior lead review: APPROVED** (`sprint-21/engineer-feedback.md`)
+- Ready for security audit: `/audit-sprint sprint-21`
 
 - **Sprint 20 FULLY COMPLETED** (Page Redesigns & Polish)
 - Report submitted: `sprint-20/reviewer.md`
