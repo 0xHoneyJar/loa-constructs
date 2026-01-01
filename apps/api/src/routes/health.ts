@@ -14,6 +14,9 @@ const health = new Hono();
 // Track startup time
 const startupTime = Date.now();
 
+// Build timestamp for debugging deployments
+const BUILD_TIMESTAMP = '2026-01-02T10:05:00Z';
+
 /**
  * GET /v1/health
  * Basic health check endpoint for load balancers and monitoring
@@ -25,6 +28,7 @@ health.get('/', (c) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     version: getAppVersion(),
+    build: BUILD_TIMESTAMP,
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
   });

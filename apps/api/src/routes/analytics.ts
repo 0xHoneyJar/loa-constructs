@@ -15,8 +15,10 @@ import type { Variables } from '../app.js';
 
 const analyticsRouter = new Hono<{ Variables: Variables & { user: { id: string } } }>();
 
-// All routes require authentication
-analyticsRouter.use('*', requireAuth());
+// Apply authentication only to analytics-specific routes (not all routes)
+// This prevents interfering with other routes when mounted at root
+analyticsRouter.use('/users/*', requireAuth());
+analyticsRouter.use('/creator/*', requireAuth());
 
 // --- Schemas ---
 

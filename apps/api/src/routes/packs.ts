@@ -128,45 +128,52 @@ const createVersionSchema = z.object({
  * @see sdd-v2.md §5.1 GET /v1/packs
  */
 packsRouter.get('/', optionalAuth(), zValidator('query', listPacksSchema), async (c) => {
-  const query = c.req.valid('query');
-  const requestId = c.get('requestId');
+  try {
+    const query = c.req.valid('query');
+    const requestId = c.get('requestId');
 
-  const result = await listPacks({
-    query: query.q,
-    tag: query.tag,
-    featured: query.featured,
-    page: query.page,
-    limit: query.per_page,
-  });
+    logger.info({ request_id: requestId, msg: 'Listing packs - start' });
 
-  logger.info(
-    { request_id: requestId, query: query.q, total: result.total, page: result.page },
-    'Packs listed'
-  );
+    const result = await listPacks({
+      query: query.q,
+      tag: query.tag,
+      featured: query.featured,
+      page: query.page,
+      limit: query.per_page,
+    });
 
-  return c.json({
-    data: result.packs.map((p) => ({
-      id: p.id,
-      name: p.name,
-      slug: p.slug,
-      description: p.description,
-      tier_required: p.tierRequired,
-      pricing_type: p.pricingType,
-      downloads: p.downloads,
-      is_featured: p.isFeatured,
-      rating:
-        p.ratingCount && p.ratingCount > 0
-          ? (p.ratingSum || 0) / p.ratingCount
-          : null,
-      created_at: p.createdAt,
-    })),
-    pagination: {
-      page: result.page,
-      per_page: result.limit,
-      total: result.total,
-    },
-    request_id: requestId,
-  });
+    logger.info(
+      { request_id: requestId, query: query.q, total: result.total, page: result.page },
+      'Packs listed'
+    );
+
+    return c.json({
+      data: result.packs.map((p) => ({
+        id: p.id,
+        name: p.name,
+        slug: p.slug,
+        description: p.description,
+        tier_required: p.tierRequired,
+        pricing_type: p.pricingType,
+        downloads: p.downloads,
+        is_featured: p.isFeatured,
+        rating:
+          p.ratingCount && p.ratingCount > 0
+            ? (p.ratingSum || 0) / p.ratingCount
+            : null,
+        created_at: p.createdAt,
+      })),
+      pagination: {
+        page: result.page,
+        per_page: result.limit,
+        total: result.total,
+      },
+      request_id: requestId,
+    });
+  } catch (error) {
+    logger.error({ error, stack: error instanceof Error ? error.stack : undefined }, 'Packs list error');
+    throw error;
+  }
 });
 
 /**

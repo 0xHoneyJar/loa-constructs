@@ -106,6 +106,8 @@ v1.route('/skills', skillsRouter);
 v1.route('/teams', teamsRouter);
 
 // Analytics routes (user usage, creator analytics)
+// Note: Analytics router handles /users/me/usage and /creator/* routes
+// Mounted at root - routes use specific path prefixes internally
 v1.route('/', analyticsRouter);
 
 // Creator routes (skill publishing)
