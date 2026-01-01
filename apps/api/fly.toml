@@ -77,19 +77,28 @@ primary_region = "iad"
 [deploy]
   strategy = "rolling"
 
-# Required secrets (set via fly secrets set):
-# DATABASE_URL - Neon PostgreSQL connection string
-# REDIS_URL - Upstash Redis URL
-# JWT_SECRET - JWT signing secret
-# STRIPE_SECRET_KEY - Stripe API key
-# STRIPE_WEBHOOK_SECRET - Stripe webhook signing secret
-# RESEND_API_KEY - Resend email API key
-# R2_ACCESS_KEY_ID - Cloudflare R2 access key
-# R2_SECRET_ACCESS_KEY - Cloudflare R2 secret key
-# R2_BUCKET - R2 bucket name
-# R2_ENDPOINT - R2 endpoint URL
-# GITHUB_CLIENT_ID - GitHub OAuth client ID
-# GITHUB_CLIENT_SECRET - GitHub OAuth client secret
-# GOOGLE_CLIENT_ID - Google OAuth client ID
-# GOOGLE_CLIENT_SECRET - Google OAuth client secret
-# SENTRY_DSN - Sentry error tracking DSN (optional)
+# ============================================================
+# Secrets Configuration (set via: fly secrets set KEY=value)
+# ============================================================
+#
+# REQUIRED - API will not start without these:
+#   DATABASE_URL - Neon PostgreSQL connection string
+#   JWT_SECRET - JWT signing secret (min 32 chars)
+#
+# OPTIONAL - Features gracefully disabled if not set:
+#   REDIS_URL - Upstash Redis URL (rate limiting disabled)
+#   STRIPE_SECRET_KEY - Stripe API key (billing disabled)
+#   STRIPE_WEBHOOK_SECRET - Stripe webhook signing secret
+#   RESEND_API_KEY - Resend email API key (emails skipped)
+#   R2_ACCOUNT_ID - Cloudflare R2 account ID
+#   R2_ACCESS_KEY_ID - Cloudflare R2 access key
+#   R2_SECRET_ACCESS_KEY - Cloudflare R2 secret key
+#   R2_BUCKET - R2 bucket name
+#   GITHUB_CLIENT_ID - GitHub OAuth client ID
+#   GITHUB_CLIENT_SECRET - GitHub OAuth client secret
+#   GOOGLE_CLIENT_ID - Google OAuth client ID
+#   GOOGLE_CLIENT_SECRET - Google OAuth client secret
+#   SENTRY_DSN - Sentry error tracking DSN
+#
+# SOFT LAUNCH (minimum config):
+#   fly secrets set DATABASE_URL="postgresql://..." JWT_SECRET="..."

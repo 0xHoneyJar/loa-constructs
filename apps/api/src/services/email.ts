@@ -153,15 +153,16 @@ function escapeHtml(text: string): string {
 /**
  * Send an email via Resend
  * @see sprint-v2.md T14.5: Email Service Production Validation (L3)
+ * @see sprint.md T17.3: Soft launch graceful degradation
  */
 export async function sendEmail(options: SendEmailOptions): Promise<EmailResult> {
   if (!env.RESEND_API_KEY) {
-    // L3: Production must have email configured
-    if (env.NODE_ENV === 'production') {
-      logger.error({ to: options.to, subject: options.subject }, 'RESEND_API_KEY not configured in production');
-      throw new Error('Email service not configured');
-    }
-    logger.warn({ to: options.to, subject: options.subject }, 'Email skipped - RESEND_API_KEY not configured');
+    // Log warning in production but don't throw - allows soft launch without email
+    // For soft launch: users created manually with emailVerified=true
+    logger.warn(
+      { to: options.to, subject: options.subject, env: env.NODE_ENV },
+      'Email skipped - RESEND_API_KEY not configured'
+    );
     return { success: false, error: 'Email not configured' };
   }
 

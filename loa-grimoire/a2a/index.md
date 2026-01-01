@@ -25,6 +25,7 @@
 | Sprint 14 | COMPLETED | [reviewer.md](sprint-14/reviewer.md) | [engineer-feedback.md](sprint-14/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-14/auditor-sprint-feedback.md) |
 | Sprint 15 | COMPLETED | [reviewer.md](sprint-15/reviewer.md) | [engineer-feedback.md](sprint-15/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-15/auditor-sprint-feedback.md) |
 | Sprint 16 | COMPLETED | [reviewer.md](sprint-16/reviewer.md) | [engineer-feedback.md](sprint-16/engineer-feedback.md) | [auditor-sprint-feedback.md](sprint-16/auditor-sprint-feedback.md) |
+| Sprint 17 | IN_REVIEW | [reviewer.md](sprint-17/reviewer.md) | - | - |
 
 ---
 
@@ -41,6 +42,18 @@
 ---
 
 ## Recent Activity
+
+### 2026-01-02
+
+- **Sprint 17 implementation completed** (Soft Launch - No Billing)
+- Report submitted: `sprint-17/reviewer.md`
+- Tasks completed: T17.1-T17.8 (all tasks)
+- New scripts: `grant-subscription.ts`, `create-user.ts`, `seed-thj-team.ts`, `test-env-config.ts`, `deploy-soft-launch.sh`
+- New docs: `docs/SOFT-LAUNCH-OPERATIONS.md`
+- Modified: `email.ts` (graceful degradation), `fly.toml` (secrets docs), `.env.example` (annotations)
+- All 102 API tests passing, typecheck passes
+- Note: Billing will use Reap Global instead of Stripe
+- Awaiting senior lead review
 
 ### 2026-01-01
 
