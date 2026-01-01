@@ -12,7 +12,7 @@
 | Sprint 1-17 | COMPLETED | Various | Various | Various |
 | Sprint 18 | COMPLETED | TUI Foundation & Global Styles | All good | APPROVED |
 | Sprint 19 | COMPLETED | Dashboard & Navigation Redesign | All good | APPROVED |
-| Sprint 20 | REVIEW_APPROVED | Page Redesigns & Polish | All good | Pending |
+| Sprint 20 | COMPLETED | Page Redesigns & Polish | All good | APPROVED |
 
 ### Previous Sprints (v1 - Registry Backend)
 
@@ -63,7 +63,8 @@
 - Bug fixes: TuiListItem export, TuiCheckbox label type, skills page onSelect handler
 - All packages pass typecheck
 - **Senior lead review: APPROVED** (`sprint-20/engineer-feedback.md`)
-- Awaiting security audit
+- **Security audit: APPROVED - LETS FUCKING GO** (`sprint-20/auditor-sprint-feedback.md`)
+- **Sprint 20 COMPLETED** - TUI v2.0 UI Redesign complete!
 
 - **Sprint 19 FULLY COMPLETED** (Dashboard & Navigation Redesign)
 - Report submitted: `sprint-19/reviewer.md`
