@@ -1,33 +1,18 @@
 /**
- * API Keys Page
- * @see sprint.md T6.7: API Keys Page - Key management
+ * API Keys Page (TUI Style)
+ * @see sprint.md T20.6: Redesign API Keys Page
  */
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-  Key,
-  Plus,
-  Copy,
-  Check,
-  Trash2,
-  AlertCircle,
-  Eye,
-  EyeOff,
-  Calendar,
-  Shield,
-  X,
-} from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
-import { cn } from '@/lib/utils';
+import { TuiBox } from '@/components/tui/tui-box';
+import { TuiInput, TuiSelect, TuiCheckbox } from '@/components/tui/tui-input';
+import { TuiButton } from '@/components/tui/tui-button';
+import { TuiH1, TuiH2, TuiDim, TuiCode, TuiSuccess, TuiError, TuiTag } from '@/components/tui/tui-text';
 
 interface ApiKey {
   id: string;
@@ -138,80 +123,105 @@ function CreateKeyDialog({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative bg-background border rounded-lg shadow-lg w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">Create API Key</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="p-4 space-y-4">
-          {/* Name */}
-          <div className="space-y-2">
-            <Label htmlFor="key-name">Key Name</Label>
-            <Input
-              id="key-name"
-              {...register('name')}
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+        }}
+        onClick={onClose}
+      />
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: '440px',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+      >
+        <TuiBox title="Create API Key">
+          <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Name */}
+            <TuiInput
+              label="Key Name"
+              type="text"
               placeholder="e.g., CI/CD Integration"
+              error={errors.name?.message}
+              {...register('name')}
             />
-            {errors.name && (
-              <p className="text-sm text-destructive">{errors.name.message}</p>
-            )}
-          </div>
 
-          {/* Scopes */}
-          <div className="space-y-2">
-            <Label>Scopes</Label>
-            <div className="space-y-2">
-              {availableScopes.map((scope) => (
-                <label
-                  key={scope.id}
-                  className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-accent"
-                >
-                  <Checkbox
-                    checked={selectedScopes?.includes(scope.id)}
-                    onCheckedChange={() => toggleScope(scope.id)}
-                  />
-                  <div>
-                    <p className="font-medium text-sm">{scope.name}</p>
-                    <p className="text-xs text-muted-foreground">{scope.description}</p>
-                  </div>
-                </label>
-              ))}
+            {/* Scopes */}
+            <div>
+              <TuiDim style={{ fontSize: '12px', marginBottom: '8px', display: 'block' }}>Scopes</TuiDim>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {availableScopes.map((scope) => (
+                  <label
+                    key={scope.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: '12px',
+                      padding: '8px 12px',
+                      border: `1px solid ${selectedScopes?.includes(scope.id) ? 'var(--accent)' : 'var(--border)'}`,
+                      cursor: 'pointer',
+                      background: selectedScopes?.includes(scope.id) ? 'rgba(189, 147, 249, 0.1)' : 'transparent',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedScopes?.includes(scope.id)}
+                      onChange={() => toggleScope(scope.id)}
+                      style={{
+                        accentColor: 'var(--accent)',
+                        width: '14px',
+                        height: '14px',
+                        marginTop: '2px',
+                      }}
+                    />
+                    <div>
+                      <div style={{ color: 'var(--fg-bright)', fontSize: '13px' }}>{scope.name}</div>
+                      <TuiDim style={{ fontSize: '11px' }}>{scope.description}</TuiDim>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              {errors.scopes && (
+                <TuiError style={{ marginTop: '4px' }}>{errors.scopes.message}</TuiError>
+              )}
             </div>
-            {errors.scopes && (
-              <p className="text-sm text-destructive">{errors.scopes.message}</p>
-            )}
-          </div>
 
-          {/* Expiry */}
-          <div className="space-y-2">
-            <Label htmlFor="expiry">Expiration</Label>
-            <select
-              id="expiry"
-              {...register('expiry')}
-              className="w-full h-10 px-3 border rounded-md bg-background"
-            >
+            {/* Expiry */}
+            <TuiSelect label="Expiration" {...register('expiry')}>
               {expiryOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
-            </select>
-          </div>
+            </TuiSelect>
 
-          <div className="flex gap-2 pt-4">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" className="flex-1">
-              Create Key
-            </Button>
-          </div>
-        </form>
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+              <TuiButton type="button" variant="secondary" fullWidth onClick={onClose}>
+                Cancel
+              </TuiButton>
+              <TuiButton type="submit" fullWidth>
+                $ create-key
+              </TuiButton>
+            </div>
+          </form>
+        </TuiBox>
       </div>
     </div>
   );
@@ -227,66 +237,107 @@ function NewKeyDisplay({
   const [copied, setCopied] = useState(false);
   const [visible, setVisible] = useState(false);
 
-  const handleCopy = () => {
+  const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(apiKey);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
+  }, [apiKey]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" />
-      <div className="relative bg-background border rounded-lg shadow-lg w-full max-w-md mx-4">
-        <div className="p-6 space-y-4">
-          <div className="flex items-center gap-3 text-green-600">
-            <Check className="h-6 w-6" />
-            <h2 className="text-lg font-semibold">API Key Created</h2>
-          </div>
-
-          <div className="p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                  Save this key now
-                </p>
-                <p className="text-xs text-amber-700 dark:text-amber-300">
-                  You won&apos;t be able to see it again after closing this dialog.
-                </p>
-              </div>
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 50,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+        }}
+      />
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          maxWidth: '440px',
+        }}
+      >
+        <TuiBox title="Key Created">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {/* Success Message */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <TuiSuccess>✓</TuiSuccess>
+              <span style={{ color: 'var(--green)', fontWeight: 600 }}>API Key Created Successfully</span>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label>Your API Key</Label>
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Input
-                  type={visible ? 'text' : 'password'}
-                  value={apiKey}
-                  readOnly
-                  className="pr-10 font-mono text-sm"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                  onClick={() => setVisible(!visible)}
+            {/* Warning */}
+            <div
+              style={{
+                padding: '8px 12px',
+                border: '1px solid var(--yellow)',
+                background: 'rgba(241, 250, 140, 0.1)',
+              }}
+            >
+              <span style={{ color: 'var(--yellow)' }}>⚠ Save this key now</span>
+              <TuiDim style={{ display: 'block', marginTop: '4px' }}>
+                You won&apos;t be able to see it again after closing this dialog.
+              </TuiDim>
+            </div>
+
+            {/* Key Display */}
+            <div>
+              <TuiDim style={{ fontSize: '12px', marginBottom: '4px', display: 'block' }}>Your API Key</TuiDim>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <div
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg)',
+                    fontFamily: 'monospace',
+                    fontSize: '12px',
+                    color: 'var(--fg-bright)',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
                 >
-                  {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </Button>
+                  {visible ? apiKey : '•'.repeat(Math.min(apiKey.length, 40))}
+                </div>
+                <TuiButton
+                  variant="secondary"
+                  onClick={() => setVisible(!visible)}
+                  style={{ padding: '8px 10px' }}
+                >
+                  {visible ? '👁' : '👁‍🗨'}
+                </TuiButton>
+                <TuiButton
+                  variant="secondary"
+                  onClick={handleCopy}
+                  style={{ padding: '8px 10px' }}
+                >
+                  {copied ? '✓' : '📋'}
+                </TuiButton>
               </div>
-              <Button variant="outline" size="icon" onClick={handleCopy}>
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              </Button>
             </div>
-          </div>
 
-          <Button className="w-full" onClick={onClose}>
-            I&apos;ve saved the key
-          </Button>
-        </div>
+            {/* Copy Command */}
+            <TuiCode copyable onCopy={handleCopy}>
+              <span style={{ color: 'var(--fg-dim)' }}>$</span> export LOA_API_KEY=&quot;{apiKey.substring(0, 15)}...&quot;
+            </TuiCode>
+
+            {/* Action */}
+            <TuiButton fullWidth onClick={onClose}>
+              $ confirm --saved
+            </TuiButton>
+          </div>
+        </TuiBox>
       </div>
     </div>
   );
@@ -299,7 +350,6 @@ export default function ApiKeysPage() {
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const handleCreateKey = (data: CreateKeyFormData) => {
-    // In production, this would call the API
     const generatedKey = `loa_sk_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
 
     const expiresAt =
@@ -330,130 +380,130 @@ export default function ApiKeysPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">API Keys</h1>
-          <p className="text-muted-foreground">Manage your API keys for CLI and integrations</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+        <div style={{ padding: '0 4px' }}>
+          <TuiH1 cursor>API Keys</TuiH1>
+          <TuiDim>Manage your API keys for CLI and integrations</TuiDim>
         </div>
-        <Button onClick={() => setIsCreateOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Key
-        </Button>
+        <TuiButton onClick={() => setIsCreateOpen(true)}>
+          $ create-key --new
+        </TuiButton>
       </div>
 
-      {/* Info Card */}
-      <Card className="bg-muted/50">
-        <CardContent className="py-4">
-          <div className="flex items-start gap-3">
-            <Shield className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium">Keep your API keys secure</p>
-              <p className="text-xs text-muted-foreground">
-                Never share your API keys in public repositories or client-side code. Use
-                environment variables to store them securely.
-              </p>
-            </div>
+      {/* Security Info */}
+      <TuiBox title="Security Notice">
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <span style={{ color: 'var(--cyan)' }}>🔒</span>
+          <div>
+            <div style={{ color: 'var(--fg-bright)', marginBottom: '4px' }}>Keep your API keys secure</div>
+            <TuiDim>
+              Never share your API keys in public repositories or client-side code.
+              Use environment variables to store them securely.
+            </TuiDim>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </TuiBox>
 
       {/* Keys List */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            Your API Keys
-          </CardTitle>
-          <CardDescription>
-            {keys.length} key{keys.length !== 1 ? 's' : ''} total
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {keys.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Key className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No API keys yet</p>
-              <p className="text-sm">Create one to get started</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {keys.map((key) => (
+      <TuiBox title={`Your API Keys (${keys.length})`}>
+        {keys.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '32px', color: 'var(--fg-dim)' }}>
+            <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔑</div>
+            <div>No API keys yet</div>
+            <TuiDim>Create one to get started</TuiDim>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {keys.map((key, idx) => {
+              const isExpired = key.expiresAt && new Date(key.expiresAt) < new Date();
+              return (
                 <div
                   key={key.id}
-                  className="flex flex-col md:flex-row md:items-center justify-between p-4 border rounded-lg gap-4"
+                  style={{
+                    padding: '12px',
+                    border: `1px solid ${isExpired ? 'var(--red)' : 'var(--border)'}`,
+                    background: isExpired ? 'rgba(255, 95, 95, 0.05)' : 'transparent',
+                  }}
                 >
-                  <div className="space-y-1">
-                    <p className="font-medium">{key.name}</p>
-                    <p className="font-mono text-sm text-muted-foreground">
-                      {key.prefix}...
-                    </p>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {key.scopes.map((scope) => (
-                        <span
-                          key={scope}
-                          className="px-2 py-0.5 text-xs bg-muted rounded-full capitalize"
-                        >
-                          {scope}
-                        </span>
-                      ))}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+                    {/* Key Info */}
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                        <span style={{ color: 'var(--fg-bright)', fontWeight: 600 }}>{key.name}</span>
+                        {isExpired && <TuiTag color="red">EXPIRED</TuiTag>}
+                      </div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '12px', color: 'var(--fg-dim)', marginBottom: '8px' }}>
+                        {key.prefix}...
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {key.scopes.map((scope) => (
+                          <span
+                            key={scope}
+                            style={{
+                              color: 'var(--cyan)',
+                              fontSize: '11px',
+                              padding: '2px 6px',
+                              border: '1px solid var(--cyan)',
+                              textTransform: 'uppercase',
+                            }}
+                          >
+                            {scope}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-xs text-muted-foreground space-y-1">
-                      <p className="flex items-center gap-1">
-                        <Calendar className="h-3 w-3" />
-                        Created {key.createdAt}
-                      </p>
+
+                    {/* Metadata */}
+                    <div style={{ fontSize: '11px', color: 'var(--fg-dim)', minWidth: '140px' }}>
+                      <div>Created: {key.createdAt}</div>
                       {key.expiresAt && (
-                        <p
-                          className={cn(
-                            new Date(key.expiresAt) < new Date() && 'text-destructive'
-                          )}
-                        >
-                          {new Date(key.expiresAt) < new Date()
-                            ? 'Expired'
-                            : `Expires ${key.expiresAt}`}
-                        </p>
+                        <div style={{ color: isExpired ? 'var(--red)' : 'var(--fg-dim)' }}>
+                          {isExpired ? 'Expired' : 'Expires'}: {key.expiresAt}
+                        </div>
                       )}
-                      {key.lastUsed && <p>Last used {key.lastUsed}</p>}
+                      {key.lastUsed && <div>Last used: {key.lastUsed}</div>}
                     </div>
-                    <div className="relative">
+
+                    {/* Actions */}
+                    <div>
                       {deleteConfirm === key.id ? (
-                        <div className="flex items-center gap-2">
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => handleDeleteKey(key.id)}
-                          >
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <TuiButton variant="danger" onClick={() => handleDeleteKey(key.id)}>
                             Confirm
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setDeleteConfirm(null)}
-                          >
+                          </TuiButton>
+                          <TuiButton variant="secondary" onClick={() => setDeleteConfirm(null)}>
                             Cancel
-                          </Button>
+                          </TuiButton>
                         </div>
                       ) : (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleteConfirm(key.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <TuiButton variant="danger" onClick={() => setDeleteConfirm(key.id)}>
+                          $ revoke
+                        </TuiButton>
                       )}
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              );
+            })}
+          </div>
+        )}
+      </TuiBox>
+
+      {/* Usage Info */}
+      <TuiBox title="Quick Start">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <TuiDim>Use your API key with the Loa CLI:</TuiDim>
+          <TuiCode copyable>
+            <span style={{ color: 'var(--fg-dim)' }}>$</span> loa auth login --key YOUR_API_KEY
+          </TuiCode>
+          <TuiDim>Or set it as an environment variable:</TuiDim>
+          <TuiCode copyable>
+            <span style={{ color: 'var(--fg-dim)' }}>$</span> export LOA_API_KEY=&quot;your_api_key_here&quot;
+          </TuiCode>
+        </div>
+      </TuiBox>
 
       {/* Create Key Dialog */}
       <CreateKeyDialog

@@ -10,7 +10,7 @@ import { ReactNode, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useKeyboardNav } from '@/hooks/use-keyboard-nav';
 
-interface TuiListItem {
+export interface TuiListItem {
   /** Unique identifier */
   id: string;
   /** Item title */

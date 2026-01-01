@@ -1,16 +1,15 @@
 /**
- * Billing Page
- * @see sprint.md T6.5: Billing Page - Plans and Stripe
+ * Billing Page (TUI Style)
+ * @see sprint.md T20.5: Redesign Billing Page
  */
 
 'use client';
 
 import { useState } from 'react';
-import { Check, CreditCard, ExternalLink, Receipt, Calendar, AlertCircle } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { TuiBox } from '@/components/tui/tui-box';
+import { TuiButton, TuiLinkButton } from '@/components/tui/tui-button';
+import { TuiH1, TuiH2, TuiDim, TuiSuccess, TuiTag } from '@/components/tui/tui-text';
 import { useAuth } from '@/contexts/auth-context';
-import { cn } from '@/lib/utils';
 
 interface Plan {
   id: string;
@@ -104,6 +103,13 @@ const mockBillingHistory: BillingHistory[] = [
   { id: '3', date: '2024-10-01', amount: 19, status: 'paid', description: 'Pro Plan - October 2024' },
 ];
 
+const tierColors: Record<string, string> = {
+  free: 'var(--fg-dim)',
+  pro: 'var(--accent)',
+  team: 'var(--cyan)',
+  enterprise: 'var(--yellow)',
+};
+
 function PlanCard({
   plan,
   currentTier,
@@ -117,54 +123,116 @@ function PlanCard({
 }) {
   const isCurrentPlan = plan.tier.toLowerCase() === currentTier.toLowerCase();
   const isUpgrade = plans.findIndex((p) => p.tier === plan.tier) > plans.findIndex((p) => p.tier.toLowerCase() === currentTier.toLowerCase());
+  const tierColor = tierColors[plan.tier] || tierColors.free;
 
   return (
-    <Card
-      className={cn(
-        'flex flex-col relative',
-        plan.highlighted && 'border-primary shadow-lg',
-        isCurrentPlan && 'border-green-500'
-      )}
+    <div
+      style={{
+        border: `1px solid ${isCurrentPlan ? 'var(--green)' : plan.highlighted ? 'var(--accent)' : 'var(--border)'}`,
+        background: 'rgba(0, 0, 0, 0.75)',
+        padding: '16px',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '12px',
+        position: 'relative',
+      }}
     >
-      {plan.highlighted && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary text-primary-foreground text-xs font-medium rounded-full">
-          Most Popular
-        </div>
-      )}
-      {isCurrentPlan && (
-        <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-green-500 text-white text-xs font-medium rounded-full">
-          Current Plan
-        </div>
-      )}
-      <CardHeader>
-        <CardTitle>{plan.name}</CardTitle>
-        <CardDescription>{plan.description}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex-1">
-        <div className="mb-6">
-          <span className="text-4xl font-bold">${plan.price}</span>
-          <span className="text-muted-foreground">/{plan.interval}</span>
-        </div>
-        <ul className="space-y-3">
-          {plan.features.map((feature) => (
-            <li key={feature} className="flex items-start gap-2">
-              <Check className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-              <span className="text-sm">{feature}</span>
-            </li>
-          ))}
-        </ul>
-      </CardContent>
-      <CardFooter>
-        <Button
-          className="w-full"
-          variant={plan.highlighted ? 'default' : 'outline'}
-          disabled={isCurrentPlan || isLoading}
-          onClick={() => onSelect(plan.id)}
+      {/* Badge */}
+      {(plan.highlighted || isCurrentPlan) && (
+        <span
+          style={{
+            position: 'absolute',
+            top: '-10px',
+            left: '12px',
+            padding: '2px 8px',
+            fontSize: '10px',
+            background: 'rgba(0, 0, 0, 0.9)',
+            border: `1px solid ${isCurrentPlan ? 'var(--green)' : 'var(--accent)'}`,
+            color: isCurrentPlan ? 'var(--green)' : 'var(--accent)',
+            textTransform: 'uppercase',
+          }}
         >
-          {isCurrentPlan ? 'Current Plan' : isUpgrade ? 'Upgrade' : 'Downgrade'}
-        </Button>
-      </CardFooter>
-    </Card>
+          {isCurrentPlan ? 'Current' : 'Popular'}
+        </span>
+      )}
+
+      {/* Header */}
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ color: tierColor, fontWeight: 600 }}>{plan.name}</span>
+        </div>
+        <TuiDim style={{ fontSize: '12px' }}>{plan.description}</TuiDim>
+      </div>
+
+      {/* Price */}
+      <div>
+        <span style={{ fontSize: '28px', fontWeight: 700, color: 'var(--fg-bright)' }}>
+          ${plan.price}
+        </span>
+        <TuiDim>/{plan.interval}</TuiDim>
+      </div>
+
+      {/* Features */}
+      <ul style={{ listStyle: 'none', padding: 0, margin: 0, flex: 1 }}>
+        {plan.features.map((feature) => (
+          <li
+            key={feature}
+            style={{
+              padding: '4px 0',
+              fontSize: '13px',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '8px',
+            }}
+          >
+            <TuiSuccess>✓</TuiSuccess>
+            <span style={{ color: 'var(--fg)' }}>{feature}</span>
+          </li>
+        ))}
+      </ul>
+
+      {/* Action */}
+      <TuiButton
+        variant={plan.highlighted ? 'primary' : 'secondary'}
+        fullWidth
+        disabled={isCurrentPlan || isLoading}
+        onClick={() => onSelect(plan.id)}
+      >
+        {isCurrentPlan ? 'Current Plan' : isUpgrade ? `$ upgrade --to ${plan.tier}` : `$ downgrade --to ${plan.tier}`}
+      </TuiButton>
+    </div>
+  );
+}
+
+function UsageBar({ label, used, total, unit = '' }: { label: string; used: number; total: number; unit?: string }) {
+  const percentage = Math.min((used / total) * 100, 100);
+  const isHigh = percentage >= 80;
+
+  return (
+    <div style={{ marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+        <span style={{ color: 'var(--fg)' }}>{label}</span>
+        <span style={{ color: isHigh ? 'var(--yellow)' : 'var(--fg-dim)' }}>
+          {used.toLocaleString()}{unit} / {total.toLocaleString()}{unit}
+        </span>
+      </div>
+      <div
+        style={{
+          height: '6px',
+          background: 'var(--bg-elevated)',
+          border: '1px solid var(--border)',
+        }}
+      >
+        <div
+          style={{
+            height: '100%',
+            width: `${percentage}%`,
+            background: isHigh ? 'var(--yellow)' : 'var(--accent)',
+            transition: 'width 0.3s ease',
+          }}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -172,78 +240,84 @@ export default function BillingPage() {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const currentTier = user?.role || 'free';
+  const tierColor = tierColors[currentTier] || tierColors.free;
 
   const handlePlanSelect = async (planId: string) => {
     setIsLoading(true);
-    // In production, this would redirect to Stripe Checkout
-    // const response = await fetch('/api/billing/create-checkout-session', {
-    //   method: 'POST',
-    //   body: JSON.stringify({ planId }),
-    // });
-    // const { url } = await response.json();
-    // window.location.href = url;
-
-    // Mock delay
     await new Promise((resolve) => setTimeout(resolve, 1000));
     alert(`Redirecting to Stripe Checkout for ${planId} plan...`);
     setIsLoading(false);
   };
 
   const handleManageSubscription = () => {
-    // In production, this would redirect to Stripe Customer Portal
     alert('Redirecting to Stripe Customer Portal...');
   };
 
+  const statusColors: Record<string, string> = {
+    paid: 'var(--green)',
+    pending: 'var(--yellow)',
+    failed: 'var(--red)',
+  };
+
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Billing & Subscription</h1>
-        <p className="text-muted-foreground">Manage your subscription and billing details</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* Header */}
+      <div style={{ padding: '0 4px' }}>
+        <TuiH1 cursor>Billing & Subscription</TuiH1>
+        <TuiDim>Manage your subscription and billing details</TuiDim>
       </div>
 
       {/* Current Plan Summary */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Current Plan
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <TuiBox title="Current Plan">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <p className="text-2xl font-bold capitalize">{currentTier} Plan</p>
-              <p className="text-sm text-muted-foreground">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px', fontWeight: 600, color: tierColor, textTransform: 'capitalize' }}>
+                  {currentTier} Plan
+                </span>
+                {currentTier !== 'free' && (
+                  <TuiTag color="green">ACTIVE</TuiTag>
+                )}
+              </div>
+              <TuiDim>
                 {currentTier === 'free'
                   ? 'Free forever'
                   : `$${plans.find((p) => p.tier === currentTier)?.price || 0}/month`}
-              </p>
+              </TuiDim>
             </div>
             {currentTier !== 'free' && (
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={handleManageSubscription}>
-                  <ExternalLink className="h-4 w-4 mr-2" />
-                  Manage Subscription
-                </Button>
-              </div>
+              <TuiButton variant="secondary" onClick={handleManageSubscription}>
+                $ manage-subscription
+              </TuiButton>
             )}
           </div>
 
           {currentTier !== 'free' && (
-            <div className="mt-4 p-4 bg-muted/50 rounded-lg">
-              <div className="flex items-center gap-2 text-sm">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span>Next billing date: January 1, 2025</span>
-              </div>
+            <div
+              style={{
+                padding: '8px 12px',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-elevated)',
+              }}
+            >
+              <TuiDim>Next billing date:</TuiDim>{' '}
+              <span style={{ color: 'var(--fg-bright)' }}>January 1, 2025</span>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </TuiBox>
 
-      {/* Plan Selector */}
+      {/* Available Plans */}
       <div>
-        <h2 className="text-lg font-semibold mb-4">Available Plans</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <TuiH2 style={{ marginBottom: '12px', padding: '0 4px' }}>Available Plans</TuiH2>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '12px',
+          }}
+        >
           {plans.map((plan) => (
             <PlanCard
               key={plan.id}
@@ -257,97 +331,71 @@ export default function BillingPage() {
       </div>
 
       {/* Usage Stats */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Usage This Month</CardTitle>
-          <CardDescription>API calls and resource usage</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span>API Calls</span>
-                <span>847 / 1,000</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all"
-                  style={{ width: '84.7%' }}
-                />
-              </div>
-            </div>
-            <div>
-              <div className="flex justify-between text-sm mb-1">
-                <span>Skills Installed</span>
-                <span>4 / 5</span>
-              </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all"
-                  style={{ width: '80%' }}
-                />
-              </div>
-            </div>
+      <TuiBox title="Usage This Month">
+        <UsageBar label="API Calls" used={847} total={1000} />
+        <UsageBar label="Skills Installed" used={4} total={5} />
+
+        {currentTier === 'free' && (
+          <div
+            style={{
+              marginTop: '12px',
+              padding: '8px 12px',
+              border: '1px solid var(--yellow)',
+              background: 'rgba(241, 250, 140, 0.1)',
+            }}
+          >
+            <span style={{ color: 'var(--yellow)' }}>⚠ Approaching API limit</span>
+            <TuiDim style={{ display: 'block', marginTop: '4px' }}>
+              Upgrade to Pro for 50,000 API calls/month
+            </TuiDim>
           </div>
-          {currentTier === 'free' && (
-            <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                  Approaching API limit
-                </p>
-                <p className="text-xs text-amber-700 dark:text-amber-300">
-                  Upgrade to Pro for 50,000 API calls/month
-                </p>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        )}
+      </TuiBox>
 
       {/* Billing History */}
       {currentTier !== 'free' && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Receipt className="h-5 w-5" />
-              Billing History
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {mockBillingHistory.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center justify-between py-3 border-b last:border-0"
-                >
-                  <div>
-                    <p className="font-medium">{item.description}</p>
-                    <p className="text-sm text-muted-foreground">{item.date}</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <span
-                      className={cn(
-                        'px-2 py-1 text-xs rounded-full',
-                        item.status === 'paid'
-                          ? 'bg-green-100 text-green-800'
-                          : item.status === 'pending'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-red-100 text-red-800'
-                      )}
-                    >
-                      {item.status}
-                    </span>
-                    <span className="font-medium">${item.amount}</span>
-                  </div>
+        <TuiBox title="Billing History">
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {mockBillingHistory.map((item, idx) => (
+              <div
+                key={item.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '12px 0',
+                  borderBottom: idx < mockBillingHistory.length - 1 ? '1px solid var(--border)' : 'none',
+                  flexWrap: 'wrap',
+                  gap: '8px',
+                }}
+              >
+                <div>
+                  <div style={{ color: 'var(--fg-bright)' }}>{item.description}</div>
+                  <TuiDim style={{ fontSize: '12px' }}>{item.date}</TuiDim>
                 </div>
-              ))}
-            </div>
-            <Button variant="ghost" className="w-full mt-4">
-              View all invoices
-            </Button>
-          </CardContent>
-        </Card>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span
+                    style={{
+                      color: statusColors[item.status],
+                      fontSize: '11px',
+                      padding: '2px 6px',
+                      border: `1px solid ${statusColors[item.status]}`,
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    {item.status}
+                  </span>
+                  <span style={{ color: 'var(--fg-bright)', fontWeight: 600 }}>${item.amount}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{ marginTop: '12px', textAlign: 'center' }}>
+            <TuiLinkButton onClick={() => alert('View all invoices')}>
+              View all invoices →
+            </TuiLinkButton>
+          </div>
+        </TuiBox>
       )}
     </div>
   );

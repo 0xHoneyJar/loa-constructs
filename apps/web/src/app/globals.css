@@ -186,4 +186,60 @@ body::after {
   body {
     font-size: 13px;
   }
+
+  /* Ensure touch scrolling works in content areas */
+  .tui-box {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Stack feature grids on mobile */
+  .tui-layout [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Reduce padding on mobile */
+  .tui-layout {
+    padding: 8px !important;
+  }
+
+  /* Smaller status bar on mobile */
+  .tui-status-bar {
+    padding: 4px 8px !important;
+    font-size: 11px !important;
+  }
+
+  /* Reduce box padding on mobile */
+  .tui-box > div:last-child {
+    padding: 12px 8px 8px !important;
+  }
+}
+
+/* Touch devices - improve tap targets */
+@media (pointer: coarse) {
+  /* Larger touch targets for buttons */
+  .tui-button {
+    min-height: 44px;
+    padding: 8px 16px !important;
+  }
+
+  /* Larger touch targets for nav items */
+  .tui-nav-item {
+    min-height: 44px;
+  }
+
+  /* Larger touch targets for list items */
+  .tui-list-item {
+    min-height: 52px;
+  }
+}
+
+/* Landscape mobile - reduce vertical padding */
+@media (max-width: 768px) and (orientation: landscape) {
+  .tui-layout {
+    padding: 4px !important;
+  }
+
+  .tui-status-bar {
+    padding: 2px 8px !important;
+  }
 }

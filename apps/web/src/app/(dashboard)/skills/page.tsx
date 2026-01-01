@@ -1,17 +1,18 @@
 /**
- * Skill Browser Page
- * @see sprint.md T6.3: Skill Browser
+ * Skill Browser Page (TUI Style)
+ * @see sprint.md T20.1: Redesign Skills Browse Page
  */
 
 'use client';
 
-import { useState, useMemo } from 'react';
-import { Filter } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { SkillGrid } from '@/components/dashboard/skill-grid';
-import { SkillFiltersPanel, SkillFiltersBar, SkillFilters } from '@/components/dashboard/skill-filters';
-import { SearchInput } from '@/components/dashboard/search-input';
-import { Pagination } from '@/components/dashboard/pagination';
+import { useState, useMemo, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import { TuiBox } from '@/components/tui/tui-box';
+import { TuiH1, TuiDim, TuiTag } from '@/components/tui/tui-text';
+import { TuiSearchInput, TuiSelect } from '@/components/tui/tui-input';
+import { TuiButton } from '@/components/tui/tui-button';
+import { TuiList, TuiListItem } from '@/components/tui/tui-list';
+import { useKeyboardNav } from '@/hooks/use-keyboard-nav';
 import { Skill } from '@/components/dashboard/skill-card';
 
 // Mock skills data - in production this would come from API via TanStack Query
@@ -144,22 +145,26 @@ const mockSkills: Skill[] = [
   },
 ];
 
-const ITEMS_PER_PAGE = 6;
+const ITEMS_PER_PAGE = 10;
 
-const categories = ['development', 'testing', 'documentation', 'security', 'database', 'devops'];
-const availableTags = ['ai', 'code-quality', 'testing', 'documentation', 'security', 'performance', 'automation', 'api'];
+const categories = ['all', 'development', 'testing', 'documentation', 'security', 'database', 'devops'];
+const tiers = ['all', 'free', 'pro', 'team', 'enterprise'];
+
+const tierColors: Record<string, string> = {
+  free: 'var(--fg-dim)',
+  pro: 'var(--accent)',
+  team: 'var(--cyan)',
+  enterprise: 'var(--yellow)',
+};
 
 export default function SkillsPage() {
+  const router = useRouter();
   const [search, setSearch] = useState('');
-  const [filters, setFilters] = useState<SkillFilters>({
-    category: null,
-    tier: null,
-    tags: [],
-  });
+  const [category, setCategory] = useState('all');
+  const [tier, setTier] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const [showFilters, setShowFilters] = useState(false);
 
-  // Filter and search skills
+  // Filter skills
   const filteredSkills = useMemo(() => {
     return mockSkills.filter((skill) => {
       // Search
@@ -173,24 +178,18 @@ export default function SkillsPage() {
       }
 
       // Category filter
-      if (filters.category && skill.category !== filters.category) {
+      if (category !== 'all' && skill.category !== category) {
         return false;
       }
 
       // Tier filter
-      if (filters.tier && skill.tier !== filters.tier) {
+      if (tier !== 'all' && skill.tier !== tier) {
         return false;
-      }
-
-      // Tags filter
-      if (filters.tags.length > 0) {
-        const hasMatchingTag = filters.tags.some((tag) => skill.tags.includes(tag));
-        if (!hasMatchingTag) return false;
       }
 
       return true;
     });
-  }, [search, filters]);
+  }, [search, category, tier]);
 
   // Paginate results
   const totalPages = Math.ceil(filteredSkills.length / ITEMS_PER_PAGE);
@@ -199,91 +198,159 @@ export default function SkillsPage() {
     currentPage * ITEMS_PER_PAGE
   );
 
-  // Reset to page 1 when filters change
-  const handleFiltersChange = (newFilters: SkillFilters) => {
-    setFilters(newFilters);
-    setCurrentPage(1);
-  };
+  // Convert skills to TuiList items
+  const listItems: TuiListItem[] = paginatedSkills.map((skill) => ({
+    id: skill.id,
+    title: skill.name,
+    meta: `v${skill.version}`,
+    description: skill.description,
+    category: skill.category,
+    badge: skill.tier !== 'free' ? skill.tier.toUpperCase() : undefined,
+    badgeColor: tierColors[skill.tier],
+    href: `/skills/${skill.slug}`,
+  }));
 
+  // Handle navigation
+  const handleSelectItem = useCallback((item: TuiListItem) => {
+    if (item.href) {
+      router.push(item.href);
+    }
+  }, [router]);
+
+  // Handle keyboard navigation (index-based)
+  const handleSelectIndex = useCallback((index: number) => {
+    const skill = paginatedSkills[index];
+    if (skill) {
+      router.push(`/skills/${skill.slug}`);
+    }
+  }, [paginatedSkills, router]);
+
+  // Keyboard navigation for list
+  useKeyboardNav({
+    itemCount: listItems.length,
+    onSelect: handleSelectIndex,
+    enabled: true,
+  });
+
+  // Reset to page 1 when filters change
   const handleSearchChange = (value: string) => {
     setSearch(value);
     setCurrentPage(1);
   };
 
+  const handleCategoryChange = (value: string) => {
+    setCategory(value);
+    setCurrentPage(1);
+  };
+
+  const handleTierChange = (value: string) => {
+    setTier(value);
+    setCurrentPage(1);
+  };
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Browse Skills</h1>
-        <p className="text-muted-foreground">Discover and install skills for your projects</p>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '12px' }}>
+      {/* Header */}
+      <div style={{ padding: '0 4px' }}>
+        <TuiH1 cursor>Browse Skills</TuiH1>
+        <TuiDim>Discover and install skills for your projects</TuiDim>
       </div>
 
-      {/* Search and Filter Bar */}
-      <div className="flex flex-col md:flex-row gap-4">
-        <SearchInput value={search} onChange={handleSearchChange} className="md:w-80" />
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            className="md:hidden"
-            onClick={() => setShowFilters(!showFilters)}
-          >
-            <Filter className="h-4 w-4 mr-2" />
-            Filters
-          </Button>
-          <div className="hidden md:block">
-            <SkillFiltersBar
-              filters={filters}
-              onFiltersChange={handleFiltersChange}
-              categories={categories}
-            />
+      {/* Search and Filters */}
+      <TuiBox title="Filters">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Search */}
+          <TuiSearchInput
+            placeholder="search skills..."
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
+
+          {/* Filter Row */}
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ minWidth: '150px' }}>
+              <TuiSelect
+                label="Category"
+                value={category}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+              >
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {cat === 'all' ? 'All Categories' : cat}
+                  </option>
+                ))}
+              </TuiSelect>
+            </div>
+            <div style={{ minWidth: '120px' }}>
+              <TuiSelect
+                label="Tier"
+                value={tier}
+                onChange={(e) => handleTierChange(e.target.value)}
+              >
+                {tiers.map((t) => (
+                  <option key={t} value={t}>
+                    {t === 'all' ? 'All Tiers' : t}
+                  </option>
+                ))}
+              </TuiSelect>
+            </div>
+          </div>
+
+          {/* Results count */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <TuiDim>
+              Showing {paginatedSkills.length} of {filteredSkills.length} skills
+            </TuiDim>
+            <TuiDim>
+              Use <TuiTag color="cyan">j/k</TuiTag> to navigate, <TuiTag color="cyan">Enter</TuiTag> to select
+            </TuiDim>
           </div>
         </div>
-      </div>
+      </TuiBox>
 
-      {/* Mobile Filters */}
-      {showFilters && (
-        <div className="md:hidden p-4 border rounded-lg bg-card">
-          <SkillFiltersPanel
-            filters={filters}
-            onFiltersChange={handleFiltersChange}
-            categories={categories}
-            availableTags={availableTags}
+      {/* Skills List */}
+      <TuiBox title="Skills" style={{ flex: 1, minHeight: 0 }}>
+        {listItems.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '24px', color: 'var(--fg-dim)' }}>
+            No skills found matching your criteria
+          </div>
+        ) : (
+          <TuiList
+            items={listItems}
+            onSelect={handleSelectItem}
+            emptyMessage="No skills found"
           />
+        )}
+      </TuiBox>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '12px',
+          padding: '8px 0'
+        }}>
+          <TuiButton
+            variant="secondary"
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+          >
+            $ prev
+          </TuiButton>
+          <TuiDim>
+            Page {currentPage} of {totalPages}
+          </TuiDim>
+          <TuiButton
+            variant="secondary"
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+          >
+            $ next
+          </TuiButton>
         </div>
       )}
-
-      {/* Results Info */}
-      <div className="flex items-center justify-between text-sm text-muted-foreground">
-        <span>
-          Showing {paginatedSkills.length} of {filteredSkills.length} skills
-        </span>
-        <span>Page {currentPage} of {totalPages || 1}</span>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="flex gap-6">
-        {/* Desktop Sidebar Filters */}
-        <aside className="hidden lg:block w-64 flex-shrink-0">
-          <div className="sticky top-6 p-4 border rounded-lg bg-card">
-            <h2 className="font-semibold mb-4">Filters</h2>
-            <SkillFiltersPanel
-              filters={filters}
-              onFiltersChange={handleFiltersChange}
-              categories={categories}
-              availableTags={availableTags}
-            />
-          </div>
-        </aside>
-
-        {/* Skills Grid */}
-        <div className="flex-1 space-y-6">
-          <SkillGrid skills={paginatedSkills} />
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
-        </div>
-      </div>
     </div>
   );
 }

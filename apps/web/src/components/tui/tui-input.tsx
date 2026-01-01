@@ -248,7 +248,7 @@ export function TuiCheckbox({
   className = '',
   style,
   ...props
-}: InputHTMLAttributes<HTMLInputElement> & { label?: string }) {
+}: InputHTMLAttributes<HTMLInputElement> & { label?: ReactNode }) {
   return (
     <label
       className={`tui-checkbox ${className}`}
