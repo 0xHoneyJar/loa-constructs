@@ -1,59 +1,44 @@
 /**
- * Dashboard Sidebar Component
- * @see sprint.md T6.1: Dashboard Layout - Sidebar with navigation
+ * Dashboard Sidebar Component (TUI Style)
+ * @see sprint.md T19.3: Redesign Dashboard Sidebar
  */
 
 'use client';
 
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import {
-  LayoutDashboard,
-  Package,
-  CreditCard,
-  User,
-  Users,
-  Key,
-  LogOut,
-  ChevronDown,
-  Menu,
-  X,
-  Wrench,
-  BarChart3,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/auth-context';
-import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { TuiNavItem } from '@/components/tui/tui-nav-item';
+import { LogOut } from 'lucide-react';
 
 const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { name: 'Skills', href: '/skills', icon: Package },
-  { name: 'Teams', href: '/teams', icon: Users },
-  { name: 'Creator', href: '/creator', icon: Wrench },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-  { name: 'Billing', href: '/billing', icon: CreditCard },
-  { name: 'Profile', href: '/profile', icon: User },
-  { name: 'API Keys', href: '/api-keys', icon: Key },
+  { name: 'Overview', href: '/dashboard', shortcut: '1' },
+  { name: 'Skills', href: '/skills', shortcut: '2' },
+  { name: 'Packs', href: '/packs', shortcut: '3' },
+  { name: 'API Keys', href: '/api-keys', shortcut: '4' },
+  { name: 'Profile', href: '/profile', shortcut: '5' },
+  { name: 'Billing', href: '/billing', shortcut: '6' },
 ];
 
-interface SidebarProps {
+interface TuiSidebarProps {
   className?: string;
 }
 
-export function Sidebar({ className }: SidebarProps) {
+/**
+ * TUI-styled sidebar navigation
+ * Keyboard shortcuts: 1-6 for navigation, j/k for up/down
+ */
+export function TuiSidebar({ className }: TuiSidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const getTierBadge = (role: string) => {
-    const tierColors: Record<string, string> = {
-      free: 'bg-gray-100 text-gray-800',
-      pro: 'bg-blue-100 text-blue-800',
-      team: 'bg-purple-100 text-purple-800',
-      enterprise: 'bg-amber-100 text-amber-800',
+    const tierMap: Record<string, { label: string; color: string }> = {
+      free: { label: 'FREE', color: 'var(--fg-dim)' },
+      pro: { label: 'PRO', color: 'var(--accent)' },
+      team: { label: 'TEAM', color: 'var(--cyan)' },
+      enterprise: { label: 'ENT', color: 'var(--yellow)' },
     };
-    return tierColors[role.toLowerCase()] || tierColors.free;
+    return tierMap[role.toLowerCase()] || tierMap.free;
   };
 
   const handleLogout = async () => {
@@ -61,118 +46,87 @@ export function Sidebar({ className }: SidebarProps) {
     window.location.href = '/login';
   };
 
-  return (
-    <aside className={cn('flex flex-col h-full bg-card border-r', className)}>
-      {/* Logo */}
-      <div className="flex items-center h-16 px-6 border-b">
-        <Link href="/dashboard" className="flex items-center gap-2">
-          <Package className="h-6 w-6 text-primary" />
-          <span className="font-semibold text-lg">Loa Registry</span>
-        </Link>
-      </div>
+  const tier = getTierBadge(user?.role || 'free');
 
+  return (
+    <div className={className} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav style={{ flex: 1 }}>
         {navigation.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
-            <Link
-              key={item.name}
+            <TuiNavItem
+              key={item.href}
               href={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-            >
-              <item.icon className="h-5 w-5" />
-              {item.name}
-            </Link>
+              label={item.name}
+              shortcut={item.shortcut}
+              active={isActive}
+            />
           );
         })}
       </nav>
 
+      {/* Divider */}
+      <div style={{
+        borderTop: '1px solid var(--border)',
+        margin: '8px 0',
+        opacity: 0.5
+      }} />
+
       {/* User Section */}
-      <div className="p-4 border-t">
-        <div className="relative">
-          <button
-            onClick={() => setUserMenuOpen(!userMenuOpen)}
-            className="flex items-center gap-3 w-full p-2 rounded-md hover:bg-accent transition-colors"
-          >
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <span className="text-sm font-medium text-primary">
-                {user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'}
-              </span>
-            </div>
-            <div className="flex-1 text-left">
-              <p className="text-sm font-medium truncate">{user?.name || 'User'}</p>
-              <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
-            </div>
-            <ChevronDown
-              className={cn('h-4 w-4 text-muted-foreground transition-transform', {
-                'rotate-180': userMenuOpen,
-              })}
-            />
-          </button>
-
-          {userMenuOpen && (
-            <div className="absolute bottom-full left-0 right-0 mb-2 bg-card border rounded-md shadow-lg py-1">
-              <div className="px-3 py-2 border-b">
-                <span
-                  className={cn(
-                    'inline-flex items-center px-2 py-0.5 rounded text-xs font-medium',
-                    getTierBadge(user?.role || 'free')
-                  )}
-                >
-                  {user?.role || 'Free'} Tier
-                </span>
-              </div>
-              <Link
-                href="/profile"
-                className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent"
-                onClick={() => setUserMenuOpen(false)}
-              >
-                <User className="h-4 w-4" />
-                Profile Settings
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 w-full px-3 py-2 text-sm text-destructive hover:bg-destructive/10"
-              >
-                <LogOut className="h-4 w-4" />
-                Sign Out
-              </button>
-            </div>
-          )}
+      <div style={{ padding: '4px 8px' }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          marginBottom: '8px'
+        }}>
+          <span style={{ color: 'var(--fg)' }}>
+            {user?.name || user?.email?.split('@')[0] || 'user'}
+          </span>
+          <span style={{
+            color: tier.color,
+            fontSize: '10px',
+            padding: '1px 4px',
+            border: `1px solid ${tier.color}`,
+          }}>
+            {tier.label}
+          </span>
         </div>
+
+        {/* Logout Button */}
+        <button
+          onClick={handleLogout}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            width: '100%',
+            padding: '4px 8px',
+            background: 'none',
+            border: 'none',
+            color: 'var(--fg-dim)',
+            cursor: 'pointer',
+            textAlign: 'left',
+            fontSize: '12px',
+          }}
+          className="hover:text-[var(--red)] hover:bg-[rgba(255,95,95,0.1)]"
+        >
+          <LogOut size={12} />
+          Sign Out
+        </button>
       </div>
-    </aside>
+    </div>
   );
 }
 
+// Export as Sidebar for backward compatibility
+export { TuiSidebar as Sidebar };
+
+// Mobile sidebar is now handled by TuiLayout
 export function MobileSidebar() {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <>
-      <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsOpen(true)}>
-        <Menu className="h-6 w-6" />
-      </Button>
-
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 bg-black/50 z-40 md:hidden" onClick={() => setIsOpen(false)} />
-          <div className="fixed inset-y-0 left-0 w-72 z-50 md:hidden">
-            <div className="absolute top-4 right-4">
-              <Button variant="ghost" size="icon" onClick={() => setIsOpen(false)}>
-                <X className="h-6 w-6" />
-              </Button>
-            </div>
-            <Sidebar />
-          </div>
-        </>
-      )}
-    </>
-  );
+  // Deprecated - mobile handled by TuiLayout
+  return null;
 }
+
+export default TuiSidebar;

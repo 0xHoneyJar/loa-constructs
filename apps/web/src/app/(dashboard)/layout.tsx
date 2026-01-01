@@ -1,33 +1,68 @@
 /**
- * Dashboard Layout
- * @see sprint.md T6.1: Dashboard Layout
+ * Dashboard Layout (TUI Style)
+ * @see sprint.md T19.5: Update Dashboard Layout Page
  */
 
 'use client';
 
 import { ProtectedRoute } from '@/components/auth/protected-route';
-import { Sidebar } from '@/components/dashboard/sidebar';
-import { Header } from '@/components/dashboard/header';
+import { TuiLayout } from '@/components/tui/tui-layout';
+import { TuiSidebar } from '@/components/dashboard/sidebar';
+import { useKeyboardNav } from '@/hooks/use-keyboard-nav';
+import { useRouter, usePathname } from 'next/navigation';
+import { useEffect } from 'react';
+
+const routes = [
+  { href: '/dashboard', label: 'Overview' },
+  { href: '/skills', label: 'Skills' },
+  { href: '/packs', label: 'Packs' },
+  { href: '/api-keys', label: 'API Keys' },
+  { href: '/profile', label: 'Profile' },
+  { href: '/billing', label: 'Billing' },
+];
+
+const keyHints = [
+  { key: '1-6', action: 'nav' },
+  { key: 'j/k', action: 'move' },
+  { key: 'Enter', action: 'select' },
+];
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Map keyboard shortcuts to routes
+  const shortcuts: Record<string, string> = {};
+  routes.forEach((route, index) => {
+    shortcuts[String(index + 1)] = route.href;
+  });
+
+  // Get content title based on current route
+  const getContentTitle = () => {
+    const route = routes.find((r) => pathname === r.href || pathname.startsWith(`${r.href}/`));
+    return route?.label || 'Dashboard';
+  };
+
+  // Global keyboard navigation for dashboard
+  useKeyboardNav({
+    itemCount: routes.length,
+    shortcuts,
+    enabled: true,
+  });
+
   return (
     <ProtectedRoute>
-      <div className="flex h-screen overflow-hidden">
-        {/* Desktop Sidebar */}
-        <Sidebar className="hidden md:flex w-64 flex-shrink-0" />
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-y-auto bg-muted/30 p-4 md:p-6">
-            {children}
-          </main>
-        </div>
-      </div>
+      <TuiLayout
+        sidebar={<TuiSidebar />}
+        contentTitle={getContentTitle()}
+        keyHints={keyHints}
+      >
+        {children}
+      </TuiLayout>
     </ProtectedRoute>
   );
 }

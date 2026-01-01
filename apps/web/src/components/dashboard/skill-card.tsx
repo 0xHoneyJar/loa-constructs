@@ -1,15 +1,11 @@
 /**
- * Skill Card Component
- * @see sprint.md T6.3: Skill Browser - SkillCard component
+ * Skill Card Component (TUI Style)
+ * @see sprint.md T19.7: Redesign Skill Card Component
  */
 
 'use client';
 
-import { Star, Download, ExternalLink } from 'lucide-react';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { cn } from '@/lib/utils';
 
 export interface Skill {
   id: string;
@@ -29,78 +25,148 @@ export interface Skill {
 interface SkillCardProps {
   skill: Skill;
   className?: string;
+  focused?: boolean;
+  onClick?: () => void;
+  onMouseEnter?: () => void;
 }
 
-const tierBadgeColors: Record<string, string> = {
-  free: 'bg-gray-100 text-gray-800 border-gray-200',
-  pro: 'bg-blue-100 text-blue-800 border-blue-200',
-  team: 'bg-purple-100 text-purple-800 border-purple-200',
-  enterprise: 'bg-amber-100 text-amber-800 border-amber-200',
+const tierColors: Record<string, string> = {
+  free: 'var(--fg-dim)',
+  pro: 'var(--accent)',
+  team: 'var(--cyan)',
+  enterprise: 'var(--yellow)',
 };
 
-export function SkillCard({ skill, className }: SkillCardProps) {
+/**
+ * TUI-styled skill card - appears as a list item row
+ */
+export function SkillCard({ skill, className, focused = false, onClick, onMouseEnter }: SkillCardProps) {
+  const tierColor = tierColors[skill.tier] || tierColors.free;
+
   return (
-    <Card className={cn('flex flex-col hover:shadow-md transition-shadow', className)}>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-xl">
-              {skill.icon || '📦'}
-            </div>
-            <div>
-              <CardTitle className="text-base">
-                <Link href={`/skills/${skill.slug}`} className="hover:underline">
-                  {skill.name}
-                </Link>
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">by {skill.author}</p>
-            </div>
-          </div>
+    <Link
+      href={`/skills/${skill.slug}`}
+      onClick={(e) => {
+        if (onClick) {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      onMouseEnter={onMouseEnter}
+      className={className}
+      style={{
+        display: 'block',
+        padding: '8px 12px',
+        cursor: 'pointer',
+        borderBottom: '1px solid var(--border)',
+        background: focused ? 'rgba(95, 175, 255, 0.1)' : 'transparent',
+        textDecoration: 'none',
+        transition: 'background 0.1s',
+      }}
+    >
+      {/* Header row: indicator, name, version, category, tier badge */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+        }}
+      >
+        {/* Focus indicator */}
+        <span
+          style={{
+            color: focused ? 'var(--accent)' : 'var(--fg-dim)',
+            width: '16px',
+          }}
+        >
+          {focused ? '→' : ' '}
+        </span>
+
+        {/* Skill name */}
+        <span style={{ color: 'var(--fg-bright)', fontWeight: 500 }}>{skill.name}</span>
+
+        {/* Version */}
+        <span style={{ color: 'var(--green)', fontSize: '11px' }}>v{skill.version}</span>
+
+        {/* Category tag */}
+        <span
+          style={{
+            color: 'var(--cyan)',
+            fontSize: '11px',
+          }}
+        >
+          [{skill.category}]
+        </span>
+
+        {/* Tier badge (only if not free) */}
+        {skill.tier !== 'free' && (
           <span
-            className={cn(
-              'px-2 py-0.5 text-xs font-medium rounded border capitalize',
-              tierBadgeColors[skill.tier]
-            )}
+            style={{
+              color: tierColor,
+              fontSize: '10px',
+              padding: '1px 4px',
+              border: `1px solid ${tierColor}`,
+              textTransform: 'uppercase',
+            }}
           >
             {skill.tier}
           </span>
-        </div>
-      </CardHeader>
-      <CardContent className="flex-1">
-        <CardDescription className="line-clamp-2">{skill.description}</CardDescription>
-        <div className="flex flex-wrap gap-1 mt-3">
-          {skill.tags.slice(0, 3).map((tag) => (
-            <span
-              key={tag}
-              className="px-2 py-0.5 text-xs bg-muted rounded-full text-muted-foreground"
-            >
-              {tag}
-            </span>
-          ))}
-          {skill.tags.length > 3 && (
-            <span className="px-2 py-0.5 text-xs text-muted-foreground">
-              +{skill.tags.length - 3} more
-            </span>
-          )}
-        </div>
-      </CardContent>
-      <CardFooter className="pt-3 border-t flex items-center justify-between">
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
-            {skill.rating.toFixed(1)}
-          </span>
-          <span className="flex items-center gap-1">
-            <Download className="h-4 w-4" />
-            {skill.downloads.toLocaleString()}
-          </span>
-        </div>
-        <Button variant="ghost" size="sm" asChild>
-          <Link href={`/skills/${skill.slug}`}>
-            View <ExternalLink className="h-3 w-3 ml-1" />
-          </Link>
-        </Button>
-      </CardFooter>
-    </Card>
+        )}
+
+        {/* Spacer */}
+        <span style={{ flex: 1 }} />
+
+        {/* Download count */}
+        <span style={{ color: 'var(--fg-dim)', fontSize: '12px' }}>
+          {skill.downloads.toLocaleString()} DL
+        </span>
+      </div>
+
+      {/* Description row */}
+      <div
+        style={{
+          marginTop: '4px',
+          marginLeft: '24px',
+          color: 'var(--fg-dim)',
+          fontSize: '12px',
+          lineHeight: '1.4',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {skill.description}
+      </div>
+
+      {/* Author row */}
+      <div
+        style={{
+          marginTop: '2px',
+          marginLeft: '24px',
+          color: 'var(--fg-dim)',
+          fontSize: '11px',
+        }}
+      >
+        by {skill.author}
+      </div>
+    </Link>
   );
 }
+
+/**
+ * Helper to convert skills array to TuiList items format
+ */
+export function skillsToListItems(skills: Skill[]) {
+  return skills.map((skill) => ({
+    id: skill.id,
+    title: skill.name,
+    meta: `${skill.downloads.toLocaleString()} DL`,
+    description: skill.description,
+    category: skill.category,
+    badge: skill.tier !== 'free' ? skill.tier.toUpperCase() : undefined,
+    badgeColor: tierColors[skill.tier],
+    href: `/skills/${skill.slug}`,
+  }));
+}
+
+export default SkillCard;

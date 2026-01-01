@@ -10,8 +10,8 @@
 | Sprint | Status | Reviewer | Engineer | Auditor |
 |--------|--------|----------|----------|---------|
 | Sprint 1-17 | COMPLETED | Various | Various | Various |
-| Sprint 18 | PENDING | TUI Foundation & Global Styles | - | - |
-| Sprint 19 | PENDING | Dashboard & Navigation Redesign | - | - |
+| Sprint 18 | COMPLETED | TUI Foundation & Global Styles | All good | APPROVED |
+| Sprint 19 | IN_REVIEW | Dashboard & Navigation Redesign | - | - |
 | Sprint 20 | PENDING | Page Redesigns & Polish | - | - |
 
 ### Previous Sprints (v1 - Registry Backend)
@@ -53,6 +53,20 @@
 ## Recent Activity
 
 ### 2026-01-02
+
+- **Sprint 19 implementation completed** (Dashboard & Navigation Redesign)
+- Report submitted: `sprint-19/reviewer.md`
+- Tasks completed: T19.1-T19.7 (7 tasks)
+- New files: `tui-layout.tsx`, `use-keyboard-nav.ts`, `tui-list.tsx`
+- Modified: `sidebar.tsx` (TUI redesign), `header.tsx` (simplified), `layout.tsx` (TuiLayout), `skill-card.tsx` (TUI style)
+- Features: Three-panel layout, keyboard navigation (arrows/vim/numbers), TUI list component
+- All packages pass typecheck
+- Awaiting senior lead review
+
+- **Sprint 18 FULLY COMPLETED** (TUI Foundation & Global Styles)
+- **Senior lead review: APPROVED** (`sprint-18/engineer-feedback.md`)
+- **Security audit: APPROVED - LETS FUCKING GO** (`sprint-18/auditor-sprint-feedback.md`)
+- **Sprint 18 COMPLETED** - Ready for Sprint 19
 
 - **Project renamed from Loa Skills Registry to Loa Constructs**
   - Domain: `constructs.network` (was `loaskills.dev`)

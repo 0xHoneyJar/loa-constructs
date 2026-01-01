@@ -6,8 +6,10 @@
 
 // Layout Components
 export { TuiBox } from './tui-box';
+export { TuiLayout } from './tui-layout';
 export { TuiNavItem } from './tui-nav-item';
 export { TuiStatusBar, TuiStatusBarLink } from './tui-status-bar';
+export { TuiList } from './tui-list';
 
 // Typography Components
 export {
