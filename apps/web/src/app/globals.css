@@ -1,76 +1,189 @@
+/**
+ * TUI Global Styles
+ * @see sprint.md T18.2: TUI Color Palette & CSS Variables
+ * @see sprint.md T18.3: JWST Background & Scanlines Effect
+ */
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* TUI Color Palette */
+    --bg: #0a0a0a;
+    --fg: #c0c0c0;
+    --fg-bright: #ffffff;
+    --fg-dim: #606060;
+    --accent: #5fafff;
+    --green: #5fff87;
+    --yellow: #ffff5f;
+    --red: #ff5f5f;
+    --cyan: #5fffff;
+    --border: #5f5f5f;
+    --selection-bg: #5fafff;
+    --selection-fg: #000000;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
-
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    /* Semantic colors for compatibility */
+    --background: 0 0% 4%;
+    --foreground: 0 0% 75%;
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 75%;
+    --popover: 0 0% 0%;
+    --popover-foreground: 0 0% 75%;
+    --primary: 210 100% 68%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 20%;
+    --secondary-foreground: 0 0% 75%;
+    --muted: 0 0% 20%;
+    --muted-foreground: 0 0% 38%;
+    --accent: 210 100% 68%;
+    --accent-foreground: 0 0% 0%;
+    --destructive: 0 100% 68%;
+    --destructive-foreground: 0 0% 0%;
+    --border: 0 0% 37%;
+    --input: 0 0% 37%;
+    --ring: 210 100% 68%;
+    --radius: 0;
   }
 }
 
+/* Global reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Text selection */
+::selection {
+  background: var(--selection-bg);
+  color: var(--selection-fg);
+}
+
+/* Prevent body scroll */
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Base body styles */
+body {
+  font-family: var(--font-mono), 'IBM Plex Mono', monospace;
+  font-size: 14px;
+  line-height: 1.4;
+  background: #000;
+  color: var(--fg);
+  position: relative;
+}
+
+/* JWST Background */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Southern_Ring_Nebula_%28NIRCam_and_MIRI_Images_Side_by_Side%29.jpg/2880px-Southern_Ring_Nebula_%28NIRCam_and_MIRI_Images_Side_by_Side%29.jpg');
+  background-size: cover;
+  background-position: center;
+  opacity: 0.3;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Scanlines overlay */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15) 0px,
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Blinking cursor animation */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.cursor {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: var(--fg);
+  animation: blink 1s step-end infinite;
+  vertical-align: text-bottom;
+  margin-left: 2px;
+}
+
+/* Scrollbar hiding */
+.hide-scrollbar {
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* TUI utility classes */
+.tui-text-bright {
+  color: var(--fg-bright);
+}
+
+.tui-text-dim {
+  color: var(--fg-dim);
+}
+
+.tui-text-accent {
+  color: var(--accent);
+}
+
+.tui-text-green {
+  color: var(--green);
+}
+
+.tui-text-yellow {
+  color: var(--yellow);
+}
+
+.tui-text-red {
+  color: var(--red);
+}
+
+.tui-text-cyan {
+  color: var(--cyan);
+}
+
+.tui-bg-transparent {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+.tui-border {
+  border: 1px solid var(--border);
+}
+
+/* Tailwind dark mode is always on for TUI */
 @layer base {
   * {
-    @apply border-border;
+    border-color: var(--border);
   }
+}
+
+/* Mobile adjustments */
+@media (max-width: 768px) {
   body {
-    @apply bg-background text-foreground;
+    font-size: 13px;
   }
 }

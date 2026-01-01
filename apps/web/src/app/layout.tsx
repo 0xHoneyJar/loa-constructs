@@ -1,14 +1,21 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { IBM_Plex_Mono } from 'next/font/google';
 import { AuthProvider } from '@/contexts/auth-context';
 import './globals.css';
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+/**
+ * IBM Plex Mono - TUI-style monospace font
+ * @see sprint.md T18.1: Replace Font System with IBM Plex Mono
+ */
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-mono',
+});
 
 /**
  * Root Layout
- * @see sdd.md §4.1 Design System - Typography
- * @see sprint.md T5.5: Auth Provider integration
+ * @see sprint.md T18.1: TUI Foundation - IBM Plex Mono
  */
 export const metadata: Metadata = {
   title: {
@@ -26,7 +33,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} font-sans antialiased`}>
+      <body className={`${ibmPlexMono.variable} font-mono`}>
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
