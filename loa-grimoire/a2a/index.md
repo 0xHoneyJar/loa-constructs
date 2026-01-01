@@ -13,7 +13,7 @@
 | Sprint 18 | COMPLETED | TUI Foundation & Global Styles | All good | APPROVED |
 | Sprint 19 | COMPLETED | Dashboard & Navigation Redesign | All good | APPROVED |
 | Sprint 20 | COMPLETED | Page Redesigns & Polish | All good | APPROVED |
-| Sprint 21 | PENDING | Production Deployment | - | - |
+| Sprint 21 | IN_REVIEW | Production Deployment | - | - |
 
 ### Previous Sprints (v1 - Registry Backend)
 
@@ -55,10 +55,15 @@
 
 ### 2026-01-02
 
-- **Sprint 21 plan created** (Production Deployment)
-- Plan: Deploy API to Fly.io, Web to Vercel, configure domains
-- 10 tasks: T21.1-T21.10 (~6 hours estimated)
-- Ready for implementation: `/implement sprint-21`
+- **Sprint 21 implementation started** (Production Deployment)
+- Report submitted: `sprint-21/reviewer.md`
+- Tasks completed: T21.2 (Vercel config), T21.6 (URL fixes)
+- Pending tasks require manual deployment: T21.1, T21.3-T21.5, T21.7-T21.9
+- Files created: `apps/web/vercel.json`
+- Files modified: `apps/web/next.config.js`, `apps/web/.env.example`, `apps/api/src/routes/oauth.ts`
+- Bug fixed: OAuth redirect port (3000 -> 3001)
+- All packages pass typecheck
+- Ready for senior lead review
 
 - **Sprint 20 FULLY COMPLETED** (Page Redesigns & Polish)
 - Report submitted: `sprint-20/reviewer.md`

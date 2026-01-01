@@ -78,7 +78,7 @@ function verifyOAuthState(c: any, state: string): boolean {
 function getBaseUrl(): string {
   return env.NODE_ENV === 'production'
     ? 'https://api.constructs.network'
-    : 'http://localhost:3000';
+    : 'http://localhost:3001';
 }
 
 function getDashboardUrl(): string {
