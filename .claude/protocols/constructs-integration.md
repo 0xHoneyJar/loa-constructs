@@ -370,5 +370,5 @@ The `.registry-meta.json` file tracks installation state:
 
 - **PRD**: `loa-grimoire/prd.md` (FR-SCR-01, FR-SCR-02, FR-LIC-01)
 - **SDD**: `loa-grimoire/sdd.md` (§5 Implementation, §9 Error Handling)
-- **Scripts**: `.claude/scripts/registry-*.sh`
+- **Scripts**: `.claude/scripts/constructs-*.sh`, `.claude/scripts/license-validator.sh`
 - **Tests**: `tests/unit/test_*.bats`, `tests/integration/test_*.bats`
