@@ -408,6 +408,10 @@ export async function trackPackInstallation(
   ipAddress?: string,
   userAgent?: string
 ): Promise<void> {
+  // Extract the first IP if multiple IPs are present (X-Forwarded-For header)
+  // PostgreSQL inet type only accepts a single IP address
+  const cleanIpAddress = ipAddress?.split(',')[0]?.trim() || null;
+
   await db.insert(packInstallations).values({
     packId,
     versionId,
@@ -415,7 +419,7 @@ export async function trackPackInstallation(
     teamId,
     action,
     metadata,
-    ipAddress,
+    ipAddress: cleanIpAddress,
     userAgent,
   });
 
