@@ -128,6 +128,20 @@ async function main() {
     });
   }
 
+  // Add README from gtm-skills-import
+  const readmePath = join(SKILLS_PATH, 'README.md');
+  try {
+    const readmeContent = readFileSync(readmePath, 'utf-8');
+    files.push({
+      path: 'README.md',
+      content: readmeContent,
+      mimeType: 'text/markdown',
+    });
+    console.log('\nFound README.md');
+  } catch {
+    console.log('\nNo README.md found (optional)');
+  }
+
   console.log(`\nTotal files to import: ${files.length}`);
 
   // Build manifest

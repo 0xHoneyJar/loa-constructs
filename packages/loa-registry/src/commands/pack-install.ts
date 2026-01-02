@@ -121,6 +121,7 @@ export const packInstallCommand: Command = {
       const installedCommands: string[] = [];
       const installedProtocols: string[] = [];
       let totalBytes = 0;
+      let hasReadme = false;
 
       // 7. Process files based on manifest
       const manifest = download.pack.manifest;
@@ -160,6 +161,11 @@ export const packInstallCommand: Command = {
           await fs.mkdir(protocolsDir, { recursive: true });
           await fs.writeFile(destPath, content, 'utf-8');
           installedProtocols.push(protocolName.replace('.md', ''));
+        } else if (file.path === 'README.md') {
+          // README goes to pack directory
+          const destPath = path.join(packDir, 'README.md');
+          await fs.writeFile(destPath, content, 'utf-8');
+          hasReadme = true;
         } else {
           // Other files go into the pack directory
           const destPath = path.join(packDir, file.path);
@@ -219,6 +225,11 @@ export const packInstallCommand: Command = {
       console.log(`✓ License valid until ${expiresAt.toLocaleDateString()}`);
 
       console.log(`\n${pack.name} installed successfully!`);
+
+      // Show README location if present
+      if (hasReadme) {
+        console.log(`\nDocumentation: .claude/packs/${slug}/README.md`);
+      }
 
       // Show available commands
       if (installedCommands.length > 0) {
