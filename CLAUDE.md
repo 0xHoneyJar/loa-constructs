@@ -321,7 +321,28 @@ integrations:
 
 ## Registry Integration
 
-Commercial skills from the Loa Skills Registry (`api.loaskills.dev`).
+Commercial skills from the Loa Constructs Registry (`loa-constructs-api.fly.dev`).
+
+### Production API
+
+| Service | URL |
+|---------|-----|
+| API | `https://loa-constructs-api.fly.dev/v1` |
+| Health | `https://loa-constructs-api.fly.dev/v1/health` |
+
+### Authentication
+
+For authenticated endpoints (skill downloads, pack access):
+
+```bash
+# Option 1: API Key (recommended for scripts)
+export LOA_CONSTRUCTS_API_KEY="sk_your_api_key_here"
+
+# Option 2: Interactive login via CLI
+/skill-login
+```
+
+See `loa-grimoire/context/CLI-INSTALLATION.md` for full setup guide.
 
 ### Directory Structure
 
