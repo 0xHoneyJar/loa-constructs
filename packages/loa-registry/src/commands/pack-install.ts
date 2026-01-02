@@ -188,7 +188,16 @@ export const packInstallCommand: Command = {
         JSON.stringify(licenseData, null, 2)
       );
 
-      // 10. Success message
+      // 10. Update .gitignore to protect licensed content
+      const gitignoreUpdates = await updateGitignore(
+        context.cwd,
+        slug,
+        installedSkills,
+        installedCommands,
+        installedProtocols
+      );
+
+      // 11. Success message
       console.log(`\nInstalling ${pack.name} v${download.pack.version}...\n`);
       console.log(`✓ Verified subscription`);
       console.log(`✓ Downloaded ${download.pack.files.length} files (${formatBytes(totalBytes)})`);
@@ -200,6 +209,9 @@ export const packInstallCommand: Command = {
       }
       if (installedProtocols.length > 0) {
         console.log(`✓ Installed ${installedProtocols.length} protocols`);
+      }
+      if (gitignoreUpdates > 0) {
+        console.log(`✓ Updated .gitignore (${gitignoreUpdates} entries added)`);
       }
 
       // License info
@@ -247,4 +259,75 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * Update .gitignore to exclude installed pack content
+ * This prevents licensed/premium content from being accidentally committed
+ * @returns Number of entries added
+ */
+async function updateGitignore(
+  cwd: string,
+  packSlug: string,
+  skills: string[],
+  commands: string[],
+  protocols: string[]
+): Promise<number> {
+  const gitignorePath = path.join(cwd, '.gitignore');
+  let existingContent = '';
+
+  // Read existing .gitignore if it exists
+  try {
+    existingContent = await fs.readFile(gitignorePath, 'utf-8');
+  } catch {
+    // File doesn't exist, will create new
+  }
+
+  const existingLines = new Set(existingContent.split('\n').map(l => l.trim()));
+  const newEntries: string[] = [];
+
+  // Pack directory
+  const packEntry = `.claude/packs/${packSlug}/`;
+  if (!existingLines.has(packEntry)) {
+    newEntries.push(packEntry);
+  }
+
+  // Skills
+  for (const skill of skills) {
+    const entry = `.claude/skills/${skill}/`;
+    if (!existingLines.has(entry)) {
+      newEntries.push(entry);
+    }
+  }
+
+  // Commands
+  for (const command of commands) {
+    const entry = `.claude/commands/${command}.md`;
+    if (!existingLines.has(entry)) {
+      newEntries.push(entry);
+    }
+  }
+
+  // Protocols
+  for (const protocol of protocols) {
+    const entry = `.claude/protocols/${protocol}.md`;
+    if (!existingLines.has(entry)) {
+      newEntries.push(entry);
+    }
+  }
+
+  // If nothing to add, return early
+  if (newEntries.length === 0) {
+    return 0;
+  }
+
+  // Build the new section
+  const sectionHeader = `\n# loa-registry: ${packSlug} (licensed content - do not commit)`;
+  const newSection = [sectionHeader, ...newEntries].join('\n');
+
+  // Append to .gitignore
+  const updatedContent = existingContent.trimEnd() + '\n' + newSection + '\n';
+  await fs.writeFile(gitignorePath, updatedContent, 'utf-8');
+
+  return newEntries.length;
 }

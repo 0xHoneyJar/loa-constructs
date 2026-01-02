@@ -25,6 +25,21 @@ out/
 
 # Claude Code config (local workspace settings, prompts, scratchpad)
 .claude/config/
+
+# Premium skills/packs installed from loa-registry (licensed content)
+# These are downloaded per-user based on subscription and should never be committed
+.claude/skills/analyzing-market/
+.claude/skills/building-partnerships/
+.claude/skills/crafting-narratives/
+.claude/skills/educating-developers/
+.claude/skills/positioning-product/
+.claude/skills/pricing-strategist/
+.claude/skills/reviewing-gtm/
+.claude/skills/translating-for-stakeholders/
+.claude/commands/gtm-*.md
+.claude/commands/review-gtm.md
+.claude/commands/sync-from-gtm.md
+.claude/registry/
 *.swp
 *.swo
 *~
