@@ -523,6 +523,8 @@ export const packFiles = pgTable(
     storageKey: varchar('storage_key', { length: 500 }).notNull(),
     sizeBytes: integer('size_bytes').notNull(),
     mimeType: varchar('mime_type', { length: 100 }).default('text/plain'),
+    // Store content directly in DB as fallback when R2 storage isn't configured
+    content: text('content'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({

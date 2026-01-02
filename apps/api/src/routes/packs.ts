@@ -607,24 +607,38 @@ packsRouter.get('/:slug/download', requireAuth(), async (c) => {
   for (const file of files) {
     try {
       if (isStorageConfigured()) {
+        // Try to download from R2 storage
         const content = await downloadFile(file.storageKey);
         fileContents.push({
           path: file.path,
           content: content.toString('base64'),
         });
-      } else {
-        // Storage not configured, return empty content
+      } else if (file.content) {
+        // Fallback: use content stored directly in database (already base64)
         fileContents.push({
           path: file.path,
-          content: '',
+          content: file.content,
         });
+      } else {
+        // No storage and no DB content - skip file
+        logger.warn(
+          { path: file.path },
+          'File has no content in storage or database'
+        );
       }
     } catch (error) {
-      logger.warn(
-        { error, path: file.path, storageKey: file.storageKey },
-        'Failed to download file'
-      );
-      // Skip failed files
+      // R2 failed, try DB fallback
+      if (file.content) {
+        fileContents.push({
+          path: file.path,
+          content: file.content,
+        });
+      } else {
+        logger.warn(
+          { error, path: file.path, storageKey: file.storageKey },
+          'Failed to download file and no DB fallback'
+        );
+      }
     }
   }
 

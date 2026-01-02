@@ -58,7 +58,7 @@ async function main() {
   console.log('============================\n');
 
   // Paths - files are in the archive directory
-  const ARCHIVE_PATH = join(process.cwd(), 'loa-grimoire/context/archive');
+  const ARCHIVE_PATH = join(process.cwd(), 'loa-grimoire/context/archive/.imported');
   const SKILLS_PATH = join(ARCHIVE_PATH, 'gtm-skills-import');
   const COMMANDS_PATH = join(ARCHIVE_PATH, 'gtm-commands');
   const COMMANDS_IN_SKILLS_PATH = join(SKILLS_PATH, 'commands');
@@ -350,7 +350,7 @@ async function importToDatabase(payload: ImportPayload): Promise<void> {
         }
       }
 
-      // Create file record
+      // Create file record with content stored in DB as fallback
       await db.insert(packFiles).values({
         versionId: version.id,
         path: file.path,
@@ -358,6 +358,8 @@ async function importToDatabase(payload: ImportPayload): Promise<void> {
         storageKey,
         sizeBytes: content.length,
         mimeType: file.mime_type,
+        // Store base64 content directly in DB when R2 isn't configured
+        content: storageConfigured ? null : file.content,
       });
 
       totalSize += content.length;
