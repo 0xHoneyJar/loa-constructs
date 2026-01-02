@@ -9,8 +9,8 @@ import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { requireAuth } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/admin.js';
-import { db, users, packs, subscriptions } from '../db/index.js';
-import { eq, like, or, desc, count, sql } from 'drizzle-orm';
+import { db, users, packs, subscriptions, skills, skillUsage, packInstallations, apiKeys, teams } from '../db/index.js';
+import { eq, like, or, desc, count, sql, gte, and } from 'drizzle-orm';
 import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { createAuditLog } from '../services/audit.js';
@@ -449,5 +449,268 @@ adminRouter.delete('/packs/:id', async (c) => {
   return c.json({
     success: true,
     message: 'Pack removed successfully',
+  });
+});
+
+// --- Analytics Routes ---
+
+const analyticsQuerySchema = z.object({
+  period: z.enum(['7d', '30d', '90d', 'all']).default('30d'),
+});
+
+/**
+ * GET /v1/admin/analytics
+ * Platform-wide analytics dashboard
+ */
+adminRouter.get('/analytics', zValidator('query', analyticsQuerySchema), async (c) => {
+  const adminId = c.get('userId');
+  const requestId = c.get('requestId');
+  const { period } = c.req.valid('query');
+
+  // Calculate period start date
+  let periodStart: Date | null = null;
+  if (period !== 'all') {
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+    periodStart = new Date();
+    periodStart.setDate(periodStart.getDate() - days);
+  }
+
+  // --- User Stats ---
+  const [{ totalUsers }] = await db
+    .select({ totalUsers: count() })
+    .from(users);
+
+  const [{ newUsers }] = periodStart
+    ? await db
+        .select({ newUsers: count() })
+        .from(users)
+        .where(gte(users.createdAt, periodStart))
+    : [{ newUsers: totalUsers }];
+
+  const [{ verifiedUsers }] = await db
+    .select({ verifiedUsers: count() })
+    .from(users)
+    .where(eq(users.emailVerified, true));
+
+  // --- Subscription Stats ---
+  const subscriptionStats = await db
+    .select({
+      tier: subscriptions.tier,
+      status: subscriptions.status,
+      count: count(),
+    })
+    .from(subscriptions)
+    .groupBy(subscriptions.tier, subscriptions.status);
+
+  const activeSubscriptions = subscriptionStats
+    .filter(s => s.status === 'active')
+    .reduce((sum, s) => sum + s.count, 0);
+
+  const subscriptionsByTier = {
+    free: subscriptionStats.filter(s => s.tier === 'free' && s.status === 'active').reduce((sum, s) => sum + s.count, 0),
+    pro: subscriptionStats.filter(s => s.tier === 'pro' && s.status === 'active').reduce((sum, s) => sum + s.count, 0),
+    team: subscriptionStats.filter(s => s.tier === 'team' && s.status === 'active').reduce((sum, s) => sum + s.count, 0),
+    enterprise: subscriptionStats.filter(s => s.tier === 'enterprise' && s.status === 'active').reduce((sum, s) => sum + s.count, 0),
+  };
+
+  // --- Skills Stats ---
+  const [{ totalSkills }] = await db
+    .select({ totalSkills: count() })
+    .from(skills);
+
+  const [{ totalSkillDownloads }] = await db
+    .select({ totalSkillDownloads: sql<number>`COALESCE(SUM(${skills.downloads}), 0)::int` })
+    .from(skills);
+
+  // --- Pack Stats ---
+  const packStats = await db
+    .select({
+      status: packs.status,
+      count: count(),
+    })
+    .from(packs)
+    .groupBy(packs.status);
+
+  const [{ totalPackDownloads }] = await db
+    .select({ totalPackDownloads: sql<number>`COALESCE(SUM(${packs.downloads}), 0)::int` })
+    .from(packs);
+
+  // --- Usage Stats (period-based) ---
+  const usageConditions = periodStart
+    ? and(gte(skillUsage.createdAt, periodStart))
+    : undefined;
+
+  const usageStats = await db
+    .select({
+      action: skillUsage.action,
+      count: count(),
+    })
+    .from(skillUsage)
+    .where(usageConditions)
+    .groupBy(skillUsage.action);
+
+  const usageByAction = {
+    installs: usageStats.find(u => u.action === 'install')?.count ?? 0,
+    updates: usageStats.find(u => u.action === 'update')?.count ?? 0,
+    loads: usageStats.find(u => u.action === 'load')?.count ?? 0,
+    uninstalls: usageStats.find(u => u.action === 'uninstall')?.count ?? 0,
+  };
+
+  // --- Pack Installation Stats (period-based) ---
+  const packInstallConditions = periodStart
+    ? and(gte(packInstallations.createdAt, periodStart))
+    : undefined;
+
+  const packInstallStats = await db
+    .select({
+      action: packInstallations.action,
+      count: count(),
+    })
+    .from(packInstallations)
+    .where(packInstallConditions)
+    .groupBy(packInstallations.action);
+
+  const packUsageByAction = {
+    installs: packInstallStats.find(u => u.action === 'install')?.count ?? 0,
+    updates: packInstallStats.find(u => u.action === 'update')?.count ?? 0,
+    uninstalls: packInstallStats.find(u => u.action === 'uninstall')?.count ?? 0,
+  };
+
+  // --- API Key Stats ---
+  const [{ totalApiKeys }] = await db
+    .select({ totalApiKeys: count() })
+    .from(apiKeys)
+    .where(eq(apiKeys.revoked, false));
+
+  // --- Team Stats ---
+  const [{ totalTeams }] = await db
+    .select({ totalTeams: count() })
+    .from(teams);
+
+  logger.info({ adminId, period, requestId }, 'Admin viewed platform analytics');
+
+  return c.json({
+    period,
+    period_start: periodStart?.toISOString() ?? null,
+    generated_at: new Date().toISOString(),
+    users: {
+      total: totalUsers,
+      new_in_period: newUsers,
+      verified: verifiedUsers,
+      unverified: totalUsers - verifiedUsers,
+    },
+    subscriptions: {
+      total_active: activeSubscriptions,
+      by_tier: subscriptionsByTier,
+    },
+    skills: {
+      total: totalSkills,
+      total_downloads: totalSkillDownloads,
+    },
+    packs: {
+      total: packStats.reduce((sum, p) => sum + p.count, 0),
+      by_status: {
+        draft: packStats.find(p => p.status === 'draft')?.count ?? 0,
+        pending_review: packStats.find(p => p.status === 'pending_review')?.count ?? 0,
+        published: packStats.find(p => p.status === 'published')?.count ?? 0,
+        rejected: packStats.find(p => p.status === 'rejected')?.count ?? 0,
+        deprecated: packStats.find(p => p.status === 'deprecated')?.count ?? 0,
+      },
+      total_downloads: totalPackDownloads,
+    },
+    usage_in_period: {
+      skills: usageByAction,
+      packs: packUsageByAction,
+    },
+    api_keys: {
+      total_active: totalApiKeys,
+    },
+    teams: {
+      total: totalTeams,
+    },
+  });
+});
+
+/**
+ * GET /v1/admin/analytics/packs
+ * Detailed pack analytics
+ */
+adminRouter.get('/analytics/packs', zValidator('query', analyticsQuerySchema), async (c) => {
+  const adminId = c.get('userId');
+  const requestId = c.get('requestId');
+  const { period } = c.req.valid('query');
+
+  // Calculate period start date
+  let periodStart: Date | null = null;
+  if (period !== 'all') {
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+    periodStart = new Date();
+    periodStart.setDate(periodStart.getDate() - days);
+  }
+
+  // Get top packs by downloads
+  const topPacks = await db
+    .select({
+      id: packs.id,
+      name: packs.name,
+      slug: packs.slug,
+      status: packs.status,
+      tier_required: packs.tierRequired,
+      downloads: packs.downloads,
+      is_featured: packs.isFeatured,
+      created_at: packs.createdAt,
+    })
+    .from(packs)
+    .where(eq(packs.status, 'published'))
+    .orderBy(desc(packs.downloads))
+    .limit(20);
+
+  // Get pack installation counts for the period
+  const packInstallConditions = periodStart
+    ? and(eq(packInstallations.action, 'install'), gte(packInstallations.createdAt, periodStart))
+    : eq(packInstallations.action, 'install');
+
+  const periodInstalls = await db
+    .select({
+      packId: packInstallations.packId,
+      installs: count(),
+    })
+    .from(packInstallations)
+    .where(packInstallConditions)
+    .groupBy(packInstallations.packId)
+    .orderBy(desc(count()))
+    .limit(20);
+
+  // Merge period installs into top packs
+  const installMap = new Map(periodInstalls.map(p => [p.packId, p.installs]));
+
+  const packsWithPeriodStats = topPacks.map(pack => ({
+    ...pack,
+    installs_in_period: installMap.get(pack.id) ?? 0,
+  }));
+
+  // Get recently created packs
+  const recentPacks = await db
+    .select({
+      id: packs.id,
+      name: packs.name,
+      slug: packs.slug,
+      status: packs.status,
+      tier_required: packs.tierRequired,
+      downloads: packs.downloads,
+      created_at: packs.createdAt,
+    })
+    .from(packs)
+    .orderBy(desc(packs.createdAt))
+    .limit(10);
+
+  logger.info({ adminId, period, requestId }, 'Admin viewed pack analytics');
+
+  return c.json({
+    period,
+    period_start: periodStart?.toISOString() ?? null,
+    generated_at: new Date().toISOString(),
+    top_packs_by_downloads: packsWithPeriodStats,
+    recent_packs: recentPacks,
   });
 });
