@@ -163,6 +163,11 @@ async function main() {
       name: c.replace('.md', ''),
       path: `commands/${c}`,
     })),
+    // Output directories that will be automatically gitignored on install
+    // GTM outputs contain sensitive business strategy - privacy by default
+    outputDirs: [
+      'gtm-grimoire/',
+    ],
     dependencies: {
       loa_version: '>=0.9.0',
       skills: [],
