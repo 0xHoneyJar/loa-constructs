@@ -72,6 +72,8 @@ export const Errors = {
       retry_after: retryAfter,
     }),
 
+  RateLimited: (message: string) => new AppError('RATE_LIMITED', message, 429),
+
   // 500 Internal Error
   InternalError: (message = 'An unexpected error occurred') =>
     new AppError('INTERNAL_ERROR', message, 500),

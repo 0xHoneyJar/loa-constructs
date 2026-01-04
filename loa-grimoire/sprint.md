@@ -1362,5 +1362,855 @@ DATABASE_URL="postgresql://..." npx tsx scripts/seed-thj-team.ts
 
 ---
 
+## Sprint 23: Pack Submission Core
+
+**Goal**: Implement the core pack submission workflow - creators can submit packs for review, admins can approve/reject with feedback, and email notifications are sent.
+
+**Duration**: 1-2 days
+
+**PRD Reference**: `loa-grimoire/prd-pack-submission.md`
+**SDD Reference**: `loa-grimoire/sdd-pack-submission.md`
+
+### Sprint Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| **Feature** | Pack Submission & Creator Program |
+| **Phase** | 1 of 3 (Core Submission) |
+| **Risk Level** | Medium |
+| **Dependencies** | Sprints 18-22 complete |
+
+### Tasks
+
+---
+
+#### T23.1: Add pack_submissions Table to Schema
+
+**Description**: Add the `pack_submissions` table to track submission history and review workflow.
+
+**Acceptance Criteria**:
+- [ ] Add `packSubmissionStatusEnum` to `schema.ts`
+- [ ] Add `packSubmissions` table with all fields per SDD
+- [ ] Add `packSubmissionsRelations` for Drizzle relations
+- [ ] Export new table from `db/index.ts`
+- [ ] TypeScript compiles without errors
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: None
+
+**Files to Modify**:
+- `apps/api/src/db/schema.ts`
+- `apps/api/src/db/index.ts`
+
+---
+
+#### T23.2: Create Database Migration
+
+**Description**: Create and run the database migration for new tables.
+
+**Acceptance Criteria**:
+- [ ] Create migration file `20260104_pack_submissions.sql`
+- [ ] Migration creates `pack_submissions` table
+- [ ] Migration creates all required indexes
+- [ ] Migration runs successfully against Neon DB
+- [ ] Rollback script tested
+
+**Effort**: Small (30 min)
+
+**Dependencies**: T23.1
+
+**Files to Create**:
+- `apps/api/drizzle/migrations/20260104_pack_submissions.sql`
+
+**Commands**:
+```bash
+cd apps/api
+npx drizzle-kit generate:pg
+npx drizzle-kit push:pg
+```
+
+---
+
+#### T23.3: Create Submission Service
+
+**Description**: Create the service layer for pack submissions.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/api/src/services/submissions.ts`
+- [ ] Implement `createPackSubmission()` function
+- [ ] Implement `getLatestPackSubmission()` function
+- [ ] Implement `withdrawPackSubmission()` function
+- [ ] Implement `updateSubmissionReview()` function
+- [ ] Implement `countRecentSubmissions()` for rate limiting
+- [ ] Implement `updatePackStatus()` helper
+- [ ] All functions have proper error handling
+- [ ] TypeScript types exported
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T23.2
+
+**Files to Create**:
+- `apps/api/src/services/submissions.ts`
+
+---
+
+#### T23.4: Add POST /v1/packs/:slug/submit Endpoint
+
+**Description**: Implement the endpoint for creators to submit packs for review.
+
+**Acceptance Criteria**:
+- [ ] Add endpoint to `routes/packs.ts`
+- [ ] Validate pack ownership
+- [ ] Validate pack state (must be `draft` or `rejected`)
+- [ ] Validate pack has at least one version
+- [ ] Validate pack has description
+- [ ] Enforce rate limit (5 submissions/24h)
+- [ ] Create submission record
+- [ ] Update pack status to `pending_review`
+- [ ] Return submission ID and status
+- [ ] Log submission event
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T23.3
+
+**Files to Modify**:
+- `apps/api/src/routes/packs.ts`
+
+---
+
+#### T23.5: Add POST /v1/packs/:slug/withdraw Endpoint
+
+**Description**: Implement the endpoint for creators to withdraw pending submissions.
+
+**Acceptance Criteria**:
+- [ ] Add endpoint to `routes/packs.ts`
+- [ ] Validate pack ownership
+- [ ] Validate pack status is `pending_review`
+- [ ] Update submission record status to `withdrawn`
+- [ ] Update pack status to `draft`
+- [ ] Return success response
+- [ ] Log withdrawal event
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T23.3
+
+**Files to Modify**:
+- `apps/api/src/routes/packs.ts`
+
+---
+
+#### T23.6: Add GET /v1/packs/:slug/review-status Endpoint
+
+**Description**: Implement the endpoint for creators to check submission status.
+
+**Acceptance Criteria**:
+- [ ] Add endpoint to `routes/packs.ts`
+- [ ] Validate pack ownership
+- [ ] Return latest submission status
+- [ ] Include review notes if reviewed
+- [ ] Include rejection reason if rejected
+- [ ] Handle case where no submission exists
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T23.3
+
+**Files to Modify**:
+- `apps/api/src/routes/packs.ts`
+
+---
+
+#### T23.7: Enhance Admin Review Endpoint
+
+**Description**: Add `POST /v1/admin/packs/:id/review` for structured review decisions.
+
+**Acceptance Criteria**:
+- [ ] Add new endpoint to `routes/admin.ts`
+- [ ] Require `status` (published/rejected) and `review_notes`
+- [ ] Require `rejection_reason` when rejecting
+- [ ] Update pack status
+- [ ] Update submission record with review details
+- [ ] Create audit log entry
+- [ ] Return success response
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T23.3
+
+**Files to Modify**:
+- `apps/api/src/routes/admin.ts`
+
+---
+
+#### T23.8: Add GET /v1/admin/reviews Endpoint
+
+**Description**: Add review queue endpoint for admins with enhanced data.
+
+**Acceptance Criteria**:
+- [ ] Add endpoint to `routes/admin.ts`
+- [ ] Return packs with `pending_review` status
+- [ ] Include submission timestamp and notes
+- [ ] Include creator email and name
+- [ ] Include latest version number
+- [ ] Order by submission date (oldest first)
+
+**Effort**: Small (1.5 hours)
+
+**Dependencies**: T23.3
+
+**Files to Modify**:
+- `apps/api/src/routes/admin.ts`
+
+---
+
+#### T23.9: Add Pack Submission Email Templates
+
+**Description**: Create email templates for submission workflow notifications.
+
+**Acceptance Criteria**:
+- [ ] Add `generatePackSubmittedEmail()` - creator notification
+- [ ] Add `generatePackApprovedEmail()` - approval notification
+- [ ] Add `generatePackRejectedEmail()` - rejection with feedback
+- [ ] Add `generateAdminPackSubmittedEmail()` - admin notification
+- [ ] Templates match existing email styling
+- [ ] Templates include all required dynamic fields
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: None
+
+**Files to Modify**:
+- `apps/api/src/services/email.ts`
+
+---
+
+#### T23.10: Add Email Sending Functions
+
+**Description**: Create functions to send submission workflow emails.
+
+**Acceptance Criteria**:
+- [ ] Add `sendPackSubmissionEmails()` - sends to creator + admins
+- [ ] Add `sendPackApprovedEmail()` - sends to creator
+- [ ] Add `sendPackRejectedEmail()` - sends to creator
+- [ ] Configure admin email address
+- [ ] Graceful handling when email not configured
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T23.9
+
+**Files to Modify**:
+- `apps/api/src/services/email.ts`
+
+---
+
+#### T23.11: Integrate Email Notifications
+
+**Description**: Connect email sending to submission and review endpoints.
+
+**Acceptance Criteria**:
+- [ ] Submit endpoint sends creator confirmation + admin alert
+- [ ] Review endpoint sends approval/rejection email to creator
+- [ ] Email errors don't block API responses
+- [ ] All emails logged
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T23.4, T23.7, T23.10
+
+**Files to Modify**:
+- `apps/api/src/routes/packs.ts`
+- `apps/api/src/routes/admin.ts`
+
+---
+
+#### T23.12: Add Unit Tests for Submission Service
+
+**Description**: Create unit tests for the submission service functions.
+
+**Acceptance Criteria**:
+- [ ] Test `createPackSubmission()` creates record
+- [ ] Test `getLatestPackSubmission()` returns correct submission
+- [ ] Test `withdrawPackSubmission()` updates status
+- [ ] Test `countRecentSubmissions()` respects time window
+- [ ] All tests pass
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T23.3
+
+**Files to Create**:
+- `apps/api/tests/unit/submissions.test.ts`
+
+---
+
+#### T23.13: Add Integration Tests for Submission Flow
+
+**Description**: Create end-to-end tests for the submission workflow.
+
+**Acceptance Criteria**:
+- [ ] Test submit endpoint with valid pack
+- [ ] Test submit rejects non-owner
+- [ ] Test submit validates pack state
+- [ ] Test withdraw endpoint
+- [ ] Test review-status endpoint
+- [ ] Test admin review endpoint
+- [ ] All tests pass
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T23.4, T23.5, T23.6, T23.7
+
+**Files to Create**:
+- `apps/api/tests/e2e/pack-submission.test.ts`
+
+---
+
+### Sprint 23 Summary
+
+| Task | Description | Effort | Status |
+|------|-------------|--------|--------|
+| T23.1 | Add pack_submissions schema | S | ⬜ Pending |
+| T23.2 | Create database migration | S | ⬜ Pending |
+| T23.3 | Create submission service | M | ⬜ Pending |
+| T23.4 | POST /submit endpoint | M | ⬜ Pending |
+| T23.5 | POST /withdraw endpoint | S | ⬜ Pending |
+| T23.6 | GET /review-status endpoint | S | ⬜ Pending |
+| T23.7 | Enhance admin review endpoint | M | ⬜ Pending |
+| T23.8 | GET /admin/reviews endpoint | S | ⬜ Pending |
+| T23.9 | Pack submission email templates | M | ⬜ Pending |
+| T23.10 | Email sending functions | S | ⬜ Pending |
+| T23.11 | Integrate email notifications | S | ⬜ Pending |
+| T23.12 | Unit tests | M | ⬜ Pending |
+| T23.13 | Integration tests | M | ⬜ Pending |
+
+**Total Estimated Effort**: ~18 hours
+
+---
+
+## Sprint 24: Creator Dashboard
+
+**Goal**: Implement creator dashboard API endpoints and web UI for pack management.
+
+**Duration**: 1-2 days
+
+### Tasks
+
+---
+
+#### T24.1: Create Creator Service
+
+**Description**: Create service layer for creator dashboard queries.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/api/src/services/creator.ts`
+- [ ] Implement `getCreatorPacks()` function
+- [ ] Implement `getCreatorTotals()` function
+- [ ] Return packs with status, downloads, latest version
+- [ ] TypeScript types exported
+
+**Effort**: Medium (1.5 hours)
+
+**Dependencies**: T23.2
+
+**Files to Create**:
+- `apps/api/src/services/creator.ts`
+
+---
+
+#### T24.2: Create Creator Routes
+
+**Description**: Create the `/v1/creator/*` API routes.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/api/src/routes/creator.ts`
+- [ ] Apply `requireAuth()` middleware
+- [ ] Apply rate limiter
+- [ ] Export router
+
+**Effort**: Small (30 min)
+
+**Dependencies**: None
+
+**Files to Create**:
+- `apps/api/src/routes/creator.ts`
+
+---
+
+#### T24.3: Add GET /v1/creator/packs Endpoint
+
+**Description**: Implement endpoint to list creator's packs with stats.
+
+**Acceptance Criteria**:
+- [ ] List all packs owned by current user
+- [ ] Include status, downloads, latest version
+- [ ] Include placeholder revenue fields (v1.1)
+- [ ] Include totals summary
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T24.1, T24.2
+
+**Files to Modify**:
+- `apps/api/src/routes/creator.ts`
+
+---
+
+#### T24.4: Add GET /v1/creator/earnings Endpoint
+
+**Description**: Implement placeholder earnings endpoint for v1.1.
+
+**Acceptance Criteria**:
+- [ ] Return placeholder earnings structure
+- [ ] Include `stripe_connect_status: 'not_connected'`
+- [ ] Include `payout_schedule: 'manual'`
+- [ ] Document v1.1 fields in response
+
+**Effort**: Small (30 min)
+
+**Dependencies**: T24.2
+
+**Files to Modify**:
+- `apps/api/src/routes/creator.ts`
+
+---
+
+#### T24.5: Register Creator Routes in App
+
+**Description**: Add creator routes to the main app router.
+
+**Acceptance Criteria**:
+- [ ] Import `creatorRouter` in `app.ts`
+- [ ] Mount at `/v1/creator`
+- [ ] Verify routes respond correctly
+
+**Effort**: Small (15 min)
+
+**Dependencies**: T24.2
+
+**Files to Modify**:
+- `apps/api/src/app.ts`
+
+---
+
+#### T24.6: Create Creator Dashboard Page (Web)
+
+**Description**: Create the web UI for creator dashboard at `/creator`.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/app/(dashboard)/creator/page.tsx`
+- [ ] List creator's packs with status badges
+- [ ] Show downloads count for each pack
+- [ ] Show "Submit for Review" button for draft packs
+- [ ] Link to pack edit pages
+- [ ] TUI styling consistent with rest of app
+
+**Effort**: Medium (3 hours)
+
+**Dependencies**: T24.3
+
+**Files to Create**:
+- `apps/web/src/app/(dashboard)/creator/page.tsx`
+
+---
+
+#### T24.7: Create Pack Submission Modal (Web)
+
+**Description**: Create modal for submitting pack for review.
+
+**Acceptance Criteria**:
+- [ ] Create submission modal component
+- [ ] Include optional notes field
+- [ ] Show validation requirements
+- [ ] Call `/submit` endpoint on confirm
+- [ ] Show success/error feedback
+- [ ] TUI styling
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T23.4
+
+**Files to Create**:
+- `apps/web/src/components/creator/submit-pack-modal.tsx`
+
+---
+
+#### T24.8: Add Review Status Display (Web)
+
+**Description**: Show review status on pack cards in creator dashboard.
+
+**Acceptance Criteria**:
+- [ ] Show status badge (Draft, Pending Review, Published, Rejected)
+- [ ] Show "View Feedback" link for rejected packs
+- [ ] Show reviewer notes in modal/drawer
+- [ ] Show "Withdraw" button for pending packs
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T24.6
+
+**Files to Modify**:
+- `apps/web/src/app/(dashboard)/creator/page.tsx`
+
+---
+
+#### T24.9: Add Creator Link to Dashboard Sidebar
+
+**Description**: Add navigation item for creator dashboard.
+
+**Acceptance Criteria**:
+- [ ] Add "Creator" item to sidebar navigation
+- [ ] Show only for users with at least one pack
+- [ ] Keyboard shortcut assigned
+
+**Effort**: Small (30 min)
+
+**Dependencies**: None
+
+**Files to Modify**:
+- `apps/web/src/components/dashboard/sidebar.tsx`
+
+---
+
+#### T24.10: Integration Tests for Creator Endpoints
+
+**Description**: Add tests for creator dashboard endpoints.
+
+**Acceptance Criteria**:
+- [ ] Test GET /creator/packs returns user's packs
+- [ ] Test GET /creator/packs excludes other users' packs
+- [ ] Test GET /creator/earnings returns placeholder data
+- [ ] All tests pass
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T24.3, T24.4
+
+**Files to Create**:
+- `apps/api/tests/e2e/creator.test.ts`
+
+---
+
+### Sprint 24 Summary
+
+| Task | Description | Effort | Status |
+|------|-------------|--------|--------|
+| T24.1 | Creator service | M | ⬜ Pending |
+| T24.2 | Creator routes file | S | ⬜ Pending |
+| T24.3 | GET /creator/packs | S | ⬜ Pending |
+| T24.4 | GET /creator/earnings | S | ⬜ Pending |
+| T24.5 | Register routes | S | ⬜ Pending |
+| T24.6 | Creator dashboard page | M | ⬜ Pending |
+| T24.7 | Pack submission modal | M | ⬜ Pending |
+| T24.8 | Review status display | M | ⬜ Pending |
+| T24.9 | Sidebar navigation | S | ⬜ Pending |
+| T24.10 | Integration tests | S | ⬜ Pending |
+
+**Total Estimated Effort**: ~12 hours
+
+---
+
+## Sprint 25: Revenue Sharing Foundation (v1.1)
+
+**Goal**: Lay groundwork for creator revenue sharing - download attribution tracking and Stripe Connect preparation.
+
+**Duration**: 2-3 days
+
+**Note**: This sprint prepares infrastructure but does NOT enable automated payouts. Payouts remain manual via Stripe dashboard until v1.2.
+
+### Tasks
+
+---
+
+#### T25.1: Add Download Attribution Schema
+
+**Description**: Add `pack_download_attributions` table for revenue tracking.
+
+**Acceptance Criteria**:
+- [ ] Add table to `schema.ts`
+- [ ] Include pack_id, user_id, subscription_id, month, action
+- [ ] Add unique constraint on (pack_id, user_id, month)
+- [ ] Add relations
+- [ ] Create migration
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: None
+
+**Files to Modify**:
+- `apps/api/src/db/schema.ts`
+
+---
+
+#### T25.2: Add Creator Payouts Schema
+
+**Description**: Add `creator_payouts` table for payout tracking.
+
+**Acceptance Criteria**:
+- [ ] Add table to `schema.ts`
+- [ ] Include user_id, amount_cents, period, status, stripe_transfer_id
+- [ ] Include breakdown JSONB field
+- [ ] Add relations
+- [ ] Create migration
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: None
+
+**Files to Modify**:
+- `apps/api/src/db/schema.ts`
+
+---
+
+#### T25.3: Add Stripe Connect Fields to Users
+
+**Description**: Add Stripe Connect fields to users table.
+
+**Acceptance Criteria**:
+- [ ] Add `stripe_connect_account_id` column
+- [ ] Add `stripe_connect_onboarding_complete` boolean
+- [ ] Add `payout_threshold_cents` with default 5000
+- [ ] Create migration
+
+**Effort**: Small (30 min)
+
+**Dependencies**: None
+
+**Files to Modify**:
+- `apps/api/src/db/schema.ts`
+
+---
+
+#### T25.4: Track Download Attributions
+
+**Description**: Record download attributions when packs are downloaded.
+
+**Acceptance Criteria**:
+- [ ] Create `trackDownloadAttribution()` function
+- [ ] Call from pack download endpoint
+- [ ] Calculate month as first of month
+- [ ] Handle duplicate prevention (upsert)
+- [ ] Only track for premium packs
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T25.1
+
+**Files to Modify**:
+- `apps/api/src/services/packs.ts`
+- `apps/api/src/routes/packs.ts`
+
+---
+
+#### T25.5: Create Stripe Connect Onboarding Endpoint
+
+**Description**: Create endpoint to start Stripe Connect onboarding.
+
+**Acceptance Criteria**:
+- [ ] Add `POST /v1/creator/connect-stripe` endpoint
+- [ ] Create Stripe Connect account link
+- [ ] Return redirect URL for onboarding
+- [ ] Store account ID in user record
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T25.3
+
+**Files to Create**:
+- `apps/api/src/services/stripe-connect.ts`
+
+**Files to Modify**:
+- `apps/api/src/routes/creator.ts`
+
+---
+
+#### T25.6: Handle Stripe Connect Webhook
+
+**Description**: Process Stripe Connect account.updated webhook.
+
+**Acceptance Criteria**:
+- [ ] Add webhook handler for `account.updated`
+- [ ] Update `stripe_connect_onboarding_complete` field
+- [ ] Log completion events
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T25.5
+
+**Files to Modify**:
+- `apps/api/src/routes/webhooks.ts`
+
+---
+
+#### T25.7: Calculate Creator Earnings
+
+**Description**: Create function to calculate earnings from attributions.
+
+**Acceptance Criteria**:
+- [ ] Create `calculateCreatorEarnings()` function
+- [ ] Query attributions for period
+- [ ] Calculate based on download share
+- [ ] Apply 70/30 split
+- [ ] Return breakdown by pack
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T25.4
+
+**Files to Create**:
+- `apps/api/src/services/payouts.ts`
+
+---
+
+#### T25.8: Update Earnings Endpoint
+
+**Description**: Connect real data to earnings endpoint.
+
+**Acceptance Criteria**:
+- [ ] Call `calculateCreatorEarnings()` for current month
+- [ ] Return real download-based earnings
+- [ ] Include Stripe Connect status
+- [ ] Include payout threshold info
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T25.7
+
+**Files to Modify**:
+- `apps/api/src/routes/creator.ts`
+
+---
+
+#### T25.9: Create Payout Report Script
+
+**Description**: Create admin script to generate monthly payout reports.
+
+**Acceptance Criteria**:
+- [ ] Create `scripts/generate-payout-report.ts`
+- [ ] Calculate earnings for all creators
+- [ ] Output CSV or JSON report
+- [ ] Flag creators above threshold
+- [ ] Show total payout amount
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T25.7
+
+**Files to Create**:
+- `scripts/generate-payout-report.ts`
+
+---
+
+#### T25.10: Add Earnings Dashboard UI (Web)
+
+**Description**: Create earnings display in creator dashboard.
+
+**Acceptance Criteria**:
+- [ ] Show lifetime earnings
+- [ ] Show current month earnings
+- [ ] Show Stripe Connect status
+- [ ] "Connect Stripe" button for non-connected users
+- [ ] Link to Stripe Express dashboard for connected users
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T25.8
+
+**Files to Create**:
+- `apps/web/src/app/(dashboard)/creator/earnings/page.tsx`
+
+---
+
+### Sprint 25 Summary
+
+| Task | Description | Effort | Status |
+|------|-------------|--------|--------|
+| T25.1 | Download attribution schema | S | ⬜ Pending |
+| T25.2 | Creator payouts schema | S | ⬜ Pending |
+| T25.3 | Stripe Connect user fields | S | ⬜ Pending |
+| T25.4 | Track download attributions | M | ⬜ Pending |
+| T25.5 | Stripe Connect onboarding | M | ⬜ Pending |
+| T25.6 | Stripe Connect webhook | M | ⬜ Pending |
+| T25.7 | Calculate earnings | M | ⬜ Pending |
+| T25.8 | Update earnings endpoint | S | ⬜ Pending |
+| T25.9 | Payout report script | M | ⬜ Pending |
+| T25.10 | Earnings dashboard UI | M | ⬜ Pending |
+
+**Total Estimated Effort**: ~16 hours
+
+---
+
+## Feature Summary: Pack Submission & Creator Program
+
+### Phase Breakdown
+
+| Phase | Sprint | Description | Status |
+|-------|--------|-------------|--------|
+| 1 | Sprint 23 | Core submission workflow | ⬜ Pending |
+| 2 | Sprint 24 | Creator dashboard | ⬜ Pending |
+| 3 | Sprint 25 | Revenue sharing foundation | ⬜ Pending |
+
+### Total Effort
+
+| Sprint | Hours |
+|--------|-------|
+| Sprint 23 | ~18 |
+| Sprint 24 | ~12 |
+| Sprint 25 | ~16 |
+| **Total** | **~46** |
+
+### Dependencies
+
+```
+Sprint 23: Core Submission
+├── T23.1 Schema ──► T23.2 Migration ──► T23.3 Service
+│                                              │
+├── T23.9 Templates ──► T23.10 Email Funcs ────┼──► T23.11 Integration
+│                                              │
+└── T23.3 ──┬──► T23.4 Submit ─────────────────┼──► T23.11
+            ├──► T23.5 Withdraw               │
+            ├──► T23.6 Review Status          │
+            ├──► T23.7 Admin Review ──────────┼──► T23.11
+            └──► T23.8 Admin Queue            │
+                                              │
+                                              ▼
+Sprint 24: Creator Dashboard
+├── T24.1 Creator Service ──► T24.3 Packs Endpoint
+├── T24.2 Routes ──► T24.3 ──► T24.6 Dashboard Page
+│           └──► T24.4 Earnings ──► T24.6
+│           └──► T24.5 Register
+└── T24.6 ──► T24.7 Submit Modal
+        └──► T24.8 Status Display
+                                              │
+                                              ▼
+Sprint 25: Revenue Sharing
+├── T25.1 Attribution Schema ──► T25.4 Track Downloads
+├── T25.2 Payouts Schema
+├── T25.3 User Fields ──► T25.5 Connect Onboarding
+│                    └──► T25.6 Webhook
+└── T25.4 ──► T25.7 Calculate Earnings ──► T25.8 Endpoint
+                                      └──► T25.9 Report Script
+                                      └──► T25.10 Dashboard UI
+```
+
+### Success Criteria
+
+After Sprint 25:
+- [ ] Creators can submit packs for review via web UI or API
+- [ ] Admins receive email notifications for new submissions
+- [ ] Admins can approve/reject with structured feedback
+- [ ] Creators receive email notifications for decisions
+- [ ] Rejected creators can edit and resubmit
+- [ ] Creator dashboard shows all packs with status
+- [ ] Download attributions tracked for premium packs
+- [ ] Earnings calculated and displayed (manual payouts)
+- [ ] Stripe Connect onboarding available
+
+---
+
 **Document Status**: Ready for implementation
-**Next Command**: `/implement sprint-21`
+**Next Command**: `/implement sprint-23`

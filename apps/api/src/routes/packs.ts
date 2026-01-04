@@ -26,6 +26,14 @@ import {
   type PackPricingType,
 } from '../services/packs.js';
 import {
+  createPackSubmission,
+  getLatestPackSubmission,
+  withdrawPackSubmission,
+  updatePackStatus,
+  countRecentSubmissions,
+} from '../services/submissions.js';
+import { sendSubmissionReceivedEmail } from '../services/email.js';
+import {
   uploadFile,
   downloadFile,
   isStorageConfigured,
@@ -90,6 +98,10 @@ const updatePackSchema = z.object({
   repository_url: z.string().url().optional().nullable(),
   homepage_url: z.string().url().optional().nullable(),
   documentation_url: z.string().url().optional().nullable(),
+});
+
+const submitPackSchema = z.object({
+  submission_notes: z.string().max(1000).optional(),
 });
 
 const listPacksSchema = z.object({
@@ -343,6 +355,217 @@ packsRouter.patch(
     });
   }
 );
+
+/**
+ * POST /v1/packs/:slug/submit
+ * Submit pack for review
+ * @see sdd-pack-submission.md §4.1 POST /v1/packs/:slug/submit
+ * @see prd-pack-submission.md §4.2 Submission Workflow
+ */
+packsRouter.post(
+  '/:slug/submit',
+  requireAuth(),
+  zValidator('json', submitPackSchema),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const body = c.req.valid('json');
+    const userId = c.get('userId');
+    const user = c.get('user');
+    const requestId = c.get('requestId');
+
+    // Require verified email
+    if (!user.emailVerified) {
+      throw Errors.Forbidden('Email verification required to submit packs');
+    }
+
+    // Get pack
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    // Check ownership
+    const isOwner = await isPackOwner(pack.id, userId);
+    if (!isOwner) {
+      throw Errors.Forbidden('You are not the owner of this pack');
+    }
+
+    // Validate pack state - must be draft or rejected
+    if (pack.status !== 'draft' && pack.status !== 'rejected') {
+      throw Errors.BadRequest(
+        `Cannot submit pack in '${pack.status}' status. Only draft or rejected packs can be submitted.`
+      );
+    }
+
+    // Validate pack has at least one version
+    const latestVersion = await getLatestPackVersion(pack.id);
+    if (!latestVersion) {
+      throw Errors.BadRequest('Pack must have at least one version before submission');
+    }
+
+    // Validate pack has description
+    if (!pack.description || pack.description.trim().length === 0) {
+      throw Errors.BadRequest('Pack must have a description before submission');
+    }
+
+    // Rate limit: 5 submissions per 24 hours
+    const recentCount = await countRecentSubmissions(userId);
+    if (recentCount >= 5) {
+      throw Errors.RateLimited('Submission rate limit exceeded. Maximum 5 submissions per 24 hours.');
+    }
+
+    // Create submission record
+    const submission = await createPackSubmission({
+      packId: pack.id,
+      submissionNotes: body.submission_notes,
+      versionId: latestVersion.id,
+    });
+
+    // Update pack status to pending_review
+    await updatePackStatus(pack.id, 'pending_review');
+
+    // Send confirmation email (fire and forget - don't block on email failure)
+    sendSubmissionReceivedEmail(
+      user.email,
+      user.name || 'Creator',
+      pack.name,
+      pack.slug
+    ).catch((err) => {
+      logger.error({ error: err, packId: pack.id }, 'Failed to send submission confirmation email');
+    });
+
+    logger.info(
+      { userId, packId: pack.id, submissionId: submission.id, requestId },
+      'Pack submitted for review'
+    );
+
+    return c.json(
+      {
+        data: {
+          submission_id: submission.id,
+          pack_id: pack.id,
+          status: 'pending_review',
+          submitted_at: submission.submittedAt,
+          version: latestVersion.version,
+        },
+        message: 'Pack submitted for review. You will be notified when a decision is made.',
+        request_id: requestId,
+      },
+      201
+    );
+  }
+);
+
+/**
+ * POST /v1/packs/:slug/withdraw
+ * Withdraw pending submission
+ * @see sdd-pack-submission.md §4.1 POST /v1/packs/:slug/withdraw
+ */
+packsRouter.post('/:slug/withdraw', requireAuth(), async (c) => {
+  const slug = c.req.param('slug');
+  const userId = c.get('userId');
+  const requestId = c.get('requestId');
+
+  // Get pack
+  const pack = await getPackBySlug(slug);
+  if (!pack) {
+    throw Errors.NotFound('Pack not found');
+  }
+
+  // Check ownership
+  const isOwner = await isPackOwner(pack.id, userId);
+  if (!isOwner) {
+    throw Errors.Forbidden('You are not the owner of this pack');
+  }
+
+  // Validate pack is in pending_review status
+  if (pack.status !== 'pending_review') {
+    throw Errors.BadRequest(
+      `Cannot withdraw pack in '${pack.status}' status. Only pending_review packs can be withdrawn.`
+    );
+  }
+
+  // Withdraw submission
+  const withdrawn = await withdrawPackSubmission(pack.id);
+  if (!withdrawn) {
+    throw Errors.BadRequest('No pending submission found to withdraw');
+  }
+
+  // Update pack status back to draft
+  await updatePackStatus(pack.id, 'draft');
+
+  logger.info(
+    { userId, packId: pack.id, submissionId: withdrawn.id, requestId },
+    'Pack submission withdrawn'
+  );
+
+  return c.json({
+    data: {
+      submission_id: withdrawn.id,
+      pack_id: pack.id,
+      status: 'draft',
+      withdrawn_at: new Date().toISOString(),
+    },
+    message: 'Submission withdrawn. Pack returned to draft status.',
+    request_id: requestId,
+  });
+});
+
+/**
+ * GET /v1/packs/:slug/review-status
+ * Get submission review status
+ * @see sdd-pack-submission.md §4.1 GET /v1/packs/:slug/review-status
+ */
+packsRouter.get('/:slug/review-status', requireAuth(), async (c) => {
+  const slug = c.req.param('slug');
+  const userId = c.get('userId');
+  const requestId = c.get('requestId');
+
+  // Get pack
+  const pack = await getPackBySlug(slug);
+  if (!pack) {
+    throw Errors.NotFound('Pack not found');
+  }
+
+  // Check ownership
+  const isOwner = await isPackOwner(pack.id, userId);
+  if (!isOwner) {
+    throw Errors.Forbidden('You are not the owner of this pack');
+  }
+
+  // Get latest submission
+  const submission = await getLatestPackSubmission(pack.id);
+
+  if (!submission) {
+    return c.json({
+      data: {
+        pack_id: pack.id,
+        pack_status: pack.status,
+        has_submission: false,
+        submission: null,
+      },
+      request_id: requestId,
+    });
+  }
+
+  return c.json({
+    data: {
+      pack_id: pack.id,
+      pack_status: pack.status,
+      has_submission: true,
+      submission: {
+        id: submission.id,
+        status: submission.status,
+        submitted_at: submission.submittedAt,
+        submission_notes: submission.submissionNotes,
+        reviewed_at: submission.reviewedAt,
+        review_notes: submission.reviewNotes,
+        rejection_reason: submission.rejectionReason,
+      },
+    },
+    request_id: requestId,
+  });
+});
 
 /**
  * GET /v1/packs/:slug/versions

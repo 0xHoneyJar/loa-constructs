@@ -41,6 +41,8 @@ export type AuditAction =
   | 'admin.user_enabled'
   | 'admin.skill_featured'
   | 'admin.skill_removed'
+  | 'admin.pack_approved'
+  | 'admin.pack_rejected'
   | 'sso.login'
   | 'sso.config_updated';
 
@@ -49,6 +51,7 @@ export type ResourceType =
   | 'team'
   | 'subscription'
   | 'skill'
+  | 'pack'
   | 'api_key'
   | 'invitation'
   | 'sso_config';

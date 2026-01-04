@@ -15,6 +15,16 @@ import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { createAuditLog } from '../services/audit.js';
 import { apiRateLimiter } from '../middleware/rate-limiter.js';
+import {
+  updateSubmissionReview,
+  updatePackStatus,
+  getPendingSubmissions,
+  getPackWithOwner,
+} from '../services/submissions.js';
+import {
+  sendPackApprovedEmail,
+  sendPackRejectedEmail,
+} from '../services/email.js';
 
 // --- Route Instance ---
 
@@ -48,6 +58,21 @@ const moderatePackSchema = z.object({
   status: z.enum(['published', 'rejected', 'deprecated']).optional(),
   is_featured: z.boolean().optional(),
   review_notes: z.string().max(2000).optional(),
+});
+
+const reviewPackSchema = z.object({
+  decision: z.enum(['approved', 'rejected']),
+  review_notes: z.string().min(1).max(2000),
+  rejection_reason: z
+    .enum([
+      'quality_standards',
+      'incomplete_content',
+      'duplicate_functionality',
+      'policy_violation',
+      'security_concern',
+      'other',
+    ])
+    .optional(),
 });
 
 // --- User Management Routes ---
@@ -449,6 +474,182 @@ adminRouter.delete('/packs/:id', async (c) => {
   return c.json({
     success: true,
     message: 'Pack removed successfully',
+  });
+});
+
+// --- Submission Review Routes ---
+
+/**
+ * GET /v1/admin/reviews
+ * List pending submissions for admin review queue
+ * @see sdd-pack-submission.md §4.2 GET /v1/admin/reviews
+ */
+adminRouter.get('/reviews', async (c) => {
+  const adminId = c.get('userId');
+  const requestId = c.get('requestId');
+
+  const pendingSubmissions = await getPendingSubmissions();
+
+  logger.info(
+    { adminId, count: pendingSubmissions.length, requestId },
+    'Admin fetched pending submissions'
+  );
+
+  return c.json({
+    data: pendingSubmissions.map((pack) => ({
+      id: pack.id,
+      name: pack.name,
+      slug: pack.slug,
+      description: pack.description,
+      status: pack.status,
+      tier_required: pack.tierRequired,
+      created_at: pack.createdAt,
+      latest_version: pack.latestVersion,
+      submission: pack.submission
+        ? {
+            submitted_at: pack.submission.submittedAt,
+            submission_notes: pack.submission.submissionNotes,
+          }
+        : null,
+      creator: {
+        email: pack.creatorEmail,
+        name: pack.creatorName,
+      },
+    })),
+    total: pendingSubmissions.length,
+    request_id: requestId,
+  });
+});
+
+/**
+ * POST /v1/admin/packs/:id/review
+ * Review and approve/reject a pack submission
+ * @see sdd-pack-submission.md §4.2 POST /v1/admin/packs/:id/review
+ */
+adminRouter.post('/packs/:id/review', zValidator('json', reviewPackSchema), async (c) => {
+  const adminId = c.get('userId');
+  const requestId = c.get('requestId');
+  const packId = c.req.param('id');
+  const body = c.req.valid('json');
+
+  // Validate UUID format
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(packId)) {
+    throw Errors.BadRequest('Invalid pack ID format');
+  }
+
+  // Get pack with owner info
+  const pack = await getPackWithOwner(packId);
+  if (!pack) {
+    throw Errors.NotFound('Pack not found');
+  }
+
+  // Validate pack is in pending_review status
+  if (pack.status !== 'pending_review') {
+    throw Errors.BadRequest(
+      `Cannot review pack in '${pack.status}' status. Only pending_review packs can be reviewed.`
+    );
+  }
+
+  // Validate rejection reason is provided when rejecting
+  if (body.decision === 'rejected' && !body.rejection_reason) {
+    throw Errors.BadRequest('Rejection reason is required when rejecting a submission');
+  }
+
+  // Update submission record
+  const submission = await updateSubmissionReview(packId, {
+    status: body.decision,
+    reviewedBy: adminId,
+    reviewNotes: body.review_notes,
+    rejectionReason: body.rejection_reason,
+  });
+
+  if (!submission) {
+    throw Errors.BadRequest('No submission found for this pack');
+  }
+
+  // Update pack status based on decision
+  const newPackStatus = body.decision === 'approved' ? 'published' : 'rejected';
+  await updatePackStatus(packId, newPackStatus);
+
+  // Also update the pack's review fields for backwards compatibility
+  await db
+    .update(packs)
+    .set({
+      reviewedBy: adminId,
+      reviewedAt: new Date(),
+      reviewNotes: body.review_notes,
+      updatedAt: new Date(),
+    })
+    .where(eq(packs.id, packId));
+
+  // Log audit event
+  await createAuditLog({
+    userId: adminId,
+    action: body.decision === 'approved' ? 'admin.pack_approved' : 'admin.pack_rejected',
+    resourceType: 'pack',
+    resourceId: packId,
+    metadata: {
+      pack_name: pack.name,
+      pack_slug: pack.slug,
+      decision: body.decision,
+      review_notes: body.review_notes,
+      rejection_reason: body.rejection_reason,
+      owner_email: pack.owner?.email,
+    },
+  });
+
+  // Send notification email to pack owner (fire and forget)
+  if (pack.owner?.email) {
+    const ownerName = pack.owner.name || 'Creator';
+    if (body.decision === 'approved') {
+      sendPackApprovedEmail(
+        pack.owner.email,
+        ownerName,
+        pack.name,
+        pack.slug,
+        body.review_notes
+      ).catch((err) => {
+        logger.error({ error: err, packId }, 'Failed to send pack approval email');
+      });
+    } else {
+      sendPackRejectedEmail(
+        pack.owner.email,
+        ownerName,
+        pack.name,
+        pack.slug,
+        body.rejection_reason || 'other',
+        body.review_notes
+      ).catch((err) => {
+        logger.error({ error: err, packId }, 'Failed to send pack rejection email');
+      });
+    }
+  }
+
+  logger.info(
+    {
+      adminId,
+      packId,
+      packSlug: pack.slug,
+      decision: body.decision,
+      newStatus: newPackStatus,
+      requestId,
+    },
+    'Admin reviewed pack submission'
+  );
+
+  return c.json({
+    data: {
+      pack_id: packId,
+      status: newPackStatus,
+      decision: body.decision,
+      reviewed_at: new Date().toISOString(),
+      submission_id: submission.id,
+    },
+    message:
+      body.decision === 'approved'
+        ? 'Pack approved and published successfully'
+        : 'Pack submission rejected',
+    request_id: requestId,
   });
 });
 

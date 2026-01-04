@@ -719,3 +719,72 @@ export const packInstallationsRelations = relations(packInstallations, ({ one })
     references: [teams.id],
   }),
 }));
+
+// --- Pack Submissions ---
+
+/**
+ * Pack Submission Status Enum
+ * @see sdd-pack-submission.md §3.1 pack_submissions
+ */
+export const packSubmissionStatusEnum = pgEnum('pack_submission_status', [
+  'submitted',
+  'approved',
+  'rejected',
+  'withdrawn',
+]);
+
+/**
+ * Pack Submissions table
+ * Tracks submission history for audit trail and review workflow.
+ * @see sdd-pack-submission.md §3.1 pack_submissions
+ * @see prd-pack-submission.md §4.2 Submission Workflow
+ */
+export const packSubmissions = pgTable(
+  'pack_submissions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+
+    // Submission metadata
+    submittedAt: timestamp('submitted_at', { withTimezone: true }).notNull().defaultNow(),
+    submissionNotes: text('submission_notes'),
+
+    // Review metadata
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewNotes: text('review_notes'),
+    rejectionReason: varchar('rejection_reason', { length: 50 }),
+
+    // Status
+    status: packSubmissionStatusEnum('status').notNull().default('submitted'),
+
+    // Version at time of submission (for historical reference)
+    versionId: uuid('version_id').references(() => packVersions.id),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    packIdx: index('idx_pack_submissions_pack').on(table.packId),
+    statusIdx: index('idx_pack_submissions_status').on(table.status),
+    submittedIdx: index('idx_pack_submissions_submitted').on(table.submittedAt),
+  })
+);
+
+// --- Pack Submission Relations ---
+
+export const packSubmissionsRelations = relations(packSubmissions, ({ one }) => ({
+  pack: one(packs, {
+    fields: [packSubmissions.packId],
+    references: [packs.id],
+  }),
+  reviewer: one(users, {
+    fields: [packSubmissions.reviewedBy],
+    references: [users.id],
+  }),
+  version: one(packVersions, {
+    fields: [packSubmissions.versionId],
+    references: [packVersions.id],
+  }),
+}));
