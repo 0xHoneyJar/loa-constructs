@@ -14,9 +14,10 @@ const navigation = [
   { name: 'Overview', href: '/dashboard', shortcut: '1' },
   { name: 'Skills', href: '/skills', shortcut: '2' },
   { name: 'Packs', href: '/packs', shortcut: '3' },
-  { name: 'API Keys', href: '/api-keys', shortcut: '4' },
-  { name: 'Profile', href: '/profile', shortcut: '5' },
-  { name: 'Billing', href: '/billing', shortcut: '6' },
+  { name: 'Creator', href: '/creator', shortcut: '4' },
+  { name: 'API Keys', href: '/api-keys', shortcut: '5' },
+  { name: 'Profile', href: '/profile', shortcut: '6' },
+  { name: 'Billing', href: '/billing', shortcut: '7' },
 ];
 
 interface TuiSidebarProps {

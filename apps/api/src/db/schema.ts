@@ -95,6 +95,12 @@ export const users = pgTable(
     oauthProvider: varchar('oauth_provider', { length: 50 }),
     oauthId: varchar('oauth_id', { length: 255 }),
     stripeCustomerId: varchar('stripe_customer_id', { length: 255 }).unique(),
+    // Stripe Connect for creator payouts (v1.1)
+    stripeConnectAccountId: varchar('stripe_connect_account_id', { length: 100 }),
+    stripeConnectOnboardingComplete: boolean('stripe_connect_onboarding_complete').default(
+      false
+    ),
+    payoutThresholdCents: integer('payout_threshold_cents').default(5000), // $50 minimum
     isAdmin: boolean('is_admin').default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
@@ -786,5 +792,116 @@ export const packSubmissionsRelations = relations(packSubmissions, ({ one }) => 
   version: one(packVersions, {
     fields: [packSubmissions.versionId],
     references: [packVersions.id],
+  }),
+}));
+
+// --- Revenue Sharing (v1.1) ---
+
+/**
+ * Pack Download Attributions table
+ * Tracks downloads for revenue attribution.
+ * @see sdd-pack-submission.md §3.1.2 pack_download_attributions
+ * @see prd-pack-submission.md §4.4 Revenue Sharing
+ */
+export const packDownloadAttributions = pgTable(
+  'pack_download_attributions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    subscriptionId: uuid('subscription_id').references(() => subscriptions.id),
+
+    // Download context
+    downloadedAt: timestamp('downloaded_at', { withTimezone: true }).defaultNow(),
+    month: timestamp('month', { withTimezone: true }).notNull(),
+
+    // Attribution metadata
+    versionId: uuid('version_id').references(() => packVersions.id),
+    action: varchar('action', { length: 20 }).default('install'),
+  },
+  (table) => ({
+    monthIdx: index('idx_pack_downloads_month').on(table.month),
+    packIdx: index('idx_pack_downloads_pack').on(table.packId),
+    userIdx: index('idx_pack_downloads_user').on(table.userId),
+    uniqueAttribution: uniqueIndex('idx_pack_downloads_unique').on(
+      table.packId,
+      table.userId,
+      table.month
+    ),
+  })
+);
+
+/**
+ * Creator Payouts table
+ * Tracks creator payouts for revenue sharing.
+ * @see sdd-pack-submission.md §3.1.3 creator_payouts
+ */
+export const creatorPayouts = pgTable(
+  'creator_payouts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+
+    // Payout details
+    amountCents: integer('amount_cents').notNull(),
+    currency: varchar('currency', { length: 3 }).default('USD'),
+
+    // Stripe Connect reference
+    stripeTransferId: varchar('stripe_transfer_id', { length: 100 }),
+
+    // Period
+    periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+    periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
+
+    // Status: pending, processing, completed, failed
+    status: varchar('status', { length: 20 }).notNull().default('pending'),
+
+    // Breakdown (JSONB for flexibility)
+    breakdown: jsonb('breakdown').default({}),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    completedAt: timestamp('completed_at', { withTimezone: true }),
+  },
+  (table) => ({
+    userIdx: index('idx_creator_payouts_user').on(table.userId),
+    statusIdx: index('idx_creator_payouts_status').on(table.status),
+    periodIdx: index('idx_creator_payouts_period').on(table.periodStart, table.periodEnd),
+  })
+);
+
+// --- Revenue Sharing Relations ---
+
+export const packDownloadAttributionsRelations = relations(
+  packDownloadAttributions,
+  ({ one }) => ({
+    pack: one(packs, {
+      fields: [packDownloadAttributions.packId],
+      references: [packs.id],
+    }),
+    user: one(users, {
+      fields: [packDownloadAttributions.userId],
+      references: [users.id],
+    }),
+    subscription: one(subscriptions, {
+      fields: [packDownloadAttributions.subscriptionId],
+      references: [subscriptions.id],
+    }),
+    version: one(packVersions, {
+      fields: [packDownloadAttributions.versionId],
+      references: [packVersions.id],
+    }),
+  })
+);
+
+export const creatorPayoutsRelations = relations(creatorPayouts, ({ one }) => ({
+  user: one(users, {
+    fields: [creatorPayouts.userId],
+    references: [users.id],
   }),
 }));

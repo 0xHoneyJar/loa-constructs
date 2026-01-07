@@ -1,555 +1,254 @@
 /**
- * Creator Routes - Skill Publishing API
- * @see sprint.md T10.5: Skill Publishing UI (API support)
+ * Creator Routes
+ * @see prd-pack-submission.md §4.2.5
+ * @see sdd-pack-submission.md §4.2
  */
 
 import { Hono } from 'hono';
-import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
+import { zValidator } from '@hono/zod-validator';
 import { requireAuth } from '../middleware/auth.js';
+import { apiRateLimiter, stripeConnectRateLimiter } from '../middleware/rate-limiter.js';
+import { getCreatorPacks, getCreatorTotals } from '../services/creator.js';
 import {
-  createSkill,
-  updateSkill,
-  createSkillVersion,
-  getSkillById,
-  getSkillBySlug,
-  isSkillOwner,
-  addVersionFile,
-  getSkillVersions,
-  type SkillCategory,
-} from '../services/skills.js';
-import { uploadFile } from '../services/storage.js';
-import { getCreatorStats, invalidateSkillAnalyticsCache } from '../services/analytics.js';
-import { type SubscriptionTier, getEffectiveTier } from '../services/subscription.js';
+  createConnectAccountLink,
+  getConnectDashboardLink,
+} from '../services/stripe-connect.js';
+import {
+  calculateCreatorEarnings,
+  getLifetimeEarnings,
+} from '../services/payouts.js';
+import { db, users } from '../db/index.js';
+import { eq } from 'drizzle-orm';
+import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
-import type { Variables } from '../app.js';
-import crypto from 'crypto';
-import { creatorRateLimiter } from '../middleware/rate-limiter.js';
 
-// --- Router ---
+// --- Route Instance ---
 
-const creatorRouter = new Hono<{ Variables: Variables & { user: { id: string } } }>();
+export const creatorRouter = new Hono();
 
-// All routes require authentication and rate limiting
+// Apply authentication and rate limiting to all creator routes
 creatorRouter.use('*', requireAuth());
-creatorRouter.use('*', creatorRateLimiter());
+creatorRouter.use('*', apiRateLimiter());
+
+// --- Endpoints ---
+
+/**
+ * GET /v1/creator/packs
+ * List creator's packs with stats
+ * @see prd-pack-submission.md §4.2.5
+ * @see sprint.md T24.3
+ */
+creatorRouter.get('/packs', async (c) => {
+  const userId = c.get('userId');
+  const requestId = c.get('requestId');
+
+  try {
+    const packs = await getCreatorPacks(userId);
+    const totals = await getCreatorTotals(userId);
+
+    logger.info({ userId, packCount: packs.length, requestId }, 'Creator packs retrieved');
+
+    return c.json({
+      data: {
+        packs: packs.map((p) => ({
+          slug: p.slug,
+          name: p.name,
+          status: p.status,
+          downloads: p.downloads ?? 0,
+          revenue: {
+            // v1.0: Placeholder - manual payouts
+            // v1.1: Calculate from attributions
+            total: 0,
+            pending: 0,
+            currency: 'USD',
+          },
+          latest_version: p.latestVersion,
+          created_at: p.createdAt,
+          updated_at: p.updatedAt,
+        })),
+        totals: {
+          packs_count: totals.packCount,
+          total_downloads: totals.totalDownloads,
+          total_revenue: 0, // v1.1: Calculate from attributions
+          pending_payout: 0, // v1.1: Calculate from attributions
+        },
+      },
+      request_id: requestId,
+    });
+  } catch (error) {
+    logger.error({ error, userId, requestId }, 'Failed to get creator packs');
+    throw error;
+  }
+});
+
+/**
+ * GET /v1/creator/earnings
+ * Get creator earnings summary
+ * @see prd-pack-submission.md §4.4.3
+ * @see sprint.md T24.4
+ */
+creatorRouter.get('/earnings', async (c) => {
+  const userId = c.get('userId');
+  const requestId = c.get('requestId');
+
+  logger.info({ userId, requestId }, 'Creator earnings retrieved');
+
+  try {
+    // Get user's Stripe Connect status
+    const [user] = await db
+      .select({
+        stripeConnectAccountId: users.stripeConnectAccountId,
+        stripeConnectOnboardingComplete: users.stripeConnectOnboardingComplete,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    let stripeConnectStatus = 'not_connected';
+    if (user?.stripeConnectOnboardingComplete) {
+      stripeConnectStatus = 'connected';
+    } else if (user?.stripeConnectAccountId) {
+      stripeConnectStatus = 'pending';
+    }
+
+    // Calculate current month earnings
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    const thisMonth = await calculateCreatorEarnings(userId, monthStart, monthEnd);
+    const lifetime = await getLifetimeEarnings(userId);
+
+    // Calculate next payout date (1st of next month)
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const nextPayoutDate = stripeConnectStatus === 'connected' ? nextMonth.toISOString() : null;
+
+    return c.json({
+      data: {
+        lifetime: {
+          gross: lifetime.totalNetCents / 100, // Convert to dollars
+          platform_fee: 0, // Platform fee already deducted
+          net: lifetime.totalNetCents / 100,
+          paid_out: lifetime.paidOutCents / 100,
+          pending: lifetime.pendingCents / 100,
+        },
+        this_month: {
+          gross: thisMonth.grossCents / 100,
+          platform_fee: thisMonth.platformFeeCents / 100,
+          net: thisMonth.netCents / 100,
+        },
+        payout_schedule: stripeConnectStatus === 'connected' ? 'monthly' : 'manual',
+        next_payout_date: nextPayoutDate,
+        stripe_connect_status: stripeConnectStatus,
+      },
+      request_id: requestId,
+    });
+  } catch (error) {
+    logger.error({ error, userId, requestId }, 'Failed to calculate earnings');
+    throw error;
+  }
+});
 
 // --- Schemas ---
 
-const createSkillSchema = z.object({
-  name: z
-    .string()
-    .min(2, 'Name must be at least 2 characters')
-    .max(100, 'Name must be at most 100 characters'),
-  slug: z
-    .string()
-    .min(2, 'Slug must be at least 2 characters')
-    .max(100, 'Slug must be at most 100 characters')
-    .regex(/^[a-z0-9-]+$/, 'Slug must contain only lowercase letters, numbers, and hyphens'),
-  description: z.string().max(500, 'Description must be at most 500 characters').optional(),
-  longDescription: z.string().max(10000, 'Long description must be at most 10000 characters').optional(),
-  category: z.enum([
-    'development',
-    'devops',
-    'marketing',
-    'sales',
-    'support',
-    'analytics',
-    'security',
-    'other',
-  ] as const).default('other'),
-  tags: z.array(z.string().max(50)).max(10).default([]),
-  tierRequired: z.enum(['free', 'pro', 'team', 'enterprise'] as const).default('free'),
-  isPublic: z.boolean().default(true),
-  repositoryUrl: z.string().url().optional().nullable(),
-  documentationUrl: z.string().url().optional().nullable(),
-});
-
-const updateSkillSchema = z.object({
-  name: z.string().min(2).max(100).optional(),
-  description: z.string().max(500).optional(),
-  longDescription: z.string().max(10000).optional(),
-  category: z.enum([
-    'development',
-    'devops',
-    'marketing',
-    'sales',
-    'support',
-    'analytics',
-    'security',
-    'other',
-  ] as const).optional(),
-  tags: z.array(z.string().max(50)).max(10).optional(),
-  tierRequired: z.enum(['free', 'pro', 'team', 'enterprise'] as const).optional(),
-  isPublic: z.boolean().optional(),
-  isDeprecated: z.boolean().optional(),
-  repositoryUrl: z.string().url().optional().nullable(),
-  documentationUrl: z.string().url().optional().nullable(),
-});
-
-const createVersionSchema = z.object({
-  version: z
-    .string()
-    .regex(/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/, 'Version must follow semver format (e.g., 1.0.0)'),
-  changelog: z.string().max(5000, 'Changelog must be at most 5000 characters').optional(),
-  minLoaVersion: z.string().optional(),
-});
-
-const uploadFileSchema = z.object({
-  path: z
-    .string()
-    .min(1, 'Path is required')
-    .max(500, 'Path must be at most 500 characters')
-    .regex(/^[a-zA-Z0-9/_.-]+$/, 'Path contains invalid characters'),
-  content: z.string().min(1, 'Content is required'),
-  mimeType: z.string().default('text/plain'),
-});
-
-// --- Helper Functions ---
-
-/**
- * Compute SHA256 hash of content
- */
-function computeHash(content: string): string {
-  return crypto.createHash('sha256').update(content).digest('hex');
-}
-
-// --- Routes ---
-
-/**
- * GET /v1/creator/dashboard
- * Get creator dashboard summary
- */
-creatorRouter.get('/dashboard', async (c) => {
-  const user = c.get('user');
-
-  const stats = await getCreatorStats(user.id);
-
-  return c.json({
-    data: {
-      summary: {
-        totalSkills: stats.totalSkills,
-        totalDownloads: stats.totalDownloads,
-        totalActiveInstalls: stats.totalActiveInstalls,
-        averageRating: stats.averageRating,
-        totalRatings: stats.totalRatings,
-      },
-      recentSkills: stats.skills.slice(0, 5),
-    },
-  });
+const connectStripeSchema = z.object({
+  return_url: z.string().url().optional(),
+  refresh_url: z.string().url().optional(),
 });
 
 /**
- * POST /v1/creator/skills
- * Create a new skill
- * @see sprint.md T10.5: Skill Publishing UI
+ * POST /v1/creator/connect-stripe
+ * Start Stripe Connect onboarding flow
+ * @see prd-pack-submission.md §4.4.1
+ * @see sprint.md T25.5
+ * @see auditor-sprint-feedback.md CRITICAL-1 (strict rate limiting)
  */
 creatorRouter.post(
-  '/skills',
-  zValidator('json', createSkillSchema),
+  '/connect-stripe',
+  stripeConnectRateLimiter(),
+  zValidator('json', connectStripeSchema),
   async (c) => {
+    const userId = c.get('userId');
     const user = c.get('user');
-    const data = c.req.valid('json');
+    const requestId = c.get('requestId');
+    const body = c.req.valid('json');
 
-    // Check if user can publish skills (requires Pro tier or above for paid skills)
-    if (data.tierRequired !== 'free') {
-      const userTier = await getEffectiveTier(user.id);
-      if (userTier.tier === 'free') {
-        return c.json(
-          {
-            error: {
-              code: 'TIER_REQUIRED',
-              message: 'You need a Pro subscription or higher to publish paid skills',
-            },
-          },
-          403
-        );
-      }
-    }
+    try {
+      // Default return URLs
+      const dashboardUrl = 'https://constructs.network';
+      const returnUrl = body.return_url || `${dashboardUrl}/creator/earnings`;
+      const refreshUrl = body.refresh_url || `${dashboardUrl}/creator/earnings?refresh=1`;
 
-    // Check if slug is already taken
-    const existingSkill = await getSkillBySlug(data.slug);
-    if (existingSkill) {
-      return c.json(
-        {
-          error: {
-            code: 'SLUG_TAKEN',
-            message: 'This skill slug is already taken. Please choose a different slug.',
-          },
-        },
-        409
+      const { url, accountId } = await createConnectAccountLink(
+        userId,
+        user.email,
+        returnUrl,
+        refreshUrl
       );
+
+      logger.info(
+        { userId, accountId, requestId },
+        'Created Stripe Connect onboarding link'
+      );
+
+      return c.json({
+        data: {
+          url,
+          account_id: accountId,
+        },
+        request_id: requestId,
+      });
+    } catch (error) {
+      logger.error({ error, userId, requestId }, 'Failed to start Stripe Connect onboarding');
+      throw Errors.InternalError('Failed to start Stripe Connect onboarding');
     }
-
-    // Create the skill
-    const skill = await createSkill({
-      name: data.name,
-      slug: data.slug,
-      description: data.description,
-      longDescription: data.longDescription,
-      category: data.category as SkillCategory,
-      tags: data.tags,
-      ownerId: user.id,
-      ownerType: 'user',
-      tierRequired: data.tierRequired as SubscriptionTier,
-      isPublic: data.isPublic,
-      repositoryUrl: data.repositoryUrl ?? undefined,
-      documentationUrl: data.documentationUrl ?? undefined,
-    });
-
-    logger.info({ skillId: skill.id, userId: user.id }, 'Skill created by user');
-
-    return c.json(
-      {
-        data: skill,
-        message: 'Skill created successfully. Now publish a version to make it available.',
-      },
-      201
-    );
   }
 );
 
 /**
- * PATCH /v1/creator/skills/:skillId
- * Update a skill
+ * GET /v1/creator/stripe-dashboard
+ * Get Stripe Connect Express dashboard link
+ * @see prd-pack-submission.md §4.4.1
  */
-creatorRouter.patch(
-  '/skills/:skillId',
-  zValidator('json', updateSkillSchema),
-  async (c) => {
-    const user = c.get('user');
-    const skillId = c.req.param('skillId');
-    const data = c.req.valid('json');
+creatorRouter.get('/stripe-dashboard', async (c) => {
+  const userId = c.get('userId');
+  const requestId = c.get('requestId');
 
-    // Verify skill exists
-    const skill = await getSkillById(skillId);
-    if (!skill) {
-      return c.json(
-        {
-          error: {
-            code: 'SKILL_NOT_FOUND',
-            message: 'Skill not found',
-          },
-        },
-        404
-      );
+  try {
+    // Get user's Connect account
+    const [user] = await db
+      .select({
+        stripeConnectAccountId: users.stripeConnectAccountId,
+        stripeConnectOnboardingComplete: users.stripeConnectOnboardingComplete,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (!user?.stripeConnectAccountId) {
+      throw Errors.BadRequest('Stripe Connect not set up');
     }
 
-    // Verify ownership
-    const isOwner = await isSkillOwner(skillId, user.id);
-    if (!isOwner) {
-      return c.json(
-        {
-          error: {
-            code: 'FORBIDDEN',
-            message: 'You do not have permission to update this skill',
-          },
-        },
-        403
-      );
+    if (!user.stripeConnectOnboardingComplete) {
+      throw Errors.BadRequest('Stripe Connect onboarding not complete');
     }
 
-    // Check tier requirement for paid skills
-    if (data.tierRequired && data.tierRequired !== 'free') {
-      const userTier = await getEffectiveTier(user.id);
-      if (userTier.tier === 'free') {
-        return c.json(
-          {
-            error: {
-              code: 'TIER_REQUIRED',
-              message: 'You need a Pro subscription or higher to set paid tier requirements',
-            },
-          },
-          403
-        );
-      }
-    }
-
-    const updatedSkill = await updateSkill(skillId, {
-      name: data.name,
-      description: data.description,
-      longDescription: data.longDescription,
-      category: data.category as SkillCategory | undefined,
-      tags: data.tags,
-      tierRequired: data.tierRequired as SubscriptionTier | undefined,
-      isPublic: data.isPublic,
-      isDeprecated: data.isDeprecated,
-      repositoryUrl: data.repositoryUrl ?? undefined,
-      documentationUrl: data.documentationUrl ?? undefined,
-    });
-
-    // Invalidate analytics cache
-    await invalidateSkillAnalyticsCache(skillId);
-
-    logger.info({ skillId, userId: user.id }, 'Skill updated by user');
-
-    return c.json({
-      data: updatedSkill,
-      message: 'Skill updated successfully',
-    });
-  }
-);
-
-/**
- * GET /v1/creator/skills/:skillId/versions
- * Get all versions of a skill
- */
-creatorRouter.get('/skills/:skillId/versions', async (c) => {
-  const user = c.get('user');
-  const skillId = c.req.param('skillId');
-
-  // Verify skill exists
-  const skill = await getSkillById(skillId);
-  if (!skill) {
-    return c.json(
-      {
-        error: {
-          code: 'SKILL_NOT_FOUND',
-          message: 'Skill not found',
-        },
-      },
-      404
-    );
-  }
-
-  // Verify ownership
-  const isOwner = await isSkillOwner(skillId, user.id);
-  if (!isOwner) {
-    return c.json(
-      {
-        error: {
-          code: 'FORBIDDEN',
-          message: 'You do not have permission to view versions for this skill',
-        },
-      },
-      403
-    );
-  }
-
-  const versions = await getSkillVersions(skillId);
-
-  return c.json({
-    data: versions,
-  });
-});
-
-/**
- * POST /v1/creator/skills/:skillId/versions
- * Publish a new version of a skill
- * @see sprint.md T10.5: Skill Publishing UI
- */
-creatorRouter.post(
-  '/skills/:skillId/versions',
-  zValidator('json', createVersionSchema),
-  async (c) => {
-    const user = c.get('user');
-    const skillId = c.req.param('skillId');
-    const data = c.req.valid('json');
-
-    // Verify skill exists
-    const skill = await getSkillById(skillId);
-    if (!skill) {
-      return c.json(
-        {
-          error: {
-            code: 'SKILL_NOT_FOUND',
-            message: 'Skill not found',
-          },
-        },
-        404
-      );
-    }
-
-    // Verify ownership
-    const isOwner = await isSkillOwner(skillId, user.id);
-    if (!isOwner) {
-      return c.json(
-        {
-          error: {
-            code: 'FORBIDDEN',
-            message: 'You do not have permission to publish versions for this skill',
-          },
-        },
-        403
-      );
-    }
-
-    // Check if version already exists
-    const versions = await getSkillVersions(skillId);
-    if (versions.some((v) => v.version === data.version)) {
-      return c.json(
-        {
-          error: {
-            code: 'VERSION_EXISTS',
-            message: `Version ${data.version} already exists. Please use a different version number.`,
-          },
-        },
-        409
-      );
-    }
-
-    // Create the version
-    const version = await createSkillVersion({
-      skillId,
-      version: data.version,
-      changelog: data.changelog,
-      minLoaVersion: data.minLoaVersion,
-    });
-
-    // Invalidate analytics cache
-    await invalidateSkillAnalyticsCache(skillId);
-
-    logger.info({ skillId, version: data.version, userId: user.id }, 'Skill version published');
-
-    return c.json(
-      {
-        data: version,
-        message: `Version ${data.version} published successfully. Now upload files to complete the release.`,
-      },
-      201
-    );
-  }
-);
-
-/**
- * POST /v1/creator/skills/:skillId/versions/:versionId/files
- * Upload a file to a skill version
- */
-creatorRouter.post(
-  '/skills/:skillId/versions/:versionId/files',
-  zValidator('json', uploadFileSchema),
-  async (c) => {
-    const user = c.get('user');
-    const skillId = c.req.param('skillId');
-    const versionId = c.req.param('versionId');
-    const data = c.req.valid('json');
-
-    // Verify skill exists and user owns it
-    const skill = await getSkillById(skillId);
-    if (!skill) {
-      return c.json(
-        {
-          error: {
-            code: 'SKILL_NOT_FOUND',
-            message: 'Skill not found',
-          },
-        },
-        404
-      );
-    }
-
-    const isOwner = await isSkillOwner(skillId, user.id);
-    if (!isOwner) {
-      return c.json(
-        {
-          error: {
-            code: 'FORBIDDEN',
-            message: 'You do not have permission to upload files for this skill',
-          },
-        },
-        403
-      );
-    }
-
-    // Verify version exists and belongs to this skill
-    const versions = await getSkillVersions(skillId);
-    const version = versions.find((v) => v.id === versionId);
-    if (!version) {
-      return c.json(
-        {
-          error: {
-            code: 'VERSION_NOT_FOUND',
-            message: 'Version not found',
-          },
-        },
-        404
-      );
-    }
-
-    // Compute content hash
-    const contentHash = computeHash(data.content);
-
-    // Generate storage key
-    const storageKey = `skills/${skill.slug}/${version.version}/${data.path}`;
-
-    // Upload to storage
-    const contentBuffer = Buffer.from(data.content, 'utf-8');
-    await uploadFile(storageKey, contentBuffer, data.mimeType);
-
-    // Record in database
-    const file = await addVersionFile({
-      versionId,
-      path: data.path,
-      contentHash,
-      storageKey,
-      sizeBytes: contentBuffer.length,
-      mimeType: data.mimeType,
-    });
+    const dashboardUrl = await getConnectDashboardLink(user.stripeConnectAccountId);
 
     logger.info(
-      { skillId, versionId, path: data.path, userId: user.id },
-      'File uploaded to skill version'
+      { userId, accountId: user.stripeConnectAccountId, requestId },
+      'Generated Stripe Connect dashboard link'
     );
 
-    return c.json(
-      {
-        data: {
-          id: file.id,
-          path: file.path,
-          sizeBytes: file.sizeBytes,
-          mimeType: file.mimeType,
-          contentHash: file.contentHash,
-        },
-        message: 'File uploaded successfully',
+    return c.json({
+      data: {
+        url: dashboardUrl,
       },
-      201
-    );
+      request_id: requestId,
+    });
+  } catch (error) {
+    logger.error({ error, userId, requestId }, 'Failed to get Stripe Connect dashboard link');
+    throw error;
   }
-);
-
-/**
- * POST /v1/creator/skills/:skillId/deprecate
- * Mark a skill as deprecated
- */
-creatorRouter.post('/skills/:skillId/deprecate', async (c) => {
-  const user = c.get('user');
-  const skillId = c.req.param('skillId');
-
-  // Verify skill exists
-  const skill = await getSkillById(skillId);
-  if (!skill) {
-    return c.json(
-      {
-        error: {
-          code: 'SKILL_NOT_FOUND',
-          message: 'Skill not found',
-        },
-      },
-      404
-    );
-  }
-
-  // Verify ownership
-  const isOwner = await isSkillOwner(skillId, user.id);
-  if (!isOwner) {
-    return c.json(
-      {
-        error: {
-          code: 'FORBIDDEN',
-          message: 'You do not have permission to deprecate this skill',
-        },
-      },
-      403
-    );
-  }
-
-  await updateSkill(skillId, { isDeprecated: true });
-
-  logger.info({ skillId, userId: user.id }, 'Skill deprecated');
-
-  return c.json({
-    message: 'Skill has been marked as deprecated',
-  });
 });
-
-export { creatorRouter };

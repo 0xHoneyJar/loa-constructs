@@ -285,3 +285,21 @@ export const creatorRateLimiter = (): MiddlewareHandler =>
       default: { limit: 10, window: 60 },
     },
   });
+
+/**
+ * Stripe Connect rate limiter (very strict)
+ * Prevents abuse of Stripe Connect account creation
+ * @see auditor-sprint-feedback.md CRITICAL-1
+ */
+export const stripeConnectRateLimiter = (): MiddlewareHandler =>
+  rateLimiter({
+    prefix: 'stripe-connect',
+    limits: {
+      // Very strict: 3 attempts per hour regardless of tier
+      free: { limit: 3, window: 3600 },
+      pro: { limit: 3, window: 3600 },
+      team: { limit: 3, window: 3600 },
+      enterprise: { limit: 5, window: 3600 },
+      default: { limit: 3, window: 3600 },
+    },
+  });

@@ -14,6 +14,10 @@ import {
   type SubscriptionTier,
   type SubscriptionStatus,
 } from '../services/subscription.js';
+import {
+  updateConnectOnboardingStatus,
+  isConnectAccountComplete,
+} from '../services/stripe-connect.js';
 import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 
@@ -146,6 +150,39 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
 }
 
 /**
+ * Handle account.updated event (Stripe Connect)
+ * Updates user's Connect onboarding status
+ * @see prd-pack-submission.md §4.4.1
+ * @see sprint.md T25.6
+ */
+async function handleConnectAccountUpdated(account: Stripe.Account): Promise<void> {
+  try {
+    // Get user ID from account metadata
+    const userId = account.metadata?.user_id;
+    if (!userId) {
+      logger.warn({ accountId: account.id }, 'Connect account missing user_id metadata');
+      return;
+    }
+
+    // Check if onboarding is complete
+    const isComplete = await isConnectAccountComplete(account.id);
+
+    // Update user record
+    await updateConnectOnboardingStatus(userId, isComplete);
+
+    logger.info(
+      { userId, accountId: account.id, isComplete },
+      'Connect account status updated'
+    );
+  } catch (error) {
+    logger.error(
+      { error, accountId: account.id },
+      'Failed to handle Connect account update'
+    );
+  }
+}
+
+/**
  * Handle invoice.payment_failed event
  * Updates subscription status to past_due
  */
@@ -241,6 +278,10 @@ webhooksRouter.post('/stripe', async (c) => {
 
       case 'invoice.payment_failed':
         await handlePaymentFailed(event.data.object as Stripe.Invoice);
+        break;
+
+      case 'account.updated':
+        await handleConnectAccountUpdated(event.data.object as Stripe.Account);
         break;
 
       default:

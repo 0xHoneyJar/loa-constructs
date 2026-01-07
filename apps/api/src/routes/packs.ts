@@ -32,6 +32,7 @@ import {
   updatePackStatus,
   countRecentSubmissions,
 } from '../services/submissions.js';
+import { trackDownloadAttribution } from '../services/attributions.js';
 import { sendSubmissionReceivedEmail } from '../services/email.js';
 import {
   uploadFile,
@@ -886,6 +887,10 @@ packsRouter.get('/:slug/download', requireAuth(), async (c) => {
     c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
     c.req.header('user-agent')
   );
+
+  // Track download attribution for revenue sharing (Sprint 25)
+  // This tracks downloads for premium packs only
+  await trackDownloadAttribution(pack.id, userId, version.id, 'install');
 
   logger.info(
     {
