@@ -1,3 +1,5 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -7,6 +9,8 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '2mb',
     },
+    // Output file tracing for monorepo - fixes ENOENT client-reference-manifest.js
+    outputFileTracingRoot: path.join(__dirname, '../../'),
   },
   // Image optimization domains
   images: {
