@@ -11,6 +11,9 @@ import { TuiBox } from '@/components/tui/tui-box';
 import { TuiButton } from '@/components/tui/tui-button';
 import { TuiH2, TuiDim, TuiCode, TuiTag } from '@/components/tui/tui-text';
 
+// Force static generation to avoid client-reference-manifest issues
+export const dynamic = 'force-static';
+
 // GTM Collective commands table
 const gtmCommands = [
   { command: '/gtm-setup', description: 'Initialize GTM workflow for your project' },
