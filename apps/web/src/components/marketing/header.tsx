@@ -56,14 +56,12 @@ export function MarketingHeader() {
           <Link
             key={item.href}
             href={item.href}
+            className="tui-nav-link"
             style={{
               color: 'var(--fg)',
               textDecoration: 'none',
               fontSize: '14px',
-              transition: 'color 0.1s',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--accent)')}
-            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--fg)')}
           >
             {item.label}
           </Link>

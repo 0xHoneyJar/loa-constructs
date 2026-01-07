@@ -215,6 +215,7 @@ export default function PacksPage() {
             {packs.map((pack) => (
               <Link key={pack.slug} href={`/packs/${pack.slug}`} style={{ textDecoration: 'none' }}>
                 <div
+                  className="tui-card-hover"
                   style={{
                     padding: '20px',
                     border: '1px solid var(--border)',
@@ -222,10 +223,7 @@ export default function PacksPage() {
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    transition: 'border-color 0.1s',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
                 >
                   {/* Header */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>

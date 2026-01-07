@@ -1,10 +1,9 @@
 /**
  * TUI Button Component
  * Border-style buttons with TUI aesthetic
+ * Uses CSS for hover states to avoid event handler serialization issues with RSC
  * @see sprint.md T18.8: Create TUI Button Component
  */
-
-'use client';
 
 import { ButtonHTMLAttributes, ReactNode } from 'react';
 
@@ -17,29 +16,9 @@ interface TuiButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   fullWidth?: boolean;
 }
 
-const variantStyles: Record<ButtonVariant, { border: string; color: string; hoverBg: string; hoverColor: string }> = {
-  primary: {
-    border: 'var(--accent)',
-    color: 'var(--accent)',
-    hoverBg: 'var(--accent)',
-    hoverColor: '#000',
-  },
-  secondary: {
-    border: 'var(--border)',
-    color: 'var(--fg)',
-    hoverBg: 'var(--fg)',
-    hoverColor: '#000',
-  },
-  danger: {
-    border: 'var(--red)',
-    color: 'var(--red)',
-    hoverBg: 'var(--red)',
-    hoverColor: '#000',
-  },
-};
-
 /**
  * TUI-styled button with border aesthetic
+ * Uses CSS classes for hover states to work with Server Components
  */
 export function TuiButton({
   children,
@@ -50,44 +29,11 @@ export function TuiButton({
   style,
   ...props
 }: TuiButtonProps) {
-  const styles = variantStyles[variant];
-
   return (
     <button
-      className={`tui-button group ${className}`}
+      className={`tui-button tui-button--${variant} ${fullWidth ? 'tui-button--full' : ''} ${disabled ? 'tui-button--disabled' : ''} ${className}`}
       disabled={disabled}
-      style={{
-        background: 'transparent',
-        border: `1px solid ${disabled ? 'var(--fg-dim)' : styles.border}`,
-        color: disabled ? 'var(--fg-dim)' : styles.color,
-        padding: '6px 16px',
-        fontFamily: 'inherit',
-        fontSize: '14px',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'all 0.1s ease',
-        width: fullWidth ? '100%' : 'auto',
-        opacity: disabled ? 0.5 : 1,
-        ...style,
-      }}
-      onMouseEnter={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.background = styles.hoverBg;
-          e.currentTarget.style.color = styles.hoverColor;
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.color = styles.color;
-        }
-      }}
-      onFocus={(e) => {
-        e.currentTarget.style.outline = `1px solid ${styles.border}`;
-        e.currentTarget.style.outlineOffset = '2px';
-      }}
-      onBlur={(e) => {
-        e.currentTarget.style.outline = 'none';
-      }}
+      style={style}
       {...props}
     >
       {children}
@@ -106,44 +52,11 @@ export function TuiIconButton({
   style,
   ...props
 }: TuiButtonProps) {
-  const styles = variantStyles[variant];
-
   return (
     <button
-      className={`tui-icon-button ${className}`}
+      className={`tui-icon-button tui-button--${variant} ${disabled ? 'tui-button--disabled' : ''} ${className}`}
       disabled={disabled}
-      style={{
-        background: 'transparent',
-        border: `1px solid ${disabled ? 'var(--fg-dim)' : styles.border}`,
-        color: disabled ? 'var(--fg-dim)' : styles.color,
-        padding: '4px 8px',
-        fontFamily: 'inherit',
-        fontSize: '14px',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'all 0.1s ease',
-        opacity: disabled ? 0.5 : 1,
-        lineHeight: 1,
-        ...style,
-      }}
-      onMouseEnter={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.background = styles.hoverBg;
-          e.currentTarget.style.color = styles.hoverColor;
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.color = styles.color;
-        }
-      }}
-      onFocus={(e) => {
-        e.currentTarget.style.outline = `1px solid ${styles.border}`;
-        e.currentTarget.style.outlineOffset = '2px';
-      }}
-      onBlur={(e) => {
-        e.currentTarget.style.outline = 'none';
-      }}
+      style={style}
       {...props}
     >
       {children}
@@ -163,27 +76,9 @@ export function TuiLinkButton({
 }: Omit<TuiButtonProps, 'variant' | 'fullWidth'>) {
   return (
     <button
-      className={`tui-link-button ${className}`}
+      className={`tui-link-button ${disabled ? 'tui-button--disabled' : ''} ${className}`}
       disabled={disabled}
-      style={{
-        background: 'none',
-        border: 'none',
-        color: disabled ? 'var(--fg-dim)' : 'var(--cyan)',
-        padding: 0,
-        fontFamily: 'inherit',
-        fontSize: 'inherit',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        textDecoration: 'none',
-        ...style,
-      }}
-      onMouseEnter={(e) => {
-        if (!disabled) {
-          e.currentTarget.style.textDecoration = 'underline';
-        }
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.textDecoration = 'none';
-      }}
+      style={style}
       {...props}
     >
       {children}

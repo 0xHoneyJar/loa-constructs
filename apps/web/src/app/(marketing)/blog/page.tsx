@@ -129,6 +129,7 @@ export default function BlogPage() {
             {otherPosts.map((post) => (
               <Link key={post.slug} href={`/blog/${post.slug}`} style={{ textDecoration: 'none' }}>
                 <div
+                  className="tui-card-hover"
                   style={{
                     padding: '24px',
                     border: '1px solid var(--border)',
@@ -136,10 +137,7 @@ export default function BlogPage() {
                     height: '100%',
                     display: 'flex',
                     flexDirection: 'column',
-                    transition: 'border-color 0.1s',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                     <TuiTag color="green">{post.category}</TuiTag>

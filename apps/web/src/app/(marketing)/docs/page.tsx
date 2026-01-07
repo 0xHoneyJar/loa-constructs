@@ -238,15 +238,13 @@ export default function DocsPage() {
                 style={{ textDecoration: 'none' }}
               >
                 <div
+                  className="tui-card-hover"
                   style={{
                     padding: '20px',
                     border: '1px solid var(--border)',
                     background: 'rgba(0, 0, 0, 0.75)',
                     height: '100%',
-                    transition: 'border-color 0.1s',
                   }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
                 >
                   <h3 style={{ color: 'var(--fg-bright)', fontWeight: 600, fontSize: '14px', marginBottom: '8px' }}>
                     {resource.title}

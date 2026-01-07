@@ -62,9 +62,8 @@ export function MarketingFooter() {
                       href={link.href}
                       target={link.external ? '_blank' : undefined}
                       rel={link.external ? 'noopener noreferrer' : undefined}
+                      className="tui-link-hover"
                       style={{ color: 'var(--fg-dim)', textDecoration: 'none', fontSize: '13px' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--fg)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--fg-dim)')}
                     >
                       {link.label}
                       {link.external && ' ↗'}
@@ -105,9 +104,8 @@ export function MarketingFooter() {
               href="https://github.com/0xHoneyJar/loa"
               target="_blank"
               rel="noopener noreferrer"
+              className="tui-link-hover"
               style={{ color: 'var(--fg-dim)', textDecoration: 'none', fontSize: '14px' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--fg)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--fg-dim)')}
               aria-label="GitHub"
             >
               GitHub
@@ -116,9 +114,8 @@ export function MarketingFooter() {
               href="https://discord.gg/thehoneyjar"
               target="_blank"
               rel="noopener noreferrer"
+              className="tui-link-hover"
               style={{ color: 'var(--fg-dim)', textDecoration: 'none', fontSize: '14px' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--fg)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--fg-dim)')}
               aria-label="Discord"
             >
               Discord
@@ -127,9 +124,8 @@ export function MarketingFooter() {
               href="https://x.com/0xhoneyjar"
               target="_blank"
               rel="noopener noreferrer"
+              className="tui-link-hover"
               style={{ color: 'var(--fg-dim)', textDecoration: 'none', fontSize: '14px' }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--fg)')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--fg-dim)')}
               aria-label="Twitter"
             >
               Twitter

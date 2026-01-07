@@ -13,7 +13,6 @@ import {
   Download,
   DollarSign,
   TrendingUp,
-  Plus,
   ChevronRight,
   Clock,
   CheckCircle2,
@@ -210,7 +209,7 @@ export default function CreatorPage() {
   const [data, setData] = useState<CreatorData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [submittingSlug, setSubmittingSlug] = useState<string | null>(null);
+  const [_submittingSlug, setSubmittingSlug] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchCreatorPacks() {
