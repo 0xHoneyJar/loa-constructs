@@ -65,7 +65,7 @@ export default function MarketingHome() {
           <TuiBox title="Quick Install">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {/* Install Command */}
-              <TuiCode copyable>
+              <TuiCode>
                 <span style={{ color: 'var(--fg-dim)' }}>$</span> claude skills add gtm-collective
               </TuiCode>
 

@@ -118,15 +118,18 @@ export function TuiLink({ children, className = '', href, ...props }: LinkProps)
 }
 
 /**
- * TUI Code Block - Styled code container with copy button option
+ * TUI Code Block - Styled code container (Server Component compatible)
+ * Note: For copyable functionality, use TuiCodeCopyable from tui-code-copyable.tsx
  */
 export function TuiCode({
   children,
   className = '',
-  copyable = false,
-  onCopy,
+  copyable: _copyable = false,
   ...props
-}: TextProps & { copyable?: boolean; onCopy?: () => void }) {
+}: TextProps & { copyable?: boolean }) {
+  // Note: copyable prop is accepted but ignored in this Server Component version
+  // Use TuiCodeCopyable for interactive copy functionality
+  void _copyable; // Explicitly mark as unused to satisfy ESLint
   return (
     <div
       className={`relative ${className}`}
@@ -140,26 +143,6 @@ export function TuiCode({
       {...props}
     >
       {children}
-      {copyable && (
-        <button
-          onClick={onCopy}
-          style={{
-            position: 'absolute',
-            top: '4px',
-            right: '4px',
-            background: 'none',
-            border: '1px solid var(--border)',
-            color: 'var(--fg-dim)',
-            padding: '2px 6px',
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-            fontSize: '12px',
-          }}
-          className="hover:text-[var(--fg)] hover:border-[var(--fg)]"
-        >
-          copy
-        </button>
-      )}
     </div>
   );
 }
