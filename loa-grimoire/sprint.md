@@ -2214,3 +2214,573 @@ After Sprint 25:
 
 **Document Status**: Ready for implementation
 **Next Command**: `/implement sprint-23`
+
+---
+
+## Sprint 26: Marketing Website (constructs.network)
+
+**Goal**: Build and deploy the public marketing website for Loa Constructs at constructs.network using the GTM strategy, positioning, and website copy developed in gtm-grimoire.
+
+**Duration**: 2-3 days
+
+**References**:
+- GTM Strategy: `gtm-grimoire/NOTES.md`
+- Positioning: `gtm-grimoire/strategy/positioning.md`
+- Pricing: `gtm-grimoire/strategy/pricing-strategy.md`
+- Website Copy: `gtm-grimoire/execution/website-copy-*.md` (19 files)
+- Launch Plan: `gtm-grimoire/execution/launch-plan.md`
+
+### Sprint Configuration
+
+| Parameter | Value |
+|-----------|-------|
+| **Domain** | `constructs.network` |
+| **Hosting** | Vercel (existing apps/web deployment) |
+| **Tech Stack** | Next.js 14, TUI components, Tailwind CSS |
+| **Risk Level** | Low |
+| **Prerequisites** | Sprint 18-20 (TUI components complete) |
+
+### Design Principles
+
+Based on GTM strategy:
+1. **TUI Aesthetic**: Maintain terminal-style design from dashboard
+2. **Developer-First Copy**: Direct, no marketing jargon (per positioning.md)
+3. **Demo-Focused**: Show CLI commands, GIFs, code blocks
+4. **Conversion Flow**: Free → Browse → Register → Pro upgrade
+
+### Page Structure
+
+```
+constructs.network/
+├── / (Landing - Hero, Problem, Solution, GTM Collective, Pricing, CTA)
+├── /about (Origin story, team, philosophy)
+├── /pricing (Detailed tier comparison, FAQ)
+├── /packs (Public pack catalog - browse without login)
+├── /packs/[slug] (Pack detail - install command, features)
+├── /docs (Documentation hub - getting started, CLI)
+├── /blog (Launch post, tutorials placeholder)
+├── /login (Auth redirect to dashboard)
+├── /register (Registration flow)
+└── /legal (Terms, Privacy)
+```
+
+### Tasks
+
+---
+
+#### T26.1: Create Marketing Layout Component
+
+**Description**: Create a layout component for public marketing pages (distinct from dashboard layout).
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/app/(marketing)/layout.tsx`
+- [ ] Include header with nav: Home, Packs, Pricing, Docs, Login
+- [ ] Include footer with links, copyright, social
+- [ ] TUI styling with semi-transparent boxes
+- [ ] JWST background visible
+- [ ] Mobile responsive hamburger menu
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: Sprint 18 TUI components
+
+**Files to Create**:
+- `apps/web/src/app/(marketing)/layout.tsx`
+- `apps/web/src/components/marketing/header.tsx`
+- `apps/web/src/components/marketing/footer.tsx`
+
+---
+
+#### T26.2: Redesign Landing Page with GTM Copy
+
+**Description**: Replace current landing page with GTM-approved messaging and copy.
+
+**Acceptance Criteria**:
+- [ ] Update `apps/web/src/app/page.tsx` or create `(marketing)/page.tsx`
+- [ ] Hero section: "Skill packs for Claude Code. Beyond coding."
+- [ ] Subheadline: "Pre-built agent workflows for GTM, documentation, security, and deployment."
+- [ ] CLI demo with package manager tabs (npm, pnpm, yarn, bun)
+- [ ] Install command: `claude skills add gtm-collective`
+- [ ] Problem section: "You're building the prompts instead of the product"
+- [ ] Solution section: "Agent skills that just work"
+- [ ] Stats section (placeholder: Skills, Downloads, Users)
+- [ ] CTA buttons: "Get Started Free", "Browse Packs"
+- [ ] Use copy from `website-copy-indie-devs.md`
+
+**Effort**: Large (4 hours)
+
+**Dependencies**: T26.1
+
+**Files to Modify**:
+- `apps/web/src/app/page.tsx`
+
+**Reference**: `gtm-grimoire/execution/website-copy-indie-devs.md`
+
+---
+
+#### T26.3: Create GTM Collective Feature Section
+
+**Description**: Add dedicated section showcasing the GTM Collective pack.
+
+**Acceptance Criteria**:
+- [ ] Section title: "Go-to-market without leaving your terminal"
+- [ ] Description: "8 skills. 14 commands. Everything you need to launch."
+- [ ] Commands table showing all GTM commands
+- [ ] "Built by founders who shipped 10+ products" credibility
+- [ ] CTA: "Try GTM Collective" → /packs/gtm-collective
+- [ ] TUI box styling
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T26.2
+
+**Files to Modify**:
+- `apps/web/src/app/page.tsx` or separate component
+
+---
+
+#### T26.4: Update Pricing Section with Approved Tiers
+
+**Description**: Update landing page pricing preview to match GTM-approved pricing.
+
+**Acceptance Criteria**:
+- [ ] Free: $0, "Forever free", public packs, 3 API keys
+- [ ] Pro: $29/mo, "For serious builders", all packs, priority support
+- [ ] Team: $99/mo, "For growing teams", 5 seats, collaboration
+- [ ] Enterprise: $299/mo, "For organizations", SSO, SLA
+- [ ] Pro tier highlighted as "Most Popular"
+- [ ] Link to full /pricing page
+- [ ] Match copy from `website-copy-pricing.md`
+
+**Effort**: Small (1.5 hours)
+
+**Dependencies**: T26.2
+
+**Files to Modify**:
+- `apps/web/src/app/page.tsx`
+
+**Reference**: `gtm-grimoire/execution/website-copy-pricing.md`, `gtm-grimoire/strategy/pricing-strategy.md`
+
+---
+
+#### T26.5: Create Dedicated Pricing Page
+
+**Description**: Create full pricing page with comparison table and FAQ.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/app/(marketing)/pricing/page.tsx`
+- [ ] Headline: "Simple pricing. No surprises."
+- [ ] Full comparison table (features by tier)
+- [ ] FAQ section with common questions
+- [ ] "Start Free" and "Go Pro" CTAs
+- [ ] SEO metadata: "Pricing | Loa Constructs"
+- [ ] All copy from `website-copy-pricing.md`
+
+**Effort**: Medium (3 hours)
+
+**Dependencies**: T26.1
+
+**Files to Create**:
+- `apps/web/src/app/(marketing)/pricing/page.tsx`
+
+**Reference**: `gtm-grimoire/execution/website-copy-pricing.md`
+
+---
+
+#### T26.6: Create About Page
+
+**Description**: Create about page with origin story and team info.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/app/(marketing)/about/page.tsx`
+- [ ] "Why we built this" origin story
+- [ ] "What is Loa?" etymology section
+- [ ] "Who we are" - The Honey Jar team
+- [ ] "What we believe" philosophy
+- [ ] "Open source" section with GitHub link
+- [ ] Contact section with email, Discord, Twitter
+- [ ] SEO metadata
+- [ ] All copy from `website-copy-about.md`
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T26.1
+
+**Files to Create**:
+- `apps/web/src/app/(marketing)/about/page.tsx`
+
+**Reference**: `gtm-grimoire/execution/website-copy-about.md`
+
+---
+
+#### T26.7: Create Public Packs Catalog Page
+
+**Description**: Create public-facing pack catalog (no auth required to browse).
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/app/(marketing)/packs/page.tsx`
+- [ ] List all published packs
+- [ ] Show: name, description, category tag, download count
+- [ ] Filter by category (GTM, Security, Docs, etc.)
+- [ ] Search functionality
+- [ ] "Free" vs "Premium" badges
+- [ ] Link to individual pack pages
+- [ ] TUI list styling
+
+**Effort**: Medium (3 hours)
+
+**Dependencies**: T26.1
+
+**Files to Create**:
+- `apps/web/src/app/(marketing)/packs/page.tsx`
+
+---
+
+#### T26.8: Create Public Pack Detail Page
+
+**Description**: Create individual pack detail page for marketing.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/app/(marketing)/packs/[slug]/page.tsx`
+- [ ] Pack name, description, version
+- [ ] Install command in copyable code block
+- [ ] Commands list with descriptions
+- [ ] "Get Started" CTA (→ register if not logged in)
+- [ ] Premium badge for paid packs
+- [ ] Creator attribution
+- [ ] Related packs (future)
+- [ ] SEO metadata with pack name
+
+**Effort**: Medium (3 hours)
+
+**Dependencies**: T26.7
+
+**Files to Create**:
+- `apps/web/src/app/(marketing)/packs/[slug]/page.tsx`
+
+**Reference**: `gtm-grimoire/execution/website-copy-pack-detail.md`
+
+---
+
+#### T26.9: Create Documentation Hub Page
+
+**Description**: Create docs landing page with getting started guide.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/app/(marketing)/docs/page.tsx`
+- [ ] Quick start section with install commands
+- [ ] CLI reference links
+- [ ] Link to GitHub for full docs
+- [ ] Getting started steps (register, install CLI, add pack)
+- [ ] TUI styling with code blocks
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T26.1
+
+**Files to Create**:
+- `apps/web/src/app/(marketing)/docs/page.tsx`
+
+**Reference**: `gtm-grimoire/execution/website-copy-docs.md`
+
+---
+
+#### T26.10: Create Blog Landing Page
+
+**Description**: Create blog index page for launch post and future content.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/app/(marketing)/blog/page.tsx`
+- [ ] List blog posts (initially just launch announcement)
+- [ ] Post card: title, date, excerpt
+- [ ] Link to individual posts
+- [ ] TUI styling
+
+**Effort**: Small (1.5 hours)
+
+**Dependencies**: T26.1
+
+**Files to Create**:
+- `apps/web/src/app/(marketing)/blog/page.tsx`
+
+---
+
+#### T26.11: Create Launch Announcement Blog Post
+
+**Description**: Create the launch announcement blog post.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/app/(marketing)/blog/launch/page.tsx`
+- [ ] Title: "Introducing Loa Constructs: Skill Packs for Claude Code"
+- [ ] Content based on launch plan blog outline
+- [ ] Problem, solution, GTM Collective demo
+- [ ] Pricing overview
+- [ ] Call to action
+- [ ] Share buttons (Twitter, LinkedIn)
+- [ ] SEO metadata
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T26.10
+
+**Files to Create**:
+- `apps/web/src/app/(marketing)/blog/launch/page.tsx`
+
+**Reference**: `gtm-grimoire/execution/launch-plan.md` (blog post outline)
+
+---
+
+#### T26.12: Create Legal Pages (Terms & Privacy)
+
+**Description**: Create terms of service and privacy policy pages.
+
+**Acceptance Criteria**:
+- [ ] Create `apps/web/src/app/(marketing)/terms/page.tsx`
+- [ ] Create `apps/web/src/app/(marketing)/privacy/page.tsx`
+- [ ] Use copy from `website-copy-legal.md`
+- [ ] Plain text styling (not TUI boxes)
+- [ ] Last updated date
+- [ ] Contact email for questions
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T26.1
+
+**Files to Create**:
+- `apps/web/src/app/(marketing)/terms/page.tsx`
+- `apps/web/src/app/(marketing)/privacy/page.tsx`
+
+**Reference**: `gtm-grimoire/execution/website-copy-legal.md`
+
+---
+
+#### T26.13: Add SEO Metadata and Open Graph
+
+**Description**: Configure SEO metadata, Open Graph, and Twitter cards.
+
+**Acceptance Criteria**:
+- [ ] Add `metadata` export to all pages
+- [ ] Title pattern: "Page | Loa Constructs"
+- [ ] Description from positioning.md
+- [ ] Open Graph images (1200x630)
+- [ ] Twitter card configuration
+- [ ] Canonical URLs
+- [ ] Sitemap.xml generation
+- [ ] Robots.txt
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: All T26.* pages
+
+**Files to Modify**:
+- All marketing pages
+- `apps/web/src/app/layout.tsx`
+
+**Files to Create**:
+- `apps/web/public/og-image.png`
+- `apps/web/src/app/sitemap.ts`
+- `apps/web/src/app/robots.ts`
+
+---
+
+#### T26.14: Create Demo GIFs/Videos
+
+**Description**: Create demo assets showing CLI usage.
+
+**Acceptance Criteria**:
+- [ ] CLI install GIF (npm install, claude skills add)
+- [ ] GTM Collective demo GIF (running /gtm-setup)
+- [ ] Optimize for web (<5MB each)
+- [ ] Store in `apps/web/public/demos/`
+- [ ] Add to landing page hero section
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: T26.2
+
+**Files to Create**:
+- `apps/web/public/demos/cli-install.gif`
+- `apps/web/public/demos/gtm-demo.gif`
+
+---
+
+#### T26.15: Add Analytics Integration
+
+**Description**: Add analytics tracking for marketing pages.
+
+**Acceptance Criteria**:
+- [ ] Add Plausible or Vercel Analytics
+- [ ] Track page views
+- [ ] Track CTA button clicks
+- [ ] Track registration funnel
+- [ ] Configure goals: Register, Pro conversion
+- [ ] Privacy-respecting (no cookies if possible)
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T26.1
+
+**Files to Modify**:
+- `apps/web/src/app/layout.tsx`
+
+---
+
+#### T26.16: Mobile Responsive Polish
+
+**Description**: Ensure all marketing pages work well on mobile.
+
+**Acceptance Criteria**:
+- [ ] Test all pages on mobile viewport
+- [ ] Hero text readable on small screens
+- [ ] Navigation hamburger menu works
+- [ ] Pricing cards stack properly
+- [ ] Code blocks scrollable
+- [ ] CTAs full-width on mobile
+- [ ] Touch targets adequate (44px)
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: All T26.* pages
+
+**Files to Modify**:
+- Various marketing page components
+
+---
+
+#### T26.17: Configure Custom Domain (constructs.network)
+
+**Description**: Point constructs.network domain to Vercel deployment.
+
+**Acceptance Criteria**:
+- [ ] Add domain in Vercel dashboard
+- [ ] Configure DNS records at registrar
+- [ ] Verify HTTPS certificate issued
+- [ ] Test www redirect to apex
+- [ ] Verify all pages load correctly
+- [ ] Update environment variables if needed
+
+**Effort**: Small (30 min)
+
+**Dependencies**: All T26.* pages complete
+
+---
+
+#### T26.18: Integration Test Marketing Pages
+
+**Description**: Add E2E tests for critical marketing flows.
+
+**Acceptance Criteria**:
+- [ ] Test landing page loads
+- [ ] Test navigation to all marketing pages
+- [ ] Test pricing page displays all tiers
+- [ ] Test pack catalog loads
+- [ ] Test registration CTA flow
+- [ ] Test mobile menu
+
+**Effort**: Medium (2 hours)
+
+**Dependencies**: All T26.* pages
+
+**Files to Create**:
+- `apps/web/e2e/marketing.spec.ts`
+
+---
+
+### Sprint 26 Summary
+
+| Task | Description | Effort | Status |
+|------|-------------|--------|--------|
+| T26.1 | Marketing layout component | M | ⬜ Pending |
+| T26.2 | Landing page with GTM copy | L | ⬜ Pending |
+| T26.3 | GTM Collective feature section | M | ⬜ Pending |
+| T26.4 | Pricing section update | S | ⬜ Pending |
+| T26.5 | Dedicated pricing page | M | ⬜ Pending |
+| T26.6 | About page | M | ⬜ Pending |
+| T26.7 | Public packs catalog | M | ⬜ Pending |
+| T26.8 | Pack detail page | M | ⬜ Pending |
+| T26.9 | Documentation hub | M | ⬜ Pending |
+| T26.10 | Blog landing page | S | ⬜ Pending |
+| T26.11 | Launch blog post | M | ⬜ Pending |
+| T26.12 | Legal pages | S | ⬜ Pending |
+| T26.13 | SEO & Open Graph | M | ⬜ Pending |
+| T26.14 | Demo GIFs | M | ⬜ Pending |
+| T26.15 | Analytics integration | S | ⬜ Pending |
+| T26.16 | Mobile polish | M | ⬜ Pending |
+| T26.17 | Custom domain setup | S | ⬜ Pending |
+| T26.18 | E2E tests | M | ⬜ Pending |
+
+**Total Estimated Effort**: ~36 hours (3-4 days)
+
+---
+
+### Website Architecture
+
+```
+apps/web/src/app/
+├── (marketing)/              # Public marketing pages
+│   ├── layout.tsx            # Marketing layout (header, footer)
+│   ├── page.tsx              # Landing page (moved from root)
+│   ├── about/
+│   │   └── page.tsx
+│   ├── pricing/
+│   │   └── page.tsx
+│   ├── packs/
+│   │   ├── page.tsx          # Pack catalog
+│   │   └── [slug]/
+│   │       └── page.tsx      # Pack detail
+│   ├── docs/
+│   │   └── page.tsx
+│   ├── blog/
+│   │   ├── page.tsx          # Blog index
+│   │   └── launch/
+│   │       └── page.tsx      # Launch post
+│   ├── terms/
+│   │   └── page.tsx
+│   └── privacy/
+│       └── page.tsx
+├── (auth)/                   # Auth pages (existing)
+│   ├── login/
+│   ├── register/
+│   └── ...
+└── (dashboard)/              # Protected dashboard (existing)
+    ├── dashboard/
+    ├── skills/
+    └── ...
+```
+
+### Content Sources (GTM Grimoire)
+
+| Page | Source File |
+|------|-------------|
+| Landing | `website-copy-indie-devs.md` |
+| Pricing | `website-copy-pricing.md` |
+| About | `website-copy-about.md` |
+| Pack Detail | `website-copy-pack-detail.md` |
+| Docs | `website-copy-docs.md` |
+| Legal | `website-copy-legal.md` |
+| Register | `website-copy-register.md` |
+| Emails | `website-copy-emails.md` |
+
+### Key Messaging (from positioning.md)
+
+- **Headline**: "Skill packs for Claude Code. Beyond coding."
+- **Tagline**: "The other 50% of shipping products."
+- **Value Prop**: "Pre-built agent workflows for GTM, documentation, security, and deployment."
+- **Differentiation**: "Workflows, not prompts."
+- **Price Anchor**: "$29/mo = less than one hour of consultant time"
+
+### Launch Checklist (Pre-Sprint 26 Completion)
+
+- [ ] All marketing pages deployed
+- [ ] Custom domain verified
+- [ ] SEO metadata configured
+- [ ] Demo GIFs created
+- [ ] Analytics tracking
+- [ ] Mobile tested
+- [ ] E2E tests passing
+- [ ] Launch blog post ready
+
+---
+
+**Sprint 26 Status**: Ready for implementation
+**Next Command**: `/implement sprint-26`

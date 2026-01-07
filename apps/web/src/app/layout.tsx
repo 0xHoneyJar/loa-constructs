@@ -34,14 +34,69 @@ const ibmPlexMono = localFont({
 /**
  * Root Layout
  * @see sprint.md T18.1: TUI Foundation - IBM Plex Mono
+ * @see sprint.md T26.13: Add SEO Metadata and Open Graph
  */
 export const metadata: Metadata = {
+  metadataBase: new URL('https://constructs.network'),
   title: {
-    default: 'Loa Constructs',
+    default: 'Loa Constructs - Skill Packs for Claude Code',
     template: '%s | Loa Constructs',
   },
-  description: 'Discover, install, and manage AI agent constructs for the Loa framework',
-  keywords: ['AI constructs', 'Claude', 'Loa framework', 'agent constructs', 'marketplace'],
+  description: 'Pre-built agent workflows for Claude Code. GTM strategy, security audits, documentation, and more. Install in one command.',
+  keywords: [
+    'Claude Code',
+    'skill packs',
+    'agent workflows',
+    'GTM',
+    'go-to-market',
+    'AI agents',
+    'developer tools',
+    'Claude',
+    'Anthropic',
+    'code automation',
+  ],
+  authors: [{ name: 'The Honey Jar', url: 'https://thehoneyjar.xyz' }],
+  creator: 'The Honey Jar',
+  publisher: 'The Honey Jar',
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'large',
+      'max-snippet': -1,
+    },
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://constructs.network',
+    siteName: 'Loa Constructs',
+    title: 'Loa Constructs - Skill Packs for Claude Code',
+    description: 'Pre-built agent workflows for Claude Code. GTM strategy, security audits, documentation, and more. Install in one command.',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Loa Constructs - Skill Packs for Claude Code',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@0xhoneyjar',
+    creator: '@0xhoneyjar',
+    title: 'Loa Constructs - Skill Packs for Claude Code',
+    description: 'Pre-built agent workflows for Claude Code. GTM strategy, security audits, documentation, and more.',
+    images: ['/og-image.png'],
+  },
+  alternates: {
+    canonical: 'https://constructs.network',
+  },
+  category: 'technology',
 };
 
 export default function RootLayout({
