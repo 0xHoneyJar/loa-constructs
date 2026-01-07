@@ -6,7 +6,6 @@
 
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { TuiBox } from '@/components/tui/tui-box';
 import { TuiButton } from '@/components/tui/tui-button';
 import { TuiH2, TuiDim, TuiTag } from '@/components/tui/tui-text';
 

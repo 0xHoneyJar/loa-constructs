@@ -322,14 +322,14 @@ export default async function BlogPostPage({ params }: Props) {
     const elements: JSX.Element[] = [];
     let inCodeBlock = false;
     let codeContent = '';
-    let codeLanguage = '';
+    let _codeLanguage = ''; // Prefixed with _ as unused for now (future: syntax highlighting)
 
     lines.forEach((line, index) => {
       // Code block handling
       if (line.startsWith('```')) {
         if (!inCodeBlock) {
           inCodeBlock = true;
-          codeLanguage = line.slice(3);
+          _codeLanguage = line.slice(3);
           codeContent = '';
         } else {
           elements.push(
