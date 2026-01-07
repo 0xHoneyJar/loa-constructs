@@ -6,6 +6,7 @@
 
 export { MarketingHeader } from './header';
 export { MarketingFooter } from './footer';
+export { InstallTabs } from './install-tabs';
 export {
   OrganizationJsonLd,
   SoftwareApplicationJsonLd,

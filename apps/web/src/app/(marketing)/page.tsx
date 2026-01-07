@@ -6,15 +6,10 @@
  * @see gtm-grimoire/strategy/positioning.md
  */
 
-'use client';
-
-import { useState } from 'react';
 import Link from 'next/link';
 import { TuiBox } from '@/components/tui/tui-box';
 import { TuiButton } from '@/components/tui/tui-button';
 import { TuiH2, TuiDim, TuiCode, TuiTag } from '@/components/tui/tui-text';
-
-type PackageManager = 'npm' | 'pnpm' | 'yarn' | 'bun';
 
 // GTM Collective commands table
 const gtmCommands = [
@@ -29,7 +24,6 @@ const gtmCommands = [
 ];
 
 export default function MarketingHome() {
-  const [packageManager, setPackageManager] = useState<PackageManager>('npm');
 
   return (
     <>
@@ -70,27 +64,6 @@ export default function MarketingHome() {
         <div style={{ maxWidth: '600px', margin: '0 auto' }}>
           <TuiBox title="Quick Install">
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Package Manager Tabs */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {(['npm', 'pnpm', 'yarn', 'bun'] as const).map((pm) => (
-                  <button
-                    key={pm}
-                    onClick={() => setPackageManager(pm)}
-                    style={{
-                      padding: '4px 12px',
-                      border: `1px solid ${packageManager === pm ? 'var(--accent)' : 'var(--border)'}`,
-                      background: packageManager === pm ? 'rgba(95, 175, 255, 0.1)' : 'transparent',
-                      color: packageManager === pm ? 'var(--accent)' : 'var(--fg-dim)',
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      fontSize: '12px',
-                    }}
-                  >
-                    {pm}
-                  </button>
-                ))}
-              </div>
-
               {/* Install Command */}
               <TuiCode copyable>
                 <span style={{ color: 'var(--fg-dim)' }}>$</span> claude skills add gtm-collective
