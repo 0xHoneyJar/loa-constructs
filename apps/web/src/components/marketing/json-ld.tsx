@@ -2,7 +2,22 @@
  * JSON-LD Structured Data Components
  * For SEO rich snippets
  * @see sprint.md T26.13: Add SEO Metadata and Open Graph
+ *
+ * SECURITY NOTE: JSON-LD data is serialized with JSON.stringify() which handles
+ * proper escaping. However, if user-controlled strings are ever added to these
+ * schemas, they should be sanitized to prevent script breakout attacks.
+ * The sanitizeJsonLdString function below can be used for this purpose.
  */
+
+/**
+ * Sanitize a string for safe inclusion in JSON-LD to prevent script breakout.
+ * Escapes </script> tags that could prematurely close the JSON-LD script element.
+ */
+export function sanitizeJsonLdString(str: string): string {
+  if (typeof str !== 'string') return str;
+  // Escape closing script tags to prevent script breakout
+  return str.replace(/<\/script/gi, '<\\/script');
+}
 
 export function OrganizationJsonLd() {
   const jsonLd = {

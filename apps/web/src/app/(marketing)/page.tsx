@@ -359,9 +359,9 @@ export default function MarketingHome() {
           <Link href="/register">
             <TuiButton>Get Started Free</TuiButton>
           </Link>
-          <Link href="https://github.com/0xHoneyJar/loa" target="_blank">
+          <a href="https://github.com/0xHoneyJar/loa" target="_blank" rel="noopener noreferrer">
             <TuiButton variant="secondary">Star on GitHub</TuiButton>
-          </Link>
+          </a>
         </div>
       </section>
     </>

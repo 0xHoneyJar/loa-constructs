@@ -414,12 +414,17 @@ export default async function BlogPostPage({ params }: Props) {
         /\*\*([^*]+)\*\*/g,
         '<strong style="color: var(--fg-bright);">$1</strong>'
       );
-      // Links
+      // Links - add rel="noopener noreferrer" to external links for security
       processedLine = processedLine.replace(
         /\[([^\]]+)\]\(([^)]+)\)/g,
-        '<a href="$2" style="color: var(--accent); text-decoration: underline;">$1</a>'
+        '<a href="$2" style="color: var(--accent); text-decoration: underline;" rel="noopener noreferrer">$1</a>'
       );
 
+      // SECURITY NOTE: dangerouslySetInnerHTML is used here for markdown-like rendering.
+      // Currently safe because content comes from hardcoded postsData (trusted source).
+      // If blog content is ever loaded from external sources (CMS, user input, API),
+      // MUST sanitize with DOMPurify: import DOMPurify from 'dompurify';
+      // processedLine = DOMPurify.sanitize(processedLine);
       elements.push(
         <p
           key={index}

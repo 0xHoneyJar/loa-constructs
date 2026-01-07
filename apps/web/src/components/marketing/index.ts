@@ -12,4 +12,5 @@ export {
   FAQPageJsonLd,
   ProductJsonLd,
   BlogPostJsonLd,
+  sanitizeJsonLdString,
 } from './json-ld';
