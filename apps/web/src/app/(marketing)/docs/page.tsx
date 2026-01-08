@@ -47,6 +47,27 @@ const cliCommands = [
   { command: 'claude skills info <pack>', description: 'Show pack details and commands' },
 ];
 
+const creatorGuides = [
+  {
+    title: 'Contributing Packs',
+    description: 'Complete guide for third-party developers creating skill packs.',
+    href: 'https://github.com/0xHoneyJar/loa-constructs/blob/main/docs/CONTRIBUTING-PACKS.md',
+    external: true,
+  },
+  {
+    title: 'Pack Tutorial',
+    description: 'Step-by-step tutorial: Create your first skill pack in 30 minutes.',
+    href: 'https://github.com/0xHoneyJar/loa-constructs/blob/main/docs/tutorials/creating-your-first-pack.md',
+    external: true,
+  },
+  {
+    title: 'Creator Dashboard',
+    description: 'Manage your packs, track downloads, and submit for review.',
+    href: '/creator',
+    external: false,
+  },
+];
+
 const resources = [
   {
     title: 'Full Documentation',
@@ -61,9 +82,9 @@ const resources = [
     external: true,
   },
   {
-    title: 'Creating Packs',
-    description: 'Learn how to create and publish your own skill packs.',
-    href: 'https://github.com/0xHoneyJar/loa/blob/main/docs/creating-packs.md',
+    title: 'Pack Manifest Schema',
+    description: 'JSON schema for pack manifest.json validation.',
+    href: 'https://github.com/0xHoneyJar/loa-constructs/blob/main/docs/schemas/pack-manifest.json',
     external: true,
   },
   {
@@ -217,8 +238,53 @@ export default function DocsPage() {
         </div>
       </section>
 
-      {/* Resources */}
+      {/* Creator Guides */}
       <section style={{ padding: '64px 24px', background: 'rgba(0, 0, 0, 0.3)' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+          <TuiH2 style={{ marginBottom: '24px' }}>Create Your Own Packs</TuiH2>
+          <TuiDim style={{ fontSize: '14px', marginBottom: '24px', display: 'block' }}>
+            Third-party developers can create and publish skill packs to the registry.
+            Earn 70% revenue share on premium packs.
+          </TuiDim>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: '16px',
+            }}
+          >
+            {creatorGuides.map((guide) => (
+              <a
+                key={guide.title}
+                href={guide.href}
+                target={guide.external ? '_blank' : undefined}
+                rel={guide.external ? 'noopener noreferrer' : undefined}
+                style={{ textDecoration: 'none' }}
+              >
+                <div
+                  className="tui-card-hover"
+                  style={{
+                    padding: '20px',
+                    border: '1px solid var(--green)',
+                    background: 'rgba(95, 255, 135, 0.05)',
+                    height: '100%',
+                  }}
+                >
+                  <h3 style={{ color: 'var(--green)', fontWeight: 600, fontSize: '14px', marginBottom: '8px' }}>
+                    {guide.title}
+                    {guide.external && <span style={{ color: 'var(--fg-dim)', marginLeft: '4px' }}>↗</span>}
+                  </h3>
+                  <TuiDim style={{ fontSize: '13px' }}>{guide.description}</TuiDim>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Resources */}
+      <section style={{ padding: '64px 24px' }}>
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           <TuiH2 style={{ marginBottom: '24px' }}>Resources</TuiH2>
 
