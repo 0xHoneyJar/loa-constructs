@@ -44,6 +44,37 @@ Loa uses a managed scaffolding architecture:
 └── resources/          # Level 3: References, templates, scripts
 ```
 
+### Claude Agent Skills Adapter (v0.11.0)
+
+Loa skills can be transformed to Claude Agent Skills format at runtime:
+
+```bash
+# List skills with compatibility status
+.claude/scripts/skills-adapter.sh list
+
+# Generate Claude Agent Skills format for a skill
+.claude/scripts/skills-adapter.sh generate discovering-requirements
+
+# Output includes YAML frontmatter + SKILL.md content:
+# ---
+# name: "discovering-requirements"
+# description: "Product Manager skill for PRD creation"
+# version: "2.0.0"
+# triggers:
+#   - "/plan-and-analyze"
+#   - "create prd"
+# ---
+# [Original SKILL.md content follows]
+```
+
+**Configuration** (`.loa.config.yaml`):
+```yaml
+agent_skills:
+  enabled: true           # Enable/disable skills adapter
+  load_mode: "dynamic"    # "dynamic" (on-demand) or "eager" (startup)
+  api_upload: false       # Enable API upload features (future)
+```
+
 ### Command Architecture (v4)
 
 Commands in `.claude/commands/` use thin routing layer with YAML frontmatter:
@@ -291,7 +322,8 @@ Use `.claude/scripts/context-check.sh` for assessment.
 ├── validate-mcp.sh           # MCP configuration validation
 ├── constructs-loader.sh      # Loa Constructs skill loader
 ├── constructs-lib.sh         # Loa Constructs shared utilities
-└── license-validator.sh      # JWT license validation
+├── license-validator.sh      # JWT license validation
+└── skills-adapter.sh         # Claude Agent Skills format generator (v0.11.0)
 ```
 
 ## Integrations
