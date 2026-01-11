@@ -5,6 +5,90 @@ All notable changes to Loa will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-01-12
+
+### Why This Release
+
+This release introduces **Context Management Optimization** and **Tool Search & MCP Enhancement** - two major features that improve Claude Code session management and tool discovery. Additionally, it adds a comprehensive **Claude Platform Integration** system with JSON schemas, skills adapters, and thinking trajectory logging.
+
+### Added
+
+- **Context Management System** (`.claude/scripts/`)
+  | Script | Purpose |
+  |--------|---------|
+  | `context-manager.sh` | Dashboard for context lifecycle (status, preserve, compact, checkpoint, recover) |
+  | `context-benchmark.sh` | Performance measurement and tracking (run, baseline, compare, history) |
+
+- **Context Compaction Protocol** (`.claude/protocols/context-compaction.md`)
+  - Defines preservation categories (ALWAYS vs COMPACTABLE)
+  - Documents compaction workflow and recovery guarantees
+  - Simplified checkpoint process (7 steps → 3 manual steps)
+
+- **Tool Search & Discovery** (`.claude/scripts/tool-search-adapter.sh`)
+  - Search MCP servers and Loa Constructs by name, description, scope
+  - Relevance scoring: name=100, key=80, description=50, scope=30
+  - Cache system with configurable TTL (~/.loa/cache/tool-search/)
+  - Commands: `search`, `discover`, `cache list/clear`
+  - JSON output support for automation
+
+- **MCP Registry Search** (`.claude/scripts/mcp-registry.sh`)
+  - New `search` command for finding MCP servers
+  - Case-insensitive matching across name, description, scope
+  - Shows configuration status in results
+
+- **Claude Platform Integration**
+  | Component | Purpose |
+  |-----------|---------|
+  | `.claude/schemas/` | JSON Schema validation for PRD, SDD, Sprint, Trajectory |
+  | `schema-validator.sh` | CLI for validating documents against schemas |
+  | `skills-adapter.sh` | Unified skill loading and invocation |
+  | `thinking-logger.sh` | Trajectory logging for agent reasoning |
+
+- **Comprehensive Test Suite** (1,795 lines across 5 test files)
+  - `context-manager.bats` - 35 tests for context management
+  - `tool-search-adapter.bats` - 33 tests for tool search
+  - `schema-validator.bats` - Schema validation tests
+  - `skills-adapter.bats` - Skills adapter tests
+  - `thinking-logger.bats` - Thinking logger tests
+
+### Changed
+
+- **Session Continuity Protocol**: Enhanced with context manager integration (+82 lines)
+- **Synthesis Checkpoint Protocol**: Simplified to 3 manual steps (+50 lines)
+- **Configuration**: New sections in `.loa.config.yaml`
+  ```yaml
+  tool_search:
+    enabled: true
+    cache_ttl_hours: 24
+    include_constructs: true
+    default_limit: 10
+    ranking:
+      name_weight: 100
+      key_weight: 80
+      description_weight: 50
+      scope_weight: 30
+
+  context_management:
+    enabled: true
+    auto_checkpoint: true
+    preserve_on_clear: true
+  ```
+
+- **CLAUDE.md**: Added Context Management and Tool Search documentation (+194 lines)
+
+### Security
+
+- All new scripts use `set -euo pipefail` for safe bash execution
+- Comprehensive security audit passed (39 scripts, 626 tests)
+- No hardcoded secrets, proper input validation
+- Cache operations confined to user's home directory
+
+### Breaking Changes
+
+**None** - This release is fully backward compatible.
+
+---
+
 ## [0.10.1] - 2026-01-04
 
 ### Why This Release
@@ -839,6 +923,8 @@ loa-grimoire/           # Loa process artifacts
 └── deployment/         # Production infrastructure docs
 ```
 
+[0.11.0]: https://github.com/0xHoneyJar/loa/releases/tag/v0.11.0
+[0.10.1]: https://github.com/0xHoneyJar/loa/releases/tag/v0.10.1
 [0.10.0]: https://github.com/0xHoneyJar/loa/releases/tag/v0.10.0
 [0.9.2]: https://github.com/0xHoneyJar/loa/releases/tag/v0.9.2
 [0.9.1]: https://github.com/0xHoneyJar/loa/releases/tag/v0.9.1
