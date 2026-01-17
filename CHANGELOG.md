@@ -5,6 +5,101 @@ All notable changes to Loa will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] - 2026-01-17
+
+### Why This Release
+
+This release introduces **Auto-Update Check** - automatic version checking that notifies users when updates are available. The check runs on session start via a SessionStart hook, caches results to minimize API calls, and auto-skips in CI environments.
+
+### Added
+
+- **Auto-Update Check** (`.claude/scripts/check-updates.sh`)
+  ```bash
+  check-updates.sh --notify   # Check and notify (SessionStart hook)
+  check-updates.sh --check    # Force check (bypass cache)
+  check-updates.sh --json     # JSON output for scripting
+  check-updates.sh --quiet    # Suppress non-error output
+  ```
+  - Fetches latest release from GitHub API
+  - Semver comparison with pre-release support
+  - Cache management (24h TTL default)
+  - CI environment detection (GitHub Actions, GitLab CI, Jenkins, CircleCI, Travis, Bitbucket, Azure)
+  - Three notification styles: banner, line, silent
+  - Major version warning highlighting
+
+- **SessionStart Hook** (`.claude/settings.json`)
+  - Runs update check automatically on Claude Code session start
+  - Uses `--notify` flag for terminal-friendly output
+  - Silent in CI environments
+
+- **`/update --check` Flag**
+  - Check for updates without performing update
+  - `--json` flag for scripting integration
+  - Returns exit code 1 when update available
+
+- **Configuration** (`.loa.config.yaml`)
+  ```yaml
+  update_check:
+    enabled: true                    # Master toggle
+    cache_ttl_hours: 24              # Cache TTL (default: 24)
+    notification_style: banner       # banner | line | silent
+    include_prereleases: false       # Include pre-release versions
+    upstream_repo: "0xHoneyJar/loa"  # GitHub repo to check
+  ```
+
+- **Environment Variable Overrides**
+  - `LOA_DISABLE_UPDATE_CHECK=1` - Disable all checks
+  - `LOA_UPDATE_CHECK_TTL=48` - Cache TTL in hours
+  - `LOA_UPSTREAM_REPO=owner/repo` - Custom upstream
+  - `LOA_UPDATE_NOTIFICATION=line` - Notification style
+
+- **Comprehensive Test Suite**
+  - 30 unit tests (`tests/unit/check-updates.bats`)
+    - semver_compare: 10 tests
+    - is_major_update: 4 tests
+    - is_ci_environment: 9 tests
+    - CLI arguments: 7 tests
+  - 11 integration tests (`tests/integration/check-updates.bats`)
+    - Full check with JSON output
+    - Cache TTL behavior
+    - Network failure handling
+    - CI mode skipping
+    - Quiet mode suppression
+    - Banner notification format
+    - Major version warning
+    - Exit code validation
+
+### Changed
+
+- **CLAUDE.md**: Added Update Check section under Helper Scripts
+  - Command usage with all flags
+  - Exit codes documentation
+  - Configuration options
+  - Environment variables
+  - Feature highlights
+
+### Technical Details
+
+- **Exit Codes**
+  | Code | Meaning |
+  |------|---------|
+  | 0 | Up to date, disabled, or skipped |
+  | 1 | Update available |
+  | 2 | Error |
+
+- **Cache Location**: `~/.loa/cache/update-check.json`
+
+- **Network**: 2-second timeout, silent failure on errors
+
+### Security
+
+- All scripts use `set -euo pipefail` for safe execution
+- No secrets or credentials required (public GitHub API)
+- CI environment auto-detection prevents unwanted output in pipelines
+- Sprint 1 & 2 security audits: **APPROVED - LETS FUCKING GO**
+
+---
+
 ## [0.13.0] - 2026-01-12
 
 ### Why This Release
@@ -1082,6 +1177,8 @@ loa-grimoire/           # Loa process artifacts
 └── deployment/         # Production infrastructure docs
 ```
 
+[0.14.0]: https://github.com/0xHoneyJar/loa/releases/tag/v0.14.0
+[0.13.0]: https://github.com/0xHoneyJar/loa/releases/tag/v0.13.0
 [0.12.0]: https://github.com/0xHoneyJar/loa/releases/tag/v0.12.0
 [0.11.0]: https://github.com/0xHoneyJar/loa/releases/tag/v0.11.0
 [0.10.1]: https://github.com/0xHoneyJar/loa/releases/tag/v0.10.1
