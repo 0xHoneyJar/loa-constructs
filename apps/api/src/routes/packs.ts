@@ -42,7 +42,7 @@ import {
 import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { createHash } from 'crypto';
-import { skillsRateLimiter } from '../middleware/rate-limiter.js';
+import { skillsRateLimiter, submissionRateLimiter, uploadRateLimiter } from '../middleware/rate-limiter.js';
 import { validatePath, generatePackStorageKey } from '../lib/security.js';
 import { getEffectiveTier, canAccessTier, type SubscriptionTier } from '../services/subscription.js';
 import { db, packs } from '../db/index.js';
@@ -362,10 +362,12 @@ packsRouter.patch(
  * Submit pack for review
  * @see sdd-pack-submission.md §4.1 POST /v1/packs/:slug/submit
  * @see prd-pack-submission.md §4.2 Submission Workflow
+ * @see SECURITY-AUDIT-REPORT.md H-001: Rate limiting added
  */
 packsRouter.post(
   '/:slug/submit',
   requireAuth(),
+  submissionRateLimiter(),
   zValidator('json', submitPackSchema),
   async (c) => {
     const slug = c.req.param('slug');
@@ -604,10 +606,12 @@ packsRouter.get('/:slug/versions', optionalAuth(), async (c) => {
  * POST /v1/packs/:slug/versions
  * Upload a new version of a pack
  * @see sdd-v2.md §5.1 POST /v1/packs/:slug/versions
+ * @see SECURITY-AUDIT-REPORT.md H-001: Rate limiting added
  */
 packsRouter.post(
   '/:slug/versions',
   requireAuth(),
+  uploadRateLimiter(),
   zValidator('json', createVersionSchema),
   async (c) => {
     const slug = c.req.param('slug');

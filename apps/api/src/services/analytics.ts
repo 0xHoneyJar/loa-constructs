@@ -5,7 +5,7 @@
  */
 
 import { db, skills, skillUsage, skillVersions, teamMembers } from '../db/index.js';
-import { eq, and, gte, lte, sql, desc } from 'drizzle-orm';
+import { eq, and, gte, lte, sql, desc, inArray } from 'drizzle-orm';
 import { getRedis, isRedisConfigured, CACHE_TTL } from './redis.js';
 import { logger } from '../lib/logger.js';
 
@@ -328,13 +328,14 @@ export async function getCreatorStats(userId: string): Promise<CreatorStats> {
 
   let teamSkills: (typeof skills.$inferSelect)[] = [];
   if (teamIds.length > 0) {
+    // SECURITY FIX (C-002): Use parameterized inArray instead of sql.raw()
     teamSkills = await db
       .select()
       .from(skills)
       .where(
         and(
           eq(skills.ownerType, 'team'),
-          sql`${skills.ownerId} in ${sql.raw(`('${teamIds.join("','")}')`)}`
+          inArray(skills.ownerId, teamIds)
         )
       );
   }
@@ -360,6 +361,7 @@ export async function getCreatorStats(userId: string): Promise<CreatorStats> {
   const skillIds = allSkills.map((s) => s.id);
 
   // Get active installs (installs - uninstalls) for each skill
+  // SECURITY FIX (C-002): Use parameterized inArray instead of sql.raw()
   const installCounts = await db
     .select({
       skillId: skillUsage.skillId,
@@ -367,8 +369,7 @@ export async function getCreatorStats(userId: string): Promise<CreatorStats> {
       uninstalls: sql<number>`count(*) filter (where ${skillUsage.action} = 'uninstall')::int`,
     })
     .from(skillUsage)
-    .where(sql`${skillUsage.skillId} in ${sql.raw(`('${skillIds.join("','")}')`)}`
-    )
+    .where(inArray(skillUsage.skillId, skillIds))
     .groupBy(skillUsage.skillId);
 
   const installMap = new Map(installCounts.map((i) => [i.skillId, i]));

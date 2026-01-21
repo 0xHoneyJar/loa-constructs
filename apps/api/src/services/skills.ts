@@ -188,7 +188,9 @@ export async function listSkills(options: SkillListOptions = {}): Promise<SkillL
 
   if (tags && tags.length > 0) {
     // Check if skill has any of the specified tags
-    conditions.push(sql`${skills.tags} && ${sql.raw(`ARRAY[${tags.map((t) => `'${t}'`).join(',')}]::text[]`)}`);
+    // SECURITY FIX (C-001): Use parameterized query instead of sql.raw()
+    // This prevents SQL injection via malicious tag values
+    conditions.push(sql`${skills.tags} && ${tags}::text[]`);
   }
 
   if (query) {

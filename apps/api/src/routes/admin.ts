@@ -246,11 +246,14 @@ adminRouter.patch('/users/:id', zValidator('json', updateUserSchema), async (c) 
       }
     } else {
       if (existingSub) {
+        // SECURITY FIX (T27.4): Use parameterized JSON instead of sql.raw()
+        // Even though tier_override is Zod-validated to enum values,
+        // defense-in-depth requires parameterized queries
         await db
           .update(subscriptions)
           .set({
             tier: updates.tier_override,
-            metadata: sql`jsonb_set(COALESCE(metadata, '{}'::jsonb), '{admin_override}', '"${sql.raw(updates.tier_override)}"')`,
+            metadata: sql`jsonb_set(COALESCE(metadata, '{}'::jsonb), '{admin_override}', to_jsonb(${updates.tier_override}::text))`,
             updatedAt: new Date(),
           })
           .where(eq(subscriptions.id, existingSub.id));

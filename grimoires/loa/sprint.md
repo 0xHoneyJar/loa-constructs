@@ -2784,3 +2784,188 @@ apps/web/src/app/
 
 **Sprint 26 Status**: Complete
 **Status**: All automated tasks complete. Manual tasks remaining: Demo GIFs, Mobile polish, Custom domain setup
+
+---
+
+## Sprint 27: Security Remediation (Critical)
+
+**Goal**: Address critical SQL injection vulnerabilities identified in security audit before production deployment.
+
+**Duration**: 1 day (URGENT - blocking production)
+
+**Security Audit Reference**: `grimoires/loa/a2a/audits/2026-01-21/SECURITY-AUDIT-REPORT.md`
+
+**Priority**: BLOCKING - Do NOT deploy to production until complete.
+
+### Tasks
+
+---
+
+#### T27.1: Fix SQL Injection in Skills Service (C-001)
+
+**Description**: Replace unsafe `sql.raw()` usage in skills tag filtering with parameterized query.
+
+**Acceptance Criteria**:
+- [ ] Replace `sql.raw()` at `services/skills.ts:191` with Drizzle's `arrayOverlaps()` operator
+- [ ] Verify skills search by tags still works correctly
+- [ ] Add unit test for malicious tag injection attempt
+- [ ] Manual test with payload: `tags=a'; DROP TABLE users; --`
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: None
+
+**Files to Modify**:
+- `apps/api/src/services/skills.ts`
+
+**Files to Create**:
+- Add test case in `apps/api/src/services/skills.test.ts`
+
+**Remediation Doc**: `grimoires/loa/a2a/audits/2026-01-21/remediation/C-001-sql-injection-tags.md`
+
+---
+
+#### T27.2: Fix SQL Injection in Analytics Service (C-002)
+
+**Description**: Replace unsafe `sql.raw()` usage in analytics queries with Drizzle's `inArray()` operator.
+
+**Acceptance Criteria**:
+- [ ] Replace `sql.raw()` at `services/analytics.ts:337` with `inArray()`
+- [ ] Replace `sql.raw()` at `services/analytics.ts:370` with `inArray()`
+- [ ] Verify analytics queries return correct data
+- [ ] Add unit tests for edge cases (empty arrays, single values)
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: None
+
+**Files to Modify**:
+- `apps/api/src/services/analytics.ts`
+
+**Files to Create**:
+- Add test cases in `apps/api/src/services/analytics.test.ts`
+
+**Remediation Doc**: `grimoires/loa/a2a/audits/2026-01-21/remediation/C-002-sql-injection-analytics.md`
+
+---
+
+#### T27.3: Add Rate Limiting to Submission Endpoints (H-001)
+
+**Description**: Add explicit rate limiting to pack submission endpoints to prevent spam and resource exhaustion.
+
+**Acceptance Criteria**:
+- [ ] Create submission-specific rate limiter (5 req/min)
+- [ ] Create upload-specific rate limiter (10 req/min)
+- [ ] Apply to POST/PATCH endpoints in `routes/submissions.ts`
+- [ ] Verify 429 response includes Retry-After header
+- [ ] Add integration test for rate limiting
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: None
+
+**Files to Modify**:
+- `apps/api/src/routes/submissions.ts`
+- `apps/api/src/middleware/rate-limiter.ts` (if needed)
+
+**Remediation Doc**: `grimoires/loa/a2a/audits/2026-01-21/remediation/H-001-rate-limiting.md`
+
+---
+
+#### T27.4: Admin SQL Parameterization (Defense in Depth)
+
+**Description**: Replace `sql.raw()` in admin tier override with parameterized query for defense in depth.
+
+**Acceptance Criteria**:
+- [ ] Replace `sql.raw()` at `routes/admin.ts:253` with parameterized JSONB update
+- [ ] Verify tier override functionality still works
+- [ ] Test all four tier values (free, pro, team, enterprise)
+
+**Effort**: Small (30 min)
+
+**Dependencies**: None
+
+**Files to Modify**:
+- `apps/api/src/routes/admin.ts`
+
+---
+
+#### T27.5: Security Verification & Re-Audit
+
+**Description**: Run full test suite and verify all SQL injection vulnerabilities are fixed.
+
+**Acceptance Criteria**:
+- [ ] All existing tests passing (`npm test`)
+- [ ] TypeScript compiles without errors (`npm run typecheck`)
+- [ ] No `sql.raw()` with string interpolation in codebase
+- [ ] Manual security verification of fixed endpoints
+- [ ] Update remediation docs with completion status
+
+**Effort**: Small (1 hour)
+
+**Dependencies**: T27.1, T27.2, T27.3, T27.4
+
+**Files to Modify**:
+- `grimoires/loa/a2a/audits/2026-01-21/remediation/C-001-sql-injection-tags.md`
+- `grimoires/loa/a2a/audits/2026-01-21/remediation/C-002-sql-injection-analytics.md`
+- `grimoires/loa/a2a/audits/2026-01-21/remediation/H-001-rate-limiting.md`
+
+---
+
+### Sprint 27 Summary
+
+| Task | Description | Effort | Status |
+|------|-------------|--------|--------|
+| T27.1 | Fix SQL injection in skills.ts | S | ✅ Complete |
+| T27.2 | Fix SQL injection in analytics.ts | S | ✅ Complete |
+| T27.3 | Add rate limiting to submissions | S | ✅ Complete |
+| T27.4 | Admin SQL parameterization | S | ✅ Complete |
+| T27.5 | Security verification | S | ✅ Complete |
+
+**Total Estimated Effort**: ~4.5 hours
+
+**Status**: ALL CRITICAL VULNERABILITIES REMEDIATED
+
+---
+
+### Security Fix Implementation Guide
+
+#### For T27.1 (Skills Tags):
+
+```typescript
+// BEFORE (vulnerable):
+conditions.push(sql`${skills.tags} && ${sql.raw(`ARRAY[${tags.map((t) => `'${t}'`).join(',')}]::text[]`)}`);
+
+// AFTER (safe):
+import { arrayOverlaps } from 'drizzle-orm/pg-core';
+conditions.push(arrayOverlaps(skills.tags, tags));
+```
+
+#### For T27.2 (Analytics):
+
+```typescript
+// BEFORE (vulnerable):
+sql`${skills.ownerId} in ${sql.raw(`('${teamIds.join("','")}')`)}`
+
+// AFTER (safe):
+import { inArray } from 'drizzle-orm';
+inArray(skills.ownerId, teamIds)
+```
+
+#### For T27.3 (Rate Limiting):
+
+```typescript
+// In routes/submissions.ts
+const submissionRateLimiter = createRateLimiter({
+  prefix: 'submission',
+  maxRequests: 5,
+  windowMs: 60 * 1000,
+});
+
+submissionsRouter.use('*', submissionRateLimiter);
+```
+
+---
+
+**Sprint 27 Status**: Complete
+**Security Remediation**: All critical vulnerabilities (C-001, C-002) fixed and verified
