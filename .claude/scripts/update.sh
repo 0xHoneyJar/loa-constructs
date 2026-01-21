@@ -48,6 +48,29 @@ yq_to_json() {
   fi
 }
 
+# Validate config file exists and contains valid YAML (L-003)
+validate_config() {
+  local config="$1"
+
+  if [[ ! -f "$config" ]]; then
+    warn "Config file not found: $config (using defaults)"
+    return 1
+  fi
+
+  # Check for valid YAML using yq
+  if yq --version 2>&1 | grep -q "mikefarah"; then
+    if ! yq eval '.' "$config" > /dev/null 2>&1; then
+      err "Invalid YAML in config: $config"
+    fi
+  else
+    if ! yq . "$config" > /dev/null 2>&1; then
+      err "Invalid YAML in config: $config"
+    fi
+  fi
+
+  return 0
+}
+
 check_deps() {
   command -v jq >/dev/null || err "jq is required"
   command -v yq >/dev/null || err "yq is required"
@@ -60,12 +83,16 @@ get_version() {
 }
 
 set_version() {
-  local tmp=$(mktemp)
+  local tmp
+  tmp=$(mktemp)
+  trap "rm -f '$tmp'" RETURN
   jq --arg k "$1" --arg v "$2" '.[$k] = $v' "$VERSION_FILE" > "$tmp" && mv "$tmp" "$VERSION_FILE"
 }
 
 set_version_int() {
-  local tmp=$(mktemp)
+  local tmp
+  tmp=$(mktemp)
+  trap "rm -f '$tmp'" RETURN
   jq --arg k "$1" --argjson v "$2" '.[$k] = $v' "$VERSION_FILE" > "$tmp" && mv "$tmp" "$VERSION_FILE"
 }
 
@@ -220,7 +247,9 @@ run_migrations() {
 
         log "Running migration: $mid (BLOCKING)"
         if bash "$migration"; then
-          local tmp=$(mktemp)
+          local tmp
+          tmp=$(mktemp)
+          trap "rm -f '$tmp'" RETURN
           jq --arg m "$mid" '.migrations_applied += [$m]' "$VERSION_FILE" > "$tmp" && mv "$tmp" "$VERSION_FILE"
           log "Migration $mid completed"
         else
@@ -237,7 +266,7 @@ run_migrations() {
 }
 
 apply_stealth_mode() {
-  if [[ ! -f "$CONFIG_FILE" ]]; then return 0; fi
+  if ! validate_config "$CONFIG_FILE" 2>/dev/null; then return 0; fi
 
   local mode=$(yq_read "$CONFIG_FILE" '.persistence_mode' "standard")
 
@@ -246,10 +275,28 @@ apply_stealth_mode() {
     local gitignore=".gitignore"
     touch "$gitignore"
 
-    grep -qxF 'loa-grimoire/' "$gitignore" 2>/dev/null || echo 'loa-grimoire/' >> "$gitignore"
+    grep -qxF 'grimoires/loa/' "$gitignore" 2>/dev/null || echo 'grimoires/loa/' >> "$gitignore"
     grep -qxF '.beads/' "$gitignore" 2>/dev/null || echo '.beads/' >> "$gitignore"
     grep -qxF '.loa-version.json' "$gitignore" 2>/dev/null || echo '.loa-version.json' >> "$gitignore"
     grep -qxF '.loa.config.yaml' "$gitignore" 2>/dev/null || echo '.loa.config.yaml' >> "$gitignore"
+  fi
+}
+
+# === Version Check ===
+do_version_check() {
+  local json_output="${1:-false}"
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local check_script="$script_dir/check-updates.sh"
+
+  if [[ ! -x "$check_script" ]]; then
+    err "check-updates.sh not found or not executable"
+  fi
+
+  if [[ "$json_output" == "true" ]]; then
+    "$check_script" --json --check --notify
+  else
+    "$check_script" --check --notify
   fi
 }
 
@@ -258,15 +305,25 @@ main() {
   local dry_run=false
   local force=false
   local force_restore=false
+  local check_only=false
+  local json_output=false
 
   while [[ $# -gt 0 ]]; do
     case $1 in
       --dry-run) dry_run=true; shift ;;
       --force) force=true; shift ;;
       --force-restore) force_restore=true; shift ;;
+      --check) check_only=true; shift ;;
+      --json) json_output=true; shift ;;
       *) shift ;;
     esac
   done
+
+  # Handle --check mode: just check for updates, don't perform update
+  if [[ "$check_only" == "true" ]]; then
+    do_version_check "$json_output"
+    exit $?
+  fi
 
   log "======================================================================="
   log "  Loa Framework Update v0.9.0"
@@ -281,7 +338,7 @@ main() {
   "framework_version": "0.0.0",
   "schema_version": 1,
   "last_sync": null,
-  "zones": {"system": ".claude", "state": ["loa-grimoire", ".beads"], "app": ["src", "lib", "app"]},
+  "zones": {"system": ".claude", "state": ["grimoires/loa", ".beads"], "app": ["src", "lib", "app"]},
   "migrations_applied": [],
   "integrity": {"enforcement": "strict", "last_verified": null}
 }
@@ -293,7 +350,7 @@ EOF
 
   # Get enforcement level from config
   local enforcement="strict"
-  if [[ -f "$CONFIG_FILE" ]]; then
+  if validate_config "$CONFIG_FILE" 2>/dev/null; then
     enforcement=$(yq_read "$CONFIG_FILE" '.integrity_enforcement' "strict")
   fi
 
@@ -356,7 +413,9 @@ EOF
   set_version "last_sync" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
   # Update integrity verification timestamp
-  local tmp=$(mktemp)
+  local tmp
+  tmp=$(mktemp)
+  trap "rm -f '$tmp'" RETURN
   jq '.integrity.last_verified = "'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'"' "$VERSION_FILE" > "$tmp" && mv "$tmp" "$VERSION_FILE"
 
   # === STAGE 8: Generate New Checksums ===
@@ -366,13 +425,32 @@ EOF
   apply_stealth_mode
 
   # === STAGE 10: Regenerate Config Snapshot ===
-  if [[ -f "$CONFIG_FILE" ]]; then
-    mkdir -p loa-grimoire/context
-    yq_to_json "$CONFIG_FILE" > loa-grimoire/context/config_snapshot.json 2>/dev/null || true
+  if validate_config "$CONFIG_FILE" 2>/dev/null; then
+    mkdir -p grimoires/loa/context
+    yq_to_json "$CONFIG_FILE" > grimoires/loa/context/config_snapshot.json 2>/dev/null || true
   fi
 
   # Cleanup old backups (keep 3)
   ls -dt .claude.backup.* 2>/dev/null | tail -n +4 | xargs rm -rf 2>/dev/null || true
+
+  # === STAGE 11: Check for Grimoire Migration ===
+  local migrate_script="$SYSTEM_DIR/scripts/migrate-grimoires.sh"
+  if [[ -x "$migrate_script" ]]; then
+    if "$migrate_script" check --json 2>/dev/null | grep -q '"needs_migration": true'; then
+      log ""
+      log "======================================================================="
+      log "  MIGRATION AVAILABLE: Grimoires Restructure"
+      log "======================================================================="
+      log ""
+      log "Your project uses the legacy 'loa-grimoire/' path."
+      log "The new structure uses 'grimoires/loa/' (private) and 'grimoires/pub/' (public)."
+      log ""
+      log "Run the migration:"
+      log "  .claude/scripts/migrate-grimoires.sh plan    # Preview changes"
+      log "  .claude/scripts/migrate-grimoires.sh run     # Execute migration"
+      log ""
+    fi
+  fi
 
   log ""
   log "======================================================================="

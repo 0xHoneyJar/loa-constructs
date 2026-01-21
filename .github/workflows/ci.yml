@@ -26,21 +26,25 @@ jobs:
           # Define forbidden patterns for the loa template repository
           # These files should NEVER be committed to the main loa template
           FORBIDDEN_FILES=(
-            "loa-grimoire/prd.md"
-            "loa-grimoire/sdd.md"
-            "loa-grimoire/sprint.md"
-            "loa-grimoire/NOTES.md"
+            "grimoires/loa/prd.md"
+            "grimoires/loa/sdd.md"
+            "grimoires/loa/sprint.md"
+            "grimoires/loa/NOTES.md"
+            "grimoires/loa/ledger.json"
+            "grimoires/loa/ledger.json.bak"
           )
 
           FORBIDDEN_DIRS=(
-            "loa-grimoire/a2a/sprint-"
-            "loa-grimoire/a2a/index.md"
-            "loa-grimoire/a2a/deployment-feedback.md"
-            "loa-grimoire/a2a/trajectory/"
-            "loa-grimoire/deployment/"
-            "loa-grimoire/reality/"
-            "loa-grimoire/analytics/"
-            "loa-grimoire/research/"
+            "grimoires/loa/a2a/sprint-"
+            "grimoires/loa/a2a/index.md"
+            "grimoires/loa/a2a/deployment-feedback.md"
+            "grimoires/loa/a2a/trajectory/"
+            "grimoires/loa/deployment/"
+            "grimoires/loa/reality/"
+            "grimoires/loa/analytics/"
+            "grimoires/loa/research/"
+            "grimoires/pub/"
+            ".claude/constructs/"
           )
 
           VIOLATIONS=()
@@ -74,7 +78,8 @@ jobs:
               echo "  - $file"
             done
             echo ""
-            echo "These files are project-specific and should be gitignored."
+            echo "These files are project-specific or contain licensed content and should be gitignored."
+            echo "Note: .claude/constructs/ contains user-licensed skills that should never be committed."
             echo "If this is intentional, add [skip-template-guard] to commit message."
             echo "============================================================"
             exit 1
@@ -135,6 +140,7 @@ jobs:
       - name: Check command definitions exist
         run: |
           echo "Checking required command definitions..."
+          # Note: setup.md removed in v0.15.0 - no longer required
           COMMANDS=(
             ".claude/commands/plan-and-analyze.md"
             ".claude/commands/architect.md"
@@ -144,9 +150,8 @@ jobs:
             ".claude/commands/audit-sprint.md"
             ".claude/commands/deploy-production.md"
             ".claude/commands/audit.md"
-            ".claude/commands/setup.md"
             ".claude/commands/feedback.md"
-            ".claude/commands/update.md"
+            ".claude/commands/update-loa.md"
           )
           for cmd in "${COMMANDS[@]}"; do
             if [ ! -f "$cmd" ]; then
@@ -254,7 +259,7 @@ jobs:
           EOF
 
       - name: Lint Markdown files
-        run: markdownlint '**/*.md' --ignore node_modules --ignore loa-grimoire || true
+        run: markdownlint '**/*.md' --ignore node_modules --ignore grimoires/loa || true
         # Note: Using || true to not fail on lint warnings for now
         # Remove || true once all markdown is cleaned up
 

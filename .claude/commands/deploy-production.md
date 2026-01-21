@@ -11,41 +11,37 @@ agent: "deploying-infrastructure"
 agent_path: "skills/deploying-infrastructure/"
 
 context_files:
-  - path: "loa-grimoire/prd.md"
+  - path: "grimoires/loa/prd.md"
     required: true
     purpose: "Product requirements for infrastructure needs"
-  - path: "loa-grimoire/sdd.md"
+  - path: "grimoires/loa/sdd.md"
     required: true
     purpose: "Architecture for deployment design"
-  - path: "loa-grimoire/sprint.md"
+  - path: "grimoires/loa/sprint.md"
     required: true
     purpose: "Sprint completion status"
-  - path: "loa-grimoire/a2a/integration-context.md"
+  - path: "grimoires/loa/a2a/integration-context.md"
     required: false
     purpose: "Organizational context and MCP tools"
 
 pre_flight:
   - check: "file_exists"
-    path: ".loa-setup-complete"
-    error: "Loa setup has not been completed. Run /setup first."
-
-  - check: "file_exists"
-    path: "loa-grimoire/prd.md"
+    path: "grimoires/loa/prd.md"
     error: "PRD not found. Run /plan-and-analyze first."
 
   - check: "file_exists"
-    path: "loa-grimoire/sdd.md"
+    path: "grimoires/loa/sdd.md"
     error: "SDD not found. Run /architect first."
 
   - check: "file_exists"
-    path: "loa-grimoire/sprint.md"
+    path: "grimoires/loa/sprint.md"
     error: "Sprint plan not found. Run /sprint-plan first."
 
 outputs:
-  - path: "loa-grimoire/deployment/"
+  - path: "grimoires/loa/deployment/"
     type: "directory"
     description: "Deployment documentation and runbooks"
-  - path: "loa-grimoire/a2a/deployment-report.md"
+  - path: "grimoires/loa/a2a/deployment-report.md"
     type: "file"
     description: "Deployment report for audit"
 
@@ -75,7 +71,6 @@ See: `skills/deploying-infrastructure/SKILL.md` for full workflow details.
 
 ## Prerequisites
 
-- Setup completed (`.loa-setup-complete` exists)
 - PRD, SDD, and sprint plan created
 - Sprints implemented and approved
 - Security audit passed (recommended)
@@ -103,13 +98,13 @@ See: `skills/deploying-infrastructure/SKILL.md` for full workflow details.
 
 | Path | Description |
 |------|-------------|
-| `loa-grimoire/deployment/infrastructure.md` | Architecture overview |
-| `loa-grimoire/deployment/deployment-guide.md` | How to deploy |
-| `loa-grimoire/deployment/runbooks/` | Operational procedures |
-| `loa-grimoire/deployment/monitoring.md` | Dashboards, alerts |
-| `loa-grimoire/deployment/security.md` | Access, secrets |
-| `loa-grimoire/deployment/disaster-recovery.md` | Backup, failover |
-| `loa-grimoire/a2a/deployment-report.md` | Report for audit |
+| `grimoires/loa/deployment/infrastructure.md` | Architecture overview |
+| `grimoires/loa/deployment/deployment-guide.md` | How to deploy |
+| `grimoires/loa/deployment/runbooks/` | Operational procedures |
+| `grimoires/loa/deployment/monitoring.md` | Dashboards, alerts |
+| `grimoires/loa/deployment/security.md` | Access, secrets |
+| `grimoires/loa/deployment/disaster-recovery.md` | Backup, failover |
+| `grimoires/loa/a2a/deployment-report.md` | Report for audit |
 
 ## Requirements Clarification
 
@@ -140,7 +135,6 @@ The architect will ask about:
 
 | Error | Cause | Resolution |
 |-------|-------|------------|
-| "Loa setup has not been completed" | Missing `.loa-setup-complete` | Run `/setup` first |
 | "PRD not found" | Missing prd.md | Run `/plan-and-analyze` first |
 | "SDD not found" | Missing sdd.md | Run `/architect` first |
 | "Sprint plan not found" | Missing sprint.md | Run `/sprint-plan` first |

@@ -45,18 +45,17 @@ check_command_succeeds() {
     eval "$cmd" >/dev/null 2>&1
 }
 
-# Check setup is complete
-check_setup_complete() {
-    check_file_exists ".loa-setup-complete"
-}
+# Source constructs-lib for is_thj_member() function
+# This is the canonical source for THJ membership detection
+PREFLIGHT_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "${PREFLIGHT_SCRIPT_DIR}/constructs-lib.sh" ]]; then
+    source "${PREFLIGHT_SCRIPT_DIR}/constructs-lib.sh"
+fi
 
-# Check user type is THJ
+# Check user type is THJ (v0.15.0+)
+# Uses API key presence instead of marker file
 check_user_is_thj() {
-    if check_setup_complete; then
-        check_content_contains ".loa-setup-complete" '"user_type":\s*"thj"'
-    else
-        return 1
-    fi
+    is_thj_member 2>/dev/null
 }
 
 # Check sprint ID format (sprint-N where N is positive integer)
@@ -68,19 +67,19 @@ check_sprint_id_format() {
 # Check sprint directory exists
 check_sprint_directory() {
     local sprint_id="$1"
-    check_directory_exists "loa-grimoire/a2a/${sprint_id}"
+    check_directory_exists "grimoires/loa/a2a/${sprint_id}"
 }
 
 # Check reviewer.md exists for sprint
 check_reviewer_exists() {
     local sprint_id="$1"
-    check_file_exists "loa-grimoire/a2a/${sprint_id}/reviewer.md"
+    check_file_exists "grimoires/loa/a2a/${sprint_id}/reviewer.md"
 }
 
 # Check sprint is approved by senior lead
 check_sprint_approved() {
     local sprint_id="$1"
-    local feedback_file="loa-grimoire/a2a/${sprint_id}/engineer-feedback.md"
+    local feedback_file="grimoires/loa/a2a/${sprint_id}/engineer-feedback.md"
     if check_file_exists "$feedback_file"; then
         check_content_contains "$feedback_file" "All good"
     else
@@ -91,7 +90,7 @@ check_sprint_approved() {
 # Check sprint is completed (has COMPLETED marker)
 check_sprint_completed() {
     local sprint_id="$1"
-    check_file_exists "loa-grimoire/a2a/${sprint_id}/COMPLETED"
+    check_file_exists "grimoires/loa/a2a/${sprint_id}/COMPLETED"
 }
 
 # Check git working tree is clean

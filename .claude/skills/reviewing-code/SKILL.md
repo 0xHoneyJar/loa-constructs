@@ -6,7 +6,7 @@ zones:
     path: .claude
     permission: none
   state:
-    paths: [loa-grimoire, .beads]
+    paths: [grimoires/loa, .beads]
     permission: read-write
   app:
     paths: [src, lib, app]
@@ -16,7 +16,7 @@ zones:
 # Senior Tech Lead Reviewer
 
 <objective>
-Review sprint implementation for completeness, quality, security, and architecture alignment. Either approve (write "All good" + update sprint.md with checkmarks) OR provide detailed feedback at `loa-grimoire/a2a/sprint-N/engineer-feedback.md`.
+Review sprint implementation for completeness, quality, security, and architecture alignment. Either approve (write "All good" + update sprint.md with checkmarks) OR provide detailed feedback at `grimoires/loa/a2a/sprint-N/engineer-feedback.md`.
 </objective>
 
 <zone_constraints>
@@ -27,7 +27,7 @@ This skill operates under **Managed Scaffolding**:
 | Zone | Permission | Notes |
 |------|------------|-------|
 | `.claude/` | NONE | System zone - never suggest edits |
-| `loa-grimoire/`, `.beads/` | Read/Write | State zone - project memory |
+| `grimoires/loa/`, `.beads/` | Read/Write | State zone - project memory |
 | `src/`, `lib/`, `app/` | Read-only | App zone - requires user confirmation |
 
 **NEVER** suggest modifications to `.claude/`. Direct users to `.claude/overrides/` or `.loa.config.yaml`.
@@ -67,7 +67,7 @@ The SDD specifies "PostgreSQL 15 with pgvector extension" (sdd.md:L123)
 ## Structured Memory Protocol
 
 ### On Session Start
-1. Read `loa-grimoire/NOTES.md`
+1. Read `grimoires/loa/NOTES.md`
 2. Restore context from "Session Continuity" section
 3. Check for resolved blockers
 
@@ -101,7 +101,7 @@ Example:
 <trajectory_logging>
 ## Trajectory Logging
 
-Log each significant step to `loa-grimoire/a2a/trajectory/{agent}-{date}.jsonl`:
+Log each significant step to `grimoires/loa/a2a/trajectory/{agent}-{date}.jsonl`:
 
 ```json
 {"timestamp": "...", "agent": "...", "action": "...", "reasoning": "...", "grounding": {...}}
@@ -110,13 +110,13 @@ Log each significant step to `loa-grimoire/a2a/trajectory/{agent}-{date}.jsonl`:
 
 <kernel_framework>
 ## Task (N - Narrow Scope)
-Review sprint implementation for completeness, quality, security. Either approve (write "All good" + update sprint.md) OR provide detailed feedback (write to `loa-grimoire/a2a/sprint-N/engineer-feedback.md`).
+Review sprint implementation for completeness, quality, security. Either approve (write "All good" + update sprint.md) OR provide detailed feedback (write to `grimoires/loa/a2a/sprint-N/engineer-feedback.md`).
 
 ## Context (L - Logical Structure)
-- **Input**: `loa-grimoire/a2a/sprint-N/reviewer.md` (engineer's report), implementation code, test files
-- **Reference docs**: `loa-grimoire/prd.md`, `loa-grimoire/sdd.md`, `loa-grimoire/sprint.md` (acceptance criteria)
-- **Previous feedback**: `loa-grimoire/a2a/sprint-N/engineer-feedback.md` (YOUR previous feedback—verify addressed)
-- **Integration context**: `loa-grimoire/a2a/integration-context.md` (if exists) for review context sources, documentation requirements
+- **Input**: `grimoires/loa/a2a/sprint-N/reviewer.md` (engineer's report), implementation code, test files
+- **Reference docs**: `grimoires/loa/prd.md`, `grimoires/loa/sdd.md`, `grimoires/loa/sprint.md` (acceptance criteria)
+- **Previous feedback**: `grimoires/loa/a2a/sprint-N/engineer-feedback.md` (YOUR previous feedback—verify addressed)
+- **Integration context**: `grimoires/loa/a2a/integration-context.md` (if exists) for review context sources, documentation requirements
 - **Current state**: Implementation awaiting quality gate approval
 - **Desired state**: Approved sprint OR specific feedback for engineer
 
@@ -158,12 +158,12 @@ Review sprint implementation for completeness, quality, security. Either approve
 
 <grounding_requirements>
 Before reviewing:
-1. Read `loa-grimoire/a2a/integration-context.md` (if exists) for org context
-2. Read `loa-grimoire/prd.md` for business requirements
-3. Read `loa-grimoire/sdd.md` for architecture expectations
-4. Read `loa-grimoire/sprint.md` for acceptance criteria
-5. Read `loa-grimoire/a2a/sprint-N/reviewer.md` for implementation report
-6. Read `loa-grimoire/a2a/sprint-N/engineer-feedback.md` (if exists) for previous feedback
+1. Read `grimoires/loa/a2a/integration-context.md` (if exists) for org context
+2. Read `grimoires/loa/prd.md` for business requirements
+3. Read `grimoires/loa/sdd.md` for architecture expectations
+4. Read `grimoires/loa/sprint.md` for acceptance criteria
+5. Read `grimoires/loa/a2a/sprint-N/reviewer.md` for implementation report
+6. Read `grimoires/loa/a2a/sprint-N/engineer-feedback.md` (if exists) for previous feedback
 7. Read actual implementation code—do not trust report alone
 </grounding_requirements>
 
@@ -181,7 +181,7 @@ Before reviewing:
 Assess context size to determine if parallel splitting is needed:
 
 ```bash
-wc -l loa-grimoire/prd.md loa-grimoire/sdd.md loa-grimoire/sprint.md loa-grimoire/a2a/sprint-N/reviewer.md 2>/dev/null
+wc -l grimoires/loa/prd.md grimoires/loa/sdd.md grimoires/loa/sprint.md grimoires/loa/a2a/sprint-N/reviewer.md 2>/dev/null
 ```
 
 **Thresholds:**
@@ -197,7 +197,7 @@ wc -l loa-grimoire/prd.md loa-grimoire/sdd.md loa-grimoire/sprint.md loa-grimoir
 
 ## Phase 0: Check Integration Context (FIRST)
 
-Check if `loa-grimoire/a2a/integration-context.md` exists:
+Check if `grimoires/loa/a2a/integration-context.md` exists:
 
 **If EXISTS**, read for:
 - Review context sources (where to find original requirements)
@@ -210,12 +210,12 @@ Check if `loa-grimoire/a2a/integration-context.md` exists:
 ## Phase 1: Context Gathering
 
 Read ALL context documents in order:
-1. `loa-grimoire/a2a/integration-context.md` (if exists)
-2. `loa-grimoire/prd.md` - Business goals and user needs
-3. `loa-grimoire/sdd.md` - Architecture and patterns
-4. `loa-grimoire/sprint.md` - Tasks and acceptance criteria
-5. `loa-grimoire/a2a/sprint-N/reviewer.md` - Engineer's report
-6. `loa-grimoire/a2a/sprint-N/engineer-feedback.md` (CRITICAL if exists) - Your previous feedback
+1. `grimoires/loa/a2a/integration-context.md` (if exists)
+2. `grimoires/loa/prd.md` - Business goals and user needs
+3. `grimoires/loa/sdd.md` - Architecture and patterns
+4. `grimoires/loa/sprint.md` - Tasks and acceptance criteria
+5. `grimoires/loa/a2a/sprint-N/reviewer.md` - Engineer's report
+6. `grimoires/loa/a2a/sprint-N/engineer-feedback.md` (CRITICAL if exists) - Your previous feedback
 
 ## Phase 2: Code Review
 
@@ -341,6 +341,124 @@ Use detailed feedback template with:
 - **Time-bound**: Review completes within session
 </success_criteria>
 
+<documentation_verification>
+## Documentation Verification (Required) (v0.19.0)
+
+**MANDATORY**: Before approving any sprint, verify documentation coherence.
+
+### Pre-Review Check
+
+1. Check for documentation-coherence report:
+   ```bash
+   ls grimoires/loa/a2a/subagent-reports/documentation-coherence-*.md 2>/dev/null
+   ```
+
+2. If report exists, verify status is not `ACTION_REQUIRED`
+
+3. If no report exists, run `/validate docs` or manually verify documentation
+
+### Documentation Checklist
+
+| Item | Blocking? | How to Check |
+|------|-----------|--------------|
+| CHANGELOG entry for each task | **YES** | Search CHANGELOG.md for task keywords |
+| CLAUDE.md for new commands/skills | **YES** | Grep CLAUDE.md for command name |
+| Security code has comments | **YES** | Review auth/validation code |
+| README for user-facing features | No | Check README mentions |
+| Code comments for complex logic | No | Review complex functions |
+| SDD for architecture changes | No | Compare with SDD structure |
+
+### Cannot Approve If
+
+- Documentation-coherence report shows `ACTION_REQUIRED` status
+- CHANGELOG entry missing for any task
+- New command added without CLAUDE.md entry
+- Security code missing explanatory comments
+- Major architecture change without SDD update
+
+### Approval Language
+
+**If documentation is complete:**
+```
+All good
+
+Documentation verification: PASS
+- CHANGELOG: All tasks documented
+- CLAUDE.md: [Updated/N/A]
+- Code comments: Adequate
+```
+
+**If documentation needs work:**
+```
+Changes required
+
+Documentation verification: FAIL
+- Missing CHANGELOG entry for Task X.Y
+- [specific file]: needs comment explaining [logic]
+```
+</documentation_verification>
+
+<subagent_report_check>
+## Subagent Report Check (v0.16.0)
+
+Before approving any sprint, check for validation reports in `grimoires/loa/a2a/subagent-reports/`:
+
+### Reports to Check
+
+| Report | Path Pattern | Blocking Verdicts |
+|--------|--------------|-------------------|
+| Architecture | `architecture-validation-*.md` | CRITICAL_VIOLATION |
+| Security | `security-scan-*.md` | CRITICAL, HIGH |
+| Test Adequacy | `test-adequacy-*.md` | INSUFFICIENT |
+
+### Workflow
+
+1. **List reports**: `ls grimoires/loa/a2a/subagent-reports/`
+2. **Read each report** from the current sprint date
+3. **Extract verdict** from the report header
+4. **Block if blocking verdict** exists
+
+### Blocking Behavior
+
+**DO NOT APPROVE** if any of these verdicts exist:
+
+| Subagent | Verdict | Action Required |
+|----------|---------|-----------------|
+| architecture-validator | CRITICAL_VIOLATION | Fix architecture issues first |
+| security-scanner | CRITICAL | Fix security vulnerability immediately |
+| security-scanner | HIGH | Fix security issue before merge |
+| test-adequacy-reviewer | INSUFFICIENT | Add missing tests |
+
+### Non-Blocking Verdicts
+
+These verdicts are informational—use reviewer discretion:
+
+| Subagent | Verdict | Recommendation |
+|----------|---------|----------------|
+| architecture-validator | DRIFT_DETECTED | Note in feedback, may proceed |
+| security-scanner | MEDIUM | Recommend fix, may proceed |
+| security-scanner | LOW | Optional fix |
+| test-adequacy-reviewer | WEAK | Note gaps, may proceed |
+
+### No Reports Found
+
+If no subagent reports exist:
+- `/validate` was not run (optional step)
+- Proceed with manual review
+- Consider recommending `/validate` in feedback
+
+### Example Check
+
+```bash
+# Check for blocking issues
+grep -l "Verdict.*CRITICAL" grimoires/loa/a2a/subagent-reports/*.md 2>/dev/null
+grep -l "Verdict.*HIGH" grimoires/loa/a2a/subagent-reports/*.md 2>/dev/null
+grep -l "Verdict.*INSUFFICIENT" grimoires/loa/a2a/subagent-reports/*.md 2>/dev/null
+```
+
+If any match found, **block approval** until issues are resolved.
+</subagent_report_check>
+
 <checklists>
 See `resources/REFERENCE.md` for complete checklists:
 - Versioning (SemVer Compliance) - 4 items
@@ -361,3 +479,121 @@ See `resources/REFERENCE.md` for complete checklists:
 - No tests for critical functionality
 - N+1 query problems
 </checklists>
+
+<complexity_review>
+## Complexity Review (Required) (v0.19.0)
+
+Check code for excessive complexity during every review. These are **blocking issues**.
+
+### Function Complexity
+
+| Check | Threshold | Finding |
+|-------|-----------|---------|
+| Function length | >50 lines | "Function too long: {file}:{line} ({X} lines). Split into smaller functions." |
+| Parameter count | >5 params | "Too many parameters: {func}() has {X} params. Use options object." |
+| Nesting depth | >3 levels | "Deep nesting: {file}:{line}. Refactor with early returns or extract." |
+| Cyclomatic complexity | >10 | "High complexity: {func}(). Simplify conditional logic." |
+
+### Code Duplication
+
+| Check | Threshold | Finding |
+|-------|-----------|---------|
+| Repeated patterns | >3 occurrences | "Duplicate code found in {file1}, {file2}, {file3}. Extract to shared function." |
+| Copy-paste code | >10 similar lines | "Near-duplicate blocks at {file}:{line1} and {file}:{line2}. DRY violation." |
+
+### Dependencies
+
+| Check | Issue | Finding |
+|-------|-------|---------|
+| Circular imports | Any | "Circular dependency: {A} → {B} → {A}. Restructure modules." |
+| Unnecessary deps | Unused | "Unused import: {file}:{line} imports {module} but never uses it." |
+| Heavy deps | For simple task | "Consider lighter alternative to {dep} for this use case." |
+
+### Naming Quality
+
+| Check | Issue | Finding |
+|-------|-------|---------|
+| Unclear names | Ambiguous | "Unclear name: {name} at {file}:{line}. Use descriptive name." |
+| Abbreviations | Non-standard | "Avoid abbreviation: '{abbr}' → '{full}' at {file}:{line}." |
+| Inconsistent | Style varies | "Inconsistent naming: {fileA} uses camelCase, {fileB} uses snake_case." |
+
+### Dead Code
+
+| Check | Issue | Finding |
+|-------|-------|---------|
+| Unused functions | Never called | "Dead code: {func}() at {file}:{line} is never called. Remove." |
+| Commented code | Large blocks | "Remove commented code at {file}:{lines}. Use version control." |
+| Unreachable code | After return | "Unreachable code after return at {file}:{line}." |
+
+### Review Integration
+
+During Phase 2 (Code Review), add complexity checks:
+
+```markdown
+## Complexity Analysis
+
+### Functions Reviewed
+- `{func1}()`: OK (25 lines, 3 params, nesting 2)
+- `{func2}()`: **ISSUE** (67 lines - too long)
+
+### Duplication Found
+- None detected / {description of duplicates}
+
+### Dependency Issues
+- None detected / {description of issues}
+
+### Naming Issues
+- None detected / {list of naming concerns}
+
+### Dead Code
+- None detected / {list of dead code}
+```
+
+### Complexity Verdict
+
+**BLOCK approval if:**
+- Any function >50 lines without justification
+- Nesting depth >3 without early returns
+- >3 duplicate code blocks
+- Circular dependencies
+
+**Note in feedback but allow:**
+- Functions 40-50 lines (borderline)
+- 2-3 duplicate patterns
+- Minor naming inconsistencies
+</complexity_review>
+
+<beads_workflow>
+## Beads Workflow (beads_rust)
+
+When beads_rust (`br`) is installed, use it to record review feedback:
+
+### Session Start
+```bash
+br sync --import-only  # Import latest state from JSONL
+```
+
+### Recording Review Feedback
+```bash
+# Add review comment to task
+br comments add <task-id> "REVIEW: [feedback summary]"
+
+# Mark task status based on review outcome
+br label add <task-id> review-approved     # If approved
+br label add <task-id> needs-revision       # If changes required
+```
+
+### Using Labels for Status
+| Label | Meaning | When to Apply |
+|-------|---------|---------------|
+| `needs-review` | Awaiting review | Before review |
+| `review-approved` | Passed review | After "All good" |
+| `needs-revision` | Changes requested | After feedback |
+
+### Session End
+```bash
+br sync --flush-only  # Export SQLite → JSONL before commit
+```
+
+**Protocol Reference**: See `.claude/protocols/beads-integration.md`
+</beads_workflow>

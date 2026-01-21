@@ -48,7 +48,7 @@ count2=$(echo "${results2}" | count_search_results)
 total_code_results=$((count1 + count2))
 
 # Count documentation mentions
-doc_mentions=$(grep -rl "OAuth2\|SSO\|single sign-on" loa-grimoire/{prd,sdd}.md README.md docs/ 2>/dev/null | wc -l)
+doc_mentions=$(grep -rl "OAuth2\|SSO\|single sign-on" grimoires/loa/{prd,sdd}.md README.md docs/ 2>/dev/null | wc -l)
 ```
 
 **Classification Matrix**:
@@ -78,8 +78,8 @@ This indicates either:
 
 ```bash
 # Track in Beads (if available)
-if command -v bd >/dev/null 2>&1; then
-    bd create "GHOST: OAuth2 SSO" \
+if command -v br >/dev/null 2>&1; then
+    br create "GHOST: OAuth2 SSO" \
         --type liability \
         --priority 2 \
         --metadata "query1=${query1},query2=${query2},doc_refs=${doc_mentions}"
@@ -87,7 +87,7 @@ fi
 
 # Log to trajectory
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-TRAJECTORY_DIR="${PROJECT_ROOT}/loa-grimoire/a2a/trajectory"
+TRAJECTORY_DIR="${PROJECT_ROOT}/grimoires/loa/a2a/trajectory"
 TRAJECTORY_FILE="${TRAJECTORY_DIR}/$(date +%Y-%m-%d).jsonl"
 mkdir -p "${TRAJECTORY_DIR}"
 
@@ -106,8 +106,8 @@ jq -n \
     >> "${TRAJECTORY_FILE}"
 
 # Write to drift report
-echo "| OAuth2 SSO | PRD §3.2 | Q1: 0, Q2: 0 | Low | bd-123 | Remove from docs |" \
-    >> loa-grimoire/drift-report.md
+echo "| OAuth2 SSO | PRD §3.2 | Q1: 0, Q2: 0 | Low | beads-123 | Remove from docs |" \
+    >> grimoires/loa/drift-report.md
 ```
 
 #### If HIGH AMBIGUITY:
@@ -121,7 +121,7 @@ echo "   - Action: Human audit required" >&2
 
 # Log to trajectory
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-TRAJECTORY_DIR="${PROJECT_ROOT}/loa-grimoire/a2a/trajectory"
+TRAJECTORY_DIR="${PROJECT_ROOT}/grimoires/loa/a2a/trajectory"
 TRAJECTORY_FILE="${TRAJECTORY_DIR}/$(date +%Y-%m-%d).jsonl"
 mkdir -p "${TRAJECTORY_DIR}"
 
@@ -137,7 +137,7 @@ jq -n \
 
 # Write to drift report with annotation
 echo "| OAuth2 SSO | PRD §3.2 | Q1: 0, Q2: 0 | **High (${doc_mentions} mentions)** | - | **Human audit required** |" \
-    >> loa-grimoire/drift-report.md
+    >> grimoires/loa/drift-report.md
 ```
 
 ## Query Design Guidelines
@@ -183,7 +183,7 @@ The `/ride` command Phase C (Ghost Features) should:
    - Execute negative grounding protocol
    - Classify result
    - Track ghosts or flag ambiguity
-3. Write all findings to `loa-grimoire/drift-report.md`
+3. Write all findings to `grimoires/loa/drift-report.md`
 
 ## Threshold Settings
 
@@ -257,8 +257,8 @@ fi
 
 | Feature | Doc Source | Search Evidence | Ambiguity | Beads ID | Action |
 |---------|-----------|-----------------|-----------|----------|--------|
-| OAuth2 SSO | PRD §3.2 | Q1: 0, Q2: 0 | Low | bd-123 | Remove from docs |
-| Email Notifications | PRD §5.1 | Q1: 0, Q2: 0 | Low | bd-124 | Implement or remove |
+| OAuth2 SSO | PRD §3.2 | Q1: 0, Q2: 0 | Low | beads-123 | Remove from docs |
+| Email Notifications | PRD §5.1 | Q1: 0, Q2: 0 | Low | beads-124 | Implement or remove |
 ```
 
 ### Drift Report Entry (High Ambiguity)

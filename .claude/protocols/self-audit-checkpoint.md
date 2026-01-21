@@ -26,7 +26,7 @@ BEFORE completing ANY task, execute this checklist:
 - [ ] **Zero unflagged [ASSUMPTION] claims**
 - [ ] **All citations have word-for-word quotes**
 - [ ] **All paths are absolute** (${PROJECT_ROOT}/...)
-- [ ] **Ghost Features tracked in Beads** (if bd installed)
+- [ ] **Ghost Features tracked in Beads** (if br installed)
 - [ ] **Shadow Systems documented in drift-report.md**
 - [ ] **Evidence chain complete for all major conclusions**
 
@@ -148,7 +148,7 @@ If self-audit FAILS:
 # Load agent's trajectory log
 AGENT="implementing-tasks"
 DATE=$(date +%Y-%m-%d)
-TRAJECTORY="loa-grimoire/a2a/trajectory/${AGENT}-${DATE}.jsonl"
+TRAJECTORY="grimoires/loa/a2a/trajectory/${AGENT}-${DATE}.jsonl"
 
 # Verify evidence chains
 grep '"phase":"intent"' "$TRAJECTORY" | wc -l  # Searches initiated

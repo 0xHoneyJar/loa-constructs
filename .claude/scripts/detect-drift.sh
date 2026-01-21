@@ -10,7 +10,7 @@
 #   --full     Full drift analysis (slower, more thorough)
 #
 # Output:
-#   Prints drift status and optionally updates loa-grimoire/drift-report.md
+#   Prints drift status and optionally updates grimoires/loa/drift-report.md
 #
 
 set -euo pipefail
@@ -18,6 +18,42 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LOA_CONFIG="${PROJECT_ROOT}/.loa.config.yaml"
+
+# =============================================================================
+# SECURITY: Path Validation (HIGH-001 fix)
+# =============================================================================
+# Validates paths to prevent directory traversal attacks.
+
+# Validate path is safe and within project root
+# Args:
+#   $1 - Path to validate (relative to project root)
+# Returns: 0 if safe, 1 if unsafe
+# Outputs: Validated absolute path on stdout
+validate_path_safe() {
+    local base_dir="$1"
+    local path="$2"
+    local resolved
+
+    # Reject obviously malicious patterns
+    if [[ "$path" == *".."* ]] || [[ "$path" == "/"* ]]; then
+        echo "ERROR: Path contains traversal sequence or is absolute: $path" >&2
+        return 1
+    fi
+
+    # Resolve path (don't follow symlinks with -m to avoid TOCTOU)
+    resolved=$(realpath -m "${base_dir}/${path}" 2>/dev/null) || {
+        echo "ERROR: Invalid path: $path" >&2
+        return 1
+    }
+
+    # Ensure within base directory
+    if [[ ! "$resolved" =~ ^"$base_dir" ]]; then
+        echo "ERROR: Path traversal detected: $path resolves to $resolved" >&2
+        return 1
+    fi
+
+    echo "$resolved"
+}
 
 # Colors
 RED='\033[0;31m'
@@ -35,14 +71,14 @@ echo "================================"
 echo ""
 
 # Check if grimoire exists
-if [[ ! -d "$PROJECT_ROOT/loa-grimoire" ]]; then
-  echo -e "${YELLOW}⚠️ No loa-grimoire found. Run /mount first.${NC}"
+if [[ ! -d "$PROJECT_ROOT/grimoires/loa" ]]; then
+  echo -e "${YELLOW}⚠️ No grimoires/loa found. Run /mount first.${NC}"
   exit 0
 fi
 
 # Sprint 4 Enhancement: Load configurable watch paths (FR-9.1, GitHub Issue #10)
 # Default watch paths if config not available
-DEFAULT_WATCH_PATHS=(".claude/" "loa-grimoire/")
+DEFAULT_WATCH_PATHS=(".claude/" "grimoires/loa/")
 WATCH_PATHS=()
 
 if command -v yq >/dev/null 2>&1 && [[ -f "${LOA_CONFIG}" ]]; then
@@ -70,14 +106,19 @@ check_watched_paths_drift() {
     local has_drift=false
 
     for watch_path in "${WATCH_PATHS[@]}"; do
-        local full_path="${PROJECT_ROOT}/${watch_path}"
+        # SECURITY: Validate path before use (HIGH-001 fix)
+        local full_path
+        full_path=$(validate_path_safe "${PROJECT_ROOT}" "${watch_path}") || {
+            echo -e "${RED}⚠️ Skipping invalid watch path: ${watch_path}${NC}"
+            continue
+        }
 
         if [[ ! -d "${full_path}" ]]; then
             # Directory doesn't exist, skip
             continue
         fi
 
-        # Check git status for this path
+        # Check git status for this path (use validated path)
         local changes=$(cd "${PROJECT_ROOT}" && git status --porcelain "${watch_path}" 2>/dev/null || echo "")
 
         if [[ -n "${changes}" ]]; then
@@ -110,8 +151,8 @@ count_code_routes() {
 
 # Function to count routes in docs
 count_doc_routes() {
-  if [[ -f "$PROJECT_ROOT/loa-grimoire/sdd.md" ]]; then
-    grep -c "| GET\|| POST\|| PUT\|| DELETE\|| PATCH" "$PROJECT_ROOT/loa-grimoire/sdd.md" 2>/dev/null || echo 0
+  if [[ -f "$PROJECT_ROOT/grimoires/loa/sdd.md" ]]; then
+    grep -c "| GET\|| POST\|| PUT\|| DELETE\|| PATCH" "$PROJECT_ROOT/grimoires/loa/sdd.md" 2>/dev/null || echo 0
   else
     echo 0
   fi
@@ -127,8 +168,8 @@ count_code_entities() {
 
 # Function to count entities in docs
 count_doc_entities() {
-  if [[ -f "$PROJECT_ROOT/loa-grimoire/sdd.md" ]]; then
-    grep -c "### Entity:\|### Model:\|## Data Model" "$PROJECT_ROOT/loa-grimoire/sdd.md" 2>/dev/null || echo 0
+  if [[ -f "$PROJECT_ROOT/grimoires/loa/sdd.md" ]]; then
+    grep -c "### Entity:\|### Model:\|## Data Model" "$PROJECT_ROOT/grimoires/loa/sdd.md" 2>/dev/null || echo 0
   else
     echo 0
   fi
@@ -173,14 +214,14 @@ if [[ "$MODE" == "--quick" || "$MODE" == "quick" ]]; then
   fi
 
   # Check if PRD/SDD exist
-  if [[ ! -f "$PROJECT_ROOT/loa-grimoire/prd.md" ]]; then
+  if [[ ! -f "$PROJECT_ROOT/grimoires/loa/prd.md" ]]; then
     echo -e "${RED}❌ PRD missing - run /ride to generate${NC}"
     DRIFT_COUNT=$((DRIFT_COUNT + 1))
   else
     echo -e "${GREEN}✓ PRD exists${NC}"
   fi
 
-  if [[ ! -f "$PROJECT_ROOT/loa-grimoire/sdd.md" ]]; then
+  if [[ ! -f "$PROJECT_ROOT/grimoires/loa/sdd.md" ]]; then
     echo -e "${RED}❌ SDD missing - run /ride to generate${NC}"
     DRIFT_COUNT=$((DRIFT_COUNT + 1))
   else
@@ -188,8 +229,8 @@ if [[ "$MODE" == "--quick" || "$MODE" == "quick" ]]; then
   fi
 
   # Check last ride date
-  if [[ -f "$PROJECT_ROOT/loa-grimoire/drift-report.md" ]]; then
-    LAST_RIDE=$(grep "Generated:" "$PROJECT_ROOT/loa-grimoire/drift-report.md" 2>/dev/null | head -1 | cut -d: -f2- | xargs)
+  if [[ -f "$PROJECT_ROOT/grimoires/loa/drift-report.md" ]]; then
+    LAST_RIDE=$(grep "Generated:" "$PROJECT_ROOT/grimoires/loa/drift-report.md" 2>/dev/null | head -1 | cut -d: -f2- | xargs)
     if [[ -n "$LAST_RIDE" ]]; then
       echo ""
       echo "📅 Last ride: $LAST_RIDE"
@@ -205,10 +246,11 @@ if [[ "$MODE" == "--full" || "$MODE" == "full" ]]; then
 
   # Create temporary file for results
   TEMP_FILE=$(mktemp)
+  trap "rm -f '$TEMP_FILE'" EXIT
 
   # Check for new files since last ride
-  if [[ -f "$PROJECT_ROOT/loa-grimoire/drift-report.md" ]]; then
-    LAST_RIDE_EPOCH=$(stat -c %Y "$PROJECT_ROOT/loa-grimoire/drift-report.md" 2>/dev/null || stat -f %m "$PROJECT_ROOT/loa-grimoire/drift-report.md" 2>/dev/null || echo 0)
+  if [[ -f "$PROJECT_ROOT/grimoires/loa/drift-report.md" ]]; then
+    LAST_RIDE_EPOCH=$(stat -c %Y "$PROJECT_ROOT/grimoires/loa/drift-report.md" 2>/dev/null || stat -f %m "$PROJECT_ROOT/grimoires/loa/drift-report.md" 2>/dev/null || echo 0)
 
     echo "Files modified since last ride:"
     find "$PROJECT_ROOT" \
@@ -216,7 +258,7 @@ if [[ "$MODE" == "--full" || "$MODE" == "full" ]]; then
       -not -path "*/node_modules/*" \
       -not -path "*/.git/*" \
       -not -path "*/dist/*" \
-      -newer "$PROJECT_ROOT/loa-grimoire/drift-report.md" 2>/dev/null | head -20 | while read f; do
+      -newer "$PROJECT_ROOT/grimoires/loa/drift-report.md" 2>/dev/null | head -20 | while read f; do
       echo "  📝 $f"
       DRIFT_COUNT=$((DRIFT_COUNT + 1))
     done
@@ -235,16 +277,14 @@ if [[ "$MODE" == "--full" || "$MODE" == "full" ]]; then
 
   # Check for orphaned documentation
   echo "Checking for ghost documentation..."
-  if [[ -f "$PROJECT_ROOT/loa-grimoire/legacy/doc-files.txt" ]]; then
+  if [[ -f "$PROJECT_ROOT/grimoires/loa/legacy/doc-files.txt" ]]; then
     while read doc; do
       if [[ ! -f "$PROJECT_ROOT/$doc" ]]; then
         echo -e "  ${RED}👻 Missing: $doc${NC}"
         GHOST_COUNT=$((GHOST_COUNT + 1))
       fi
-    done < "$PROJECT_ROOT/loa-grimoire/legacy/doc-files.txt"
+    done < "$PROJECT_ROOT/grimoires/loa/legacy/doc-files.txt"
   fi
-
-  rm -f "$TEMP_FILE"
 fi
 
 echo ""
