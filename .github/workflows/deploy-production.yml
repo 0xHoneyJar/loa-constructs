@@ -1,0 +1,157 @@
+# Deploy to Production
+# @see sdd.md §1.7 Deployment Architecture
+#
+# Triggers:
+#   - Release published (semver tags)
+#   - Manual workflow dispatch
+#
+# Requires:
+#   - All CI checks must pass
+#   - GitHub environment "production" approval (optional but recommended)
+
+name: Deploy Production
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      skip_ci:
+        description: 'Skip CI checks (emergency deploy)'
+        required: false
+        default: 'false'
+        type: boolean
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false  # Never cancel production deploys
+
+jobs:
+  # =============================================================================
+  # PRE-FLIGHT: Ensure CI passes before production deploy
+  # =============================================================================
+  ci-check:
+    name: Verify CI Status
+    runs-on: ubuntu-latest
+    if: github.event.inputs.skip_ci != 'true'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run TypeScript check
+        run: pnpm typecheck
+
+      - name: Run ESLint
+        run: pnpm lint
+
+      - name: Run tests
+        run: pnpm test:coverage
+
+      - name: Build all packages
+        run: pnpm build
+
+  # =============================================================================
+  # DEPLOY API: Production API to Fly.io
+  # =============================================================================
+  deploy-api:
+    name: Deploy API to Production
+    runs-on: ubuntu-latest
+    needs: [ci-check]
+    if: always() && (needs.ci-check.result == 'success' || github.event.inputs.skip_ci == 'true')
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Fly.io CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy API to Fly.io
+        run: flyctl deploy --config fly.toml --remote-only
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  # =============================================================================
+  # HEALTH CHECK: Verify production deployment
+  # =============================================================================
+  health-check:
+    name: Verify Production Deployment
+    runs-on: ubuntu-latest
+    needs: [deploy-api]
+
+    steps:
+      - name: Wait for deployment to propagate
+        run: sleep 30
+
+      - name: Check API health
+        run: |
+          echo "Checking production API health..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://loa-constructs-api.fly.dev/v1/health)
+          if [ "$response" != "200" ]; then
+            echo "❌ API health check failed with status: $response"
+            exit 1
+          fi
+          echo "✅ API health check passed"
+
+      - name: Verify build timestamp updated
+        run: |
+          echo "Verifying deployment timestamp..."
+          build_time=$(curl -s https://loa-constructs-api.fly.dev/v1/health | jq -r '.build')
+          echo "Build timestamp: $build_time"
+
+          # Check that build is recent (within last hour)
+          build_epoch=$(date -d "$build_time" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%S" "${build_time%%.*}" +%s 2>/dev/null)
+          now_epoch=$(date +%s)
+          age_hours=$(( (now_epoch - build_epoch) / 3600 ))
+
+          if [ "$age_hours" -gt 1 ]; then
+            echo "⚠️ Warning: Build appears to be $age_hours hours old"
+          else
+            echo "✅ Build timestamp is recent"
+          fi
+
+  # =============================================================================
+  # NOTIFY: Post-deployment notification (optional)
+  # =============================================================================
+  notify:
+    name: Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [deploy-api, health-check]
+    if: always()
+
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "## Production Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.deploy-api.result }}" == "success" ] && [ "${{ needs.health-check.result }}" == "success" ]; then
+            echo "✅ **Status**: Deployed successfully" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Status**: Deployment failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| API Deploy | ${{ needs.deploy-api.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Health Check | ${{ needs.health-check.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**API URL**: https://loa-constructs-api.fly.dev" >> $GITHUB_STEP_SUMMARY
+          echo "**Dashboard**: https://loa-constructs.vercel.app" >> $GITHUB_STEP_SUMMARY
