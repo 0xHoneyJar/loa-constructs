@@ -64,6 +64,7 @@ async function getUserById(userId: string): Promise<AuthUser | null> {
       email: users.email,
       name: users.name,
       emailVerified: users.emailVerified,
+      isAdmin: users.isAdmin,
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -82,6 +83,7 @@ async function getUserById(userId: string): Promise<AuthUser | null> {
     name: user.name,
     emailVerified: user.emailVerified ?? false,
     tier: effectiveTier.tier,
+    role: user.isAdmin ? 'admin' : 'user',
   };
 }
 
