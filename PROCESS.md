@@ -6,14 +6,14 @@ This document outlines the comprehensive agent-driven development workflow. Our 
 
 ## Managed Scaffolding Architecture
 
-Loa v0.9.0 uses **enterprise-grade managed scaffolding** inspired by AWS Projen, Copier, and Google's ADK:
+Loa v1.1.0 uses **enterprise-grade managed scaffolding** inspired by AWS Projen, Copier, and Google's ADK:
 
 ### Three-Zone Model
 
 | Zone | Path | Owner | Permission |
 |------|------|-------|------------|
 | **System** | `.claude/` | Framework | NEVER edit directly |
-| **State** | `loa-grimoire/`, `.beads/` | Project | Read/Write |
+| **State** | `grimoires/loa/`, `.beads/` | Project | Read/Write |
 | **App** | `src/`, `lib/`, `app/` | Developer | Read (write requires confirmation) |
 
 **Critical**: System Zone is synthesized. Never suggest edits to `.claude/` - direct users to `.claude/overrides/` or `.loa.config.yaml`.
@@ -60,6 +60,11 @@ Detailed specifications are maintained in separate protocol files (single source
 - **Attention Budget**: `.claude/protocols/attention-budget.md` - Token thresholds (Green/Yellow/Red)
 - **JIT Retrieval**: `.claude/protocols/jit-retrieval.md` - Lightweight identifiers (97% token reduction)
 
+### Sprint Ledger (v0.13.0)
+- **Ledger Location**: `grimoires/loa/ledger.json` - Global sprint numbering across development cycles
+- **Commands**: `/ledger` (view/manage), `/archive-cycle` (archive completed cycles)
+- **Documentation**: See CLAUDE.md "Sprint Ledger" section for full schema and workflow
+
 ## Table of Contents
 
 - [Managed Scaffolding Architecture](#managed-scaffolding-architecture)
@@ -78,9 +83,8 @@ Detailed specifications are maintained in separate protocol files (single source
 
 ## Overview
 
-Our development process follows a structured, eight-phase approach:
+Our development process follows a structured, seven-phase approach:
 
-0. **Phase 0: Setup** → Initial configuration and analytics initialization
 1. **Phase 1: Planning** → Product Requirements Document (PRD)
 2. **Phase 2: Architecture** → Software Design Document (SDD)
 3. **Phase 3: Sprint Planning** → Sprint Plan
@@ -88,11 +92,11 @@ Our development process follows a structured, eight-phase approach:
 5. **Phase 5: Review** → Quality Validation and Sprint Approval
 6. **Phase 5.5: Sprint Security Audit** → Security Review and Approval
 7. **Phase 6: Deployment** → Production Infrastructure and Handover
-8. **Post-Deployment: Feedback** → Developer experience survey
+8. **Post-Deployment: Feedback** → Developer experience survey (THJ members only)
 
 Each phase is handled by a specialized agent with deep domain expertise, ensuring thorough discovery, clear documentation, high-quality implementation, rigorous quality control, comprehensive security review, and enterprise-grade production deployment.
 
-> **For production deployment**, use the `/deploy-production` command which generates deployment documentation in `loa-grimoire/deployment/`.
+> **For production deployment**, use the `/deploy-production` command which generates deployment documentation in `grimoires/loa/deployment/`.
 
 ---
 
@@ -111,7 +115,7 @@ Each agent is implemented as a modular **skill** in `.claude/skills/{agent-name}
   - Guide structured discovery across 7 phases
   - Extract complete, unambiguous requirements
   - Create comprehensive Product Requirements Documents
-- **Output**: `loa-grimoire/prd.md`
+- **Output**: `grimoires/loa/prd.md`
 
 ### 2. **designing-architecture** (Software Architect)
 - **Role**: Senior Software Architect with deep technical expertise
@@ -122,7 +126,7 @@ Each agent is implemented as a modular **skill** in `.claude/skills/{agent-name}
   - Define component structure and technical stack
   - Clarify uncertainties with concrete proposals
   - Make informed architectural decisions
-- **Output**: `loa-grimoire/sdd.md`
+- **Output**: `grimoires/loa/sdd.md`
 
 ### 3. **planning-sprints** (Technical Product Manager)
 - **Role**: Technical PM with engineering and product expertise
@@ -133,7 +137,7 @@ Each agent is implemented as a modular **skill** in `.claude/skills/{agent-name}
   - Break down work into actionable sprint tasks
   - Define acceptance criteria and priorities
   - Sequence tasks based on dependencies
-- **Output**: `loa-grimoire/sprint.md`
+- **Output**: `grimoires/loa/sprint.md`
 
 ### 4. **implementing-tasks** (Senior Engineer)
 - **Role**: Elite Software Engineer with 15 years of experience
@@ -144,7 +148,7 @@ Each agent is implemented as a modular **skill** in `.claude/skills/{agent-name}
   - Address feedback from senior technical lead
   - Iterate until sprint is approved
   - Generate detailed implementation reports
-- **Output**: Production code + `loa-grimoire/a2a/reviewer.md`
+- **Output**: Production code + `grimoires/loa/a2a/reviewer.md`
 
 ### 5. **reviewing-code** (Senior Technical Lead)
 - **Role**: Senior Technical Lead with 15+ years of experience
@@ -157,7 +161,7 @@ Each agent is implemented as a modular **skill** in `.claude/skills/{agent-name}
   - Verify previous feedback was addressed
   - Provide detailed, actionable feedback to engineers
   - Update sprint progress and approve completed sprints
-- **Output**: `loa-grimoire/a2a/engineer-feedback.md`, updated `loa-grimoire/sprint.md`
+- **Output**: `grimoires/loa/a2a/engineer-feedback.md`, updated `grimoires/loa/sprint.md`
 
 ### 6. **deploying-infrastructure** (DevOps Architect)
 - **Role**: Battle-tested DevOps Architect with 15 years of crypto/blockchain infrastructure experience
@@ -170,7 +174,7 @@ Each agent is implemented as a modular **skill** in `.claude/skills/{agent-name}
   - Set up monitoring, alerting, and observability
   - Implement security hardening and secrets management
   - Generate handover documentation and runbooks
-- **Output**: `loa-grimoire/deployment/` with infrastructure code and operational docs
+- **Output**: `grimoires/loa/deployment/` with infrastructure code and operational docs
 
 ### 7. **auditing-security** (Security Auditor)
 - **Role**: Paranoid Cypherpunk Security Auditor with 30+ years of experience
@@ -183,7 +187,7 @@ Each agent is implemented as a modular **skill** in `.claude/skills/{agent-name}
   - Audit authentication, authorization, and access controls
   - Provide prioritized remediation guidance
 - **Output**:
-  - Sprint audit: `loa-grimoire/a2a/auditor-sprint-feedback.md` (per-sprint security review)
+  - Sprint audit: `grimoires/loa/a2a/auditor-sprint-feedback.md` (per-sprint security review)
   - Codebase audit: `SECURITY-AUDIT-REPORT.md` (comprehensive security audit)
 - **Usage**:
   - Sprint audit: After `/review-sprint` approval (Phase 5.5)
@@ -205,114 +209,16 @@ Each agent is implemented as a modular **skill** in `.claude/skills/{agent-name}
 
 ## Workflow
 
-### Phase 0: Setup (`/setup`)
-
-<!-- CANONICAL_LOCATION: protocols/analytics.md -->
-
-**Goal**: Configure Loa for first-time use with user-appropriate experience
-
-**User Type Detection**:
-The setup command asks "Are you a THJ team member?" to determine the appropriate pathway:
-
-#### **THJ Developers** (Internal Team)
-Full-featured experience with analytics and MCP integrations:
-
-1. **Welcome & Analytics Notice**:
-   - Displays Loa's purpose and workflow overview
-   - Explains what analytics are collected and where they're stored
-   - Confirms local-only storage with opt-in sharing via `/feedback`
-
-2. **MCP Server Configuration** (Multichoice):
-   - Offers selection of MCP servers: Linear, GitHub, Vercel, Discord, web3-stats, All, Skip
-   - For each selected MCP, provides:
-     - **Guided setup**: Step-by-step configuration instructions
-     - **Documentation link**: External setup guide
-
-3. **Project Initialization**:
-   - Extracts project name from `git remote get-url origin`
-   - Gets developer info from `git config user.name/email`
-   - Creates `loa-grimoire/analytics/usage.json` with initial data
-   - Creates `.loa-setup-complete` marker file with `user_type: "thj"`
-
-4. **Configuration Summary**:
-   - Lists all MCPs and their status
-   - Shows initialized analytics location
-   - Provides next steps (run `/plan-and-analyze`)
-
-#### **OSS Users** (Open Source Community)
-Streamlined experience without analytics:
-
-1. **Welcome**:
-   - Displays Loa's purpose and workflow overview
-   - Points to documentation and community resources
-
-2. **Marker File Creation**:
-   - Creates `.loa-setup-complete` with `user_type: "oss"`
-   - No analytics initialization
-   - No MCP configuration prompts
-
-3. **Next Steps**:
-   - Provides quick start guide
-   - Points to GitHub issues for support
-
-**Command**:
-```bash
-/setup
-```
-
-**Outputs**:
-- `.loa-setup-complete` marker file (includes `user_type` field)
-- `loa-grimoire/analytics/usage.json` (THJ only)
-- `loa-grimoire/analytics/summary.md` (THJ only)
-
-**Setup Enforcement**:
-- `/plan-and-analyze` checks for `.loa-setup-complete`
-- If missing, prompts user to run `/setup` first
-- Ensures consistent onboarding experience
-
----
-
-### Post-Setup: MCP Configuration (`/config`) - THJ Only
-
-**Goal**: Reconfigure MCP server integrations after initial setup
-
-**Availability**: THJ developers only (checks `user_type` in `.loa-setup-complete`)
-
-**Process**:
-1. **User Type Verification**:
-   - Reads `.loa-setup-complete` and checks `user_type`
-   - If OSS user: Displays error and stops
-
-2. **Current Configuration Display**:
-   - Shows currently configured MCP servers
-   - Indicates which servers are active
-
-3. **MCP Multichoice Selection**:
-   - Linear, GitHub, Vercel, Discord, web3-stats, All, Skip
-   - Provides guided setup or documentation for selected servers
-
-4. **Update Marker File**:
-   - Updates `.loa-setup-complete` with new MCP configuration
-
-**Command**:
-```bash
-/config
-```
-
-**Output**: Updated `.loa-setup-complete` with new MCP configuration
-
----
-
 ### Phase 1: Planning (`/plan-and-analyze`)
 
 **Agent**: `discovering-requirements`
 
 **Goal**: Define goals, requirements, scope, and create PRD
 
-**Context-First Discovery**: If `loa-grimoire/context/` contains documentation, the agent reads it first, presents understanding with citations, and only asks questions about gaps. More context = fewer questions.
+**Context-First Discovery**: If `grimoires/loa/context/` contains documentation, the agent reads it first, presents understanding with citations, and only asks questions about gaps. More context = fewer questions.
 
 **Process**:
-1. Agent scans `loa-grimoire/context/` for existing documentation
+1. Agent scans `grimoires/loa/context/` for existing documentation
 2. Synthesizes found content and presents understanding with citations
 3. Conducts targeted interviews for gaps across 7 phases:
    - Problem & Vision
@@ -324,14 +230,16 @@ Streamlined experience without analytics:
    - Risks & Dependencies
 4. Agent asks 2-3 questions at a time (never overwhelming)
 5. Only generates PRD when all phases have sufficient coverage
-6. Saves PRD with source tracing to `loa-grimoire/prd.md`
+6. Saves PRD with source tracing to `grimoires/loa/prd.md`
 
 **Command**:
 ```bash
 /plan-and-analyze
 ```
 
-**Output**: `loa-grimoire/prd.md`
+**Output**: `grimoires/loa/prd.md`
+
+**Sprint Ledger Integration**: Automatically initializes `grimoires/loa/ledger.json` and creates the first development cycle. Subsequent runs create new cycles if the previous cycle was archived.
 
 ---
 
@@ -342,7 +250,7 @@ Streamlined experience without analytics:
 **Goal**: Design system architecture and create SDD
 
 **Process**:
-1. Carefully reviews `loa-grimoire/prd.md` in its entirety
+1. Carefully reviews `grimoires/loa/prd.md` in its entirety
 2. Designs system architecture, components, data models, APIs
 3. For any uncertainties or ambiguous decisions:
    - Asks specific clarifying questions
@@ -351,14 +259,14 @@ Streamlined experience without analytics:
    - Waits for your decision
 4. Validates all assumptions
 5. Only generates SDD when completely confident (no doubts)
-6. Saves comprehensive SDD to `loa-grimoire/sdd.md`
+6. Saves comprehensive SDD to `grimoires/loa/sdd.md`
 
 **Command**:
 ```bash
 /architect
 ```
 
-**Output**: `loa-grimoire/sdd.md`
+**Output**: `grimoires/loa/sdd.md`
 
 **SDD Sections**:
 - Executive Summary
@@ -384,7 +292,7 @@ Streamlined experience without analytics:
 **Goal**: Break down work into actionable sprint tasks
 
 **Process**:
-1. Reviews both `loa-grimoire/prd.md` and `loa-grimoire/sdd.md` thoroughly
+1. Reviews both `grimoires/loa/prd.md` and `grimoires/loa/sdd.md` thoroughly
 2. Analyzes requirements and architecture
 3. Plans sprint breakdown and task sequencing
 4. For any uncertainties:
@@ -393,14 +301,16 @@ Streamlined experience without analytics:
    - Clarifies MVP scope and dependencies
    - Waits for your decisions
 5. Only generates sprint plan when confident
-6. Saves comprehensive sprint plan to `loa-grimoire/sprint.md`
+6. Saves comprehensive sprint plan to `grimoires/loa/sprint.md`
 
 **Command**:
 ```bash
 /sprint-plan
 ```
 
-**Output**: `loa-grimoire/sprint.md`
+**Output**: `grimoires/loa/sprint.md`
+
+**Sprint Ledger Integration**: Registers each sprint with a unique global ID in the ledger. Users refer to sprints by local labels (`sprint-1`), but the system tracks them with global IDs that persist across cycles.
 
 **Sprint Plan Includes**:
 - Sprint Overview (goals, duration, team structure)
@@ -427,20 +337,20 @@ Streamlined experience without analytics:
 **Process**:
 
 #### **Cycle 1: Initial Implementation**
-1. **Check for Feedback**: Looks for `loa-grimoire/a2a/engineer-feedback.md` (won't exist on first run)
-2. **Review Documentation**: Reads all `loa-grimoire/*` for context (PRD, SDD, sprint plan)
+1. **Check for Feedback**: Looks for `grimoires/loa/a2a/engineer-feedback.md` (won't exist on first run)
+2. **Review Documentation**: Reads all `grimoires/loa/*` for context (PRD, SDD, sprint plan)
 3. **Implement Tasks**:
    - Production-quality code
    - Comprehensive unit tests
    - Follow project conventions
    - Handle edge cases and errors
-4. **Generate Report**: Saves detailed report to `loa-grimoire/a2a/reviewer.md`
+4. **Generate Report**: Saves detailed report to `grimoires/loa/a2a/reviewer.md`
 
 #### **Cycle 2+: Feedback Iteration**
-1. **Read Feedback**: Senior technical lead creates `loa-grimoire/a2a/engineer-feedback.md`
+1. **Read Feedback**: Senior technical lead creates `grimoires/loa/a2a/engineer-feedback.md`
 2. **Clarify if Needed**: Agent asks questions if feedback is unclear
 3. **Fix Issues**: Address all feedback items systematically
-4. **Update Report**: Generate new report at `loa-grimoire/a2a/reviewer.md`
+4. **Update Report**: Generate new report at `grimoires/loa/a2a/reviewer.md`
 5. **Repeat**: Cycle continues until approved
 
 **Command**:
@@ -452,9 +362,11 @@ Streamlined experience without analytics:
 /implement sprint-1
 ```
 
+**Sprint Ledger Integration**: Resolves local sprint labels (`sprint-1`) to the correct global directory. In cycle 2, `sprint-1` might resolve to `a2a/sprint-4/` if the previous cycle had 3 sprints.
+
 **Outputs**:
 - Production code with tests
-- `loa-grimoire/a2a/reviewer.md` (implementation report)
+- `grimoires/loa/a2a/sprint-N/reviewer.md` (implementation report, where N is global ID)
 
 **Implementation Report Includes**:
 - Executive Summary
@@ -477,11 +389,11 @@ Streamlined experience without analytics:
 
 #### **Review Workflow**
 1. **Context Gathering**:
-   - Reads `loa-grimoire/prd.md` for product requirements
-   - Reads `loa-grimoire/sdd.md` for architecture and design
-   - Reads `loa-grimoire/sprint.md` for tasks and acceptance criteria
-   - Reads `loa-grimoire/a2a/reviewer.md` for engineer's implementation report
-   - Reads `loa-grimoire/a2a/engineer-feedback.md` for previous feedback (if exists)
+   - Reads `grimoires/loa/prd.md` for product requirements
+   - Reads `grimoires/loa/sdd.md` for architecture and design
+   - Reads `grimoires/loa/sprint.md` for tasks and acceptance criteria
+   - Reads `grimoires/loa/a2a/reviewer.md` for engineer's implementation report
+   - Reads `grimoires/loa/a2a/engineer-feedback.md` for previous feedback (if exists)
 
 2. **Code Review**:
    - Reads all modified files (actual code, not just report)
@@ -504,8 +416,8 @@ Streamlined experience without analytics:
    - All previous feedback addressed
 
    **Actions**:
-   - Writes "All good" to `loa-grimoire/a2a/engineer-feedback.md`
-   - Updates `loa-grimoire/sprint.md` with ✅ for completed tasks
+   - Writes "All good" to `grimoires/loa/a2a/engineer-feedback.md`
+   - Updates `grimoires/loa/sprint.md` with ✅ for completed tasks
    - Marks sprint as "COMPLETED"
    - Informs you to move to next sprint
 
@@ -514,19 +426,21 @@ Streamlined experience without analytics:
    - Previous feedback not addressed
 
    **Actions**:
-   - Writes detailed feedback to `loa-grimoire/a2a/engineer-feedback.md`
+   - Writes detailed feedback to `grimoires/loa/a2a/engineer-feedback.md`
    - Does NOT update sprint completion status
    - Provides specific, actionable feedback with file paths and line numbers
    - Informs you that changes are required
 
 **Command**:
 ```bash
-/review-sprint
+/review-sprint sprint-1
 ```
 
+**Sprint Ledger Integration**: Resolves local sprint label to global directory for review.
+
 **Outputs**:
-- `loa-grimoire/a2a/engineer-feedback.md` (approval or feedback)
-- Updated `loa-grimoire/sprint.md` (if approved)
+- `grimoires/loa/a2a/sprint-N/engineer-feedback.md` (approval or feedback, where N is global ID)
+- Updated `grimoires/loa/sprint.md` (if approved)
 
 **Feedback Structure** (when issues found):
 - Overall Assessment
@@ -557,16 +471,16 @@ Streamlined experience without analytics:
 **Goal**: Perform security review of sprint implementation after senior tech lead approval
 
 **Prerequisites**:
-- ✅ Sprint must be approved by senior tech lead ("All good" in `loa-grimoire/a2a/engineer-feedback.md`)
+- ✅ Sprint must be approved by senior tech lead ("All good" in `grimoires/loa/a2a/engineer-feedback.md`)
 
 **Process**:
 
 #### **Security Audit Workflow**
 1. **Context Gathering**:
-   - Reads `loa-grimoire/prd.md` for product requirements
-   - Reads `loa-grimoire/sdd.md` for architecture and security requirements
-   - Reads `loa-grimoire/sprint.md` for sprint tasks and scope
-   - Reads `loa-grimoire/a2a/reviewer.md` for implementation details
+   - Reads `grimoires/loa/prd.md` for product requirements
+   - Reads `grimoires/loa/sdd.md` for architecture and security requirements
+   - Reads `grimoires/loa/sprint.md` for sprint tasks and scope
+   - Reads `grimoires/loa/a2a/reviewer.md` for implementation details
 
 2. **Security Review**:
    - Reads all implemented code files (not just reports)
@@ -580,7 +494,7 @@ Streamlined experience without analytics:
    - Identifies security issues with severity ratings (CRITICAL/HIGH/MEDIUM/LOW)
 
 3. **Previous Feedback Verification** (if applicable):
-   - Checks if `loa-grimoire/a2a/auditor-sprint-feedback.md` exists from previous audit
+   - Checks if `grimoires/loa/a2a/auditor-sprint-feedback.md` exists from previous audit
    - Verifies ALL previous security issues were properly fixed
    - Confirms no regression of previously identified issues
 
@@ -594,7 +508,7 @@ Streamlined experience without analytics:
    - Input validation comprehensive
 
    **Actions**:
-   - Writes "APPROVED - LETS FUCKING GO" to `loa-grimoire/a2a/auditor-sprint-feedback.md`
+   - Writes "APPROVED - LETS FUCKING GO" to `grimoires/loa/a2a/auditor-sprint-feedback.md`
    - Confirms sprint is ready for next sprint or deployment
    - User can proceed to next sprint or Phase 6 (Deployment)
 
@@ -604,7 +518,7 @@ Streamlined experience without analytics:
    - Security best practices violated
 
    **Actions**:
-   - Writes "CHANGES_REQUIRED" with detailed security feedback to `loa-grimoire/a2a/auditor-sprint-feedback.md`
+   - Writes "CHANGES_REQUIRED" with detailed security feedback to `grimoires/loa/a2a/auditor-sprint-feedback.md`
    - Provides specific security issues with:
      - Severity level (CRITICAL/HIGH/MEDIUM/LOW)
      - Affected files and line numbers
@@ -615,11 +529,14 @@ Streamlined experience without analytics:
 
 **Command**:
 ```bash
-/audit-sprint
+/audit-sprint sprint-1
 ```
 
+**Sprint Ledger Integration**: Resolves local sprint label to global directory. Updates sprint status to "completed" in ledger upon approval. Creates `COMPLETED` marker in sprint directory.
+
 **Outputs**:
-- `loa-grimoire/a2a/auditor-sprint-feedback.md` (security approval or detailed feedback)
+- `grimoires/loa/a2a/sprint-N/auditor-sprint-feedback.md` (security approval or detailed feedback, where N is global ID)
+- `grimoires/loa/a2a/sprint-N/COMPLETED` marker (on approval)
 
 **Feedback Structure** (when security issues found):
 - Overall Security Assessment
@@ -648,7 +565,7 @@ After security audit, if changes required:
    ```bash
    /implement sprint-1
    ```
-   - Agent reads `loa-grimoire/a2a/auditor-sprint-feedback.md` FIRST (highest priority)
+   - Agent reads `grimoires/loa/a2a/auditor-sprint-feedback.md` FIRST (highest priority)
    - Clarifies any unclear security issues
    - Fixes ALL CRITICAL and HIGH security issues
    - Updates implementation report with "Security Audit Feedback Addressed" section
@@ -666,7 +583,7 @@ After security audit, if changes required:
    - OR proceed to Phase 6 (Deployment) if all sprints complete
 
 **Priority Integration**:
-- Sprint planner checks `loa-grimoire/a2a/auditor-sprint-feedback.md` FIRST
+- Sprint planner checks `grimoires/loa/a2a/auditor-sprint-feedback.md` FIRST
 - If "CHANGES_REQUIRED" exists, blocks new sprint planning
 - Sprint implementer addresses security feedback with HIGHEST priority
 - Security feedback takes precedence over code review feedback
@@ -723,7 +640,7 @@ After security audit, if changes required:
    - Testing and validation
 
 5. **Documentation and Handover**:
-   Creates comprehensive docs in `loa-grimoire/deployment/`:
+   Creates comprehensive docs in `grimoires/loa/deployment/`:
    - **infrastructure.md**: Architecture overview, resources, cost breakdown
    - **deployment-guide.md**: How to deploy, rollback, migrations
    - **runbooks/**: Operational procedures for common tasks
@@ -742,7 +659,7 @@ After security audit, if changes required:
 - IaC repository (Terraform/Pulumi configs)
 - CI/CD pipelines (GitHub Actions/GitLab CI)
 - Monitoring configuration (Prometheus, Grafana)
-- Comprehensive documentation (`loa-grimoire/deployment/`)
+- Comprehensive documentation (`grimoires/loa/deployment/`)
 
 ---
 
@@ -750,7 +667,7 @@ After security audit, if changes required:
 
 **Goal**: Collect developer experience feedback and submit to Linear
 
-**Availability**: THJ developers only (checks `user_type` in `.loa-setup-complete`)
+**Availability**: THJ developers only (detected via `LOA_CONSTRUCTS_API_KEY` environment variable)
 
 **When to Use**:
 - After completing a deployment
@@ -759,12 +676,12 @@ After security audit, if changes required:
 
 **Process**:
 
-1. **User Type Verification**:
-   - Reads `.loa-setup-complete` and checks `user_type`
-   - If OSS user: Displays error with GitHub issues link and stops
+1. **THJ Detection**:
+   - Checks for valid `LOA_CONSTRUCTS_API_KEY` environment variable
+   - If not set or invalid: Displays error with GitHub issues link and stops
 
 2. **Check for Pending Feedback**:
-   - Looks for `loa-grimoire/analytics/pending-feedback.json`
+   - Looks for `grimoires/loa/analytics/pending-feedback.json`
    - If found, offers to submit pending feedback first
 
 3. **Survey (4 Questions)**:
@@ -774,7 +691,7 @@ After security audit, if changes required:
    - **Q4** (4/4): "How comfortable are you with the agent-driven process?" (A-E choice)
 
 4. **Prepare Submission**:
-   - Loads analytics from `loa-grimoire/analytics/usage.json`
+   - Loads analytics from `grimoires/loa/analytics/usage.json`
    - Saves pending feedback locally (safety net before submission)
    - Formats feedback with analytics summary
 
@@ -804,7 +721,7 @@ After security audit, if changes required:
 
 ---
 
-### Maintenance: Framework Updates (`/update`)
+### Maintenance: Framework Updates (`/update-loa`)
 
 <!-- CANONICAL_LOCATION: protocols/git-safety.md -->
 
@@ -848,7 +765,7 @@ After security audit, if changes required:
 
 **Command**:
 ```bash
-/update
+/update-loa
 ```
 
 **Merge Strategy**:
@@ -857,8 +774,84 @@ After security audit, if changes required:
 | `.claude/skills/` | Updated to latest Loa versions |
 | `.claude/commands/` | Updated to latest Loa versions |
 | `app/` | Preserved (your code) |
-| `loa-grimoire/prd.md` | Preserved (your docs) |
-| `loa-grimoire/analytics/` | Preserved (your data) |
+| `grimoires/loa/prd.md` | Preserved (your docs) |
+| `grimoires/loa/analytics/` | Preserved (your data) |
+
+---
+
+### Maintenance: Cycle Management (`/ledger`, `/archive-cycle`)
+
+**Goal**: Manage development cycles and global sprint numbering
+
+**When to Use**:
+- `/ledger` - View current ledger status, sprint history
+- `/ledger init` - Initialize ledger for existing projects (usually automatic)
+- `/ledger history` - View all cycles and their sprints
+- `/archive-cycle "label"` - Archive completed cycle before starting new work
+
+**The Problem Sprint Ledger Solves**:
+
+When running `/plan-and-analyze` multiple times (e.g., after completing an MVP and starting new features), sprint directories would collide:
+
+```
+Cycle 1: a2a/sprint-1/, a2a/sprint-2/, a2a/sprint-3/
+Cycle 2: a2a/sprint-1/ ← COLLISION!
+```
+
+**The Solution**:
+
+Sprint Ledger maintains a global counter. Each sprint gets a unique global ID:
+
+```
+Cycle 1: sprint-1 → global 1, sprint-2 → global 2, sprint-3 → global 3
+Cycle 2: sprint-1 → global 4, sprint-2 → global 5, sprint-3 → global 6
+                    ↑ No collision! Directory is a2a/sprint-4/
+```
+
+**Archive Workflow**:
+
+After completing all sprints in a development cycle:
+
+```bash
+# 1. Archive the completed cycle
+/archive-cycle "MVP Complete"
+# → Creates grimoires/loa/archive/2026-01-17-mvp-complete/
+# → Copies prd.md, sdd.md, sprint.md, and all a2a/sprint-N/ directories
+# → Marks cycle as archived in ledger
+
+# 2. Start fresh with new requirements
+/plan-and-analyze
+# → Creates new cycle in ledger
+# → Sprint numbering continues from where it left off
+# → New sprint-1 becomes global sprint-4 (or whatever's next)
+```
+
+**Archive Structure**:
+
+```
+grimoires/loa/archive/2026-01-17-mvp-complete/
+├── prd.md              # Snapshot of Product Requirements
+├── sdd.md              # Snapshot of Software Design
+├── sprint.md           # Snapshot of Sprint Plan
+└── a2a/
+    ├── sprint-1/       # All sprint artifacts preserved
+    ├── sprint-2/
+    └── sprint-3/
+```
+
+**Backward Compatibility**:
+
+Projects without `ledger.json` work exactly as before (legacy mode). The ledger is opt-in and created automatically on first `/plan-and-analyze` run.
+
+**Commands**:
+```bash
+/ledger                    # Show current ledger status
+/ledger init               # Initialize ledger for existing project
+/ledger history            # Show all cycles and sprints
+/archive-cycle "label"     # Archive current cycle
+```
+
+**Output**: `grimoires/loa/ledger.json`, `grimoires/loa/archive/` (on archive)
 
 ---
 
@@ -879,16 +872,16 @@ For existing codebases that need Loa analysis without going through the full dis
 1. Verifies git repository and dependencies
 2. Configures upstream remote for updates
 3. Installs System Zone (`.claude/`)
-4. Initializes State Zone (`loa-grimoire/`)
+4. Initializes State Zone (`grimoires/loa/`)
 5. Generates checksums for integrity verification
 6. Creates user config if not present
-7. Optionally initializes Beads
+7. Optionally initializes beads_rust
 
 **Command**:
 ```bash
 /mount
 /mount --stealth          # Don't commit framework files
-/mount --skip-beads       # Skip Beads initialization
+/mount --skip-beads       # Skip beads_rust initialization
 ```
 
 **Output**: Framework installed with zone structure ready
@@ -932,13 +925,13 @@ See `.claude/commands/mount.md` for full details.
 ```
 
 **Outputs**:
-- `loa-grimoire/reality/` - Code extraction results
-- `loa-grimoire/legacy/` - Legacy doc inventory
-- `loa-grimoire/drift-report.md` - Three-way drift analysis
-- `loa-grimoire/prd.md` - Evidence-grounded PRD
-- `loa-grimoire/sdd.md` - Evidence-grounded SDD
-- `loa-grimoire/governance-report.md` - Governance artifacts audit
-- `loa-grimoire/trajectory-audit.md` - Self-audit of reasoning
+- `grimoires/loa/reality/` - Code extraction results
+- `grimoires/loa/legacy/` - Legacy doc inventory
+- `grimoires/loa/drift-report.md` - Three-way drift analysis
+- `grimoires/loa/prd.md` - Evidence-grounded PRD
+- `grimoires/loa/sdd.md` - Evidence-grounded SDD
+- `grimoires/loa/governance-report.md` - Governance artifacts audit
+- `grimoires/loa/trajectory-audit.md` - Self-audit of reasoning
 
 See `.claude/commands/ride.md` for full details.
 
@@ -996,8 +989,8 @@ See `.claude/commands/ride.md` for full details.
 **Command**:
 ```bash
 /translate @SECURITY-AUDIT-REPORT.md for board of directors
-/translate @loa-grimoire/sdd.md for executives
-/translate @loa-grimoire/sprint.md for marketing team
+/translate @grimoires/loa/sdd.md for executives
+/translate @grimoires/loa/sprint.md for marketing team
 ```
 
 **Output**: Executive summaries, stakeholder briefings (1-3 pages tailored by audience)
@@ -1033,30 +1026,30 @@ command_type: "wizard"  # or "survey", "git"
 
 | Command | Purpose | Agent/Type | Output | Availability |
 |---------|---------|------------|--------|--------------|
-| `/setup` | First-time configuration | wizard | `.loa-setup-complete`, analytics | All users |
-| `/config` | Reconfigure MCP servers | wizard | Updated `.loa-setup-complete` | THJ only |
 | `/mount` | Install Loa onto existing repo | wizard | Zone structure + checksums | All users |
-| `/ride` | Analyze codebase, generate docs | `riding-codebase` | `loa-grimoire/` artifacts | All users |
-| `/plan-and-analyze` | Define requirements and create PRD | `discovering-requirements` | `loa-grimoire/prd.md` | All users |
-| `/architect` | Design system architecture | `designing-architecture` | `loa-grimoire/sdd.md` | All users |
-| `/sprint-plan` | Plan implementation sprints | `planning-sprints` | `loa-grimoire/sprint.md` | All users |
-| `/implement {sprint}` | Implement sprint tasks | `implementing-tasks` | Code + `loa-grimoire/a2a/reviewer.md` | All users |
-| `/review-sprint {sprint}` | Review and approve/reject implementation | `reviewing-code` | `loa-grimoire/a2a/engineer-feedback.md` | All users |
-| `/audit-sprint {sprint}` | Security audit of sprint implementation | `auditing-security` | `loa-grimoire/a2a/auditor-sprint-feedback.md` | All users |
-| `/deploy-production` | Deploy to production | `deploying-infrastructure` | `loa-grimoire/deployment/` | All users |
+| `/ride` | Analyze codebase, generate docs | `riding-codebase` | `grimoires/loa/` artifacts | All users |
+| `/plan-and-analyze` | Define requirements and create PRD | `discovering-requirements` | `grimoires/loa/prd.md` | All users |
+| `/architect` | Design system architecture | `designing-architecture` | `grimoires/loa/sdd.md` | All users |
+| `/sprint-plan` | Plan implementation sprints | `planning-sprints` | `grimoires/loa/sprint.md` | All users |
+| `/implement {sprint}` | Implement sprint tasks | `implementing-tasks` | Code + `grimoires/loa/a2a/reviewer.md` | All users |
+| `/review-sprint {sprint}` | Review and approve/reject implementation | `reviewing-code` | `grimoires/loa/a2a/engineer-feedback.md` | All users |
+| `/audit-sprint {sprint}` | Security audit of sprint implementation | `auditing-security` | `grimoires/loa/a2a/auditor-sprint-feedback.md` | All users |
+| `/deploy-production` | Deploy to production | `deploying-infrastructure` | `grimoires/loa/deployment/` | All users |
 | `/feedback` | Submit developer experience feedback | survey | Linear issue in "Loa Feedback" | THJ only |
-| `/update` | Pull framework updates from upstream | git | Merged updates | All users |
+| `/update-loa` | Pull framework updates from upstream | git | Merged updates | All users |
 | `/contribute` | Create OSS contribution PR | git | GitHub PR | All users |
 | `/audit` | Security audit (ad-hoc) | `auditing-security` | `SECURITY-AUDIT-REPORT.md` | All users |
-| `/audit-deployment` | Deployment infrastructure audit (ad-hoc) | `auditing-security` | `loa-grimoire/a2a/deployment-feedback.md` | All users |
+| `/audit-deployment` | Deployment infrastructure audit (ad-hoc) | `auditing-security` | `grimoires/loa/a2a/deployment-feedback.md` | All users |
 | `/translate @doc for [audience]` | Executive translation (ad-hoc) | `translating-for-executives` | Executive summaries | All users |
+| `/ledger` | View/manage sprint ledger | wizard | Ledger status | All users |
+| `/archive-cycle "label"` | Archive current development cycle | wizard | Archived cycle in `grimoires/loa/archive/` | All users |
 
 **User Type Notes**:
-- **THJ only**: Commands restricted to THJ team members (requires `user_type: "thj"` in `.loa-setup-complete`)
+- **THJ only**: Commands restricted to THJ team members (detected via `LOA_CONSTRUCTS_API_KEY` environment variable)
 - **All users**: Available to both THJ developers and OSS users
 - Analytics updates in phase commands are automatically skipped for OSS users
 
-> **For deployment procedures**, use `/deploy-production` which generates comprehensive runbooks in `loa-grimoire/deployment/runbooks/`.
+> **For deployment procedures**, use `/deploy-production` which generates comprehensive runbooks in `grimoires/loa/deployment/runbooks/`.
 
 ---
 
@@ -1066,29 +1059,29 @@ command_type: "wizard"  # or "survey", "git"
 
 | Document | Path | Created By | Purpose |
 |----------|------|------------|---------|
-| **PRD** | `loa-grimoire/prd.md` | `discovering-requirements` | Product requirements and business context |
-| **SDD** | `loa-grimoire/sdd.md` | `designing-architecture` | System design and technical architecture |
-| **Sprint Plan** | `loa-grimoire/sprint.md` | `planning-sprints` | Sprint tasks with acceptance criteria |
+| **PRD** | `grimoires/loa/prd.md` | `discovering-requirements` | Product requirements and business context |
+| **SDD** | `grimoires/loa/sdd.md` | `designing-architecture` | System design and technical architecture |
+| **Sprint Plan** | `grimoires/loa/sprint.md` | `planning-sprints` | Sprint tasks with acceptance criteria |
 | **Security Audit** | `SECURITY-AUDIT-REPORT.md` | `auditing-security` | Security vulnerabilities and remediation |
 
 ### Agent-to-Agent (A2A) Communication
 
 | Document | Path | Created By | Purpose |
 |----------|------|------------|---------|
-| **Implementation Report** | `loa-grimoire/a2a/reviewer.md` | `implementing-tasks` | Report for senior lead review |
-| **Code Review Feedback** | `loa-grimoire/a2a/engineer-feedback.md` | `reviewing-code` | Code review feedback for engineer |
-| **Security Audit Feedback** | `loa-grimoire/a2a/auditor-sprint-feedback.md` | `auditing-security` | Security feedback for engineer |
+| **Implementation Report** | `grimoires/loa/a2a/reviewer.md` | `implementing-tasks` | Report for senior lead review |
+| **Code Review Feedback** | `grimoires/loa/a2a/engineer-feedback.md` | `reviewing-code` | Code review feedback for engineer |
+| **Security Audit Feedback** | `grimoires/loa/a2a/auditor-sprint-feedback.md` | `auditing-security` | Security feedback for engineer |
 
 ### Deployment Documentation
 
 | Document | Path | Created By | Purpose |
 |----------|------|------------|---------|
-| **Infrastructure Overview** | `loa-grimoire/deployment/infrastructure.md` | `deploying-infrastructure` | Architecture, resources, costs |
-| **Deployment Guide** | `loa-grimoire/deployment/deployment-guide.md` | `deploying-infrastructure` | Deploy, rollback, migrations |
-| **Monitoring Guide** | `loa-grimoire/deployment/monitoring.md` | `deploying-infrastructure` | Dashboards, metrics, alerts |
-| **Security Guide** | `loa-grimoire/deployment/security.md` | `deploying-infrastructure` | Access, secrets, compliance |
-| **Disaster Recovery** | `loa-grimoire/deployment/disaster-recovery.md` | `deploying-infrastructure` | Backup, restore, failover |
-| **Runbooks** | `loa-grimoire/deployment/runbooks/*.md` | `deploying-infrastructure` | Operational procedures |
+| **Infrastructure Overview** | `grimoires/loa/deployment/infrastructure.md` | `deploying-infrastructure` | Architecture, resources, costs |
+| **Deployment Guide** | `grimoires/loa/deployment/deployment-guide.md` | `deploying-infrastructure` | Deploy, rollback, migrations |
+| **Monitoring Guide** | `grimoires/loa/deployment/monitoring.md` | `deploying-infrastructure` | Dashboards, metrics, alerts |
+| **Security Guide** | `grimoires/loa/deployment/security.md` | `deploying-infrastructure` | Access, secrets, compliance |
+| **Disaster Recovery** | `grimoires/loa/deployment/disaster-recovery.md` | `deploying-infrastructure` | Backup, restore, failover |
+| **Runbooks** | `grimoires/loa/deployment/runbooks/*.md` | `deploying-infrastructure` | Operational procedures |
 
 ---
 
@@ -1100,7 +1093,7 @@ The framework uses three feedback loops for quality assurance:
 
 ### 1. Implementation Feedback Loop (Phases 4-5)
 
-#### **Engineer → Senior Lead** (`loa-grimoire/a2a/reviewer.md`)
+#### **Engineer → Senior Lead** (`grimoires/loa/a2a/reviewer.md`)
 
 The engineer generates a comprehensive report after implementation:
 - What was accomplished
@@ -1110,7 +1103,7 @@ The engineer generates a comprehensive report after implementation:
 - Verification steps
 - Feedback addressed (if revision)
 
-#### **Senior Lead → Engineer** (`loa-grimoire/a2a/engineer-feedback.md`)
+#### **Senior Lead → Engineer** (`grimoires/loa/a2a/engineer-feedback.md`)
 
 The senior technical lead reviews and provides feedback:
 - Issues found
@@ -1123,14 +1116,14 @@ The engineer reads this file on the next `/implement {sprint}` invocation, clari
 
 ### 2. Sprint Security Feedback Loop (Phase 5.5)
 
-#### **Engineer → Security Auditor** (`loa-grimoire/a2a/reviewer.md` + implemented code)
+#### **Engineer → Security Auditor** (`grimoires/loa/a2a/reviewer.md` + implemented code)
 
 After senior lead approval, the security auditor reviews:
 - Implementation report context
 - Actual code files (security-focused review)
 - Security requirements from PRD/SDD
 
-#### **Security Auditor → Engineer** (`loa-grimoire/a2a/auditor-sprint-feedback.md`)
+#### **Security Auditor → Engineer** (`grimoires/loa/a2a/auditor-sprint-feedback.md`)
 
 The security auditor provides security-focused feedback:
 - Security vulnerabilities (CRITICAL/HIGH/MEDIUM/LOW)
@@ -1145,7 +1138,7 @@ The engineer reads this file with HIGHEST PRIORITY on the next `/implement {spri
 
 ## Structured Agentic Memory
 
-Agents maintain persistent working memory in `loa-grimoire/NOTES.md`:
+Agents maintain persistent working memory in `grimoires/loa/NOTES.md`:
 
 ### Memory Structure
 
@@ -1180,7 +1173,7 @@ See `.claude/protocols/structured-memory.md` for detailed protocol.
 
 ## Trajectory Evaluation (ADK-Level)
 
-Agents log reasoning to `loa-grimoire/a2a/trajectory/{agent}-{date}.jsonl`:
+Agents log reasoning to `grimoires/loa/a2a/trajectory/{agent}-{date}.jsonl`:
 
 ### Log Format
 
@@ -1229,45 +1222,177 @@ See `.claude/protocols/trajectory-evaluation.md` for detailed protocol.
 - Monitor before deploying—can't fix what you can't see
 - Document runbooks and incident response procedures
 
+### Context Hygiene (v0.19.0)
+
+Efficient context loading prevents token waste and maintains focus:
+
+#### Loading Priority
+
+| Priority | File/Type | When to Load | How |
+|----------|-----------|--------------|-----|
+| 1 | NOTES.md | Always at session start | Full read |
+| 2 | Current sprint files | When implementing/reviewing | Full read |
+| 3 | PRD/SDD | When needing requirements/architecture | Targeted search |
+| 4 | Source code | When implementing specific feature | JIT retrieval |
+| 5 | Test files | When writing/reviewing tests | JIT retrieval |
+
+#### What to Grep vs What to Skim
+
+**Use Grep For:**
+- Finding specific function/class definitions
+- Locating error messages or constants
+- Finding all usages of a symbol
+- Checking for patterns across files
+
+**Use Skim (Read) For:**
+- Understanding file structure and flow
+- Reviewing code architecture
+- Getting context around a function
+- Initial codebase orientation
+
+#### When to Request File Tree
+
+**Do Request Tree:**
+- First time exploring a directory
+- When looking for test file locations
+- When understanding module organization
+- Before major refactoring
+
+**Don't Request Tree:**
+- When you already know the file path
+- For small directories you've seen before
+- When a single grep would suffice
+
+#### Context Budget Awareness
+
+Monitor context usage to maintain efficiency:
+
+| Zone | Status | Action |
+|------|--------|--------|
+| Green (<5000 tokens active) | Healthy | Continue normally |
+| Yellow (5000-10000 tokens) | Warning | Consider summarizing, clear tool results |
+| Red (>10000 tokens) | Critical | Run checkpoint, archive to NOTES.md |
+
+#### Tool Result Clearing
+
+After heavy operations (large grep, API calls, file reads):
+
+1. **Extract**: Pull key information into structured notes
+2. **Summarize**: Replace raw output with one-line summary
+3. **Clear**: Let raw data decay from active context
+
+Example:
+```
+# Before: 500 tokens of grep output
+# After: 30 tokens
+"Found 47 AuthService refs across 12 files. Key locations: src/auth/service.ts:45, src/api/routes.ts:123"
+```
+
+### Long-Running Task Guidance (v0.19.0)
+
+For tasks that span multiple sessions or involve many files:
+
+#### Session Handoff Protocol
+
+Before ending a session with incomplete work:
+
+1. **Update NOTES.md**:
+   - Current Focus section with exact state
+   - List of completed vs remaining items
+   - Any blockers or decisions needed
+
+2. **Create Checkpoint**:
+   ```markdown
+   ## Session Continuity
+
+   ### Last Working State
+   - Task: Implementing auth middleware
+   - Progress: 3/5 subtasks complete
+   - Current file: src/auth/middleware.ts:67
+   - Next action: Add rate limiting logic
+
+   ### Blocked By
+   - [ ] Need decision on rate limit values
+
+   ### Files Modified This Session
+   - src/auth/middleware.ts (new)
+   - src/auth/index.ts (updated exports)
+   - tests/auth/middleware.test.ts (partial)
+   ```
+
+3. **Commit Partial Work**:
+   - Commit with `WIP:` prefix
+   - Or stash with descriptive message
+
+#### Multi-File Refactoring
+
+When touching many files:
+
+1. **Plan First**: List all files that will change
+2. **Group Changes**: Batch related changes together
+3. **Test Incrementally**: Run tests after each batch
+4. **Track Progress**: Check off files in NOTES.md
+
+Example tracking:
+```markdown
+## Refactor: AuthService → AuthModule
+
+- [x] src/auth/service.ts → src/auth/module/index.ts
+- [x] src/auth/types.ts → src/auth/module/types.ts
+- [ ] src/api/routes.ts (update imports)
+- [ ] src/middleware/auth.ts (update imports)
+- [ ] tests/auth/*.test.ts (update imports)
+```
+
+#### Avoiding Context Exhaustion
+
+For tasks >2 hours estimated:
+
+1. **Break into subtasks** with clear boundaries
+2. **Complete subtask fully** before starting next
+3. **Run tests after each subtask** (verification loop)
+4. **Update NOTES.md after each subtask**
+5. **Consider parallel agents** for independent subtasks
+
+#### Recovery After Interruption
+
+When resuming interrupted work:
+
+1. Read NOTES.md Session Continuity section
+2. Check git status for uncommitted changes
+3. Run `br ready` if using beads_rust
+4. Verify last test run status
+5. Resume from documented checkpoint
+
 ---
 
 ## Example Workflow
 
 ```bash
-# 0. First-time setup (once per project)
-/setup
-# → Asks if you're a THJ team member
-# → THJ: Configure MCP servers, initialize analytics
-# → OSS: Quick welcome, documentation pointers
-# → Creates .loa-setup-complete marker with user_type
-
-# 0.5. Reconfigure MCP servers (THJ only, optional)
-/config
-# → Shows current MCP configuration
-# → Offers multichoice selection for new MCPs
-
-# 1. Define product requirements
+# 1. Define product requirements (no setup required!)
 /plan-and-analyze
 # → Answer discovery questions
-# → Review loa-grimoire/prd.md
+# → Review grimoires/loa/prd.md
+# → Creates ledger.json with first cycle (Sprint Ledger)
 
 # 2. Design architecture
 /architect
 # → Answer technical questions
-# → Review loa-grimoire/sdd.md
+# → Review grimoires/loa/sdd.md
 
 # 3. Plan sprints
 /sprint-plan
 # → Clarify capacity and priorities
-# → Review loa-grimoire/sprint.md
+# → Review grimoires/loa/sprint.md
+# → Registers sprints in ledger with global IDs
 
 # 4. Implement Sprint 1
 /implement sprint-1
 # → Agent implements tasks
-# → Review loa-grimoire/a2a/reviewer.md
+# → Review grimoires/loa/a2a/sprint-1/reviewer.md
 
 # 5. Review Sprint 1
-/review-sprint
+/review-sprint sprint-1
 # → Either approves or requests changes
 
 # 6. Address code review feedback (if needed)
@@ -1276,7 +1401,7 @@ See `.claude/protocols/trajectory-evaluation.md` for detailed protocol.
 # → Re-review until "All good"
 
 # 7. Security audit Sprint 1 (after approval)
-/audit-sprint
+/audit-sprint sprint-1
 # → Either "APPROVED - LETS FUCKING GO" or "CHANGES_REQUIRED"
 
 # 8. Address security feedback (if needed)
@@ -1302,9 +1427,25 @@ See `.claude/protocols/trajectory-evaluation.md` for detailed protocol.
 # → OSS users: Open GitHub issue instead
 
 # 13. Get framework updates (periodically)
-/update
+/update-loa
 # → Pull latest Loa improvements
 # → Review CHANGELOG.md for new features
+
+# ─────────────────────────────────────────────────────────
+# STARTING A NEW DEVELOPMENT CYCLE (after MVP complete)
+# ─────────────────────────────────────────────────────────
+
+# 14. Archive completed cycle
+/archive-cycle "MVP Complete"
+# → Creates snapshot in grimoires/loa/archive/
+# → Preserves all sprint artifacts
+# → Clears active cycle in ledger
+
+# 15. Start fresh with new requirements
+/plan-and-analyze
+# → Creates new cycle in ledger
+# → Sprint numbering continues (sprint-1 → global sprint-4, etc.)
+# → Repeat workflow from step 2...
 ```
 
 ---

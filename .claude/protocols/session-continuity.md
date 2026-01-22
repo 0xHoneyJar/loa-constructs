@@ -1,11 +1,57 @@
 # Session Continuity Protocol
 
-> **Version**: 1.0 (v0.9.0 Lossless Ledger Protocol)
+> **Version**: 1.1 (v0.11.0 Claude Platform Integration)
 > **Paradigm**: Clear, Don't Compact
 
 ## Purpose
 
-Ensure zero information loss across context wipes (`/clear`) and session boundaries. The context window is treated as a **disposable workspace**; State Zone artifacts are the **lossless ledgers**.
+Ensure zero information loss across context wipes (`/clear`), compaction events, and session boundaries. The context window is treated as a **disposable workspace**; State Zone artifacts are the **lossless ledgers**.
+
+## Context Compaction Integration (v0.11.0)
+
+As of v0.11.0, this protocol integrates with Claude Code's client-side compaction feature.
+
+### Compaction vs /clear
+
+| Action | Trigger | Checkpoint | Recovery |
+|--------|---------|------------|----------|
+| `/compact` | User/Auto | Simplified (3-step) | Automatic (preserved content) |
+| `/clear` | User | Full (7-step) | Tiered (Level 1/2/3) |
+
+### Using context-manager.sh
+
+```bash
+# Check context status
+.claude/scripts/context-manager.sh status
+
+# Run pre-compaction check
+.claude/scripts/context-manager.sh compact --dry-run
+
+# Run simplified checkpoint before compaction
+.claude/scripts/context-manager.sh checkpoint
+
+# Recover after compaction (if needed)
+.claude/scripts/context-manager.sh recover 1  # Level 1
+.claude/scripts/context-manager.sh recover 2  # Level 2
+.claude/scripts/context-manager.sh recover 3  # Level 3
+```
+
+### Compaction Preservation
+
+Content that survives compaction (configured in `.loa.config.yaml`):
+
+| Item | Status | Rationale |
+|------|--------|-----------|
+| NOTES.md Session Continuity | PRESERVED | Recovery anchor |
+| NOTES.md Decision Log | PRESERVED | Audit trail |
+| Trajectory entries | PRESERVED | External files |
+| Active bead references | PRESERVED | Task continuity |
+| Tool results | COMPACTED | Summarized |
+| Thinking blocks | COMPACTED | Logged to trajectory |
+
+See: `.claude/protocols/context-compaction.md` for full compaction protocol.
+
+---
 
 ## Truth Hierarchy
 
@@ -38,8 +84,8 @@ If context window state conflicts with ledger state:
 ```
 SESSION RECOVERY SEQUENCE:
 
-1. bd ready                          # Identify available tasks
-2. bd show <active_id>               # Load task context (decisions[], handoffs[])
+1. br ready                          # Identify available tasks
+2. br show <active_id>               # Load task context (decisions[], handoffs[])
 3. Tiered Ledger Recovery            # Load NOTES.md (Level 1 default)
 4. Verify lightweight identifiers    # Don't load content yet
 5. Resume from "Reasoning State"     # Continue where left off
@@ -56,19 +102,19 @@ SESSION RECOVERY SEQUENCE:
 **Level 1 Recovery** (default):
 ```bash
 # Load only Session Continuity section (~100 tokens)
-head -50 "${PROJECT_ROOT}/loa-grimoire/NOTES.md" | grep -A 20 "## Session Continuity"
+head -50 "${PROJECT_ROOT}/grimoires/loa/NOTES.md" | grep -A 20 "## Session Continuity"
 ```
 
 **Level 2 Recovery** (on-demand):
 ```bash
 # Semantic search for specific context
-ck --hybrid "authentication decision" "${PROJECT_ROOT}/loa-grimoire/" --top-k 3 --jsonl
+ck --hybrid "authentication decision" "${PROJECT_ROOT}/grimoires/loa/" --top-k 3 --jsonl
 ```
 
 **Level 3 Recovery** (explicit):
 ```bash
 # Full read for architectural review
-cat "${PROJECT_ROOT}/loa-grimoire/NOTES.md"
+cat "${PROJECT_ROOT}/grimoires/loa/NOTES.md"
 ```
 
 ### Phase 2: During Session
@@ -134,7 +180,7 @@ The Session Continuity section in NOTES.md is the primary recovery artifact.
 <!-- CRITICAL: Load this section FIRST after /clear (~100 tokens) -->
 
 ### Active Context
-- **Current Bead**: bd-x7y8 (task description)
+- **Current Bead**: beads-x7y8 (task description)
 - **Last Checkpoint**: 2024-01-15T14:30:00Z
 - **Reasoning State**: Where we left off, what's next
 
@@ -182,7 +228,7 @@ Extended Bead fields for session continuity (v0.9.0 Lossless Ledger Protocol).
 
 ```yaml
 # .beads/<id>.yaml - Extended schema
-id: bd-x7y8
+id: beads-x7y8
 title: "Task description"
 status: in_progress
 priority: 2
@@ -228,13 +274,13 @@ test_scenarios:
 handoffs:
   - session_id: "sess-001"
     ended: 2024-01-15T12:00:00Z
-    notes_ref: "loa-grimoire/NOTES.md:45-67"
+    notes_ref: "grimoires/loa/NOTES.md:45-67"
     trajectory_ref: "trajectory/impl-2024-01-15.jsonl:span-abc"
     grounding_ratio: 0.97
 
   - session_id: "sess-002"
     ended: 2024-01-15T14:30:00Z
-    notes_ref: "loa-grimoire/NOTES.md:68-92"
+    notes_ref: "grimoires/loa/NOTES.md:68-92"
     trajectory_ref: "trajectory/impl-2024-01-15.jsonl:span-def"
     grounding_ratio: 0.95
 
@@ -317,68 +363,69 @@ FORK DETECTION PROTOCOL:
 
 **Trajectory log for fork**:
 ```jsonl
-{"ts":"2024-01-15T15:00:00Z","agent":"implementing-tasks","phase":"fork_detected","bead_id":"bd-x7y8","context_decision":"Use stateless tokens","bead_decision":"Use rotating refresh tokens","resolution":"bead_wins"}
+{"ts":"2024-01-15T15:00:00Z","agent":"implementing-tasks","phase":"fork_detected","bead_id":"beads-x7y8","context_decision":"Use stateless tokens","bead_decision":"Use rotating refresh tokens","resolution":"bead_wins"}
 ```
 
-### CLI Extensions (bd commands)
+### CLI Extensions (br commands)
 
-Extended Bead CLI operations for v0.9.0:
+Extended beads_rust CLI operations for v0.19.0:
 
 | Operation | Command | Purpose |
 |-----------|---------|---------|
-| View with decisions | `bd show <id>` | Displays decisions[], handoffs[] |
-| Append decision | `bd update <id> --decision "..."` | Adds to decisions[] array |
-| Log handoff | `bd update <id> --handoff "..."` | Adds to handoffs[] array |
-| Check fork | `bd diff <id>` | Compare context vs Bead state |
+| View with decisions | `br show <id>` | Displays decisions[], handoffs[] |
+| Append decision | `br comments add <id> "DECISION: ..."` | Adds to comment history |
+| Log handoff | `br comments add <id> "HANDOFF: ..."` | Records session handoff |
+| Check fork | `br diff <id>` | Compare context vs Bead state |
 
 **Note**: CLI extensions are optional enhancements. NOTES.md provides fallback.
 
-### Beads CLI Integration Examples
+### beads_rust CLI Integration Examples
 
 #### Display Decisions History
 
 ```bash
 # Show bead with full decision history
-bd show bd-x7y8
+br show br-x7y8
 
 # Output includes:
-#   id: bd-x7y8
+#   id: br-x7y8
 #   title: "Implement token refresh"
 #   status: in_progress
-#   decisions:
-#     - [2024-01-15T10:30:00Z] Use rotating refresh tokens
-#     - [2024-01-15T14:30:00Z] Add 15-minute grace period
-#   handoffs:
-#     - [sess-001] 2024-01-15T12:00:00Z (ratio: 0.97)
+#   comments:
+#     - [2024-01-15T10:30:00Z] DECISION: Use rotating refresh tokens
+#     - [2024-01-15T14:30:00Z] DECISION: Add 15-minute grace period
+#   labels:
+#     - sprint:3
+#     - security-approved
 ```
 
 #### Append Decision to Bead
 
 ```bash
 # Add a new decision with evidence
-bd update bd-x7y8 --decision "Use RSA256 for JWT signing" \
-    --rationale "Industry standard, key rotation support" \
-    --evidence "${PROJECT_ROOT}/src/auth/jwt.ts:23"
+br comments add br-x7y8 "DECISION: Use RSA256 for JWT signing
+Rationale: Industry standard, key rotation support
+Evidence: ${PROJECT_ROOT}/src/auth/jwt.ts:23"
 
-# Decision is appended to decisions[] array, not replaced
+# Decision is appended to comments, not replaced
 ```
 
 #### Log Session Handoff
 
 ```bash
 # Record session handoff when session ends
-bd update bd-x7y8 --handoff \
-    --session-id "sess-003" \
-    --notes-ref "loa-grimoire/NOTES.md:93-120" \
-    --trajectory-ref "trajectory/impl-2024-01-15.jsonl:span-ghi" \
-    --grounding-ratio 0.96
+br comments add br-x7y8 "HANDOFF:
+Session: sess-003
+NOTES ref: grimoires/loa/NOTES.md:93-120
+Trajectory: trajectory/impl-2024-01-15.jsonl:span-ghi
+Grounding ratio: 0.96"
 ```
 
 #### Check for Fork Detection
 
 ```bash
 # Compare current context state with bead state
-bd diff bd-x7y8
+br diff br-x7y8
 
 # Output if fork detected:
 #   FORK DETECTED:
@@ -387,20 +434,20 @@ bd diff bd-x7y8
 #   Resolution: Bead wins (external ledger is authoritative)
 ```
 
-### Fallback When Beads Unavailable
+### Fallback When beads_rust Unavailable
 
-If Beads CLI (`bd`) is not installed, all decision tracking falls back to NOTES.md:
+If beads_rust CLI (`br`) is not installed, all decision tracking falls back to NOTES.md:
 
 ```bash
-# Check if bd is available
-if command -v bd &>/dev/null; then
-    # Use Beads for decision tracking
-    bd update "$BEAD_ID" --decision "$decision"
+# Check if br is available
+if command -v br &>/dev/null; then
+    # Use beads_rust for decision tracking
+    br comments add "$BEAD_ID" "DECISION: $decision"
 else
     # Fallback: Append to NOTES.md Decision Log
-    echo "#### $(date -u +%Y-%m-%dT%H:%M:%SZ) - $title" >> loa-grimoire/NOTES.md
-    echo "**Decision**: $decision" >> loa-grimoire/NOTES.md
-    echo "**Rationale**: $rationale" >> loa-grimoire/NOTES.md
+    echo "#### $(date -u +%Y-%m-%dT%H:%M:%SZ) - $title" >> grimoires/loa/NOTES.md
+    echo "**Decision**: $decision" >> grimoires/loa/NOTES.md
+    echo "**Rationale**: $rationale" >> grimoires/loa/NOTES.md
 fi
 ```
 
@@ -413,16 +460,16 @@ fi
 | test_scenarios[] | NOTES.md ## Test Scenarios |
 | next_steps[] | NOTES.md ## Active Sub-Goals |
 
-### bd sync for Session End
+### br sync for Session End
 
-Always run `bd sync` at session end to commit Bead changes:
+Always run `br sync --flush-only` at session end to export Bead changes:
 
 ```bash
 # Session end protocol
-bd sync              # Commit bead changes to .beads/
-git add .beads/      # Stage for git
-git commit -m "..."  # Commit with code changes
-git push             # Push to remote
+br sync --flush-only  # Export bead changes to JSONL
+git add .beads/       # Stage for git
+git commit -m "..."   # Commit with code changes
+git push              # Push to remote
 ```
 
 ## Anti-Patterns
@@ -433,7 +480,7 @@ git push             # Push to remote
 | Trust compacted context | Trust only **ledgers** |
 | Relative paths | ALWAYS `${PROJECT_ROOT}` absolute paths |
 | Defer synthesis | Synthesize **continuously** |
-| Reason without Bead | ALWAYS `bd show` first |
+| Reason without Bead | ALWAYS `br show` first |
 | Eager load files | Store **identifiers**, JIT retrieve |
 | `/clear` without checkpoint | Execute **synthesis checkpoint** first |
 | Load full Decision Log | Level 1 recovery: **last 3 decisions only** |
@@ -444,10 +491,14 @@ git push             # Push to remote
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────┐
-│              v0.9.0 LOSSLESS LEDGER PROTOCOL DEPENDENCIES                   │
+│              v0.11.0 LOSSLESS LEDGER PROTOCOL DEPENDENCIES                  │
 ├────────────────────────────────────────────────────────────────────────────┤
 │                                                                            │
 │  SESSION-CONTINUITY (Core Protocol)                                        │
+│       │                                                                    │
+│       ├──▶ CONTEXT-COMPACTION (v0.11.0 - Compaction rules)                │
+│       │         │                                                          │
+│       │         └──▶ Preservation rules, simplified checkpoint            │
 │       │                                                                    │
 │       ├──▶ SYNTHESIS-CHECKPOINT (Pre-clear validation)                    │
 │       │         │                                                          │
@@ -470,9 +521,10 @@ git push             # Push to remote
 │                 └──▶ Decision Log, Session Continuity section             │
 │                                                                            │
 │  SCRIPTS                                                                   │
-│  ├── synthesis-checkpoint.sh ─── calls ──▶ grounding-check.sh             │
-│  ├── grounding-check.sh ──────── reads ──▶ trajectory/*.jsonl             │
-│  └── self-heal-state.sh ──────── recovers ▶ State Zone files              │
+│  ├── context-manager.sh ───── manages ──▶ compaction, checkpoint          │
+│  ├── synthesis-checkpoint.sh ─ calls ───▶ grounding-check.sh              │
+│  ├── grounding-check.sh ────── reads ───▶ trajectory/*.jsonl              │
+│  └── self-heal-state.sh ────── recovers ▶ State Zone files                │
 │                                                                            │
 │  FLOW:                                                                     │
 │  Session Start ──▶ self-heal-state.sh (if needed)                         │
@@ -483,17 +535,24 @@ git push             # Push to remote
 │       ▼ (Yellow threshold)                                                 │
 │  Delta-Synthesis (partial persist)                                         │
 │       │                                                                    │
-│       ▼ (User: /clear)                                                     │
-│  synthesis-checkpoint.sh ──▶ grounding-check.sh                           │
+│       ├──▶ (User: /compact)                                                │
+│       │    context-manager.sh checkpoint (simplified 3-step)               │
+│       │    │                                                               │
+│       │    ▼ (PASS)                                                        │
+│       │    Compaction with preservation rules                              │
 │       │                                                                    │
-│       ▼ (PASS)                                                             │
-│  Context cleared, Level 1 Recovery (~100 tokens)                           │
+│       └──▶ (User: /clear)                                                  │
+│            synthesis-checkpoint.sh ──▶ grounding-check.sh                  │
+│            │                                                               │
+│            ▼ (PASS)                                                        │
+│            Context cleared, Level 1 Recovery (~100 tokens)                 │
 │                                                                            │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Related Protocols
 
+- **context-compaction.md**: Compaction preservation rules (v0.11.0)
 - **synthesis-checkpoint.md**: Pre-clear validation (BLOCKING)
 - **jit-retrieval.md**: Lightweight identifier handling
 - **attention-budget.md**: Token threshold monitoring
@@ -502,7 +561,7 @@ git push             # Push to remote
 
 ### Commands
 
-- **/ride**: Session-aware initialization (`bd ready` -> `bd show`)
+- **/ride**: Session-aware initialization (`br ready` -> `br show`)
 - **/clear**: Triggers synthesis checkpoint
 
 ### Scripts
@@ -532,8 +591,8 @@ git push             # Push to remote
 1. Session terminates unexpectedly
 2. Delta-synthesis may have run (Yellow threshold)
 3. New session starts
-4. bd ready -> identify in-progress task
-5. bd show <id> -> load decisions[], handoffs[]
+4. br ready -> identify in-progress task
+5. br show <id> -> load decisions[], handoffs[]
 6. NOTES.md Session Continuity -> last checkpoint
 7. Resume from last known state
 8. Some work may be lost (since last delta-sync)
@@ -544,7 +603,7 @@ git push             # Push to remote
 ```
 1. Session starts
 2. NOTES.md missing
-3. Self-healing: git show HEAD:loa-grimoire/NOTES.md
+3. Self-healing: git show HEAD:grimoires/loa/NOTES.md
 4. If git fails: Create from template
 5. Log recovery to trajectory
 6. Continue operation (never halt)
@@ -563,6 +622,6 @@ session_continuity:
 
 ---
 
-**Document Version**: 1.0
-**Protocol Version**: v2.2 (Production-Hardened)
+**Document Version**: 1.1
+**Protocol Version**: v2.3 (Claude Platform Integration)
 **Paradigm**: Clear, Don't Compact

@@ -7,7 +7,7 @@ zones:
     path: .claude
     permission: none
   state:
-    paths: [loa-grimoire, .beads]
+    paths: [grimoires/loa, .beads]
     permission: read-write
   app:
     paths: [src, lib, app]
@@ -28,7 +28,7 @@ This skill operates under **Managed Scaffolding**:
 | Zone | Permission | Notes |
 |------|------------|-------|
 | `.claude/` | NONE | System zone - never suggest edits |
-| `loa-grimoire/`, `.beads/` | Read/Write | State zone - project memory |
+| `grimoires/loa/`, `.beads/` | Read/Write | State zone - project memory |
 | `src/`, `lib/`, `app/` | Read-only | App zone - requires user confirmation |
 
 **NEVER** suggest modifications to `.claude/`. Direct users to `.claude/overrides/` or `.loa.config.yaml`.
@@ -68,7 +68,7 @@ The SDD specifies "PostgreSQL 15 with pgvector extension" (sdd.md:L123)
 ## Structured Memory Protocol
 
 ### On Session Start
-1. Read `loa-grimoire/NOTES.md`
+1. Read `grimoires/loa/NOTES.md`
 2. Restore context from "Session Continuity" section
 3. Check for resolved blockers
 
@@ -102,7 +102,7 @@ Example:
 <trajectory_logging>
 ## Trajectory Logging
 
-Log each significant step to `loa-grimoire/a2a/trajectory/{agent}-{date}.jsonl`:
+Log each significant step to `grimoires/loa/a2a/trajectory/{agent}-{date}.jsonl`:
 
 ```json
 {"timestamp": "...", "agent": "...", "action": "...", "reasoning": "...", "grounding": {...}}
@@ -112,9 +112,11 @@ Log each significant step to `loa-grimoire/a2a/trajectory/{agent}-{date}.jsonl`:
 <kernel_framework>
 ## Task (N - Narrow Scope)
 Perform comprehensive security and quality audit. Generate reports at:
-- **Codebase audit**: `SECURITY-AUDIT-REPORT.md` + `loa-grimoire/audits/YYYY-MM-DD/`
-- **Deployment audit**: `loa-grimoire/a2a/deployment-feedback.md`
-- **Sprint audit**: `loa-grimoire/a2a/sprint-N/auditor-sprint-feedback.md`
+- **Codebase audit**: `grimoires/loa/a2a/audits/YYYY-MM-DD/SECURITY-AUDIT-REPORT.md`
+- **Deployment audit**: `grimoires/loa/a2a/deployment-feedback.md`
+- **Sprint audit**: `grimoires/loa/a2a/sprint-N/auditor-sprint-feedback.md`
+
+All audit outputs go to the State Zone (`grimoires/loa/a2a/`) for proper tracking.
 
 ## Context (L - Logical Structure)
 - **Input**: Entire codebase, configs, infrastructure code
@@ -128,7 +130,7 @@ Perform comprehensive security and quality audit. Generate reports at:
 - DO NOT approve insecure code—be brutally honest
 - DO NOT give vague findings—include file:line, PoC, specific remediation steps
 - DO NOT audit without systematic checklist—follow all 5 categories
-- DO create dated directory for remediation: `loa-grimoire/audits/YYYY-MM-DD/`
+- DO create dated directory for remediation: `grimoires/loa/audits/YYYY-MM-DD/`
 - DO use exact CVE/CWE/OWASP references for vulnerabilities
 - DO prioritize by exploitability and impact (not just severity)
 - DO think like an attacker—how would you exploit this system?
@@ -198,12 +200,12 @@ find . -name "*.ts" -o -name "*.js" -o -name "*.tf" -o -name "*.py" | xargs wc -
 ## Phase 0: Prerequisites Check
 
 **For Sprint Audit:**
-1. Verify sprint directory exists: `loa-grimoire/a2a/sprint-N/`
+1. Verify sprint directory exists: `grimoires/loa/a2a/sprint-N/`
 2. Verify "All good" in `engineer-feedback.md` (senior lead approval required)
 3. If not approved, STOP: "Sprint must be approved by senior lead before security audit"
 
 **For Deployment Audit:**
-1. Verify `loa-grimoire/deployment/` exists
+1. Verify `grimoires/loa/deployment/` exists
 2. Read `deployment-report.md` for context if exists
 
 **For Codebase Audit:**
@@ -251,9 +253,22 @@ Execute audit by category (sequential or parallel per Phase -1):
 
 Use template from `resources/templates/audit-report.md`.
 
-**File Organization:**
-- Initial audit: `SECURITY-AUDIT-REPORT.md` at root
-- Remediation reports: `loa-grimoire/audits/YYYY-MM-DD/`
+**File Organization (all in State Zone):**
+```
+grimoires/loa/a2a/
+├── audits/                           # Codebase audits
+│   └── YYYY-MM-DD/
+│       ├── SECURITY-AUDIT-REPORT.md  # Main report
+│       └── remediation/              # Issue tracking
+├── sprint-N/
+│   └── auditor-sprint-feedback.md    # Sprint audits
+└── deployment-feedback.md            # Deployment audits
+```
+
+**Creating dated directory:**
+```bash
+mkdir -p "grimoires/loa/a2a/audits/$(date +%Y-%m-%d)/remediation"
+```
 
 ## Phase 3: Verdict
 
@@ -362,6 +377,64 @@ Key sections:
 - Prioritize by exploitability and impact
 </communication_style>
 
+<documentation_audit>
+## Documentation Audit (Required) (v0.19.0)
+
+**MANDATORY**: For sprint audits, verify documentation coverage for all tasks.
+
+### Sprint Documentation Verification
+
+1. **Check task coverage**:
+   ```bash
+   # List all documentation-coherence reports for this sprint
+   ls grimoires/loa/a2a/subagent-reports/documentation-coherence-task-*.md 2>/dev/null
+   ```
+
+2. **Verify each task has documentation report** or manual verification
+
+3. **Check sprint-level report** if available:
+   ```bash
+   cat grimoires/loa/a2a/subagent-reports/documentation-coherence-sprint-*.md 2>/dev/null
+   ```
+
+### Security-Specific Documentation Checks
+
+| Check | What to Verify | Severity |
+|-------|----------------|----------|
+| SECURITY.md | Security considerations documented | HIGH if auth changes |
+| Auth documentation | Login flows, token handling explained | HIGH |
+| API documentation | Endpoints, auth requirements listed | MEDIUM |
+| Crypto operations | Key handling, signing documented | CRITICAL |
+| Secrets handling | No secrets in docs, refs to vault/env | CRITICAL |
+
+### Red Flags for Documentation
+
+| Red Flag | Severity | Action |
+|----------|----------|--------|
+| Internal URLs in docs | HIGH | Remove before public release |
+| Hardcoded credentials in examples | CRITICAL | Replace with placeholders |
+| Detailed internal architecture | MEDIUM | Review for info leakage |
+| Unredacted logs/traces | HIGH | Scrub sensitive data |
+| API keys in code samples | CRITICAL | Use `YOUR_API_KEY` placeholder |
+
+### Cannot Approve If
+
+- Any task missing documentation report (unless manually verified)
+- Security-critical code without explanatory comments
+- Secrets or internal URLs found in documentation
+- Auth/crypto changes without security documentation
+- API changes without endpoint documentation
+
+### Audit Checklist Addition
+
+Add to your audit checklist:
+- [ ] All tasks have documentation-coherence reports
+- [ ] CHANGELOG includes security-related changes
+- [ ] No secrets in documentation or code comments
+- [ ] Security-specific docs updated (SECURITY.md, auth flows)
+- [ ] API documentation matches implementation
+</documentation_audit>
+
 <checklists>
 See `resources/REFERENCE.md` for complete 150+ item checklists across 5 categories:
 - Security (50+ items)
@@ -377,3 +450,45 @@ See `resources/REFERENCE.md` for complete 150+ item checklists across 5 categori
 - Empty catch blocks on security code
 - Hardcoded secrets
 </checklists>
+
+<beads_workflow>
+## Beads Workflow (beads_rust)
+
+When beads_rust (`br`) is installed, use it to record security audit results:
+
+### Session Start
+```bash
+br sync --import-only  # Import latest state from JSONL
+```
+
+### Recording Audit Results
+```bash
+# Add security audit comment to task/sprint epic
+br comments add <task-id> "SECURITY AUDIT: [verdict] - [summary]"
+
+# Mark security status
+br label add <task-id> security                # Has security concerns
+br label add <task-id> security-approved       # Passed audit
+```
+
+### Using Labels for Security Status
+| Label | Meaning | When to Apply |
+|-------|---------|---------------|
+| `security` | Has security-sensitive code | During review |
+| `security-approved` | Passed security audit | After "APPROVED - LETS FUCKING GO" |
+| `security-blocked` | Critical security issue | After "CHANGES_REQUIRED" |
+
+### Logging Discovered Vulnerabilities
+```bash
+# Create security issue discovered during audit
+.claude/scripts/beads/log-discovered-issue.sh "<sprint-epic-id>" "Security: [vulnerability description]" bug 0
+br label add <new-issue-id> security
+```
+
+### Session End
+```bash
+br sync --flush-only  # Export SQLite → JSONL before commit
+```
+
+**Protocol Reference**: See `.claude/protocols/beads-integration.md`
+</beads_workflow>

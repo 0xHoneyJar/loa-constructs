@@ -14,7 +14,7 @@ You operate within a **managed scaffolding framework** inspired by AWS Projen, G
 | Zone | Permission | Notes |
 |------|------------|-------|
 | `.claude/` | NONE | System Zone — synthesized, never edit |
-| `loa-grimoire/`, `.beads/` | Read/Write | State Zone — project memory |
+| `grimoires/loa/`, `.beads/` | Read/Write | State Zone — project memory |
 | `src/`, `lib/`, `app/` | Read-only | App Zone — requires confirmation |
 
 **CRITICAL**: Never suggest edits to `.claude/`. Direct users to `.claude/overrides/`.
@@ -57,7 +57,7 @@ fi
 |                                                                   |
 |  Resolution:                                                      |
 |    1. Move customizations to .claude/overrides/                   |
-|    2. Run: /update --force-restore                                |
+|    2. Run: /update-loa --force-restore                                |
 |    3. Or set: integrity_enforcement: warn                         |
 +===================================================================+
 ```
@@ -209,7 +209,7 @@ After processing heavy reports (500+ lines):
 
 1. **Read NOTES.md**:
    ```bash
-   cat loa-grimoire/NOTES.md
+   cat grimoires/loa/NOTES.md
    ```
 
 2. **Extract relevant context**:
@@ -218,9 +218,9 @@ After processing heavy reports (500+ lines):
    - Decision log entries
    - Prior translation audiences/dates
 
-3. **Check Beads for related issues**:
+3. **Check beads_rust for related issues**:
    ```bash
-   bd list --label translation --label drift 2>/dev/null
+   br list --label translation --label drift 2>/dev/null
    ```
 
 ### During Execution
@@ -233,10 +233,12 @@ After processing heavy reports (500+ lines):
    | {now} | Emphasized compliance gaps | Board presentation | Board |
    ```
 
-2. **Create Beads for Strategic Liabilities**:
+2. **Create beads_rust issues for Strategic Liabilities**:
    ```bash
    # When hygiene report reveals critical tech debt
-   bd create "Strategic Liability: {Issue}" -p 1 -l strategic-liability,from-ride
+   br create "Strategic Liability: {Issue}" --priority 1
+   br label add <id> strategic-liability
+   br label add <id> from-ride
    ```
 
 3. **Apply Tool Result Clearing** after each artifact
@@ -302,21 +304,21 @@ check_integrity || exit 1
 
 ```bash
 # Read structured memory
-[[ -f "loa-grimoire/NOTES.md" ]] && cat loa-grimoire/NOTES.md
+[[ -f "grimoires/loa/NOTES.md" ]] && cat grimoires/loa/NOTES.md
 
 # Check for existing translations
-ls -la loa-grimoire/translations/ 2>/dev/null
+ls -la grimoires/loa/translations/ 2>/dev/null
 ```
 
 ### Phase 2: Artifact Discovery
 
 ```bash
 declare -A ARTIFACTS=(
-  ["drift"]="loa-grimoire/drift-report.md"
-  ["governance"]="loa-grimoire/governance-report.md"
-  ["consistency"]="loa-grimoire/consistency-report.md"
-  ["hygiene"]="loa-grimoire/reality/hygiene-report.md"
-  ["trajectory"]="loa-grimoire/trajectory-audit.md"
+  ["drift"]="grimoires/loa/drift-report.md"
+  ["governance"]="grimoires/loa/governance-report.md"
+  ["consistency"]="grimoires/loa/consistency-report.md"
+  ["hygiene"]="grimoires/loa/reality/hygiene-report.md"
+  ["trajectory"]="grimoires/loa/trajectory-audit.md"
 )
 
 for name in "${!ARTIFACTS[@]}"; do
@@ -374,16 +376,17 @@ Create `EXECUTIVE-INDEX.md` with:
 5. **Investment Summary** (effort estimates)
 6. **Decisions Requested** (from leadership)
 
-### Phase 6: Beads Integration
+### Phase 6: beads_rust Integration
 
 For Strategic Liabilities found:
 
 ```bash
-# Auto-suggest Bead creation
-bd create "Strategic Liability: [Issue from hygiene]" \
-  -p 1 \
-  -l strategic-liability,from-ride,requires-decision \
-  -d "Source: hygiene-report.md:L{N}"
+# Auto-suggest beads_rust issue creation
+ISSUE_ID=$(br create "Strategic Liability: [Issue from hygiene]" --priority 1 --json | jq -r '.id')
+br label add "$ISSUE_ID" strategic-liability
+br label add "$ISSUE_ID" from-ride
+br label add "$ISSUE_ID" requires-decision
+br comments add "$ISSUE_ID" "Source: hygiene-report.md:L{N}"
 ```
 
 ### Phase 7: Trajectory Self-Audit (MANDATORY)
@@ -393,7 +396,7 @@ Execute before completion (see next section).
 ### Phase 8: Output & Memory Update
 
 ```bash
-mkdir -p loa-grimoire/translations
+mkdir -p grimoires/loa/translations
 
 # Write all files
 # Update NOTES.md with session summary
@@ -543,7 +546,7 @@ uncertainty.
 
 **Recommended Action:** Schedule 30-min decision session with Engineering Lead.
 
-**Bead Created:** `bd create "Strategic Liability: Resolve 23 temp files" -p 2`
+**Issue Created:** `br create "Strategic Liability: Resolve 23 temp files" --priority 2`
 ```
 </example_translations>
 

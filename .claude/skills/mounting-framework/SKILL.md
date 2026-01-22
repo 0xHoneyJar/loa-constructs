@@ -32,7 +32,7 @@ echo "✓ Git repository detected"
 if [[ -f ".loa-version.json" ]]; then
   VERSION=$(jq -r '.framework_version' .loa-version.json 2>/dev/null)
   echo "⚠️ Loa already mounted (v$VERSION)"
-  echo "Use '/update' to sync framework, or continue to remount"
+  echo "Use '/update-loa' to sync framework, or continue to remount"
   # Use AskUserQuestion to confirm remount
 fi
 ```
@@ -82,12 +82,12 @@ echo "✓ System Zone installed"
 echo "Initializing State Zone..."
 
 # Create structure (preserve if exists)
-mkdir -p loa-grimoire/{context,reality,legacy,discovery,a2a/trajectory}
+mkdir -p grimoires/loa/{context,reality,legacy,discovery,a2a/trajectory}
 mkdir -p .beads
 
 # Initialize structured memory
-if [[ ! -f "loa-grimoire/NOTES.md" ]]; then
-  cat > loa-grimoire/NOTES.md << 'EOF'
+if [[ ! -f "grimoires/loa/NOTES.md" ]]; then
+  cat > grimoires/loa/NOTES.md << 'EOF'
 # Agent Working Memory (NOTES.md)
 
 > This file persists agent context across sessions and compaction cycles.
@@ -122,7 +122,7 @@ cat > .loa-version.json << EOF
   "last_sync": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "zones": {
     "system": ".claude",
-    "state": ["loa-grimoire", ".beads"],
+    "state": ["grimoires/loa", ".beads"],
     "app": ["src", "lib", "app"]
   },
   "migrations_applied": ["001_init_zones"],
@@ -171,8 +171,8 @@ drift_resolution: code  # code | docs | ask
 disabled_agents: []
 
 memory:
-  notes_file: loa-grimoire/NOTES.md
-  trajectory_dir: loa-grimoire/a2a/trajectory
+  notes_file: grimoires/loa/NOTES.md
+  trajectory_dir: grimoires/loa/a2a/trajectory
   trajectory_retention_days: 30
   auto_restore: true
 
@@ -195,17 +195,17 @@ else
 fi
 ```
 
-### Step 7: Initialize Beads (Optional)
+### Step 7: Initialize beads_rust (Optional)
 
 ```bash
-if command -v bd &> /dev/null; then
-  if [[ ! -f ".beads/graph.jsonl" ]]; then
-    bd init --quiet 2>/dev/null && echo "✓ Beads initialized"
+if command -v br &> /dev/null; then
+  if [[ ! -f ".beads/beads.db" ]]; then
+    br init --quiet 2>/dev/null && echo "✓ beads_rust initialized"
   else
-    echo "✓ Beads already initialized"
+    echo "✓ beads_rust already initialized"
   fi
 else
-  echo "⚠️ Beads CLI not found - skipping (install: https://github.com/steveyegge/beads)"
+  echo "⚠️ beads_rust (br) not found - skipping (install: .claude/scripts/beads/install-br.sh)"
 fi
 ```
 
@@ -235,14 +235,14 @@ Display completion message:
 Zone structure:
   📁 .claude/          → System Zone (framework-managed)
   📁 .claude/overrides → Your customizations (preserved)
-  📁 loa-grimoire/     → State Zone (project memory)
-  📄 loa-grimoire/NOTES.md → Structured agentic memory
+  📁 grimoires/loa/     → State Zone (project memory)
+  📄 grimoires/loa/NOTES.md → Structured agentic memory
   📁 .beads/           → Task graph
 
 Next steps:
   1. Run 'claude' to start Claude Code
   2. Issue '/ride' to analyze this codebase
-  3. Or '/setup' for guided configuration
+  3. Or '/plan-and-analyze' for greenfield development
 
 ⚠️ STRICT ENFORCEMENT: Direct edits to .claude/ will block execution.
    Use .claude/overrides/ for customizations.
@@ -260,7 +260,7 @@ If `--stealth` flag or `persistence_mode: stealth` in config:
 echo "Applying stealth mode..."
 touch .gitignore
 
-for entry in "loa-grimoire/" ".beads/" ".loa-version.json" ".loa.config.yaml"; do
+for entry in "grimoires/loa/" ".beads/" ".loa-version.json" ".loa.config.yaml"; do
   grep -qxF "$entry" .gitignore 2>/dev/null || echo "$entry" >> .gitignore
 done
 
@@ -276,7 +276,7 @@ echo "✓ State files added to .gitignore"
 | "Not a git repository" | No `.git` directory | Run `git init` first |
 | "jq required" | Missing jq | Install jq (`brew install jq` / `apt install jq`) |
 | "Failed to checkout .claude/" | Network/auth issue | Check remote URL and credentials |
-| "Loa already mounted" | `.loa-version.json` exists | Use `/update` or confirm remount |
+| "Loa already mounted" | `.loa-version.json` exists | Use `/update-loa` or confirm remount |
 
 ---
 
@@ -286,7 +286,7 @@ Log mount action to trajectory:
 
 ```bash
 MOUNT_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-TRAJECTORY_FILE="loa-grimoire/a2a/trajectory/mounting-$(date +%Y%m%d).jsonl"
+TRAJECTORY_FILE="grimoires/loa/a2a/trajectory/mounting-$(date +%Y%m%d).jsonl"
 
 echo '{"timestamp":"'$MOUNT_DATE'","agent":"mounting-framework","action":"mount","status":"complete","version":"0.6.0"}' >> "$TRAJECTORY_FILE"
 ```

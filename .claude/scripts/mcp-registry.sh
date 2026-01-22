@@ -13,6 +13,7 @@
 #   check <server>    - Check if server is configured
 #   group <name>      - List servers in a group
 #   groups            - List all available groups
+#   search <query>    - Search servers by name, description, or scope
 
 set -euo pipefail
 
@@ -37,6 +38,23 @@ if [ ! -f "$REGISTRY" ]; then
     exit 1
 fi
 
+# =============================================================================
+# SECURITY: Input Validation (HIGH-002 fix)
+# =============================================================================
+# Validate server/group names to prevent yq injection
+
+# Validate identifier (alphanumeric, dash, underscore only)
+# Args: $1 - identifier to validate
+# Returns: 0 if valid, 1 if invalid
+validate_identifier() {
+    local id="$1"
+    if [[ ! "$id" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "ERROR: Invalid identifier '$id' - must be alphanumeric with dashes/underscores only" >&2
+        return 1
+    fi
+    return 0
+}
+
 # List all server names with descriptions
 list_servers() {
     echo "Available MCP Servers:"
@@ -48,24 +66,28 @@ list_servers() {
 get_server_info() {
     local server="$1"
 
-    if ! yq -e ".servers.${server}" "$REGISTRY" &>/dev/null; then
+    # SECURITY: Validate server name before use in yq (HIGH-002)
+    validate_identifier "$server" || exit 1
+
+    # Use bracket notation with quoted string for safety
+    if ! yq -e ".servers.[\"${server}\"]" "$REGISTRY" &>/dev/null; then
         echo "ERROR: Server '$server' not found in registry" >&2
         exit 1
     fi
 
     echo "=== $server ==="
     echo ""
-    yq -r ".servers.${server} | \"Name: \(.name)\nDescription: \(.description)\nURL: \(.url)\nDocs: \(.docs)\"" "$REGISTRY"
+    yq -r ".servers.[\"${server}\"] | \"Name: \(.name)\nDescription: \(.description)\nURL: \(.url)\nDocs: \(.docs)\"" "$REGISTRY"
     echo ""
 
     echo "Scopes:"
-    yq -r ".servers.${server}.scopes[] | \"  - \" + ." "$REGISTRY"
+    yq -r ".servers.[\"${server}\"].scopes[] | \"  - \" + ." "$REGISTRY"
     echo ""
 
     # Check if configured
     echo -n "Status: "
     if [ -f "$SETTINGS" ]; then
-        if grep -q "\"${server}\"" "$SETTINGS" 2>/dev/null; then
+        if grep -qF "\"${server}\"" "$SETTINGS" 2>/dev/null; then
             echo "CONFIGURED"
         else
             echo "NOT CONFIGURED"
@@ -79,7 +101,10 @@ get_server_info() {
 get_setup_instructions() {
     local server="$1"
 
-    if ! yq -e ".servers.${server}" "$REGISTRY" &>/dev/null; then
+    # SECURITY: Validate server name before use in yq (HIGH-002)
+    validate_identifier "$server" || exit 1
+
+    if ! yq -e ".servers.[\"${server}\"]" "$REGISTRY" &>/dev/null; then
         echo "ERROR: Server '$server' not found in registry" >&2
         exit 1
     fi
@@ -88,27 +113,30 @@ get_setup_instructions() {
     echo ""
 
     echo "Steps:"
-    yq -r ".servers.${server}.setup.steps[] | \"  - \" + ." "$REGISTRY"
+    yq -r ".servers.[\"${server}\"].setup.steps[] | \"  - \" + ." "$REGISTRY"
     echo ""
 
     echo "Environment Variables:"
-    yq -r ".servers.${server}.setup.env_vars[] | \"  - \" + ." "$REGISTRY"
+    yq -r ".servers.[\"${server}\"].setup.env_vars[] | \"  - \" + ." "$REGISTRY"
     echo ""
 
     echo "Example Configuration:"
-    yq -r ".servers.${server}.setup.config_example" "$REGISTRY"
+    yq -r ".servers.[\"${server}\"].setup.config_example" "$REGISTRY"
 }
 
 # Check if server is configured
 check_server() {
     local server="$1"
 
+    # SECURITY: Validate server name (HIGH-002)
+    validate_identifier "$server" || exit 1
+
     if [ ! -f "$SETTINGS" ]; then
         echo "NO_SETTINGS_FILE"
         exit 1
     fi
 
-    if grep -q "\"${server}\"" "$SETTINGS" 2>/dev/null; then
+    if grep -qF "\"${server}\"" "$SETTINGS" 2>/dev/null; then
         echo "CONFIGURED"
         exit 0
     else
@@ -121,16 +149,19 @@ check_server() {
 list_group() {
     local group="$1"
 
-    if ! yq -e ".groups.${group}" "$REGISTRY" &>/dev/null; then
+    # SECURITY: Validate group name before use in yq (HIGH-002)
+    validate_identifier "$group" || exit 1
+
+    if ! yq -e ".groups.[\"${group}\"]" "$REGISTRY" &>/dev/null; then
         echo "ERROR: Group '$group' not found in registry" >&2
         exit 1
     fi
 
     echo "Group: $group"
-    yq -r ".groups.${group}.description | \"Description: \" + ." "$REGISTRY"
+    yq -r ".groups.[\"${group}\"].description | \"Description: \" + ." "$REGISTRY"
     echo ""
     echo "Servers:"
-    yq -r ".groups.${group}.servers[] | \"  - \" + ." "$REGISTRY"
+    yq -r ".groups.[\"${group}\"].servers[] | \"  - \" + ." "$REGISTRY"
 }
 
 # List all groups
@@ -138,6 +169,63 @@ list_groups() {
     echo "Available MCP Groups:"
     echo ""
     yq -r '.groups | to_entries | .[] | "  \(.key)\t\(.value.description)"' "$REGISTRY" | column -t -s $'\t'
+}
+
+# Search servers by query
+search_servers() {
+    local query="$1"
+    local query_lower
+    query_lower=$(echo "$query" | tr '[:upper:]' '[:lower:]')
+
+    echo "Search results for '$query':"
+    echo ""
+
+    local found=0
+    local servers
+    servers=$(yq -r '.servers | keys | .[]' "$REGISTRY" 2>/dev/null || echo "")
+
+    for server in $servers; do
+        local name description scopes
+        name=$(yq -r ".servers.[\"${server}\"].name // \"$server\"" "$REGISTRY" 2>/dev/null || echo "$server")
+        description=$(yq -r ".servers.[\"${server}\"].description // \"\"" "$REGISTRY" 2>/dev/null || echo "")
+        scopes=$(yq -r ".servers.[\"${server}\"].scopes // [] | join(\",\")" "$REGISTRY" 2>/dev/null || echo "")
+
+        local name_lower desc_lower scopes_lower
+        name_lower=$(echo "$name" | tr '[:upper:]' '[:lower:]')
+        desc_lower=$(echo "$description" | tr '[:upper:]' '[:lower:]')
+        scopes_lower=$(echo "$scopes" | tr '[:upper:]' '[:lower:]')
+
+        # Check for matches
+        local match=0
+        if [[ "$name_lower" == *"$query_lower"* ]]; then
+            match=1
+        elif [[ "$server" == *"$query_lower"* ]]; then
+            match=1
+        elif [[ "$desc_lower" == *"$query_lower"* ]]; then
+            match=1
+        elif [[ "$scopes_lower" == *"$query_lower"* ]]; then
+            match=1
+        fi
+
+        if [[ $match -eq 1 ]]; then
+            found=$((found + 1))
+            # Check if configured
+            local status="NOT CONFIGURED"
+            if [ -f "$SETTINGS" ] && grep -q "\"${server}\"" "$SETTINGS" 2>/dev/null; then
+                status="CONFIGURED"
+            fi
+            echo "  $name ($server)"
+            echo "    $description"
+            echo "    Status: $status"
+            echo ""
+        fi
+    done
+
+    if [[ $found -eq 0 ]]; then
+        echo "  No servers found matching '$query'"
+    else
+        echo "Found $found server(s)"
+    fi
 }
 
 # Main command handler
@@ -182,6 +270,14 @@ case "${1:-}" in
         list_groups
         ;;
 
+    search)
+        if [ -z "${2:-}" ]; then
+            echo "Usage: $0 search <query>" >&2
+            exit 1
+        fi
+        search_servers "$2"
+        ;;
+
     *)
         echo "MCP Registry Query Tool"
         echo ""
@@ -196,12 +292,14 @@ case "${1:-}" in
         echo "  check <server>    Check if server is configured"
         echo "  group <name>      List servers in a group"
         echo "  groups            List all available groups"
+        echo "  search <query>    Search servers by name, description, or scope"
         echo ""
         echo "Examples:"
         echo "  $0 list"
         echo "  $0 info linear"
         echo "  $0 setup github"
         echo "  $0 group essential"
+        echo "  $0 search github"
         exit 1
         ;;
 esac

@@ -33,6 +33,11 @@ import {
   countRecentSubmissions,
 } from '../services/submissions.js';
 import { trackDownloadAttribution } from '../services/attributions.js';
+import {
+  validatePackNamespace,
+  extractNamesFromFiles,
+  formatConflictError,
+} from '../services/namespace-validation.js';
 import { sendSubmissionReceivedEmail } from '../services/email.js';
 import {
   uploadFile,
@@ -42,7 +47,7 @@ import {
 import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { createHash } from 'crypto';
-import { skillsRateLimiter } from '../middleware/rate-limiter.js';
+import { skillsRateLimiter, submissionRateLimiter, uploadRateLimiter } from '../middleware/rate-limiter.js';
 import { validatePath, generatePackStorageKey } from '../lib/security.js';
 import { getEffectiveTier, canAccessTier, type SubscriptionTier } from '../services/subscription.js';
 import { db, packs } from '../db/index.js';
@@ -103,6 +108,15 @@ const updatePackSchema = z.object({
 
 const submitPackSchema = z.object({
   submission_notes: z.string().max(1000).optional(),
+});
+
+const validateNamespaceSchema = z.object({
+  manifest: z.object({
+    name: z.string().optional(),
+    slug: z.string().optional(),
+    commands: z.array(z.string()).optional(),
+    skills: z.array(z.string()).optional(),
+  }),
 });
 
 const listPacksSchema = z.object({
@@ -362,10 +376,13 @@ packsRouter.patch(
  * Submit pack for review
  * @see sdd-pack-submission.md §4.1 POST /v1/packs/:slug/submit
  * @see prd-pack-submission.md §4.2 Submission Workflow
+ * @see sdd-namespace-isolation.md §4.2 Enhanced Submit Endpoint
+ * @see SECURITY-AUDIT-REPORT.md H-001: Rate limiting added
  */
 packsRouter.post(
   '/:slug/submit',
   requireAuth(),
+  submissionRateLimiter(),
   zValidator('json', submitPackSchema),
   async (c) => {
     const slug = c.req.param('slug');
@@ -407,6 +424,34 @@ packsRouter.post(
     // Validate pack has description
     if (!pack.description || pack.description.trim().length === 0) {
       throw Errors.BadRequest('Pack must have a description before submission');
+    }
+
+    // Namespace validation: Extract commands/skills from pack files
+    // @see sdd-namespace-isolation.md §4.2
+    const packFiles = await getPackVersionFiles(latestVersion.id);
+    const { commands, skills } = extractNamesFromFiles(
+      packFiles.map((f) => ({ path: f.path }))
+    );
+
+    // Validate namespace against reserved names
+    const namespaceValidation = validatePackNamespace({
+      slug: pack.slug,
+      commands,
+      skills,
+    });
+
+    if (!namespaceValidation.valid) {
+      const errorDetails = formatConflictError(namespaceValidation.conflicts);
+      logger.warn(
+        {
+          packSlug: slug,
+          conflictCount: namespaceValidation.conflicts.length,
+          conflicts: namespaceValidation.conflicts.map((c) => c.name),
+          requestId,
+        },
+        'Pack submission rejected due to namespace conflicts'
+      );
+      throw Errors.NamespaceValidationError(errorDetails);
     }
 
     // Rate limit: 5 submissions per 24 hours
@@ -569,6 +614,65 @@ packsRouter.get('/:slug/review-status', requireAuth(), async (c) => {
 });
 
 /**
+ * POST /v1/packs/:slug/validate-namespace
+ * Pre-submission validation for namespace conflicts
+ * @see sdd-namespace-isolation.md §4.1 Namespace Validation Endpoint
+ */
+packsRouter.post(
+  '/:slug/validate-namespace',
+  requireAuth(),
+  zValidator('json', validateNamespaceSchema),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const body = c.req.valid('json');
+    const userId = c.get('userId');
+    const requestId = c.get('requestId');
+
+    // Get pack
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    // Check ownership
+    const isOwner = await isPackOwner(pack.id, userId);
+    if (!isOwner) {
+      throw Errors.Forbidden('You are not the owner of this pack');
+    }
+
+    // Use pack slug from manifest if provided, otherwise use the URL slug
+    const manifestSlug = body.manifest.slug || slug;
+
+    // Validate namespace
+    const validation = validatePackNamespace({
+      slug: manifestSlug,
+      commands: body.manifest.commands,
+      skills: body.manifest.skills,
+    });
+
+    logger.info(
+      {
+        packSlug: slug,
+        manifestSlug,
+        commandCount: body.manifest.commands?.length || 0,
+        skillCount: body.manifest.skills?.length || 0,
+        valid: validation.valid,
+        conflictCount: validation.conflicts.length,
+        requestId,
+      },
+      'Namespace validation performed'
+    );
+
+    return c.json({
+      valid: validation.valid,
+      conflicts: validation.conflicts,
+      warnings: validation.warnings,
+      request_id: requestId,
+    });
+  }
+);
+
+/**
  * GET /v1/packs/:slug/versions
  * Get pack versions
  */
@@ -604,10 +708,12 @@ packsRouter.get('/:slug/versions', optionalAuth(), async (c) => {
  * POST /v1/packs/:slug/versions
  * Upload a new version of a pack
  * @see sdd-v2.md §5.1 POST /v1/packs/:slug/versions
+ * @see SECURITY-AUDIT-REPORT.md H-001: Rate limiting added
  */
 packsRouter.post(
   '/:slug/versions',
   requireAuth(),
+  uploadRateLimiter(),
   zValidator('json', createVersionSchema),
   async (c) => {
     const slug = c.req.param('slug');

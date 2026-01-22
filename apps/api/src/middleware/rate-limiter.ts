@@ -303,3 +303,39 @@ export const stripeConnectRateLimiter = (): MiddlewareHandler =>
       default: { limit: 3, window: 3600 },
     },
   });
+
+/**
+ * Pack submission rate limiter (H-001)
+ * Prevents spam submissions and resource exhaustion
+ * @see SECURITY-AUDIT-REPORT.md H-001
+ */
+export const submissionRateLimiter = (): MiddlewareHandler =>
+  rateLimiter({
+    prefix: 'submission',
+    limits: {
+      // Strict: 5 submissions per minute to prevent spam
+      free: { limit: 5, window: 60 },
+      pro: { limit: 10, window: 60 },
+      team: { limit: 20, window: 60 },
+      enterprise: { limit: 30, window: 60 },
+      default: { limit: 5, window: 60 },
+    },
+  });
+
+/**
+ * File upload rate limiter (H-001)
+ * Prevents resource exhaustion via repeated uploads
+ * @see SECURITY-AUDIT-REPORT.md H-001
+ */
+export const uploadRateLimiter = (): MiddlewareHandler =>
+  rateLimiter({
+    prefix: 'upload',
+    limits: {
+      // Moderate: 10 uploads per minute
+      free: { limit: 10, window: 60 },
+      pro: { limit: 30, window: 60 },
+      team: { limit: 50, window: 60 },
+      enterprise: { limit: 100, window: 60 },
+      default: { limit: 10, window: 60 },
+    },
+  });

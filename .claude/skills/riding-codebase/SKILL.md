@@ -83,7 +83,7 @@ else
     echo "Options:"
     echo "  1. Move customizations to .claude/overrides/ (recommended)"
     echo "  2. Run '/ride --force-restore' to reset System Zone"
-    echo "  3. Run '/update --force-restore' to sync from upstream"
+    echo "  3. Run '/update-loa --force-restore' to sync from upstream"
     echo ""
 
     if [[ "$FORCE_RESTORE" == "--force-restore" ]]; then
@@ -142,10 +142,172 @@ Options:
 
 ```bash
 RIDE_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-TRAJECTORY_FILE="loa-grimoire/a2a/trajectory/riding-$(date +%Y%m%d).jsonl"
-mkdir -p loa-grimoire/a2a/trajectory
+TRAJECTORY_FILE="grimoires/loa/a2a/trajectory/riding-$(date +%Y%m%d).jsonl"
+mkdir -p grimoires/loa/a2a/trajectory
 
 echo '{"timestamp":"'$RIDE_DATE'","agent":"riding-codebase","phase":0,"action":"preflight","status":"complete"}' >> "$TRAJECTORY_FILE"
+```
+
+---
+
+## Phase 0.5: Codebase Probing (RLM Pattern)
+
+Before loading any files, probe the codebase to determine optimal loading strategy.
+This reduces token usage by avoiding eager loading of large, low-relevance files.
+
+### 0.5.1 Run Codebase Probe
+
+```bash
+# Probe the target repository
+PROBE_RESULT=$(.claude/scripts/context-manager.sh probe "$TARGET_REPO" --json 2>/dev/null)
+
+if [[ -z "$PROBE_RESULT" ]] || ! echo "$PROBE_RESULT" | jq -e '.' >/dev/null 2>&1; then
+  echo "⚠️ Probe unavailable - falling back to eager loading"
+  LOADING_STRATEGY="eager"
+  TOTAL_LINES=0
+  TOTAL_FILES=0
+  ESTIMATED_TOKENS=0
+else
+  TOTAL_LINES=$(echo "$PROBE_RESULT" | jq -r '.total_lines // 0')
+  TOTAL_FILES=$(echo "$PROBE_RESULT" | jq -r '.total_files // 0')
+  ESTIMATED_TOKENS=$(echo "$PROBE_RESULT" | jq -r '.estimated_tokens // 0')
+  CODEBASE_SIZE=$(echo "$PROBE_RESULT" | jq -r '.codebase_size // "unknown"')
+
+  echo "📊 Codebase Probe Results:"
+  echo "   Files: $TOTAL_FILES"
+  echo "   Lines: $TOTAL_LINES"
+  echo "   Estimated tokens: $ESTIMATED_TOKENS"
+  echo "   Size category: $CODEBASE_SIZE"
+fi
+```
+
+### 0.5.2 Determine Loading Strategy
+
+```bash
+# Loading strategy based on codebase size (from .loa.config.yaml token_budget)
+# Small (<10K lines): Load all files - fits comfortably in context
+# Medium (10K-50K): Prioritized loading - load high-relevance first
+# Large (>50K): Probe + excerpts only - too large for full loading
+
+if [[ "$TOTAL_LINES" -lt 10000 ]]; then
+  LOADING_STRATEGY="full"
+  echo "📁 Strategy: FULL LOAD (small codebase)"
+elif [[ "$TOTAL_LINES" -lt 50000 ]]; then
+  LOADING_STRATEGY="prioritized"
+  echo "📁 Strategy: PRIORITIZED LOAD (medium codebase)"
+else
+  LOADING_STRATEGY="excerpts"
+  echo "📁 Strategy: EXCERPTS ONLY (large codebase)"
+fi
+```
+
+### 0.5.3 Generate Loading Plan
+
+Based on probe results, categorize files for Phase 2:
+
+```bash
+LOADING_PLAN_FILE="grimoires/loa/reality/loading-plan.md"
+mkdir -p grimoires/loa/reality
+
+cat > "$LOADING_PLAN_FILE" << EOF
+# Loading Plan
+
+Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
+Strategy: $LOADING_STRATEGY
+Codebase: $TOTAL_FILES files, $TOTAL_LINES lines (~$ESTIMATED_TOKENS tokens)
+
+## File Categories
+
+EOF
+
+if [[ "$LOADING_STRATEGY" == "full" ]]; then
+  echo "All files will be loaded (small codebase)." >> "$LOADING_PLAN_FILE"
+elif [[ "$LOADING_STRATEGY" == "prioritized" || "$LOADING_STRATEGY" == "excerpts" ]]; then
+  # Categorize files by should-load decision with relevance-based prioritization
+  # High relevance (7+): Load first
+  # Medium relevance (4-6): Load if budget allows
+  # Low relevance (0-3): Skip or excerpt
+
+  echo "### Priority Loading Order (by relevance)" >> "$LOADING_PLAN_FILE"
+  echo "" >> "$LOADING_PLAN_FILE"
+  echo "Files are sorted by relevance score (highest first) within each category." >> "$LOADING_PLAN_FILE"
+  echo "" >> "$LOADING_PLAN_FILE"
+
+  # Temporary files for sorting
+  LOAD_TMP=$(mktemp)
+  EXCERPT_TMP=$(mktemp)
+  SKIP_TMP=$(mktemp)
+
+  # Get file list from probe result
+  FILES=$(echo "$PROBE_RESULT" | jq -r '.files[]?.file // empty' 2>/dev/null)
+
+  if [[ -n "$FILES" ]]; then
+    while IFS= read -r file; do
+      [[ -z "$file" ]] && continue
+      DECISION_JSON=$(.claude/scripts/context-manager.sh should-load "$file" --json 2>/dev/null) || continue
+      DECISION=$(echo "$DECISION_JSON" | jq -r '.decision // "skip"')
+      RELEVANCE=$(echo "$DECISION_JSON" | jq -r '.relevance // 0')
+
+      # Store as "score|file" for sorting
+      case "$DECISION" in
+        load)
+          echo "$RELEVANCE|$file" >> "$LOAD_TMP"
+          ;;
+        excerpt)
+          echo "$RELEVANCE|$file" >> "$EXCERPT_TMP"
+          ;;
+        *)
+          echo "$RELEVANCE|$file" >> "$SKIP_TMP"
+          ;;
+      esac
+    done <<< "$FILES"
+  fi
+
+  # Write sorted categories (highest relevance first)
+  echo "### Will Load Fully (sorted by relevance)" >> "$LOADING_PLAN_FILE"
+  echo "" >> "$LOADING_PLAN_FILE"
+  if [[ -s "$LOAD_TMP" ]]; then
+    sort -t'|' -k1 -rn "$LOAD_TMP" | while IFS='|' read -r score file; do
+      echo "- $file (relevance: $score)" >> "$LOADING_PLAN_FILE"
+    done
+  else
+    echo "_No files in this category_" >> "$LOADING_PLAN_FILE"
+  fi
+
+  echo "" >> "$LOADING_PLAN_FILE"
+  echo "### Will Use Excerpts (sorted by relevance)" >> "$LOADING_PLAN_FILE"
+  echo "" >> "$LOADING_PLAN_FILE"
+  if [[ -s "$EXCERPT_TMP" ]]; then
+    sort -t'|' -k1 -rn "$EXCERPT_TMP" | while IFS='|' read -r score file; do
+      echo "- $file (relevance: $score)" >> "$LOADING_PLAN_FILE"
+    done
+  else
+    echo "_No files in this category_" >> "$LOADING_PLAN_FILE"
+  fi
+
+  echo "" >> "$LOADING_PLAN_FILE"
+  echo "### Will Skip (sorted by relevance)" >> "$LOADING_PLAN_FILE"
+  echo "" >> "$LOADING_PLAN_FILE"
+  if [[ -s "$SKIP_TMP" ]]; then
+    sort -t'|' -k1 -rn "$SKIP_TMP" | while IFS='|' read -r score file; do
+      echo "- $file (relevance: $score)" >> "$LOADING_PLAN_FILE"
+    done
+  else
+    echo "_No files in this category_" >> "$LOADING_PLAN_FILE"
+  fi
+
+  # Cleanup temp files
+  rm -f "$LOAD_TMP" "$EXCERPT_TMP" "$SKIP_TMP"
+fi
+
+echo ""
+echo "✓ Loading plan generated: $LOADING_PLAN_FILE"
+```
+
+### 0.5.4 Log Probe to Trajectory
+
+```bash
+echo '{"timestamp":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","agent":"riding-codebase","phase":"0.5","action":"codebase_probe","strategy":"'$LOADING_STRATEGY'","total_files":'$TOTAL_FILES',"total_lines":'$TOTAL_LINES',"estimated_tokens":'$ESTIMATED_TOKENS'}' >> "$TRAJECTORY_FILE"
 ```
 
 ---
@@ -155,9 +317,9 @@ echo '{"timestamp":"'$RIDE_DATE'","agent":"riding-codebase","phase":0,"action":"
 ### 1.1 Check for Existing Context
 
 ```bash
-if [[ -d "loa-grimoire/context" ]] && [[ "$(ls -A loa-grimoire/context 2>/dev/null)" ]]; then
-  echo "📚 Found existing context in loa-grimoire/context/"
-  find loa-grimoire/context -type f \( -name "*.md" -o -name "*.txt" \) | while read f; do
+if [[ -d "grimoires/loa/context" ]] && [[ "$(ls -A grimoires/loa/context 2>/dev/null)" ]]; then
+  echo "📚 Found existing context in grimoires/loa/context/"
+  find grimoires/loa/context -type f \( -name "*.md" -o -name "*.txt" \) | while read f; do
     echo "  - $f ($(wc -l < "$f") lines)"
   done
   CONTEXT_EXISTS=true
@@ -175,7 +337,7 @@ Inform the user about context files using `AskUserQuestion`:
 
 Before we begin the interview, you can add any existing documentation to:
 
-    loa-grimoire/context/
+    grimoires/loa/context/
 
 Supported formats:
 - Architecture docs, diagrams, decision records
@@ -254,10 +416,10 @@ Use `AskUserQuestion` tool for each topic, focusing on gaps. Skip questions alre
 
 ### 1.5 Generate Claims to Verify (MANDATORY OUTPUT)
 
-**YOU MUST CREATE THIS FILE** - `loa-grimoire/context/claims-to-verify.md`:
+**YOU MUST CREATE THIS FILE** - `grimoires/loa/context/claims-to-verify.md`:
 
 ```bash
-mkdir -p loa-grimoire/context
+mkdir -p grimoires/loa/context
 ```
 
 ```markdown
@@ -295,7 +457,7 @@ mkdir -p loa-grimoire/context
 
 Log to trajectory:
 ```json
-{"timestamp": "...", "agent": "riding-codebase", "phase": 1, "action": "claims_generated", "output": "loa-grimoire/context/claims-to-verify.md", "claim_count": N}
+{"timestamp": "...", "agent": "riding-codebase", "phase": 1, "action": "claims_generated", "output": "grimoires/loa/context/claims-to-verify.md", "claim_count": N}
 ```
 
 ### 1.6 Tool Result Clearing Checkpoint
@@ -306,7 +468,7 @@ After context discovery, clear raw interview data and summarize:
 ## Context Discovery Summary (for active context)
 
 Captured [N] claims to verify from user interview.
-Full details written to: loa-grimoire/context/claims-to-verify.md
+Full details written to: grimoires/loa/context/claims-to-verify.md
 
 Key areas to investigate:
 - [Top 3 architectural claims]
@@ -322,23 +484,80 @@ Raw interview responses cleared from context.
 ### 2.1 Setup
 
 ```bash
-mkdir -p loa-grimoire/reality
+mkdir -p grimoires/loa/reality
 cd "$TARGET_REPO"
+```
+
+### 2.1.5 Apply Loading Strategy (from Phase 0.5)
+
+The loading strategy from Phase 0.5 controls file processing:
+
+```bash
+# Track token savings for reporting
+TOKENS_SAVED=0
+FILES_SKIPPED=0
+FILES_EXCERPTED=0
+FILES_LOADED=0
+
+# Helper function: Check if file should be fully loaded
+should_load_file() {
+  local file="$1"
+
+  # Always load in "full" strategy (small codebase)
+  if [[ "$LOADING_STRATEGY" == "full" || "$LOADING_STRATEGY" == "eager" ]]; then
+    return 0
+  fi
+
+  # Check loading plan or run should-load
+  local decision
+  decision=$(.claude/scripts/context-manager.sh should-load "$file" --json 2>/dev/null | jq -r '.decision // "load"')
+
+  case "$decision" in
+    load) return 0 ;;
+    excerpt)
+      ((FILES_EXCERPTED++))
+      return 1
+      ;;
+    skip)
+      local tokens
+      tokens=$(.claude/scripts/context-manager.sh probe "$file" --json 2>/dev/null | jq -r '.estimated_tokens // 0')
+      ((TOKENS_SAVED += tokens))
+      ((FILES_SKIPPED++))
+      return 2
+      ;;
+  esac
+}
+
+# Helper function: Get excerpt of file (high-relevance sections only)
+get_file_excerpt() {
+  local file="$1"
+  local keywords=("export" "class" "interface" "function" "async" "api" "route" "handler")
+
+  echo "# Excerpt: $file"
+  echo ""
+
+  # Extract lines containing keywords with 2 lines context
+  for kw in "${keywords[@]}"; do
+    grep -n -B1 -A2 "$kw" "$file" 2>/dev/null | head -20
+  done | sort -t: -k1 -n -u | head -50
+}
+
+echo "📁 Loading strategy: $LOADING_STRATEGY"
 ```
 
 ### 2.2 Directory Structure Analysis
 
 ```bash
-echo "## Directory Structure" > loa-grimoire/reality/structure.md
-echo '```' >> loa-grimoire/reality/structure.md
+echo "## Directory Structure" > grimoires/loa/reality/structure.md
+echo '```' >> grimoires/loa/reality/structure.md
 find . -type d -maxdepth 4 \
   -not -path "*/node_modules/*" \
   -not -path "*/.git/*" \
   -not -path "*/dist/*" \
   -not -path "*/build/*" \
   -not -path "*/__pycache__/*" \
-  2>/dev/null >> loa-grimoire/reality/structure.md
-echo '```' >> loa-grimoire/reality/structure.md
+  2>/dev/null >> grimoires/loa/reality/structure.md
+echo '```' >> grimoires/loa/reality/structure.md
 ```
 
 ### 2.3 Entry Points & Routes
@@ -346,9 +565,9 @@ echo '```' >> loa-grimoire/reality/structure.md
 ```bash
 grep -rn "@Get\|@Post\|@Put\|@Delete\|@Patch\|router\.\|app\.\(get\|post\|put\|delete\|patch\)\|@route\|@api" \
   --include="*.ts" --include="*.js" --include="*.py" --include="*.go" 2>/dev/null \
-  > loa-grimoire/reality/api-routes.txt
+  > grimoires/loa/reality/api-routes.txt
 
-ROUTE_COUNT=$(wc -l < loa-grimoire/reality/api-routes.txt 2>/dev/null || echo 0)
+ROUTE_COUNT=$(wc -l < grimoires/loa/reality/api-routes.txt 2>/dev/null || echo 0)
 echo "Found $ROUTE_COUNT route definitions"
 ```
 
@@ -357,7 +576,7 @@ echo "Found $ROUTE_COUNT route definitions"
 ```bash
 grep -rn "model \|@Entity\|class.*Entity\|CREATE TABLE\|type.*struct\|interface.*{\|type.*=" \
   --include="*.prisma" --include="*.ts" --include="*.sql" --include="*.go" --include="*.graphql" 2>/dev/null \
-  > loa-grimoire/reality/data-models.txt
+  > grimoires/loa/reality/data-models.txt
 ```
 
 ### 2.5 Environment Dependencies
@@ -365,7 +584,7 @@ grep -rn "model \|@Entity\|class.*Entity\|CREATE TABLE\|type.*struct\|interface.
 ```bash
 grep -roh 'process\.env\.\w\+\|os\.environ\[.\+\]\|os\.Getenv\(.\+\)\|env\.\w\+\|import\.meta\.env\.\w\+' \
   --include="*.ts" --include="*.js" --include="*.py" --include="*.go" 2>/dev/null \
-  | sort -u > loa-grimoire/reality/env-vars.txt
+  | sort -u > grimoires/loa/reality/env-vars.txt
 ```
 
 ### 2.6 Tech Debt Markers
@@ -373,16 +592,16 @@ grep -roh 'process\.env\.\w\+\|os\.environ\[.\+\]\|os\.Getenv\(.\+\)\|env\.\w\+\
 ```bash
 grep -rn "TODO\|FIXME\|HACK\|XXX\|BUG\|@deprecated\|eslint-disable\|@ts-ignore\|type: any" \
   --include="*.ts" --include="*.js" --include="*.py" --include="*.go" 2>/dev/null \
-  > loa-grimoire/reality/tech-debt.txt
+  > grimoires/loa/reality/tech-debt.txt
 ```
 
 ### 2.7 Test Coverage Detection
 
 ```bash
 find . -type f \( -name "*.test.ts" -o -name "*.spec.ts" -o -name "*_test.go" -o -name "test_*.py" \) \
-  -not -path "*/node_modules/*" 2>/dev/null > loa-grimoire/reality/test-files.txt
+  -not -path "*/node_modules/*" 2>/dev/null > grimoires/loa/reality/test-files.txt
 
-TEST_COUNT=$(wc -l < loa-grimoire/reality/test-files.txt 2>/dev/null || echo 0)
+TEST_COUNT=$(wc -l < grimoires/loa/reality/test-files.txt 2>/dev/null || echo 0)
 
 if [[ "$TEST_COUNT" -eq 0 ]]; then
   echo "⚠️ NO TESTS FOUND - This is a significant gap"
@@ -396,12 +615,22 @@ After all extractions complete, **clear raw tool outputs** from active context:
 ```markdown
 ## Phase 2 Extraction Summary (for active context)
 
-Reality extraction complete. Results synthesized to loa-grimoire/reality/:
+Reality extraction complete. Results synthesized to grimoires/loa/reality/:
 - Routes: [N] definitions → reality/api-routes.txt
 - Entities: [N] models → reality/data-models.txt
 - Env vars: [N] dependencies → reality/env-vars.txt
 - Tech debt: [N] markers → reality/tech-debt.txt
 - Tests: [N] files → reality/test-files.txt
+
+### Loading Strategy Results (RLM Pattern)
+
+| Metric | Value |
+|--------|-------|
+| Strategy | $LOADING_STRATEGY |
+| Files loaded | $FILES_LOADED |
+| Files excerpted | $FILES_EXCERPTED |
+| Files skipped | $FILES_SKIPPED |
+| Tokens saved | ~$TOKENS_SAVED |
 
 ⚠️ RAW TOOL OUTPUTS CLEARED FROM CONTEXT
 Refer to reality/ files for specific file:line details.
@@ -417,7 +646,7 @@ Flag potential issues for HUMAN DECISION - do not assume intent or prescribe fix
 
 ### 2b.1 Files Outside Standard Directories
 
-Generate `loa-grimoire/reality/hygiene-report.md`:
+Generate `grimoires/loa/reality/hygiene-report.md`:
 
 ```markdown
 # Code Hygiene Audit
@@ -458,7 +687,7 @@ Possible dispositions:
 - **Archive**: Move to `_archive/` folder
 - **Delete**: Confirmed abandoned
 
-Add disposition decisions to `loa-grimoire/NOTES.md` Decision Log.
+Add disposition decisions to `grimoires/loa/NOTES.md` Decision Log.
 ```
 
 ---
@@ -468,13 +697,13 @@ Add disposition decisions to `loa-grimoire/NOTES.md` Decision Log.
 ### 3.1 Find All Documentation
 
 ```bash
-mkdir -p loa-grimoire/legacy
+mkdir -p grimoires/loa/legacy
 
 find . -type f \( -name "*.md" -o -name "*.rst" -o -name "*.txt" -o -name "*.adoc" \) \
   -not -path "*/node_modules/*" \
   -not -path "*/.git/*" \
-  -not -path "*/loa-grimoire/*" \
-  2>/dev/null > loa-grimoire/legacy/doc-files.txt
+  -not -path "*/grimoires/loa/*" \
+  2>/dev/null > grimoires/loa/legacy/doc-files.txt
 ```
 
 ### 3.2 Assess AI Guidance Quality (CLAUDE.md)
@@ -498,7 +727,7 @@ fi
 
 ### 3.3 Create Inventory
 
-Create `loa-grimoire/legacy/INVENTORY.md` listing all docs with type and key claims.
+Create `grimoires/loa/legacy/INVENTORY.md` listing all docs with type and key claims.
 
 ---
 
@@ -523,17 +752,17 @@ Create `loa-grimoire/legacy/INVENTORY.md` listing all docs with type and key cla
 # Extract claims from legacy docs
 echo "Extracting claims from legacy documentation..."
 
-for doc in $(cat loa-grimoire/legacy/doc-files.txt); do
-  echo "## Claims from: $doc" >> loa-grimoire/legacy/extracted-claims.md
+for doc in $(cat grimoires/loa/legacy/doc-files.txt); do
+  echo "## Claims from: $doc" >> grimoires/loa/legacy/extracted-claims.md
 
   # Extract feature/entity names mentioned
-  grep -oE "[A-Z][a-zA-Z]+(?:Service|Manager|Handler|Controller|Module|Feature)" "$doc" 2>/dev/null | sort -u >> loa-grimoire/legacy/extracted-claims.md
+  grep -oE "[A-Z][a-zA-Z]+(?:Service|Manager|Handler|Controller|Module|Feature)" "$doc" 2>/dev/null | sort -u >> grimoires/loa/legacy/extracted-claims.md
 
   # Extract API endpoint claims
-  grep -oE "(GET|POST|PUT|DELETE|PATCH)\s+/[a-zA-Z0-9/_-]+" "$doc" 2>/dev/null >> loa-grimoire/legacy/extracted-claims.md
+  grep -oE "(GET|POST|PUT|DELETE|PATCH)\s+/[a-zA-Z0-9/_-]+" "$doc" 2>/dev/null >> grimoires/loa/legacy/extracted-claims.md
 
   # Extract entity/model names
-  grep -oE "model [A-Z][a-zA-Z]+|entity [A-Z][a-zA-Z]+|table [a-z_]+" "$doc" 2>/dev/null >> loa-grimoire/legacy/extracted-claims.md
+  grep -oE "model [A-Z][a-zA-Z]+|entity [A-Z][a-zA-Z]+|table [a-z_]+" "$doc" 2>/dev/null >> grimoires/loa/legacy/extracted-claims.md
 done
 ```
 
@@ -553,7 +782,7 @@ For each claim in legacy docs:
 
 ### 4.4 Generate Enhanced Drift Report
 
-Create `loa-grimoire/drift-report.md`:
+Create `grimoires/loa/drift-report.md`:
 
 ```markdown
 # Three-Way Drift Report
@@ -662,7 +891,7 @@ Log to trajectory:
 
 ## Phase 5: Consistency Analysis (MANDATORY OUTPUT)
 
-**YOU MUST CREATE THIS FILE** - `loa-grimoire/consistency-report.md`:
+**YOU MUST CREATE THIS FILE** - `grimoires/loa/consistency-report.md`:
 
 ### 5.1 Analyze Naming Patterns
 
@@ -732,7 +961,7 @@ grep -rh "contract \|interface \|struct \|event \|function " --include="*.sol" 2
 
 Log to trajectory:
 ```json
-{"timestamp": "...", "agent": "riding-codebase", "phase": 5, "action": "consistency_analysis", "output": "loa-grimoire/consistency-report.md", "score": N}
+{"timestamp": "...", "agent": "riding-codebase", "phase": 5, "action": "consistency_analysis", "output": "grimoires/loa/consistency-report.md", "score": N}
 ```
 
 ---
@@ -751,7 +980,7 @@ Log to trajectory:
 
 ### 6.1 Generate PRD
 
-Create `loa-grimoire/prd.md` with evidence-grounded content:
+Create `grimoires/loa/prd.md` with evidence-grounded content:
 
 ```markdown
 # Product Requirements Document
@@ -789,7 +1018,7 @@ Create `loa-grimoire/prd.md` with evidence-grounded content:
 
 ### 6.2 Generate SDD
 
-Create `loa-grimoire/sdd.md` with architecture evidence:
+Create `grimoires/loa/sdd.md` with architecture evidence:
 
 ```markdown
 # System Design Document
@@ -863,7 +1092,7 @@ Log to trajectory:
 
 ## Phase 7: Governance Audit
 
-Generate `loa-grimoire/governance-report.md`:
+Generate `grimoires/loa/governance-report.md`:
 
 ```markdown
 # Governance & Release Audit
@@ -891,10 +1120,10 @@ For each file in legacy/doc-files.txt, prepend deprecation notice:
 ║  This document has been superseded by Loa-managed documentation.   ║
 ║                                                                    ║
 ║  Source of Truth:                                                  ║
-║  • Product Requirements: loa-grimoire/prd.md                       ║
-║  • System Design: loa-grimoire/sdd.md                              ║
+║  • Product Requirements: grimoires/loa/prd.md                       ║
+║  • System Design: grimoires/loa/sdd.md                              ║
 ║                                                                    ║
-║  Drift Report: loa-grimoire/drift-report.md                        ║
+║  Drift Report: grimoires/loa/drift-report.md                        ║
 ╚════════════════════════════════════════════════════════════════════╝
 -->
 ```
@@ -903,7 +1132,7 @@ For each file in legacy/doc-files.txt, prepend deprecation notice:
 
 ## Phase 9: Trajectory Self-Audit (MANDATORY OUTPUT)
 
-**YOU MUST CREATE THIS FILE** - `loa-grimoire/trajectory-audit.md`:
+**YOU MUST CREATE THIS FILE** - `grimoires/loa/trajectory-audit.md`:
 
 ### 9.1 Review Generated Artifacts
 
@@ -911,12 +1140,12 @@ Before creating the audit, review all generated artifacts for grounding:
 
 ```bash
 # Count grounding markers in PRD
-grep -c "(.*:L[0-9]" loa-grimoire/prd.md 2>/dev/null || echo 0
-grep -c "\[ASSUMPTION\]" loa-grimoire/prd.md 2>/dev/null || echo 0
-grep -c "\[INFERRED\]" loa-grimoire/prd.md 2>/dev/null || echo 0
+grep -c "(.*:L[0-9]" grimoires/loa/prd.md 2>/dev/null || echo 0
+grep -c "\[ASSUMPTION\]" grimoires/loa/prd.md 2>/dev/null || echo 0
+grep -c "\[INFERRED\]" grimoires/loa/prd.md 2>/dev/null || echo 0
 
 # Count grounding markers in SDD
-grep -c "(.*:L[0-9]" loa-grimoire/sdd.md 2>/dev/null || echo 0
+grep -c "(.*:L[0-9]" grimoires/loa/sdd.md 2>/dev/null || echo 0
 ```
 
 ### 9.2 Generate Trajectory Audit
@@ -988,7 +1217,7 @@ Review these areas for accuracy:
 
 ## Trajectory Log Reference
 
-Full trajectory logged to: `loa-grimoire/a2a/trajectory/riding-[DATE].jsonl`
+Full trajectory logged to: `grimoires/loa/a2a/trajectory/riding-[DATE].jsonl`
 
 ## Self-Certification
 
@@ -1003,7 +1232,7 @@ Full trajectory logged to: `loa-grimoire/a2a/trajectory/riding-[DATE].jsonl`
 
 Log to trajectory:
 ```json
-{"timestamp": "...", "agent": "riding-codebase", "phase": 9, "action": "self_audit", "output": "loa-grimoire/trajectory-audit.md", "quality_score": N}
+{"timestamp": "...", "agent": "riding-codebase", "phase": 9, "action": "self_audit", "output": "grimoires/loa/trajectory-audit.md", "quality_score": N}
 ```
 
 ### Grounding Categories
@@ -1042,12 +1271,12 @@ Log to trajectory:
 ╚═════════════════════════════════════════════════════════════════╝
 
 ### Grimoire Artifacts Created
-- loa-grimoire/prd.md (Product truth)
-- loa-grimoire/sdd.md (System truth)
-- loa-grimoire/drift-report.md (Three-way analysis)
-- loa-grimoire/consistency-report.md (Pattern analysis)
-- loa-grimoire/governance-report.md (Process gaps)
-- loa-grimoire/reality/* (Raw extractions)
+- grimoires/loa/prd.md (Product truth)
+- grimoires/loa/sdd.md (System truth)
+- grimoires/loa/drift-report.md (Three-way analysis)
+- grimoires/loa/consistency-report.md (Pattern analysis)
+- grimoires/loa/governance-report.md (Process gaps)
+- grimoires/loa/reality/* (Raw extractions)
 
 ### Next Steps
 1. Review drift-report.md for critical issues
@@ -1076,14 +1305,14 @@ If code behavior is ambiguous:
 
 ## Trajectory Logging (MANDATORY)
 
-**YOU MUST LOG EACH PHASE** to `loa-grimoire/a2a/trajectory/riding-{date}.jsonl`:
+**YOU MUST LOG EACH PHASE** to `grimoires/loa/a2a/trajectory/riding-{date}.jsonl`:
 
 ### Setup Trajectory File
 
 ```bash
 TRAJECTORY_DATE=$(date +%Y%m%d)
-TRAJECTORY_FILE="loa-grimoire/a2a/trajectory/riding-${TRAJECTORY_DATE}.jsonl"
-mkdir -p loa-grimoire/a2a/trajectory
+TRAJECTORY_FILE="grimoires/loa/a2a/trajectory/riding-${TRAJECTORY_DATE}.jsonl"
+mkdir -p grimoires/loa/a2a/trajectory
 ```
 
 ### Log Format

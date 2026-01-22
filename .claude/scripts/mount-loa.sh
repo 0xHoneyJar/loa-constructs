@@ -26,6 +26,7 @@ CONFIG_FILE=".loa.config.yaml"
 CHECKSUMS_FILE=".claude/checksums.json"
 SKIP_BEADS=false
 STEALTH_MODE=false
+FORCE_MODE=false
 
 # === Argument Parsing ===
 while [[ $# -gt 0 ]]; do
@@ -42,14 +43,22 @@ while [[ $# -gt 0 ]]; do
       SKIP_BEADS=true
       shift
       ;;
+    --force|-f)
+      FORCE_MODE=true
+      shift
+      ;;
     -h|--help)
       echo "Usage: mount-loa.sh [OPTIONS]"
       echo ""
       echo "Options:"
       echo "  --branch <name>   Loa branch to use (default: main)"
+      echo "  --force, -f       Force remount without prompting (use for curl | bash)"
       echo "  --stealth         Add state files to .gitignore"
       echo "  --skip-beads      Don't install/initialize Beads CLI"
       echo "  -h, --help        Show this help message"
+      echo ""
+      echo "Recovery install (when /update is broken):"
+      echo "  curl -fsSL https://raw.githubusercontent.com/0xHoneyJar/loa/main/.claude/scripts/mount-loa.sh | bash -s -- --force"
       exit 0
       ;;
     *)
@@ -92,9 +101,18 @@ preflight() {
   if [[ -f "$VERSION_FILE" ]]; then
     local existing=$(jq -r '.framework_version // "unknown"' "$VERSION_FILE" 2>/dev/null)
     warn "Loa is already mounted (version: $existing)"
-    read -p "Remount/upgrade? This will reset the System Zone. (y/N) " -n 1 -r
-    echo ""
-    [[ $REPLY =~ ^[Yy]$ ]] || { log "Aborted."; exit 0; }
+    if [[ "$FORCE_MODE" == "true" ]]; then
+      log "Force mode enabled, proceeding with remount..."
+    else
+      # Check if stdin is a terminal (interactive mode)
+      if [[ -t 0 ]]; then
+        read -p "Remount/upgrade? This will reset the System Zone. (y/N) " -n 1 -r
+        echo ""
+        [[ $REPLY =~ ^[Yy]$ ]] || { log "Aborted."; exit 0; }
+      else
+        err "Loa already installed. Use --force flag to remount: curl ... | bash -s -- --force"
+      fi
+    fi
   fi
 
   command -v git >/dev/null || err "git is required"
@@ -111,8 +129,8 @@ install_beads() {
     return 0
   fi
 
-  if command -v bd &> /dev/null; then
-    local version=$(bd --version 2>/dev/null || echo "unknown")
+  if command -v br &> /dev/null; then
+    local version=$(br --version 2>/dev/null || echo "unknown")
     log "Beads CLI already installed: $version"
     return 0
   fi
@@ -152,12 +170,12 @@ sync_zones() {
     err "Failed to checkout .claude/ from upstream"
   }
 
-  if [[ ! -d "loa-grimoire" ]]; then
-    log "Pulling State Zone template (loa-grimoire/)..."
-    git checkout "$LOA_REMOTE_NAME/$LOA_BRANCH" -- loa-grimoire 2>/dev/null || {
-      warn "No loa-grimoire/ in upstream, creating empty structure..."
-      mkdir -p loa-grimoire/{context,discovery,a2a/trajectory}
-      touch loa-grimoire/.gitkeep
+  if [[ ! -d "grimoires/loa" ]]; then
+    log "Pulling State Zone template (grimoires/loa/)..."
+    git checkout "$LOA_REMOTE_NAME/$LOA_BRANCH" -- grimoires/loa 2>/dev/null || {
+      warn "No grimoires/loa/ in upstream, creating empty structure..."
+      mkdir -p grimoires/loa/{context,discovery,a2a/trajectory}
+      touch grimoires/loa/.gitkeep
     }
   else
     log "State Zone already exists, preserving..."
@@ -173,7 +191,7 @@ sync_zones() {
 init_structured_memory() {
   step "Initializing structured agentic memory..."
 
-  local notes_file="loa-grimoire/NOTES.md"
+  local notes_file="grimoires/loa/NOTES.md"
   if [[ ! -f "$notes_file" ]]; then
     cat > "$notes_file" << 'EOF'
 # Agent Working Memory (NOTES.md)
@@ -204,7 +222,7 @@ EOF
   fi
 
   # Create trajectory directory for ADK-style evaluation
-  mkdir -p loa-grimoire/a2a/trajectory
+  mkdir -p grimoires/loa/a2a/trajectory
 }
 
 # === Create Version Manifest ===
@@ -223,7 +241,7 @@ create_manifest() {
   "last_sync": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "zones": {
     "system": ".claude",
-    "state": ["loa-grimoire", ".beads"],
+    "state": ["grimoires/loa", ".beads"],
     "app": ["src", "lib", "app"]
   },
   "migrations_applied": ["001_init_zones"],
@@ -313,8 +331,8 @@ disabled_agents: []
 # Structured Memory
 # =============================================================================
 memory:
-  notes_file: loa-grimoire/NOTES.md
-  trajectory_dir: loa-grimoire/a2a/trajectory
+  notes_file: grimoires/loa/NOTES.md
+  trajectory_dir: grimoires/loa/a2a/trajectory
   # Auto-compact trajectory logs older than N days
   trajectory_retention_days: 30
 
@@ -347,9 +365,9 @@ EOF
 }
 
 generate_config_snapshot() {
-  mkdir -p loa-grimoire/context
+  mkdir -p grimoires/loa/context
   if command -v yq &> /dev/null && [[ -f "$CONFIG_FILE" ]]; then
-    yq_to_json "$CONFIG_FILE" > loa-grimoire/context/config_snapshot.json 2>/dev/null || true
+    yq_to_json "$CONFIG_FILE" > grimoires/loa/context/config_snapshot.json 2>/dev/null || true
   fi
 }
 
@@ -370,7 +388,7 @@ apply_stealth() {
     local gitignore=".gitignore"
     touch "$gitignore"
 
-    local entries=("loa-grimoire/" ".beads/" ".loa-version.json" ".loa.config.yaml")
+    local entries=("grimoires/loa/" ".beads/" ".loa-version.json" ".loa.config.yaml")
     for entry in "${entries[@]}"; do
       grep -qxF "$entry" "$gitignore" 2>/dev/null || echo "$entry" >> "$gitignore"
     done
@@ -386,7 +404,7 @@ init_beads() {
     return 0
   fi
 
-  if ! command -v bd &> /dev/null; then
+  if ! command -v br &> /dev/null; then
     warn "Beads CLI not installed, skipping initialization"
     return 0
   fi
@@ -400,8 +418,8 @@ init_beads() {
   fi
 
   if [[ ! -f ".beads/graph.jsonl" ]]; then
-    bd init $stealth_flag 2>/dev/null || {
-      warn "Beads init failed - run 'bd init' manually"
+    br init $stealth_flag 2>/dev/null || {
+      warn "Beads init failed - run 'br init' manually"
       return 0
     }
     log "Beads initialized"
@@ -418,6 +436,7 @@ main() {
   log "  Enterprise-Grade Managed Scaffolding"
   log "======================================================================="
   log "  Branch: $LOA_BRANCH"
+  [[ "$FORCE_MODE" == "true" ]] && log "  Mode: Force remount"
   echo ""
 
   preflight
@@ -451,8 +470,8 @@ EOF
   info "Zone structure:"
   info "  .claude/          -> System Zone (framework-managed, immutable)"
   info "  .claude/overrides -> Your customizations (preserved)"
-  info "  loa-grimoire/     -> State Zone (project memory)"
-  info "  loa-grimoire/NOTES.md -> Structured agentic memory"
+  info "  grimoires/loa/     -> State Zone (project memory)"
+  info "  grimoires/loa/NOTES.md -> Structured agentic memory"
   info "  .beads/           -> Task graph (Beads)"
   echo ""
   warn "STRICT ENFORCEMENT: Direct edits to .claude/ will block agent execution."
