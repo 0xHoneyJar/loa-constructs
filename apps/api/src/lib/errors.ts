@@ -84,6 +84,13 @@ export const Errors = {
 
   // 400 Bad Request (generic)
   BadRequest: (message: string) => new AppError('BAD_REQUEST', message, 400),
+
+  // 400 Namespace Validation Error
+  NamespaceValidationError: (details: {
+    code: string;
+    message: string;
+    details: Record<string, unknown>;
+  }) => new AppError(details.code, details.message, 400, details.details),
 };
 
 /**
