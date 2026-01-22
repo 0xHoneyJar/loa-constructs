@@ -180,7 +180,7 @@ describe('Storage Service', () => {
       expect(result).toEqual({ configured: true, connected: true });
       expect(HeadObjectCommand).toHaveBeenCalledWith({
         Bucket: env.R2_BUCKET,
-        Key: '.storage-health-check',
+        Key: 'skills/.storage-health-check',
       });
     });
 

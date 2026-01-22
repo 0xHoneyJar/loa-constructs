@@ -259,7 +259,7 @@ export async function verifyStorageConnection(): Promise<{
       .send(
         new HeadObjectCommand({
           Bucket: env.R2_BUCKET,
-          Key: '.storage-health-check',
+          Key: 'skills/.storage-health-check',
         })
       )
       .catch((err) => {
