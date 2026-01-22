@@ -37,6 +37,7 @@ import {
   isAllowedMimeType,
   MAX_FILE_SIZE,
   isStorageConfigured,
+  verifyStorageConnection,
 } from '../services/storage.js';
 import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
@@ -517,9 +518,21 @@ skillsRouter.post('/:slug/versions', requireAuth(), zValidator('json', createVer
     throw Errors.Conflict(`Version ${data.version} already exists`);
   }
 
-  // Validate storage is configured
+  // Validate storage is configured and accessible
   if (!isStorageConfigured()) {
     throw Errors.ServiceUnavailable('File storage is not configured');
+  }
+
+  // Pre-flight check: verify storage is accessible before creating version record
+  const storageStatus = await verifyStorageConnection();
+  if (!storageStatus.connected) {
+    logger.error(
+      { request_id: requestId, slug, error: storageStatus.error },
+      'Storage pre-flight check failed'
+    );
+    throw Errors.ServiceUnavailable(
+      `File storage is not accessible: ${storageStatus.error ?? 'Unknown error'}. Please try again later.`
+    );
   }
 
   // Create version

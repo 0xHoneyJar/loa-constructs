@@ -82,6 +82,24 @@ export const Errors = {
   ServiceUnavailable: (message = 'Service temporarily unavailable') =>
     new AppError('SERVICE_UNAVAILABLE', message, 503),
 
+  // 502 Storage Error
+  StorageError: (operation: string, details?: Record<string, unknown>) =>
+    new AppError(
+      'STORAGE_ERROR',
+      `File storage operation failed: ${operation}`,
+      502,
+      details
+    ),
+
+  // 503 Storage Unavailable
+  StorageUnavailable: () =>
+    new AppError(
+      'STORAGE_UNAVAILABLE',
+      'File storage service is not available. Please try again later.',
+      503,
+      { service: 'r2' }
+    ),
+
   // 400 Bad Request (generic)
   BadRequest: (message: string) => new AppError('BAD_REQUEST', message, 400),
 

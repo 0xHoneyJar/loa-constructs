@@ -4,10 +4,11 @@
  * @see sdd.md §1.6 External Integrations - Cloudflare R2
  */
 
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
+import { Errors } from '../lib/errors.js';
 
 // --- Constants ---
 
@@ -83,10 +84,16 @@ export async function uploadFile(
   contentType: string
 ): Promise<string> {
   if (buffer.length > MAX_FILE_SIZE) {
-    throw new Error(`File exceeds maximum size of ${MAX_FILE_SIZE} bytes`);
+    throw Errors.BadRequest(`File exceeds maximum size of ${MAX_FILE_SIZE} bytes`);
   }
 
-  const client = getS3Client();
+  let client: S3Client;
+  try {
+    client = getS3Client();
+  } catch (error) {
+    logger.error({ error }, 'R2 storage client initialization failed');
+    throw Errors.StorageUnavailable();
+  }
 
   try {
     await client.send(
@@ -101,8 +108,16 @@ export async function uploadFile(
     logger.info({ key, size: buffer.length, contentType }, 'File uploaded to R2');
     return key;
   } catch (error) {
-    logger.error({ key, error }, 'Failed to upload file to R2');
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorName = error instanceof Error ? error.name : 'UnknownError';
+    logger.error({ key, error: errorMessage, errorName }, 'Failed to upload file to R2');
+
+    // Provide actionable error details
+    throw Errors.StorageError('upload', {
+      key,
+      reason: errorMessage,
+      hint: 'Check R2 bucket configuration and credentials',
+    });
   }
 }
 
@@ -112,7 +127,13 @@ export async function uploadFile(
  * @returns File contents as Buffer
  */
 export async function downloadFile(key: string): Promise<Buffer> {
-  const client = getS3Client();
+  let client: S3Client;
+  try {
+    client = getS3Client();
+  } catch (error) {
+    logger.error({ error }, 'R2 storage client initialization failed');
+    throw Errors.StorageUnavailable();
+  }
 
   try {
     const response = await client.send(
@@ -123,7 +144,7 @@ export async function downloadFile(key: string): Promise<Buffer> {
     );
 
     if (!response.Body) {
-      throw new Error('Empty response body');
+      throw Errors.StorageError('download', { key, reason: 'Empty response body' });
     }
 
     // Convert readable stream to buffer
@@ -136,8 +157,14 @@ export async function downloadFile(key: string): Promise<Buffer> {
     logger.debug({ key, size: buffer.length }, 'File downloaded from R2');
     return buffer;
   } catch (error) {
-    logger.error({ key, error }, 'Failed to download file from R2');
-    throw error;
+    // Re-throw if already an AppError
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'STORAGE_ERROR') {
+      throw error;
+    }
+
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error({ key, error: errorMessage }, 'Failed to download file from R2');
+    throw Errors.StorageError('download', { key, reason: errorMessage });
   }
 }
 
@@ -146,7 +173,13 @@ export async function downloadFile(key: string): Promise<Buffer> {
  * @param key - Storage key
  */
 export async function deleteFile(key: string): Promise<void> {
-  const client = getS3Client();
+  let client: S3Client;
+  try {
+    client = getS3Client();
+  } catch (error) {
+    logger.error({ error }, 'R2 storage client initialization failed');
+    throw Errors.StorageUnavailable();
+  }
 
   try {
     await client.send(
@@ -158,8 +191,9 @@ export async function deleteFile(key: string): Promise<void> {
 
     logger.info({ key }, 'File deleted from R2');
   } catch (error) {
-    logger.error({ key, error }, 'Failed to delete file from R2');
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.error({ key, error: errorMessage }, 'Failed to delete file from R2');
+    throw Errors.StorageError('delete', { key, reason: errorMessage });
   }
 }
 
@@ -197,4 +231,39 @@ export function generateStorageKey(skillSlug: string, version: string, filePath:
  */
 export function isAllowedMimeType(mimeType: string): boolean {
   return ALLOWED_MIME_TYPES.includes(mimeType as typeof ALLOWED_MIME_TYPES[number]);
+}
+
+/**
+ * Verify R2 storage is properly configured and accessible
+ * Used for health checks and pre-flight validation
+ */
+export async function verifyStorageConnection(): Promise<{
+  configured: boolean;
+  connected: boolean;
+  error?: string;
+}> {
+  if (!isStorageConfigured()) {
+    return { configured: false, connected: false, error: 'R2 credentials not configured' };
+  }
+
+  try {
+    const client = getS3Client();
+    // Try a lightweight operation to verify connectivity
+    await client.send(
+      new HeadObjectCommand({
+        Bucket: env.R2_BUCKET,
+        Key: '.storage-health-check',
+      })
+    ).catch((err) => {
+      // NoSuchKey is expected and means we can connect
+      if (err.name === 'NoSuchKey' || err.name === 'NotFound' || err?.$metadata?.httpStatusCode === 404) return;
+      throw err;
+    });
+
+    return { configured: true, connected: true };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    logger.warn({ error: errorMessage }, 'R2 storage connectivity check failed');
+    return { configured: true, connected: false, error: errorMessage };
+  }
 }
