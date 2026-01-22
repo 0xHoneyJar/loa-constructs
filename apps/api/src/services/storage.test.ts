@@ -10,13 +10,17 @@ import {
   isAllowedMimeType,
   generateStorageKey,
   isStorageConfigured,
+  verifyStorageConnection,
 } from './storage.js';
+import { env } from '../config/env.js';
+import { logger } from '../lib/logger.js';
+import { S3Client, HeadObjectCommand } from '@aws-sdk/client-s3';
 
 // Mock AWS SDK
 vi.mock('@aws-sdk/client-s3', () => ({
   S3Client: vi.fn(),
   PutObjectCommand: vi.fn(),
-  GetObjectCommand: vi.fn(),
+  HeadObjectCommand: vi.fn(),
   DeleteObjectCommand: vi.fn(),
 }));
 
@@ -43,8 +47,18 @@ vi.mock('../lib/logger.js', () => ({
 }));
 
 describe('Storage Service', () => {
+  const sendMock = vi.fn();
+  const clientMock = { send: sendMock };
+
   beforeEach(() => {
     vi.clearAllMocks();
+    sendMock.mockReset();
+    vi.mocked(S3Client).mockImplementation(() => clientMock as unknown as S3Client);
+
+    env.R2_ACCOUNT_ID = undefined;
+    env.R2_ACCESS_KEY_ID = undefined;
+    env.R2_SECRET_ACCESS_KEY = undefined;
+    env.R2_BUCKET = 'loa-constructs';
   });
 
   describe('MAX_FILE_SIZE', () => {
@@ -137,6 +151,69 @@ describe('Storage Service', () => {
   describe('isStorageConfigured', () => {
     it('should return false when R2 credentials are not set', () => {
       expect(isStorageConfigured()).toBe(false);
+    });
+  });
+
+  describe('verifyStorageConnection', () => {
+    const configureEnv = () => {
+      env.R2_ACCOUNT_ID = 'account';
+      env.R2_ACCESS_KEY_ID = 'access';
+      env.R2_SECRET_ACCESS_KEY = 'secret';
+    };
+
+    it('should return not configured when credentials are missing', async () => {
+      const result = await verifyStorageConnection();
+      expect(result).toEqual({
+        configured: false,
+        connected: false,
+        error: 'R2 credentials not configured',
+      });
+      expect(S3Client).not.toHaveBeenCalled();
+    });
+
+    it('should return connected when head object succeeds', async () => {
+      configureEnv();
+      sendMock.mockResolvedValueOnce({});
+
+      const result = await verifyStorageConnection();
+
+      expect(result).toEqual({ configured: true, connected: true });
+      expect(HeadObjectCommand).toHaveBeenCalledWith({
+        Bucket: env.R2_BUCKET,
+        Key: '.storage-health-check',
+      });
+    });
+
+    it('should treat missing object as connected (NoSuchKey)', async () => {
+      configureEnv();
+      sendMock.mockRejectedValueOnce(Object.assign(new Error('missing'), { name: 'NoSuchKey' }));
+
+      const result = await verifyStorageConnection();
+
+      expect(result).toEqual({ configured: true, connected: true });
+    });
+
+    it('should treat missing object as connected (NotFound)', async () => {
+      configureEnv();
+      sendMock.mockRejectedValueOnce(Object.assign(new Error('missing'), { name: 'NotFound' }));
+
+      const result = await verifyStorageConnection();
+
+      expect(result).toEqual({ configured: true, connected: true });
+    });
+
+    it('should return error when head object fails unexpectedly', async () => {
+      configureEnv();
+      sendMock.mockRejectedValueOnce(Object.assign(new Error('Access denied'), { name: 'AccessDenied' }));
+
+      const result = await verifyStorageConnection();
+
+      expect(result).toEqual({
+        configured: true,
+        connected: false,
+        error: 'Access denied',
+      });
+      expect(logger.warn).toHaveBeenCalled();
     });
   });
 });

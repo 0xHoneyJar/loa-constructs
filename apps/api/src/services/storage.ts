@@ -4,7 +4,7 @@
  * @see sdd.md §1.6 External Integrations - Cloudflare R2
  */
 
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
@@ -249,15 +249,14 @@ export async function verifyStorageConnection(): Promise<{
   try {
     const client = getS3Client();
     // Try a lightweight operation to verify connectivity
-    // HeadBucket would be ideal but we'll use a list with max 1 result
     await client.send(
-      new GetObjectCommand({
+      new HeadObjectCommand({
         Bucket: env.R2_BUCKET,
         Key: '.storage-health-check',
       })
     ).catch((err) => {
       // NoSuchKey is expected and means we can connect
-      if (err.name === 'NoSuchKey') return;
+      if (err.name === 'NoSuchKey' || err.name === 'NotFound' || err?.$metadata?.httpStatusCode === 404) return;
       throw err;
     });
 
