@@ -4,7 +4,13 @@
  * @see sdd.md §1.6 External Integrations - Cloudflare R2
  */
 
-import { S3Client, PutObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  PutObjectCommand,
+  HeadObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { env } from '../config/env.js';
 import { logger } from '../lib/logger.js';
@@ -249,16 +255,24 @@ export async function verifyStorageConnection(): Promise<{
   try {
     const client = getS3Client();
     // Try a lightweight operation to verify connectivity
-    await client.send(
-      new HeadObjectCommand({
-        Bucket: env.R2_BUCKET,
-        Key: '.storage-health-check',
-      })
-    ).catch((err) => {
-      // NoSuchKey is expected and means we can connect
-      if (err.name === 'NoSuchKey' || err.name === 'NotFound' || err?.$metadata?.httpStatusCode === 404) return;
-      throw err;
-    });
+    await client
+      .send(
+        new HeadObjectCommand({
+          Bucket: env.R2_BUCKET,
+          Key: '.storage-health-check',
+        })
+      )
+      .catch((err) => {
+        // NoSuchKey/NotFound means the bucket is reachable; surface other 404s (e.g., NoSuchBucket).
+        const errorName =
+          err && typeof err === 'object'
+            ? (err as { name?: string; Code?: string; code?: string }).name ??
+              (err as { Code?: string }).Code ??
+              (err as { code?: string }).code
+            : undefined;
+        if (errorName === 'NoSuchKey' || errorName === 'NotFound') return;
+        throw err;
+      });
 
     return { configured: true, connected: true };
   } catch (error) {
