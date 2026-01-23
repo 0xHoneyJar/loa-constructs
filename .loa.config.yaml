@@ -574,13 +574,14 @@ construct:
   repo: 0xHoneyJar/loa-constructs
   # GitHub org for inbox queries
   org: 0xHoneyJar
-  # Known constructs in the org (for validation)
+  # Known constructs in the org (source: melange/constructs.json)
   known_constructs:
-    - sigil
-    - loa
-    - registry
-    - loa-constructs
-    - human  # Enable /send human for operator clarification
+    - loa              # Framework (mother construct)
+    - loa-constructs   # Registry (this repo)
+    - sigil            # Design Construct
+    - hivemind         # Org memory Construct
+    - ruggy            # Security Construct
+    - human            # Virtual: escalate to operator
   # Discord ID for /send human (enables direct operator pings)
   # Get ID: Right-click user in Discord → Copy User ID
   human_discord_id: "970593060553646101"
