@@ -1,491 +1,426 @@
-# Product Requirements Document: GTM Collective Pack Integration
+# PRD: Melange CLI Integration
 
-**Version**: 1.0.0
-**Date**: 2025-12-31
-**Author**: Product Manager Agent
-**Status**: Draft
-
----
-
-## 1. Executive Summary
-
-### 1.1 Problem Statement
-
-The GTM Collective—a premium suite of 8 Go-To-Market skills designed for the Loa framework—was migrated from the open-source `loa` repository to `loa-registry` to enable premium content distribution. However, these skills currently exist only in an archive directory (`loa-grimoire/context/archive/`) and have not been integrated into the registry's pack distribution system.
-
-The registry infrastructure (API, CLI, database schema) is fully implemented and supports pack creation, versioning, and subscription-gated downloads. The GTM skills need to be packaged and published as a registry pack to enable distribution to paying subscribers.
-
-### 1.2 Solution Overview
-
-Package the 8 GTM skills, 14 commands, and associated resources as the `gtm-collective` pack in the Loa Registry. This involves:
-
-1. **Restructuring files** from archive format to pack distribution format
-2. **Creating pack metadata** (manifest, version info, pricing)
-3. **Publishing to registry** via API or seeding script
-4. **Validating end-to-end** installation flow
-
-### 1.3 Business Value
-
-| Metric | Impact |
-|--------|--------|
-| **Revenue Enablement** | First premium pack ready for paying subscribers |
-| **Product Completeness** | Demonstrates full SaaS capability (creation → purchase → installation) |
-| **GTM for GTM** | Dogfooding—using the registry to distribute GTM skills |
+**Version:** 1.0.0
+**Status:** Draft
+**Cycle:** cycle-003
+**Created:** 2026-01-23
+**Builds On:** cycle-002 (Melange Infrastructure)
 
 ---
 
-## 2. Goals and Success Criteria
+## 1. Problem Statement
 
-### 2.1 Business Goals
+Melange v0.9 infrastructure is deployed (GitHub Issues + Discord notifications), but there's no CLI integration. Currently:
 
-1. **G1**: Enable premium content distribution through the registry
-2. **G2**: Validate the pack lifecycle (publish → download → install → use)
-3. **G3**: Establish a reference implementation for future premium packs
+- **Sending feedback** requires manually creating GitHub Issues via browser or raw `gh` commands
+- **Receiving feedback** requires manually searching GitHub for `label:to:your-construct`
+- **No construct identity** — AI agents don't know which construct they belong to
+- **No triage workflow** — humans must context-switch to GitHub to process inbox
 
-### 2.2 Success Criteria
+This friction reduces adoption and defeats the purpose of tight feedback loops.
 
-| Criterion | Measurement | Target |
-|-----------|-------------|--------|
-| Pack Published | `gtm-collective` exists in registry with status `published` | 100% |
-| CLI Installation | `/pack-install gtm-collective` succeeds for pro+ subscribers | Works |
-| Skills Functional | All 8 skills load and execute in Claude Code | 8/8 |
-| Commands Available | All 14 commands accessible after installation | 14/14 |
-| Subscription Gating | Free tier users receive 402 on download attempt | Enforced |
+## 2. Vision
 
----
+Every Loa-powered Construct has built-in Melange skills:
 
-## 3. User Context
+```bash
+# Sending feedback (from any Construct)
+/send loa "Error messages don't include file paths"
 
-### 3.1 Primary Persona: Loa Pro Subscriber
+# Receiving feedback (interactive triage)
+/inbox
+# → Walks through each issue: accept/decline/discuss
+```
 
-**Profile**: Developer or technical founder building a product who needs GTM strategy support.
+The human stays in their terminal. The AI helps draft structured Issues and responses.
 
-**Goals**:
-- Get market research and competitive analysis without hiring consultants
-- Create positioning, pricing, and launch materials
-- Review GTM strategy for consistency before execution
+## 3. Goals & Success Metrics
 
-**Pain Points**:
-- GTM strategy is expensive when done by agencies
-- Generic AI lacks structured methodology
-- Coordinating multiple tools for different GTM tasks
+| Goal | Metric | Target |
+|------|--------|--------|
+| Reduce friction to send feedback | Time from idea to Issue created | < 60 seconds |
+| Reduce friction to triage inbox | Issues processed per session | 100% of game-changing + important |
+| Enable construct identity | Config coverage | All constructs have identity configured |
+| Maintain HITL | Auto-processing rate | 0% (all actions require human approval) |
 
-**Buying Behavior**:
-- Subscribes to Pro ($29/month) or Team ($99/month) for access to premium packs
-- Expects seamless installation via CLI
-- Values comprehensive, integrated tooling
+## 4. User Personas
 
-### 3.2 Secondary Persona: Registry Administrator (Internal)
+### Primary: Construct Operator
+- Human working with an AI agent (e.g., soju@Sigil)
+- Encounters friction in another team's tooling
+- Wants to send structured feedback without context-switching
+- Wants to triage incoming feedback efficiently
 
-**Profile**: THJ team member managing the registry.
+### Secondary: Construct AI Agent
+- Needs to know its identity (which construct, which repo)
+- Helps draft Melange Issues from human descriptions
+- Presents inbox in structured format
+- Never auto-accepts or auto-declines (HITL always)
 
-**Goals**:
-- Publish and maintain premium packs
-- Monitor installation metrics
-- Handle subscription verification
+## 5. Functional Requirements
 
----
+### 5.1 Construct Identity Configuration
 
-## 4. Functional Requirements
-
-### 4.1 Pack Structure
-
-The GTM Collective pack must include:
-
-#### Skills (8)
-
-| Skill Slug | Purpose | Triggers |
-|------------|---------|----------|
-| `analyzing-market` | Market research, TAM/SAM/SOM, competitive analysis | `/analyze-market` |
-| `positioning-product` | Product positioning, messaging frameworks | `/position` |
-| `pricing-strategist` | Pricing models, value metrics | `/price` |
-| `crafting-narratives` | Launch plans, release announcements, content | `/plan-launch`, `/announce-release` |
-| `educating-developers` | DevRel strategy | `/plan-devrel` |
-| `building-partnerships` | Partnership and BD strategy | `/plan-partnerships` |
-| `translating-for-stakeholders` | Executive communication, pitch decks | `/create-deck` |
-| `reviewing-gtm` | GTM strategy review and validation | `/review-gtm` |
-
-#### Commands (14)
-
-**Workflow Commands** (5):
-- `gtm-setup.md` - Initialize GTM workflow
-- `gtm-adopt.md` - Adopt technical reality from SDD
-- `gtm-feature-requests.md` - Feature requests for dev team
-- `sync-from-gtm.md` - Sync from GTM to dev
-- `review-gtm.md` - Review GTM strategy
-
-**Routing Commands** (9):
-- `analyze-market.md` → `analyzing-market` skill
-- `position.md` → `positioning-product` skill
-- `price.md` → `pricing-strategist` skill
-- `plan-launch.md` → `crafting-narratives` skill
-- `announce-release.md` → `crafting-narratives` skill
-- `plan-devrel.md` → `educating-developers` skill
-- `plan-partnerships.md` → `building-partnerships` skill
-- `create-deck.md` → `translating-for-stakeholders` skill
-- `sync-from-dev.md` - Sync from dev to GTM
-
-#### Resources
-
-Each skill includes template resources:
-- `analyzing-market`: market-landscape, competitive-analysis, icp-profiles templates
-- `positioning-product`: positioning, messaging-framework templates
-- `pricing-strategist`: pricing-strategy, value-metric-worksheet templates
-- `crafting-narratives`: content-calendar, launch-plan templates
-- `educating-developers`: devrel-strategy template
-- `building-partnerships`: partnership-strategy template
-- `translating-for-stakeholders`: pitch-deck template
-- `reviewing-gtm`: gtm-review template
-
-**Total Resource Templates**: 12
-
-### 4.2 Pack Manifest
+**Config Location:** `.loa.config.yaml`
 
 ```yaml
-name: "GTM Collective"
-slug: "gtm-collective"
-version: "1.0.0"
-description: "Go-to-market strategy skills for product launches, positioning, pricing, and market analysis"
-author:
-  name: "The Honey Jar"
-  url: "https://loaskills.dev"
-skills:
-  - slug: analyzing-market
-    path: skills/analyzing-market/
-  - slug: positioning-product
-    path: skills/positioning-product/
-  - slug: pricing-strategist
-    path: skills/pricing-strategist/
-  - slug: crafting-narratives
-    path: skills/crafting-narratives/
-  - slug: educating-developers
-    path: skills/educating-developers/
-  - slug: building-partnerships
-    path: skills/building-partnerships/
-  - slug: translating-for-stakeholders
-    path: skills/translating-for-stakeholders/
-  - slug: reviewing-gtm
-    path: skills/reviewing-gtm/
-commands:
-  - name: gtm-setup
-    path: commands/gtm-setup.md
-  - name: gtm-adopt
-    path: commands/gtm-adopt.md
-  - name: gtm-feature-requests
-    path: commands/gtm-feature-requests.md
-  - name: sync-from-gtm
-    path: commands/sync-from-gtm.md
-  - name: review-gtm
-    path: commands/review-gtm.md
-  - name: analyze-market
-    path: commands/analyze-market.md
-  - name: position
-    path: commands/position.md
-  - name: price
-    path: commands/price.md
-  - name: plan-launch
-    path: commands/plan-launch.md
-  - name: announce-release
-    path: commands/announce-release.md
-  - name: plan-devrel
-    path: commands/plan-devrel.md
-  - name: plan-partnerships
-    path: commands/plan-partnerships.md
-  - name: create-deck
-    path: commands/create-deck.md
-  - name: sync-from-dev
-    path: commands/sync-from-dev.md
-dependencies:
-  loa_version: ">=0.9.0"
-pricing:
-  type: subscription
-  tier: pro
-tags:
-  - marketing
-  - gtm
-  - positioning
-  - pricing
-  - launch
-  - devrel
-license: "Proprietary"
+construct:
+  name: sigil                          # Construct name (lowercase)
+  operator: soju                       # Human operator name
+  repo: 0xHoneyJar/sigil              # GitHub repo for outbox
+  org: 0xHoneyJar                      # GitHub org for inbox queries
 ```
 
-### 4.3 Pricing Configuration
+**Behavior:**
+- Skills read identity from config at runtime
+- Error if `construct` block missing when Melange skills invoked
+- Suggest adding config block with example
 
-| Field | Value |
-|-------|-------|
-| `pricing_type` | `subscription` |
-| `tier_required` | `pro` |
-| `stripe_product_id` | (To be created) |
-| `stripe_monthly_price_id` | (Included in Pro subscription) |
-| `stripe_annual_price_id` | (Included in Pro subscription) |
+### 5.2 `/send` Command (Outbox — Melange Protocol)
 
-**Access Rules**:
-- Free tier: 402 Payment Required
-- Pro tier: Full access
-- Team tier: Full access
-- Enterprise tier: Full access
-- Pack owner (THJ admin): Full access regardless of tier
+**Invocation:**
+```bash
+/send <target-construct> "<brief description>"
 
-### 4.4 Installation Behavior
-
-When user runs `/pack-install gtm-collective`:
-
-1. **Auth Check**: Verify user is logged in
-2. **Tier Check**: Verify user has `pro` or higher subscription
-3. **Download**: Fetch pack files from API
-4. **Extract Skills**: Install to `.claude/skills/{skill-slug}/`
-5. **Extract Commands**: Install to `.claude/commands/{command}.md`
-6. **Write Manifest**: Save to `.claude/packs/gtm-collective/manifest.json`
-7. **Write License**: Save to `.claude/packs/gtm-collective/.license.json`
-
-### 4.5 State Directory (GTM Grimoire)
-
-The pack expects a `gtm-grimoire/` directory for state:
-
-```
-gtm-grimoire/
-├── NOTES.md           # GTM agent memory
-├── context/           # User-provided GTM context
-│   ├── product-brief.md
-│   └── product-reality.md
-├── research/          # Market research outputs
-│   ├── market-landscape.md
-│   ├── competitive-analysis.md
-│   └── icp-profiles.md
-├── strategy/          # Strategy documents
-│   ├── positioning.md
-│   ├── messaging-framework.md
-│   └── pricing-strategy.md
-├── execution/         # Launch artifacts
-│   ├── launch-plan.md
-│   ├── content-calendar.md
-│   └── pitch-deck.md
-└── a2a/               # Agent-to-agent communication
-    ├── reviews/
-    └── trajectory/
+# Examples
+/send loa "Error messages don't include file paths"
+/send registry "API rate limits too aggressive"
 ```
 
-**Note**: This directory structure should be created by `/gtm-setup` command, not by installation.
+**Workflow:**
 
----
+1. **Parse Arguments**
+   - Extract target construct and brief description
+   - Validate target is known construct in org
 
-## 5. Technical Requirements
+2. **AI Drafts Issue**
+   - Prompt human for impact level (game-changing/important/nice-to-have)
+   - Prompt for intent (request/ask/report)
+   - AI expands brief description into structured Melange fields:
+     - Experience (what's happening)
+     - Evidence (links, logs, counts)
+     - Request (what would help)
+     - Reasoning (why this impact level)
 
-### 5.1 File Restructuring
+3. **Human Review**
+   - Show full Issue preview
+   - Ask for approval: "Create this Issue? [Y/n/edit]"
+   - If edit: allow inline modifications
 
-Transform archive structure to pack distribution format:
+4. **Create Issue**
+   - Use `gh issue create` with proper labels
+   - Return Issue URL
+   - Confirm Discord notification will fire
 
-**Current Location**: `loa-grimoire/context/archive/gtm-skills-import/`
-
-**Target Structure** (for upload):
+**Output:**
 ```
-gtm-collective/
-├── manifest.json
-├── skills/
-│   ├── analyzing-market/
-│   │   ├── index.yaml
-│   │   ├── SKILL.md
-│   │   └── resources/
-│   │       ├── market-landscape-template.md
-│   │       ├── competitive-analysis-template.md
-│   │       └── icp-profiles-template.md
-│   ├── positioning-product/
-│   │   └── ...
-│   └── ... (6 more skills)
-└── commands/
-    ├── gtm-setup.md
-    ├── analyze-market.md
-    └── ... (12 more commands)
+Created: https://github.com/0xHoneyJar/sigil/issues/57
+Discord notification sent to #melange (🟡 important)
 ```
 
-### 5.2 API Integration
+### 5.3 `/inbox` Command (Triage)
 
-Use existing endpoints:
-
-| Endpoint | Purpose |
-|----------|---------|
-| `POST /v1/packs` | Create pack metadata |
-| `POST /v1/packs/gtm-collective/versions` | Upload version with files |
-| `PATCH /v1/packs/gtm-collective` | Set status to `published` |
-
-### 5.3 Seeding Script
-
-Create `scripts/seed-gtm-collective.ts`:
-
-```typescript
-// Script to:
-// 1. Read files from archive
-// 2. Transform to pack structure
-// 3. Upload via API with admin credentials
-// 4. Set THJ bypass flag for testing
+**Invocation:**
+```bash
+/inbox                    # Default: game-changing + important only
+/inbox --all              # Include nice-to-have
+/inbox --construct loa    # Filter to specific sender
 ```
 
-### 5.4 Skill Compatibility Updates
+**Workflow:**
 
-Each skill's `index.yaml` references:
-- `pack.id: "gtm-collective"`
-- `pack.requires_subscription: true`
+1. **Query GitHub**
+   ```
+   org:{org} is:issue is:open label:melange label:to:{construct}
+   ```
+   - Sort by: impact (game-changing first), then date (oldest first)
 
-These are informational only—the actual access control is handled by the API.
+2. **Present Summary**
+   ```
+   📥 Inbox for sigil (3 issues)
+
+   🔴 #42 [game-changing] loa → sigil: "Auth tokens expire too fast"
+   🟡 #38 [important] registry → sigil: "Missing error codes in API"
+   🟡 #35 [important] loa → sigil: "Docs missing for /validate"
+
+   Starting triage...
+   ```
+
+3. **Interactive Triage (per issue)**
+   - Fetch full Issue body
+   - Present structured summary:
+     ```
+     ─────────────────────────────────────────
+     🔴 #42: Auth tokens expire too fast
+     From: jani@Loa
+     Impact: game-changing
+     Intent: request
+
+     Experience:
+     Tokens expire after 1 hour, forcing re-auth during long sessions...
+
+     Request:
+     Extend token lifetime to 24 hours or add refresh token support
+     ─────────────────────────────────────────
+     ```
+   - Prompt for action:
+     ```
+     Action: [A]ccept / [D]ecline / [C]omment / [S]kip / [Q]uit
+     ```
+
+4. **Handle Actions**
+
+   **Accept:**
+   - AI drafts acceptance comment
+   - Human approves comment
+   - Post comment via `gh issue comment`
+   - Add `status:accepted` label, remove `status:open`
+   - Log to local tracking
+
+   **Decline:**
+   - Prompt for reason
+   - AI drafts decline comment with reasoning
+   - Human approves
+   - Post comment, add `status:declined` label
+   - Close Issue
+
+   **Comment:**
+   - Prompt for message
+   - AI helps draft response
+   - Post comment (no status change)
+
+   **Skip:**
+   - Move to next Issue (no action)
+
+   **Quit:**
+   - Exit triage, show summary of actions taken
+
+5. **Session Summary**
+   ```
+   Triage complete:
+   - Accepted: 2
+   - Declined: 0
+   - Commented: 1
+   - Skipped: 0
+
+   Remaining in inbox: 0
+   ```
+
+### 5.4 Local Tracking (Optional Enhancement)
+
+Track accepted Issues locally for follow-up:
+
+**File:** `grimoires/loa/send/accepted.json`
+
+```json
+{
+  "accepted": [
+    {
+      "issue_url": "https://github.com/0xHoneyJar/loa/issues/42",
+      "from": "jani@Loa",
+      "title": "Auth tokens expire too fast",
+      "accepted_at": "2026-01-23T10:00:00Z",
+      "status": "in_progress",
+      "resolution_pr": null
+    }
+  ]
+}
+```
+
+Command to check status:
+```bash
+/inbox --accepted    # Show accepted issues awaiting resolution
+```
+
+## 6. Technical Requirements
+
+### 6.1 Dependencies
+
+- GitHub CLI (`gh`) authenticated with repo access
+- `.loa.config.yaml` with `construct` block
+- Melange infrastructure deployed to repo (Issue template, workflow, labels)
+
+### 6.2 Skill Structure
+
+```
+.claude/skills/
+├── melange-send/
+│   ├── index.yaml
+│   └── SKILL.md
+└── melange-inbox/
+    ├── index.yaml
+    └── SKILL.md
+
+.claude/commands/
+├── send.md             # /send command routing
+└── inbox.md            # /inbox command
+```
+
+### 6.3 Distribution
+
+These skills ship with the Loa framework core. Every Construct that uses Loa automatically has `/send` and `/inbox` available.
+
+**No additional installation required** — if Melange infrastructure is deployed to the repo (labels, templates), the skills just work.
+
+### 6.4 Error Handling
+
+| Error | Cause | Resolution |
+|-------|-------|------------|
+| "Construct not configured" | Missing `construct` in config | Show example config block |
+| "Target construct unknown" | Invalid target name | List valid constructs in org |
+| "No Issues found" | Empty inbox | Confirm query, show "Inbox zero" |
+| "gh CLI not authenticated" | Missing auth | Run `gh auth login` |
+| "Melange not installed" | No labels/templates | Point to melange repo setup |
+
+## 7. Scope
+
+### In Scope (MVP)
+- `/send <target> "<description>"` command
+- `/inbox` interactive triage
+- Construct identity in `.loa.config.yaml`
+- Accept/Decline/Comment actions
+- Session summary
+
+### Out of Scope (Future)
+- Local tracking of accepted Issues
+- `/inbox --accepted` for follow-up
+- Auto-linking resolution PRs to Issues
+- Slack integration (Discord only for now)
+- Multi-org support
+- `/send status` for sent Issues
+
+## 8. Risks & Mitigations
+
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Operators skip triage | Inbox grows, feedback ignored | Discord pings for game-changing |
+| AI drafts poor Issues | Low signal, receiver confusion | Human review required before create |
+| Identity misconfigured | Issues go to wrong repo | Validate config on skill load |
+| gh CLI not installed | Skills fail | Clear error with install instructions |
+
+## 9. Open Questions
+
+1. **Should `/send` support file attachments?** (screenshots, logs)
+2. **Should triage persist state across sessions?** (remember where you left off)
+3. **Should there be a `/send status` to check sent Issues?**
 
 ---
 
-## 6. Non-Functional Requirements
+## Appendix: Example Sessions
 
-### 6.1 Performance
+### A. Sending Feedback
 
-| Metric | Requirement |
-|--------|-------------|
-| Pack download size | < 500KB (text files only) |
-| Installation time | < 5 seconds |
-| API response time | < 1 second for download |
+```
+$ /send loa "Error messages don't show which file failed"
 
-### 6.2 Security
+📤 Drafting Melange Issue to loa...
 
-| Requirement | Implementation |
-|-------------|----------------|
-| Subscription verification | API checks tier before download |
-| License watermarking | User ID hash embedded in license |
-| File path validation | Server-side path sanitization |
+What's the impact level?
+  [1] game-changing - Blocks core workflow
+  [2] important - Significant friction
+  [3] nice-to-have - Improvement idea
+> 2
 
-### 6.3 Compatibility
+What's your intent?
+  [1] request - Asking for a change
+  [2] ask - Question/clarification
+  [3] report - Sharing observation
+> 1
 
-| Constraint | Value |
-|------------|-------|
-| Minimum Loa version | 0.9.0 |
-| Claude Code compatibility | Yes |
-| Protocol dependencies | session-continuity, grounding-enforcement |
+Drafting Issue...
 
----
+─────────────────────────────────────────
+📝 Preview: Melange Issue
 
-## 7. Scope Definition
+Title: [Melange] Request: Include file paths in error messages
 
-### 7.1 In Scope (MVP)
+To: loa
+From: soju@Sigil
+Impact: important
+Intent: request
 
-- [x] Pack structure with 8 skills and 14 commands
-- [x] Manifest with pricing configuration
-- [x] Seeding script to publish pack
-- [x] CLI installation verification
-- [x] Subscription tier gating
+Experience:
+When file operations fail, error messages show "File not found" without
+indicating which file. This requires manual debugging to identify the
+problematic path.
 
-### 7.2 Out of Scope
+Evidence:
+- Observed in /validate command
+- Error: "ENOENT: no such file or directory"
+- No file path in message
 
-- Stripe product/price creation (use existing Pro subscription)
-- Web UI for pack browsing (future sprint)
-- Pack update notifications
-- Usage analytics dashboard
-- GTM Grimoire state directory creation (handled by `/gtm-setup`)
+Request:
+Include the full file path in error messages so operators can quickly
+identify and fix issues.
 
-### 7.3 Future Considerations
+Why important:
+Significant friction during debugging, but workarounds exist (add logging).
+Not blocking core workflow.
+─────────────────────────────────────────
 
-1. **Version Updates**: Mechanism for updating installed packs
-2. **Dependency Resolution**: If packs depend on other packs
-3. **Web Marketplace**: Browsable pack catalog with reviews
+Create this Issue? [Y/n/edit] y
 
----
+✓ Created: https://github.com/0xHoneyJar/sigil/issues/57
+✓ Discord notification sent (🟡 important)
+```
 
-## 8. Risks and Mitigations
+### B. Triaging Inbox
 
-| Risk | Impact | Probability | Mitigation |
-|------|--------|-------------|------------|
-| Skill files have incorrect paths | High | Medium | Validate all file paths during transformation |
-| Commands conflict with core Loa commands | High | Low | Use `gtm-` prefix for workflow commands |
-| Subscription check bypass | High | Low | Server-side enforcement, not client-side |
-| Large pack size causes timeout | Medium | Low | Pack is text-only, ~200KB expected |
+```
+$ /inbox
 
----
+📥 Inbox for sigil (2 issues)
 
-## 9. Dependencies
+🔴 #42 [game-changing] loa: "Auth tokens expire during long sessions"
+🟡 #38 [important] registry: "Missing error codes in API responses"
 
-### 9.1 Technical Dependencies
+Starting triage...
 
-| Dependency | Status | Notes |
-|------------|--------|-------|
-| Pack API endpoints | Implemented | `apps/api/src/routes/packs.ts` |
-| Pack CLI commands | Implemented | `packages/loa-registry/src/commands/pack-*.ts` |
-| Database schema | Implemented | `packs`, `pack_versions`, `pack_files` tables |
-| Subscription service | Implemented | Tier checking via `getEffectiveTier` |
+─────────────────────────────────────────
+🔴 #42: Auth tokens expire during long sessions
+From: jani@Loa
+Impact: game-changing
+Intent: request
 
-### 9.2 Content Dependencies
+Experience:
+During extended development sessions (>1 hour), auth tokens expire
+without warning. This breaks workflows mid-task.
 
-| Content | Location | Status |
-|---------|----------|--------|
-| 8 GTM skills | `loa-grimoire/context/archive/gtm-skills-import/` | Ready |
-| 5 workflow commands | `loa-grimoire/context/archive/gtm-skills-import/commands/` | Ready |
-| 9 routing commands | `loa-grimoire/context/archive/gtm-commands/` | Ready |
-| 2 command resources | `loa-grimoire/context/archive/gtm-commands/resources/` | Ready |
+Request:
+Extend token lifetime to 24h or implement refresh tokens.
+─────────────────────────────────────────
 
----
+Action: [A]ccept / [D]ecline / [C]omment / [S]kip / [Q]uit > a
 
-## 10. Implementation Checklist
+Drafting acceptance comment...
 
-### Phase 1: Preparation
-- [ ] Create `packs/gtm-collective/` staging directory
-- [ ] Copy and restructure skills from archive
-- [ ] Copy and restructure commands from archive
-- [ ] Generate `manifest.json` from template
+"Accepted - this is blocking our team too. Will implement refresh
+tokens in the next sprint. Tracking in sigil#58."
 
-### Phase 2: Publication
-- [ ] Create seeding script `scripts/seed-gtm-collective.ts`
-- [ ] Run script to publish pack to registry database
-- [ ] Set `status: published` and `thj_bypass: true` for testing
-- [ ] Verify pack appears in `GET /v1/packs`
+Post this comment? [Y/n/edit] y
 
-### Phase 3: Validation
-- [ ] Test `/pack-install gtm-collective` as pro user
-- [ ] Verify all skills installed to `.claude/skills/`
-- [ ] Verify all commands installed to `.claude/commands/`
-- [ ] Test 402 response for free tier user
-- [ ] Run one GTM command (e.g., `/gtm-setup`) to verify functionality
+✓ Commented on loa#42
+✓ Added label: status:accepted
+✓ Removed label: status:open
 
-### Phase 4: Cleanup
-- [ ] Remove archive files after successful validation
-- [ ] Update CHANGELOG with pack publication
-- [ ] Document pack in registry README
+─────────────────────────────────────────
+🟡 #38: Missing error codes in API responses
+From: api-team@Registry
+...
 
----
+[Triage continues...]
 
-## 11. Appendix
+─────────────────────────────────────────
+Triage complete:
+  Accepted: 1
+  Declined: 0
+  Commented: 1
+  Skipped: 0
 
-### A. File Inventory
-
-**Skills** (8 directories, ~50 files total):
-1. `analyzing-market/` - 5 files
-2. `positioning-product/` - 5 files
-3. `pricing-strategist/` - 5 files
-4. `crafting-narratives/` - 5 files
-5. `educating-developers/` - 4 files
-6. `building-partnerships/` - 4 files
-7. `translating-for-stakeholders/` - 4 files
-8. `reviewing-gtm/` - 4 files
-
-**Commands** (14 files):
-- 5 workflow commands
-- 9 routing commands
-
-**Resources** (2 files):
-- `product-brief-template.md`
-- `product-reality-template.md`
-
-### B. Source Locations
-
-| Content Type | Archive Path |
-|--------------|--------------|
-| Skills | `loa-grimoire/context/archive/gtm-skills-import/{skill-slug}/` |
-| Workflow Commands | `loa-grimoire/context/archive/gtm-skills-import/commands/` |
-| Routing Commands | `loa-grimoire/context/archive/gtm-commands/` |
-| Command Resources | `loa-grimoire/context/archive/gtm-commands/resources/` |
-| Reference Docs | `loa-grimoire/context/archive/gtm-*.md` |
-
-### C. Related Documentation
-
-- GTM Migration Summary: `loa-grimoire/context/archive/GTM-MIGRATION-SUMMARY.md`
-- GTM PRD Reference: `loa-grimoire/context/archive/gtm-prd-reference.md`
-- GTM SDD Reference: `loa-grimoire/context/archive/gtm-sdd-reference.md`
-- GTM Sprint Reference: `loa-grimoire/context/archive/gtm-sprint-reference.md`
+Inbox clear! 🎉
+```
 
 ---
 
-**Document Status**: Ready for review
+**Document Status**: Draft
 **Next Step**: `/architect` to create Software Design Document

@@ -1,0 +1,35 @@
+name: "melange-inbox"
+version: "1.0.0"
+model: "sonnet"
+color: "purple"
+
+description: |
+  Interactive triage of incoming Melange feedback. Queries GitHub for
+  Issues addressed to this Construct, presents each one, and handles
+  accept/decline/comment actions with human approval.
+
+triggers:
+  - "/inbox"
+  - "check melange inbox"
+  - "triage feedback"
+  - "review incoming issues"
+
+examples:
+  - context: "User wants to process incoming feedback"
+    user_says: "/inbox"
+    agent_action: "Launch melange-inbox to query and triage Melange Issues"
+
+inputs:
+  - name: "all"
+    type: "boolean"
+    required: false
+    default: false
+    description: "Include nice-to-have issues"
+  - name: "construct"
+    type: "string"
+    required: false
+    description: "Filter to specific sender"
+
+outputs:
+  - path: "Triage summary"
+    description: "Summary of actions taken during session"

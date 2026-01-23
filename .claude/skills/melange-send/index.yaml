@@ -1,0 +1,34 @@
+name: "melange-send"
+version: "1.0.0"
+model: "sonnet"
+color: "blue"
+
+description: |
+  Send structured feedback to another Construct via Melange Protocol.
+  Drafts a GitHub Issue with proper structure, gets human approval,
+  then creates the Issue using gh CLI.
+
+triggers:
+  - "/send"
+  - "send feedback to"
+  - "melange to"
+  - "create melange issue"
+
+examples:
+  - context: "User wants to report an issue to another team"
+    user_says: "/send loa \"Error messages don't include file paths\""
+    agent_action: "Launch melange-send to draft and create Melange Issue"
+
+inputs:
+  - name: "target"
+    type: "string"
+    required: true
+    description: "Target construct name"
+  - name: "message"
+    type: "string"
+    required: true
+    description: "Brief feedback description"
+
+outputs:
+  - path: "GitHub Issue URL"
+    description: "Created Melange Issue"

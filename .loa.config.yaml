@@ -561,6 +561,27 @@ recursive_jit:
     update_bead: true
 
 # =============================================================================
+# Construct Identity (Melange Protocol)
+# =============================================================================
+# Required for /send and /inbox commands
+# Configure this block to enable Melange cross-Construct communication
+construct:
+  # Construct name (lowercase, matches labels like to:sigil)
+  name: loa-constructs
+  # Human operator name (displayed in From field)
+  operator: soju
+  # GitHub repo for outbox (where Issues are created)
+  repo: 0xHoneyJar/loa-constructs
+  # GitHub org for inbox queries
+  org: 0xHoneyJar
+  # Known constructs in the org (for validation)
+  known_constructs:
+    - sigil
+    - loa
+    - registry
+    - loa-constructs
+
+# =============================================================================
 # Behavior Preferences
 # =============================================================================
 preferences:
