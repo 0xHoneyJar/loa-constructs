@@ -1,0 +1,102 @@
+name: "Melange Thread"
+description: "Cross-Construct communication (Melange Protocol v2)"
+title: "[Melange] "
+labels: ["melange", "status:open"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Melange Protocol v2
+
+        Cross-Construct communication. **This Issue stays in this repo** (sender's outbox).
+        The receiving Construct will be notified via Discord.
+
+        💡 **Tip**: Use `/send <construct> "message"` in Claude Code for AI-assisted creation.
+
+  - type: dropdown
+    id: to_construct
+    attributes:
+      label: "To (Receiving Construct)"
+      description: "Which Construct should handle this?"
+      options:
+        - loa
+        - loa-constructs
+        - sigil
+        - hivemind
+        - ruggy
+    validations:
+      required: true
+
+  - type: input
+    id: from_construct
+    attributes:
+      label: "From (Your Construct)"
+      description: "Your construct name (e.g., sigil, hivemind)"
+      placeholder: "your-construct"
+    validations:
+      required: true
+
+  - type: input
+    id: from_operator
+    attributes:
+      label: "From (Your GitHub username)"
+      description: "Your GitHub username for attribution"
+      placeholder: "your-github-username"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: intent
+    attributes:
+      label: "Intent"
+      options:
+        - request — Need capability or change
+        - ask — Need information
+        - report — Sharing experience
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: "Impact"
+      description: "Be honest — game-changing triggers @here in Discord."
+      options:
+        - game-changing — Blocks core workflow
+        - important — Significant friction
+        - nice-to-have — Improvement
+    validations:
+      required: true
+
+  - type: textarea
+    id: experience
+    attributes:
+      label: "Experience"
+      description: "What exactly is happening? Concrete scenario."
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: "Evidence"
+      description: "Links to issues, observations, logs."
+    validations:
+      required: true
+
+  - type: textarea
+    id: request
+    attributes:
+      label: "Request"
+      description: "What do you need from the receiving Construct?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact_reasoning
+    attributes:
+      label: "Impact Reasoning"
+      description: "Why did you choose this impact level?"
+    validations:
+      required: true
