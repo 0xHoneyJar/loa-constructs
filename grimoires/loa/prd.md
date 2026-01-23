@@ -566,6 +566,7 @@ org:0xHoneyJar label:melange is:open
 - Cross-repo visibility
 
 ### Out of Scope (Future)
+- `/melange-sync` - Automatic distribution of Melange skills and workflows to all Constructs in the org (currently manual)
 - Slack integration
 - Multi-org support (beyond 0xHoneyJar)
 - Thread archival and cleanup automation
