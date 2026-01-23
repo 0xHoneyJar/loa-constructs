@@ -89,63 +89,54 @@ If flags provided, filter before rendering:
 
 ### Phase 5: Render Dashboard
 
-Use Unicode box characters for terminal-native rendering.
-
-**Box Characters**:
-- Corners: `╔ ╗ ╚ ╝`
-- Borders: `║ ═`
-- Junctions: `╠ ╣ ╬`
-- Tree: `├─ └─ │`
+Use plain text with markdown tables for reliable terminal rendering.
 
 **Impact Emojis**:
 - game-changing: 🔴
 - important: 🟡
 - nice-to-have: 🟢
 
-**Dashboard Template** (68 characters wide):
+**Dashboard Template**:
 
 ```
-╔══════════════════════════════════════════════════════════════════╗
-║                    MELANGE THREADS DASHBOARD                      ║
-║                         {construct_name}                          ║
-╠══════════════════════════════════════════════════════════════════╣
-║ Active: {n}    Blocked: {n}    Resolved (7d): {n}                ║
-╠══════════════════════════════════════════════════════════════════╣
-║                                                                   ║
-║  ⏳ BLOCKED ({n})                                                 ║
-║  └─ {emoji} #{n} {from} → {to}: "{title}"                        ║
-║         Waiting {duration} • {impact}                             ║
-║                                                                   ║
-║  📬 SENT - AWAITING RESPONSE ({n})                                ║
-║  ├─ {emoji} #{n} {from} → {to}: "{title}"                        ║
-║  │      Sent {duration} ago • {impact} • {status}                 ║
-║  └─ ...                                                           ║
-║                                                                   ║
-║  📥 RECEIVED - NEEDS TRIAGE ({n})                                 ║
-║  └─ {emoji} #{n} {from} → {to}: "{title}"                        ║
-║         Received {duration} ago • {impact}                        ║
-║                                                                   ║
-║  ✅ IN PROGRESS ({n})                                             ║
-║  └─ {emoji} #{n} {from} → {to}: "{title}"                        ║
-║         Accepted {duration} ago • PR #{n} linked                  ║
-║                                                                   ║
-╠══════════════════════════════════════════════════════════════════╣
-║  [T]riage received • [B]locked detail • [R]esolved • [Q]uit      ║
-╚══════════════════════════════════════════════════════════════════╝
+MELANGE THREADS DASHBOARD
+{construct_name}
+────────────────────────────────────────
+
+Active: {n}    Blocked: {n}    Resolved (7d): {n}
+
+⏳ BLOCKED ({n})
+   (none)
+
+📬 SENT - AWAITING RESPONSE ({n})
+
+| # | Thread | To | Impact | Age |
+|---|--------|-----|--------|-----|
+| 1 | #{n} {title} | {to} | {emoji} {impact} | {duration} |
+| 2 | #{n} {title} | {to} | {emoji} {impact} | {duration} |
+
+📥 RECEIVED - NEEDS TRIAGE ({n})
+
+| # | Thread | From | Impact | Age |
+|---|--------|------|--------|-----|
+| 1 | #{n} {title} | {from} | {emoji} {impact} | {duration} |
+
+✅ IN PROGRESS ({n})
+   (none)
+
+────────────────────────────────────────
+[T]riage received • [1-9] View details • [Q]uit
 ```
 
 **Empty State**:
 ```
-╔══════════════════════════════════════════════════════════════════╗
-║                    MELANGE THREADS DASHBOARD                      ║
-║                         {construct_name}                          ║
-╠══════════════════════════════════════════════════════════════════╣
-║                                                                   ║
-║                  ✨ No active Melange threads                     ║
-║                                                                   ║
-║     Use /send to start a conversation with another construct      ║
-║                                                                   ║
-╚══════════════════════════════════════════════════════════════════╝
+MELANGE THREADS DASHBOARD
+{construct_name}
+────────────────────────────────────────
+
+✨ No active Melange threads
+
+Use /send to start a conversation with another construct
 ```
 
 ### Phase 6: Interactive Mode (Optional)

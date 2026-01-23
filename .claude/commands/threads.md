@@ -68,28 +68,33 @@ Visualize all Melange threads across the org. Shows what's blocked, what needs a
 
 ## Dashboard
 
-The dashboard displays threads organized by status:
+The dashboard displays threads organized by status using markdown tables:
 
 ```
-╔══════════════════════════════════════════════════════════════════╗
-║                    MELANGE THREADS DASHBOARD                      ║
-║                         {construct_name}                          ║
-╠══════════════════════════════════════════════════════════════════╣
-║ Active: {n}    Blocked: {n}    Resolved (7d): {n}                ║
-╠══════════════════════════════════════════════════════════════════╣
-║                                                                   ║
-║  ⏳ BLOCKED ({n})                                                 ║
-║  └─ 🔴 #{n} {from} → {to}: "{title}"                             ║
-║                                                                   ║
-║  📬 SENT - AWAITING RESPONSE ({n})                                ║
-║  └─ 🟡 #{n} {from} → {to}: "{title}"                             ║
-║                                                                   ║
-║  📥 RECEIVED - NEEDS TRIAGE ({n})                                 ║
-║  └─ 🟡 #{n} {from} → {to}: "{title}"                             ║
-║                                                                   ║
-╠══════════════════════════════════════════════════════════════════╣
-║  [T]riage received • [B]locked detail • [R]esolved • [Q]uit      ║
-╚══════════════════════════════════════════════════════════════════╝
+MELANGE THREADS DASHBOARD
+loa-constructs
+────────────────────────────────────────
+
+Active: 3    Blocked: 1    Resolved (7d): 2
+
+⏳ BLOCKED (1)
+
+| # | Thread | To | Impact | Age |
+|---|--------|-----|--------|-----|
+| 1 | #42 Auth architecture guidance | loa | 🔴 game-changing | 2h |
+
+📬 SENT - AWAITING RESPONSE (2)
+
+| # | Thread | To | Impact | Age |
+|---|--------|-----|--------|-----|
+| 2 | #26 Testing targeted mentions | sigil | 🟡 important | 2h |
+| 3 | #25 Testing CLI integration | loa | 🟢 nice-to-have | 3h |
+
+📥 RECEIVED - NEEDS TRIAGE (0)
+   ✨ No incoming Issues
+
+────────────────────────────────────────
+[T]riage received • [1-9] View details • [Q]uit
 ```
 
 ## Interactive Navigation
@@ -97,10 +102,7 @@ The dashboard displays threads organized by status:
 | Key | Action |
 |-----|--------|
 | T | Jump to `/inbox` for triage |
-| B | Show blocked thread details |
-| R | Show resolved threads |
 | 1-9 | Select thread by number |
-| O | Open selected in browser |
 | Q | Quit dashboard |
 
 ## Data Sources
