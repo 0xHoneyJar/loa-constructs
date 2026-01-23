@@ -72,6 +72,7 @@ Rate limit headers are included in all responses:
     { name: 'Analytics', description: 'Usage analytics' },
     { name: 'Audit', description: 'Audit log endpoints' },
     { name: 'Creator', description: 'Skill creator endpoints' },
+    { name: 'Constructs', description: 'Melange Protocol construct registry' },
   ],
   paths: {
     // Health
@@ -800,6 +801,91 @@ Rate limit headers are included in all responses:
         },
       },
     },
+
+    // Constructs (Melange Protocol)
+    '/v1/constructs': {
+      get: {
+        tags: ['Constructs'],
+        summary: 'List all constructs',
+        description: 'Get the complete registry of Loa-powered Constructs for Melange Protocol',
+        operationId: 'listConstructs',
+        responses: {
+          '200': {
+            description: 'Constructs registry',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ConstructsRegistry' },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/v1/constructs/operator-map': {
+      get: {
+        tags: ['Constructs'],
+        summary: 'Get operator map',
+        description: 'Get Discord operator ID mapping for melange-notify.yml workflow',
+        operationId: 'getOperatorMap',
+        responses: {
+          '200': {
+            description: 'Operator mapping',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/OperatorMapResponse' },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/v1/constructs/list/names': {
+      get: {
+        tags: ['Constructs'],
+        summary: 'List construct names',
+        description: 'Get list of all construct names for validation',
+        operationId: 'listConstructNames',
+        responses: {
+          '200': {
+            description: 'Construct names',
+            content: {
+              'application/json': {
+                schema: {
+                  type: 'object',
+                  properties: {
+                    names: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      example: ['loa', 'loa-constructs', 'sigil', 'hivemind', 'ruggy', 'human'],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/v1/constructs/{name}': {
+      get: {
+        tags: ['Constructs'],
+        summary: 'Get construct by name',
+        description: 'Get a specific construct by name',
+        operationId: 'getConstruct',
+        parameters: [{ $ref: '#/components/parameters/ConstructName' }],
+        responses: {
+          '200': {
+            description: 'Construct details',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ConstructDetail' },
+              },
+            },
+          },
+          '404': { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
   },
   components: {
     securitySchemes: {
@@ -878,6 +964,13 @@ Rate limit headers are included in all responses:
         required: true,
         description: 'Team ID (UUID)',
         schema: { type: 'string', format: 'uuid' },
+      },
+      ConstructName: {
+        name: 'name',
+        in: 'path',
+        required: true,
+        description: 'Construct name (e.g., sigil, hivemind, loa)',
+        schema: { type: 'string' },
       },
     },
     schemas: {
@@ -1213,6 +1306,102 @@ Rate limit headers are included in all responses:
           userAgent: { type: 'string' },
           metadata: { type: 'object' },
           createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+
+      // Constructs (Melange Protocol)
+      ConstructsRegistry: {
+        type: 'object',
+        properties: {
+          version: { type: 'string', example: '1.0.0' },
+          org: { type: 'string', example: '0xHoneyJar' },
+          last_updated: { type: 'string', format: 'date', example: '2026-01-23' },
+          framework: { $ref: '#/components/schemas/FrameworkConstruct' },
+          registry: { $ref: '#/components/schemas/RegistryConstruct' },
+          constructs: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/Construct' },
+          },
+          virtual: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/VirtualConstruct' },
+          },
+        },
+      },
+      FrameworkConstruct: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', example: 'loa' },
+          display_name: { type: 'string', example: 'Loa' },
+          description: { type: 'string' },
+          repo: { type: 'string', example: '0xHoneyJar/loa' },
+          operator: { type: 'string', example: 'jani' },
+          discord_id: { type: 'string', example: '970593060553646101' },
+        },
+      },
+      RegistryConstruct: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', example: 'loa-constructs' },
+          display_name: { type: 'string', example: 'Loa Constructs' },
+          description: { type: 'string' },
+          repo: { type: 'string', example: '0xHoneyJar/loa-constructs' },
+          api: { type: 'string', format: 'uri', example: 'https://loa-constructs-api.fly.dev/v1' },
+          operator: { type: 'string', example: 'soju' },
+          discord_id: { type: 'string', example: '970593060553646101' },
+        },
+      },
+      Construct: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', example: 'sigil' },
+          display_name: { type: 'string', example: 'Sigil' },
+          description: { type: 'string' },
+          repo: { type: 'string', example: '0xHoneyJar/sigil' },
+          operator: { type: 'string', example: 'soju' },
+          discord_id: { type: 'string', example: '259646475666063360' },
+          status: { type: 'string', enum: ['active', 'inactive'], example: 'active' },
+        },
+      },
+      VirtualConstruct: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', example: 'human' },
+          display_name: { type: 'string', example: 'Human' },
+          description: { type: 'string' },
+          note: { type: 'string' },
+        },
+      },
+      ConstructDetail: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', enum: ['framework', 'registry', 'construct', 'virtual'] },
+          name: { type: 'string' },
+          display_name: { type: 'string' },
+          description: { type: 'string' },
+          repo: { type: 'string' },
+          operator: { type: 'string' },
+          discord_id: { type: 'string' },
+          status: { type: 'string' },
+          api: { type: 'string', format: 'uri' },
+          note: { type: 'string' },
+        },
+      },
+      OperatorMapResponse: {
+        type: 'object',
+        properties: {
+          _comment: { type: 'string', example: 'Copy this to melange-notify.yml OPERATOR_MAP' },
+          operator_map: {
+            type: 'object',
+            additionalProperties: { type: 'string' },
+            example: {
+              loa: '970593060553646101',
+              'loa-constructs': '970593060553646101',
+              sigil: '259646475666063360',
+              hivemind: '970593060553646101',
+              ruggy: '970593060553646101',
+            },
+          },
         },
       },
 
