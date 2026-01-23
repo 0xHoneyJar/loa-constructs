@@ -92,18 +92,17 @@ Active: 3    Blocked: 1    Resolved (7d): 2
 
 📥 RECEIVED - NEEDS TRIAGE (0)
    ✨ No incoming Issues
-
-────────────────────────────────────────
-[T]riage received • [1-9] View details • [Q]uit
 ```
 
 ## Interactive Navigation
 
-| Key | Action |
-|-----|--------|
-| T | Jump to `/inbox` for triage |
-| 1-9 | Select thread by number |
-| Q | Quit dashboard |
+After the dashboard is displayed, you'll be prompted to choose an action:
+
+- **Triage received** - Opens `/inbox` to process incoming Issues
+- **View thread details** - Select a thread to see full details
+- **Done** - Close the dashboard
+
+When viewing a thread, you can open it in browser or return to the dashboard.
 
 ## Data Sources
 

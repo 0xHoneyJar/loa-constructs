@@ -124,8 +124,6 @@ Active: {n}    Blocked: {n}    Resolved (7d): {n}
 ✅ IN PROGRESS ({n})
    (none)
 
-────────────────────────────────────────
-[T]riage received • [1-9] View details • [Q]uit
 ```
 
 **Empty State**:
@@ -141,18 +139,57 @@ Use /send to start a conversation with another construct
 
 ### Phase 6: Interactive Mode (Optional)
 
-If user requests interaction, handle keypresses:
+After displaying the dashboard, use `AskUserQuestion` to prompt for next action:
 
-| Key | Action |
-|-----|--------|
-| T | Announce: "Switching to /inbox for triage..." |
-| B | Show detailed view of blocked threads |
-| R | Show resolved threads from last 30 days |
-| 1-9 | Store selection, offer to open in browser |
-| O | Open selected thread in browser: `gh issue view {number} --web` |
-| Q | Exit: "Dashboard closed." |
+```json
+{
+  "questions": [{
+    "question": "What would you like to do?",
+    "header": "Action",
+    "options": [
+      { "label": "Triage received", "description": "Open /inbox to process incoming Issues" },
+      { "label": "View thread details", "description": "See full details of a specific thread" },
+      { "label": "Done", "description": "Close dashboard" }
+    ],
+    "multiSelect": false
+  }]
+}
+```
 
-**Note**: Interactive mode is optional. The primary output is the rendered dashboard.
+**If "View thread details" selected**, follow up with thread selection:
+
+```json
+{
+  "questions": [{
+    "question": "Which thread do you want to view?",
+    "header": "Thread",
+    "options": [
+      { "label": "#26 Testing targeted mentions", "description": "To: sigil • 🟡 important • 2h ago" },
+      { "label": "#25 Testing CLI integration", "description": "To: loa • 🟢 nice-to-have • 2h ago" }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+**After viewing thread**, offer actions:
+
+```json
+{
+  "questions": [{
+    "question": "What would you like to do with this thread?",
+    "header": "Action",
+    "options": [
+      { "label": "Open in browser", "description": "View full Issue on GitHub" },
+      { "label": "Back to dashboard", "description": "Return to thread list" },
+      { "label": "Done", "description": "Close dashboard" }
+    ],
+    "multiSelect": false
+  }]
+}
+```
+
+**Note**: The dashboard display is always shown first. Interactive prompts only appear when there are actionable items.
 
 ## Duration Formatting
 
