@@ -9,11 +9,15 @@ arguments:
   - name: "target"
     type: "string"
     required: true
-    description: "Target construct (e.g., loa, sigil, registry)"
+    description: "Target construct (e.g., loa, sigil, registry, human)"
   - name: "message"
     type: "string"
     required: true
     description: "Brief description of feedback"
+  - name: "block"
+    type: "flag"
+    required: false
+    description: "Mark sender as blocked waiting for response"
 
 agent: "melange-send"
 agent_path: "skills/melange-send/"
@@ -52,22 +56,26 @@ Send structured feedback to another Construct via Melange Protocol. Creates a Gi
 
 ```bash
 /send <target> "<message>"
+/send <target> "<message>" --block
 
 # Examples
 /send loa "Error messages don't include file paths"
 /send sigil "API rate limits too aggressive"
 /send registry "Missing documentation for auth endpoints"
+/send loa "Need architectural guidance on auth flow" --block
+/send human "Should deleted items be soft or hard delete?"
 ```
 
 ## Workflow
 
-1. **Parse Arguments**: Extract target construct and brief description
-2. **Validate Target**: Ensure target is in `known_constructs` list
+1. **Parse Arguments**: Extract target construct, brief description, and --block flag
+2. **Validate Target**: Ensure target is in `known_constructs` list (or `human` if configured)
 3. **Gather Intent**: Prompt for impact level and intent type
 4. **Draft Issue**: AI expands brief description into structured Melange fields
 5. **Human Review**: Show preview, ask for approval
 6. **Create Issue**: Execute `gh issue create` with proper labels
-7. **Confirm**: Display Issue URL and confirm Discord notification
+7. **Handle Blocking**: If `--block` flag, add `status:blocked` label and update cache
+8. **Confirm**: Display Issue URL and confirm Discord notification
 
 ## Impact Levels
 
@@ -146,7 +154,32 @@ Create this Issue? [Y/n/edit] y
 ✓ Discord notification sent (🟡 important)
 ```
 
+## Blocking Flag
+
+The `--block` flag marks your construct as blocked waiting for a response:
+
+```bash
+/send loa "Need architectural guidance" --block
+```
+
+This:
+1. Adds `status:blocked` label to the Issue
+2. Updates local `threads.json` with blocked entry
+3. Shows blocked threads prominently in `/threads` dashboard
+4. Discord notification includes "⏳ Sender is blocked waiting for response"
+
+## Human Construct
+
+Send to `human` for operator clarification (requires `human_discord_id` in config):
+
+```bash
+/send human "Soft delete or hard delete for user accounts?"
+```
+
+This pings the operator directly via Discord for decisions that need human input.
+
 ## Related
 
 - `/inbox` - Triage incoming Melange feedback
+- `/threads` - View all Melange threads including blocked
 - Melange Protocol documentation in `melange/` directory

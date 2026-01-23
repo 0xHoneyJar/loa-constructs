@@ -8,6 +8,8 @@ Draft and create a Melange Issue addressed to another Construct. Ensures structu
 
 ```
 /send <target> "<message>"
+/send <target> "<message>" --block
+/send human "<message>"
 ```
 
 ## Workflow
@@ -22,12 +24,16 @@ Draft and create a Melange Issue addressed to another Construct. Ensures structu
      repo: 0xHoneyJar/loa-constructs
      org: 0xHoneyJar
      known_constructs: [sigil, loa, registry, loa-constructs]
+     human_discord_id: "259646475666063360"  # Optional, for /send human
    ```
 
 2. **Validate target** is in `known_constructs` list
+   - If target is `human`: Valid only if `human_discord_id` is configured
    - If not found: List valid constructs and ask to confirm
 
 3. **Extract brief message** from arguments
+
+4. **Check for `--block` flag** - sets blocking state for this Issue
 
 ### Phase 2: Gather Intent
 
@@ -168,6 +174,55 @@ EOF
 )"
 ```
 
+### Phase 5.5: Handle Blocking (if --block flag)
+
+If `--block` flag was provided:
+
+1. **Add `status:blocked` label** to created Issue:
+   ```bash
+   gh issue edit {number} --repo {repo} --add-label "status:blocked"
+   ```
+
+2. **Update local cache** (`grimoires/loa/melange/threads.json`):
+   ```javascript
+   // Add to threads array
+   cache.threads.push({
+     id: "{repo}#{number}",
+     repo: "{repo}",
+     number: {number},
+     title: "{title}",
+     from: "{operator}@{construct_name}",
+     to: "{target}",
+     impact: "{impact}",
+     intent: "{intent}",
+     status: "blocked",
+     direction: "sent",
+     created_at: new Date().toISOString(),
+     blocked: true,
+     comments: 0
+   });
+
+   // Add to blocked array
+   cache.blocked.push({
+     id: "{repo}#{number}",
+     blocked_at: new Date().toISOString(),
+     waiting_on: "{target}"
+   });
+   ```
+
+3. **Note in Discord notification** (handled by workflow):
+   ```
+   ⏳ Sender is blocked waiting for response
+   ```
+
+### Phase 5.6: Update Cache (always)
+
+Regardless of --block flag, add thread to local cache for tracking:
+
+1. **Load cache** from `grimoires/loa/melange/threads.json`
+2. **Add new thread** to `threads` array
+3. **Save cache** with updated timestamp
+
 ### Phase 6: Confirm
 
 Output success message:
@@ -175,6 +230,21 @@ Output success message:
 ```
 ✓ Created: {issue_url}
 ✓ Discord notification sent ({impact_emoji} {impact})
+```
+
+If `--block` flag was used:
+```
+✓ Created: {issue_url}
+✓ Discord notification sent ({impact_emoji} {impact})
+✓ Marked as BLOCKED - waiting on {target}
+✓ Use /threads --blocked to see status
+```
+
+If target was `human`:
+```
+✓ Created: {issue_url}
+✓ Discord notification sent to operator
+✓ Awaiting human response
 ```
 
 Impact emojis:
@@ -223,9 +293,12 @@ Impact emojis:
 | Error | Resolution |
 |-------|------------|
 | Target not in known_constructs | List valid targets, ask to confirm or add to config |
+| Target is `human` but no `human_discord_id` | Show: "Add `human_discord_id` to config to use /send human" |
 | gh not authenticated | Show: "Run `gh auth login` to authenticate" |
 | gh issue create fails | Show error message, suggest checking repo permissions |
 | User cancels | Confirm: "Issue creation cancelled. No action taken." |
+| Cache file missing | Create empty cache, then update |
+| --block label add fails | Warn but continue (Issue still created) |
 
 ## HITL Requirements
 
@@ -245,4 +318,5 @@ Impact emojis:
 ## Related
 
 - `/inbox` - Triage incoming Melange feedback
+- `/threads` - View all Melange threads including blocked
 - `melange/` - Melange Protocol documentation

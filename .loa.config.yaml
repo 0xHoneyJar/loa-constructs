@@ -580,6 +580,10 @@ construct:
     - loa
     - registry
     - loa-constructs
+    - human  # Enable /send human for operator clarification
+  # Discord ID for /send human (enables direct operator pings)
+  # Get ID: Right-click user in Discord → Copy User ID
+  human_discord_id: "970593060553646101"
 
 # =============================================================================
 # Behavior Preferences

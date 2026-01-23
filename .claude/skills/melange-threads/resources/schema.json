@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Melange Threads Cache",
+  "description": "Local cache for Melange thread state",
+  "type": "object",
+  "required": ["$schema", "threads", "blocked"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "threads-v1"
+    },
+    "last_sync": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of last GitHub sync"
+    },
+    "construct": {
+      "type": ["string", "null"],
+      "description": "Construct name that owns this cache"
+    },
+    "threads": {
+      "type": "array",
+      "description": "All tracked Melange threads",
+      "items": {
+        "type": "object",
+        "required": ["id", "repo", "number", "title", "from", "to", "impact", "status", "direction"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[\\w-]+/[\\w-]+#\\d+$",
+            "description": "Unique identifier: {owner}/{repo}#{number}"
+          },
+          "repo": {
+            "type": "string",
+            "description": "Full repository path"
+          },
+          "number": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Issue number"
+          },
+          "title": {
+            "type": "string",
+            "description": "Issue title (without [Melange] prefix)"
+          },
+          "from": {
+            "type": "string",
+            "description": "Sender in format {operator}@{construct}"
+          },
+          "to": {
+            "type": "string",
+            "description": "Target construct name"
+          },
+          "impact": {
+            "type": "string",
+            "enum": ["game-changing", "important", "nice-to-have"],
+            "description": "Impact level"
+          },
+          "intent": {
+            "type": "string",
+            "enum": ["request", "ask", "report"],
+            "description": "Intent type"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["open", "accepted", "declined", "resolved", "blocked"],
+            "description": "Thread status"
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["sent", "received"],
+            "description": "Direction relative to this construct"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "accepted_at": {
+            "type": ["string", "null"],
+            "format": "date-time"
+          },
+          "resolution_pr": {
+            "type": ["string", "null"],
+            "description": "PR reference if linked"
+          },
+          "blocked": {
+            "type": "boolean",
+            "default": false
+          },
+          "comments": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "blocked": {
+      "type": "array",
+      "description": "Threads currently blocking this construct",
+      "items": {
+        "type": "object",
+        "required": ["id", "blocked_at", "waiting_on"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[\\w-]+/[\\w-]+#\\d+$"
+          },
+          "blocked_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "waiting_on": {
+            "type": "string",
+            "description": "Construct we're waiting on"
+          }
+        }
+      }
+    }
+  }
+}

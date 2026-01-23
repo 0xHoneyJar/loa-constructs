@@ -4,18 +4,23 @@
 **PRD**: grimoires/loa/prd.md
 **SDD**: grimoires/loa/sdd.md
 **Created**: 2026-01-23
+**Updated**: 2026-01-23 (Phase 2 added)
 
 ---
 
 ## Sprint Overview
 
-| Sprint | Label | Tasks | Focus |
-|--------|-------|-------|-------|
-| Sprint 3 | `/send` Command & Skill | 4 | Outbox functionality |
-| Sprint 4 | `/inbox` Command & Skill | 4 | Inbox triage functionality |
+| Sprint | Label | Tasks | Focus | Status |
+|--------|-------|-------|-------|--------|
+| Sprint 3 | `/send` Command & Skill | 4 | Outbox functionality | ✅ Complete |
+| Sprint 4 | `/inbox` Command & Skill | 4 | Inbox triage functionality | ✅ Complete |
+| Sprint 5 | `/threads` Dashboard | 5 | Thread visualization | 🔲 Planned |
+| Sprint 6 | Command Enhancements | 4 | `--block`, `--from`, cache sync | 🔲 Planned |
+| Sprint 7 | Automation & Integration | 4 | PR linking, human construct | 🔲 Planned |
 
-**Total Tasks**: 8
-**Dependencies**: Sprint 4 depends on Sprint 3 (shared config schema)
+**Phase 1 Tasks**: 8 (complete)
+**Phase 2 Tasks**: 13 (planned)
+**Total Tasks**: 21
 
 ---
 
@@ -205,13 +210,295 @@
 
 ---
 
+---
+
+## Phase 2 Sprints
+
+---
+
+## Sprint 5: `/threads` Dashboard
+
+**Global ID**: 5
+**Label**: Thread Visualization Dashboard
+**Estimated Size**: HIGH
+**Blocked By**: Sprint 3, 4 (requires working /send and /inbox)
+
+### Task 5.1: Local Thread Cache Schema
+
+**Description**: Create the `threads.json` schema and directory structure
+
+**Acceptance Criteria**:
+- [ ] Create `grimoires/loa/melange/` directory
+- [ ] Define `threads.json` schema with all fields from SDD
+- [ ] Include `$schema`, `last_sync`, `construct`, `threads[]`, `blocked[]`
+- [ ] Document field types and validation rules
+
+**Files**:
+- `grimoires/loa/melange/threads.json` (empty initial)
+- `.claude/skills/melange-threads/resources/schema.json` (for reference)
+
+---
+
+### Task 5.2: `/threads` Command Definition
+
+**Description**: Create the command routing file for `/threads`
+
+**Acceptance Criteria**:
+- [ ] Create `.claude/commands/threads.md` with YAML frontmatter
+- [ ] Define arguments: `--mine`, `--blocked`, `--resolved`, `--sync` (all flags)
+- [ ] Configure pre-flight checks: config exists, gh exists
+- [ ] Route to `melange-threads` skill
+
+**Files**:
+- `.claude/commands/threads.md`
+
+---
+
+### Task 5.3: Melange Threads Skill - Cache Management
+
+**Description**: Implement cache loading, sync detection, and GitHub API queries
+
+**Acceptance Criteria**:
+- [ ] Create `.claude/skills/melange-threads/index.yaml` with metadata
+- [ ] Create `.claude/skills/melange-threads/SKILL.md` with workflow
+- [ ] Check cache freshness (5-minute threshold)
+- [ ] Query GitHub API for org-wide Melange Issues
+- [ ] Parse Issue bodies to extract Melange fields
+- [ ] Update `threads.json` with sync timestamp
+
+**Files**:
+- `.claude/skills/melange-threads/index.yaml`
+- `.claude/skills/melange-threads/SKILL.md`
+
+---
+
+### Task 5.4: Melange Threads Skill - Categorization
+
+**Description**: Implement thread categorization logic
+
+**Acceptance Criteria**:
+- [ ] Categorize threads into: BLOCKED, AWAITING RESPONSE, NEEDS TRIAGE, IN PROGRESS, RESOLVED
+- [ ] Detect direction: sent vs received based on construct identity
+- [ ] Sort within categories: game-changing first, then by date
+- [ ] Handle edge cases: missing labels, malformed Issues
+
+**Files**:
+- `.claude/skills/melange-threads/SKILL.md` (continued)
+
+---
+
+### Task 5.5: Melange Threads Skill - Dashboard Rendering
+
+**Description**: Implement Unicode box-character dashboard display
+
+**Acceptance Criteria**:
+- [ ] Render dashboard header with construct name and stats
+- [ ] Use Unicode box characters: `╔ ╗ ╚ ╝ ║ ═ ╠ ╣`
+- [ ] Use tree characters: `├─ └─ │`
+- [ ] Display categories with appropriate icons: ⏳ 📬 📥 ✅
+- [ ] Show impact emojis: 🔴 🟡 🟢
+- [ ] Include duration formatting (Nm, Nh, Nd, Nw)
+- [ ] Render interactive controls legend at bottom
+- [ ] Width: 68 characters (fits 80-column terminal)
+
+**Files**:
+- `.claude/skills/melange-threads/SKILL.md` (continued)
+
+---
+
+## Sprint 6: Command Enhancements
+
+**Global ID**: 6
+**Label**: Flag Enhancements & Cache Sync
+**Estimated Size**: MEDIUM
+**Blocked By**: Sprint 5 (threads.json schema)
+
+### Task 6.1: `/send --block` Flag
+
+**Description**: Add blocking flag to /send command
+
+**Acceptance Criteria**:
+- [ ] Update `.claude/commands/send.md` to accept `--block` flag
+- [ ] Update melange-send skill to handle blocking state
+- [ ] Add `status:blocked` label when flag is set
+- [ ] Update local `threads.json` with blocked entry
+- [ ] Include "⏳ Sender is blocked" in Discord notification content
+
+**Files**:
+- `.claude/commands/send.md`
+- `.claude/skills/melange-send/SKILL.md`
+
+---
+
+### Task 6.2: `/inbox --from` Filter
+
+**Description**: Add sender filtering to /inbox command
+
+**Acceptance Criteria**:
+- [ ] Update `.claude/commands/inbox.md` to accept `--from` argument
+- [ ] Parse comma-separated construct names: `--from sigil,loa`
+- [ ] Filter Issues by parsing `From` field in Issue body
+- [ ] Update summary display: "📥 Inbox for X (from: Y) (N issues)"
+- [ ] Handle "No Issues from {construct}" case
+
+**Files**:
+- `.claude/commands/inbox.md`
+- `.claude/skills/melange-inbox/SKILL.md`
+
+---
+
+### Task 6.3: Cache Sync on Actions
+
+**Description**: Update threads.json when /send or /inbox actions occur
+
+**Acceptance Criteria**:
+- [ ] `/send` adds new thread to `threads.json` immediately after creation
+- [ ] `/inbox accept` updates thread status to `accepted`
+- [ ] `/inbox decline` updates thread status to `declined`
+- [ ] Handle cache file creation if missing
+- [ ] Preserve existing cache entries on update
+
+**Files**:
+- `.claude/skills/melange-send/SKILL.md`
+- `.claude/skills/melange-inbox/SKILL.md`
+
+---
+
+### Task 6.4: `/threads` Interactive Navigation
+
+**Description**: Implement interactive mode for threads dashboard
+
+**Acceptance Criteria**:
+- [ ] Handle keypress input: T (triage), B (blocked detail), R (resolved), Q (quit)
+- [ ] Number selection (1-9) to view thread details
+- [ ] O key to open selected thread in browser
+- [ ] Transition to `/inbox` when T pressed
+- [ ] Show detailed view when thread selected
+
+**Files**:
+- `.claude/skills/melange-threads/SKILL.md` (continued)
+
+---
+
+## Sprint 7: Automation & Integration
+
+**Global ID**: 7
+**Label**: PR Auto-Linking & Human Construct
+**Estimated Size**: MEDIUM
+**Blocked By**: Sprint 6 (cache infrastructure)
+
+### Task 7.1: PR Auto-Linking Workflow
+
+**Description**: Create GitHub Action to detect PR resolution references
+
+**Acceptance Criteria**:
+- [ ] Create `.github/workflows/melange-resolve.yml`
+- [ ] Trigger on `issue_comment` (created) and `pull_request` (closed)
+- [ ] Detect patterns: "Resolved via PR #N", "Fixed in PR #N", "Closes #N"
+- [ ] Add `resolution:PR#N` label when pattern detected
+- [ ] Update `status:resolved` when linked PR merges
+- [ ] Only process Issues with `melange` label
+
+**Files**:
+- `.github/workflows/melange-resolve.yml`
+
+---
+
+### Task 7.2: Human Construct Support
+
+**Description**: Enable /send human for operator clarification
+
+**Acceptance Criteria**:
+- [ ] Add `human` to valid targets when `human_discord_id` configured
+- [ ] Add `human_discord_id` field to construct config schema
+- [ ] Create Issues with `to:human` label
+- [ ] Discord notification pings `human_discord_id` directly
+- [ ] `/threads` shows "AWAITING HUMAN" section for human-addressed Issues
+
+**Files**:
+- `.loa.config.yaml` (schema update)
+- `.claude/skills/melange-send/SKILL.md`
+- `.claude/skills/melange-threads/SKILL.md`
+
+---
+
+### Task 7.3: Cross-Repo Visibility
+
+**Description**: Enable threads dashboard to show Issues across all org repos
+
+**Acceptance Criteria**:
+- [ ] Query pattern: `org:0xHoneyJar label:melange is:open`
+- [ ] Parse repository name from Issue response
+- [ ] Group threads by repository in dashboard (optional view)
+- [ ] Handle Issues in repos where construct has no direct access (show limited info)
+
+**Files**:
+- `.claude/skills/melange-threads/SKILL.md`
+
+---
+
+### Task 7.4: Workflow Deployment to Org Repos
+
+**Description**: Deploy melange-resolve.yml to sigil, loa, and loa-constructs repos
+
+**Acceptance Criteria**:
+- [ ] Deploy workflow to `0xHoneyJar/sigil`
+- [ ] Deploy workflow to `0xHoneyJar/loa`
+- [ ] Deploy workflow to `0xHoneyJar/loa-constructs`
+- [ ] Verify workflow runs on test Issue comment
+- [ ] Document deployment in melange/ directory
+
+**Files**:
+- Remote: `sigil/.github/workflows/melange-resolve.yml`
+- Remote: `loa/.github/workflows/melange-resolve.yml`
+- Local: `.github/workflows/melange-resolve.yml`
+
+---
+
+## Phase 2 Definition of Done
+
+### Per Task
+- [ ] All acceptance criteria met
+- [ ] Files created/modified as specified
+- [ ] No hardcoded values (use config)
+- [ ] Cache operations handle file not found gracefully
+
+### Per Sprint
+- [ ] All tasks completed
+- [ ] Commands are invocable with new flags
+- [ ] Dashboard renders correctly in terminal
+- [ ] Manual testing passes
+
+### Phase 2 Complete
+- [ ] `/threads` displays categorized dashboard
+- [ ] `/send --block` marks sender as blocked
+- [ ] `/inbox --from` filters by sender
+- [ ] PR references auto-link to Issues
+- [ ] `/send human` pings operator directly
+- [ ] Cross-repo visibility works across org
+
+---
+
+## Phase 2 Risk Mitigation
+
+| Risk | Mitigation |
+|------|------------|
+| GitHub API rate limits | 5-minute cache, warn on rate limit |
+| Large orgs with many Issues | Pagination, limit to 100 |
+| Unicode rendering issues | Fallback to ASCII if terminal doesn't support |
+| Cache corruption | Validate schema on load, recreate if invalid |
+| Workflow permissions | Document required permissions in setup |
+
+---
+
 ## Next Steps
 
-1. `/implement sprint-3` - Build `/send` command and skill
-2. `/implement sprint-4` - Build `/inbox` command and skill
-3. Test end-to-end flow between constructs
+1. `/implement sprint-5` - Build `/threads` command and dashboard
+2. `/implement sprint-6` - Add `--block` and `--from` enhancements
+3. `/implement sprint-7` - Deploy PR auto-linking and human construct
+4. Test cross-construct flows with real feedback
 
 ---
 
 **Document Status**: Ready for implementation
-**Next Step**: `/implement sprint-3`
+**Next Step**: `/implement sprint-5`

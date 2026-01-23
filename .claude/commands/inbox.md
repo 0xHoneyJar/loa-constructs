@@ -10,10 +10,10 @@ arguments:
     type: "flag"
     required: false
     description: "Include nice-to-have issues (default: game-changing + important only)"
-  - name: "construct"
+  - name: "from"
     type: "string"
     required: false
-    description: "Filter to specific sender construct"
+    description: "Filter to specific sender construct(s), comma-separated (e.g., --from sigil,loa)"
 
 agent: "melange-inbox"
 agent_path: "skills/melange-inbox/"
@@ -53,7 +53,8 @@ Triage incoming Melange feedback addressed to this Construct. Interactive workfl
 ```bash
 /inbox                    # Default: game-changing + important only
 /inbox --all              # Include nice-to-have
-/inbox --construct loa    # Filter to specific sender
+/inbox --from sigil       # Filter to specific sender
+/inbox --from sigil,loa   # Filter to multiple senders
 ```
 
 ## Workflow
@@ -141,7 +142,29 @@ Triage complete:
 Remaining in inbox: 0
 ```
 
+## Sender Filtering
+
+The `--from` filter lets you focus on feedback from specific constructs:
+
+```bash
+/inbox --from sigil           # Only from sigil
+/inbox --from sigil,loa       # From sigil OR loa
+/inbox --from sigil --all     # From sigil, including nice-to-have
+```
+
+When filtered, the summary shows the filter:
+```
+📥 Inbox for loa-constructs (from: sigil) (2 issues)
+```
+
+If no Issues match the filter:
+```
+📥 Inbox for loa-constructs (from: sigil)
+✨ No Issues from sigil
+```
+
 ## Related
 
 - `/send` - Send feedback to another Construct
+- `/threads` - View all Melange threads
 - Melange Protocol documentation in `melange/` directory

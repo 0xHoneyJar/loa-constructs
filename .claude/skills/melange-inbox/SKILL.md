@@ -9,7 +9,8 @@ Interactive triage of incoming Melange feedback. Presents each Issue with struct
 ```
 /inbox                    # Default: game-changing + important only
 /inbox --all              # Include nice-to-have
-/inbox --construct loa    # Filter to specific sender
+/inbox --from sigil       # Filter to specific sender
+/inbox --from sigil,loa   # Filter to multiple senders
 ```
 
 ## Workflow
@@ -38,7 +39,30 @@ gh issue list \
 
 **If `--all` flag NOT set**, filter results to exclude `impact:nice-to-have`.
 
-**If `--construct` specified**, add `label:from:{construct}` or filter by From field in body.
+### Phase 2.5: Apply Sender Filter (if --from specified)
+
+**If `--from` specified**, filter results by parsing the `From` field in Issue body:
+
+1. Parse `--from` argument (comma-separated):
+   ```
+   --from sigil       → ["sigil"]
+   --from sigil,loa   → ["sigil", "loa"]
+   ```
+
+2. For each Issue, extract sender from body:
+   ```javascript
+   const fromMatch = body.match(/### From.*\n\n(.+)/i);
+   const senderConstruct = fromMatch ? fromMatch[1].split('@')[1]?.toLowerCase() : null;
+   ```
+
+3. Keep Issue only if `senderConstruct` is in the filter list
+
+4. If no Issues match, display:
+   ```
+   📥 Inbox for {construct} (from: {filter})
+
+   ✨ No Issues from {filter}
+   ```
 
 ### Phase 3: Sort & Present Summary
 
@@ -56,6 +80,11 @@ gh issue list \
 ...
 
 Starting triage...
+```
+
+**If `--from` filter applied:**
+```
+📥 Inbox for {construct} (from: {filter}) ({count} issues)
 ```
 
 **If empty:**
@@ -167,6 +196,9 @@ Use `AskUserQuestion`:
    ✓ Removed label: status:open
    ```
 5. **Track** in session stats: `accepted += 1`
+6. **Update cache** (`grimoires/loa/melange/threads.json`):
+   - Update thread status to `accepted`
+   - Set `accepted_at` timestamp
 
 #### Decline
 
@@ -201,6 +233,8 @@ Use `AskUserQuestion`:
    ✓ Closed Issue #{number}
    ```
 6. **Track**: `declined += 1`
+7. **Update cache** (`grimoires/loa/melange/threads.json`):
+   - Update thread status to `declined`
 
 #### Comment
 
@@ -284,4 +318,5 @@ Track during session (not persisted):
 ## Related
 
 - `/send` - Send feedback to another Construct
+- `/threads` - View all Melange threads
 - `melange/` - Melange Protocol documentation

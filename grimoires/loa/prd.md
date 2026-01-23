@@ -327,11 +327,257 @@ const OPERATOR_MAP = {
 🟡 important: <@123456789012345678> - New feedback from soju@Sigil
 ```
 
-## 9. Open Questions
+---
 
-1. **Should `/send` support file attachments?** (screenshots, logs)
-2. **Should triage persist state across sessions?** (remember where you left off)
-3. **Should there be a `/send status` to check sent Issues?**
+## Phase 2: Melange v2.0 Enhancements
+
+**Added:** 2026-01-23
+**Sprints:** 5-7
+
+### 5.6 Blocking Flag (`/send --block`)
+
+**Problem:** When a construct sends feedback and is waiting on a response, there's no visibility into blocked state.
+
+**Solution:** Add `--block` flag to `/send` that:
+1. Adds `status:blocked` label to the created Issue
+2. Records blocked state in local tracking file
+3. Shows blocked Issues prominently in `/threads` dashboard
+
+**Invocation:**
+```bash
+/send loa "Need architectural guidance on auth flow" --block
+```
+
+**Behavior:**
+- Issue created with additional label: `status:blocked`
+- Local tracking: `grimoires/loa/melange/blocked.json` updated
+- Discord notification includes: "⏳ Sender is blocked waiting for response"
+
+### 5.7 Sender Filtering (`/inbox --from`)
+
+**Problem:** When receiving feedback from multiple constructs, operators want to focus on specific senders.
+
+**Solution:** Add `--from` filter to `/inbox`.
+
+**Invocation:**
+```bash
+/inbox --from sigil       # Only Issues from sigil
+/inbox --from loa,sigil   # Issues from loa or sigil
+```
+
+**Implementation:**
+- Parse `From` field in Issue body
+- Filter results before presentation
+- Show filter in summary: "📥 Inbox for loa (from: sigil) (2 issues)"
+
+### 5.8 PR Auto-Linking
+
+**Problem:** When a PR resolves a Melange Issue, the link must be added manually.
+
+**Solution:** Detect PR references in comments and auto-update Issue.
+
+**Trigger Patterns:**
+```
+Resolved via #42
+Resolved via org/repo#42
+Fixed in PR #42
+Closes #42
+```
+
+**Behavior:**
+1. GitHub Action detects pattern in Issue comment
+2. Extracts PR reference
+3. Adds `resolution:PR#N` label
+4. Updates `status:accepted` → `status:resolved` when PR merges
+
+**Implementation:** New GitHub Action `melange-resolve.yml` triggered on:
+- `issue_comment` (detect resolution comments)
+- `pull_request` with `closes #N` (detect PR merge)
+
+### 5.9 Melange Threads Dashboard (`/threads`)
+
+**Problem:** No visibility into active Melange threads across the org. Hard to see what's blocked, what's waiting, what's resolved.
+
+**Solution:** New `/threads` command that visualizes all Melange activity.
+
+**Invocation:**
+```bash
+/threads                  # All active threads
+/threads --mine           # Threads I'm involved in (sent or received)
+/threads --blocked        # Only blocked threads
+/threads --resolved       # Recently resolved (last 7 days)
+```
+
+**Dashboard Output:**
+```
+╔══════════════════════════════════════════════════════════════════╗
+║                    MELANGE THREADS DASHBOARD                      ║
+╠══════════════════════════════════════════════════════════════════╣
+║ Active Threads: 5    Blocked: 2    Resolved (7d): 8              ║
+╠══════════════════════════════════════════════════════════════════╣
+║                                                                   ║
+║  ⏳ BLOCKED (2)                                                   ║
+║  ├─ 🔴 #42 sigil → loa: "Auth architecture guidance"             ║
+║  │      Waiting 2h • game-changing                                ║
+║  └─ 🟡 #38 loa → sigil: "API contract clarification"             ║
+║         Waiting 45m • important                                   ║
+║                                                                   ║
+║  📬 AWAITING RESPONSE (1)                                         ║
+║  └─ 🟡 #35 registry → loa: "Rate limit configuration"            ║
+║         Sent 3h ago • important • 1 comment                       ║
+║                                                                   ║
+║  ✅ IN PROGRESS (2)                                               ║
+║  ├─ 🟡 #30 loa → sigil: "Refresh token implementation"           ║
+║  │      Accepted 1d ago • PR #58 in progress                      ║
+║  └─ 🟡 #28 sigil → loa: "Error message improvements"             ║
+║         Accepted 2d ago • No PR linked                            ║
+║                                                                   ║
+╠══════════════════════════════════════════════════════════════════╣
+║  [B]locked detail • [A]ctive detail • [R]esolved • [Q]uit        ║
+╚══════════════════════════════════════════════════════════════════╝
+```
+
+**Data Sources:**
+- GitHub Issues API: `org:{org} label:melange is:open`
+- Local tracking: `grimoires/loa/melange/threads.json` (cache)
+- Cross-reference PRs for resolution status
+
+**Interactive Mode:**
+- Select a thread to see full details
+- Jump to `/inbox` triage for that Issue
+- Open in browser
+
+### 5.10 Human Construct
+
+**Problem:** Constructs sometimes need human input for intent clarification before proceeding.
+
+**Solution:** Support a special `human` construct that routes directly to the operator.
+
+**Configuration:**
+```yaml
+# .loa.config.yaml
+construct:
+  name: sigil
+  operator: soju
+  # ... existing fields ...
+  human_discord_id: "259646475666063360"  # For /send human
+```
+
+**Invocation:**
+```bash
+/send human "Should deleted items be soft or hard delete?"
+```
+
+**Behavior:**
+- Creates Issue with `to:human` label
+- Discord pings the configured `human_discord_id`
+- Issue stays open until human responds
+- Construct can check status: `/threads --to human`
+
+### 5.11 Local Thread Tracking
+
+**Problem:** Querying GitHub API every time is slow. No persistent view of thread state.
+
+**Solution:** Local cache with sync.
+
+**File:** `grimoires/loa/melange/threads.json`
+
+```json
+{
+  "last_sync": "2026-01-23T12:00:00Z",
+  "threads": [
+    {
+      "id": "0xHoneyJar/sigil#42",
+      "title": "Auth tokens expire during long sessions",
+      "from": "jani@loa",
+      "to": "sigil",
+      "impact": "game-changing",
+      "status": "accepted",
+      "created": "2026-01-22T10:00:00Z",
+      "accepted_at": "2026-01-22T11:00:00Z",
+      "resolution_pr": null,
+      "blocked": false,
+      "comments": 3
+    }
+  ],
+  "blocked": [
+    {
+      "id": "0xHoneyJar/loa#38",
+      "blocked_at": "2026-01-23T09:00:00Z",
+      "waiting_on": "loa"
+    }
+  ]
+}
+```
+
+**Sync Behavior:**
+- `/threads` auto-syncs if cache older than 5 minutes
+- `/threads --sync` forces full refresh
+- `/send` and `/inbox` actions update cache immediately
+
+### 5.12 Cross-Repo Visibility
+
+**Problem:** Constructs work across multiple repos but Melange threads are scattered.
+
+**Solution:** `/threads` queries across all repos in the org.
+
+**Query:**
+```
+org:0xHoneyJar label:melange is:open
+```
+
+**Grouping:**
+```
+╔═══════════════════════════════════════════════════════════════╗
+║  THREADS BY REPOSITORY                                         ║
+╠═══════════════════════════════════════════════════════════════╣
+║  sigil (3 threads)                                             ║
+║  ├─ #42 → loa: Auth guidance                                   ║
+║  ├─ #38 ← loa: API contract                                    ║
+║  └─ #35 ← registry: Rate limits                                ║
+║                                                                ║
+║  loa (2 threads)                                               ║
+║  ├─ #28 ← sigil: Error messages                                ║
+║  └─ #25 ← loa-constructs: CLI test                             ║
+║                                                                ║
+║  set-and-forgetti (1 thread)                                   ║
+║  └─ #12 sigil → loa: Handoff for auth impl                     ║
+╚═══════════════════════════════════════════════════════════════╝
+```
+
+---
+
+## 9. Updated Scope
+
+### Phase 1 (MVP) - ✅ COMPLETE
+- `/send <target> "<description>"` command
+- `/inbox` interactive triage
+- Construct identity in `.loa.config.yaml`
+- Accept/Decline/Comment actions
+- Targeted Discord mentions (v1.1)
+
+### Phase 2 (v2.0) - IN SCOPE
+- `/send --block` flag for blocked state
+- `/inbox --from` sender filtering
+- `/threads` dashboard for visualization
+- Local thread tracking with sync
+- Human construct support
+- PR auto-linking and resolution detection
+- Cross-repo visibility
+
+### Out of Scope (Future)
+- Slack integration
+- Multi-org support (beyond 0xHoneyJar)
+- Thread archival and cleanup automation
+- Mobile/web dashboard (CLI only for now)
+
+---
+
+## 10. Open Questions
+
+1. ~~Should `/send` support file attachments?~~ (Deferred - use GitHub's native attachment in Issue body)
+2. ~~Should triage persist state across sessions?~~ (Yes - local tracking in Phase 2)
+3. ~~Should there be a `/send status` to check sent Issues?~~ (Yes - `/threads --mine`)
 
 ---
 
@@ -449,7 +695,88 @@ Triage complete:
 Inbox clear! 🎉
 ```
 
+### C. Sending with Block Flag
+
+```
+$ /send loa "Need architectural guidance: should auth use JWT or sessions?" --block
+
+📤 Drafting Melange Issue to loa (BLOCKED)...
+
+[... normal flow ...]
+
+✓ Created: https://github.com/0xHoneyJar/sigil/issues/59
+✓ Discord notification sent (🟡 important)
+✓ Marked as BLOCKED - waiting on loa
+
+Your construct is now blocked on this thread.
+Use /threads --blocked to see status.
+```
+
+### D. Viewing Threads Dashboard
+
+```
+$ /threads
+
+╔══════════════════════════════════════════════════════════════════╗
+║                    MELANGE THREADS DASHBOARD                      ║
+║                         loa-constructs                            ║
+╠══════════════════════════════════════════════════════════════════╣
+║ Active: 4    Blocked: 1    Resolved (7d): 2                      ║
+╠══════════════════════════════════════════════════════════════════╣
+║                                                                   ║
+║  ⏳ BLOCKED (1)                                                   ║
+║  └─ 🟡 #59 loa-constructs → loa: "Auth architecture guidance"    ║
+║         Waiting 15m • important                                   ║
+║                                                                   ║
+║  📬 SENT - AWAITING RESPONSE (2)                                  ║
+║  ├─ 🟡 #26 loa-constructs → sigil: "Testing targeted mentions"   ║
+║  │      Sent 1h ago • important • status:open                     ║
+║  └─ 🟢 #25 loa-constructs → loa: "Testing CLI integration"       ║
+║         Sent 2h ago • nice-to-have • status:open                  ║
+║                                                                   ║
+║  📥 RECEIVED - NEEDS TRIAGE (1)                                   ║
+║  └─ 🟡 #18 sigil → loa-constructs: "API feedback"                ║
+║         Received 3h ago • important • untriaged                   ║
+║                                                                   ║
+╠══════════════════════════════════════════════════════════════════╣
+║  Press [T] to triage received • [B] for blocked detail • [Q]uit  ║
+╚══════════════════════════════════════════════════════════════════╝
+```
+
+### E. Filtering Inbox by Sender
+
+```
+$ /inbox --from sigil
+
+📥 Inbox for loa-constructs (from: sigil) (1 issue)
+
+🟡 #18 [important] sigil: "API response format feedback"
+
+Starting triage...
+```
+
+### F. Sending to Human for Clarification
+
+```
+$ /send human "Soft delete or hard delete for user accounts?"
+
+📤 Drafting Melange Issue to human...
+
+What's the impact level?
+  [1] game-changing - Blocks core workflow
+  [2] important - Significant friction
+> 1
+
+[... drafting ...]
+
+✓ Created: https://github.com/0xHoneyJar/sigil/issues/60
+✓ Discord notification sent to operator (🔴 game-changing)
+✓ Awaiting human response
+
+Human will be notified. Check /threads for response.
+```
+
 ---
 
-**Document Status**: Draft
-**Next Step**: `/architect` to create Software Design Document
+**Document Status**: Draft (Phase 2 Added)
+**Next Step**: `/architect` to update Software Design Document

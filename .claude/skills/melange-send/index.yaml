@@ -1,34 +1,49 @@
 name: "melange-send"
-version: "1.0.0"
+version: "2.0.0"
 model: "sonnet"
 color: "blue"
 
 description: |
   Send structured feedback to another Construct via Melange Protocol.
   Drafts a GitHub Issue with proper structure, gets human approval,
-  then creates the Issue using gh CLI.
+  then creates the Issue using gh CLI. Supports --block flag for
+  blocking state and /send human for operator clarification.
 
 triggers:
   - "/send"
   - "send feedback to"
   - "melange to"
   - "create melange issue"
+  - "ask human"
 
 examples:
   - context: "User wants to report an issue to another team"
     user_says: "/send loa \"Error messages don't include file paths\""
     agent_action: "Launch melange-send to draft and create Melange Issue"
+  - context: "User is blocked waiting for architectural guidance"
+    user_says: "/send loa \"Need auth guidance\" --block"
+    agent_action: "Launch melange-send with blocking flag"
+  - context: "User needs human operator input on a decision"
+    user_says: "/send human \"Soft delete or hard delete?\""
+    agent_action: "Launch melange-send to human construct"
 
 inputs:
   - name: "target"
     type: "string"
     required: true
-    description: "Target construct name"
+    description: "Target construct name (or 'human' for operator)"
   - name: "message"
     type: "string"
     required: true
     description: "Brief feedback description"
+  - name: "block"
+    type: "boolean"
+    required: false
+    default: false
+    description: "Mark sender as blocked waiting for response"
 
 outputs:
   - path: "GitHub Issue URL"
     description: "Created Melange Issue"
+  - path: "grimoires/loa/melange/threads.json"
+    description: "Updated thread cache (if --block or cache update)"

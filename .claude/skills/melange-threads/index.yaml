@@ -1,0 +1,51 @@
+name: "melange-threads"
+version: "1.0.0"
+model: "sonnet"
+color: "cyan"
+
+description: |
+  Visualize all Melange threads across the org. Shows blocked, awaiting,
+  in-progress, and resolved threads with interactive navigation.
+
+triggers:
+  - "/threads"
+  - "show melange threads"
+  - "melange dashboard"
+  - "what's blocked"
+
+examples:
+  - context: "User wants to see all active Melange threads"
+    user_says: "/threads"
+    agent_action: "Launch melange-threads to display dashboard"
+  - context: "User wants to see blocked threads only"
+    user_says: "/threads --blocked"
+    agent_action: "Launch melange-threads with blocked filter"
+  - context: "User asks about blocked work"
+    user_says: "What Melange threads are blocked?"
+    agent_action: "Launch melange-threads with blocked filter"
+
+inputs:
+  - name: "mine"
+    type: "boolean"
+    required: false
+    default: false
+    description: "Filter to threads involving this construct"
+  - name: "blocked"
+    type: "boolean"
+    required: false
+    default: false
+    description: "Filter to blocked threads only"
+  - name: "resolved"
+    type: "boolean"
+    required: false
+    default: false
+    description: "Show resolved threads (last 7 days)"
+  - name: "sync"
+    type: "boolean"
+    required: false
+    default: false
+    description: "Force full refresh from GitHub"
+
+outputs:
+  - path: "Dashboard display"
+    description: "Unicode box-character dashboard"
