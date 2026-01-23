@@ -8,3 +8,12 @@ tags:
   - threads
   - review
   - resolution
+
+# Feature flag - requires melange.enabled: true in .loa.config.yaml
+feature_flag: "melange.enabled"
+
+integrations:
+  required:
+    - name: "melange"
+      check: ".claude/scripts/melange-setup.sh check"
+      error: "Melange not configured. Run: .claude/scripts/melange-setup.sh install"

@@ -8,6 +8,15 @@ description: |
   Issues addressed to this Construct, presents each one, and handles
   accept/decline/comment actions with human approval.
 
+# Feature flag - requires melange.enabled: true in .loa.config.yaml
+feature_flag: "melange.enabled"
+
+integrations:
+  required:
+    - name: "melange"
+      check: ".claude/scripts/melange-setup.sh check"
+      error: "Melange not configured. Run: .claude/scripts/melange-setup.sh install"
+
 triggers:
   - "/inbox"
   - "check melange inbox"

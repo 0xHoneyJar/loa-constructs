@@ -78,6 +78,7 @@ compaction:
 integrations:
   - github
   - linear
+  - melange  # Cross-Construct communication (requires melange.enabled: true)
 
 # =============================================================================
 # Drift Detection (Sprint 4 - FR-9.1, GitHub Issue #10)
@@ -561,20 +562,26 @@ recursive_jit:
     update_bead: true
 
 # =============================================================================
-# Construct Identity (Melange Protocol)
+# Melange Protocol (v2)
 # =============================================================================
-# Required for /send and /inbox commands
-# Configure this block to enable Melange cross-Construct communication
-construct:
-  # Construct name (lowercase, matches labels like to:sigil)
-  name: loa-constructs
-  # Human operator name (displayed in From field)
-  operator: soju
-  # GitHub repo for outbox (where Issues are created)
-  repo: 0xHoneyJar/loa-constructs
-  # GitHub org for inbox queries
-  org: 0xHoneyJar
-  # Known constructs in the org (source: melange/constructs.json)
+# Cross-Construct communication via GitHub Issues + Discord notifications
+# Enable to use /send, /inbox, /threads, /review-resolution commands
+melange:
+  # Master toggle - set to false to disable Melange commands
+  enabled: true
+  # Auto-install workflows on first use (requires gh CLI)
+  auto_install: true
+  # Registry API for construct discovery
+  registry_url: "https://loa-constructs-api.fly.dev/v1"
+  # Construct identity (required when enabled)
+  construct:
+    # Construct name (lowercase, matches labels like to:sigil)
+    name: loa-constructs
+    # GitHub repo for outbox (where Issues are created)
+    repo: 0xHoneyJar/loa-constructs
+    # GitHub org for inbox queries
+    org: 0xHoneyJar
+  # Known constructs for routing (fetched from registry if empty)
   known_constructs:
     - loa              # Framework (mother construct)
     - loa-constructs   # Registry (this repo)
@@ -585,6 +592,8 @@ construct:
   # Discord ID for /send human (enables direct operator pings)
   # Get ID: Right-click user in Discord → Copy User ID
   human_discord_id: "970593060553646101"
+  # Discord webhook secret name (must be set in repo secrets)
+  discord_secret_name: "MELANGE_DISCORD_WEBHOOK"
 
 # =============================================================================
 # Behavior Preferences

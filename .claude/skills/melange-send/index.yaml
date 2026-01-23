@@ -9,6 +9,16 @@ description: |
   then creates the Issue using gh CLI. Supports --block flag for
   blocking state and /send human for operator clarification.
 
+# Feature flag - requires melange.enabled: true in .loa.config.yaml
+feature_flag: "melange.enabled"
+
+# Integration with Melange setup
+integrations:
+  required:
+    - name: "melange"
+      check: ".claude/scripts/melange-setup.sh check"
+      error: "Melange not configured. Run: .claude/scripts/melange-setup.sh install"
+
 triggers:
   - "/send"
   - "send feedback to"
