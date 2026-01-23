@@ -4,7 +4,7 @@
  * @see sdd.md §1.6 External Integrations - GitHub OAuth, Google OAuth
  */
 
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { eq, and } from 'drizzle-orm';
 import { db, users } from '../db/index.js';
 import { generateTokens } from '../services/auth.js';
@@ -68,7 +68,7 @@ function parseCookies(cookieHeader: string | undefined): Record<string, string> 
  * Verify OAuth state parameter against stored cookie
  * Returns true if valid, false otherwise
  */
-function verifyOAuthState(c: any, state: string): boolean {
+function verifyOAuthState(c: Context, state: string): boolean {
   const cookieHeader = c.req.header('Cookie');
   const cookies = parseCookies(cookieHeader);
   const storedState = cookies['oauth_state'];

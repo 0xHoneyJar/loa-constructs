@@ -4,7 +4,7 @@
  * @see sdd.md §5.5 Rate Limiting
  */
 
-import type { MiddlewareHandler } from 'hono';
+import type { MiddlewareHandler, Context } from 'hono';
 import { getRedis, isRedisConfigured, CACHE_KEYS } from '../services/redis.js';
 import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
@@ -32,9 +32,9 @@ export interface RateLimitOptions {
     default: RateLimitConfig;
   };
   /** Custom key generator (default: uses IP or user ID) */
-  keyGenerator?: (c: any) => string;
+  keyGenerator?: (c: Context) => string;
   /** Skip rate limiting for certain conditions */
-  skip?: (c: any) => boolean;
+  skip?: (c: Context) => boolean;
 }
 
 // --- Default Rate Limits ---
@@ -96,7 +96,7 @@ function isAuthEndpoint(path: string): boolean {
 /**
  * Get rate limit key for a request
  */
-function getDefaultKey(c: any): string {
+function getDefaultKey(c: Context): string {
   // Prefer user ID if authenticated
   const userId = c.get('userId');
   if (userId) {

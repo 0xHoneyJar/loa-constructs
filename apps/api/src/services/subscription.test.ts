@@ -3,11 +3,10 @@
  * @see sprint.md Sprint 3: Subscription Management
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   canAccessTier,
   TIER_HIERARCHY,
-  type SubscriptionTier,
 } from './subscription.js';
 
 // Mock database and Redis for unit tests

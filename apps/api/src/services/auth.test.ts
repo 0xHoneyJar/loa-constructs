@@ -3,7 +3,7 @@
  * @see sprint.md T2.1: Auth Service
  */
 
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   hashPassword,
   verifyPassword,

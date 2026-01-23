@@ -3,7 +3,7 @@
  * @see grimoires/loa/sdd-namespace-isolation.md §9.1 Unit Tests
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // Mock logger before imports
 vi.mock('../lib/logger.js', () => ({

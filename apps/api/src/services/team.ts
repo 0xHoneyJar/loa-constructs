@@ -81,7 +81,7 @@ async function ensureUniqueSlug(baseSlug: string): Promise<string> {
   let slug = baseSlug;
   let counter = 0;
 
-  while (true) {
+  for (;;) {
     const existing = await db
       .select({ id: teams.id })
       .from(teams)

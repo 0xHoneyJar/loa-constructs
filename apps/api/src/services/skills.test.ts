@@ -3,7 +3,7 @@
  * @see sprint.md Sprint 4: Skill Registry Core
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // Mock database and dependencies before imports
 vi.mock('../db/index.js', () => ({

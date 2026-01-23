@@ -4,7 +4,7 @@
  * @see prd-pack-submission.md §4.2 Submission Workflow
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // Mock database and dependencies before imports
 const mockPackSubmissions: Array<{
