@@ -24,7 +24,6 @@ Before any other action, validate the sender's identity:
    ```
    - Returns the OAuth-authenticated GitHub username (e.g., "zkSoju")
    - Handles errors: `gh` not installed, not authenticated
-   - Normalize to lowercase for comparison
 
 2. **Read construct identity** from `.loa.config.yaml`:
    ```yaml
@@ -35,22 +34,24 @@ Before any other action, validate the sender's identity:
      org: 0xHoneyJar
    ```
 
-3. **Fetch construct from registry**:
+3. **Fetch construct from registry** (for Discord ID lookup):
    ```bash
    curl -s "https://loa-constructs-api.fly.dev/v1/constructs/{construct.name}"
    ```
    - Parse the JSON response
-   - Extract `operator.github_username`
+   - Extract `operator.discord_id` for notifications
 
 4. **Validate identity**:
-   - If construct NOT FOUND → ERROR: "Construct '{name}' not found in registry. Register at loa-constructs API."
-   - If `operator.github_username` missing → WARN: "Operator not registered in registry. Proceeding with local config."
-   - If `github_username` doesn't match authenticated user → ERROR: "GitHub user '{actual}' is not authorized to send as '{construct}'. Expected: {expected}"
-   - If match → PROCEED with verified identity
+   - If `gh` not authenticated → ERROR: "GitHub CLI not authenticated. Run `gh auth login`"
+   - If construct NOT FOUND in registry → WARN: "Construct not in registry. Proceeding with local config."
+   - If registry unavailable → WARN: "Registry unreachable. Proceeding with local config."
+   - Otherwise → PROCEED
+
+   **Note**: No username matching required. Like GitHub, anyone with execution environment access can act on behalf of the construct. The `operator` field identifies the primary maintainer for notifications, not exclusive access.
 
 5. **Store validated identity** for use in Issue creation:
-   - `github_username`: The authenticated GitHub username
-   - `discord_id`: From registry response `operator.discord_id`
+   - `github_username`: The authenticated GitHub username (actual sender)
+   - `discord_id`: From registry response `operator.discord_id` (for notifications)
 
 ### Phase 1: Parse & Validate
 
@@ -356,8 +357,7 @@ created_at: {iso_timestamp}
 |-------|------------|
 | `gh api user` fails (not authenticated) | Show: "GitHub CLI not authenticated. Run `gh auth login` to authenticate." |
 | `gh` not installed | Show: "GitHub CLI not found. Install: https://cli.github.com/" |
-| Construct not found in registry | Show: "Construct '{name}' not found in registry. Verify your .loa.config.yaml construct.name matches the registry." |
-| GitHub username mismatch | Show: "GitHub user '{actual}' is not authorized to send as '{construct}'. Registry expects: '{expected}'" |
+| Construct not found in registry | WARN: "Construct not in registry. Proceeding with local config." (soft failure) |
 | Registry unavailable (network error) | WARN: "Could not reach registry. Proceeding with local config only." (soft failure) |
 | Target not in known_constructs | List valid targets, ask to confirm or add to config |
 | Target is `human` but no `human_discord_id` | Show: "Add `human_discord_id` to config to use /send human" |

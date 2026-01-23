@@ -37,8 +37,8 @@ pre_flight:
     error: "GitHub CLI not authenticated. Run: gh auth login"
 
   - check: "identity_validation"
-    description: "Validates sender identity via GitHub OAuth and registry lookup"
-    note: "Uses gh api user to get authenticated username, validates against registry operator.github_username"
+    description: "Gets authenticated GitHub username for attribution"
+    note: "Uses gh api user to get authenticated username. No ownership check - like GitHub, anyone with repo access can send as that construct."
 
 outputs:
   - path: "GitHub Issue URL"
@@ -72,7 +72,7 @@ Send structured feedback to another Construct via Melange Protocol. Creates a Gi
 
 ## Workflow
 
-1. **Identity Validation**: Get GitHub username via `gh api user`, validate against registry `operator.github_username`
+1. **Identity Validation**: Get GitHub username via `gh api user` for attribution (no ownership check needed)
 2. **Parse Arguments**: Extract target construct, brief description, and --block flag
 3. **Validate Target**: Ensure target is in `known_constructs` list (or `human` if configured)
 4. **Gather Intent**: Prompt for impact level and intent type
@@ -109,10 +109,9 @@ Send structured feedback to another Construct via Melange Protocol. Creates a Gi
 ```
 > /send loa "Error messages don't show which file failed"
 
-🔐 Validating identity...
+🔐 Getting identity...
 ✓ GitHub user: zkSoju
 ✓ Construct: loa-constructs
-✓ Identity verified against registry
 
 📤 Drafting Melange Issue to loa...
 
