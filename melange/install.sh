@@ -87,9 +87,12 @@ log "Installing Melange Protocol v2 to $REPO"
 
 # === Fetch Constructs from Registry ===
 info "Fetching construct list from registry..."
-CONSTRUCTS=$(curl -sf "$REGISTRY_API/constructs" | jq -r '.constructs[].name' 2>/dev/null) || {
+# Include framework.name, registry.name, and all constructs[].name
+CONSTRUCTS=$(curl -sf "$REGISTRY_API/constructs" | jq -r '
+  [.framework.name, .registry.name] + [.constructs[].name] | unique | .[]
+' 2>/dev/null) || {
   warn "Could not fetch from registry, using defaults"
-  CONSTRUCTS="sigil loa loa-constructs hivemind ruggy"
+  CONSTRUCTS="loa loa-constructs sigil hivemind ruggy"
 }
 log "Found constructs: $(echo $CONSTRUCTS | tr '\n' ' ')"
 

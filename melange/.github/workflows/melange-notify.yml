@@ -25,7 +25,8 @@ jobs:
             if (toLabel) {
               toConstruct = toLabel.replace('to:', '');
             } else {
-              const toMatch = body.match(/### To \(Receiving Construct\)\s*\n\n(\w+)/i);
+              // Match hyphenated names like loa-constructs
+              const toMatch = body.match(/### To \(Receiving Construct\)\s*\n\n([\w-]+)/i);
               if (toMatch) {
                 toConstruct = toMatch[1].toLowerCase();
               }
@@ -58,11 +59,13 @@ jobs:
         with:
           script: |
             const body = context.payload.issue.body || '';
-            const toMatch = body.match(/### To \(Receiving Construct\)\s*\n\n(\w+)/i);
+            // Match hyphenated names like loa-constructs
+            const toMatch = body.match(/### To \(Receiving Construct\)\s*\n\n([\w-]+)/i);
 
             if (toMatch) {
               const toConstruct = toMatch[1].toLowerCase();
-              const validConstructs = ['sigil', 'loa', 'registry'];
+              // All constructs from registry + template
+              const validConstructs = ['loa', 'loa-constructs', 'sigil', 'hivemind', 'ruggy'];
 
               if (validConstructs.includes(toConstruct)) {
                 await github.rest.issues.addLabels({

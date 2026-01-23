@@ -11,7 +11,11 @@ REPO="${1:?Usage: ./create-labels.sh OWNER/REPO [CONSTRUCTS...]}"
 shift
 
 # Default constructs if none provided
-CONSTRUCTS=("${@:-sigil loa loa-constructs hivemind ruggy}")
+if [[ $# -eq 0 ]]; then
+  CONSTRUCTS=(loa loa-constructs sigil hivemind ruggy)
+else
+  CONSTRUCTS=("$@")
+fi
 
 echo "Creating Melange labels in $REPO..."
 
