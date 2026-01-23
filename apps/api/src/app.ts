@@ -17,6 +17,7 @@ import { auditRouter } from './routes/audit.js';
 import { docsRouter } from './routes/docs.js';
 import { packsRouter } from './routes/packs.js';
 import { adminRouter } from './routes/admin.js';
+import { constructsRouter } from './routes/constructs.js';
 import { apiRateLimiter } from './middleware/rate-limiter.js';
 import { env } from './config/env.js';
 
@@ -121,6 +122,9 @@ v1.route('/packs', packsRouter);
 
 // Admin routes (requires admin role)
 v1.route('/admin', adminRouter);
+
+// Constructs registry (Melange Protocol)
+v1.route('/constructs', constructsRouter);
 
 // Documentation routes (OpenAPI/Swagger)
 v1.route('/docs', docsRouter);
