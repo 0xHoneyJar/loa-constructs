@@ -183,8 +183,9 @@ constructsRouter.get('/:name', (c) => {
 });
 
 /**
- * GET /v1/constructs/names
+ * GET /v1/constructs/list/names
  * Get list of all Construct names (for validation)
+ * Note: Uses /list/names to avoid collision with /:name dynamic route
  */
 constructsRouter.get('/list/names', (c) => {
   const names = [
