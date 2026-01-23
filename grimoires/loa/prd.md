@@ -566,7 +566,40 @@ org:0xHoneyJar label:melange is:open
 - Cross-repo visibility
 
 ### Out of Scope (Future)
-- `/melange-sync` - Automatic distribution of Melange skills and workflows to all Constructs in the org (currently manual)
+
+#### `/melange-sync` — Automatic Distribution
+
+**Problem**: Currently, updating Melange workflows or skills across Constructs requires manually copying files to each repo (sigil, loa, registry, etc.). This is error-prone and doesn't scale.
+
+**Concept**: A command that syncs Melange files from the protocol repo to all Constructs in the org.
+
+```bash
+/melange-sync                    # Sync to all known constructs
+/melange-sync --construct sigil  # Sync to specific construct
+/melange-sync --dry-run          # Preview changes without applying
+```
+
+**Files to sync**:
+- `.github/workflows/melange-notify.yml`
+- `.github/workflows/melange-resolve.yml`
+- `.github/ISSUE_TEMPLATE/melange.yml`
+
+**Implementation options**:
+1. **GitHub API** — Read from source repo, write to targets via `gh api`
+2. **Git submodule** — Reference melange as submodule, sync on update
+3. **Loa Constructs Registry** — Distribute as versioned "pack"
+
+**Safety considerations**:
+- Require human approval before each repo modification
+- Show diff of changes before applying
+- Never overwrite if target file has local customizations (warn instead)
+- Log all syncs to `grimoires/loa/melange/sync-history.json`
+
+**Deferred until**: Multi-Construct usage proves this is a real friction point.
+
+---
+
+#### Other Future Items
 - Slack integration
 - Multi-org support (beyond 0xHoneyJar)
 - Thread archival and cleanup automation
