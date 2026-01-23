@@ -298,6 +298,35 @@ These skills ship with the Loa framework core. Every Construct that uses Loa aut
 | Identity misconfigured | Issues go to wrong repo | Validate config on skill load |
 | gh CLI not installed | Skills fail | Clear error with install instructions |
 
+### 5.5 Targeted Discord Mentions (v1.1)
+
+**Problem:** Current implementation uses `@here` for game-changing issues, which pings everyone in the channel instead of the specific operator of the target Construct.
+
+**Solution:** Add a Construct → Discord User ID mapping in the workflow file.
+
+**Mapping Location:** `melange-notify.yml` (hardcoded for simplicity)
+
+```javascript
+const OPERATOR_MAP = {
+  'sigil': '123456789012345678',      // soju's Discord ID
+  'loa': '234567890123456789',        // jani's Discord ID
+  'registry': '345678901234567890',   // api-team's Discord ID
+  'loa-constructs': '123456789012345678'  // soju's Discord ID
+};
+```
+
+**Behavior:**
+- Look up `toConstruct` in `OPERATOR_MAP`
+- If found: ping that specific user with `<@USER_ID>`
+- If not found: fall back to `@here` (preserves current behavior)
+- Only ping for `game-changing` and `important` impacts (unchanged)
+
+**Discord Mention Format:**
+```
+🔴 game-changing: <@123456789012345678> - New feedback from soju@Sigil
+🟡 important: <@123456789012345678> - New feedback from soju@Sigil
+```
+
 ## 9. Open Questions
 
 1. **Should `/send` support file attachments?** (screenshots, logs)
