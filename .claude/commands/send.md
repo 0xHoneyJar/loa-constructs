@@ -36,6 +36,10 @@ pre_flight:
     script: ".claude/scripts/check-gh-auth.sh"
     error: "GitHub CLI not authenticated. Run: gh auth login"
 
+  - check: "identity_validation"
+    description: "Validates sender identity via GitHub OAuth and registry lookup"
+    note: "Uses gh api user to get authenticated username, validates against registry operator.github_username"
+
 outputs:
   - path: "GitHub Issue URL"
     type: "external"
@@ -68,14 +72,15 @@ Send structured feedback to another Construct via Melange Protocol. Creates a Gi
 
 ## Workflow
 
-1. **Parse Arguments**: Extract target construct, brief description, and --block flag
-2. **Validate Target**: Ensure target is in `known_constructs` list (or `human` if configured)
-3. **Gather Intent**: Prompt for impact level and intent type
-4. **Draft Issue**: AI expands brief description into structured Melange fields
-5. **Human Review**: Show preview, ask for approval
-6. **Create Issue**: Execute `gh issue create` with proper labels
-7. **Handle Blocking**: If `--block` flag, add `status:blocked` label and update cache
-8. **Confirm**: Display Issue URL and confirm Discord notification
+1. **Identity Validation**: Get GitHub username via `gh api user`, validate against registry `operator.github_username`
+2. **Parse Arguments**: Extract target construct, brief description, and --block flag
+3. **Validate Target**: Ensure target is in `known_constructs` list (or `human` if configured)
+4. **Gather Intent**: Prompt for impact level and intent type
+5. **Draft Issue**: AI expands brief description into structured Melange fields
+6. **Human Review**: Show preview (From field shows verified GitHub username), ask for approval
+7. **Create Issue**: Execute `gh issue create` with `from:{construct}` label and embedded melange-metadata
+8. **Handle Blocking**: If `--block` flag, add `status:blocked` label and update cache
+9. **Confirm**: Display Issue URL and confirm Discord notification
 
 ## Impact Levels
 
@@ -104,6 +109,11 @@ Send structured feedback to another Construct via Melange Protocol. Creates a Gi
 ```
 > /send loa "Error messages don't show which file failed"
 
+🔐 Validating identity...
+✓ GitHub user: zkSoju
+✓ Construct: loa-constructs
+✓ Identity verified against registry
+
 📤 Drafting Melange Issue to loa...
 
 What's the impact level?
@@ -126,7 +136,7 @@ Drafting Issue...
 Title: [Melange] Request: Include file paths in error messages
 
 To: loa
-From: soju@loa-constructs
+From: zkSoju@loa-constructs
 Impact: important
 Intent: request
 

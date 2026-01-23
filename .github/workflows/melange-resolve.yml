@@ -1,12 +1,107 @@
-name: Melange PR Resolution
+name: Melange Resolution
 
 on:
+  issues:
+    types: [closed]
   issue_comment:
     types: [created]
   pull_request:
     types: [closed]
 
 jobs:
+  # Handle direct Issue closure (T10.1)
+  issue-closed:
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'issues' &&
+      github.event.action == 'closed' &&
+      contains(github.event.issue.labels.*.name, 'melange')
+
+    steps:
+      - name: Process Issue Close
+        uses: actions/github-script@v7
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.MELANGE_DISCORD_WEBHOOK }}
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const issueNumber = issue.number;
+            const labels = issue.labels.map(l => l.name);
+
+            // Skip if already resolved (via PR merge)
+            if (labels.includes('status:resolved')) {
+              console.log('Issue already marked as resolved, skipping');
+              return;
+            }
+
+            // Extract melange-metadata from Issue body
+            const metadataMatch = issue.body?.match(/<!-- melange-metadata\n([\s\S]*?)\n-->/);
+            let senderDiscord = null;
+            let senderGithub = null;
+            let senderConstruct = null;
+
+            if (metadataMatch) {
+              const metadata = metadataMatch[1];
+              const discordMatch = metadata.match(/sender_discord:\s*(\d+)/);
+              const githubMatch = metadata.match(/sender_github:\s*(\S+)/);
+              const constructMatch = metadata.match(/sender_construct:\s*(\S+)/);
+
+              if (discordMatch) senderDiscord = discordMatch[1];
+              if (githubMatch) senderGithub = githubMatch[1];
+              if (constructMatch) senderConstruct = constructMatch[1];
+            }
+
+            // Update labels: remove status:*, add status:resolved
+            const newLabels = labels
+              .filter(l => !l.startsWith('status:'))
+              .concat(['status:resolved']);
+
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issueNumber,
+              labels: newLabels
+            });
+
+            console.log(`Marked Melange Issue #${issueNumber} as resolved`);
+
+            // Send Discord notification to sender
+            if (process.env.DISCORD_WEBHOOK && senderDiscord) {
+              // Find target construct from labels
+              const toLabel = labels.find(l => l.startsWith('to:'));
+              const target = toLabel ? toLabel.replace('to:', '') : 'unknown';
+
+              const embed = {
+                title: `✅ Thread Resolved: ${issue.title}`,
+                description: `Your Melange thread to **${target}** has been resolved.`,
+                color: 0x00FF00, // Green
+                fields: [
+                  { name: 'Issue', value: `[#${issueNumber}](${issue.html_url})`, inline: true },
+                  { name: 'To', value: target, inline: true },
+                  { name: 'Closed By', value: context.payload.sender.login, inline: true }
+                ],
+                footer: { text: 'Use /threads --pending-review to verify resolution' },
+                timestamp: new Date().toISOString()
+              };
+
+              const payload = {
+                content: `<@${senderDiscord}> Your Melange thread was resolved!`,
+                embeds: [embed]
+              };
+
+              await fetch(process.env.DISCORD_WEBHOOK, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+              });
+
+              console.log(`Discord notification sent to ${senderDiscord}`);
+            } else if (!senderDiscord) {
+              console.log('No sender_discord in metadata, skipping Discord notification');
+              console.log('This may be an older Issue created before metadata embedding');
+            }
+
+  # Handle PR resolution linking via comments
   detect-resolution:
     runs-on: ubuntu-latest
     if: |
@@ -16,6 +111,8 @@ jobs:
     steps:
       - name: Process Resolution
         uses: actions/github-script@v7
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.MELANGE_DISCORD_WEBHOOK }}
         with:
           script: |
             const event = context.eventName;
@@ -121,6 +218,45 @@ jobs:
                       issue_number: issueNumber,
                       body: `✅ Resolved via PR #${prNumber} (merged).`
                     });
+
+                    // Extract sender info and send Discord notification
+                    const metadataMatch = issue.data.body?.match(/<!-- melange-metadata\n([\s\S]*?)\n-->/);
+                    if (metadataMatch && process.env.DISCORD_WEBHOOK) {
+                      const metadata = metadataMatch[1];
+                      const discordMatch = metadata.match(/sender_discord:\s*(\d+)/);
+
+                      if (discordMatch) {
+                        const senderDiscord = discordMatch[1];
+                        const toLabel = labels.find(l => l.startsWith('to:'));
+                        const target = toLabel ? toLabel.replace('to:', '') : 'unknown';
+
+                        const embed = {
+                          title: `✅ Thread Resolved: ${issue.data.title}`,
+                          description: `Your Melange thread to **${target}** has been resolved via PR #${prNumber}.`,
+                          color: 0x00FF00,
+                          fields: [
+                            { name: 'Issue', value: `[#${issueNumber}](${issue.data.html_url})`, inline: true },
+                            { name: 'PR', value: `[#${prNumber}](${context.payload.pull_request.html_url})`, inline: true },
+                            { name: 'To', value: target, inline: true }
+                          ],
+                          footer: { text: 'Use /threads --pending-review to verify resolution' },
+                          timestamp: new Date().toISOString()
+                        };
+
+                        const payload = {
+                          content: `<@${senderDiscord}> Your Melange thread was resolved!`,
+                          embeds: [embed]
+                        };
+
+                        await fetch(process.env.DISCORD_WEBHOOK, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(payload)
+                        });
+
+                        console.log(`Discord notification sent to ${senderDiscord}`);
+                      }
+                    }
                   }
                 } catch (e) {
                   console.log(`Could not process Issue #${issueNumber}: ${e.message}`);

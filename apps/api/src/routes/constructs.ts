@@ -16,9 +16,9 @@ import { logger } from '../lib/logger.js';
 // Registry data - source of truth for internal Constructs
 // Future: Move to database table for dynamic management
 const CONSTRUCTS_REGISTRY = {
-  version: '1.0.0',
+  version: '2.0.0',
   org: '0xHoneyJar',
-  last_updated: '2026-01-23',
+  last_updated: '2026-01-22',
 
   // The mother framework
   framework: {
@@ -26,8 +26,11 @@ const CONSTRUCTS_REGISTRY = {
     display_name: 'Loa',
     description: 'The mother Construct. Agent-driven development framework.',
     repo: '0xHoneyJar/loa',
-    operator: 'jani',
-    discord_id: '970593060553646101',
+    operator: {
+      display_name: 'jani',
+      github_username: 'jani',
+      discord_id: '970593060553646101',
+    },
   },
 
   // This registry
@@ -37,8 +40,11 @@ const CONSTRUCTS_REGISTRY = {
     description: 'Central registry and API for Loa-powered Constructs.',
     repo: '0xHoneyJar/loa-constructs',
     api: 'https://loa-constructs-api.fly.dev/v1',
-    operator: 'soju',
-    discord_id: '970593060553646101',
+    operator: {
+      display_name: 'soju',
+      github_username: 'zkSoju',
+      discord_id: '970593060553646101',
+    },
   },
 
   // Loa-powered Constructs
@@ -48,8 +54,11 @@ const CONSTRUCTS_REGISTRY = {
       display_name: 'Sigil',
       description: 'Creative speed, grounded in truth. Design physics for products.',
       repo: '0xHoneyJar/sigil',
-      operator: 'soju',
-      discord_id: '259646475666063360',
+      operator: {
+        display_name: 'soju',
+        github_username: 'zkSoju',
+        discord_id: '259646475666063360',
+      },
       status: 'active',
     },
     {
@@ -57,8 +66,11 @@ const CONSTRUCTS_REGISTRY = {
       display_name: 'Hivemind',
       description: 'Organizational memory and documentation for THJ ecosystem.',
       repo: '0xHoneyJar/hivemind-os',
-      operator: 'soju',
-      discord_id: '970593060553646101',
+      operator: {
+        display_name: 'soju',
+        github_username: 'zkSoju',
+        discord_id: '970593060553646101',
+      },
       status: 'active',
     },
     {
@@ -66,8 +78,11 @@ const CONSTRUCTS_REGISTRY = {
       display_name: 'Ruggy',
       description: 'Smart contract security auditing powered by Trail of Bits.',
       repo: '0xHoneyJar/ruggy-security',
-      operator: 'soju',
-      discord_id: '970593060553646101',
+      operator: {
+        display_name: 'soju',
+        github_username: 'zkSoju',
+        discord_id: '970593060553646101',
+      },
       status: 'active',
     },
   ],
@@ -105,18 +120,18 @@ constructsRouter.get('/', (c) => {
 constructsRouter.get('/operator-map', (c) => {
   const requestId = c.get('requestId');
 
-  // Build operator map from registry
+  // Build operator map from registry (v2 nested operator structure)
   const operatorMap: Record<string, string> = {};
 
   // Add framework
-  operatorMap[CONSTRUCTS_REGISTRY.framework.name] = CONSTRUCTS_REGISTRY.framework.discord_id;
+  operatorMap[CONSTRUCTS_REGISTRY.framework.name] = CONSTRUCTS_REGISTRY.framework.operator.discord_id;
 
   // Add registry
-  operatorMap[CONSTRUCTS_REGISTRY.registry.name] = CONSTRUCTS_REGISTRY.registry.discord_id;
+  operatorMap[CONSTRUCTS_REGISTRY.registry.name] = CONSTRUCTS_REGISTRY.registry.operator.discord_id;
 
   // Add all constructs
   for (const construct of CONSTRUCTS_REGISTRY.constructs) {
-    operatorMap[construct.name] = construct.discord_id;
+    operatorMap[construct.name] = construct.operator.discord_id;
   }
 
   logger.info({ requestId, count: Object.keys(operatorMap).length }, 'Operator map requested');

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Draft and create a Melange Issue addressed to another Construct. Ensures structured feedback with human approval before creation.
+Draft and create a Melange Issue addressed to another Construct. Ensures structured feedback with human approval before creation. Validates sender identity using GitHub OAuth before allowing Issue creation.
 
 ## Invocation
 
@@ -13,6 +13,44 @@ Draft and create a Melange Issue addressed to another Construct. Ensures structu
 ```
 
 ## Workflow
+
+### Phase 0: Identity Validation (Pre-flight)
+
+Before any other action, validate the sender's identity:
+
+1. **Get authenticated GitHub username**:
+   ```bash
+   gh api user --jq '.login'
+   ```
+   - Returns the OAuth-authenticated GitHub username (e.g., "zkSoju")
+   - Handles errors: `gh` not installed, not authenticated
+   - Normalize to lowercase for comparison
+
+2. **Read construct identity** from `.loa.config.yaml`:
+   ```yaml
+   construct:
+     name: loa-constructs
+     operator: soju
+     repo: 0xHoneyJar/loa-constructs
+     org: 0xHoneyJar
+   ```
+
+3. **Fetch construct from registry**:
+   ```bash
+   curl -s "https://loa-constructs-api.fly.dev/v1/constructs/{construct.name}"
+   ```
+   - Parse the JSON response
+   - Extract `operator.github_username`
+
+4. **Validate identity**:
+   - If construct NOT FOUND → ERROR: "Construct '{name}' not found in registry. Register at loa-constructs API."
+   - If `operator.github_username` missing → WARN: "Operator not registered in registry. Proceeding with local config."
+   - If `github_username` doesn't match authenticated user → ERROR: "GitHub user '{actual}' is not authorized to send as '{construct}'. Expected: {expected}"
+   - If match → PROCEED with verified identity
+
+5. **Store validated identity** for use in Issue creation:
+   - `github_username`: The authenticated GitHub username
+   - `discord_id`: From registry response `operator.discord_id`
 
 ### Phase 1: Parse & Validate
 
@@ -82,7 +120,7 @@ Expand the brief message into structured Melange fields:
 
 ### Phase 4: Human Review
 
-Present full Issue preview:
+Present full Issue preview (note: From now uses verified GitHub username):
 
 ```
 ─────────────────────────────────────────
@@ -91,7 +129,7 @@ Present full Issue preview:
 Title: [Melange] {Intent}: {Title}
 
 To: {target}
-From: {operator}@{construct_name}
+From: {github_username}@{construct_name}
 Impact: {impact}
 Intent: {intent}
 
@@ -131,13 +169,13 @@ Ask for approval using `AskUserQuestion`:
 
 ### Phase 5: Create Issue
 
-Execute `gh issue create`:
+Execute `gh issue create` with validated GitHub username in From field and embedded metadata:
 
 ```bash
 gh issue create \
   --repo "{construct.repo}" \
   --title "[Melange] {Intent}: {Title}" \
-  --label "melange,status:open,to:{target},impact:{impact},intent:{intent}" \
+  --label "melange,status:open,to:{target},from:{construct_name},impact:{impact},intent:{intent}" \
   --body "$(cat <<'EOF'
 ### To (Receiving Construct)
 
@@ -145,7 +183,7 @@ gh issue create \
 
 ### From (Your Construct + Operator)
 
-{operator}@{construct_name}
+{github_username}@{construct_name}
 
 ### Intent
 
@@ -170,8 +208,22 @@ gh issue create \
 ### Why this impact level?
 
 {reasoning}
+
+<!-- melange-metadata
+source_repo: {construct.repo}
+sender_github: {github_username}
+sender_construct: {construct_name}
+sender_discord: {discord_id}
+created_at: {iso_timestamp}
+-->
 EOF
 )"
+```
+
+**Important changes from v1:**
+- `From` field now uses `{github_username}` (OAuth-verified) instead of `{operator}` (config-based)
+- Added `from:{construct_name}` label for easier filtering
+- Added hidden `<!-- melange-metadata -->` block for resolution tracking
 ```
 
 ### Phase 5.5: Handle Blocking (if --block flag)
@@ -261,7 +313,7 @@ Impact emojis:
 
 ### From (Your Construct + Operator)
 
-{operator}@{construct_name}
+{github_username}@{construct_name}
 
 ### Intent
 
@@ -286,15 +338,29 @@ Impact emojis:
 ### Why this impact level?
 
 {reasoning}
+
+<!-- melange-metadata
+source_repo: {construct.repo}
+sender_github: {github_username}
+sender_construct: {construct_name}
+sender_discord: {discord_id}
+created_at: {iso_timestamp}
+-->
 ```
+
+**Note**: The `<!-- melange-metadata -->` block is hidden when viewing the Issue in GitHub UI but is parsed by the `melange-resolve.yml` webhook to send resolution notifications back to the sender.
 
 ## Error Handling
 
 | Error | Resolution |
 |-------|------------|
+| `gh api user` fails (not authenticated) | Show: "GitHub CLI not authenticated. Run `gh auth login` to authenticate." |
+| `gh` not installed | Show: "GitHub CLI not found. Install: https://cli.github.com/" |
+| Construct not found in registry | Show: "Construct '{name}' not found in registry. Verify your .loa.config.yaml construct.name matches the registry." |
+| GitHub username mismatch | Show: "GitHub user '{actual}' is not authorized to send as '{construct}'. Registry expects: '{expected}'" |
+| Registry unavailable (network error) | WARN: "Could not reach registry. Proceeding with local config only." (soft failure) |
 | Target not in known_constructs | List valid targets, ask to confirm or add to config |
 | Target is `human` but no `human_discord_id` | Show: "Add `human_discord_id` to config to use /send human" |
-| gh not authenticated | Show: "Run `gh auth login` to authenticate" |
 | gh issue create fails | Show error message, suggest checking repo permissions |
 | User cancels | Confirm: "Issue creation cancelled. No action taken." |
 | Cache file missing | Create empty cache, then update |

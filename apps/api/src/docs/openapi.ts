@@ -1313,9 +1313,9 @@ Rate limit headers are included in all responses:
       ConstructsRegistry: {
         type: 'object',
         properties: {
-          version: { type: 'string', example: '1.0.0' },
+          version: { type: 'string', example: '2.0.0' },
           org: { type: 'string', example: '0xHoneyJar' },
-          last_updated: { type: 'string', format: 'date', example: '2026-01-23' },
+          last_updated: { type: 'string', format: 'date', example: '2026-01-22' },
           framework: { $ref: '#/components/schemas/FrameworkConstruct' },
           registry: { $ref: '#/components/schemas/RegistryConstruct' },
           constructs: {
@@ -1328,6 +1328,16 @@ Rate limit headers are included in all responses:
           },
         },
       },
+      Operator: {
+        type: 'object',
+        description: 'Operator identity for identity validation in Melange Protocol v2',
+        properties: {
+          display_name: { type: 'string', example: 'soju', description: 'Human-readable display name' },
+          github_username: { type: 'string', example: 'zkSoju', description: 'GitHub username for identity validation' },
+          discord_id: { type: 'string', example: '970593060553646101', description: 'Discord user ID for notifications' },
+        },
+        required: ['display_name', 'github_username', 'discord_id'],
+      },
       FrameworkConstruct: {
         type: 'object',
         properties: {
@@ -1335,8 +1345,7 @@ Rate limit headers are included in all responses:
           display_name: { type: 'string', example: 'Loa' },
           description: { type: 'string' },
           repo: { type: 'string', example: '0xHoneyJar/loa' },
-          operator: { type: 'string', example: 'jani' },
-          discord_id: { type: 'string', example: '970593060553646101' },
+          operator: { $ref: '#/components/schemas/Operator' },
         },
       },
       RegistryConstruct: {
@@ -1347,8 +1356,7 @@ Rate limit headers are included in all responses:
           description: { type: 'string' },
           repo: { type: 'string', example: '0xHoneyJar/loa-constructs' },
           api: { type: 'string', format: 'uri', example: 'https://loa-constructs-api.fly.dev/v1' },
-          operator: { type: 'string', example: 'soju' },
-          discord_id: { type: 'string', example: '970593060553646101' },
+          operator: { $ref: '#/components/schemas/Operator' },
         },
       },
       Construct: {
@@ -1358,8 +1366,7 @@ Rate limit headers are included in all responses:
           display_name: { type: 'string', example: 'Sigil' },
           description: { type: 'string' },
           repo: { type: 'string', example: '0xHoneyJar/sigil' },
-          operator: { type: 'string', example: 'soju' },
-          discord_id: { type: 'string', example: '259646475666063360' },
+          operator: { $ref: '#/components/schemas/Operator' },
           status: { type: 'string', enum: ['active', 'inactive'], example: 'active' },
         },
       },
@@ -1374,14 +1381,14 @@ Rate limit headers are included in all responses:
       },
       ConstructDetail: {
         type: 'object',
+        description: 'Detailed construct information returned by GET /v1/constructs/:name',
         properties: {
           type: { type: 'string', enum: ['framework', 'registry', 'construct', 'virtual'] },
           name: { type: 'string' },
           display_name: { type: 'string' },
           description: { type: 'string' },
           repo: { type: 'string' },
-          operator: { type: 'string' },
-          discord_id: { type: 'string' },
+          operator: { $ref: '#/components/schemas/Operator' },
           status: { type: 'string' },
           api: { type: 'string', format: 'uri' },
           note: { type: 'string' },

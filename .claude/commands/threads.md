@@ -18,6 +18,10 @@ arguments:
     type: "flag"
     required: false
     description: "Show recently resolved threads (last 7 days)"
+  - name: "pending-review"
+    type: "flag"
+    required: false
+    description: "Show threads resolved by receivers, pending your verification"
   - name: "sync"
     type: "flag"
     required: false
@@ -63,6 +67,7 @@ Visualize all Melange threads across the org. Shows what's blocked, what needs a
 /threads --mine           # Threads I'm involved in (sent or received)
 /threads --blocked        # Only blocked threads
 /threads --resolved       # Recently resolved (last 7 days)
+/threads --pending-review # Threads resolved by receivers, awaiting your verification
 /threads --sync           # Force full refresh from GitHub
 ```
 
@@ -75,7 +80,7 @@ MELANGE THREADS DASHBOARD
 loa-constructs
 ────────────────────────────────────────
 
-Active: 3    Blocked: 1    Resolved (7d): 2
+Active: 3    Blocked: 1    Pending Review: 2    Resolved (7d): 2
 
 ⏳ BLOCKED (1)
 
@@ -83,16 +88,30 @@ Active: 3    Blocked: 1    Resolved (7d): 2
 |---|--------|-----|--------|-----|
 | 1 | #42 Auth architecture guidance | loa | 🔴 game-changing | 2h |
 
+🔔 RESOLVED - PENDING REVIEW (2)
+
+| # | Thread | To | Resolved | Age |
+|---|--------|-----|----------|-----|
+| 2 | #38 API error codes | ruggy | 1h ago | 5d |
+| 3 | #35 Token refresh | loa | 3h ago | 2d |
+
 📬 SENT - AWAITING RESPONSE (2)
 
 | # | Thread | To | Impact | Age |
 |---|--------|-----|--------|-----|
-| 2 | #26 Testing targeted mentions | sigil | 🟡 important | 2h |
-| 3 | #25 Testing CLI integration | loa | 🟢 nice-to-have | 3h |
+| 4 | #26 Testing targeted mentions | sigil | 🟡 important | 2h |
+| 5 | #25 Testing CLI integration | loa | 🟢 nice-to-have | 3h |
 
 📥 RECEIVED - NEEDS TRIAGE (0)
    ✨ No incoming Issues
 ```
+
+The "RESOLVED - PENDING REVIEW" section shows threads that:
+- Were sent FROM this construct
+- Have been closed/resolved by the receiver
+- Have not yet been verified by you
+
+Use `/threads --pending-review` to see only this section.
 
 ## Interactive Navigation
 

@@ -1,0 +1,10 @@
+name: melange-review
+version: 1.0.0
+description: Review and verify resolved Melange threads
+author: 0xHoneyJar
+category: melange
+tags:
+  - melange
+  - threads
+  - review
+  - resolution

@@ -12,6 +12,7 @@ Enables quick visibility into what's blocked, what needs attention, and what's b
 /threads --mine
 /threads --blocked
 /threads --resolved
+/threads --pending-review
 /threads --sync
 ```
 
@@ -68,10 +69,11 @@ Sort threads into categories:
 | Category | Criteria | Icon |
 |----------|----------|------|
 | **BLOCKED** | Has `status:blocked` label AND sent by this construct | ⏳ |
+| **PENDING REVIEW** | Sent by this construct, has `status:resolved`, NOT `status:verified` | 🔔 |
 | **AWAITING RESPONSE** | Sent by this construct, `status:open`, no response | 📬 |
 | **NEEDS TRIAGE** | Addressed to this construct, `status:open` | 📥 |
 | **IN PROGRESS** | Has `status:accepted` label | ✅ |
-| **RESOLVED** | Has `status:resolved` OR closed in last 7 days | 🎉 |
+| **RESOLVED** | Has `status:verified` OR `status:resolved` with verified_at | 🎉 |
 
 **Sorting within categories**:
 1. Impact: game-changing first, then important, then nice-to-have
@@ -86,6 +88,7 @@ If flags provided, filter before rendering:
 | `--mine` | Keep threads where `from` OR `to` matches construct |
 | `--blocked` | Keep only BLOCKED category |
 | `--resolved` | Keep only RESOLVED category (expand to 30 days) |
+| `--pending-review` | Keep only PENDING REVIEW category (resolved but unverified threads) |
 
 ### Phase 5: Render Dashboard
 
@@ -103,10 +106,16 @@ MELANGE THREADS DASHBOARD
 {construct_name}
 ────────────────────────────────────────
 
-Active: {n}    Blocked: {n}    Resolved (7d): {n}
+Active: {n}    Blocked: {n}    Pending Review: {n}    Resolved (7d): {n}
 
 ⏳ BLOCKED ({n})
    (none)
+
+🔔 RESOLVED - PENDING REVIEW ({n})
+
+| # | Thread | To | Resolved | Age |
+|---|--------|-----|----------|-----|
+| 1 | #{n} {title} | {to} | {duration} ago | {total_age} |
 
 📬 SENT - AWAITING RESPONSE ({n})
 
@@ -124,6 +133,12 @@ Active: {n}    Blocked: {n}    Resolved (7d): {n}
 ✅ IN PROGRESS ({n})
    (none)
 
+```
+
+**Interactive Option for Pending Review**:
+If there are threads in PENDING REVIEW, add option to interactive menu:
+```json
+{ "label": "Review resolutions", "description": "Verify {n} resolved threads" }
 ```
 
 **Empty State**:
@@ -224,7 +239,7 @@ See `resources/schema.json` for full JSON Schema.
 
 ```json
 {
-  "$schema": "threads-v1",
+  "$schema": "threads-v2",
   "last_sync": "2026-01-23T12:00:00Z",
   "construct": "loa-constructs",
   "threads": [
@@ -237,12 +252,14 @@ See `resources/schema.json` for full JSON Schema.
       "to": "sigil",
       "impact": "game-changing",
       "intent": "request",
-      "status": "accepted",
+      "status": "resolved",
       "direction": "received",
       "created_at": "2026-01-22T10:00:00Z",
       "updated_at": "2026-01-22T11:00:00Z",
       "accepted_at": "2026-01-22T11:00:00Z",
-      "resolution_pr": null,
+      "resolved_at": "2026-01-23T15:00:00Z",
+      "verified_at": null,
+      "resolution_pr": 45,
       "blocked": false,
       "comments": 3
     }
@@ -253,9 +270,22 @@ See `resources/schema.json` for full JSON Schema.
       "blocked_at": "2026-01-23T09:00:00Z",
       "waiting_on": "loa"
     }
+  ],
+  "pending_review": [
+    {
+      "id": "0xHoneyJar/sigil#42",
+      "resolved_at": "2026-01-23T15:00:00Z",
+      "waiting_verification": true
+    }
   ]
 }
 ```
+
+**Schema v2 Changes**:
+- Added `resolved_at` field to thread objects
+- Added `verified_at` field to thread objects
+- Added `pending_review` array for quick lookup
+- Status lifecycle: `open` → `accepted` → `resolved` → `verified`
 
 ## HITL Requirements
 
