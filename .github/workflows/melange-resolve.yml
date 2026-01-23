@@ -34,6 +34,39 @@ jobs:
               return;
             }
 
+            // Skip if closed via PR merge - the PR handler will process this
+            // Check for linked PRs that closed this issue
+            try {
+              const timeline = await github.rest.issues.listEventsForTimeline({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issueNumber,
+                per_page: 50
+              });
+
+              // Look for a cross-referenced PR that was merged and closed this issue
+              const closedByPR = timeline.data.some(event => {
+                if (event.event === 'cross-referenced' && event.source?.issue?.pull_request) {
+                  // This is a PR that referenced this issue
+                  const prState = event.source.issue.state;
+                  const prMerged = event.source.issue.pull_request?.merged_at;
+                  return prState === 'closed' && prMerged;
+                }
+                if (event.event === 'closed' && event.commit_id) {
+                  // Closed via commit (PR merge)
+                  return true;
+                }
+                return false;
+              });
+
+              if (closedByPR) {
+                console.log('Issue was closed via PR merge, deferring to PR handler');
+                return;
+              }
+            } catch (e) {
+              console.log(`Could not check timeline: ${e.message}, proceeding with direct close handling`);
+            }
+
             // Extract melange-metadata from Issue body
             const metadataMatch = issue.body?.match(/<!-- melange-metadata\n([\s\S]*?)\n-->/);
             let senderDiscord = null;
