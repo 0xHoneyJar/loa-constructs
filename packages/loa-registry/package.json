@@ -25,7 +25,7 @@
     "conf": "^12.0.0"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@types/node": "^25.0.10",
     "@vitest/coverage-v8": "^1.6.0",
     "tsup": "^8.3.0",
     "typescript": "^5.4.0",
