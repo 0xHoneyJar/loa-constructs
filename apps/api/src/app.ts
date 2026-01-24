@@ -145,5 +145,42 @@ app.notFound((c) => {
   );
 });
 
+// Global error handler (catches errors that escape middleware)
+app.onError((err, c) => {
+  const requestId = c.get('requestId') || crypto.randomUUID();
+
+  // Check if it's an AppError using duck typing for bundling compatibility
+  const isAppError = err && typeof err === 'object' && 'code' in err && 'status' in err && err.name === 'AppError';
+
+  if (isAppError) {
+    const appErr = err as { code: string; message: string; status: number; details?: Record<string, unknown> };
+    return c.json(
+      {
+        error: {
+          code: appErr.code,
+          message: appErr.message,
+          details: appErr.details,
+        },
+        request_id: requestId,
+      },
+      appErr.status as 400 | 401 | 403 | 404 | 409 | 429 | 500 | 502 | 503
+    );
+  }
+
+  // Log unexpected errors
+  console.error('Unhandled error:', err);
+
+  return c.json(
+    {
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'An unexpected error occurred',
+      },
+      request_id: requestId,
+    },
+    500
+  );
+});
+
 export { app };
 export type { Variables };
