@@ -16,24 +16,29 @@ export const errorHandler = (): MiddlewareHandler => {
       const requestId = c.get('requestId') || crypto.randomUUID();
 
       // Handle AppError instances
-      if (err instanceof AppError) {
+      // Use duck typing instead of instanceof for bundling compatibility
+      const isAppError = err instanceof AppError ||
+        (err && typeof err === 'object' && 'code' in err && 'status' in err && err.name === 'AppError');
+
+      if (isAppError) {
+        const appErr = err as AppError;
         logger.warn({
           request_id: requestId,
-          error_code: err.code,
-          message: err.message,
-          status: err.status,
+          error_code: appErr.code,
+          message: appErr.message,
+          status: appErr.status,
         });
 
         return c.json(
           {
             error: {
-              code: err.code,
-              message: err.message,
-              details: err.details,
+              code: appErr.code,
+              message: appErr.message,
+              details: appErr.details,
             },
             request_id: requestId,
           },
-          err.status as ContentfulStatusCode
+          appErr.status as ContentfulStatusCode
         );
       }
 

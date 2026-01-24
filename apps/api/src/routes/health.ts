@@ -11,11 +11,9 @@ import { env } from '../config/env.js';
  */
 const health = new Hono();
 
-// Track startup time
+// Track startup time - used as proxy for build/deployment time
 const startupTime = Date.now();
-
-// Build timestamp for debugging deployments
-const BUILD_TIMESTAMP = '2026-01-02T10:05:00Z';
+const BUILD_TIMESTAMP = new Date(startupTime).toISOString();
 
 /**
  * GET /v1/health
