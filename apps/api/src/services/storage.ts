@@ -252,7 +252,7 @@ export async function verifyStorageConnection(): Promise<{
     await client.send(
       new HeadObjectCommand({
         Bucket: env.R2_BUCKET,
-        Key: '.storage-health-check',
+        Key: 'skills/.storage-health-check',
       })
     ).catch((err) => {
       // NoSuchKey is expected and means we can connect
