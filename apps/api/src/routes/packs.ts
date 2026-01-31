@@ -12,7 +12,6 @@ import {
   createPack,
   getPackBySlug,
   updatePack,
-  listPacks,
   isPackOwner,
   createPackVersion,
   getPackVersions,
@@ -117,14 +116,6 @@ const validateNamespaceSchema = z.object({
     commands: z.array(z.string()).optional(),
     skills: z.array(z.string()).optional(),
   }),
-});
-
-const listPacksSchema = z.object({
-  q: z.string().optional(),
-  tag: z.string().optional(),
-  featured: z.coerce.boolean().optional(),
-  page: z.coerce.number().int().positive().optional(),
-  per_page: z.coerce.number().int().positive().max(100).optional(),
 });
 
 const createVersionSchema = z.object({

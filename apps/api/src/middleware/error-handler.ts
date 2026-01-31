@@ -18,7 +18,7 @@ export const errorHandler = (): MiddlewareHandler => {
       // Handle AppError instances
       // Use duck typing instead of instanceof for bundling compatibility
       const isAppError = err instanceof AppError ||
-        (err && typeof err === 'object' && 'code' in err && 'status' in err && err.name === 'AppError');
+        (err && typeof err === 'object' && 'code' in err && 'status' in err && 'name' in err && (err as { name: string }).name === 'AppError');
 
       if (isAppError) {
         const appErr = err as AppError;

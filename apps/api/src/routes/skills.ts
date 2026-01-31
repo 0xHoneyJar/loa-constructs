@@ -7,9 +7,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import { requireAuth, optionalAuth } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 import {
-  listSkills,
   getSkillBySlug,
   createSkill,
   updateSkill,
@@ -21,7 +20,6 @@ import {
   addVersionFile,
   trackUsage,
   isSkillOwner,
-  getSkillOwner,
   type SkillCategory,
 } from '../services/skills.js';
 import {
@@ -52,19 +50,6 @@ export const skillsRouter = new Hono();
 skillsRouter.use('*', skillsRateLimiter());
 
 // --- Schemas ---
-
-const listSkillsSchema = z.object({
-  q: z.string().optional(),
-  category: z
-    .enum(['development', 'devops', 'marketing', 'sales', 'support', 'analytics', 'security', 'other'])
-    .optional(),
-  tier: z.enum(['free', 'pro', 'team', 'enterprise']).optional(),
-  tags: z.string().optional(), // comma-separated
-  sort: z.enum(['downloads', 'rating', 'newest', 'name']).optional(),
-  order: z.enum(['asc', 'desc']).optional(),
-  page: z.coerce.number().int().positive().optional(),
-  limit: z.coerce.number().int().positive().max(100).optional(),
-});
 
 const createSkillSchema = z.object({
   name: z.string().min(1).max(255),
