@@ -13,7 +13,7 @@ import { TuiTag } from '@/components/tui/tui-text';
 
 const navItems = [
   { href: '/', label: 'Home' },
-  { href: '/packs', label: 'Packs' },
+  { href: '/constructs', label: 'Constructs' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/docs', label: 'Docs' },
   { href: '/about', label: 'About' },
