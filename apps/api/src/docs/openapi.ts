@@ -67,6 +67,7 @@ Rate limit headers are included in all responses:
     { name: 'Auth', description: 'Authentication endpoints' },
     { name: 'OAuth', description: 'OAuth provider authentication' },
     { name: 'Skills', description: 'Skill management endpoints' },
+    { name: 'Constructs', description: 'Unified construct discovery (skills + packs)' },
     { name: 'Teams', description: 'Team management endpoints' },
     { name: 'Subscriptions', description: 'Subscription management' },
     { name: 'Analytics', description: 'Usage analytics' },
@@ -749,6 +750,104 @@ Rate limit headers are included in all responses:
       },
     },
 
+    // Constructs
+    '/v1/constructs': {
+      get: {
+        tags: ['Constructs'],
+        summary: 'List constructs',
+        description: 'Browse all constructs (skills + packs) with filtering and pagination',
+        operationId: 'listConstructs',
+        parameters: [
+          { $ref: '#/components/parameters/SearchQuery' },
+          {
+            name: 'type',
+            in: 'query',
+            description: 'Filter by construct type',
+            schema: { type: 'string', enum: ['skill', 'pack', 'bundle'] },
+          },
+          { $ref: '#/components/parameters/Tier' },
+          { $ref: '#/components/parameters/Category' },
+          {
+            name: 'featured',
+            in: 'query',
+            description: 'Filter to featured constructs only',
+            schema: { type: 'boolean' },
+          },
+          {
+            name: 'page',
+            in: 'query',
+            description: 'Page number (1-indexed)',
+            schema: { type: 'integer', minimum: 1, default: 1 },
+          },
+          {
+            name: 'per_page',
+            in: 'query',
+            description: 'Results per page',
+            schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Constructs list',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ConstructsListResponse' },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/v1/constructs/summary': {
+      get: {
+        tags: ['Constructs'],
+        summary: 'Get constructs summary',
+        description: 'Agent-optimized minimal response with construct slugs and commands',
+        operationId: 'getConstructsSummary',
+        responses: {
+          '200': {
+            description: 'Constructs summary',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ConstructsSummaryResponse' },
+              },
+            },
+          },
+        },
+      },
+    },
+    '/v1/constructs/{slug}': {
+      get: {
+        tags: ['Constructs'],
+        summary: 'Get construct',
+        description: 'Get construct details by slug with full manifest',
+        operationId: 'getConstruct',
+        parameters: [{ $ref: '#/components/parameters/ConstructSlug' }],
+        responses: {
+          '200': {
+            description: 'Construct details',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ConstructResponse' },
+              },
+            },
+          },
+          '404': { $ref: '#/components/responses/NotFound' },
+        },
+      },
+      head: {
+        tags: ['Constructs'],
+        summary: 'Check construct exists',
+        description: 'Check if a construct exists by slug (returns 200 or 404)',
+        operationId: 'constructExists',
+        parameters: [{ $ref: '#/components/parameters/ConstructSlug' }],
+        responses: {
+          '200': { description: 'Construct exists' },
+          '404': { description: 'Construct not found' },
+        },
+      },
+    },
+
     // Audit
     '/v1/audit/me': {
       get: {
@@ -878,6 +977,13 @@ Rate limit headers are included in all responses:
         required: true,
         description: 'Team ID (UUID)',
         schema: { type: 'string', format: 'uuid' },
+      },
+      ConstructSlug: {
+        name: 'slug',
+        in: 'path',
+        required: true,
+        description: 'Construct slug (pack or skill)',
+        schema: { type: 'string' },
       },
     },
     schemas: {
@@ -1213,6 +1319,165 @@ Rate limit headers are included in all responses:
           userAgent: { type: 'string' },
           metadata: { type: 'object' },
           createdAt: { type: 'string', format: 'date-time' },
+        },
+      },
+
+      // Constructs
+      ConstructsListResponse: {
+        type: 'object',
+        properties: {
+          data: { type: 'array', items: { $ref: '#/components/schemas/Construct' } },
+          pagination: {
+            type: 'object',
+            properties: {
+              page: { type: 'integer' },
+              per_page: { type: 'integer' },
+              total: { type: 'integer' },
+              total_pages: { type: 'integer' },
+            },
+          },
+          request_id: { type: 'string' },
+        },
+      },
+      ConstructsSummaryResponse: {
+        type: 'object',
+        properties: {
+          constructs: {
+            type: 'array',
+            items: { $ref: '#/components/schemas/ConstructSummary' },
+          },
+          total: { type: 'integer' },
+          last_updated: { type: 'string', format: 'date-time' },
+        },
+      },
+      ConstructResponse: {
+        type: 'object',
+        properties: {
+          data: { $ref: '#/components/schemas/ConstructDetail' },
+          request_id: { type: 'string' },
+        },
+      },
+      Construct: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          type: { type: 'string', enum: ['skill', 'pack', 'bundle'] },
+          name: { type: 'string' },
+          slug: { type: 'string' },
+          description: { type: 'string', nullable: true },
+          version: { type: 'string', nullable: true },
+          tier_required: { type: 'string', enum: ['free', 'pro', 'team', 'enterprise'] },
+          category: { type: 'string', nullable: true },
+          downloads: { type: 'integer' },
+          rating: { type: 'number', nullable: true },
+          is_featured: { type: 'boolean' },
+          manifest: { $ref: '#/components/schemas/ConstructManifestSummary' },
+          created_at: { type: 'string', format: 'date-time' },
+          updated_at: { type: 'string', format: 'date-time' },
+        },
+      },
+      ConstructDetail: {
+        allOf: [
+          { $ref: '#/components/schemas/Construct' },
+          {
+            type: 'object',
+            properties: {
+              long_description: { type: 'string', nullable: true },
+              manifest: { $ref: '#/components/schemas/ConstructManifest' },
+              owner: {
+                type: 'object',
+                nullable: true,
+                properties: {
+                  name: { type: 'string' },
+                  type: { type: 'string', enum: ['user', 'team'] },
+                  avatar_url: { type: 'string', nullable: true },
+                },
+              },
+              repository_url: { type: 'string', nullable: true },
+              documentation_url: { type: 'string', nullable: true },
+              latest_version: {
+                type: 'object',
+                nullable: true,
+                properties: {
+                  version: { type: 'string' },
+                  changelog: { type: 'string', nullable: true },
+                  published_at: { type: 'string', format: 'date-time', nullable: true },
+                },
+              },
+            },
+          },
+        ],
+      },
+      ConstructSummary: {
+        type: 'object',
+        description: 'Minimal construct info for agent discovery',
+        properties: {
+          slug: { type: 'string' },
+          name: { type: 'string' },
+          type: { type: 'string', enum: ['skill', 'pack', 'bundle'] },
+          commands: { type: 'array', items: { type: 'string' } },
+          tier_required: { type: 'string' },
+        },
+      },
+      ConstructManifestSummary: {
+        type: 'object',
+        description: 'Summary of manifest for list view',
+        nullable: true,
+        properties: {
+          skills: { type: 'array', items: { type: 'string' } },
+          commands: { type: 'array', items: { type: 'string' } },
+          dependencies: { type: 'object' },
+        },
+      },
+      ConstructManifest: {
+        type: 'object',
+        description: 'Full construct manifest',
+        nullable: true,
+        properties: {
+          name: { type: 'string' },
+          version: { type: 'string' },
+          type: { type: 'string', enum: ['skill', 'pack', 'bundle'] },
+          description: { type: 'string' },
+          author: { type: 'string' },
+          license: { type: 'string', enum: ['MIT', 'Apache-2.0', 'proprietary', 'UNLICENSED'] },
+          skills: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                version: { type: 'string' },
+                required: { type: 'boolean' },
+              },
+            },
+          },
+          commands: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                name: { type: 'string' },
+                skill: { type: 'string' },
+                description: { type: 'string' },
+              },
+            },
+          },
+          dependencies: {
+            type: 'object',
+            properties: {
+              skills: { type: 'array', items: { type: 'string' } },
+              tools: { type: 'array', items: { type: 'string' } },
+            },
+          },
+          unix: {
+            type: 'object',
+            properties: {
+              inputs: { type: 'array' },
+              outputs: { type: 'array' },
+              composes_with: { type: 'array', items: { type: 'string' } },
+            },
+          },
+          tier_required: { type: 'string', enum: ['free', 'pro', 'team', 'enterprise'] },
         },
       },
 

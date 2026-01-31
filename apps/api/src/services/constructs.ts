@@ -19,6 +19,9 @@ import { getRedis, isRedisConfigured, CACHE_KEYS, CACHE_TTL } from './redis.js';
 import { logger } from '../lib/logger.js';
 import type { ConstructManifest } from '../lib/manifest-validator.js';
 
+// Re-export for consumers
+export type { ConstructManifest };
+
 // --- Types ---
 
 export type ConstructType = 'skill' | 'pack' | 'bundle';
@@ -423,11 +426,24 @@ async function fetchSkillsAsConstructs(options: {
   const conditions = [eq(skills.isPublic, true), eq(skills.isDeprecated, false)];
 
   if (options.tier) {
-    conditions.push(eq(skills.tierRequired, options.tier));
+    conditions.push(eq(skills.tierRequired, options.tier as 'free' | 'pro' | 'team' | 'enterprise'));
   }
 
   if (options.category) {
-    conditions.push(eq(skills.category, options.category));
+    conditions.push(
+      eq(
+        skills.category,
+        options.category as
+          | 'development'
+          | 'devops'
+          | 'marketing'
+          | 'sales'
+          | 'support'
+          | 'analytics'
+          | 'security'
+          | 'other'
+      )
+    );
   }
 
   if (options.query) {
@@ -487,7 +503,7 @@ async function fetchPacksAsConstructs(options: {
   const conditions = [eq(packs.status, 'published')];
 
   if (options.tier) {
-    conditions.push(eq(packs.tierRequired, options.tier));
+    conditions.push(eq(packs.tierRequired, options.tier as 'free' | 'pro' | 'team' | 'enterprise'));
   }
 
   if (options.featured) {

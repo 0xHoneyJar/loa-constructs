@@ -91,8 +91,8 @@ function formatConstructDetail(c: Construct) {
 
 function formatManifestSummary(m: ConstructManifest) {
   return {
-    skills: m.skills?.map((s) => s.name) || [],
-    commands: m.commands?.map((c) => c.name) || [],
+    skills: m.skills?.map((s: { name: string }) => s.name) || [],
+    commands: m.commands?.map((c: { name: string }) => c.name) || [],
     dependencies: m.dependencies || {},
   };
 }
@@ -173,7 +173,7 @@ constructsRouter.get('/summary', async (c) => {
  * Check if construct exists
  * @see prd-constructs-api.md FR-5.2
  */
-constructsRouter.head('/:slug', async (c) => {
+constructsRouter.on('HEAD', '/:slug', async (c) => {
   const slug = c.req.param('slug');
 
   const exists = await constructExists(slug);

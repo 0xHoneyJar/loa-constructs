@@ -4,8 +4,12 @@
  * @see sdd-constructs-api.md §6.2 Manifest Validator
  */
 
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
+import AjvModule, { type ErrorObject } from 'ajv';
+import addFormatsModule from 'ajv-formats';
+
+// Handle ESM/CJS interop
+const Ajv = AjvModule.default || AjvModule;
+const addFormats = addFormatsModule.default || addFormatsModule;
 import { Errors } from './errors.js';
 
 // Import JSON schema - using require for JSON import compatibility
@@ -81,7 +85,7 @@ export function validateConstructManifest(manifest: unknown): ManifestValidation
     return { valid: true, errors: [] };
   }
 
-  const errors = (validateManifestFn.errors || []).map((err) => ({
+  const errors = (validateManifestFn.errors || []).map((err: ErrorObject) => ({
     path: err.instancePath || '/',
     message: err.message || 'Unknown validation error',
   }));
