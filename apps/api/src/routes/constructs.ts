@@ -198,6 +198,71 @@ constructsRouter.on('HEAD', '/:slug', async (c) => {
 });
 
 /**
+ * GET /v1/constructs/debug
+ * Debug endpoint for diagnosing query issues (TEMPORARY)
+ */
+constructsRouter.get('/debug', async (c) => {
+  const requestId = c.get('requestId');
+
+  try {
+    // Import db directly for raw queries
+    const { db, packs, packVersions, skills, skillVersions } = await import('../db/index.js');
+    const { eq, and } = await import('drizzle-orm');
+
+    // Test 1: Simple pack count
+    const packCount = await db
+      .select({ count: packs.id })
+      .from(packs)
+      .where(eq(packs.status, 'published'));
+
+    // Test 2: Simple pack query
+    const simplePacks = await db
+      .select({ slug: packs.slug, name: packs.name, status: packs.status })
+      .from(packs)
+      .limit(5);
+
+    // Test 3: Pack with join
+    const packsWithJoin = await db
+      .select()
+      .from(packs)
+      .leftJoin(
+        packVersions,
+        and(eq(packVersions.packId, packs.id), eq(packVersions.isLatest, true))
+      )
+      .where(eq(packs.status, 'published'))
+      .limit(2);
+
+    // Test 4: Skills count
+    const skillCount = await db
+      .select({ count: skills.id })
+      .from(skills)
+      .where(eq(skills.isPublic, true));
+
+    return c.json({
+      request_id: requestId,
+      tests: {
+        pack_count: packCount.length,
+        simple_packs: simplePacks,
+        packs_with_join: packsWithJoin.map(p => ({
+          pack_slug: p.packs?.slug,
+          pack_name: p.packs?.name,
+          pack_status: p.packs?.status,
+          version: p.pack_versions?.version,
+        })),
+        skill_count: skillCount.length,
+      },
+    });
+  } catch (error) {
+    const err = error as Error;
+    return c.json({
+      request_id: requestId,
+      error: err.message,
+      stack: err.stack,
+    }, 500);
+  }
+});
+
+/**
  * GET /v1/constructs/:slug
  * Get construct details
  * @see prd-constructs-api.md FR-1.2
