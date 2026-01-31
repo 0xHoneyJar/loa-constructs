@@ -32,6 +32,7 @@ constructsRouter.use('*', skillsRateLimiter());
 
 const listConstructsSchema = z.object({
   q: z.string().optional(),
+  // 'bundle' reserved for future use - framework bundles not yet implemented
   type: z.enum(['skill', 'pack', 'bundle']).optional(),
   tier: z.enum(['free', 'pro', 'team', 'enterprise']).optional(),
   category: z.string().optional(),
@@ -101,12 +102,22 @@ function formatConstructDetail(c: Construct) {
   };
 }
 
-function formatManifestSummary(m: ConstructManifest) {
-  return {
-    skills: m.skills?.map((s: { name: string }) => s.name) || [],
-    commands: m.commands?.map((c: { name: string }) => c.name) || [],
-    dependencies: m.dependencies || {},
-  };
+/**
+ * Format manifest summary with error handling for malformed manifests
+ * @see sdd.md §7.5 Error Handling in formatConstruct
+ */
+function formatManifestSummary(m: ConstructManifest | null) {
+  if (!m) return null;
+  try {
+    return {
+      skills: m.skills?.map((s: { name: string }) => s.name) || [],
+      commands: m.commands?.map((c: { name: string }) => c.name) || [],
+      dependencies: m.dependencies || {},
+    };
+  } catch (error) {
+    logger.warn({ error }, 'Failed to format manifest summary, returning empty');
+    return { skills: [], commands: [], dependencies: {} };
+  }
 }
 
 // --- Routes ---

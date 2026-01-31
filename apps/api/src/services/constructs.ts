@@ -79,6 +79,12 @@ export interface ListConstructsResult {
 
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
+/**
+ * Maximum items to fetch per source in mixed queries
+ * Prevents excessive memory usage for large registries
+ * @see sdd.md §7.4 Memory Cap Fix
+ */
+const MAX_MIXED_FETCH = 500;
 
 // --- Helper Functions ---
 
@@ -211,7 +217,8 @@ export async function listConstructs(
 
   // For mixed queries: fetch (page * pageSize) items from each source to ensure
   // correct global pagination after merge-sort. For filtered queries: use offset.
-  const fetchLimit = isMixedQuery ? page * pageSize : pageSize;
+  // Apply MAX_MIXED_FETCH cap to prevent memory issues with large registries.
+  const fetchLimit = isMixedQuery ? Math.min(page * pageSize, MAX_MIXED_FETCH) : pageSize;
   const fetchOffset = isMixedQuery ? 0 : offset;
 
   // Fetch skills (if type not specified or type === 'skill')
