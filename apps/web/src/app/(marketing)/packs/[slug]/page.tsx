@@ -10,7 +10,7 @@ import { notFound } from 'next/navigation';
 import { TuiBox } from '@/components/tui/tui-box';
 import { TuiButton } from '@/components/tui/tui-button';
 import { TuiH2, TuiDim, TuiTag, TuiCode } from '@/components/tui/tui-text';
-import { fetchPack, type Pack } from '@/lib/api';
+import { fetchPack, PackNotFoundError, type Pack } from '@/lib/api';
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -122,8 +122,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: response.data.name,
       description: response.data.description || `${response.data.name} skill pack for Claude Code`,
     };
-  } catch {
-    return { title: 'Pack Not Found' };
+  } catch (error) {
+    if (error instanceof PackNotFoundError) {
+      return { title: 'Pack Not Found' };
+    }
+    // For other errors (5xx, network), return generic title
+    // The page component will handle showing the error
+    return { title: 'Error Loading Pack' };
   }
 }
 
@@ -134,8 +139,13 @@ export default async function PackDetailPage({ params }: Props) {
   try {
     const response = await fetchPack(resolvedParams.slug);
     pack = response.data;
-  } catch {
-    notFound();
+  } catch (error) {
+    // Only show 404 for actual "pack not found" errors
+    // Re-throw other errors (5xx, network) for error boundary to handle
+    if (error instanceof PackNotFoundError) {
+      notFound();
+    }
+    throw error;
   }
 
   // Get enriched metadata if available

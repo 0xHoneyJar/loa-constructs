@@ -5,6 +5,25 @@
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://loa-constructs-api.fly.dev';
 
+// --- Error Classes ---
+
+export class PackNotFoundError extends Error {
+  constructor(slug: string) {
+    super(`Pack not found: ${slug}`);
+    this.name = 'PackNotFoundError';
+  }
+}
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 // --- Types ---
 
 export interface Pack {
@@ -99,6 +118,8 @@ export async function fetchPacks(options?: {
 
 /**
  * Fetch a single pack by slug
+ * @throws {PackNotFoundError} if pack doesn't exist (404)
+ * @throws {ApiError} for other API errors (5xx, network issues)
  */
 export async function fetchPack(slug: string): Promise<PackDetailResponse> {
   const url = `${API_URL}/v1/packs/${slug}`;
@@ -109,9 +130,9 @@ export async function fetchPack(slug: string): Promise<PackDetailResponse> {
 
   if (!res.ok) {
     if (res.status === 404) {
-      throw new Error('Pack not found');
+      throw new PackNotFoundError(slug);
     }
-    throw new Error(`Failed to fetch pack: ${res.status}`);
+    throw new ApiError(`Failed to fetch pack: ${res.status}`, res.status);
   }
 
   return res.json();
