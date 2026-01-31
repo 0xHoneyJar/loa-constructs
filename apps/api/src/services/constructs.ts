@@ -870,9 +870,14 @@ async function fetchSkillAsConstruct(slug: string): Promise<Construct | null> {
 }
 
 async function getOwnerInfo(
-  ownerId: string,
+  ownerId: string | null | undefined,
   ownerType: 'user' | 'team' | null | undefined
 ): Promise<{ name: string; type: 'user' | 'team'; avatarUrl: string | null } | null> {
+  // Handle null/undefined ownerId - can't look up owner without ID
+  if (!ownerId) {
+    return null;
+  }
+
   // Handle null/undefined ownerType by defaulting to 'user'
   const effectiveOwnerType = ownerType || 'user';
 
