@@ -215,9 +215,12 @@ Each agent is implemented as a modular **skill** in `.claude/skills/{agent-name}
 
 **Goal**: Define goals, requirements, scope, and create PRD
 
+**Automatic Codebase Grounding (v1.6.0)**: For brownfield projects (>10 source files OR >500 lines), the agent automatically runs `/ride` to extract requirements from existing code before PRD creation. This ensures PRDs are grounded in codebase reality.
+
 **Context-First Discovery**: If `grimoires/loa/context/` contains documentation, the agent reads it first, presents understanding with citations, and only asks questions about gaps. More context = fewer questions.
 
 **Process**:
+0. (Brownfield only) Auto-run `/ride` if existing codebase detected
 1. Agent scans `grimoires/loa/context/` for existing documentation
 2. Synthesizes found content and presents understanding with citations
 3. Conducts targeted interviews for gaps across 7 phases:
@@ -234,10 +237,16 @@ Each agent is implemented as a modular **skill** in `.claude/skills/{agent-name}
 
 **Command**:
 ```bash
+# Standard invocation (auto-detects brownfield and grounds in codebase)
 /plan-and-analyze
+
+# Force fresh codebase analysis even if recent reality exists
+/plan-and-analyze --fresh
 ```
 
 **Output**: `grimoires/loa/prd.md`
+
+**Codebase Grounding**: For brownfield projects, reality files are generated at `grimoires/loa/reality/` and loaded as highest-priority context. Uses cached analysis if <7 days old.
 
 **Sprint Ledger Integration**: Automatically initializes `grimoires/loa/ledger.json` and creates the first development cycle. Subsequent runs create new cycles if the previous cycle was archived.
 
@@ -663,45 +672,50 @@ After security audit, if changes required:
 
 ---
 
-### Post-Deployment: Developer Feedback (`/feedback`) - THJ Only
+### Post-Deployment: Developer Feedback (`/feedback`)
 
-**Goal**: Collect developer experience feedback and submit to Linear
+**Goal**: Collect developer experience feedback and submit to GitHub Issues
 
-**Availability**: THJ developers only (detected via `LOA_CONSTRUCTS_API_KEY` environment variable)
+**Availability**: Open to all users (OSS-friendly)
 
 **When to Use**:
 - After completing a deployment
 - After significant time using Loa
+- When encountering issues or failures
 - When suggested by `/deploy-production`
 
 **Process**:
 
-1. **THJ Detection**:
-   - Checks for valid `LOA_CONSTRUCTS_API_KEY` environment variable
-   - If not set or invalid: Displays error with GitHub issues link and stops
-
-2. **Check for Pending Feedback**:
+1. **Check for Pending Feedback**:
    - Looks for `grimoires/loa/analytics/pending-feedback.json`
-   - If found, offers to submit pending feedback first
+   - If found (< 24h old), offers to submit pending feedback first
 
-3. **Survey (4 Questions)**:
+2. **Survey (4 Questions)**:
    - **Q1** (1/4): "What's one thing you would change about Loa?" (free text)
    - **Q2** (2/4): "What's one thing you loved about using Loa?" (free text)
    - **Q3** (3/4): "How would you rate this experience vs other approaches?" (1-5 scale)
    - **Q4** (4/4): "How comfortable are you with the agent-driven process?" (A-E choice)
 
-4. **Prepare Submission**:
-   - Loads analytics from `grimoires/loa/analytics/usage.json`
-   - Saves pending feedback locally (safety net before submission)
-   - Formats feedback with analytics summary
+3. **Regression Classification**:
+   - Select applicable failure categories (if any):
+     - Plan generation issue, Tool selection issue, Tool execution issue
+     - Context loss, Instruction drift, External failure, Other
 
-5. **Submit to Linear**:
-   - Searches for existing issue in "Loa Feedback" project
-   - If found: Adds comment with new feedback
-   - If not found: Creates new issue
-   - Includes full analytics JSON in collapsible details block
+4. **Trace Collection** (opt-in):
+   - If enabled in `.claude/settings.local.json`, collects execution traces
+   - Automatic secret redaction (API keys, tokens, paths)
+   - User reviews trace before inclusion
 
-6. **Record Submission**:
+5. **User Review**:
+   - Preview full issue content before submission
+   - Options: Submit as-is, Edit content, Remove traces, Cancel
+
+6. **Submit to GitHub**:
+   - Uses `gh` CLI if available and authenticated
+   - Falls back to clipboard copy with manual submission URL
+   - Creates issue in `0xHoneyJar/loa` with `feedback` and `user-report` labels
+
+7. **Record Submission**:
    - Updates `feedback_submissions` array in analytics
    - Deletes pending feedback file on success
 
@@ -710,14 +724,23 @@ After security audit, if changes required:
 /feedback
 ```
 
-**Output**: Linear issue/comment in "Loa Feedback" project
+**Output**: GitHub Issue in `0xHoneyJar/loa` repository
 
 **Error Handling**:
-- If Linear submission fails, feedback is saved to `pending-feedback.json`
+- If GitHub submission fails, feedback is saved to `pending-feedback.json`
 - On next `/feedback` run, offers to submit pending feedback
 - No feedback is ever lost due to network/auth issues
 
-**OSS Users**: For issues or feature requests, please open a GitHub issue at https://github.com/0xHoneyJar/loa/issues
+**Trace Configuration** (optional):
+```json
+// .claude/settings.local.json (gitignored)
+{
+  "feedback": {
+    "collectTraces": true,
+    "traceScope": "execution"
+  }
+}
+```
 
 ---
 
@@ -858,6 +881,8 @@ Projects without `ledger.json` work exactly as before (legacy mode). The ledger 
 ## Mount & Ride (Existing Codebases)
 
 For existing codebases that need Loa analysis without going through the full discovery workflow.
+
+> **Note (v1.6.0)**: `/plan-and-analyze` now automatically runs `/ride` for brownfield projects. Manual `/mount` and `/ride` are only needed if you want explicit control over the analysis process.
 
 ### Mount (`/mount`)
 
@@ -1035,8 +1060,8 @@ command_type: "wizard"  # or "survey", "git"
 | `/review-sprint {sprint}` | Review and approve/reject implementation | `reviewing-code` | `grimoires/loa/a2a/engineer-feedback.md` | All users |
 | `/audit-sprint {sprint}` | Security audit of sprint implementation | `auditing-security` | `grimoires/loa/a2a/auditor-sprint-feedback.md` | All users |
 | `/deploy-production` | Deploy to production | `deploying-infrastructure` | `grimoires/loa/deployment/` | All users |
-| `/feedback` | Submit developer experience feedback | survey | Linear issue in "Loa Feedback" | THJ only |
-| `/update-loa` | Pull framework updates from upstream | git | Merged updates | All users |
+| `/feedback` | Submit feedback with smart routing to ecosystem repo | survey | GitHub Issue in appropriate repo | All users |
+| `/update-loa` | Pull framework updates with WIP branch testing | git | Merged updates or test branch | All users |
 | `/contribute` | Create OSS contribution PR | git | GitHub PR | All users |
 | `/audit` | Security audit (ad-hoc) | `auditing-security` | `SECURITY-AUDIT-REPORT.md` | All users |
 | `/audit-deployment` | Deployment infrastructure audit (ad-hoc) | `auditing-security` | `grimoires/loa/a2a/deployment-feedback.md` | All users |
@@ -1422,9 +1447,9 @@ When resuming interrupted work:
 
 # 12. Submit feedback (THJ only, optional but encouraged)
 /feedback
-# → Answer 4 survey questions
-# → Feedback + analytics posted to Linear
-# → OSS users: Open GitHub issue instead
+# → Answer 4 survey questions + classification
+# → Optional: Include execution traces (if enabled)
+# → Feedback posted to GitHub Issues
 
 # 13. Get framework updates (periodically)
 /update-loa
@@ -1432,16 +1457,32 @@ When resuming interrupted work:
 # → Review CHANGELOG.md for new features
 
 # ─────────────────────────────────────────────────────────
+# COMPOUND LEARNING (after development cycle)
+# ─────────────────────────────────────────────────────────
+
+# 14. Extract learnings from cycle (optional but recommended)
+/compound
+# → Analyzes all trajectory logs from the cycle
+# → Detects cross-session patterns
+# → Extracts qualified patterns as reusable skills
+# → Generates cycle changelog
+
+# 15. Review pending skills (if patterns extracted)
+/skill-audit --pending
+# → Review extracted skills
+# → Approve, reject, or merge
+
+# ─────────────────────────────────────────────────────────
 # STARTING A NEW DEVELOPMENT CYCLE (after MVP complete)
 # ─────────────────────────────────────────────────────────
 
-# 14. Archive completed cycle
+# 16. Archive completed cycle
 /archive-cycle "MVP Complete"
 # → Creates snapshot in grimoires/loa/archive/
 # → Preserves all sprint artifacts
 # → Clears active cycle in ledger
 
-# 15. Start fresh with new requirements
+# 17. Start fresh with new requirements
 /plan-and-analyze
 # → Creates new cycle in ledger
 # → Sprint numbering continues (sprint-1 → global sprint-4, etc.)
@@ -1474,6 +1515,14 @@ Detailed specifications for complex behaviors:
 - `.claude/protocols/synthesis-checkpoint.md` - Pre-`/clear` validation (7 steps)
 - `.claude/protocols/attention-budget.md` - Token thresholds (Green/Yellow/Red)
 - `.claude/protocols/jit-retrieval.md` - Lightweight identifiers (97% token reduction)
+
+**v1.10.0 Compound Learning & Visual Communication**:
+- `.claude/protocols/visual-communication.md` - Beautiful Mermaid integration, diagram standards
+- `.claude/commands/compound.md` - End-of-cycle learning extraction
+- `.claude/commands/retrospective-batch.md` - Multi-session pattern analysis
+- `.claude/schemas/compound-trajectory-events.schema.json` - Trajectory event types
+- `.claude/schemas/learnings.schema.json` - Learning effectiveness tracking
+- `.claude/schemas/patterns.schema.json` - Cross-session pattern registry
 
 ### Helper Scripts
 

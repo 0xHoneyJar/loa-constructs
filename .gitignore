@@ -40,6 +40,10 @@ out/
 .claude/commands/review-gtm.md
 .claude/commands/sync-from-gtm.md
 .claude/registry/
+
+# Local settings overrides (user-specific feedback trace configuration)
+# Contains opt-in trace collection settings - never commit to repository
+.claude/settings.local.json
 *.swp
 *.swo
 *~
@@ -70,6 +74,10 @@ temp/
 # Must be preserved locally for resume capability but not committed
 .run/
 
+# Loa Memory Stack state (v1.8.0)
+# Contains vector database, embeddings, QMD indexes - machine-specific
+.loa/
+
 # User context files (discovery inputs, uploaded docs, extracted content)
 # These are user-specific inputs that should never be committed
 # The README.md is tracked to explain the directory's purpose
@@ -84,8 +92,8 @@ grimoires/loa/context/*
 # JSONL format logs for development/debugging, not needed in version control
 grimoires/loa/a2a/trajectory/*.jsonl
 
-# Pending feedback (temporary file for failed Linear submissions)
-# Kept in case /feedback fails to submit to Linear - automatically retried
+# Pending feedback (temporary file for failed GitHub submissions)
+# Kept in case /feedback fails to submit - automatically retried on next invocation
 grimoires/loa/analytics/pending-feedback.json
 
 # Permission audit log (user-specific HITL approval history)
@@ -95,16 +103,23 @@ grimoires/loa/analytics/permission-requests.jsonl
 # Server audit reports (contain sensitive deployment info)
 grimoires/loa/deployment/SERVER-REALITY-AUDIT.md
 
+# Memory schema files (cross-session knowledge, project-specific)
+# Contains facts, decisions, learnings, errors, preferences
+# The README.md is tracked to explain the directory's purpose
+grimoires/loa/memory/*
+!grimoires/loa/memory/README.md
+
 # =============================================================================
 # LOA TEMPLATE EXCLUSIONS
 # =============================================================================
 # These files are ALWAYS excluded from the template repository.
 # They are generated per-project and must never be committed to the main loa repo.
 
-# Generated documentation artifacts
-grimoires/loa/prd.md
-grimoires/loa/sdd.md
-grimoires/loa/sprint.md
+# Generated documentation artifacts (all PRD, SDD, sprint files)
+# Uses glob patterns to catch both base files (prd.md) and feature variants (prd-*.md)
+grimoires/loa/prd*.md
+grimoires/loa/sdd*.md
+grimoires/loa/sprint*.md
 grimoires/loa/NOTES.md
 
 # Sprint Ledger (project-specific cycle/sprint history)
@@ -122,6 +137,10 @@ grimoires/loa/a2a/*
 !grimoires/loa/a2a/trajectory/
 grimoires/loa/a2a/trajectory/*
 !grimoires/loa/a2a/trajectory/README.md
+# Compound learning state (tracked for cross-session learning)
+!grimoires/loa/a2a/compound/
+grimoires/loa/a2a/compound/review-markers/*
+!grimoires/loa/a2a/compound/review-markers/.gitkeep
 
 # Deployment artifacts (project-specific)
 grimoires/loa/deployment/*

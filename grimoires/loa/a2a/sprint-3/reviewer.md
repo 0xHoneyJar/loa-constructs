@@ -1,266 +1,111 @@
-# Sprint 3: Subscription Management - Implementation Report
+# Sprint 3 Implementation Report
 
-## Implementation Summary
+## Overview
+Sprint 3 (Testing & Polish) for the Constructs API has been completed. All tasks have been implemented and 295 tests are passing.
 
-Sprint 3 has been successfully implemented, delivering complete Stripe integration with subscription management, checkout flows, webhook handling, and tier-based access control.
+## Tasks Completed
 
-**Status:** Complete
-**Date:** 2025-12-30
+### T3.1: Unit Tests for Constructs Service
+- Created `src/services/constructs.test.ts` with 29 unit tests
+- Tests cover:
+  - Construct types (skill, pack, bundle)
+  - Construct and ConstructSummary interfaces
+  - ListConstructsOptions validation
+  - ListConstructsResult pagination
+  - Helper functions (calculateRating)
+  - Slug validation
+  - Owner types
+  - Tier values
+  - Caching behavior
+  - Manifest conversion (skillToConstruct, packToConstruct)
+  - Summary format for agent optimization
+  - Version information
 
----
+### T3.2: Integration Tests for Constructs API
+- Created `tests/e2e/constructs.test.ts` with 31 integration tests
+- Tests cover:
+  - GET /v1/constructs (list with filters: type, tier, category, featured, query)
+  - GET /v1/constructs/:slug (detail for packs and skills)
+  - GET /v1/constructs/summary (agent-optimized format)
+  - HEAD /v1/constructs/:slug (existence check)
+  - Response format validation (request_id, dates, snake_case)
+  - Manifest format (summary vs full)
+  - Error responses (400, 404)
+  - Caching behavior
 
-## Deliverables Completed
+### T3.3: Manifest Validator Tests
+- Created `src/lib/manifest-validator.test.ts` with 33 tests
+- Tests cover:
+  - Valid manifests (minimal, full, all types)
+  - Missing required fields (name, version, type)
+  - Invalid type enum
+  - Invalid name pattern (hyphen start/end, uppercase, spaces)
+  - Invalid version pattern (non-semver, incomplete, prerelease)
+  - Invalid command names (without leading slash)
+  - Invalid tier_required values
+  - Invalid license values
+  - assertValidManifest function
+  - manifestHasCommands helper
+  - extractCommandNames helper
 
-### T3.1: Stripe Setup
-**File:** `apps/api/src/services/stripe.ts`
+### T3.4: Update API Documentation (OpenAPI)
+- Updated `src/docs/openapi.ts` with comprehensive Constructs API documentation
+- Added endpoints:
+  - GET /v1/constructs
+  - GET /v1/constructs/summary
+  - HEAD /v1/constructs/{slug}
+  - GET /v1/constructs/{slug}
+- Added schemas:
+  - ConstructsListResponse
+  - ConstructsSummaryResponse
+  - ConstructResponse
+  - Construct
+  - ConstructDetail
+  - ConstructSummary
+  - ConstructManifestSummary
+  - ConstructManifest
+- Added parameter: ConstructSlug
 
-Implemented:
-- Stripe client initialization with lazy loading
-- API version pinning (2025-12-15.clover)
-- Price ID configuration from environment variables
-- Tier mapping from price IDs (pro, team)
-- Webhook signature verification
-- Helper to check if Stripe is configured
+## Additional Fixes Applied
 
-**Key Functions:**
-- `getStripe()` - Get Stripe client instance
-- `isStripeConfigured()` - Check if Stripe is ready
-- `verifyWebhookSignature()` - Verify webhook authenticity
-- `getTierFromPriceId()` - Map price to tier
-- `STRIPE_PRICE_IDS` - Price ID constants
+### HEAD Route Fix
+- Hono v4 doesn't have a `.head()` method
+- Changed to `constructsRouter.on('HEAD', '/:slug', ...)` pattern
 
-### T3.2: Subscription Routes
-**File:** `apps/api/src/routes/subscriptions.ts`
+### JSON Schema Fix
+- Ajv 8 defaults to draft-07
+- Changed schema `$schema` from `https://json-schema.org/draft/2020-12/schema` to `http://json-schema.org/draft-07/schema#`
 
-Implemented all endpoints:
-- `GET /v1/subscriptions/current` - Get user's subscription status
-- `POST /v1/subscriptions/checkout` - Create Stripe checkout session
-- `POST /v1/subscriptions/portal` - Create billing portal session
-- `GET /v1/subscriptions/prices` - List available prices
+### Dependencies Added
+- `ajv` - JSON Schema validation
+- `ajv-formats` - Additional format validation
 
-**Features:**
-- Zod validation for checkout parameters
-- Price ID validation against known tiers
-- Customer creation/lookup for Stripe
-- Success/cancel URL configuration
-- Promotion code support
+### ESM/CJS Interop Fix
+- Added proper handling for Ajv default export
+- Added ErrorObject type annotation for TypeScript
 
-### T3.3: Webhook Handlers
-**File:** `apps/api/src/routes/webhooks.ts`
+### Type Fixes
+- Re-exported ConstructManifest from constructs service
+- Added explicit type annotations for manifest mapping functions
+- Cast tier and category filter values to their enum types
 
-Implemented handlers for:
-- `checkout.session.completed` - Create subscription
-- `customer.subscription.updated` - Update subscription
-- `customer.subscription.deleted` - Cancel subscription
-- `invoice.payment_failed` - Mark as past_due
+## Test Summary
+- **Total Tests**: 295 passing
+- **New Tests Added**: 93 (29 + 31 + 33)
+- **Test Files**: 14
+- **Duration**: ~2.6s
 
-**Security:**
-- Signature verification before processing
-- Idempotency check for duplicate events
-- Graceful error handling (return 200 to prevent retries)
+## Files Changed
+1. `package.json` - Added ajv, ajv-formats dependencies
+2. `src/docs/openapi.ts` - Added Constructs API documentation
+3. `src/lib/manifest-validator.ts` - Fixed ESM imports, added types
+4. `src/lib/manifest-validator.test.ts` - New test file
+5. `src/routes/constructs.ts` - Fixed type annotations
+6. `src/schemas/construct-manifest.json` - Fixed schema version
+7. `src/services/constructs.ts` - Re-exported type, fixed filter types
+8. `src/services/constructs.test.ts` - New test file
+9. `tests/e2e/constructs.test.ts` - New test file
 
-### T3.4: Subscription Service
-**File:** `apps/api/src/services/subscription.ts`
-
-Implemented:
-- `getEffectiveTier(userId)` - Considers personal + team subscriptions
-- `canAccessTier(userTier, requiredTier)` - Tier hierarchy comparison
-- `getUserSubscription()` - Get personal subscription
-- `getUserTeamSubscriptions()` - Get team subscriptions
-- `createSubscription()` - Create new subscription record
-- `updateSubscription()` - Update existing subscription
-- `getSubscriptionByStripeId()` - Lookup by Stripe ID
-- `getOrCreateStripeCustomerId()` - Stripe customer management
-- `invalidateTierCache()` - Clear cache on subscription change
-
-**Tier Hierarchy:**
-```typescript
-const TIER_HIERARCHY = {
-  free: 0,
-  pro: 1,
-  team: 2,
-  enterprise: 3,
-};
-```
-
-### T3.5: Redis Caching
-**File:** `apps/api/src/services/redis.ts`
-
-Implemented:
-- Upstash Redis client with lazy initialization
-- Cache key patterns for tier lookups
-- 5 minute TTL for subscription tier cache
-- Graceful degradation when Redis unavailable
-- Type-safe cache retrieval with generics
-
-**Cache Strategy:**
-- User tier cached for 5 minutes
-- Cache invalidated on subscription changes
-- Team subscription changes invalidate all member caches
-
-### T3.6: Auth Middleware Updates
-**File:** `apps/api/src/middleware/auth.ts`
-
-Updated:
-- `getUserById()` now fetches effective tier from subscription service
-- `requireTier()` uses `canAccessTier()` for validation
-- Type imports from subscription service
-
----
-
-## Files Created/Modified
-
-### New Files
-| File | Lines | Purpose |
-|------|-------|---------|
-| `apps/api/src/services/stripe.ts` | 82 | Stripe client & utilities |
-| `apps/api/src/services/redis.ts` | 58 | Redis client & caching |
-| `apps/api/src/services/subscription.ts` | 330 | Subscription business logic |
-| `apps/api/src/routes/subscriptions.ts` | 175 | Subscription endpoints |
-| `apps/api/src/routes/webhooks.ts` | 260 | Webhook handlers |
-| `apps/api/src/services/subscription.test.ts` | 96 | Subscription tests |
-
-### Modified Files
-| File | Changes |
-|------|---------|
-| `apps/api/src/app.ts` | Added subscription & webhook routes |
-| `apps/api/src/config/env.ts` | Added Stripe price ID env vars |
-| `apps/api/src/lib/errors.ts` | Added ServiceUnavailable, BadRequest |
-| `apps/api/src/middleware/auth.ts` | Integrated subscription tier lookup |
-
----
-
-## Test Coverage
-
-**Test File:** `apps/api/src/services/subscription.test.ts`
-
-| Suite | Tests | Status |
-|-------|-------|--------|
-| TIER_HIERARCHY | 4 | Pass |
-| canAccessTier | 3 | Pass |
-| Stripe Integration | 1 | Pass (placeholder) |
-
-**Total: 8 subscription tests passing**
-
-Combined with existing tests: **35 tests passing**
-
----
-
-## Acceptance Criteria Status
-
-| Criteria | Status |
-|----------|--------|
-| User can initiate checkout for Pro ($29/mo) | Implemented |
-| User can initiate checkout for Team ($99/mo) | Implemented |
-| Successful payment updates subscription status immediately | Via webhook |
-| Failed payment triggers appropriate status change | Via webhook |
-| Subscription cancellation works | Via portal & webhook |
-| User's effective tier is correct (personal + team) | Implemented |
-
----
-
-## Environment Variables Added
-
-```env
-# Stripe Price IDs
-STRIPE_PRO_PRICE_ID=price_xxx           # Pro monthly
-STRIPE_PRO_ANNUAL_PRICE_ID=price_xxx    # Pro annual
-STRIPE_TEAM_PRICE_ID=price_xxx          # Team monthly
-STRIPE_TEAM_ANNUAL_PRICE_ID=price_xxx   # Team annual
-STRIPE_TEAM_SEAT_PRICE_ID=price_xxx     # Team seat addon
-```
-
----
-
-## Technical Decisions
-
-### 1. Redis Client
-**Decision:** Use Upstash SDK with `Redis.fromEnv()`
-**Rationale:** Upstash uses REST API, not TCP, so standard URL format doesn't work. SDK handles auth tokens.
-
-### 2. Tier Caching
-**Decision:** 5 minute TTL with manual invalidation
-**Rationale:** Balance between performance and freshness. Subscription changes trigger immediate invalidation.
-
-### 3. Webhook Idempotency
-**Decision:** Check for existing subscription before creation
-**Rationale:** Stripe may send duplicate events. We verify before creating to prevent duplicates.
-
-### 4. Stripe API Version
-**Decision:** Pin to `2025-12-15.clover`
-**Rationale:** Match installed Stripe SDK version for type safety.
-
----
-
-## API Reference
-
-### POST /v1/subscriptions/checkout
-```json
-{
-  "price_id": "price_xxx",
-  "success_url": "https://example.com/success",
-  "cancel_url": "https://example.com/cancel"
-}
-```
-Response:
-```json
-{
-  "checkout_url": "https://checkout.stripe.com/...",
-  "session_id": "cs_xxx"
-}
-```
-
-### GET /v1/subscriptions/current
-Response:
-```json
-{
-  "effective_tier": "pro",
-  "tier_source": "personal",
-  "expires_at": "2025-02-01T00:00:00.000Z",
-  "personal_subscription": {
-    "id": "uuid",
-    "tier": "pro",
-    "status": "active",
-    "current_period_end": "2025-02-01T00:00:00.000Z",
-    "cancel_at_period_end": false
-  }
-}
-```
-
-### POST /v1/subscriptions/portal
-Response:
-```json
-{
-  "portal_url": "https://billing.stripe.com/..."
-}
-```
-
----
-
-## Dependencies Met
-
-- Sprint 2 completed (auth)
-- Stripe SDK installed
-- Upstash Redis SDK installed
-
----
-
-## Build & Test Status
-
-```bash
-$ npm run typecheck  # 0 errors
-$ npm test           # 35 tests passing
-```
-
----
-
-## Ready for Review
-
-Sprint 3 implementation is complete and ready for senior tech lead review.
-
-**Reviewer Notes:**
-1. All subscription flows are implemented per SDD specifications
-2. Webhook handlers cover core Stripe events
-3. Redis caching reduces database load for tier lookups
-4. Auth middleware now uses real subscription data
-5. Integration tests require Stripe test mode credentials
+## Commit
+- SHA: 37b29ff
+- Message: feat(api): add tests and documentation for Constructs API (Sprint 3)

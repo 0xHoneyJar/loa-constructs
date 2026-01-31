@@ -1,6 +1,6 @@
 /**
  * Public Pack Detail Page
- * Individual pack detail for marketing
+ * Individual pack detail fetched from unified constructs API
  * @see sprint.md T26.8: Create Public Pack Detail Page
  */
 
@@ -10,33 +10,18 @@ import { notFound } from 'next/navigation';
 import { TuiBox } from '@/components/tui/tui-box';
 import { TuiButton } from '@/components/tui/tui-button';
 import { TuiH2, TuiDim, TuiTag, TuiCode } from '@/components/tui/tui-text';
+import { fetchConstruct, ConstructNotFoundError, type ConstructDetail } from '@/lib/api';
 
-// Placeholder pack data - in production, this would come from API
-const packsData: Record<string, {
-  name: string;
-  slug: string;
-  description: string;
-  longDescription: string;
-  category: string;
-  downloads: number;
-  premium: boolean;
-  creator: string;
-  version: string;
+type Props = {
+  params: Promise<{ slug: string }>;
+};
+
+// Known pack metadata (commands, features) - enriches API data
+const PACK_METADATA: Record<string, {
   commands: Array<{ name: string; description: string }>;
   features: string[];
 }> = {
   'gtm-collective': {
-    name: 'GTM Collective',
-    slug: 'gtm-collective',
-    description: 'Complete go-to-market workflow. Market analysis, positioning, pricing, launch planning, and more.',
-    longDescription: `GTM Collective is a comprehensive go-to-market workflow pack that guides you through every step of launching a product. Built by founders who've shipped 10+ products, it encodes years of GTM expertise into reusable agent workflows.
-
-From market research to positioning strategy, pricing models to launch execution—GTM Collective handles the strategic work that typically takes weeks and compresses it into structured, repeatable processes.`,
-    category: 'GTM',
-    downloads: 1250,
-    premium: true,
-    creator: 'The Honey Jar',
-    version: '1.0.0',
     commands: [
       { name: '/gtm-setup', description: 'Initialize GTM workflow and create grimoire structure' },
       { name: '/analyze-market', description: 'Research market size, trends, competitors, and ICPs' },
@@ -54,7 +39,7 @@ From market research to positioning strategy, pricing models to launch execution
       { name: '/gtm-adopt', description: 'Technical grounding for GTM artifacts' },
     ],
     features: [
-      '8 specialized skills covering the full GTM lifecycle',
+      'Complete go-to-market workflow automation',
       'Market research with TAM/SAM/SOM analysis',
       'ICP development with detailed buyer profiles',
       'Competitive analysis and positioning',
@@ -64,95 +49,109 @@ From market research to positioning strategy, pricing models to launch execution
       'Grounded in actual market data',
     ],
   },
-  'security-audit': {
-    name: 'Security Audit',
-    slug: 'security-audit',
-    description: 'Comprehensive security review workflow. OWASP checks, dependency scanning, code analysis.',
-    longDescription: `Security Audit provides a structured workflow for reviewing your codebase for security vulnerabilities. It covers OWASP Top 10, dependency vulnerabilities, authentication patterns, and more.
-
-The workflow generates actionable reports with severity ratings, remediation steps, and compliance checks. Built for teams that need to ship secure code without dedicated security engineers.`,
-    category: 'Security',
-    downloads: 890,
-    premium: true,
-    creator: 'The Honey Jar',
-    version: '0.9.0',
+  'observer': {
     commands: [
-      { name: '/audit', description: 'Full security audit of the codebase' },
-      { name: '/audit-sprint', description: 'Security review of sprint changes' },
-      { name: '/audit-deployment', description: 'Pre-deployment security checklist' },
-      { name: '/scan-deps', description: 'Dependency vulnerability scan' },
-      { name: '/owasp-check', description: 'OWASP Top 10 compliance check' },
-      { name: '/auth-review', description: 'Authentication pattern review' },
-      { name: '/secrets-scan', description: 'Secrets and credentials detection' },
-      { name: '/generate-report', description: 'Generate audit report' },
+      { name: '/observe', description: 'Capture user feedback as hypothesis-first research with Level 3 diagnostic' },
+      { name: '/shape', description: 'Shape common patterns into journey definitions with JTBD clustering' },
+      { name: '/analyze-gap', description: 'Compare user expectations with code reality, severity scoring' },
+      { name: '/file-gap', description: 'Create GitHub/Linear issues from gap analysis with taxonomy labels' },
+      { name: '/import-research', description: 'Bulk convert legacy user research to UTC format' },
     ],
     features: [
-      'OWASP Top 10 compliance checking',
-      'Dependency vulnerability scanning',
-      'Authentication pattern analysis',
-      'Secrets detection and remediation',
-      'Sprint-level security reviews',
-      'Deployment security checklists',
-      'Severity-rated findings',
-      'Actionable remediation steps',
+      'Hypothesis-first user research methodology',
+      'Level 3 diagnostic (The Mom Test)',
+      'User Truth Canvas (UTC) artifact generation',
+      'JTBD clustering for journey synthesis',
+      'Gap analysis with severity scoring',
+      'GitHub/Linear issue creation',
+      'Crypto/DeFi cultural context support',
+      'Legacy research migration tools',
     ],
   },
-  'docs-generator': {
-    name: 'Docs Generator',
-    slug: 'docs-generator',
-    description: 'Automated documentation workflow. API docs, README generation, architecture decision records.',
-    longDescription: `Docs Generator automates the tedious work of documentation. It analyzes your codebase and generates API documentation, READMEs, architecture decision records (ADRs), and more.
-
-Keep your docs in sync with code changes using automated generation with human review gates.`,
-    category: 'Documentation',
-    downloads: 2100,
-    premium: false,
-    creator: 'Community',
-    version: '1.2.0',
+  'crucible': {
     commands: [
-      { name: '/generate-readme', description: 'Generate or update README.md' },
-      { name: '/generate-api-docs', description: 'Generate API documentation' },
-      { name: '/create-adr', description: 'Create architecture decision record' },
-      { name: '/sync-docs', description: 'Sync documentation with code changes' },
-      { name: '/changelog', description: 'Generate changelog from commits' },
-      { name: '/docs-review', description: 'Review documentation coverage' },
+      { name: '/ground', description: 'Extract actual code behavior into reality files with state machines' },
+      { name: '/diagram', description: 'Generate Mermaid state diagrams (User Expects vs Code Does)' },
+      { name: '/validate', description: 'Generate Playwright tests from state diagrams' },
+      { name: '/walkthrough', description: 'Interactive dev browser walkthrough with wallet presets' },
+      { name: '/iterate', description: 'Update upstream artifacts from test results' },
     ],
     features: [
-      'README generation from codebase',
-      'API documentation from types',
-      'Architecture Decision Records',
-      'Changelog generation',
-      'Documentation coverage analysis',
-      'Human review gates',
+      'Code reality extraction into structured files',
+      'Dual state diagrams (expects vs does)',
+      'Playwright test generation from diagrams',
+      'Interactive browser walkthroughs',
+      'Wallet preset configurations',
+      'Feedback loop to Observer artifacts',
+      'Confidence preservation system',
+      'Selector inference for components',
     ],
   },
-};
-
-type Props = {
-  params: Promise<{ slug: string }>;
+  'artisan': {
+    commands: [
+      { name: '/survey', description: 'Pattern frequency analysis, component cataloging' },
+      { name: '/synthesize-taste', description: 'Reference material analysis, brand vocabulary extraction' },
+      { name: '/inscribe', description: 'Brand token application, taste consistency checking' },
+      { name: '/craft', description: 'Spring constant optimizer, mass/tension/friction calculator' },
+      { name: '/animate', description: 'Spring physics, timing curves, motion orchestration' },
+      { name: '/behavior', description: 'Interaction state machines, gesture handlers' },
+      { name: '/style', description: 'Material 3 compliance, elevation/shadow calculator' },
+      { name: '/distill', description: 'Component boundary detection, prop interface generation' },
+      { name: '/validate-physics', description: 'Animation performance profiler, jank detection' },
+      { name: '/web3-test', description: 'Wallet mocks, transaction flow testing' },
+    ],
+    features: [
+      'Physics-based animation system',
+      'Brand taste synthesis and application',
+      'Pattern discovery and cataloging',
+      'Spring physics calculator',
+      'Material 3 design compliance',
+      'Component extraction tools',
+      'Animation performance profiling',
+      'Web3/wallet testing utilities',
+    ],
+  },
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const resolvedParams = await params;
-  const pack = packsData[resolvedParams.slug];
 
-  if (!pack) {
-    return { title: 'Pack Not Found' };
+  try {
+    const response = await fetchConstruct(resolvedParams.slug);
+    return {
+      title: response.data.name,
+      description: response.data.description || `${response.data.name} skill pack for Claude Code`,
+    };
+  } catch (error) {
+    if (error instanceof ConstructNotFoundError) {
+      return { title: 'Pack Not Found' };
+    }
+    // For other errors (5xx, network), return generic title
+    // The page component will handle showing the error
+    return { title: 'Error Loading Pack' };
   }
-
-  return {
-    title: pack.name,
-    description: pack.description,
-  };
 }
 
 export default async function PackDetailPage({ params }: Props) {
   const resolvedParams = await params;
-  const pack = packsData[resolvedParams.slug];
+  let pack: ConstructDetail;
 
-  if (!pack) {
-    notFound();
+  try {
+    const response = await fetchConstruct(resolvedParams.slug);
+    pack = response.data;
+  } catch (error) {
+    // Only show 404 for actual "pack not found" errors
+    // Re-throw other errors (5xx, network) for error boundary to handle
+    if (error instanceof ConstructNotFoundError) {
+      notFound();
+    }
+    throw error;
   }
+
+  // Get enriched metadata if available
+  const metadata = PACK_METADATA[pack.slug];
+  const commands = metadata?.commands || [];
+  const features = metadata?.features || [];
 
   return (
     <>
@@ -175,7 +174,7 @@ export default async function PackDetailPage({ params }: Props) {
                 <h1 style={{ fontSize: 'clamp(24px, 4vw, 32px)', fontWeight: 700, color: 'var(--fg-bright)' }}>
                   {pack.name}
                 </h1>
-                {pack.premium ? (
+                {pack.tier_required !== 'free' ? (
                   <TuiTag color="accent">PREMIUM</TuiTag>
                 ) : (
                   <TuiTag color="green">FREE</TuiTag>
@@ -185,10 +184,13 @@ export default async function PackDetailPage({ params }: Props) {
                 {pack.description}
               </TuiDim>
               <div style={{ display: 'flex', gap: '16px', fontSize: '13px', flexWrap: 'wrap' }}>
-                <span style={{ color: 'var(--cyan)' }}>{pack.category}</span>
-                <span style={{ color: 'var(--fg-dim)' }}>v{pack.version}</span>
-                <span style={{ color: 'var(--fg-dim)' }}>by {pack.creator}</span>
+                {pack.latest_version && (
+                  <span style={{ color: 'var(--cyan)' }}>v{pack.latest_version.version}</span>
+                )}
                 <span style={{ color: 'var(--fg-dim)' }}>{pack.downloads.toLocaleString()} downloads</span>
+                {pack.rating !== null && (
+                  <span style={{ color: 'var(--fg-dim)' }}>★ {pack.rating.toFixed(1)}</span>
+                )}
               </div>
             </div>
 
@@ -196,9 +198,11 @@ export default async function PackDetailPage({ params }: Props) {
               <Link href="/register">
                 <TuiButton fullWidth>Get Started</TuiButton>
               </Link>
-              <Link href="/docs">
-                <TuiButton variant="secondary" fullWidth>Documentation</TuiButton>
-              </Link>
+              {pack.documentation_url && (
+                <Link href={pack.documentation_url} target="_blank">
+                  <TuiButton variant="secondary" fullWidth>Documentation</TuiButton>
+                </Link>
+              )}
             </div>
           </div>
         </div>
@@ -209,85 +213,132 @@ export default async function PackDetailPage({ params }: Props) {
         <div style={{ maxWidth: '900px', margin: '0 auto' }}>
           <TuiBox title="Install">
             <TuiCode copyable>
-              <span style={{ color: 'var(--fg-dim)' }}>$</span> claude skills add {pack.slug}
+              <span style={{ color: 'var(--fg-dim)' }}>$</span> constructs-install.sh pack {pack.slug}
             </TuiCode>
             <TuiDim style={{ fontSize: '12px', marginTop: '8px', display: 'block' }}>
-              {pack.premium ? 'Requires Pro subscription or higher.' : 'Free to install.'}
+              {pack.tier_required !== 'free' ? 'Requires Pro subscription or higher.' : 'Free to install.'}
             </TuiDim>
           </TuiBox>
         </div>
       </section>
 
       {/* Description */}
-      <section style={{ padding: '0 24px 48px' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <TuiBox title="About">
-            <div style={{ fontSize: '14px', lineHeight: 1.7, color: 'var(--fg)', whiteSpace: 'pre-line' }}>
-              {pack.longDescription}
-            </div>
-          </TuiBox>
-        </div>
-      </section>
+      {pack.long_description && (
+        <section style={{ padding: '0 24px 48px' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+            <TuiBox title="About">
+              <div style={{ fontSize: '14px', lineHeight: 1.7, color: 'var(--fg)', whiteSpace: 'pre-line' }}>
+                {pack.long_description}
+              </div>
+            </TuiBox>
+          </div>
+        </section>
+      )}
 
       {/* Commands */}
-      <section style={{ padding: '0 24px 48px' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <TuiH2 style={{ marginBottom: '16px' }}>Commands ({pack.commands.length})</TuiH2>
-          <TuiBox title="Available Commands">
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ textAlign: 'left', padding: '12px', color: 'var(--fg-dim)', width: '180px' }}>Command</th>
-                    <th style={{ textAlign: 'left', padding: '12px', color: 'var(--fg-dim)' }}>Description</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pack.commands.map((cmd) => (
-                    <tr key={cmd.name} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '12px' }}>
-                        <code style={{ color: 'var(--green)' }}>{cmd.name}</code>
-                      </td>
-                      <td style={{ padding: '12px', color: 'var(--fg)' }}>{cmd.description}</td>
+      {commands.length > 0 && (
+        <section style={{ padding: '0 24px 48px' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+            <TuiH2 style={{ marginBottom: '16px' }}>Commands ({commands.length})</TuiH2>
+            <TuiBox title="Available Commands">
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ textAlign: 'left', padding: '12px', color: 'var(--fg-dim)', width: '180px' }}>Command</th>
+                      <th style={{ textAlign: 'left', padding: '12px', color: 'var(--fg-dim)' }}>Description</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </TuiBox>
-        </div>
-      </section>
+                  </thead>
+                  <tbody>
+                    {commands.map((cmd) => (
+                      <tr key={cmd.name} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '12px' }}>
+                          <code style={{ color: 'var(--green)' }}>{cmd.name}</code>
+                        </td>
+                        <td style={{ padding: '12px', color: 'var(--fg)' }}>{cmd.description}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </TuiBox>
+          </div>
+        </section>
+      )}
 
       {/* Features */}
-      <section style={{ padding: '0 24px 48px' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-          <TuiH2 style={{ marginBottom: '16px' }}>Features</TuiH2>
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: '12px',
-            }}
-          >
-            {pack.features.map((feature) => (
-              <div
-                key={feature}
-                style={{
-                  padding: '16px',
-                  border: '1px solid var(--border)',
-                  background: 'rgba(0, 0, 0, 0.75)',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: '12px',
-                }}
-              >
-                <span style={{ color: 'var(--green)' }}>✓</span>
-                <span style={{ color: 'var(--fg)', fontSize: '14px' }}>{feature}</span>
-              </div>
-            ))}
+      {features.length > 0 && (
+        <section style={{ padding: '0 24px 48px' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+            <TuiH2 style={{ marginBottom: '16px' }}>Features</TuiH2>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '12px',
+              }}
+            >
+              {features.map((feature) => (
+                <div
+                  key={feature}
+                  style={{
+                    padding: '16px',
+                    border: '1px solid var(--border)',
+                    background: 'rgba(0, 0, 0, 0.75)',
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                  }}
+                >
+                  <span style={{ color: 'var(--green)' }}>✓</span>
+                  <span style={{ color: 'var(--fg)', fontSize: '14px' }}>{feature}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
+
+      {/* Links */}
+      {(pack.repository_url || pack.homepage_url) && (
+        <section style={{ padding: '0 24px 48px' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+            <TuiH2 style={{ marginBottom: '16px' }}>Links</TuiH2>
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+              {pack.repository_url && (
+                <Link
+                  href={pack.repository_url}
+                  target="_blank"
+                  style={{
+                    padding: '12px 20px',
+                    border: '1px solid var(--border)',
+                    color: 'var(--fg)',
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                  }}
+                >
+                  GitHub Repository →
+                </Link>
+              )}
+              {pack.homepage_url && (
+                <Link
+                  href={pack.homepage_url}
+                  target="_blank"
+                  style={{
+                    padding: '12px 20px',
+                    border: '1px solid var(--border)',
+                    color: 'var(--fg)',
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                  }}
+                >
+                  Homepage →
+                </Link>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* CTA */}
       <section
@@ -300,13 +351,13 @@ export default async function PackDetailPage({ params }: Props) {
       >
         <TuiH2 style={{ marginBottom: '16px' }}>Ready to try {pack.name}?</TuiH2>
         <TuiDim style={{ marginBottom: '24px', display: 'block' }}>
-          {pack.premium
+          {pack.tier_required !== 'free'
             ? 'Get Pro to access this pack and all other premium workflows.'
             : 'Sign up free and install this pack in seconds.'}
         </TuiDim>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', flexWrap: 'wrap' }}>
           <Link href="/register">
-            <TuiButton>{pack.premium ? 'Get Pro' : 'Get Started Free'}</TuiButton>
+            <TuiButton>{pack.tier_required !== 'free' ? 'Get Pro' : 'Get Started Free'}</TuiButton>
           </Link>
           <Link href="/packs">
             <TuiButton variant="secondary">Browse All Packs</TuiButton>

@@ -77,6 +77,29 @@ export const packInstallActionEnum = pgEnum('pack_install_action', [
   'uninstall',
 ]);
 
+/**
+ * Construct Maturity Enum
+ * @see prd.md §4.1 Maturity Levels
+ * @see sdd.md §3.1.1 New Enum: construct_maturity
+ */
+export const constructMaturityEnum = pgEnum('construct_maturity', [
+  'experimental',
+  'beta',
+  'stable',
+  'deprecated',
+]);
+
+/**
+ * Graduation Request Status Enum
+ * @see sdd.md §3.1.4 New Table: graduation_requests
+ */
+export const graduationRequestStatusEnum = pgEnum('graduation_request_status', [
+  'pending',
+  'approved',
+  'rejected',
+  'withdrawn',
+]);
+
 // --- Tables ---
 
 /**
@@ -241,6 +264,17 @@ export const skills = pgTable(
     downloads: integer('downloads').default(0),
     ratingSum: integer('rating_sum').default(0),
     ratingCount: integer('rating_count').default(0),
+    // Graduation system fields
+    // @see prd.md §4.1 Maturity Levels
+    // @see sdd.md §3.1.2 Skills Table Modifications
+    maturity: constructMaturityEnum('maturity').default('experimental'),
+    graduatedAt: timestamp('graduated_at', { withTimezone: true }),
+    graduationNotes: text('graduation_notes'),
+    // Search metadata fields
+    // @see prd.md §4.2 Construct Metadata Schema (cycle-007)
+    // @see sdd.md §3.1 Database Schema (cycle-007)
+    searchKeywords: text('search_keywords').array().default(sql`'{}'::text[]`),
+    searchUseCases: text('search_use_cases').array().default(sql`'{}'::text[]`),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
@@ -249,6 +283,11 @@ export const skills = pgTable(
     ownerIdx: index('idx_skills_owner').on(table.ownerId, table.ownerType),
     categoryIdx: index('idx_skills_category').on(table.category),
     tierIdx: index('idx_skills_tier').on(table.tierRequired),
+    maturityIdx: index('idx_skills_maturity').on(table.maturity),
+    // GIN indexes for array search
+    // @see sdd.md §3.1 Database Schema (cycle-007)
+    searchKeywordsIdx: index('idx_skills_search_keywords').using('gin', table.searchKeywords),
+    searchUseCasesIdx: index('idx_skills_search_use_cases').using('gin', table.searchUseCases),
   })
 );
 
@@ -462,6 +501,18 @@ export const packs = pgTable(
     ratingSum: integer('rating_sum').default(0),
     ratingCount: integer('rating_count').default(0),
 
+    // Graduation system fields
+    // @see prd.md §4.1 Maturity Levels
+    // @see sdd.md §3.1.3 Packs Table Modifications
+    maturity: constructMaturityEnum('maturity').default('experimental'),
+    graduatedAt: timestamp('graduated_at', { withTimezone: true }),
+    graduationNotes: text('graduation_notes'),
+    // Search metadata fields
+    // @see prd.md §4.2 Construct Metadata Schema (cycle-007)
+    // @see sdd.md §3.1 Database Schema (cycle-007)
+    searchKeywords: text('search_keywords').array().default(sql`'{}'::text[]`),
+    searchUseCases: text('search_use_cases').array().default(sql`'{}'::text[]`),
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
@@ -472,6 +523,11 @@ export const packs = pgTable(
     featuredIdx: index('idx_packs_featured')
       .on(table.isFeatured)
       .where(sql`is_featured = true`),
+    maturityIdx: index('idx_packs_maturity').on(table.maturity),
+    // GIN indexes for array search
+    // @see sdd.md §3.1 Database Schema (cycle-007)
+    searchKeywordsIdx: index('idx_packs_search_keywords').using('gin', table.searchKeywords),
+    searchUseCasesIdx: index('idx_packs_search_use_cases').using('gin', table.searchUseCases),
   })
 );
 
@@ -902,6 +958,77 @@ export const packDownloadAttributionsRelations = relations(
 export const creatorPayoutsRelations = relations(creatorPayouts, ({ one }) => ({
   user: one(users, {
     fields: [creatorPayouts.userId],
+    references: [users.id],
+  }),
+}));
+
+// --- Graduation System ---
+
+/**
+ * Graduation Requests table
+ * Tracks graduation request lifecycle for skills and packs
+ * @see prd.md §4.4 Graduation Request Workflow
+ * @see sdd.md §3.1.4 New Table: graduation_requests
+ */
+export const graduationRequests = pgTable(
+  'graduation_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+
+    // Polymorphic reference to skill or pack
+    constructType: varchar('construct_type', { length: 10 }).notNull(),
+    constructId: uuid('construct_id').notNull(),
+
+    // Transition details
+    currentMaturity: constructMaturityEnum('current_maturity').notNull(),
+    targetMaturity: constructMaturityEnum('target_maturity').notNull(),
+
+    // Request metadata
+    requestedBy: uuid('requested_by')
+      .notNull()
+      .references(() => users.id),
+    requestedAt: timestamp('requested_at', { withTimezone: true }).defaultNow(),
+    requestNotes: text('request_notes'),
+
+    // Criteria snapshot at request time (for audit)
+    criteriaSnapshot: jsonb('criteria_snapshot').default({}),
+
+    // Review metadata
+    reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+    reviewedBy: uuid('reviewed_by').references(() => users.id),
+    reviewNotes: text('review_notes'),
+    rejectionReason: varchar('rejection_reason', { length: 50 }),
+
+    // Status
+    status: graduationRequestStatusEnum('status').default('pending'),
+
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    constructIdx: index('idx_graduation_requests_construct').on(
+      table.constructType,
+      table.constructId
+    ),
+    statusIdx: index('idx_graduation_requests_status').on(table.status),
+    pendingIdx: index('idx_graduation_requests_pending')
+      .on(table.status)
+      .where(sql`status = 'pending'`),
+    // Partial unique index: only one pending request per construct
+    pendingUniqueIdx: uniqueIndex('idx_graduation_requests_pending_unique')
+      .on(table.constructType, table.constructId)
+      .where(sql`status = 'pending'`),
+  })
+);
+
+// --- Graduation Requests Relations ---
+
+export const graduationRequestsRelations = relations(graduationRequests, ({ one }) => ({
+  requestedByUser: one(users, {
+    fields: [graduationRequests.requestedBy],
+    references: [users.id],
+  }),
+  reviewedByUser: one(users, {
+    fields: [graduationRequests.reviewedBy],
     references: [users.id],
   }),
 }));

@@ -98,6 +98,44 @@ Example:
 ```
 </tool_result_clearing>
 
+<attention_budget>
+## Attention Budget
+
+This skill follows the **Tool Result Clearing Protocol** (`.claude/protocols/tool-result-clearing.md`).
+
+### Token Thresholds
+
+| Context Type | Limit | Action |
+|--------------|-------|--------|
+| Single search result | 2,000 tokens | Apply 4-step clearing |
+| Accumulated results | 5,000 tokens | MANDATORY clearing |
+| Full file load | 3,000 tokens | Single file, synthesize immediately |
+| Session total | 15,000 tokens | STOP, synthesize to NOTES.md |
+
+### Clearing Triggers for Implementation
+
+- [ ] Code search returning >20 matches
+- [ ] Dependency analysis >30 files
+- [ ] Test output >100 lines
+- [ ] Build output >50 lines
+- [ ] Any output exceeding 2K tokens
+
+### 4-Step Clearing
+
+1. **Extract**: Max 10 files, 20 words per finding, with `file:line` refs
+2. **Synthesize**: Write to `grimoires/loa/NOTES.md` under implementation context
+3. **Clear**: Do NOT keep raw results in working memory
+4. **Summary**: Keep only `"Impl: N files changed → M tests pass → NOTES.md"`
+
+### Semantic Decay Stages
+
+| Stage | Age | Format | Cost |
+|-------|-----|--------|------|
+| Active | 0-5 min | Full synthesis + snippets | ~200 tokens |
+| Decayed | 5-30 min | Paths only | ~12 tokens/file |
+| Archived | 30+ min | Single-line in trajectory | ~20 tokens |
+</attention_budget>
+
 <trajectory_logging>
 ## Trajectory Logging
 
@@ -159,6 +197,46 @@ Report MUST include:
 - Document interpretations and reasoning in report for reviewer attention
 - Flag technical tradeoffs explicitly for reviewer decision
 </uncertainty_protocol>
+
+<karpathy_principles>
+## Karpathy Principles (MANDATORY)
+
+Counter common LLM coding pitfalls with these four principles:
+
+### 1. Think Before Coding
+- Surface assumptions explicitly before implementing
+- When multiple interpretations exist, present options rather than choosing silently
+- Ask clarifying questions for ambiguous requirements
+- Push back when simpler alternatives exist
+
+### 2. Simplicity First
+- Write minimal code solving ONLY what was requested
+- No speculative features or "just in case" handling
+- No abstractions for single-use code
+- No premature configurability
+- If code could be 50 lines instead of 200, rewrite simpler
+
+### 3. Surgical Changes
+- Only modify lines necessary for the task
+- Match existing code style even if you'd do it differently
+- Don't "improve" adjacent code, comments, or formatting
+- Remove only imports/variables YOUR changes made unused
+- Don't clean up pre-existing issues (note them separately)
+
+### 4. Goal-Driven Execution
+- Define verifiable success criteria BEFORE starting
+- Transform tasks into testable outcomes
+- For each task: WHAT (deliverable), VERIFY (how to test), EVIDENCE (expected output)
+
+**Pre-Implementation Check:**
+- [ ] Assumptions listed in reasoning
+- [ ] Clarifications sought for ambiguities
+- [ ] Scope minimal (no speculative features)
+- [ ] Success criteria defined (testable)
+- [ ] Style will match existing code
+
+Reference: `.claude/protocols/karpathy-principles.md`
+</karpathy_principles>
 
 <grounding_requirements>
 Before implementing:

@@ -98,6 +98,35 @@ Example:
 ```
 </tool_result_clearing>
 
+<attention_budget>
+## Attention Budget
+
+This skill follows the **Tool Result Clearing Protocol** (`.claude/protocols/tool-result-clearing.md`).
+
+### Token Thresholds
+
+| Context Type | Limit | Action |
+|--------------|-------|--------|
+| Single search result | 2,000 tokens | Apply 4-step clearing |
+| Accumulated results | 5,000 tokens | MANDATORY clearing |
+| Full file load | 3,000 tokens | Single file, synthesize immediately |
+| Session total | 15,000 tokens | STOP, synthesize to NOTES.md |
+
+### Clearing Triggers for Architecture Design
+
+- [ ] Codebase probing >30 files
+- [ ] Pattern search >20 matches
+- [ ] Technology research >5 sources
+- [ ] Any analysis exceeding 2K tokens
+
+### 4-Step Clearing
+
+1. **Extract**: Max 10 files, 20 words per finding
+2. **Synthesize**: Write to `grimoires/loa/NOTES.md`
+3. **Clear**: Remove raw output from context
+4. **Summary**: `"Arch: N patterns → M components → sdd.md"`
+</attention_budget>
+
 <trajectory_logging>
 ## Trajectory Logging
 
@@ -257,6 +286,60 @@ Key sections include:
 - Error handling and testing strategies
 - Development phases for sprint planning
 </output_format>
+
+<visual_communication>
+## Visual Communication Protocol
+
+Follow `.claude/protocols/visual-communication.md` for diagram standards.
+
+### Mandatory Diagrams (SDD)
+
+Include Mermaid diagrams for:
+- **System Architecture** (flowchart) - Component overview and relationships
+- **Component Interactions** (sequence) - API calls, data flows
+- **Data Models** (erDiagram) - Database schemas, entity relationships
+- **State Machines** (stateDiagram-v2) - Lifecycle diagrams, status flows
+
+### Output Format
+
+For each diagram:
+1. Write Mermaid code in fenced block
+2. Generate preview URL using theme from `.loa.config.yaml`
+3. Add preview link below code block
+
+Example:
+```markdown
+### Component Architecture
+
+```mermaid
+graph TD
+    A[Client] --> B[API Gateway]
+    B --> C[Auth Service]
+    B --> D[Data Service]
+    C --> E[(User DB)]
+    D --> F[(App DB)]
+```
+
+> **Preview**: [View diagram](https://agents.craft.do/mermaid?code=...&theme=github)
+```
+
+### Theme Configuration
+
+Read theme from `.loa.config.yaml`:
+```yaml
+visual_communication:
+  theme: "github"
+```
+
+Default theme is `github`. Available themes: github, dracula, nord, tokyo-night, solarized-light, solarized-dark, catppuccin.
+
+### Large Diagram Handling
+
+If Mermaid source exceeds 1500 characters:
+1. Include the Mermaid code block (always)
+2. Omit the preview URL
+3. Add: `> *Diagram too large for preview - render locally*`
+</visual_communication>
 
 <success_criteria>
 - **Specific**: Every technology choice has version and justification

@@ -1,135 +1,131 @@
-# Sprint 18: TUI Foundation & Global Styles - Implementation Report
+# Sprint 18: Documentation & Testing - Implementation Report
 
-**Sprint**: 18
-**Theme**: TUI Foundation & Global Styles
-**Status**: Complete
-**Date**: 2026-01-02
+## Sprint Summary
 
-## Summary
-
-Successfully implemented the TUI (Terminal User Interface) foundation for Loa Constructs. This sprint established the visual design system, global CSS styles, and a comprehensive component library that emulates a terminal aesthetic while maintaining modern React/Next.js patterns.
+**Sprint ID**: sprint-18 (Global ID: 18)
+**Cycle**: cycle-006
+**Status**: COMPLETED
+**Branch**: `feature/graduation-sprint-18`
 
 ## Tasks Completed
 
-### T18.1: Replace Font System with IBM Plex Mono ✅
-- **File**: `apps/web/src/app/layout.tsx`
-- Replaced Inter font with IBM Plex Mono via Next.js `next/font/google`
-- Configured weights: 400, 500, 600
-- Set CSS variable `--font-mono` for consistent usage
+### T18.1: Update OpenAPI Specification ✅
 
-### T18.2: Create TUI Color Palette & CSS Variables ✅
-- **File**: `apps/web/src/app/globals.css`
-- Defined TUI color palette:
-  - `--bg`: #0a0a0a (near black)
-  - `--fg`: #c0c0c0 (silver)
-  - `--fg-bright`: #ffffff (white)
-  - `--fg-dim`: #606060 (gray)
-  - `--accent`: #5fafff (blue)
-  - `--green`: #5fff87 (terminal green)
-  - `--yellow`: #ffff5f (warning yellow)
-  - `--red`: #ff5f5f (error red)
-  - `--cyan`: #5fffff (link cyan)
-  - `--border`: #5f5f5f (gray border)
-  - `--selection-bg/fg`: Selection colors
-- Added semantic HSL mappings for Tailwind compatibility
+**Files Modified**:
+- `apps/api/src/docs/openapi.ts`
 
-### T18.3: Add JWST Background & Scanlines Effect ✅
-- **File**: `apps/web/src/app/globals.css`
-- JWST Southern Ring Nebula background via `body::before` at 30% opacity
-- CRT scanlines overlay via `body::after` with repeating linear gradient
-- Blinking cursor animation (`@keyframes blink`)
-- Scrollbar hiding utility class
+**Changes**:
+- Added `Graduation` tag to API documentation
+- Added `MaturityLevel` enum schema (`experimental`, `beta`, `stable`, `deprecated`)
+- Added `maturity` query parameter to `/v1/constructs` endpoint
+- Added `maturity` and `graduated_at` fields to Construct schema
+- Created graduation-related schemas:
+  - `GraduationCriteria` - Individual criterion with key, current, required, and met fields
+  - `GraduationStatus` - Full status including current_maturity, next_level, criteria breakdown
+  - `PendingRequest` - Graduation request details
+  - `GraduationStatusResponse` - API response wrapper
+  - `GraduationRequestInput` - Request body for graduation requests
+  - `GraduationRequestResponse` - Response for graduation requests
+  - `PendingGraduationsListResponse` - Admin list response
+  - `ReviewGraduationInput` - Admin review request body
+  - `ReviewGraduationResponse` - Admin review response
+- Documented all graduation endpoints:
+  - `GET /v1/constructs/{slug}/graduation-status`
+  - `POST /v1/constructs/{slug}/request-graduation`
+  - `DELETE /v1/constructs/{slug}/graduation-request`
+  - `GET /v1/admin/graduations`
+  - `POST /v1/admin/graduations/{id}/review`
 
-### T18.4: Create TUI Box Component ✅
-- **File**: `apps/web/src/components/tui/tui-box.tsx`
-- Props: `title`, `scrollable`, `className`, `children`
-- Semi-transparent background (rgba(0,0,0,0.75))
-- 1px border with optional floating title
-- Overflow handling with hide-scrollbar class
+### T18.2: Create GRADUATION.md Documentation ✅
 
-### T18.5: Create TUI Navigation Item Component ✅
-- **File**: `apps/web/src/components/tui/tui-nav-item.tsx`
-- Props: `href`, `label`, `shortcut`, `active`, `icon`, `onClick`
-- Active state with accent background and inverted text
-- Keyboard shortcut display in brackets
-- Next.js Link integration for client-side navigation
+**Files Created**:
+- `docs/GRADUATION.md`
 
-### T18.6: Create TUI Status Bar Component ✅
-- **File**: `apps/web/src/components/tui/tui-status-bar.tsx`
-- Components: `TuiStatusBar`, `TuiStatusBarLink`
-- Keyboard hints with `<kbd>` styling
-- Responsive: hints hidden on mobile
-- Default hints: navigate, select, jump, quit
+**Content**:
+- Maturity level definitions with badges
+- Graduation criteria tables for each transition
+- API usage examples with curl commands
+- Badge display instructions with shields.io URLs
+- Admin review process documentation
+- Rejection reasons reference
+- Best practices section
 
-### T18.7: Create TUI Typography Components ✅
-- **File**: `apps/web/src/components/tui/tui-text.tsx`
-- 14 components exported:
-  - Headings: `TuiH1` (with cursor option), `TuiH2`, `TuiH3`
-  - Text: `TuiP`, `TuiDim`, `TuiBright`
-  - Links: `TuiLink`
-  - Code: `TuiCode` (with copy button), `TuiInlineCode`
-  - Utility: `TuiPrompt`, `TuiDivider`
-  - Status: `TuiSuccess`, `TuiWarning`, `TuiError`
-  - Tags: `TuiTag` (color variants)
+### T18.3: Unit Tests for Graduation Service ✅
 
-### T18.8: Create TUI Button Component ✅
-- **File**: `apps/web/src/components/tui/tui-button.tsx`
-- Components: `TuiButton`, `TuiIconButton`, `TuiLinkButton`
-- Variants: primary (accent), secondary (gray), danger (red)
-- Border-style design with hover inversion
-- Keyboard accessible with visible focus ring
-- Disabled state support
+**Files Created**:
+- `apps/api/src/services/graduation.test.ts`
 
-### T18.9: Create TUI Input Components ✅
-- **File**: `apps/web/src/components/tui/tui-input.tsx`
-- Components:
-  - `TuiInput`: Text input with label, error, hint
-  - `TuiTextarea`: Multi-line input
-  - `TuiSelect`: Dropdown with custom arrow
-  - `TuiCheckbox`: Custom checkbox with checkmark
-  - `TuiRadio`: Custom radio with dot indicator
-  - `TuiSearchInput`: Terminal-style with `$` prompt
-- All use forwardRef for form library compatibility
-- Focus states with accent border/shadow
-- Error states with red styling
+**Test Coverage**:
+- Type definitions validation (MaturityLevel, GraduationCriterion)
+- Graduation criteria constants verification
+- Helper function tests:
+  - `getNextLevel()` - all maturity transitions
+  - `formatCriterionKey()` - key formatting
+  - `evaluateCriteria()` - criteria evaluation logic
+- Graduation logic tests:
+  - Experimental → Beta auto-graduation eligibility
+  - Beta → Stable requiring admin review
+  - Missing criteria handling
+  - Already at highest level handling (stable, deprecated)
 
-## Additional Work
+### T18.4: E2E Tests for Graduation Endpoints ✅
 
-### Barrel Export
-- **File**: `apps/web/src/components/tui/index.ts`
-- Clean exports for all 24 components
-- Organized by category: Layout, Typography, Buttons, Inputs
+**Files Created**:
+- `apps/api/tests/e2e/graduation.test.ts`
 
-## Files Modified/Created
+**Test Coverage**:
+- `GET /v1/constructs` with maturity filter
+- `GET /v1/constructs/:slug/graduation-status`
+  - Success cases for pack and skill constructs
+  - 404 handling for non-existent constructs
+- `POST /v1/constructs/:slug/request-graduation`
+  - Authentication requirement (401)
+  - Owner verification (403)
+  - Criteria not met (400)
+  - Auto-approval for experimental → beta
+  - Pending request for beta → stable
+- `DELETE /v1/constructs/:slug/graduation-request`
+  - Authentication requirement
+  - Owner verification
+  - No pending request handling
+  - Successful withdrawal
+- Admin endpoints:
+  - `GET /v1/admin/graduations` - list with status filter
+  - `POST /v1/admin/graduations/:id/review` - approve/reject flows
+- Full graduation flow integration test
 
-| File | Action |
-|------|--------|
-| `apps/web/src/app/layout.tsx` | Modified |
-| `apps/web/src/app/globals.css` | Modified |
-| `apps/web/src/components/tui/tui-box.tsx` | Created |
-| `apps/web/src/components/tui/tui-nav-item.tsx` | Created |
-| `apps/web/src/components/tui/tui-status-bar.tsx` | Created |
-| `apps/web/src/components/tui/tui-text.tsx` | Created |
-| `apps/web/src/components/tui/tui-button.tsx` | Created |
-| `apps/web/src/components/tui/tui-input.tsx` | Created |
-| `apps/web/src/components/tui/index.ts` | Created |
+### T18.5: E2E Goal Validation ✅
 
-## Verification
+**Validation**:
+- G-1 (Unified Maturity Model): Verified through schema and API implementation
+- G-2 (Graduation Criteria): Documented in GRADUATION.md with exact thresholds
+- G-3 (Auto-Graduation): Tested in E2E flow tests
+- G-4 (Admin Review): Admin endpoints documented and tested
+- G-5 (Filtering): Maturity filter added to OpenAPI and tested
 
-- ✅ TypeScript compilation passes (`pnpm run typecheck`)
-- ✅ All components export correctly
-- ✅ No ESLint errors
+## Code Quality
 
-## Notes for Reviewer
+- TypeScript compilation: ✅ No errors
+- Follows existing patterns from constructs.ts and admin.ts
+- Consistent error response format
+- Proper Zod validation schemas
+- OpenAPI 3.1.0 compliant specification
 
-1. **Inline Styles vs Tailwind**: Used inline styles for TUI-specific styling to avoid conflicts with existing Tailwind classes and ensure CSS variable usage is explicit.
+## Dependencies
 
-2. **Event Handlers for Hover/Focus**: Used JavaScript event handlers for hover/focus states to ensure CSS variable colors are applied correctly (Tailwind arbitrary values with CSS variables can be inconsistent).
+- Sprint 17 (API Endpoints): ✅ Completed
+- Sprint 16 (Service Layer): ✅ Completed
+- Sprint 15 (Foundation): ✅ Completed
 
-3. **forwardRef Pattern**: Input components use forwardRef for compatibility with form libraries like react-hook-form.
+## Files Summary
 
-4. **Accessibility**: All interactive components have visible focus states and proper keyboard support.
+| File | Action | Lines |
+|------|--------|-------|
+| `apps/api/src/docs/openapi.ts` | Modified | +350 |
+| `docs/GRADUATION.md` | Created | 204 |
+| `apps/api/src/services/graduation.test.ts` | Created | ~200 |
+| `apps/api/tests/e2e/graduation.test.ts` | Created | ~350 |
 
 ## Ready for Review
 
-All Sprint 18 tasks are complete. The TUI component library provides a solid foundation for the dashboard and page redesigns in Sprints 19-20.
+All Sprint 18 tasks completed. Documentation comprehensive, tests cover all endpoints and business logic.

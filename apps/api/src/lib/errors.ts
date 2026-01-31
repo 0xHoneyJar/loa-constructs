@@ -109,6 +109,15 @@ export const Errors = {
     message: string;
     details: Record<string, unknown>;
   }) => new AppError(details.code, details.message, 400, details.details),
+
+  // 400 Invalid Manifest
+  InvalidManifest: (errors: Array<{ path: string; message: string }>) =>
+    new AppError(
+      'INVALID_MANIFEST',
+      `Manifest validation failed: ${errors.map((e) => `${e.path}: ${e.message}`).join(', ')}`,
+      400,
+      { errors }
+    ),
 };
 
 /**

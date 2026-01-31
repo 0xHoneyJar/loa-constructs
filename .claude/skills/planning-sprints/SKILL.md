@@ -98,6 +98,35 @@ Example:
 ```
 </tool_result_clearing>
 
+<attention_budget>
+## Attention Budget
+
+This skill follows the **Tool Result Clearing Protocol** (`.claude/protocols/tool-result-clearing.md`).
+
+### Token Thresholds
+
+| Context Type | Limit | Action |
+|--------------|-------|--------|
+| Single search result | 2,000 tokens | Apply 4-step clearing |
+| Accumulated results | 5,000 tokens | MANDATORY clearing |
+| Full file load | 3,000 tokens | Single file, synthesize immediately |
+| Session total | 15,000 tokens | STOP, synthesize to NOTES.md |
+
+### Clearing Triggers for Sprint Planning
+
+- [ ] PRD/SDD combined >3K tokens
+- [ ] Task breakdown search >10 matches
+- [ ] Dependency mapping >20 items
+- [ ] Any analysis exceeding 2K tokens
+
+### 4-Step Clearing
+
+1. **Extract**: Max 10 files, 20 words per finding
+2. **Synthesize**: Write to `grimoires/loa/NOTES.md`
+3. **Clear**: Remove raw output from context
+4. **Summary**: `"Planning: N requirements → M tasks → sprint.md"`
+</attention_budget>
+
 <trajectory_logging>
 ## Trajectory Logging
 
@@ -211,7 +240,57 @@ Use AskUserQuestion with options:
 
 **If INSTALLED**, proceed silently to Phase 0.
 
-## Phase 0: Check Feedback Files and Integration Context (CRITICAL—DO THIS FIRST)
+## Phase 0: Check Feedback Files, Ledger, and Integration Context (CRITICAL—DO THIS FIRST)
+
+### Step 0: Check for Sprint Ledger (NEW in v1.8.0)
+
+Check if `grimoires/loa/ledger.json` exists:
+
+```bash
+[ -f "grimoires/loa/ledger.json" ] && echo "EXISTS" || echo "MISSING"
+```
+
+**If MISSING**, use AskUserQuestion to offer creation:
+
+```
+No Sprint Ledger found at grimoires/loa/ledger.json
+
+A Sprint Ledger provides:
+• Global sprint numbering across development cycles
+• Cycle tracking with PRD/SDD references
+• Sprint history and metrics for retrospectives
+
+Options:
+[1] Create ledger (recommended)
+[2] Continue without ledger
+```
+
+**If user selects "Create ledger":**
+
+Create `grimoires/loa/ledger.json` with initial schema:
+
+```json
+{
+  "version": "1.0.0",
+  "next_sprint_number": 1,
+  "active_cycle": "cycle-001",
+  "cycles": [
+    {
+      "id": "cycle-001",
+      "label": null,
+      "status": "active",
+      "created_at": "<ISO timestamp>",
+      "prd": "grimoires/loa/prd.md",
+      "sdd": "grimoires/loa/sdd.md",
+      "sprints": []
+    }
+  ]
+}
+```
+
+Log creation to trajectory: `{"action": "ledger_created", "path": "grimoires/loa/ledger.json"}`
+
+**If EXISTS**, proceed to Step 1.
 
 ### Step 1: Check for Security Audit Feedback
 
@@ -292,10 +371,31 @@ Design sprint breakdown with:
 - Duration: 2.5 days with specific dates
 - Deliverables with checkboxes
 - Acceptance Criteria (testable)
-- Technical Tasks (specific)
+- Technical Tasks (specific) - annotate with goal contributions: `→ **[G-1]**`
 - Dependencies
 - Risks & Mitigation
 - Success Metrics
+
+### Goal Traceability (Appendix C)
+
+**Extract Goals from PRD:**
+1. Check PRD for goal table with ID column: `| ID | Goal | Measurement | Validation Method |`
+2. If IDs present (G-1, G-2, etc.), use them directly
+3. If IDs missing, auto-assign G-1, G-2, G-3 to numbered goals in "Primary Goals" section
+4. Log auto-assigned IDs to trajectory
+
+**Create Goal Mapping:**
+1. For each task, identify which goal(s) it contributes to
+2. Annotate tasks with `→ **[G-N]**` format
+3. Populate Appendix C with goal-to-task mappings
+4. Generate warnings for:
+   - Goals without any contributing tasks: `⚠️ WARNING: Goal G-N has no contributing tasks`
+   - Final sprint missing E2E validation task: `⚠️ WARNING: No E2E validation task found`
+
+**E2E Validation Task:**
+1. In the final sprint, include Task N.E2E: End-to-End Goal Validation
+2. List all PRD goals with validation steps
+3. This task is P0 priority (Must Complete)
 
 ## Phase 4: Quality Assurance
 
@@ -309,6 +409,9 @@ Self-Review Checklist:
 - [ ] Risks identified with mitigation strategies
 - [ ] Dependencies explicitly called out
 - [ ] Plan provides clear guidance for engineers
+- [ ] All PRD goals mapped to tasks (Appendix C)
+- [ ] All tasks annotated with goal contributions
+- [ ] E2E validation task included in final sprint
 
 Save to `grimoires/loa/sprint.md`.
 </workflow>
@@ -385,3 +488,39 @@ br sync --flush-only  # Export SQLite → JSONL before commit
 
 **Protocol Reference**: See `.claude/protocols/beads-integration.md`
 </beads_workflow>
+
+<visual_communication>
+## Visual Communication (Optional)
+
+Follow `.claude/protocols/visual-communication.md` for diagram standards.
+
+### When to Include Diagrams
+
+Sprint plans may benefit from visual aids for:
+- **Task Dependencies** (flowchart) - Show task blocking relationships
+- **Sprint Workflow** (flowchart) - Illustrate sprint execution flow
+
+### Output Format
+
+If including diagrams, use Mermaid with preview URLs:
+
+```markdown
+## Appendix A: Task Dependencies
+
+```mermaid
+graph TD
+    T1[Task 1.1] --> T2[Task 1.2]
+    T1 --> T3[Task 1.3]
+    T2 --> T4[Task 1.4]
+    T3 --> T4
+```
+
+> **Preview**: [View diagram](https://agents.craft.do/mermaid?code=...&theme=github)
+```
+
+### Theme Configuration
+
+Read theme from `.loa.config.yaml` visual_communication.theme setting.
+
+Diagram inclusion is **optional** for sprint plans - use agent discretion.
+</visual_communication>

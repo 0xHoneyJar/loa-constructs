@@ -1,715 +1,614 @@
-# Software Design Document: GTM Collective Pack Integration
+# Software Design Document: Intelligent Construct Discovery
 
 **Version**: 1.0.0
-**Date**: 2025-12-31
+**Date**: 2026-01-31
 **Author**: Software Architect Agent
 **Status**: Draft
+**PRD Reference**: grimoires/loa/prd.md v1.0.0
+**Cycle**: cycle-007
+**Issue**: [#51](https://github.com/0xHoneyJar/loa-constructs/issues/51)
 
 ---
 
 ## 1. Executive Summary
 
-This SDD details the technical architecture for integrating the GTM Collective as a distributable pack in the Loa Registry. The implementation leverages existing infrastructure (pack API, CLI, database schema) and requires minimal new code—primarily a seeding script enhancement and command path updates.
+This document describes the technical architecture for enhanced construct discovery in the Loa Constructs registry. The system improves search quality through multi-field matching and relevance scoring, enabling users to discover constructs more effectively both through direct API queries and through the `finding-constructs` agent skill.
 
-### Key Technical Decisions
+### 1.1 Design Principles
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| **Seeding Approach** | Enhance existing `import-gtm-collective.ts` | Script exists and generates correct payload structure |
-| **Storage** | R2 object storage via existing service | Already implemented in `apps/api/src/services/storage.ts` |
-| **Access Control** | Server-side tier gating | Enforced at `GET /v1/packs/:slug/download` |
-| **File Structure** | Standard pack format | Compatible with existing `pack-install` CLI command |
+1. **Backward Compatible**: Enhanced `?q=` parameter, no breaking changes to existing API
+2. **API-First**: All discovery logic lives server-side, skills simply consume the API
+3. **Incremental Enhancement**: Start with keyword matching, design for future semantic search
+4. **Performance First**: Search remains <200ms p95, leverage existing indexes where possible
+5. **Low Adoption Friction**: Keywords are optional; system works without them (falls back to name/description)
 
----
-
-## 2. System Architecture
-
-### 2.1 High-Level Component Diagram
+### 1.2 Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                          GTM Collective Pack                        │
+│                    Client Layer                                     │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐               │
-│  │   Skills    │   │  Commands   │   │  Manifest   │               │
-│  │    (8)      │   │    (14)     │   │  (JSON)     │               │
-│  └──────┬──────┘   └──────┬──────┘   └──────┬──────┘               │
-│         │                 │                 │                       │
-│         └────────────────┬┴─────────────────┘                       │
-│                          │                                          │
-│  ┌───────────────────────▼───────────────────────┐                 │
-│  │            Pack Version (1.0.0)               │                 │
-│  │  - 50+ files (skills/commands/resources)      │                 │
-│  │  - ~200KB total size                          │                 │
-│  └───────────────────────┬───────────────────────┘                 │
-│                          │                                          │
-└──────────────────────────┼──────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Loa Registry Infrastructure                    │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐               │
-│  │  PostgreSQL │   │  R2 Storage │   │  Hono API   │               │
-│  │   Database  │   │   (Files)   │   │  (REST)     │               │
-│  └──────┬──────┘   └──────┬──────┘   └──────┬──────┘               │
-│         │                 │                 │                       │
-│  Tables:                  │          Endpoints:                     │
-│  - packs                  │          - POST /v1/packs               │
-│  - pack_versions          │          - POST /v1/packs/:slug/versions│
-│  - pack_files       Storage:         - GET /v1/packs/:slug/download │
-│                     - packs/{slug}/{version}/{path}                 │
-│                                                                     │
+│  Agent (finding-constructs skill)                                   │
+│  CLI (/constructs search)                                           │
+│  Web (browse page with search)                                      │
 └─────────────────────────────────────────────────────────────────────┘
-                           │
-                           │ CLI
-                           ▼
+                                │
+                                ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                      User's Project                                 │
+│                    API Layer (Hono)                                 │
 ├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  .claude/                                                           │
-│  ├── packs/                                                         │
-│  │   └── gtm-collective/                                           │
-│  │       ├── manifest.json                                         │
-│  │       └── .license.json                                         │
-│  ├── skills/                                                        │
-│  │   ├── analyzing-market/                                         │
-│  │   ├── positioning-product/                                      │
-│  │   └── ... (6 more)                                              │
-│  └── commands/                                                      │
-│      ├── gtm-setup.md                                              │
-│      ├── analyze-market.md                                         │
-│      └── ... (12 more)                                             │
-│                                                                     │
-│  gtm-grimoire/  (created by /gtm-setup)                            │
-│  ├── context/                                                       │
-│  ├── research/                                                      │
-│  ├── strategy/                                                      │
-│  └── execution/                                                     │
-│                                                                     │
+│  GET /v1/constructs?q=<query>                                       │
+│  ├── Multi-field search (name, description, keywords, use_cases)   │
+│  ├── Relevance scoring                                              │
+│  └── Returns relevance_score in response                           │
 └─────────────────────────────────────────────────────────────────────┘
-```
-
-### 2.2 Data Flow
-
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Seeding    │────▶│   Registry   │────▶│   Storage    │
-│   Script     │     │     API      │     │     (R2)     │
-└──────────────┘     └──────────────┘     └──────────────┘
-                            │
-                            │ POST /v1/packs
-                            │ POST /v1/packs/:slug/versions
-                            ▼
-                     ┌──────────────┐
-                     │   Database   │
-                     │  (Metadata)  │
-                     └──────────────┘
-
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   User CLI   │────▶│   Registry   │────▶│   Storage    │
-│ pack-install │     │     API      │     │   Download   │
-└──────────────┘     └──────────────┘     └──────────────┘
-                            │
-                            │ GET /v1/packs/:slug/download
-                            │ (tier check, license gen)
-                            ▼
-                     ┌──────────────┐
-                     │  User's      │
-                     │  .claude/    │
-                     └──────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Service Layer                                    │
+├─────────────────────────────────────────────────────────────────────┤
+│  constructs.ts                                                      │
+│  ├── listConstructs() - enhanced with relevance scoring             │
+│  ├── calculateRelevanceScore() - NEW                                │
+│  └── searchMultiField() - NEW                                       │
+└─────────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Data Layer (PostgreSQL + Drizzle)                │
+├─────────────────────────────────────────────────────────────────────┤
+│  skills                                                             │
+│  ├── search_keywords TEXT[] + GIN index                             │
+│  └── search_use_cases TEXT[] + GIN index                            │
+│                                                                     │
+│  packs                                                              │
+│  ├── search_keywords TEXT[] + GIN index                             │
+│  └── search_use_cases TEXT[] + GIN index                            │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Component Design
+## 2. Technology Stack
 
-### 3.1 Seeding Script Enhancement
+| Component | Technology | Justification |
+|-----------|------------|---------------|
+| Database | PostgreSQL 15 | Existing; GIN indexes for array search |
+| ORM | Drizzle | Existing; type-safe schema changes |
+| API | Hono | Existing; performant HTTP layer |
+| Cache | Redis (optional) | Existing; skip cache for search queries |
+| Skill Runtime | Claude Code | Existing; finding-constructs skill |
 
-**File**: `scripts/import-gtm-collective.ts`
+---
 
-The existing script already:
-- Collects files from archive directories
-- Generates pack manifest
-- Creates import payload JSON
+## 3. Database Design
 
-**Enhancement Needed**: Add direct database insertion capability.
+### 3.1 Schema Changes
+
+#### 3.1.1 Skills Table Modifications
 
 ```typescript
-// New function to add to import-gtm-collective.ts
-async function importToDatabase(payload: ImportPayload): Promise<void> {
-  // 1. Connect to database
-  const { db, packs, packVersions, packFiles } = await import('../apps/api/src/db/index.js');
-  const { uploadFile, isStorageConfigured } = await import('../apps/api/src/services/storage.js');
+// apps/api/src/db/schema.ts
 
-  // 2. Check for existing pack
-  const existing = await db.select().from(packs)
-    .where(eq(packs.slug, payload.pack.slug))
-    .limit(1);
+export const skills = pgTable(
+  'skills',
+  {
+    // ... existing columns ...
+    
+    // Search enhancement columns
+    // @see prd.md §5.1 Database Changes
+    searchKeywords: text('search_keywords').array().default([]),
+    searchUseCases: text('search_use_cases').array().default([]),
+  },
+  (table) => ({
+    // ... existing indexes ...
+    
+    // GIN indexes for array containment queries
+    searchKeywordsIdx: index('idx_skills_search_keywords')
+      .on(table.searchKeywords)
+      .using('gin'),
+    searchUseCasesIdx: index('idx_skills_search_use_cases')
+      .on(table.searchUseCases)
+      .using('gin'),
+  })
+);
+```
 
-  if (existing.length > 0) {
-    console.log(`Pack "${payload.pack.slug}" already exists. Skipping creation.`);
-    return;
-  }
+#### 3.1.2 Packs Table Modifications
 
-  // 3. Create pack record
-  const [pack] = await db.insert(packs).values({
-    name: payload.pack.name,
-    slug: payload.pack.slug,
-    description: payload.pack.description,
-    longDescription: payload.pack.long_description,
-    ownerId: ADMIN_USER_ID,
-    ownerType: 'user',
-    pricingType: payload.pack.pricing.type,
-    tierRequired: payload.pack.pricing.tier_required,
-    status: 'published',
-    thjBypass: payload.pack.thj_bypass ?? false,
-  }).returning();
+```typescript
+export const packs = pgTable(
+  'packs',
+  {
+    // ... existing columns ...
+    
+    // Search enhancement columns
+    searchKeywords: text('search_keywords').array().default([]),
+    searchUseCases: text('search_use_cases').array().default([]),
+  },
+  (table) => ({
+    // ... existing indexes ...
+    
+    searchKeywordsIdx: index('idx_packs_search_keywords')
+      .on(table.searchKeywords)
+      .using('gin'),
+    searchUseCasesIdx: index('idx_packs_search_use_cases')
+      .on(table.searchUseCases)
+      .using('gin'),
+  })
+);
+```
 
-  // 4. Create version
-  const [version] = await db.insert(packVersions).values({
-    packId: pack.id,
-    version: payload.version.version,
-    changelog: payload.version.changelog,
-    manifest: payload.version.manifest,
-    minLoaVersion: payload.version.min_loa_version,
-    isLatest: true,
-    publishedAt: new Date(),
-  }).returning();
+### 3.2 Migration Strategy
 
-  // 5. Upload files and create records
-  let totalSize = 0;
-  for (const file of payload.files) {
-    const content = Buffer.from(file.content, 'base64');
-    const contentHash = createHash('sha256').update(content).digest('hex');
-    const storageKey = `packs/${pack.slug}/${version.version}/${file.path}`;
+```sql
+-- Migration: add_search_columns
 
-    if (isStorageConfigured()) {
-      await uploadFile(storageKey, content, file.mime_type);
+-- Skills
+ALTER TABLE skills
+ADD COLUMN search_keywords TEXT[] DEFAULT '{}',
+ADD COLUMN search_use_cases TEXT[] DEFAULT '{}';
+
+CREATE INDEX idx_skills_search_keywords ON skills USING GIN (search_keywords);
+CREATE INDEX idx_skills_search_use_cases ON skills USING GIN (search_use_cases);
+
+-- Packs
+ALTER TABLE packs
+ADD COLUMN search_keywords TEXT[] DEFAULT '{}',
+ADD COLUMN search_use_cases TEXT[] DEFAULT '{}';
+
+CREATE INDEX idx_packs_search_keywords ON packs USING GIN (search_keywords);
+CREATE INDEX idx_packs_search_use_cases ON packs USING GIN (search_use_cases);
+```
+
+---
+
+## 4. Service Layer Design
+
+### 4.1 Enhanced Search Algorithm
+
+```typescript
+// apps/api/src/services/constructs.ts
+
+interface SearchResult extends Construct {
+  relevanceScore: number;
+  matchReasons: string[];
+}
+
+/**
+ * Calculate relevance score for a construct against a query
+ * @see prd.md §4.3 Search Ranking Factors
+ */
+function calculateRelevanceScore(
+  construct: {
+    name: string;
+    description: string | null;
+    searchKeywords: string[];
+    searchUseCases: string[];
+    downloads: number;
+    maturity: MaturityLevel;
+    rating: number | null;
+  },
+  queryTerms: string[]
+): { score: number; matchReasons: string[] } {
+  let score = 0;
+  const matchReasons: string[] = [];
+  
+  const nameLower = construct.name.toLowerCase();
+  const descLower = (construct.description || '').toLowerCase();
+  const keywordsLower = construct.searchKeywords.map(k => k.toLowerCase());
+  const useCasesLower = construct.searchUseCases.map(u => u.toLowerCase());
+  
+  for (const term of queryTerms) {
+    const termLower = term.toLowerCase();
+    
+    // Name exact match (weight: 1.0)
+    if (nameLower === termLower) {
+      score += 1.0;
+      if (!matchReasons.includes('name')) matchReasons.push('name');
     }
-
-    await db.insert(packFiles).values({
-      versionId: version.id,
-      path: file.path,
-      contentHash,
-      storageKey,
-      sizeBytes: content.length,
-      mimeType: file.mime_type,
-    });
-
-    totalSize += content.length;
+    // Name partial match (weight: 0.8)
+    else if (nameLower.includes(termLower)) {
+      score += 0.8;
+      if (!matchReasons.includes('name')) matchReasons.push('name');
+    }
+    
+    // Keywords match (weight: 0.9)
+    if (keywordsLower.some(k => k.includes(termLower))) {
+      score += 0.9;
+      if (!matchReasons.includes('keywords')) matchReasons.push('keywords');
+    }
+    
+    // Use cases match (weight: 0.7)
+    if (useCasesLower.some(u => u.includes(termLower))) {
+      score += 0.7;
+      if (!matchReasons.includes('use_cases')) matchReasons.push('use_cases');
+    }
+    
+    // Description match (weight: 0.6)
+    if (descLower.includes(termLower)) {
+      score += 0.6;
+      if (!matchReasons.includes('description')) matchReasons.push('description');
+    }
   }
-
-  // 6. Update version stats
-  await db.update(packVersions)
-    .set({ fileCount: payload.files.length, totalSizeBytes: totalSize })
-    .where(eq(packVersions.id, version.id));
-
-  console.log(`Pack "${pack.slug}" v${version.version} imported successfully.`);
+  
+  // Normalize by number of terms
+  score = score / queryTerms.length;
+  
+  // Add popularity boost (weight: 0.3, log scale)
+  const downloadBoost = Math.min(Math.log10(construct.downloads + 1) / 5, 1) * 0.3;
+  score += downloadBoost;
+  
+  // Add maturity boost (weight: 0.2)
+  const maturityBoost = {
+    stable: 0.2,
+    beta: 0.15,
+    experimental: 0.05,
+    deprecated: 0,
+  }[construct.maturity];
+  score += maturityBoost;
+  
+  // Add rating boost (weight: 0.2)
+  if (construct.rating) {
+    const ratingBoost = (construct.rating / 5) * 0.2;
+    score += ratingBoost;
+  }
+  
+  return { score: Math.min(score, 2.0), matchReasons }; // Cap at 2.0
 }
 ```
 
-### 3.2 Command Path Resolution
+### 4.2 Multi-Field Query Construction
 
-**Issue**: Commands in archive reference `agent_path: ".claude/skills/..."` but pack installation extracts to user's `.claude/skills/`.
+```typescript
+/**
+ * Build SQL conditions for multi-field search
+ * Uses OR across fields, scores calculated in application layer
+ */
+function buildSearchConditions(query: string) {
+  const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 1);
+  const searchPattern = `%${query}%`;
+  
+  return or(
+    // Name/description (existing ILIKE)
+    ilike(skills.name, searchPattern),
+    ilike(skills.description, searchPattern),
+    // Keywords array overlap
+    sql`${skills.searchKeywords} && ARRAY[${sql.join(terms.map(t => sql`${t}`), sql`, `)}]::text[]`,
+    // Use cases array overlap  
+    sql`${skills.searchUseCases} && ARRAY[${sql.join(terms.map(t => sql`${t}`), sql`, `)}]::text[]`
+  );
+}
+```
 
-**Solution**: No change needed. The `agent_path` in command YAML is relative to the project root, and pack installation places files at:
-- Skills → `.claude/skills/{skill-slug}/`
-- Commands → `.claude/commands/{command}.md`
+### 4.3 Response Enhancement
 
-This matches the expected paths in command files.
+```typescript
+// When query is present, include relevance in response
+interface ListConstructsResult {
+  constructs: (Construct & {
+    relevanceScore?: number;
+    matchReasons?: string[];
+  })[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+```
 
-### 3.3 Pack Manifest Schema
+---
 
+## 5. API Design
+
+### 5.1 Enhanced GET /v1/constructs
+
+**Request** (unchanged):
+```
+GET /v1/constructs?q=user+research&type=pack&page=1&per_page=20
+```
+
+**Response** (enhanced when `q` present):
 ```json
 {
-  "$schema": "https://loaskills.dev/schemas/pack-manifest-v1.json",
-  "name": "GTM Collective",
-  "slug": "gtm-collective",
-  "version": "1.0.0",
-  "description": "Go-to-market strategy skills for product launches, positioning, pricing, and market analysis",
-  "author": {
-    "name": "The Honey Jar",
-    "email": "hello@thehoneyjar.xyz",
-    "url": "https://thehoneyjar.xyz"
-  },
-  "skills": [
-    { "slug": "analyzing-market", "path": "skills/analyzing-market/" },
-    { "slug": "positioning-product", "path": "skills/positioning-product/" },
-    { "slug": "pricing-strategist", "path": "skills/pricing-strategist/" },
-    { "slug": "crafting-narratives", "path": "skills/crafting-narratives/" },
-    { "slug": "educating-developers", "path": "skills/educating-developers/" },
-    { "slug": "building-partnerships", "path": "skills/building-partnerships/" },
-    { "slug": "translating-for-stakeholders", "path": "skills/translating-for-stakeholders/" },
-    { "slug": "reviewing-gtm", "path": "skills/reviewing-gtm/" }
+  "data": [
+    {
+      "id": "uuid",
+      "type": "pack",
+      "name": "Observer",
+      "slug": "observer",
+      "description": "UX research and validation pack",
+      "maturity": "stable",
+      "downloads": 1250,
+      "relevance_score": 1.87,
+      "match_reasons": ["name", "keywords", "use_cases"],
+      ...
+    }
   ],
-  "commands": [
-    { "name": "gtm-setup", "path": "commands/gtm-setup.md" },
-    { "name": "gtm-adopt", "path": "commands/gtm-adopt.md" },
-    { "name": "gtm-feature-requests", "path": "commands/gtm-feature-requests.md" },
-    { "name": "sync-from-gtm", "path": "commands/sync-from-gtm.md" },
-    { "name": "review-gtm", "path": "commands/review-gtm.md" },
-    { "name": "analyze-market", "path": "commands/analyze-market.md" },
-    { "name": "position", "path": "commands/position.md" },
-    { "name": "price", "path": "commands/price.md" },
-    { "name": "plan-launch", "path": "commands/plan-launch.md" },
-    { "name": "announce-release", "path": "commands/announce-release.md" },
-    { "name": "plan-devrel", "path": "commands/plan-devrel.md" },
-    { "name": "plan-partnerships", "path": "commands/plan-partnerships.md" },
-    { "name": "create-deck", "path": "commands/create-deck.md" },
-    { "name": "sync-from-dev", "path": "commands/sync-from-dev.md" }
-  ],
-  "dependencies": {
-    "loa_version": ">=0.9.0",
-    "skills": [],
-    "packs": []
+  "pagination": {
+    "page": 1,
+    "per_page": 20,
+    "total": 5,
+    "total_pages": 1
   },
-  "pricing": {
-    "type": "subscription",
-    "tier": "pro"
-  },
-  "tags": ["gtm", "marketing", "product", "devrel", "positioning", "pricing", "launch"],
-  "license": "proprietary"
+  "request_id": "req-123"
 }
 ```
 
----
+### 5.2 Sorting Behavior
 
-## 4. Data Architecture
-
-### 4.1 Database Records
-
-**Table: `packs`**
-
-| Column | Value |
-|--------|-------|
-| `name` | "GTM Collective" |
-| `slug` | "gtm-collective" |
-| `description` | "Go-to-market strategy skills..." |
-| `owner_id` | (THJ admin user UUID) |
-| `owner_type` | "user" |
-| `pricing_type` | "subscription" |
-| `tier_required` | "pro" |
-| `status` | "published" |
-| `thj_bypass` | `true` |
-| `is_featured` | `true` |
-
-**Table: `pack_versions`**
-
-| Column | Value |
-|--------|-------|
-| `pack_id` | (FK to packs) |
-| `version` | "1.0.0" |
-| `changelog` | "Initial release of GTM Collective" |
-| `manifest` | (JSON blob) |
-| `min_loa_version` | "0.9.0" |
-| `is_latest` | `true` |
-| `file_count` | ~50 |
-| `total_size_bytes` | ~200,000 |
-
-**Table: `pack_files`**
-
-| Column | Example Value |
-|--------|---------------|
-| `version_id` | (FK to pack_versions) |
-| `path` | "skills/analyzing-market/SKILL.md" |
-| `content_hash` | (SHA-256) |
-| `storage_key` | "packs/gtm-collective/1.0.0/skills/analyzing-market/SKILL.md" |
-| `size_bytes` | 6401 |
-| `mime_type` | "text/markdown" |
-
-### 4.2 Storage Structure (R2)
-
-```
-packs/
-└── gtm-collective/
-    └── 1.0.0/
-        ├── skills/
-        │   ├── analyzing-market/
-        │   │   ├── index.yaml
-        │   │   ├── SKILL.md
-        │   │   └── resources/
-        │   │       ├── market-landscape-template.md
-        │   │       ├── competitive-analysis-template.md
-        │   │       └── icp-profiles-template.md
-        │   ├── positioning-product/
-        │   │   └── ...
-        │   └── ... (6 more)
-        └── commands/
-            ├── gtm-setup.md
-            ├── analyze-market.md
-            └── ... (12 more)
-```
-
-### 4.3 File Inventory
-
-| Category | Count | Estimated Size |
-|----------|-------|----------------|
-| Skill index.yaml | 8 | ~15 KB |
-| Skill SKILL.md | 8 | ~45 KB |
-| Skill resources | ~12 | ~80 KB |
-| .gitkeep files | 8 | <1 KB |
-| Workflow commands | 5 | ~25 KB |
-| Routing commands | 9 | ~20 KB |
-| Command resources | 2 | ~10 KB |
-| **Total** | **~52** | **~195 KB** |
+| Condition | Sort Order |
+|-----------|------------|
+| `q` present | `relevance_score DESC, downloads DESC` |
+| `q` absent | `downloads DESC` (existing behavior) |
 
 ---
 
-## 5. API Integration
+## 6. finding-constructs Skill Design
 
-### 5.1 Existing Endpoints Used
-
-| Endpoint | Method | Purpose |
-|----------|--------|---------|
-| `/v1/packs` | `GET` | List packs (verification) |
-| `/v1/packs/:slug` | `GET` | Get pack details |
-| `/v1/packs/:slug/download` | `GET` | Download with tier check |
-
-### 5.2 Access Control Flow
+### 6.1 Skill Structure
 
 ```
-User requests: GET /v1/packs/gtm-collective/download
-                           │
-                           ▼
-                ┌──────────────────────┐
-                │   requireAuth()      │
-                │   Middleware         │
-                └──────────┬───────────┘
-                           │
-                           ▼
-                ┌──────────────────────┐
-                │  Get pack from DB    │
-                │  Check status =      │
-                │  "published"         │
-                └──────────┬───────────┘
-                           │
-                           ▼
-                ┌──────────────────────┐
-                │  Determine access:   │
-                │  - Owner? ✓          │
-                │  - THJ bypass? ✓     │
-                │  - Tier >= pro? ✓    │
-                │  - Free tier? ✗ 402  │
-                └──────────┬───────────┘
-                           │
-                           ▼
-                ┌──────────────────────┐
-                │  Generate license    │
-                │  Download files      │
-                │  Track installation  │
-                └──────────┬───────────┘
-                           │
-                           ▼
-                   Return pack data
-                   with license token
+.claude/skills/finding-constructs/
+├── index.yaml          # Metadata + triggers
+├── SKILL.md            # Discovery workflow
+└── resources/
+    └── triggers.md     # Trigger pattern documentation
 ```
 
-### 5.3 License Token Structure
+### 6.2 index.yaml
 
-```typescript
-interface PackLicensePayload {
-  type: 'pack';
-  pack: string;      // 'gtm-collective'
-  version: string;   // '1.0.0'
-  user_id: string;
-  tier: 'free' | 'pro' | 'team' | 'enterprise';
-  watermark: string; // SHA-256 hash for tracking
-}
+```yaml
+name: finding-constructs
+version: 1.0.0
+description: Helps users discover relevant constructs from the Loa registry
+author: 0xHoneyJar
+triggers:
+  patterns:
+    - "find a skill for"
+    - "find a construct for"
+    - "is there a construct that"
+    - "is there a skill that"
+    - "I need help with"
+    - "how do I do"
+  domains:
+    - security
+    - testing
+    - deployment
+    - documentation
+    - code-review
+allowed-tools:
+  - WebFetch
+  - Read
 ```
 
-**Token Validity**:
-- Pro/Team/Enterprise: Until subscription end + 7 days grace
-- Free (if allowed): 30 days
+### 6.3 SKILL.md Workflow
 
----
+```markdown
+# finding-constructs
 
-## 6. Security Architecture
+## Trigger Detection
 
-### 6.1 Access Control Matrix
+When the user's message matches a trigger pattern, extract the intent:
 
-| User Type | Can List | Can View | Can Download |
-|-----------|----------|----------|--------------|
-| Anonymous | Yes | Yes (metadata) | No |
-| Free tier | Yes | Yes | No (402) |
-| Pro tier | Yes | Yes | Yes |
-| Team tier | Yes | Yes | Yes |
-| Enterprise | Yes | Yes | Yes |
-| THJ bypass | Yes | Yes | Yes |
-| Pack owner | Yes | Yes | Yes |
+1. Parse the user's need into keywords
+2. Query the registry API
+3. Present results or offer direct assistance
 
-### 6.2 Security Measures
+## Workflow
 
-| Measure | Implementation | Location |
-|---------|----------------|----------|
-| Authentication | JWT Bearer token | `middleware/auth.ts` |
-| Authorization | Tier checking | `services/subscription.ts` |
-| License watermarking | User hash in license | `routes/packs.ts:generatePackLicense` |
-| Path traversal prevention | `validatePath()` | `lib/security.ts` |
-| Content hashing | SHA-256 | File upload |
+### Step 1: Extract Keywords
 
-### 6.3 Threat Model
+From: "I need help with user research interviews"
+Extract: ["user", "research", "interviews"]
 
-| Threat | Mitigation |
-|--------|------------|
-| Subscription bypass | Server-side enforcement, not client-side |
-| License sharing | Watermark tracking, short expiry |
-| File path injection | Server-side path sanitization |
-| Content tampering | Content hash verification |
-
----
-
-## 7. CLI Integration
-
-### 7.1 Installation Flow
+### Step 2: Query API
 
 ```bash
-$ /pack-install gtm-collective
-
-Fetching pack info for gtm-collective...
-Downloading GTM Collective v1.0.0...
-
-Installing GTM Collective v1.0.0...
-
-✓ Verified subscription
-✓ Downloaded 52 files (195 KB)
-✓ Installed 8 skills
-✓ Installed 14 commands
-✓ License valid until 2026-01-31
-
-GTM Collective installed successfully!
-
-Available commands:
-  /gtm-setup
-  /gtm-adopt
-  /analyze-market
-  /position
-  /price
-  /plan-launch
-  /announce-release
-  /plan-devrel
-  /plan-partnerships
-  /create-deck
-  ... and 4 more
+curl "https://loa-constructs-api.fly.dev/v1/constructs?q=user+research+interviews&limit=5"
 ```
 
-### 7.2 Post-Installation Structure
+### Step 3: Present Results
+
+If results with relevance_score >= 0.5:
 
 ```
-.claude/
-├── packs/
-│   └── gtm-collective/
-│       ├── manifest.json      # Pack metadata
-│       └── .license.json      # License token
-├── skills/
-│   ├── analyzing-market/
-│   │   ├── index.yaml
-│   │   ├── SKILL.md
-│   │   └── resources/
-│   │       ├── market-landscape-template.md
-│   │       ├── competitive-analysis-template.md
-│   │       └── icp-profiles-template.md
-│   ├── positioning-product/
-│   │   ├── index.yaml
-│   │   ├── SKILL.md
-│   │   └── resources/
-│   │       ├── positioning-template.md
-│   │       └── messaging-framework-template.md
-│   └── ... (6 more skills)
-└── commands/
-    ├── gtm-setup.md
-    ├── gtm-adopt.md
-    ├── gtm-feature-requests.md
-    ├── sync-from-gtm.md
-    ├── review-gtm.md
-    ├── analyze-market.md
-    ├── position.md
-    ├── price.md
-    ├── plan-launch.md
-    ├── announce-release.md
-    ├── plan-devrel.md
-    ├── plan-partnerships.md
-    ├── create-deck.md
-    └── sync-from-dev.md
+I found relevant constructs:
+
+1. **Observer** (pack) - UX research and validation
+   Relevance: 87% | Downloads: 1,250 | Maturity: stable
+   Install: `/constructs install observer`
+
+2. **Crucible** (pack) - Validation testing framework
+   Relevance: 65% | Downloads: 890 | Maturity: beta
+   Install: `/constructs install crucible`
+
+Would you like to install one, or should I help you directly?
+```
+
+If no results or all below threshold:
+
+```
+I didn't find a specific construct for that, but I can help you directly
+with [extracted task]. Would you like me to proceed?
+```
+
+## Opt-Out
+
+User can disable by adding to .claude/settings.json:
+```json
+{
+  "skills": {
+    "finding-constructs": { "enabled": false }
+  }
+}
+```
 ```
 
 ---
 
-## 8. Implementation Tasks
+## 7. OpenAPI Specification Updates
 
-### 8.1 Task Breakdown
+### 7.1 Schema Additions
 
-| Task ID | Description | Effort | Dependencies |
-|---------|-------------|--------|--------------|
-| T1 | Update archive paths (remove loa-grimoire/context prefix) | S | - |
-| T2 | Add direct DB import to seeding script | M | T1 |
-| T3 | Run import script to seed database | S | T2 |
-| T4 | Validate pack appears in API list | S | T3 |
-| T5 | Test CLI installation as pro user | M | T4 |
-| T6 | Test 402 response for free user | S | T4 |
-| T7 | Test GTM command execution | M | T5 |
-| T8 | Clean up archive after validation | S | T7 |
+```typescript
+// apps/api/src/docs/openapi.ts
 
-**Effort Key**: S = Small (<2 hrs), M = Medium (2-4 hrs), L = Large (4-8 hrs)
-
-### 8.2 Implementation Order
-
+// Add to Construct schema
+Construct: {
+  type: 'object',
+  properties: {
+    // ... existing properties ...
+    search_keywords: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Searchable keywords for discovery',
+    },
+    search_use_cases: {
+      type: 'array',
+      items: { type: 'string' },
+      description: 'Use case descriptions for semantic matching',
+    },
+    relevance_score: {
+      type: 'number',
+      nullable: true,
+      description: 'Relevance score (0-2) when search query present',
+    },
+    match_reasons: {
+      type: 'array',
+      items: { type: 'string', enum: ['name', 'description', 'keywords', 'use_cases'] },
+      nullable: true,
+      description: 'Fields that matched the search query',
+    },
+  },
+},
 ```
-Phase 1: Preparation
-├── T1: Update archive paths
-└── T2: Add DB import to script
 
-Phase 2: Publication
-├── T3: Run import script
-└── T4: Validate in API
+---
 
-Phase 3: Validation
-├── T5: Test CLI install
-├── T6: Test tier gating
-└── T7: Test command execution
+## 8. Performance Considerations
 
-Phase 4: Cleanup
-└── T8: Remove archive
+### 8.1 Query Performance
+
+| Operation | Target | Strategy |
+|-----------|--------|----------|
+| Search with `q` | <200ms | GIN indexes on arrays |
+| Relevance scoring | <50ms | Application-layer calculation |
+| Total response | <200ms p95 | Limit fetch to 100 max |
+
+### 8.2 Index Strategy
+
+```sql
+-- GIN indexes enable efficient array containment
+-- Query: search_keywords && ARRAY['term1', 'term2']
+-- Uses GIN index scan, not sequential scan
 ```
+
+### 8.3 Caching
+
+Search queries are **NOT cached** because:
+- Results depend on query string
+- Cache key explosion risk
+- Fresh results more important for discovery
 
 ---
 
 ## 9. Testing Strategy
 
-### 9.1 Test Cases
+### 9.1 Unit Tests
 
-| Test | Input | Expected Output |
-|------|-------|-----------------|
-| Pack listing | `GET /v1/packs` | gtm-collective in results |
-| Pack details | `GET /v1/packs/gtm-collective` | Full metadata, latest_version |
-| Free download | Free user downloads | 402 with pricing info |
-| Pro download | Pro user downloads | 200 with files + license |
-| CLI install | `/pack-install gtm-collective` | Files in .claude/ |
-| Command exec | `/gtm-setup` | Creates gtm-grimoire/ |
+| Test | Description |
+|------|-------------|
+| `calculateRelevanceScore` | Verify scoring weights |
+| `buildSearchConditions` | SQL generation correctness |
+| Multi-term queries | "user research" splits correctly |
 
-### 9.2 Integration Test
+### 9.2 Integration Tests
 
-```typescript
-// apps/api/tests/e2e/gtm-collective.test.ts
-describe('GTM Collective Pack', () => {
-  it('should list published pack', async () => {
-    const res = await request(app).get('/v1/packs');
-    expect(res.body.data).toContainEqual(
-      expect.objectContaining({ slug: 'gtm-collective' })
-    );
-  });
+| Test | Description |
+|------|-------------|
+| Search with keywords | Construct with matching keywords ranks higher |
+| Search with use_cases | Use case match boosts relevance |
+| Empty keywords | Falls back to name/description |
+| Sorting | Results sorted by relevance when q present |
 
-  it('should return 402 for free tier download', async () => {
-    const res = await request(app)
-      .get('/v1/packs/gtm-collective/download')
-      .set('Authorization', `Bearer ${freeUserToken}`);
-    expect(res.status).toBe(402);
-    expect(res.body.error.code).toBe('PACK_SUBSCRIPTION_REQUIRED');
-  });
+### 9.3 E2E Tests
 
-  it('should allow pro tier download', async () => {
-    const res = await request(app)
-      .get('/v1/packs/gtm-collective/download')
-      .set('Authorization', `Bearer ${proUserToken}`);
-    expect(res.status).toBe(200);
-    expect(res.body.data.pack.files.length).toBeGreaterThan(0);
-    expect(res.body.data.license.token).toBeDefined();
-  });
-});
-```
+| Test | Description |
+|------|-------------|
+| API response shape | `relevance_score` present when q provided |
+| finding-constructs skill | Triggers on patterns, presents results |
 
 ---
 
-## 10. Rollback Plan
+## 10. Implementation Checklist
 
-### 10.1 Database Rollback
+### Sprint 19: Database & Schema
+- [ ] T19.1: Add `search_keywords` column to skills table
+- [ ] T19.2: Add `search_use_cases` column to skills table
+- [ ] T19.3: Add `search_keywords` column to packs table
+- [ ] T19.4: Add `search_use_cases` column to packs table
+- [ ] T19.5: Create GIN indexes for all new columns
+- [ ] T19.6: Run migration on staging/production
 
-```sql
--- Remove GTM Collective pack and all related data
-DELETE FROM pack_files WHERE version_id IN (
-  SELECT id FROM pack_versions WHERE pack_id = (
-    SELECT id FROM packs WHERE slug = 'gtm-collective'
-  )
-);
+### Sprint 20: Search Service Enhancement
+- [ ] T20.1: Implement `calculateRelevanceScore()` function
+- [ ] T20.2: Implement multi-field SQL query builder
+- [ ] T20.3: Update `fetchSkillsAsConstructs()` to include new columns
+- [ ] T20.4: Update `fetchPacksAsConstructs()` to include new columns
+- [ ] T20.5: Sort by relevance when `q` present
+- [ ] T20.6: Add `relevance_score` and `match_reasons` to response
+- [ ] T20.7: Update OpenAPI spec with new fields
+- [ ] T20.8: Unit tests for scoring algorithm
+- [ ] T20.9: Integration tests for search
 
-DELETE FROM pack_versions WHERE pack_id = (
-  SELECT id FROM packs WHERE slug = 'gtm-collective'
-);
-
-DELETE FROM packs WHERE slug = 'gtm-collective';
-```
-
-### 10.2 Storage Cleanup
-
-```bash
-# Remove files from R2 storage
-aws s3 rm s3://loa-registry/packs/gtm-collective/ --recursive
-```
-
----
-
-## 11. Future Considerations
-
-### 11.1 Version Updates
-
-When releasing GTM Collective 1.1.0:
-1. Update archive files
-2. Re-run import script with `--version 1.1.0`
-3. Previous version remains in DB for compatibility
-
-### 11.2 Pack Dependencies
-
-If future packs depend on GTM Collective:
-```json
-{
-  "dependencies": {
-    "packs": ["gtm-collective@>=1.0.0"]
-  }
-}
-```
-
-### 11.3 Offline Support
-
-Future enhancement: Cache downloaded pack files locally for offline use.
+### Sprint 21: finding-constructs Skill
+- [ ] T21.1: Create skill directory structure
+- [ ] T21.2: Write index.yaml with triggers
+- [ ] T21.3: Write SKILL.md workflow
+- [ ] T21.4: Add fallback behavior
+- [ ] T21.5: Write resources/triggers.md documentation
+- [ ] T21.6: Test skill trigger patterns
+- [ ] T21.7: Document opt-out mechanism
 
 ---
 
-## 12. Appendix
+## 11. Appendix
 
-### A. Archive File Mapping
+### A. File Inventory
 
-| Archive Path | Pack Path |
-|--------------|-----------|
-| `gtm-skills-import/{skill}/` | `skills/{skill}/` |
-| `gtm-skills-import/commands/*.md` | `commands/*.md` |
-| `gtm-commands/*.md` | `commands/*.md` |
-| `gtm-commands/resources/*.md` | `commands/resources/*.md` |
-
-### B. Environment Variables
-
-| Variable | Purpose | Required |
-|----------|---------|----------|
-| `DATABASE_URL` | PostgreSQL connection | Yes |
-| `R2_ACCOUNT_ID` | Cloudflare R2 account | If storage enabled |
-| `R2_ACCESS_KEY_ID` | R2 access key | If storage enabled |
-| `R2_SECRET_ACCESS_KEY` | R2 secret key | If storage enabled |
-| `R2_BUCKET_NAME` | R2 bucket name | If storage enabled |
-| `ADMIN_USER_ID` | User ID for pack ownership | Yes |
-
-### C. Related Files
-
+**Files to Create:**
 | File | Purpose |
 |------|---------|
-| `scripts/import-gtm-collective.ts` | Seeding script |
-| `scripts/gtm-collective-import-payload.json` | Generated payload |
-| `apps/api/src/routes/packs.ts` | Pack API routes |
-| `apps/api/src/services/packs.ts` | Pack service layer |
-| `packages/loa-registry/src/commands/pack-install.ts` | CLI install |
+| `.claude/skills/finding-constructs/index.yaml` | Skill metadata |
+| `.claude/skills/finding-constructs/SKILL.md` | Skill workflow |
+| `.claude/skills/finding-constructs/resources/triggers.md` | Trigger docs |
+
+**Files to Modify:**
+| File | Changes |
+|------|---------|
+| `apps/api/src/db/schema.ts` | Add search_keywords, search_use_cases |
+| `apps/api/src/services/constructs.ts` | Relevance scoring, multi-field search |
+| `apps/api/src/routes/constructs.ts` | Include relevance in response |
+| `apps/api/src/docs/openapi.ts` | Document new fields |
+
+### B. Goal Traceability
+
+| Goal | Tasks |
+|------|-------|
+| G-1 (Discoverable at right moment) | T21.1-T21.7 |
+| G-2 (Quality search results) | T20.1-T20.6, T20.8-T20.9 |
+| G-3 (Non-intrusive) | T21.2, T21.4 |
+| G-4 (API-first) | T19.1-T19.6, T20.7 |
+
+### C. References
+
+- **Issue**: https://github.com/0xHoneyJar/loa-constructs/issues/51
+- **skills.sh**: https://skills.sh
+- **PRD**: grimoires/loa/prd.md
+- **Existing constructs.ts**: apps/api/src/services/constructs.ts
 
 ---
 
-**Document Status**: Ready for implementation
-**Next Step**: `/sprint-plan` to break down into sprint tasks
+**Document Status**: Draft
+**Next Step**: `/sprint-plan` to create sprint breakdown

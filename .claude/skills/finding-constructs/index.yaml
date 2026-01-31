@@ -1,0 +1,45 @@
+---
+# finding-constructs - Proactive construct discovery skill
+# @see prd.md §4.5 finding-constructs Skill (cycle-007)
+# @see sdd.md §4 finding-constructs Skill Design (cycle-007)
+name: finding-constructs
+version: 1.0.0
+description: Proactively discover and suggest relevant constructs based on user intent
+author: Loa Framework
+
+# Trigger patterns - when this skill should activate
+triggers:
+  patterns:
+    - "find a skill for"
+    - "find a construct for"
+    - "is there a construct that"
+    - "is there a skill that"
+    - "I need help with"
+    - "how do I do"
+    - "looking for a tool"
+    - "need to automate"
+
+  # Domain hints - activate on these topics if context suggests need
+  domain_hints:
+    - security
+    - testing
+    - deployment
+    - documentation
+    - code review
+    - debugging
+    - monitoring
+    - ci/cd
+
+# Tools this skill is allowed to use
+allowed_tools:
+  - WebFetch
+  - Read
+
+# Skill configuration
+config:
+  min_relevance_threshold: 0.5
+  max_results: 3
+  api_endpoint: "https://loa-constructs-api.fly.dev/v1/constructs"
+
+# User-invocable (can be called with /finding-constructs)
+user_invocable: false
