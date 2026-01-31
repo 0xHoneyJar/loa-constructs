@@ -695,14 +695,15 @@ async function fetchSkillsAsConstructs(options: {
     const searchPattern = `%${options.query}%`;
     // Multi-field search: name, description, search_keywords, search_use_cases
     // @see prd.md §4.1 Enhanced Search API (cycle-007)
+    // Use COALESCE to handle null arrays safely
     conditions.push(
       or(
         ilike(skills.name, searchPattern),
         ilike(skills.description, searchPattern),
-        // Array overlap for keywords - check if any keyword contains the search term
-        sql`EXISTS (SELECT 1 FROM unnest(${skills.searchKeywords}) AS kw WHERE kw ILIKE ${searchPattern})`,
-        // Array overlap for use cases
-        sql`EXISTS (SELECT 1 FROM unnest(${skills.searchUseCases}) AS uc WHERE uc ILIKE ${searchPattern})`
+        // Array overlap for keywords - use COALESCE to handle null arrays
+        sql`EXISTS (SELECT 1 FROM unnest(COALESCE(${skills.searchKeywords}, '{}')) AS kw WHERE kw ILIKE ${searchPattern})`,
+        // Array overlap for use cases - use COALESCE to handle null arrays
+        sql`EXISTS (SELECT 1 FROM unnest(COALESCE(${skills.searchUseCases}, '{}')) AS uc WHERE uc ILIKE ${searchPattern})`
       ) ?? sql`true`
     );
   }
@@ -779,14 +780,15 @@ async function fetchPacksAsConstructs(options: {
     const searchPattern = `%${options.query}%`;
     // Multi-field search: name, description, search_keywords, search_use_cases
     // @see prd.md §4.1 Enhanced Search API (cycle-007)
+    // Use COALESCE to handle null arrays safely
     conditions.push(
       or(
         ilike(packs.name, searchPattern),
         ilike(packs.description, searchPattern),
-        // Array overlap for keywords - check if any keyword contains the search term
-        sql`EXISTS (SELECT 1 FROM unnest(${packs.searchKeywords}) AS kw WHERE kw ILIKE ${searchPattern})`,
-        // Array overlap for use cases
-        sql`EXISTS (SELECT 1 FROM unnest(${packs.searchUseCases}) AS uc WHERE uc ILIKE ${searchPattern})`
+        // Array overlap for keywords - use COALESCE to handle null arrays
+        sql`EXISTS (SELECT 1 FROM unnest(COALESCE(${packs.searchKeywords}, '{}')) AS kw WHERE kw ILIKE ${searchPattern})`,
+        // Array overlap for use cases - use COALESCE to handle null arrays
+        sql`EXISTS (SELECT 1 FROM unnest(COALESCE(${packs.searchUseCases}, '{}')) AS uc WHERE uc ILIKE ${searchPattern})`
       ) ?? sql`true`
     );
   }
@@ -869,9 +871,12 @@ async function fetchSkillAsConstruct(slug: string): Promise<Construct | null> {
 
 async function getOwnerInfo(
   ownerId: string,
-  ownerType: 'user' | 'team'
+  ownerType: 'user' | 'team' | null | undefined
 ): Promise<{ name: string; type: 'user' | 'team'; avatarUrl: string | null } | null> {
-  if (ownerType === 'user') {
+  // Handle null/undefined ownerType by defaulting to 'user'
+  const effectiveOwnerType = ownerType || 'user';
+
+  if (effectiveOwnerType === 'user') {
     const [user] = await db
       .select({ name: users.name, avatarUrl: users.avatarUrl })
       .from(users)

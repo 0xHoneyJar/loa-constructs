@@ -663,6 +663,7 @@ packsRouter.post(
       }
 
       // Save file record with validated path
+      // Always store base64 content in DB as fallback for when R2 is unavailable
       const validatedPath = validatePath(file.path);
       await addPackFile(
         version.id,
@@ -670,7 +671,8 @@ packsRouter.post(
         contentHash,
         storageKey,
         content.length,
-        file.mime_type
+        file.mime_type,
+        file.content // Store original base64 content as DB fallback
       );
 
       totalSizeBytes += content.length;
@@ -712,15 +714,17 @@ packsRouter.post(
 /**
  * GET /v1/packs/:slug/download
  * Download pack files with subscription check and license generation
+ * Free packs can be downloaded without authentication.
  * @see sdd-v2.md §5.1 GET /v1/packs/:slug/download
  * @see sprint-v2.md T14.3: Pack Download with Subscription Check
  * @see sprint-v2.md T14.4: Pack License Generation
+ * @see issue #54: Free packs require authentication
  */
-packsRouter.get('/:slug/download', requireAuth(), async (c) => {
+packsRouter.get('/:slug/download', optionalAuth(), async (c) => {
   const slug = c.req.param('slug');
   const versionParam = c.req.query('version');
-  const userId = c.get('userId');
-  const user = c.get('user');
+  const userId = c.get('userId'); // May be undefined for unauthenticated requests
+  const user = c.get('user'); // May be undefined for unauthenticated requests
   const requestId = c.get('requestId');
 
   // Get pack
@@ -729,81 +733,87 @@ packsRouter.get('/:slug/download', requireAuth(), async (c) => {
     throw Errors.NotFound('Pack not found');
   }
 
-  // Check pack is published
+  const tierRequired = pack.tierRequired as SubscriptionTier;
+  const isAuthenticated = !!userId;
+
+  // Check pack is published (draft packs require auth + ownership)
   if (pack.status !== 'published') {
-    // Allow owner to download draft packs
+    if (!isAuthenticated) {
+      throw Errors.NotFound('Pack not found');
+    }
     const isOwner = await isPackOwner(pack.id, userId);
     if (!isOwner) {
       throw Errors.NotFound('Pack not found');
     }
   }
 
-  // T14.3: Check subscription/access for non-free packs
-  const isOwner = await isPackOwner(pack.id, userId);
-  const tierRequired = pack.tierRequired as SubscriptionTier;
-
-  // Check if THJ bypass is enabled for this pack
-  const [packRecord] = await db
-    .select({ thjBypass: packs.thjBypass })
-    .from(packs)
-    .where(eq(packs.id, pack.id))
-    .limit(1);
-
-  const hasThjBypass = packRecord?.thjBypass ?? false;
-
-  // Get user's effective tier
-  const effectiveTier = await getEffectiveTier(userId);
-
-  // Determine if user can access the pack
+  // Access control logic
   let canAccess = false;
   let accessReason = '';
 
-  if (tierRequired === 'free') {
-    // Free packs: allow all authenticated users
+  // Free packs: allow unauthenticated access
+  if (tierRequired === 'free' && pack.status === 'published') {
     canAccess = true;
-    accessReason = 'free_pack';
-  } else if (isOwner) {
-    // Pack owner can always download their own packs
-    canAccess = true;
-    accessReason = 'owner';
-  } else if (hasThjBypass) {
-    // THJ bypass allows all authenticated users
-    canAccess = true;
-    accessReason = 'thj_bypass';
-  } else if (canAccessTier(effectiveTier.tier, tierRequired)) {
-    // User's tier grants access
-    canAccess = true;
-    accessReason = 'tier_access';
-  }
+    accessReason = isAuthenticated ? 'free_pack' : 'free_pack_anonymous';
+  } else if (!isAuthenticated) {
+    // Non-free packs require authentication
+    throw Errors.Unauthorized('Authentication required to download this pack');
+  } else {
+    // Authenticated user accessing non-free pack
+    const isOwner = await isPackOwner(pack.id, userId);
 
-  // If user cannot access, return 402 Payment Required
-  if (!canAccess) {
-    logger.info(
-      { userId, packSlug: slug, tierRequired, userTier: effectiveTier.tier, requestId },
-      'Pack download denied - subscription required'
-    );
+    // Check if THJ bypass is enabled for this pack
+    const [packRecord] = await db
+      .select({ thjBypass: packs.thjBypass })
+      .from(packs)
+      .where(eq(packs.id, pack.id))
+      .limit(1);
 
-    return c.json(
-      {
-        error: {
-          code: 'PACK_SUBSCRIPTION_REQUIRED',
-          message: `This pack requires a ${tierRequired} subscription`,
-          details: {
-            pack_slug: slug,
-            tier_required: tierRequired,
-            user_tier: effectiveTier.tier,
-            pricing: {
-              pro_monthly: '$29/month',
-              pro_annual: '$290/year',
-              team_monthly: '$99/month',
-              team_annual: '$990/year',
+    const hasThjBypass = packRecord?.thjBypass ?? false;
+
+    // Get user's effective tier
+    const effectiveTier = await getEffectiveTier(userId);
+
+    if (isOwner) {
+      canAccess = true;
+      accessReason = 'owner';
+    } else if (hasThjBypass) {
+      canAccess = true;
+      accessReason = 'thj_bypass';
+    } else if (canAccessTier(effectiveTier.tier, tierRequired)) {
+      canAccess = true;
+      accessReason = 'tier_access';
+    }
+
+    // If user cannot access, return 402 Payment Required
+    if (!canAccess) {
+      logger.info(
+        { userId, packSlug: slug, tierRequired, userTier: effectiveTier.tier, requestId },
+        'Pack download denied - subscription required'
+      );
+
+      return c.json(
+        {
+          error: {
+            code: 'PACK_SUBSCRIPTION_REQUIRED',
+            message: `This pack requires a ${tierRequired} subscription`,
+            details: {
+              pack_slug: slug,
+              tier_required: tierRequired,
+              user_tier: effectiveTier.tier,
+              pricing: {
+                pro_monthly: '$29/month',
+                pro_annual: '$290/year',
+                team_monthly: '$99/month',
+                team_annual: '$990/year',
+              },
             },
           },
+          request_id: requestId,
         },
-        request_id: requestId,
-      },
-      402
-    );
+        402
+      );
+    }
   }
 
   // Get version
@@ -864,35 +874,47 @@ packsRouter.get('/:slug/download', requireAuth(), async (c) => {
     }
   }
 
-  // T14.4: Generate pack license
-  const license = await generatePackLicense(
-    userId,
-    user.email,
-    pack.slug,
-    version.version,
-    effectiveTier.tier,
-    effectiveTier.expiresAt
-  );
+  // Generate license (anonymous for unauthenticated, user-specific otherwise)
+  let license;
+  if (isAuthenticated) {
+    const effectiveTier = await getEffectiveTier(userId);
+    license = await generatePackLicense(
+      userId,
+      user.email,
+      pack.slug,
+      version.version,
+      effectiveTier.tier,
+      effectiveTier.expiresAt
+    );
+  } else {
+    // Anonymous license for free packs
+    license = await generateAnonymousPackLicense(
+      pack.slug,
+      version.version,
+      c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown'
+    );
+  }
 
-  // Track installation
+  // Track installation (userId may be null for anonymous)
   await trackPackInstallation(
     pack.id,
     version.id,
-    userId,
+    userId || null,
     null,
     'install',
-    { access_reason: accessReason },
+    { access_reason: accessReason, anonymous: !isAuthenticated },
     c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
     c.req.header('user-agent')
   );
 
-  // Track download attribution for revenue sharing (Sprint 25)
-  // This tracks downloads for premium packs only
-  await trackDownloadAttribution(pack.id, userId, version.id, 'install');
+  // Track download attribution for revenue sharing (only for authenticated users on premium packs)
+  if (isAuthenticated && tierRequired !== 'free') {
+    await trackDownloadAttribution(pack.id, userId, version.id, 'install');
+  }
 
   logger.info(
     {
-      userId,
+      userId: userId || 'anonymous',
       packId: pack.id,
       version: version.version,
       fileCount: fileContents.length,
@@ -979,6 +1001,59 @@ async function generatePackLicense(
   logger.info(
     { userId, packSlug, version, tier, watermark, expiresAt },
     'Pack license generated'
+  );
+
+  return { token, expiresAt, watermark };
+}
+
+/**
+ * Generate an anonymous license token for free pack downloads
+ * Used when users download free packs without authentication
+ * @see issue #54: Free packs require authentication
+ */
+async function generateAnonymousPackLicense(
+  packSlug: string,
+  version: string,
+  ipAddress: string
+): Promise<{ token: string; expiresAt: Date; watermark: string }> {
+  const { SignJWT } = await import('jose');
+
+  // Anonymous licenses are valid for 7 days (shorter than authenticated)
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+  // Generate watermark from IP for basic tracking
+  const watermark = createHash('sha256')
+    .update(`anonymous:${ipAddress}:${Date.now()}`)
+    .digest('hex')
+    .substring(0, 32);
+
+  // Get JWT secret
+  const { env } = await import('../config/env.js');
+  const secret = new TextEncoder().encode(env.JWT_SECRET || 'development-secret-at-least-32-chars');
+
+  // Create JWT payload
+  const payload = {
+    type: 'pack',
+    pack: packSlug,
+    version,
+    user_id: 'anonymous',
+    tier: 'free' as const,
+    watermark,
+    anonymous: true,
+  };
+
+  // Sign token
+  const token = await new SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setIssuer('https://api.constructs.network')
+    .setAudience('loa-constructs-client')
+    .setExpirationTime(expiresAt)
+    .sign(secret);
+
+  logger.info(
+    { packSlug, version, watermark, expiresAt, anonymous: true },
+    'Anonymous pack license generated'
   );
 
   return { token, expiresAt, watermark };

@@ -345,6 +345,7 @@ export async function getPackVersion(
 
 /**
  * Add file to pack version
+ * @param content - Base64 encoded content stored as DB fallback when R2 is unavailable
  */
 export async function addPackFile(
   versionId: string,
@@ -352,7 +353,8 @@ export async function addPackFile(
   contentHash: string,
   storageKey: string,
   sizeBytes: number,
-  mimeType?: string
+  mimeType?: string,
+  content?: string
 ): Promise<PackFile> {
   const [file] = await db
     .insert(packFiles)
@@ -363,6 +365,7 @@ export async function addPackFile(
       storageKey,
       sizeBytes,
       mimeType: mimeType || 'text/plain',
+      content: content || null,
     })
     .returning();
 
