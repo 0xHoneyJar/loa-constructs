@@ -30,6 +30,19 @@ constructsRouter.use('*', skillsRateLimiter());
 
 // --- Schemas ---
 
+/**
+ * Query parameter schema for listing constructs
+ *
+ * Type filter options:
+ * - 'skill': Individual capabilities (single command)
+ * - 'pack': Skill collections with manifests
+ * - 'bundle': Reserved for future use (complete frameworks with settings)
+ *
+ * Note: For mixed queries (no type filter), page is capped at 25 to prevent
+ * performance issues with merge-sort pagination across multiple sources.
+ *
+ * @see GRADUATION.md for construct type hierarchy
+ */
 const listConstructsSchema = z.object({
   q: z.string().optional(),
   type: z.enum(['skill', 'pack', 'bundle']).optional(),
@@ -161,6 +174,7 @@ constructsRouter.get(
 /**
  * GET /v1/constructs/summary
  * Agent-optimized construct listing (minimal tokens)
+ * Returns both packs and skills sorted alphabetically by name.
  * @see prd-constructs-api.md FR-5.1
  */
 constructsRouter.get('/summary', async (c) => {

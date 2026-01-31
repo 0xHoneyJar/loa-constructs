@@ -755,14 +755,14 @@ Rate limit headers are included in all responses:
       get: {
         tags: ['Constructs'],
         summary: 'List constructs',
-        description: 'Browse all constructs (skills + packs) with filtering and pagination',
+        description: 'Browse all constructs (skills + packs) with filtering and pagination. For mixed queries (no type filter), page is capped at 25.',
         operationId: 'listConstructs',
         parameters: [
           { $ref: '#/components/parameters/SearchQuery' },
           {
             name: 'type',
             in: 'query',
-            description: 'Filter by construct type',
+            description: 'Filter by construct type. Note: "bundle" is reserved for future use and currently returns empty results.',
             schema: { type: 'string', enum: ['skill', 'pack', 'bundle'] },
           },
           { $ref: '#/components/parameters/Tier' },
@@ -776,7 +776,7 @@ Rate limit headers are included in all responses:
           {
             name: 'page',
             in: 'query',
-            description: 'Page number (1-indexed)',
+            description: 'Page number (1-indexed). Capped at 25 for mixed queries (no type filter).',
             schema: { type: 'integer', minimum: 1, default: 1 },
           },
           {
@@ -802,7 +802,7 @@ Rate limit headers are included in all responses:
       get: {
         tags: ['Constructs'],
         summary: 'Get constructs summary',
-        description: 'Agent-optimized minimal response with construct slugs and commands',
+        description: 'Agent-optimized minimal response with construct slugs and commands. Returns both packs and skills sorted alphabetically.',
         operationId: 'getConstructsSummary',
         responses: {
           '200': {

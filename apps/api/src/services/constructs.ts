@@ -96,6 +96,12 @@ const MAX_PAGE_SIZE = 100;
  * @see sdd.md §7.4 Memory Cap Fix
  */
 const MAX_MIXED_FETCH = 500;
+/**
+ * Maximum page for mixed queries to prevent performance degradation
+ * At page 25 with 20 items per page, we fetch 500 items per source
+ * which matches MAX_MIXED_FETCH and provides reasonable pagination depth
+ */
+const MAX_MIXED_PAGE = 25;
 
 // --- Helper Functions ---
 
@@ -384,12 +390,20 @@ export async function listConstructs(
 ): Promise<ListConstructsResult> {
   const { query, type, tier, category, featured, maturity, page = 1, limit = DEFAULT_PAGE_SIZE } = options;
   const pageSize = Math.min(Math.max(1, limit), MAX_PAGE_SIZE);
-  const offset = (Math.max(1, page) - 1) * pageSize;
+
+  // Note: 'bundle' type is reserved for future use (e.g., complete framework distributions)
+  // Currently returns empty results as there is no bundles table
+  // @see GRADUATION.md for construct type hierarchy
+
+  // Cap page for mixed queries to prevent performance issues
+  const isMixedQuery = !type;
+  const cappedPage = isMixedQuery ? Math.min(Math.max(1, page), MAX_MIXED_PAGE) : Math.max(1, page);
+  const offset = (cappedPage - 1) * pageSize;
 
   // Check cache for non-search queries
   const maturityKey = maturity ? maturity.sort().join(',') : '';
   const cacheKey = !query
-    ? CACHE_KEYS.constructList(`${type}:${tier}:${category}:${featured}:${maturityKey}:${page}:${pageSize}`)
+    ? CACHE_KEYS.constructList(`${type}:${tier}:${category}:${featured}:${maturityKey}:${cappedPage}:${pageSize}`)
     : null;
 
   if (cacheKey && isRedisConfigured()) {
@@ -406,12 +420,11 @@ export async function listConstructs(
   // When type is specified, we can use direct pagination on that table
   // When type is NOT specified (mixed query), we must fetch enough from both
   // sources to correctly paginate the merged, sorted result
-  const isMixedQuery = !type;
 
   // For mixed queries: fetch (page * pageSize) items from each source to ensure
   // correct global pagination after merge-sort. For filtered queries: use offset.
   // Apply MAX_MIXED_FETCH cap to prevent memory issues with large registries.
-  const fetchLimit = isMixedQuery ? Math.min(page * pageSize, MAX_MIXED_FETCH) : pageSize;
+  const fetchLimit = isMixedQuery ? Math.min(cappedPage * pageSize, MAX_MIXED_FETCH) : pageSize;
   const fetchOffset = isMixedQuery ? 0 : offset;
 
   // Fetch skills (if type not specified or type === 'skill')
@@ -460,7 +473,7 @@ export async function listConstructs(
   const result: ListConstructsResult = {
     constructs: allConstructs,
     total,
-    page,
+    page: cappedPage,
     limit: pageSize,
     totalPages: Math.ceil(total / pageSize),
   };
@@ -526,6 +539,7 @@ export async function getConstructBySlug(slug: string): Promise<Construct | null
 
 /**
  * Get summary (agent-optimized, minimal tokens)
+ * Returns both packs and skills for complete construct discovery.
  * @see prd-constructs-api.md FR-5.1: GET /v1/constructs/summary
  */
 export async function getConstructsSummary(): Promise<{
@@ -549,22 +563,32 @@ export async function getConstructsSummary(): Promise<{
     }
   }
 
-  // Fetch all published packs with manifests
-  const packsData = await db
-    .select({
-      slug: packs.slug,
-      name: packs.name,
-      tierRequired: packs.tierRequired,
-      manifest: packVersions.manifest,
-    })
-    .from(packs)
-    .leftJoin(
-      packVersions,
-      and(eq(packVersions.packId, packs.id), eq(packVersions.isLatest, true))
-    )
-    .where(eq(packs.status, 'published'));
+  // Fetch all published packs and public skills in parallel
+  const [packsData, skillsData] = await Promise.all([
+    db
+      .select({
+        slug: packs.slug,
+        name: packs.name,
+        tierRequired: packs.tierRequired,
+        manifest: packVersions.manifest,
+      })
+      .from(packs)
+      .leftJoin(
+        packVersions,
+        and(eq(packVersions.packId, packs.id), eq(packVersions.isLatest, true))
+      )
+      .where(eq(packs.status, 'published')),
+    db
+      .select({
+        slug: skills.slug,
+        name: skills.name,
+        tierRequired: skills.tierRequired,
+      })
+      .from(skills)
+      .where(and(eq(skills.isPublic, true), eq(skills.isDeprecated, false))),
+  ]);
 
-  const constructs: ConstructSummary[] = packsData.map((p) => {
+  const packConstructs: ConstructSummary[] = packsData.map((p) => {
     const manifest = p.manifest as ConstructManifest | null;
     return {
       slug: p.slug,
@@ -574,6 +598,19 @@ export async function getConstructsSummary(): Promise<{
       tier_required: p.tierRequired || 'free',
     };
   });
+
+  const skillConstructs: ConstructSummary[] = skillsData.map((s) => ({
+    slug: s.slug,
+    name: s.name,
+    type: 'skill' as ConstructType,
+    commands: [`/${s.slug}`], // Skills have a single command matching their slug
+    tier_required: s.tierRequired || 'free',
+  }));
+
+  // Combine and sort by name for consistent ordering
+  const constructs = [...packConstructs, ...skillConstructs].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
 
   const result = {
     constructs,
