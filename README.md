@@ -14,8 +14,8 @@ Claude Code skill packs for **hypothesis-driven product development**. Three pac
 git clone https://github.com/0xHoneyJar/forge /tmp/forge
 
 # Install a pack (from your project root)
-cp -r /tmp/forge/lens .claude/constructs/packs/lens
-.claude/constructs/packs/lens/scripts/install.sh .
+cp -r /tmp/forge/observer .claude/constructs/packs/observer
+.claude/constructs/packs/observer/scripts/install.sh .
 
 # Start using skills
 /observe
@@ -25,7 +25,7 @@ cp -r /tmp/forge/lens .claude/constructs/packs/lens
 
 | Pack | Emoji | Skills | Purpose |
 |------|-------|--------|---------|
-| **[Lens](#-sigil-of-insight-lens)** | 🔮 | 6 | User truth capture |
+| **[Observer](#-sigil-of-the-observer-observer)** | 🔮 | 6 | User truth capture |
 | **[Crucible](#-sigil-of-the-crucible-crucible)** | ⚗️ | 5 | Validation & testing |
 | **[Artisan](#-sigil-of-the-artisan-artisan)** | 🎨 | 10 | Brand/UI craftsmanship |
 
@@ -33,7 +33,7 @@ cp -r /tmp/forge/lens .claude/constructs/packs/lens
 
 ---
 
-## 🔮 Sigil of Insight (Lens)
+## 🔮 Sigil of the Observer (Observer)
 
 *Capture user truth through hypothesis-first research*
 
@@ -52,7 +52,7 @@ cp -r /tmp/forge/lens .claude/constructs/packs/lens
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    LENS WORKFLOW                                │
+│                    OBSERVER WORKFLOW                            │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  1. /observe    →  User Truth Canvas (UTC)                      │
@@ -73,15 +73,15 @@ cp -r /tmp/forge/lens .claude/constructs/packs/lens
 ### Grimoire Structure
 
 ```
-grimoires/lens/
+grimoires/observer/
 ├── canvas/     # User Truth Canvases (UTCs)
 ├── journeys/   # User journey definitions
-└── state.yaml  # Lens state tracking
+└── state.yaml  # Observer state tracking
 ```
 
 ### Context Composition
 
-Lens includes cultural context for crypto/DeFi research:
+Observer includes cultural context for crypto/DeFi research:
 
 | Context | File | Purpose |
 |---------|------|---------|
@@ -91,7 +91,7 @@ Lens includes cultural context for crypto/DeFi research:
 
 ```bash
 # Compose contexts for your project
-.claude/constructs/packs/lens/scripts/compose-context.sh .
+.claude/constructs/packs/observer/scripts/compose-context.sh .
 ```
 
 ---
@@ -130,7 +130,7 @@ Lens includes cultural context for crypto/DeFi research:
 │     ↓               Interactive browser testing                 │
 │                                                                 │
 │  5. /iterate    →  Updated Artifacts                            │
-│                     Feed results back to Lens                   │
+│                     Feed results back to Observer               │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -229,8 +229,8 @@ The three packs form a continuous feedback loop:
 │                     FORGE: COMPLETE WORKFLOW                             │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│    🔮 LENS                    ⚗️ CRUCIBLE                 🎨 ARTISAN     │
-│    ───────                    ──────────                 ───────        │
+│    🔮 OBSERVER                  ⚗️ CRUCIBLE                 🎨 ARTISAN   │
+│    ──────────                   ──────────                 ───────      │
 │                                                                          │
 │    User Feedback              Code Reality               Design System   │
 │         │                          │                          │          │
@@ -271,11 +271,11 @@ The three packs form a continuous feedback loop:
 git clone https://github.com/0xHoneyJar/forge /tmp/forge
 
 # Install desired pack
-cp -r /tmp/forge/lens .claude/constructs/packs/lens
-.claude/constructs/packs/lens/scripts/install.sh .
+cp -r /tmp/forge/observer .claude/constructs/packs/observer
+.claude/constructs/packs/observer/scripts/install.sh .
 
 # Install all packs
-for pack in lens crucible artisan; do
+for pack in observer crucible artisan; do
   cp -r /tmp/forge/$pack .claude/constructs/packs/$pack
   .claude/constructs/packs/$pack/scripts/install.sh .
 done
@@ -285,7 +285,7 @@ done
 
 ```bash
 # Install from registry
-.claude/scripts/constructs-install.sh pack lens
+.claude/scripts/constructs-install.sh pack observer
 .claude/scripts/constructs-install.sh pack crucible
 .claude/scripts/constructs-install.sh pack artisan
 ```
@@ -304,9 +304,9 @@ done
 
 | Pack | Slug | Registry Name | Status |
 |------|------|---------------|--------|
-| Lens | `lens` | Sigil of Insight | 🟡 Pending Review |
-| Crucible | `crucible` | Sigil of the Crucible | 🟡 Pending Review |
-| Artisan | `artisan` | Sigil of the Artisan | 📝 Draft |
+| Observer | `observer` | Sigil of the Observer | ✅ Published |
+| Crucible | `crucible` | Sigil of the Crucible | ✅ Published |
+| Artisan | `artisan` | Sigil of the Artisan | ✅ Published |
 
 ---
 
@@ -314,7 +314,7 @@ done
 
 - **[CHANGELOG.md](CHANGELOG.md)** - Version history
 - **[VERIFICATION.md](VERIFICATION.md)** - Installation verification checklist
-- **[lens/README.md](lens/README.md)** - Lens pack details
+- **[observer/README.md](observer/README.md)** - Observer pack details
 - **[crucible/README.md](crucible/README.md)** - Crucible pack details
 - **[artisan/README.md](artisan/README.md)** - Artisan pack details
 

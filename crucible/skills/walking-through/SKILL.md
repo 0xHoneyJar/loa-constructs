@@ -45,7 +45,7 @@ Interactive walkthrough skill using agent-browser for manual testing of user jou
 
 Read journey file:
 ```bash
-grimoires/lens/journeys/{journey-id}.md
+grimoires/observer/journeys/{journey-id}.md
 ```
 
 Parse:

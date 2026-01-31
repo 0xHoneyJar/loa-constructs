@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# install.sh - Install Lens pack for a project
+# install.sh - Install Observer pack for a project
 #
 # Usage:
 #   ./install.sh [PROJECT_ROOT]
@@ -14,12 +14,12 @@ PACK_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="${1:-.}"
 
 echo "╭───────────────────────────────────────────────────────╮"
-echo "│  LENS PACK INSTALLER                                  │"
+echo "│  OBSERVER PACK INSTALLER                              │"
 echo "╰───────────────────────────────────────────────────────╯"
 echo ""
 
 # Create grimoire structure
-GRIMOIRE_DIR="$PROJECT_ROOT/grimoires/lens"
+GRIMOIRE_DIR="$PROJECT_ROOT/grimoires/observer"
 mkdir -p "$GRIMOIRE_DIR/canvas"
 mkdir -p "$GRIMOIRE_DIR/journeys"
 
@@ -29,7 +29,7 @@ echo "✓ Created grimoire structure at $GRIMOIRE_DIR"
 STATE_FILE="$GRIMOIRE_DIR/state.yaml"
 if [ ! -f "$STATE_FILE" ]; then
     cat > "$STATE_FILE" << 'YAML'
-# Lens State
+# Observer State
 # Tracks canvas and journey status
 
 version: 1

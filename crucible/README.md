@@ -174,14 +174,14 @@ When `/iterate` updates artifacts:
 
 ---
 
-## Integration with Lens
+## Integration with Observer
 
-Crucible consumes Lens outputs:
+Crucible consumes Observer outputs:
 
-| Lens Output | Crucible Input |
+| Observer Output | Crucible Input |
 |-------------|----------------|
 | Journey Definition | `/diagram` source |
-| Gap Report | `/file-gap` (Lens) |
+| Gap Report | `/file-gap` (Observer) |
 | UTC | Context for `/ground` |
 
 ---

@@ -43,7 +43,7 @@ Compare user expectations captured in UTCs and journeys with actual code behavio
 
 ### Phase 1: Load Journey Context
 
-1. Read journey file from `grimoires/lens/journeys/{journey-id}.md`
+1. Read journey file from `grimoires/observer/journeys/{journey-id}.md`
 2. Extract:
    - Journey steps (trigger, action, expected, potential errors)
    - Source canvases list
@@ -54,7 +54,7 @@ Compare user expectations captured in UTCs and journeys with actual code behavio
 
 For each canvas in `source_canvases`:
 
-1. Read canvas from `grimoires/lens/canvas/{username}.md`
+1. Read canvas from `grimoires/observer/canvas/{username}.md`
 2. Extract:
    - Qualitative evidence (quotes)
    - JTBD (primary and secondary)
@@ -71,7 +71,7 @@ Aggregate user expectations:
 1. Find reality file:
    - Use `--reality {component}` if provided
    - Otherwise check journey's `reality_file` metadata
-   - Otherwise search `grimoires/lens/reality/` for matches
+   - Otherwise search `grimoires/observer/reality/` for matches
 
 2. Read reality file and extract:
    - States and their triggers

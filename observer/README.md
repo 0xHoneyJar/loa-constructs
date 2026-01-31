@@ -1,4 +1,4 @@
-# 🔮 Sigil of Insight (Lens Pack)
+# 🔮 Sigil of the Observer (Observer Pack)
 
 > *"Form hypotheses, not conclusions. Every quote is evidence, not answer."*
 
@@ -69,8 +69,8 @@ Gap Report → Tracked Issue
 
 ```bash
 # From your project root
-cp -r /path/to/forge/lens .claude/constructs/packs/lens
-.claude/constructs/packs/lens/scripts/install.sh .
+cp -r /path/to/forge/observer .claude/constructs/packs/observer
+.claude/constructs/packs/observer/scripts/install.sh .
 ```
 
 ---
@@ -80,19 +80,19 @@ cp -r /path/to/forge/lens .claude/constructs/packs/lens
 After installation:
 
 ```
-grimoires/lens/
+grimoires/observer/
 ├── canvas/       # User Truth Canvases (UTCs)
 │   └── {user-id}-{timestamp}.md
 ├── journeys/     # Journey Definitions
 │   └── {jtbd-slug}.md
-└── state.yaml    # Lens state tracking
+└── state.yaml    # Observer state tracking
 ```
 
 ---
 
 ## Context Composition
 
-Lens includes a cultural context system for crypto/DeFi user research:
+Observer includes a cultural context system for crypto/DeFi user research:
 
 | Context | File | Purpose |
 |---------|------|---------|
@@ -104,7 +104,7 @@ Lens includes a cultural context system for crypto/DeFi user research:
 
 ```bash
 # Generate composed context for your project
-.claude/constructs/packs/lens/scripts/compose-context.sh .
+.claude/constructs/packs/observer/scripts/compose-context.sh .
 ```
 
 Output: `contexts/composed/full-context.md`

@@ -76,7 +76,7 @@ Extract from command:
 
 Check if canvas exists:
 ```bash
-grimoires/lens/canvas/{username}-canvas.md
+grimoires/observer/canvas/{username}-canvas.md
 ```
 
 **If exists**: Read current canvas, prepare to append
@@ -237,7 +237,7 @@ If found, add to `linked_observations` in frontmatter.
 
 ### Step 7: Update Laboratory State
 
-Update `grimoires/lens/state.yaml`:
+Update `grimoires/observer/state.yaml`:
 ```yaml
 active:
   phase: discovery
@@ -261,7 +261,7 @@ queue:
 Display summary to user:
 
 ```
-✓ Canvas updated: grimoires/lens/canvas/{username}-canvas.md
+✓ Canvas updated: grimoires/observer/canvas/{username}-canvas.md
 
 Level 3 Hypothesis Extracted:
   "{summarized hypothesis}"

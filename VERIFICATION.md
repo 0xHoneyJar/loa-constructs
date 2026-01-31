@@ -2,7 +2,7 @@
 
 ## Pack Discovery
 
-- [x] Lens: discovered (6 skills)
+- [x] Observer: discovered (6 skills)
 - [x] Crucible: discovered (5 skills)
 - [x] Artisan: discovered (10 skills)
 
@@ -10,7 +10,7 @@
 
 | Pack | Expected | Actual | Status |
 |------|----------|--------|--------|
-| Lens | 6 | 6 | ✓ |
+| Observer | 6 | 6 | ✓ |
 | Crucible | 5 | 5 | ✓ |
 | Artisan | 10 | 10 | ✓ |
 | **Total** | **21** | **21** | ✓ |
@@ -19,14 +19,14 @@
 
 | Pack | install.sh | Grimoire Created | Status |
 |------|------------|------------------|--------|
-| Lens | ✓ | grimoires/lens/ | ✓ |
+| Observer | ✓ | grimoires/observer/ | ✓ |
 | Crucible | ✓ | grimoires/crucible/ | ✓ |
 | Artisan | ✓ | grimoires/artisan/ | ✓ |
 
-## Lens Grimoire Structure
+## Observer Grimoire Structure
 
 ```
-grimoires/lens/
+grimoires/observer/
 ├── canvas/     # User Truth Canvases
 ├── journeys/   # Journey definitions
 └── state.yaml  # Pack state
@@ -62,14 +62,14 @@ grimoires/artisan/
 
 ## Manifests
 
-- [x] lens/manifest.json valid
+- [x] observer/manifest.json valid
 - [x] crucible/manifest.json valid
 - [x] artisan/manifest.json valid
 
 ## Cross-References
 
 - [x] No grimoires/laboratory references remain
-- [x] Lens skills point to grimoires/lens/
+- [x] Observer skills point to grimoires/observer/
 - [x] Crucible skills point to grimoires/crucible/
 
 ## Tested On

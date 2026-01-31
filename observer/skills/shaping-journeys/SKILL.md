@@ -28,7 +28,7 @@ When invoked without arguments, display canvas summary.
 ### Step 1: Read All Canvases
 
 ```bash
-grimoires/lens/canvas/*.md
+grimoires/observer/canvas/*.md
 ```
 
 ### Step 2: Parse Canvas Frontmatter
@@ -73,7 +73,7 @@ Extract patterns from canvases to create journey definitions.
 
 ### Step 1: Load All Canvases
 
-Read all `grimoires/lens/canvas/*.md` files.
+Read all `grimoires/observer/canvas/*.md` files.
 Parse YAML frontmatter and markdown sections.
 
 ### Step 2: Extract Level 3 Goals
@@ -179,7 +179,7 @@ linked_journeys:
 
 ### Step 6: Update Laboratory State
 
-Update `grimoires/lens/state.yaml`:
+Update `grimoires/observer/state.yaml`:
 ```yaml
 active:
   phase: synthesis
@@ -254,7 +254,7 @@ Output:
 Actions:
   - Generate diagram: /diagram deposit-flow
   - Generate test: /validate deposit-flow
-  - Edit journey: Read grimoires/lens/journeys/deposit-flow.md
+  - Edit journey: Read grimoires/observer/journeys/deposit-flow.md
 ```
 
 ---

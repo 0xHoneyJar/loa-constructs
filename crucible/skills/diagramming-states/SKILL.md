@@ -36,7 +36,7 @@ Generate Mermaid stateDiagram-v2 diagrams from journey definitions with state-to
 
 Read journey file:
 ```bash
-grimoires/lens/journeys/{journey-id}.md
+grimoires/observer/journeys/{journey-id}.md
 ```
 
 Parse:
@@ -128,7 +128,7 @@ Create/update `grimoires/crucible/diagrams/{journey-id}-diagram.md`:
 type: state-diagram
 journey: {journey-id}
 version: 1
-source_journey: grimoires/lens/journeys/{journey-id}.md
+source_journey: grimoires/observer/journeys/{journey-id}.md
 linked_test: null
 created: {timestamp}
 last_validated: null
@@ -194,7 +194,7 @@ These states require manual wallet interaction:
 
 ## Source Journey
 
-- **Journey**: grimoires/lens/journeys/{journey-id}.md
+- **Journey**: grimoires/observer/journeys/{journey-id}.md
 - **Canvases**: {source_canvases}
 - **User Types**: {user_types}
 
@@ -466,7 +466,7 @@ Create `grimoires/crucible/diagrams/{journey-id}-dual.md`:
 type: dual-diagram
 journey: {journey-id}
 version: 1
-source_journey: grimoires/lens/journeys/{journey-id}.md
+source_journey: grimoires/observer/journeys/{journey-id}.md
 source_reality: grimoires/crucible/reality/{component}-reality.md
 gap_report: grimoires/crucible/gaps/{journey-id}-gaps.md
 created: {timestamp}

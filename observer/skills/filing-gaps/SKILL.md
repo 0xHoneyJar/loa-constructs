@@ -218,8 +218,8 @@ For each linked canvas:
 ## Laboratory Artifacts
 
 - **Gap Report**: `grimoires/crucible/gaps/{journey-id}-gaps.md`
-- **Journey**: `grimoires/lens/journeys/{journey-id}.md`
-- **Reality**: `grimoires/lens/reality/{component}-reality.md`
+- **Journey**: `grimoires/observer/journeys/{journey-id}.md`
+- **Reality**: `grimoires/observer/reality/{component}-reality.md`
 - **Canvas(es)**: {list of source canvases}
 ```
 

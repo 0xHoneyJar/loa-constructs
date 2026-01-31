@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Lens Pack** (6 skills)
+- **Observer Pack** (6 skills)
   - `observing-users` - Capture user feedback as hypothesis-first research
   - `shaping-journeys` - Shape common patterns into journey definitions
   - `level-3-diagnostic` - Diagnostic-first user research framework
@@ -42,6 +42,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `compose-context.sh` for merging contexts
 
 - **Installation Scripts**
-  - `lens/scripts/install.sh`
+  - `observer/scripts/install.sh`
   - `crucible/scripts/install.sh`
   - `artisan/scripts/install.sh`

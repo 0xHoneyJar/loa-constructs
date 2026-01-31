@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "name": "Lens",
-  "slug": "lens",
+  "name": "Observer",
+  "slug": "observer",
   "version": "1.0.0",
   "description": "User truth capture skills for hypothesis-first research",
   "author": "0xHoneyJar",

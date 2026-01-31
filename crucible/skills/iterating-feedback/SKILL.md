@@ -45,7 +45,7 @@ Read:
 ### Step 2: Load Journey Context
 
 Read related files:
-- `grimoires/lens/journeys/{journey-id}.md`
+- `grimoires/observer/journeys/{journey-id}.md`
 - `grimoires/crucible/diagrams/{journey-id}-diagram.md`
 - `grimoires/crucible/tests/{journey-id}.spec.ts`
 - Source canvases from journey frontmatter
@@ -144,7 +144,7 @@ await expect(page.locator('[data-testid="deposit-complete-message"]')).toBeVisib
 
 ### 3. Add Known Gap to Journey
 
-**File**: grimoires/lens/journeys/deposit-flow.md
+**File**: grimoires/observer/journeys/deposit-flow.md
 
 **Add to Known Gaps table**:
 | Gap | Type | Source Canvas | Resolution |
@@ -348,7 +348,7 @@ Mark resolutions as complete:
 Files Modified:
   - grimoires/crucible/diagrams/deposit-flow-diagram.md
   - grimoires/crucible/tests/deposit-flow.spec.ts
-  - grimoires/lens/journeys/deposit-flow.md
+  - grimoires/observer/journeys/deposit-flow.md
 
 Refinement logged at: grimoires/crucible/refinements/deposit-flow-refinements.md
 
