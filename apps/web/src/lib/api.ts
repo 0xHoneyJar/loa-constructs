@@ -213,6 +213,7 @@ export interface ConstructDetail extends Omit<Construct, 'manifest'> {
     avatar_url: string | null;
   } | null;
   repository_url: string | null;
+  homepage_url: string | null;
   documentation_url: string | null;
   latest_version: {
     version: string;

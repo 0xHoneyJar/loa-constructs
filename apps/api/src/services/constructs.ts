@@ -42,6 +42,7 @@ export interface Construct {
   manifest: ConstructManifest | null;
   owner: { name: string; type: 'user' | 'team'; avatarUrl: string | null } | null;
   repositoryUrl: string | null;
+  homepageUrl: string | null;
   documentationUrl: string | null;
   latestVersion: { version: string; changelog: string | null; publishedAt: Date | null } | null;
   createdAt: Date;
@@ -120,6 +121,7 @@ function skillToConstruct(
     manifest: syntheticManifest,
     owner,
     repositoryUrl: skill.repositoryUrl,
+    homepageUrl: null, // Skills don't have homepage_url
     documentationUrl: skill.documentationUrl,
     latestVersion: version
       ? {
@@ -159,6 +161,7 @@ function packToConstruct(
     manifest,
     owner,
     repositoryUrl: pack.repositoryUrl,
+    homepageUrl: pack.homepageUrl,
     documentationUrl: pack.documentationUrl,
     latestVersion: version
       ? {

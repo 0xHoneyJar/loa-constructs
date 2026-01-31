@@ -74,6 +74,7 @@ function formatConstructDetail(c: Construct) {
         }
       : null,
     repository_url: c.repositoryUrl,
+    homepage_url: c.homepageUrl,
     documentation_url: c.documentationUrl,
     latest_version: c.latestVersion
       ? {
