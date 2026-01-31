@@ -16,6 +16,7 @@ import { creatorRouter } from './routes/creator.js';
 import { auditRouter } from './routes/audit.js';
 import { docsRouter } from './routes/docs.js';
 import { packsRouter } from './routes/packs.js';
+import { constructsRouter } from './routes/constructs.js';
 import { adminRouter } from './routes/admin.js';
 import { apiRateLimiter } from './middleware/rate-limiter.js';
 import { env } from './config/env.js';
@@ -118,6 +119,9 @@ v1.route('/audit', auditRouter);
 
 // Pack routes
 v1.route('/packs', packsRouter);
+
+// Constructs routes (unified discovery)
+v1.route('/constructs', constructsRouter);
 
 // Admin routes (requires admin role)
 v1.route('/admin', adminRouter);

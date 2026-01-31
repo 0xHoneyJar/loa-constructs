@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://constructs.network/schemas/construct-manifest.json",
+  "title": "Construct Manifest",
+  "description": "Schema for construct.yaml manifest files",
+  "type": "object",
+  "required": ["name", "version", "type"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$",
+      "description": "Unique identifier (slug format)"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version (e.g., 1.0.0)"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["skill", "pack", "bundle"],
+      "description": "Construct type"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "Short description"
+    },
+    "author": {
+      "type": "string",
+      "maxLength": 100,
+      "description": "Author name or organization"
+    },
+    "license": {
+      "type": "string",
+      "enum": ["MIT", "Apache-2.0", "proprietary", "UNLICENSED"],
+      "description": "License type"
+    },
+    "skills": {
+      "type": "array",
+      "description": "Skills included in this construct",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Skill slug"
+          },
+          "version": {
+            "type": "string",
+            "description": "Version constraint (e.g., >=1.0.0)"
+          },
+          "required": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether skill is required"
+          }
+        }
+      }
+    },
+    "commands": {
+      "type": "array",
+      "description": "Entry point commands",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^/",
+            "description": "Command name (must start with /)"
+          },
+          "skill": {
+            "type": "string",
+            "description": "Associated skill"
+          },
+          "description": {
+            "type": "string",
+            "description": "Command description"
+          }
+        }
+      }
+    },
+    "dependencies": {
+      "type": "object",
+      "description": "External dependencies",
+      "properties": {
+        "skills": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Required skill slugs"
+        },
+        "tools": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Required CLI tools"
+        }
+      }
+    },
+    "cultural_contexts": {
+      "type": "object",
+      "description": "Cultural context requirements",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Required cultural contexts"
+        },
+        "optional": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Optional cultural contexts"
+        }
+      }
+    },
+    "directories": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Directory scaffolding paths"
+    },
+    "hooks": {
+      "type": "object",
+      "description": "Installation hooks",
+      "properties": {
+        "post_install": {
+          "type": "string",
+          "description": "Command to run after installation"
+        },
+        "post_update": {
+          "type": "string",
+          "description": "Command to run after update"
+        }
+      }
+    },
+    "unix": {
+      "type": "object",
+      "description": "Unix philosophy metadata",
+      "properties": {
+        "inputs": {
+          "type": "array",
+          "description": "Input types this construct accepts"
+        },
+        "outputs": {
+          "type": "array",
+          "description": "Output types this construct produces"
+        },
+        "composes_with": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Constructs this composes well with"
+        }
+      }
+    },
+    "tier_required": {
+      "type": "string",
+      "enum": ["free", "pro", "team", "enterprise"],
+      "description": "Minimum subscription tier required"
+    }
+  }
+}

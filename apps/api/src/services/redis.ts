@@ -53,6 +53,12 @@ export const CACHE_KEYS = {
 
   // Session tokens (for invalidation)
   session: (tokenHash: string) => `session:${tokenHash}`,
+
+  // Constructs (unified view)
+  constructList: (params: string) => `constructs:list:${params}`,
+  constructDetail: (slug: string) => `constructs:detail:${slug}`,
+  constructSummary: () => 'constructs:summary',
+  constructExists: (slug: string) => `constructs:exists:${slug}`,
 } as const;
 
 /**
@@ -62,4 +68,8 @@ export const CACHE_TTL = {
   userTier: 300, // 5 minutes
   skillList: 60, // 1 minute
   skill: 300, // 5 minutes
+  constructList: 60, // 1 minute
+  constructDetail: 60, // 1 minute
+  constructSummary: 60, // 1 minute
+  constructExists: 300, // 5 minutes
 } as const;
