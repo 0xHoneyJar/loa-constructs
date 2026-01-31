@@ -913,7 +913,7 @@ Rate limit headers are included in all responses:
       SearchQuery: {
         name: 'q',
         in: 'query',
-        description: 'Search query',
+        description: 'Search query. Matches across name, description, search_keywords, and search_use_cases. Results include relevance_score and match_reasons when query is present.',
         schema: { type: 'string' },
       },
       Category: {
@@ -1374,6 +1374,29 @@ Rate limit headers are included in all responses:
           manifest: { $ref: '#/components/schemas/ConstructManifestSummary' },
           created_at: { type: 'string', format: 'date-time' },
           updated_at: { type: 'string', format: 'date-time' },
+          // Search metadata (cycle-007)
+          search_keywords: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Keywords for search matching',
+          },
+          search_use_cases: {
+            type: 'array',
+            items: { type: 'string' },
+            description: 'Use case descriptions for search matching',
+          },
+          // Relevance fields (only present when ?q= parameter is provided)
+          relevance_score: {
+            type: 'number',
+            nullable: true,
+            description: 'Relevance score (0-2.0). Only present when ?q= parameter is provided. Higher scores indicate better matches.',
+          },
+          match_reasons: {
+            type: 'array',
+            items: { type: 'string', enum: ['name', 'keywords', 'use_cases', 'description'] },
+            nullable: true,
+            description: 'Fields that matched the query. Only present when ?q= parameter is provided.',
+          },
         },
       },
       ConstructDetail: {

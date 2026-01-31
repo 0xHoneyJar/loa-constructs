@@ -1,9 +1,13 @@
-# Sprint Plan: Loa Constructs
+# Sprint Plan: Intelligent Construct Discovery
 
-**Version**: 2.0.0
-**Date**: 2026-01-02
+**Version**: 1.0.0
+**Date**: 2026-01-31
 **Author**: Sprint Planner Agent
 **Status**: Ready for Implementation
+**Cycle**: cycle-007
+**Issue**: [#51](https://github.com/0xHoneyJar/loa-constructs/issues/51)
+**PRD Reference**: grimoires/loa/prd.md v1.0.0
+**SDD Reference**: grimoires/loa/sdd.md v1.0.0
 
 ---
 
@@ -11,2961 +15,490 @@
 
 ### Project Summary
 
-Transform the Loa Constructs web application from a standard GUI dashboard to a TUI-style (Terminal User Interface) design that emulates the visual appearance of a terminal. The design reference is `loa-grimoire/context/loa-constructs.html` which implements this aesthetic using pure HTML/CSS with minimal JavaScript.
+Enhance construct discovery in the Loa Constructs registry through multi-field search with relevance scoring and a proactive `finding-constructs` agent skill. Users will be able to discover relevant constructs more effectively through improved search quality and contextual suggestions.
 
-### Design Goals
+### Business Value
 
-1. **TUI Aesthetic**: Emulate a terminal environment, not a graphical UI
-2. **Minimal Dependencies**: Reduce reliance on UI frameworks - use vanilla CSS where possible
-3. **Keyboard Navigation**: Full keyboard control with vim-style keybindings
-4. **IBM Plex Mono**: Monospace typography throughout
-5. **Transparent Panels**: Semi-transparent boxes with visible background
-6. **JWST Background**: Space imagery with low opacity
-7. **Scanlines Effect**: CRT-style overlay for authenticity
+| Metric | Impact |
+|--------|--------|
+| **Discovery Quality** | Top-3 results contain relevant match 80%+ of time |
+| **User Experience** | Find constructs without exact keyword matching |
+| **Agent Integration** | Proactive suggestions at the right moment |
+| **Adoption** | Lower friction to discover and install constructs |
 
 ### Sprint Configuration
 
 | Parameter | Value |
 |-----------|-------|
-| **Sprint Count** | 3 (Sprints 18-20) |
-| **Estimated Duration** | 3-4 days |
-| **Total Effort** | ~24-32 hours |
+| **Sprint Count** | 3 (Sprints 19-21) |
+| **Total Effort** | ~12-16 hours |
 | **Team Size** | 1 engineer |
-| **Risk Level** | Medium |
+| **Risk Level** | Low |
 
 ### Success Criteria
 
-- [ ] All pages use TUI styling consistent with the HTML prototype
-- [ ] Keyboard navigation works throughout the app (arrows, numbers, vim keys)
-- [ ] IBM Plex Mono font loaded and applied globally
-- [ ] JWST background visible behind transparent panels
-- [ ] Scanlines effect renders correctly
-- [ ] Mobile responsive (sidebar collapses, simplified layout)
-- [ ] No increase in Lighthouse performance score degradation
-- [ ] All existing functionality preserved (auth, skills, packs, billing)
+- [ ] `search_keywords` and `search_use_cases` columns added to skills/packs
+- [ ] GIN indexes created for array search performance
+- [ ] Multi-field search matches across name, description, keywords, use_cases
+- [ ] Relevance scoring algorithm implemented
+- [ ] `relevance_score` and `match_reasons` returned when `?q=` present
+- [ ] Results sorted by relevance when searching
+- [ ] finding-constructs skill triggers on intent patterns
+- [ ] Skill presents top 3 results with install commands
+- [ ] OpenAPI documentation updated
+- [ ] All existing functionality preserved (backward compatible)
 
 ---
 
-## Sprint 18: TUI Foundation & Global Styles
+## Sprint 19: Database & Schema
 
-**Goal**: Establish the core TUI design system, global styles, and font configuration. Create reusable TUI components.
+**Goal**: Add search metadata columns and indexes to enable multi-field search
 
-**Duration**: 1 day
+**Duration**: 1 sprint (~3-4 hours)
 
 ### Tasks
 
----
+#### T19.1: Add search_keywords column to skills table
 
-#### T18.1: Replace Font System with IBM Plex Mono
-
-**Description**: Remove Inter font, add IBM Plex Mono from Google Fonts, and configure as the primary font family.
+**Description**: Add `search_keywords TEXT[]` column to the skills table for storing searchable keyword arrays.
 
 **Acceptance Criteria**:
-- [ ] Add IBM Plex Mono font via Google Fonts (400, 500, 600 weights)
-- [ ] Update `layout.tsx` to use IBM Plex Mono
-- [ ] Remove Inter font configuration
-- [ ] Apply monospace font family to all text elements
-- [ ] Set base font-size to 14px
+- [ ] Column added with `DEFAULT '{}'`
+- [ ] Drizzle schema updated in `apps/api/src/db/schema.ts`
+- [ ] Migration generated and applied
+- [ ] Existing skills have empty array (backward compatible)
 
-**Effort**: Small (1 hour)
-
+**Effort**: S (30 min)
 **Dependencies**: None
 
-**Files to Modify**:
-- `apps/web/src/app/layout.tsx`
-- `apps/web/src/app/globals.css`
-
 ---
 
-#### T18.2: Create TUI Color Palette & CSS Variables
+#### T19.2: Add search_use_cases column to skills table
 
-**Description**: Define the TUI color scheme using CSS custom properties, matching the prototype.
+**Description**: Add `search_use_cases TEXT[]` column to the skills table for storing use case descriptions.
 
 **Acceptance Criteria**:
-- [ ] Define color variables in `globals.css`:
-  - `--bg: #0a0a0a` (background)
-  - `--fg: #c0c0c0` (foreground/text)
-  - `--fg-bright: #ffffff` (bright text)
-  - `--fg-dim: #606060` (dimmed text)
-  - `--accent: #5fafff` (blue accent)
-  - `--green: #5fff87` (success/code)
-  - `--yellow: #ffff5f` (warning)
-  - `--red: #ff5f5f` (error)
-  - `--cyan: #5fffff` (links)
-  - `--border: #5f5f5f` (box borders)
-  - `--selection-bg: #5fafff` (selection background)
-  - `--selection-fg: #000000` (selection text)
-- [ ] Apply dark background to html/body
-- [ ] Configure text selection styles
+- [ ] Column added with `DEFAULT '{}'`
+- [ ] Schema updated alongside T19.1
+- [ ] Existing skills have empty array
 
-**Effort**: Small (1 hour)
-
-**Dependencies**: T18.1
-
-**Files to Modify**:
-- `apps/web/src/app/globals.css`
+**Effort**: S (15 min)
+**Dependencies**: T19.1 (same migration)
 
 ---
 
-#### T18.3: Add JWST Background & Scanlines Effect
+#### T19.3: Add search_keywords column to packs table
 
-**Description**: Implement the space imagery background with low opacity and CRT scanlines overlay.
+**Description**: Add `search_keywords TEXT[]` column to the packs table.
 
 **Acceptance Criteria**:
-- [ ] Add JWST image as fixed background via `body::before`
-- [ ] Set background opacity to ~0.3 (visible but not distracting)
-- [ ] Implement scanlines via `body::after` with repeating gradient
-- [ ] Scanlines should be non-interactive (pointer-events: none)
-- [ ] Background and scanlines should cover full viewport
-- [ ] Ensure proper z-index layering (bg < content < scanlines)
+- [ ] Column added with `DEFAULT '{}'`
+- [ ] Schema updated in same file
+- [ ] Migration covers both tables
 
-**Effort**: Small (1 hour)
-
-**Dependencies**: T18.2
-
-**Files to Modify**:
-- `apps/web/src/app/globals.css`
+**Effort**: S (15 min)
+**Dependencies**: T19.1 (same migration)
 
 ---
 
-#### T18.4: Create TUI Box Component
+#### T19.4: Add search_use_cases column to packs table
 
-**Description**: Create a reusable `TuiBox` component that renders a bordered container with optional title, matching the prototype's `.box` styling.
+**Description**: Add `search_use_cases TEXT[]` column to the packs table.
 
 **Acceptance Criteria**:
-- [ ] Create `apps/web/src/components/tui/tui-box.tsx`
-- [ ] Component accepts props: `title`, `className`, `children`
-- [ ] Renders semi-transparent background (`rgba(0, 0, 0, 0.75)`)
-- [ ] Renders 1px solid border using `--border` color
-- [ ] Title appears as inline element positioned over top border
-- [ ] Content area is scrollable with hidden scrollbar
-- [ ] Component uses CSS modules or inline styles (minimal JS)
+- [ ] Column added with `DEFAULT '{}'`
+- [ ] Schema complete for both tables
 
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T18.2
-
-**Files to Create**:
-- `apps/web/src/components/tui/tui-box.tsx`
-- `apps/web/src/components/tui/tui-box.module.css` (optional)
+**Effort**: S (15 min)
+**Dependencies**: T19.3 (same migration)
 
 ---
 
-#### T18.5: Create TUI Navigation Item Component
+#### T19.5: Create GIN indexes for search columns
 
-**Description**: Create a `TuiNavItem` component for sidebar navigation with keyboard navigation support.
+**Description**: Create GIN indexes on all search columns for efficient array containment queries.
 
 **Acceptance Criteria**:
-- [ ] Create `apps/web/src/components/tui/tui-nav-item.tsx`
-- [ ] Props: `href`, `label`, `shortcut`, `active`, `indicator`
-- [ ] Active state: blue background, black text
-- [ ] Hover state: slight blue tint background
-- [ ] Shows `▸` indicator for active item, space for inactive
-- [ ] Shows keyboard shortcut on right side (e.g., `[1]`)
-- [ ] Uses `next/link` for navigation
+- [ ] `idx_skills_search_keywords` GIN index created
+- [ ] `idx_skills_search_use_cases` GIN index created
+- [ ] `idx_packs_search_keywords` GIN index created
+- [ ] `idx_packs_search_use_cases` GIN index created
+- [ ] Indexes defined in Drizzle schema
 
-**Effort**: Small (1 hour)
-
-**Dependencies**: T18.2
-
-**Files to Create**:
-- `apps/web/src/components/tui/tui-nav-item.tsx`
+**Effort**: S (30 min)
+**Dependencies**: T19.1-T19.4
 
 ---
 
-#### T18.6: Create TUI Status Bar Component
+#### T19.6: Generate and verify migration
 
-**Description**: Create a bottom status bar component showing keyboard hints and meta information.
+**Description**: Generate Drizzle migration and verify it applies cleanly.
 
 **Acceptance Criteria**:
-- [ ] Create `apps/web/src/components/tui/tui-status-bar.tsx`
-- [ ] Renders fixed at bottom of viewport
-- [ ] Left side: keyboard shortcuts (↑↓ navigate, Enter select, etc.)
-- [ ] Right side: version info, external links
-- [ ] Semi-transparent background matching boxes
-- [ ] Keyboard hints use `<kbd>` elements with border styling
+- [ ] `npx drizzle-kit generate` creates migration
+- [ ] Migration file reviewed for correctness
+- [ ] TypeScript types updated
+- [ ] Local database migration succeeds
 
-**Effort**: Small (1 hour)
-
-**Dependencies**: T18.2
-
-**Files to Create**:
-- `apps/web/src/components/tui/tui-status-bar.tsx`
+**Effort**: S (30 min)
+**Dependencies**: T19.5
 
 ---
 
-#### T18.7: Create TUI Typography Components
+### Sprint 19 Deliverables
 
-**Description**: Create styled text components for headings, paragraphs, links, and code blocks.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/components/tui/tui-text.tsx` with:
-  - `TuiH1` - Green text, 14px, font-weight 600
-  - `TuiH2` - Blue accent, 14px, with bottom border
-  - `TuiP` - Normal foreground color
-  - `TuiLink` - Cyan text, underline on hover
-  - `TuiCode` - Green text, dark background, border
-  - `TuiDivider` - Horizontal line made of `─` characters
-- [ ] All use the same 14px base font size (monospace scale)
-- [ ] Export all from single file
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T18.2
-
-**Files to Create**:
-- `apps/web/src/components/tui/tui-text.tsx`
+| Deliverable | Location |
+|-------------|----------|
+| Schema changes | `apps/api/src/db/schema.ts` |
+| Migration | `apps/api/drizzle/migrations/` |
 
 ---
 
-#### T18.8: Create TUI Button Component
+## Sprint 20: Search Service Enhancement
 
-**Description**: Create a button component styled like terminal UI buttons.
+**Goal**: Implement multi-field search with relevance scoring
 
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/components/tui/tui-button.tsx`
-- [ ] Props: `variant` (primary, secondary, danger), `disabled`, `onClick`
-- [ ] Border-style buttons (no heavy backgrounds)
-- [ ] Primary: accent border and text
-- [ ] Hover: inverted colors (accent bg, black text)
-- [ ] Keyboard accessible (focus ring visible)
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: T18.2
-
-**Files to Create**:
-- `apps/web/src/components/tui/tui-button.tsx`
-
----
-
-#### T18.9: Create TUI Input Components
-
-**Description**: Create form input components styled for terminal aesthetic.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/components/tui/tui-input.tsx`
-- [ ] Create `apps/web/src/components/tui/tui-select.tsx`
-- [ ] Transparent background with border
-- [ ] Monospace text
-- [ ] Focus state: accent border color
-- [ ] Error state: red border color
-- [ ] Label above input with dim color
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T18.2
-
-**Files to Create**:
-- `apps/web/src/components/tui/tui-input.tsx`
-- `apps/web/src/components/tui/tui-select.tsx`
-
----
-
-### Sprint 18 Summary
-
-| Task | Description | Effort | Status |
-|------|-------------|--------|--------|
-| T18.1 | IBM Plex Mono font | S | ✅ Complete |
-| T18.2 | TUI color palette | S | ✅ Complete |
-| T18.3 | JWST background & scanlines | S | ✅ Complete |
-| T18.4 | TUI Box component | M | ✅ Complete |
-| T18.5 | TUI Nav Item component | S | ✅ Complete |
-| T18.6 | TUI Status Bar component | S | ✅ Complete |
-| T18.7 | TUI Typography components | M | ✅ Complete |
-| T18.8 | TUI Button component | S | ✅ Complete |
-| T18.9 | TUI Input components | M | ✅ Complete |
-
-**Total Estimated Effort**: ~12 hours
-
----
-
-## Sprint 19: Dashboard & Navigation Redesign
-
-**Goal**: Redesign the main dashboard layout, sidebar navigation, and implement keyboard navigation system.
-
-**Duration**: 1 day
+**Duration**: 1 sprint (~5-6 hours)
 
 ### Tasks
 
----
+#### T20.1: Implement calculateRelevanceScore function
 
-#### T19.1: Create TUI Layout Shell
-
-**Description**: Create the main layout structure with sidebar, content area, and status bar.
+**Description**: Create a function that calculates relevance score based on match weights.
 
 **Acceptance Criteria**:
-- [ ] Create `apps/web/src/components/tui/tui-layout.tsx`
-- [ ] Three-panel layout: sidebar (fixed width), content (flex), status bar (fixed bottom)
-- [ ] All panels use `TuiBox` component
-- [ ] Proper z-index layering with background effects
-- [ ] Mobile: sidebar collapses to hamburger menu
+- [ ] Function accepts construct data and query terms
+- [ ] Weights applied: name(1.0/0.8), keywords(0.9), use_cases(0.7), description(0.6)
+- [ ] Popularity boost via log-scale downloads (0.3)
+- [ ] Maturity boost: stable(0.2), beta(0.15), experimental(0.05)
+- [ ] Rating boost when present (0.2)
+- [ ] Returns `{ score: number, matchReasons: string[] }`
+- [ ] Score capped at 2.0
 
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T18.4, T18.6
-
-**Files to Create**:
-- `apps/web/src/components/tui/tui-layout.tsx`
-
----
-
-#### T19.2: Implement Global Keyboard Navigation Hook
-
-**Description**: Create a React hook for handling global keyboard shortcuts throughout the app.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/hooks/use-keyboard-nav.ts`
-- [ ] Support arrow keys (up/down) for item navigation
-- [ ] Support number keys (1-9) for direct section jump
-- [ ] Support vim keys (j/k) as alternative navigation
-- [ ] Support Enter for selection
-- [ ] Support `g` for go to top, `G` for go to bottom
-- [ ] Ignore when focus is on input/textarea elements
-- [ ] Provide current index and navigation functions
-
-**Effort**: Medium (2-3 hours)
-
+**Effort**: M (1.5 hours)
 **Dependencies**: None
 
-**Files to Create**:
-- `apps/web/src/hooks/use-keyboard-nav.ts`
-
 ---
 
-#### T19.3: Redesign Dashboard Sidebar
+#### T20.2: Implement multi-field SQL query builder
 
-**Description**: Replace existing sidebar with TUI-styled navigation using `TuiNavItem` components.
+**Description**: Extend query conditions to match across all searchable fields.
 
 **Acceptance Criteria**:
-- [ ] Replace `apps/web/src/components/dashboard/sidebar.tsx`
-- [ ] Use `TuiBox` with title "≡ Menu"
-- [ ] Navigation items:
-  - Overview [1]
-  - Skills [2]
-  - Packs [3]
-  - API Keys [4]
-  - Profile [5]
-  - Billing [6]
-- [ ] Integrate keyboard navigation hook
-- [ ] Show active route with `▸` indicator
-- [ ] User info at bottom (name, tier badge)
+- [ ] Query terms extracted from `?q=` parameter
+- [ ] ILIKE on name and description (existing)
+- [ ] Array overlap (`&&`) on search_keywords
+- [ ] Array overlap (`&&`) on search_use_cases
+- [ ] OR combination of all conditions
+- [ ] Terms properly escaped for SQL injection
 
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T19.1, T19.2
-
-**Files to Modify**:
-- `apps/web/src/components/dashboard/sidebar.tsx`
+**Effort**: M (1 hour)
+**Dependencies**: Sprint 19 complete
 
 ---
 
-#### T19.4: Redesign Dashboard Header
+#### T20.3: Update fetchSkillsAsConstructs to include new columns
 
-**Description**: Simplify header to match TUI aesthetic - minimal, no heavy branding.
+**Description**: Modify the skills fetch function to select and return search columns.
 
 **Acceptance Criteria**:
-- [ ] Replace or remove heavy header
-- [ ] Show current section title in content box title
-- [ ] Move user actions to sidebar or status bar
-- [ ] Mobile: add hamburger menu trigger
+- [ ] `search_keywords` selected from skills table
+- [ ] `search_use_cases` selected from skills table
+- [ ] Columns mapped to Construct interface
+- [ ] Empty arrays handled gracefully
 
-**Effort**: Small (1 hour)
-
-**Dependencies**: T19.1
-
-**Files to Modify**:
-- `apps/web/src/components/dashboard/header.tsx`
+**Effort**: S (30 min)
+**Dependencies**: T20.2
 
 ---
 
-#### T19.5: Update Dashboard Layout Page
+#### T20.4: Update fetchPacksAsConstructs to include new columns
 
-**Description**: Integrate new TUI layout into the dashboard layout component.
+**Description**: Modify the packs fetch function to select and return search columns.
 
 **Acceptance Criteria**:
-- [ ] Update `apps/web/src/app/(dashboard)/layout.tsx`
-- [ ] Use `TuiLayout` as wrapper
-- [ ] Pass children to content area
-- [ ] Ensure auth context still works
-- [ ] Update any layout-specific styling
+- [ ] `search_keywords` selected from packs table
+- [ ] `search_use_cases` selected from packs table
+- [ ] Consistent with skills implementation
 
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T19.1, T19.3, T19.4
-
-**Files to Modify**:
-- `apps/web/src/app/(dashboard)/layout.tsx`
+**Effort**: S (30 min)
+**Dependencies**: T20.3
 
 ---
 
-#### T19.6: Create TUI List Component for Skills/Packs
+#### T20.5: Sort by relevance when query present
 
-**Description**: Create a list component for displaying skills and packs in TUI style.
+**Description**: When `?q=` parameter is provided, sort results by relevance score.
 
 **Acceptance Criteria**:
-- [ ] Create `apps/web/src/components/tui/tui-list.tsx`
-- [ ] Each item shows: title, meta info, description
-- [ ] Arrow indicator (`→`) on hover
-- [ ] Support keyboard navigation within list
-- [ ] Focused item has background highlight
-- [ ] Click or Enter navigates to detail page
+- [ ] When `query` present: sort by `relevance_score DESC, downloads DESC`
+- [ ] When `query` absent: sort by `downloads DESC` (existing behavior)
+- [ ] Application-layer sort after scoring
 
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T19.2
-
-**Files to Create**:
-- `apps/web/src/components/tui/tui-list.tsx`
+**Effort**: S (30 min)
+**Dependencies**: T20.1, T20.4
 
 ---
 
-#### T19.7: Redesign Skill Card Component
+#### T20.6: Add relevance_score and match_reasons to response
 
-**Description**: Replace graphical skill cards with TUI-styled list items.
+**Description**: Include relevance data in API response when searching.
 
 **Acceptance Criteria**:
-- [ ] Replace `apps/web/src/components/dashboard/skill-card.tsx`
-- [ ] Use `TuiList` item styling
-- [ ] Show: skill name, version, category tag (cyan), description
-- [ ] Tier badge if premium
-- [ ] Download count in dim text
+- [ ] `relevance_score` field added to construct in response
+- [ ] `match_reasons` array added to construct in response
+- [ ] Only present when `?q=` parameter provided
+- [ ] Null/undefined when not searching (backward compatible)
 
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T19.6
-
-**Files to Modify**:
-- `apps/web/src/components/dashboard/skill-card.tsx`
+**Effort**: S (30 min)
+**Dependencies**: T20.5
 
 ---
 
-### Sprint 19 Summary
+#### T20.7: Update OpenAPI spec with new fields
 
-| Task | Description | Effort | Status |
-|------|-------------|--------|--------|
-| T19.1 | TUI Layout Shell | M | ✅ Complete |
-| T19.2 | Keyboard Navigation Hook | M | ✅ Complete |
-| T19.3 | Dashboard Sidebar | M | ✅ Complete |
-| T19.4 | Dashboard Header | S | ✅ Complete |
-| T19.5 | Dashboard Layout Page | M | ✅ Complete |
-| T19.6 | TUI List Component | M | ✅ Complete |
-| T19.7 | Skill Card Redesign | M | ✅ Complete |
+**Description**: Document the new response fields in OpenAPI specification.
 
-**Total Estimated Effort**: ~12 hours
+**Acceptance Criteria**:
+- [ ] `search_keywords` documented on Construct schema
+- [ ] `search_use_cases` documented on Construct schema
+- [ ] `relevance_score` documented (nullable)
+- [ ] `match_reasons` documented (nullable array)
+- [ ] Description explains when fields are present
+
+**Effort**: S (30 min)
+**Dependencies**: T20.6
 
 ---
 
-## Sprint 20: Page Redesigns & Polish
+#### T20.8: Unit tests for scoring algorithm
 
-**Goal**: Redesign individual pages, add polish effects, and ensure mobile responsiveness.
+**Description**: Write unit tests for the relevance scoring function.
 
-**Duration**: 1-2 days
+**Acceptance Criteria**:
+- [ ] Test exact name match scores highest
+- [ ] Test keyword match boosts score
+- [ ] Test use case match boosts score
+- [ ] Test description-only match scores lower
+- [ ] Test popularity boost (log scale)
+- [ ] Test maturity boost (stable > beta > experimental)
+- [ ] Test multi-term queries
+- [ ] Test empty/missing fields handled
+
+**Effort**: M (1 hour)
+**Dependencies**: T20.1
+
+---
+
+#### T20.9: Integration tests for search
+
+**Description**: Write integration tests for the enhanced search endpoint.
+
+**Acceptance Criteria**:
+- [ ] Test search returns relevance_score when q present
+- [ ] Test results sorted by relevance
+- [ ] Test keyword match ranks higher than description-only
+- [ ] Test no relevance_score when q absent
+- [ ] Test empty query returns all (existing behavior)
+
+**Effort**: M (1 hour)
+**Dependencies**: T20.6
+
+---
+
+### Sprint 20 Deliverables
+
+| Deliverable | Location |
+|-------------|----------|
+| Scoring function | `apps/api/src/services/constructs.ts` |
+| Search enhancement | `apps/api/src/services/constructs.ts` |
+| Response update | `apps/api/src/routes/constructs.ts` |
+| OpenAPI update | `apps/api/src/docs/openapi.ts` |
+| Unit tests | `apps/api/src/services/constructs.test.ts` |
+| Integration tests | `apps/api/tests/e2e/constructs.test.ts` |
+
+---
+
+## Sprint 21: finding-constructs Skill
+
+**Goal**: Create agent skill for proactive construct discovery
+
+**Duration**: 1 sprint (~4-5 hours)
 
 ### Tasks
 
----
+#### T21.1: Create skill directory structure
 
-#### T20.1: Redesign Skills Browse Page
-
-**Description**: Update the skills listing page with TUI styling.
+**Description**: Set up the finding-constructs skill directory with required files.
 
 **Acceptance Criteria**:
-- [ ] Update `apps/web/src/app/(dashboard)/skills/page.tsx`
-- [ ] Use `TuiList` for skill display
-- [ ] Search input uses `TuiInput`
-- [ ] Filters use `TuiSelect` or tab-style buttons
-- [ ] Pagination styled as terminal commands
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T19.6, T18.9
-
-**Files to Modify**:
-- `apps/web/src/app/(dashboard)/skills/page.tsx`
-- `apps/web/src/components/dashboard/skill-filters.tsx`
-- `apps/web/src/components/dashboard/search-input.tsx`
-
----
-
-#### T20.2: Redesign Skill Detail Page
-
-**Description**: Update individual skill page with TUI styling.
-
-**Acceptance Criteria**:
-- [ ] Update `apps/web/src/app/(dashboard)/skills/[slug]/page.tsx`
-- [ ] Skill name as `TuiH1` with blinking cursor
-- [ ] Metadata in status table format
-- [ ] Install command in code block
-- [ ] Version history as list
-- [ ] Back navigation via keyboard (`q` or `Escape`)
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T18.7, T18.4
-
-**Files to Modify**:
-- `apps/web/src/app/(dashboard)/skills/[slug]/page.tsx`
-
----
-
-#### T20.3: Redesign Authentication Pages
-
-**Description**: Update login and register pages with TUI styling.
-
-**Acceptance Criteria**:
-- [ ] Update `apps/web/src/app/(auth)/` pages
-- [ ] Centered `TuiBox` with form
-- [ ] Minimal branding (text logo only)
-- [ ] Form inputs use `TuiInput`
-- [ ] Submit button uses `TuiButton`
-- [ ] Error messages in red
-- [ ] Success in green
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T18.8, T18.9
-
-**Files to Modify**:
-- `apps/web/src/app/(auth)/layout.tsx`
-- Auth page components
-
----
-
-#### T20.4: Redesign Profile Page
-
-**Description**: Update user profile page with TUI styling.
-
-**Acceptance Criteria**:
-- [ ] Update `apps/web/src/app/(dashboard)/profile/page.tsx`
-- [ ] User info in status table format
-- [ ] Form fields use TUI components
-- [ ] Subscription info displayed clearly
-
-**Effort**: Small (1.5 hours)
-
-**Dependencies**: T18.9
-
-**Files to Modify**:
-- `apps/web/src/app/(dashboard)/profile/page.tsx`
-
----
-
-#### T20.5: Redesign Billing Page
-
-**Description**: Update billing and subscription pages with TUI styling.
-
-**Acceptance Criteria**:
-- [ ] Update billing pages
-- [ ] Pricing comparison uses `.comparison` style from prototype
-- [ ] Current plan highlighted with green border
-- [ ] Feature lists with check/x indicators
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T18.7
-
-**Files to Modify**:
-- `apps/web/src/app/(dashboard)/billing/page.tsx`
-- `apps/web/src/app/(dashboard)/teams/[slug]/billing/page.tsx`
-
----
-
-#### T20.6: Redesign API Keys Page
-
-**Description**: Update API keys management page with TUI styling.
-
-**Acceptance Criteria**:
-- [ ] Update `apps/web/src/app/(dashboard)/api-keys/page.tsx`
-- [ ] Keys displayed in code block style
-- [ ] Copy button matches prototype style
-- [ ] Create/delete actions use TUI buttons
-
-**Effort**: Small (1.5 hours)
-
-**Dependencies**: T18.7, T18.8
-
-**Files to Modify**:
-- `apps/web/src/app/(dashboard)/api-keys/page.tsx`
-
----
-
-#### T20.7: Add Blinking Cursor Effect
-
-**Description**: Add the animated blinking cursor effect for headings and active elements.
-
-**Acceptance Criteria**:
-- [ ] Create cursor CSS animation in globals.css
-- [ ] Cursor blinks at 1s interval
-- [ ] Can be added to any element via class
-- [ ] Use on main headings for terminal feel
-
-**Effort**: Small (0.5 hours)
-
-**Dependencies**: T18.2
-
-**Files to Modify**:
-- `apps/web/src/app/globals.css`
-
----
-
-#### T20.8: Mobile Responsive Adjustments
-
-**Description**: Ensure TUI design works on mobile devices.
-
-**Acceptance Criteria**:
-- [ ] Sidebar collapses on mobile (< 768px)
-- [ ] Hamburger menu to toggle sidebar
-- [ ] Feature grids stack to single column
-- [ ] Status bar keyboard hints hidden on mobile
-- [ ] Touch scrolling works in content areas
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T19.1
-
-**Files to Modify**:
-- Various component files
-- `apps/web/src/app/globals.css`
-
----
-
-#### T20.9: Update Landing Page (Public)
-
-**Description**: Redesign the public landing page to match TUI aesthetic.
-
-**Acceptance Criteria**:
-- [ ] Update `apps/web/src/app/page.tsx`
-- [ ] Match the prototype's overview section
-- [ ] Quick install tabs (cargo/brew/curl - adapt for npm/pnpm)
-- [ ] Feature comparison columns
-- [ ] Status table with project stats
-- [ ] CTA buttons use TUI style
-
-**Effort**: Medium (2-3 hours)
-
-**Dependencies**: T18.4, T18.7
-
-**Files to Modify**:
-- `apps/web/src/app/page.tsx`
-
----
-
-#### T20.10: Remove Unused UI Components
-
-**Description**: Clean up old shadcn/radix components that are no longer used.
-
-**Acceptance Criteria**:
-- [ ] Identify unused components in `components/ui/`
-- [ ] Remove or refactor to use TUI equivalents
-- [ ] Keep only essential radix primitives if needed for accessibility
-- [ ] Update imports throughout app
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: All other Sprint 20 tasks
-
-**Files to Modify**:
-- `apps/web/src/components/ui/*`
-
----
-
-### Sprint 20 Summary
-
-| Task | Description | Effort | Status |
-|------|-------------|--------|--------|
-| T20.1 | Skills Browse Page | M | ✅ Complete |
-| T20.2 | Skill Detail Page | M | ✅ Complete |
-| T20.3 | Auth Pages | M | ✅ Complete |
-| T20.4 | Profile Page | S | ✅ Complete |
-| T20.5 | Billing Page | M | ✅ Complete |
-| T20.6 | API Keys Page | S | ✅ Complete |
-| T20.7 | Blinking Cursor | S | ✅ Complete |
-| T20.8 | Mobile Responsive | M | ✅ Complete |
-| T20.9 | Landing Page | M | ✅ Complete |
-| T20.10 | Cleanup Old UI | S | ✅ Complete |
-
-**Total Estimated Effort**: ~16 hours
-
----
-
-## Dependency Graph
-
-```
-Sprint 18: Foundation
-T18.1 (Font)
-  │
-  ▼
-T18.2 (Colors)
-  │
-  ├─────────────┬─────────────┬─────────────┬─────────────┐
-  ▼             ▼             ▼             ▼             ▼
-T18.3 (BG)   T18.4 (Box)  T18.5 (Nav)  T18.7 (Text)  T18.8 (Btn)
-              │             │                          │
-              │             │                          ▼
-              │             │                       T18.9 (Input)
-              └──────┬──────┘
-                     │
-Sprint 19: Layout    ▼
-              T19.1 (Layout)
-                │    │
-                │    ▼
-                │  T19.2 (Keyboard)
-                │    │
-                └────┼─────────────────┐
-                     │                 │
-                     ▼                 ▼
-              T19.3 (Sidebar)    T19.6 (List)
-                     │                 │
-                     ▼                 ▼
-              T19.4 (Header)    T19.7 (Card)
-                     │
-                     ▼
-              T19.5 (Dashboard)
-
-Sprint 20: Pages
-T20.1 → T20.2 → T20.3 → T20.4 → T20.5 → T20.6
-                                          │
-                                          ▼
-                        T20.7 → T20.8 → T20.9 → T20.10
-```
-
----
-
-## Risk Assessment
-
-| Risk | Impact | Probability | Mitigation |
-|------|--------|-------------|------------|
-| Accessibility concerns with low contrast | High | Medium | Test with a11y tools, ensure sufficient contrast ratios |
-| Performance impact of background image | Medium | Low | Optimize image, use WebP, lazy load |
-| Keyboard nav conflicts with form inputs | High | Medium | Properly detect focus state in hook |
-| Tailwind CSS conflicts with custom styles | Medium | Medium | Use CSS modules or !important where needed |
-| Mobile UX degradation | Medium | Medium | Test on real devices, progressive enhancement |
-
----
-
-## Technical Notes
-
-### CSS Strategy
-
-Given the requirement for minimal dependencies, consider:
-
-1. **Option A**: Keep Tailwind but create a TUI preset
-   - Pro: Familiar tooling, utility classes
-   - Con: Still adds bundle size
-
-2. **Option B**: Replace Tailwind with pure CSS modules
-   - Pro: Minimal bundle, matches requirement
-   - Con: More verbose, lose utility classes
-
-3. **Recommended (Hybrid)**: Keep Tailwind for layout utilities (`flex`, `grid`, `p-`, `m-`) but use custom CSS for TUI-specific styles via CSS modules or globals.
-
-### Font Loading
-
-```tsx
-// layout.tsx
-import { IBM_Plex_Mono } from 'next/font/google';
-
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ['latin'],
-  weight: ['400', '500', '600'],
-  variable: '--font-mono',
-});
-```
-
-### Background Image Optimization
-
-```css
-body::before {
-  background-image: url('/images/jwst-background.webp');
-  /* Use local optimized WebP instead of external URL */
-  /* Consider using next/image for automatic optimization */
-}
-```
-
-### Keyboard Navigation Pattern
-
-```tsx
-// Basic pattern for keyboard navigation
-const { currentIndex, setCurrentIndex } = useKeyboardNav({
-  items: menuItems,
-  onSelect: (index) => router.push(menuItems[index].href),
-  shortcuts: {
-    '1': 0, '2': 1, '3': 2, // etc.
-  },
-});
-```
-
----
-
-## Definition of Done
-
-Sprint is complete when:
-
-1. **Visual Match**: UI closely resembles the HTML prototype
-2. **Keyboard Works**: All navigation functional via keyboard
-3. **Font Applied**: IBM Plex Mono renders correctly
-4. **Background Visible**: JWST image and scanlines render
-5. **Mobile Works**: Responsive design functions on phones
-6. **Auth Works**: Login/logout flows unchanged
-7. **Data Works**: Skills, packs, billing all display correctly
-8. **Performance OK**: No significant Lighthouse regression
-9. **Accessibility OK**: Basic a11y checks pass (focus visible, contrast)
-
----
-
-## Post-Sprint Actions
-
-1. **User Testing**: Get feedback on keyboard navigation UX
-2. **Performance Audit**: Run Lighthouse, optimize as needed
-3. **A11y Audit**: Run axe or similar, fix critical issues
-4. **Documentation**: Update README with new UI architecture
-5. **Component Library**: Consider extracting TUI components to shared package
-
----
-
-## Reference Files
-
-### Design Reference
-- `loa-grimoire/context/loa-constructs.html` - Complete TUI prototype
-
-### Inspiration Sources
-- [dotstate](https://github.com/serkanyersen/dotstate) - Original inspiration
-- [Terminal Trove](https://terminaltrove.com) - Gallery of TUI apps
-
-### Key Patterns from Prototype
-
-```css
-/* Box pattern */
-.box {
-  background: rgba(0, 0, 0, 0.75);
-  position: relative;
-}
-.box::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border: 1px solid var(--border);
-  pointer-events: none;
-}
-.box-title {
-  position: absolute;
-  top: -1px;
-  left: 16px;
-  background: rgba(0, 0, 0, 0.75);
-  padding: 0 8px;
-  color: var(--accent);
-}
-```
-
-```css
-/* Navigation item pattern */
-.nav-item.active {
-  background: var(--accent);
-  color: #000;
-}
-.nav-item .indicator {
-  display: inline-block;
-  width: 20px;
-}
-```
-
-```css
-/* Status bar pattern */
-.statusbar kbd {
-  background: transparent;
-  border: 1px solid var(--border);
-  padding: 0 4px;
-  font-family: inherit;
-}
-```
-
----
-
-## Sprint 21: Production Deployment
-
-**Goal**: Deploy the complete platform to production - API on Fly.io, Web on Vercel, with full DNS and HTTPS configuration.
-
-**Duration**: 1 day
-
-### Sprint Configuration
-
-| Parameter | Value |
-|-----------|-------|
-| **Domains** | `constructs.network` (web), `api.constructs.network` (API) |
-| **API Host** | Fly.io (loa-constructs-api) |
-| **Web Host** | Vercel |
-| **Database** | Neon PostgreSQL (already configured) |
-| **Risk Level** | Medium |
-
-### Tasks
-
----
-
-#### T21.1: Deploy API to Fly.io
-
-**Description**: Deploy the Hono API to Fly.io production environment.
-
-**Acceptance Criteria**:
-- [ ] Fly CLI installed and authenticated
-- [ ] Secrets configured (DATABASE_URL, JWT_SECRET)
-- [ ] Deploy completes successfully
-- [ ] Health check passes at `/v1/health`
-- [ ] API responds at `https://loa-constructs-api.fly.dev/v1/health`
-
-**Effort**: Small (30 min)
-
+- [ ] Directory created at `.claude/skills/finding-constructs/`
+- [ ] `index.yaml` file created
+- [ ] `SKILL.md` file created
+- [ ] `resources/` directory created
+- [ ] `resources/triggers.md` file created
+
+**Effort**: S (15 min)
 **Dependencies**: None
 
-**Commands**:
-```bash
-cd apps/api
-fly auth login
-fly secrets set DATABASE_URL="..." JWT_SECRET="..."
-fly deploy
-```
+---
+
+#### T21.2: Write index.yaml with triggers
+
+**Description**: Define skill metadata and trigger patterns in index.yaml.
+
+**Acceptance Criteria**:
+- [ ] Name, version, description defined
+- [ ] Trigger patterns: "find a skill for", "find a construct for"
+- [ ] Trigger patterns: "is there a construct that", "I need help with"
+- [ ] Trigger patterns: "how do I do"
+- [ ] Domain hints: security, testing, deployment, documentation
+- [ ] Allowed tools: WebFetch, Read
+
+**Effort**: S (30 min)
+**Dependencies**: T21.1
 
 ---
 
-#### T21.2: Configure Vercel Project for Web App
+#### T21.3: Write SKILL.md workflow
 
-**Description**: Set up Vercel project and configuration for the Next.js web app.
+**Description**: Implement the discovery workflow logic in SKILL.md.
 
 **Acceptance Criteria**:
-- [ ] Create `vercel.json` with monorepo configuration
-- [ ] Configure root directory as `apps/web`
-- [ ] Set build output directory
-- [ ] Configure environment variables for API URL
-- [ ] Test build locally with `vercel build`
+- [ ] Step 1: Extract keywords from user intent
+- [ ] Step 2: Query API `GET /v1/constructs?q=keywords&limit=5`
+- [ ] Step 3: Filter results with relevance_score >= 0.5
+- [ ] Step 4: Present top 3 with name, description, relevance %, install command
+- [ ] Step 5: Offer choice between install or direct assistance
+- [ ] Response format is clear and actionable
 
-**Effort**: Small (30 min)
-
-**Dependencies**: None
-
-**Files to Create**:
-- `apps/web/vercel.json`
+**Effort**: M (1.5 hours)
+**Dependencies**: T21.2, Sprint 20 complete
 
 ---
 
-#### T21.3: Deploy Web App to Vercel
+#### T21.4: Add fallback behavior
 
-**Description**: Deploy the Next.js web app to Vercel production.
-
-**Acceptance Criteria**:
-- [ ] Vercel CLI installed (`npm i -g vercel`)
-- [ ] Link project to Vercel account
-- [ ] Set environment variables (NEXT_PUBLIC_API_URL)
-- [ ] Deploy to production
-- [ ] Verify site loads at Vercel URL
-
-**Effort**: Small (30 min)
-
-**Dependencies**: T21.1, T21.2
-
-**Commands**:
-```bash
-cd apps/web
-vercel --prod
-```
-
----
-
-#### T21.4: Configure Custom Domain for Web (constructs.network)
-
-**Description**: Configure the `constructs.network` domain to point to Vercel.
+**Description**: Implement graceful fallback when no relevant constructs found.
 
 **Acceptance Criteria**:
-- [ ] Add domain in Vercel dashboard
-- [ ] Configure DNS records (A/CNAME) at registrar
-- [ ] Verify domain propagation
-- [ ] HTTPS certificate issued automatically
-- [ ] Site accessible at `https://constructs.network`
+- [ ] If no results or all below 0.5 threshold
+- [ ] Offer direct assistance with the extracted task
+- [ ] Mention user can create their own skill with `skills init`
+- [ ] Tone is helpful, not apologetic
 
-**Effort**: Small (30 min)
-
+**Effort**: S (30 min)
 **Dependencies**: T21.3
 
 ---
 
-#### T21.5: Configure Custom Domain for API (api.constructs.network)
+#### T21.5: Write resources/triggers.md documentation
 
-**Description**: Configure the `api.constructs.network` subdomain to point to Fly.io.
+**Description**: Document the trigger patterns and opt-out mechanism.
 
 **Acceptance Criteria**:
-- [ ] Create SSL certificate in Fly.io
-- [ ] Add custom domain to Fly app
-- [ ] Configure DNS CNAME at registrar
-- [ ] Verify domain propagation
-- [ ] API accessible at `https://api.constructs.network/v1/health`
+- [ ] List all trigger patterns with examples
+- [ ] Explain domain hints and when they activate
+- [ ] Document opt-out via settings.json
+- [ ] Include example user messages that trigger the skill
 
-**Effort**: Small (30 min)
+**Effort**: S (30 min)
+**Dependencies**: T21.2
 
-**Dependencies**: T21.1
-
-**Commands**:
-```bash
-fly certs create api.constructs.network --app loa-constructs-api
-```
-
----
-
-#### T21.6: Update Environment Variables for Production URLs
-
-**Description**: Update both apps to use production URLs instead of localhost/fly.dev URLs.
-
-**Acceptance Criteria**:
-- [ ] Web app's NEXT_PUBLIC_API_URL set to `https://api.constructs.network`
-- [ ] API's DASHBOARD_URL set to `https://constructs.network`
-- [ ] API's API_URL set to `https://api.constructs.network`
-- [ ] OAuth redirect URLs updated (if OAuth enabled)
-- [ ] CORS configured for production domain
-
-**Effort**: Small (30 min)
-
-**Dependencies**: T21.4, T21.5
-
----
-
-#### T21.7: Seed Production Users
-
-**Description**: Create initial user accounts for THJ team in production.
-
-**Acceptance Criteria**:
-- [ ] Run seed-thj-team.ts with production DATABASE_URL
-- [ ] Verify users exist in database
-- [ ] Verify subscriptions are granted
-- [ ] Test login with seeded account
-
-**Effort**: Small (30 min)
-
-**Dependencies**: T21.1
-
-**Commands**:
-```bash
-DATABASE_URL="..." npx tsx scripts/seed-thj-team.ts
-```
-
----
-
-#### T21.8: Verify GTM Collective Pack in Production
-
-**Description**: Ensure the GTM Collective pack is accessible in production.
-
-**Acceptance Criteria**:
-- [ ] Pack appears in `GET /v1/packs` endpoint
-- [ ] Pack download works for pro tier users
-- [ ] Pack returns 402 for free tier users
-- [ ] Subscription gating enforced correctly
-
-**Effort**: Small (30 min)
-
-**Dependencies**: T21.1, T21.7
-
----
-
-#### T21.9: Smoke Test Full User Journey
-
-**Description**: Complete end-to-end testing of the production deployment.
-
-**Acceptance Criteria**:
-- [ ] Landing page loads at `https://constructs.network`
-- [ ] Login works with credentials
-- [ ] Dashboard displays correctly
-- [ ] Skills page loads with TUI styling
-- [ ] API keys page works
-- [ ] Profile page displays user info
-- [ ] Navigation keyboard shortcuts work
-- [ ] Mobile responsive layout functions
-
-**Effort**: Medium (1 hour)
-
-**Dependencies**: T21.6
-
----
-
-#### T21.10: Create Production Deployment Documentation
-
-**Description**: Document the production deployment process and monitoring procedures.
-
-**Acceptance Criteria**:
-- [ ] Update `docs/SOFT-LAUNCH-OPERATIONS.md` with production URLs
-- [ ] Document DNS configuration
-- [ ] Document deployment commands
-- [ ] Document monitoring endpoints
-- [ ] Add troubleshooting section
-
-**Effort**: Small (30 min)
-
-**Dependencies**: T21.9
-
----
-
-### Sprint 21 Summary
-
-| Task | Description | Effort | Status |
-|------|-------------|--------|--------|
-| T21.1 | Deploy API to Fly.io | S | ⬜ Pending |
-| T21.2 | Configure Vercel for Web | S | ⬜ Pending |
-| T21.3 | Deploy Web to Vercel | S | ⬜ Pending |
-| T21.4 | Custom Domain (Web) | S | ⬜ Pending |
-| T21.5 | Custom Domain (API) | S | ⬜ Pending |
-| T21.6 | Update Production URLs | S | ⬜ Pending |
-| T21.7 | Seed Production Users | S | ⬜ Pending |
-| T21.8 | Verify GTM Pack | S | ⬜ Pending |
-| T21.9 | Smoke Test | M | ⬜ Pending |
-| T21.10 | Documentation | S | ⬜ Pending |
-
-**Total Estimated Effort**: ~6 hours
-
----
-
-## Sprint 22: Soft Launch Deployment (No Custom Domains)
-
-**Goal**: Deploy to production using auto-generated URLs (Fly.dev and Vercel.app) without custom domain configuration. Allows immediate testing before DNS setup.
-
-**Duration**: 2-3 hours
-
-### Sprint Configuration
-
-| Parameter | Value |
-|-----------|-------|
-| **API URL** | `https://loa-constructs-api.fly.dev` |
-| **Web URL** | `https://loa-constructs.vercel.app` (TBD after deploy) |
-| **Database** | Neon PostgreSQL (already configured) |
-| **Risk Level** | Low |
-
-### Prerequisites
-
-```bash
-# Install Fly CLI (if not installed)
-curl -L https://fly.io/install.sh | sh
-
-# Authenticate Fly
-fly auth login
-
-# Authenticate Vercel
-vercel login
-```
-
-### Tasks
-
----
-
-#### T22.1: Install & Authenticate CLI Tools
-
-**Description**: Ensure Fly and Vercel CLIs are installed and authenticated.
-
-**Acceptance Criteria**:
-- [ ] Fly CLI installed (`fly version` works)
-- [ ] Fly authenticated (`fly auth whoami` shows user)
-- [ ] Vercel CLI installed (`vercel --version` works)
-- [ ] Vercel authenticated (`vercel whoami` shows user)
-
-**Effort**: Small (15 min)
-
-**Commands**:
-```bash
-# Install Fly
-curl -L https://fly.io/install.sh | sh
-fly auth login
-
-# Vercel (already installed via npm)
-vercel login
-```
-
----
-
-#### T22.2: Deploy API to Fly.io
-
-**Description**: Deploy the Hono API to Fly.io using auto-generated URL.
-
-**Acceptance Criteria**:
-- [ ] Secrets configured (DATABASE_URL, JWT_SECRET)
-- [ ] Deploy completes successfully
-- [ ] Health check passes at `https://loa-constructs-api.fly.dev/v1/health`
-- [ ] API responds with 200 OK
-
-**Effort**: Small (20 min)
-
-**Dependencies**: T22.1
-
-**Commands**:
-```bash
-cd apps/api
-fly secrets set DATABASE_URL="postgresql://neondb_owner:...@neon.tech/neondb?sslmode=require"
-fly secrets set JWT_SECRET="your-production-jwt-secret-minimum-32-chars"
-fly deploy
-curl https://loa-constructs-api.fly.dev/v1/health
-```
-
----
-
-#### T22.3: Update CORS for Vercel Auto-URL
-
-**Description**: Update API CORS configuration to allow Vercel's auto-generated URL pattern.
-
-**Acceptance Criteria**:
-- [ ] CORS allows `*.vercel.app` in production
-- [ ] CORS allows `loa-constructs*.vercel.app` pattern
-- [ ] Typecheck passes
-- [ ] Changes committed
-
-**Effort**: Small (15 min)
-
-**Dependencies**: T22.2
-
-**Files to Modify**:
-- `apps/api/src/app.ts`
-
----
-
-#### T22.4: Deploy Web to Vercel
-
-**Description**: Deploy the Next.js web app to Vercel using CLI.
-
-**Acceptance Criteria**:
-- [ ] Environment variable set (NEXT_PUBLIC_API_URL)
-- [ ] Deploy to production
-- [ ] Site loads at Vercel URL
-- [ ] TUI styling renders correctly
-
-**Effort**: Small (20 min)
-
-**Dependencies**: T22.2, T22.3
-
-**Commands**:
-```bash
-cd apps/web
-vercel --prod
-# Set env var in Vercel dashboard or:
-vercel env add NEXT_PUBLIC_API_URL production
-# Enter: https://loa-constructs-api.fly.dev
-```
-
----
-
-#### T22.5: Redeploy API with Vercel URL in CORS
-
-**Description**: After getting the Vercel URL, update CORS and redeploy API.
-
-**Acceptance Criteria**:
-- [ ] CORS includes exact Vercel URL
-- [ ] API redeployed with new CORS
-- [ ] Cross-origin requests work from Vercel to Fly
-
-**Effort**: Small (15 min)
-
-**Dependencies**: T22.4
-
----
-
-#### T22.6: Seed Production Users
-
-**Description**: Create initial THJ team users in production database.
-
-**Acceptance Criteria**:
-- [ ] Run seed script with production DATABASE_URL
-- [ ] Users created successfully
-- [ ] Subscriptions granted
-
-**Effort**: Small (15 min)
-
-**Dependencies**: T22.2
-
-**Commands**:
-```bash
-DATABASE_URL="postgresql://..." npx tsx scripts/seed-thj-team.ts
-```
-
----
-
-#### T22.7: Smoke Test Full Journey
-
-**Description**: Test the deployed application end-to-end.
-
-**Acceptance Criteria**:
-- [ ] Landing page loads
-- [ ] Login page renders
-- [ ] API health endpoint responds
-- [ ] Dashboard loads (if auth works)
-- [ ] TUI styling visible
-- [ ] Skills page loads
-
-**Effort**: Medium (30 min)
-
-**Dependencies**: T22.5, T22.6
-
----
-
-### Sprint 22 Summary
-
-| Task | Description | Effort | Status |
-|------|-------------|--------|--------|
-| T22.1 | Install & Auth CLI Tools | S | ✅ Complete |
-| T22.2 | Deploy API to Fly.io | S | ✅ Complete |
-| T22.3 | Update CORS for Vercel | S | ✅ Complete |
-| T22.4 | Deploy Web to Vercel | S | ✅ Complete |
-| T22.5 | Redeploy API with CORS | S | ✅ Complete |
-| T22.6 | Seed Production Users | S | ✅ Complete |
-| T22.7 | Smoke Test | M | ✅ Complete |
-
-**Total Estimated Effort**: ~2.5 hours
-
----
-
-## Deployment Architecture Summary
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Production Architecture                      │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│   ┌─────────────────┐         ┌─────────────────┐                   │
-│   │    Vercel       │         │    Fly.io       │                   │
-│   │                 │         │                 │                   │
-│   │  constructs.    │ ──────▶ │  api.constructs.│                   │
-│   │    network      │  API    │    network      │                   │
-│   │                 │ calls   │                 │                   │
-│   │  Next.js App    │         │  Hono API       │                   │
-│   └─────────────────┘         └────────┬────────┘                   │
-│                                        │                            │
-│                                        ▼                            │
-│                               ┌─────────────────┐                   │
-│                               │    Neon         │                   │
-│                               │    PostgreSQL   │                   │
-│                               └─────────────────┘                   │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### DNS Configuration
-
-| Record Type | Name | Value |
-|-------------|------|-------|
-| CNAME | `constructs.network` | `cname.vercel-dns.com` |
-| CNAME | `api.constructs.network` | `loa-constructs-api.fly.dev` |
-
-### Environment Variables
-
-**Vercel (Web)**:
-| Variable | Value |
-|----------|-------|
-| `NEXT_PUBLIC_API_URL` | `https://api.constructs.network` |
-
-**Fly.io (API)**:
-| Variable | Value |
-|----------|-------|
-| `DATABASE_URL` | `postgresql://...@neon.tech/...` |
-| `JWT_SECRET` | `<secret>` |
-| `API_URL` | `https://api.constructs.network` |
-| `DASHBOARD_URL` | `https://constructs.network` |
-
----
-
-## Sprint 23: Pack Submission Core
-
-**Goal**: Implement the core pack submission workflow - creators can submit packs for review, admins can approve/reject with feedback, and email notifications are sent.
-
-**Duration**: 1-2 days
-
-**PRD Reference**: `loa-grimoire/prd-pack-submission.md`
-**SDD Reference**: `loa-grimoire/sdd-pack-submission.md`
-
-### Sprint Configuration
-
-| Parameter | Value |
-|-----------|-------|
-| **Feature** | Pack Submission & Creator Program |
-| **Phase** | 1 of 3 (Core Submission) |
-| **Risk Level** | Medium |
-| **Dependencies** | Sprints 18-22 complete |
-
-### Tasks
-
----
-
-#### T23.1: Add pack_submissions Table to Schema
-
-**Description**: Add the `pack_submissions` table to track submission history and review workflow.
-
-**Acceptance Criteria**:
-- [ ] Add `packSubmissionStatusEnum` to `schema.ts`
-- [ ] Add `packSubmissions` table with all fields per SDD
-- [ ] Add `packSubmissionsRelations` for Drizzle relations
-- [ ] Export new table from `db/index.ts`
-- [ ] TypeScript compiles without errors
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: None
-
-**Files to Modify**:
-- `apps/api/src/db/schema.ts`
-- `apps/api/src/db/index.ts`
-
----
-
-#### T23.2: Create Database Migration
-
-**Description**: Create and run the database migration for new tables.
-
-**Acceptance Criteria**:
-- [ ] Create migration file `20260104_pack_submissions.sql`
-- [ ] Migration creates `pack_submissions` table
-- [ ] Migration creates all required indexes
-- [ ] Migration runs successfully against Neon DB
-- [ ] Rollback script tested
-
-**Effort**: Small (30 min)
-
-**Dependencies**: T23.1
-
-**Files to Create**:
-- `apps/api/drizzle/migrations/20260104_pack_submissions.sql`
-
-**Commands**:
-```bash
-cd apps/api
-npx drizzle-kit generate:pg
-npx drizzle-kit push:pg
-```
-
----
-
-#### T23.3: Create Submission Service
-
-**Description**: Create the service layer for pack submissions.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/api/src/services/submissions.ts`
-- [ ] Implement `createPackSubmission()` function
-- [ ] Implement `getLatestPackSubmission()` function
-- [ ] Implement `withdrawPackSubmission()` function
-- [ ] Implement `updateSubmissionReview()` function
-- [ ] Implement `countRecentSubmissions()` for rate limiting
-- [ ] Implement `updatePackStatus()` helper
-- [ ] All functions have proper error handling
-- [ ] TypeScript types exported
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T23.2
-
-**Files to Create**:
-- `apps/api/src/services/submissions.ts`
-
----
-
-#### T23.4: Add POST /v1/packs/:slug/submit Endpoint
-
-**Description**: Implement the endpoint for creators to submit packs for review.
-
-**Acceptance Criteria**:
-- [ ] Add endpoint to `routes/packs.ts`
-- [ ] Validate pack ownership
-- [ ] Validate pack state (must be `draft` or `rejected`)
-- [ ] Validate pack has at least one version
-- [ ] Validate pack has description
-- [ ] Enforce rate limit (5 submissions/24h)
-- [ ] Create submission record
-- [ ] Update pack status to `pending_review`
-- [ ] Return submission ID and status
-- [ ] Log submission event
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T23.3
-
-**Files to Modify**:
-- `apps/api/src/routes/packs.ts`
-
----
-
-#### T23.5: Add POST /v1/packs/:slug/withdraw Endpoint
-
-**Description**: Implement the endpoint for creators to withdraw pending submissions.
-
-**Acceptance Criteria**:
-- [ ] Add endpoint to `routes/packs.ts`
-- [ ] Validate pack ownership
-- [ ] Validate pack status is `pending_review`
-- [ ] Update submission record status to `withdrawn`
-- [ ] Update pack status to `draft`
-- [ ] Return success response
-- [ ] Log withdrawal event
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: T23.3
-
-**Files to Modify**:
-- `apps/api/src/routes/packs.ts`
-
----
-
-#### T23.6: Add GET /v1/packs/:slug/review-status Endpoint
-
-**Description**: Implement the endpoint for creators to check submission status.
-
-**Acceptance Criteria**:
-- [ ] Add endpoint to `routes/packs.ts`
-- [ ] Validate pack ownership
-- [ ] Return latest submission status
-- [ ] Include review notes if reviewed
-- [ ] Include rejection reason if rejected
-- [ ] Handle case where no submission exists
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: T23.3
-
-**Files to Modify**:
-- `apps/api/src/routes/packs.ts`
-
----
-
-#### T23.7: Enhance Admin Review Endpoint
-
-**Description**: Add `POST /v1/admin/packs/:id/review` for structured review decisions.
-
-**Acceptance Criteria**:
-- [ ] Add new endpoint to `routes/admin.ts`
-- [ ] Require `status` (published/rejected) and `review_notes`
-- [ ] Require `rejection_reason` when rejecting
-- [ ] Update pack status
-- [ ] Update submission record with review details
-- [ ] Create audit log entry
-- [ ] Return success response
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T23.3
-
-**Files to Modify**:
-- `apps/api/src/routes/admin.ts`
-
----
-
-#### T23.8: Add GET /v1/admin/reviews Endpoint
-
-**Description**: Add review queue endpoint for admins with enhanced data.
-
-**Acceptance Criteria**:
-- [ ] Add endpoint to `routes/admin.ts`
-- [ ] Return packs with `pending_review` status
-- [ ] Include submission timestamp and notes
-- [ ] Include creator email and name
-- [ ] Include latest version number
-- [ ] Order by submission date (oldest first)
-
-**Effort**: Small (1.5 hours)
-
-**Dependencies**: T23.3
-
-**Files to Modify**:
-- `apps/api/src/routes/admin.ts`
-
----
-
-#### T23.9: Add Pack Submission Email Templates
-
-**Description**: Create email templates for submission workflow notifications.
-
-**Acceptance Criteria**:
-- [ ] Add `generatePackSubmittedEmail()` - creator notification
-- [ ] Add `generatePackApprovedEmail()` - approval notification
-- [ ] Add `generatePackRejectedEmail()` - rejection with feedback
-- [ ] Add `generateAdminPackSubmittedEmail()` - admin notification
-- [ ] Templates match existing email styling
-- [ ] Templates include all required dynamic fields
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: None
-
-**Files to Modify**:
-- `apps/api/src/services/email.ts`
-
----
-
-#### T23.10: Add Email Sending Functions
-
-**Description**: Create functions to send submission workflow emails.
-
-**Acceptance Criteria**:
-- [ ] Add `sendPackSubmissionEmails()` - sends to creator + admins
-- [ ] Add `sendPackApprovedEmail()` - sends to creator
-- [ ] Add `sendPackRejectedEmail()` - sends to creator
-- [ ] Configure admin email address
-- [ ] Graceful handling when email not configured
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: T23.9
-
-**Files to Modify**:
-- `apps/api/src/services/email.ts`
-
----
-
-#### T23.11: Integrate Email Notifications
-
-**Description**: Connect email sending to submission and review endpoints.
-
-**Acceptance Criteria**:
-- [ ] Submit endpoint sends creator confirmation + admin alert
-- [ ] Review endpoint sends approval/rejection email to creator
-- [ ] Email errors don't block API responses
-- [ ] All emails logged
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: T23.4, T23.7, T23.10
-
-**Files to Modify**:
-- `apps/api/src/routes/packs.ts`
-- `apps/api/src/routes/admin.ts`
-
----
-
-#### T23.12: Add Unit Tests for Submission Service
-
-**Description**: Create unit tests for the submission service functions.
-
-**Acceptance Criteria**:
-- [ ] Test `createPackSubmission()` creates record
-- [ ] Test `getLatestPackSubmission()` returns correct submission
-- [ ] Test `withdrawPackSubmission()` updates status
-- [ ] Test `countRecentSubmissions()` respects time window
-- [ ] All tests pass
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T23.3
-
-**Files to Create**:
-- `apps/api/tests/unit/submissions.test.ts`
-
----
-
-#### T23.13: Add Integration Tests for Submission Flow
-
-**Description**: Create end-to-end tests for the submission workflow.
-
-**Acceptance Criteria**:
-- [ ] Test submit endpoint with valid pack
-- [ ] Test submit rejects non-owner
-- [ ] Test submit validates pack state
-- [ ] Test withdraw endpoint
-- [ ] Test review-status endpoint
-- [ ] Test admin review endpoint
-- [ ] All tests pass
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T23.4, T23.5, T23.6, T23.7
-
-**Files to Create**:
-- `apps/api/tests/e2e/pack-submission.test.ts`
-
----
-
-### Sprint 23 Summary
-
-| Task | Description | Effort | Status |
-|------|-------------|--------|--------|
-| T23.1 | Add pack_submissions schema | S | ✅ Complete |
-| T23.2 | Create database migration | S | ✅ Complete |
-| T23.3 | Create submission service | M | ✅ Complete |
-| T23.4 | POST /submit endpoint | M | ✅ Complete |
-| T23.5 | POST /withdraw endpoint | S | ✅ Complete |
-| T23.6 | GET /review-status endpoint | S | ✅ Complete |
-| T23.7 | Enhance admin review endpoint | M | ✅ Complete |
-| T23.8 | GET /admin/reviews endpoint | S | ✅ Complete |
-| T23.9 | Pack submission email templates | M | ✅ Complete |
-| T23.10 | Email sending functions | S | ✅ Complete |
-| T23.11 | Integrate email notifications | S | ✅ Complete |
-| T23.12 | Unit tests | M | ✅ Complete |
-| T23.13 | Integration tests | M | ✅ Complete |
-
-**Total Estimated Effort**: ~18 hours
-
----
-
-## Sprint 24: Creator Dashboard
-
-**Goal**: Implement creator dashboard API endpoints and web UI for pack management.
-
-**Duration**: 1-2 days
-
-### Tasks
-
----
-
-#### T24.1: Create Creator Service
-
-**Description**: Create service layer for creator dashboard queries.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/api/src/services/creator.ts`
-- [ ] Implement `getCreatorPacks()` function
-- [ ] Implement `getCreatorTotals()` function
-- [ ] Return packs with status, downloads, latest version
-- [ ] TypeScript types exported
-
-**Effort**: Medium (1.5 hours)
-
-**Dependencies**: T23.2
-
-**Files to Create**:
-- `apps/api/src/services/creator.ts`
-
----
-
-#### T24.2: Create Creator Routes
-
-**Description**: Create the `/v1/creator/*` API routes.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/api/src/routes/creator.ts`
-- [ ] Apply `requireAuth()` middleware
-- [ ] Apply rate limiter
-- [ ] Export router
-
-**Effort**: Small (30 min)
-
-**Dependencies**: None
-
-**Files to Create**:
-- `apps/api/src/routes/creator.ts`
-
----
-
-#### T24.3: Add GET /v1/creator/packs Endpoint
-
-**Description**: Implement endpoint to list creator's packs with stats.
-
-**Acceptance Criteria**:
-- [ ] List all packs owned by current user
-- [ ] Include status, downloads, latest version
-- [ ] Include placeholder revenue fields (v1.1)
-- [ ] Include totals summary
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: T24.1, T24.2
-
-**Files to Modify**:
-- `apps/api/src/routes/creator.ts`
-
----
-
-#### T24.4: Add GET /v1/creator/earnings Endpoint
-
-**Description**: Implement placeholder earnings endpoint for v1.1.
-
-**Acceptance Criteria**:
-- [ ] Return placeholder earnings structure
-- [ ] Include `stripe_connect_status: 'not_connected'`
-- [ ] Include `payout_schedule: 'manual'`
-- [ ] Document v1.1 fields in response
-
-**Effort**: Small (30 min)
-
-**Dependencies**: T24.2
-
-**Files to Modify**:
-- `apps/api/src/routes/creator.ts`
-
----
-
-#### T24.5: Register Creator Routes in App
-
-**Description**: Add creator routes to the main app router.
-
-**Acceptance Criteria**:
-- [ ] Import `creatorRouter` in `app.ts`
-- [ ] Mount at `/v1/creator`
-- [ ] Verify routes respond correctly
-
-**Effort**: Small (15 min)
-
-**Dependencies**: T24.2
-
-**Files to Modify**:
-- `apps/api/src/app.ts`
-
----
-
-#### T24.6: Create Creator Dashboard Page (Web)
-
-**Description**: Create the web UI for creator dashboard at `/creator`.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/app/(dashboard)/creator/page.tsx`
-- [ ] List creator's packs with status badges
-- [ ] Show downloads count for each pack
-- [ ] Show "Submit for Review" button for draft packs
-- [ ] Link to pack edit pages
-- [ ] TUI styling consistent with rest of app
-
-**Effort**: Medium (3 hours)
-
-**Dependencies**: T24.3
-
-**Files to Create**:
-- `apps/web/src/app/(dashboard)/creator/page.tsx`
-
----
-
-#### T24.7: Create Pack Submission Modal (Web)
-
-**Description**: Create modal for submitting pack for review.
-
-**Acceptance Criteria**:
-- [ ] Create submission modal component
-- [ ] Include optional notes field
-- [ ] Show validation requirements
-- [ ] Call `/submit` endpoint on confirm
-- [ ] Show success/error feedback
-- [ ] TUI styling
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T23.4
-
-**Files to Create**:
-- `apps/web/src/components/creator/submit-pack-modal.tsx`
-
----
-
-#### T24.8: Add Review Status Display (Web)
-
-**Description**: Show review status on pack cards in creator dashboard.
-
-**Acceptance Criteria**:
-- [ ] Show status badge (Draft, Pending Review, Published, Rejected)
-- [ ] Show "View Feedback" link for rejected packs
-- [ ] Show reviewer notes in modal/drawer
-- [ ] Show "Withdraw" button for pending packs
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T24.6
-
-**Files to Modify**:
-- `apps/web/src/app/(dashboard)/creator/page.tsx`
-
----
-
-#### T24.9: Add Creator Link to Dashboard Sidebar
-
-**Description**: Add navigation item for creator dashboard.
-
-**Acceptance Criteria**:
-- [ ] Add "Creator" item to sidebar navigation
-- [ ] Show only for users with at least one pack
-- [ ] Keyboard shortcut assigned
-
-**Effort**: Small (30 min)
-
-**Dependencies**: None
-
-**Files to Modify**:
-- `apps/web/src/components/dashboard/sidebar.tsx`
-
----
-
-#### T24.10: Integration Tests for Creator Endpoints
-
-**Description**: Add tests for creator dashboard endpoints.
-
-**Acceptance Criteria**:
-- [ ] Test GET /creator/packs returns user's packs
-- [ ] Test GET /creator/packs excludes other users' packs
-- [ ] Test GET /creator/earnings returns placeholder data
-- [ ] All tests pass
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: T24.3, T24.4
-
-**Files to Create**:
-- `apps/api/tests/e2e/creator.test.ts`
-
----
-
-### Sprint 24 Summary
-
-| Task | Description | Effort | Status |
-|------|-------------|--------|--------|
-| T24.1 | Creator service | M | ✅ Complete |
-| T24.2 | Creator routes file | S | ✅ Complete |
-| T24.3 | GET /creator/packs | S | ✅ Complete |
-| T24.4 | GET /creator/earnings | S | ✅ Complete |
-| T24.5 | Register routes | S | ✅ Complete |
-| T24.6 | Creator dashboard page | M | ✅ Complete |
-| T24.7 | Pack submission modal | M | ✅ Complete |
-| T24.8 | Review status display | M | ✅ Complete |
-| T24.9 | Sidebar navigation | S | ✅ Complete |
-| T24.10 | Integration tests | S | ✅ Complete |
-
-**Total Estimated Effort**: ~12 hours
-
----
-
-## Sprint 25: Revenue Sharing Foundation (v1.1)
-
-**Goal**: Lay groundwork for creator revenue sharing - download attribution tracking and Stripe Connect preparation.
-
-**Duration**: 2-3 days
-
-**Note**: This sprint prepares infrastructure but does NOT enable automated payouts. Payouts remain manual via Stripe dashboard until v1.2.
-
-### Tasks
-
----
-
-#### T25.1: Add Download Attribution Schema
-
-**Description**: Add `pack_download_attributions` table for revenue tracking.
-
-**Acceptance Criteria**:
-- [ ] Add table to `schema.ts`
-- [ ] Include pack_id, user_id, subscription_id, month, action
-- [ ] Add unique constraint on (pack_id, user_id, month)
-- [ ] Add relations
-- [ ] Create migration
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: None
-
-**Files to Modify**:
-- `apps/api/src/db/schema.ts`
-
----
-
-#### T25.2: Add Creator Payouts Schema
-
-**Description**: Add `creator_payouts` table for payout tracking.
-
-**Acceptance Criteria**:
-- [ ] Add table to `schema.ts`
-- [ ] Include user_id, amount_cents, period, status, stripe_transfer_id
-- [ ] Include breakdown JSONB field
-- [ ] Add relations
-- [ ] Create migration
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: None
-
-**Files to Modify**:
-- `apps/api/src/db/schema.ts`
-
----
-
-#### T25.3: Add Stripe Connect Fields to Users
-
-**Description**: Add Stripe Connect fields to users table.
-
-**Acceptance Criteria**:
-- [ ] Add `stripe_connect_account_id` column
-- [ ] Add `stripe_connect_onboarding_complete` boolean
-- [ ] Add `payout_threshold_cents` with default 5000
-- [ ] Create migration
-
-**Effort**: Small (30 min)
-
-**Dependencies**: None
-
-**Files to Modify**:
-- `apps/api/src/db/schema.ts`
-
----
-
-#### T25.4: Track Download Attributions
-
-**Description**: Record download attributions when packs are downloaded.
-
-**Acceptance Criteria**:
-- [ ] Create `trackDownloadAttribution()` function
-- [ ] Call from pack download endpoint
-- [ ] Calculate month as first of month
-- [ ] Handle duplicate prevention (upsert)
-- [ ] Only track for premium packs
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T25.1
-
-**Files to Modify**:
-- `apps/api/src/services/packs.ts`
-- `apps/api/src/routes/packs.ts`
-
----
-
-#### T25.5: Create Stripe Connect Onboarding Endpoint
-
-**Description**: Create endpoint to start Stripe Connect onboarding.
-
-**Acceptance Criteria**:
-- [ ] Add `POST /v1/creator/connect-stripe` endpoint
-- [ ] Create Stripe Connect account link
-- [ ] Return redirect URL for onboarding
-- [ ] Store account ID in user record
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T25.3
-
-**Files to Create**:
-- `apps/api/src/services/stripe-connect.ts`
-
-**Files to Modify**:
-- `apps/api/src/routes/creator.ts`
-
----
-
-#### T25.6: Handle Stripe Connect Webhook
-
-**Description**: Process Stripe Connect account.updated webhook.
-
-**Acceptance Criteria**:
-- [ ] Add webhook handler for `account.updated`
-- [ ] Update `stripe_connect_onboarding_complete` field
-- [ ] Log completion events
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T25.5
-
-**Files to Modify**:
-- `apps/api/src/routes/webhooks.ts`
-
----
-
-#### T25.7: Calculate Creator Earnings
-
-**Description**: Create function to calculate earnings from attributions.
-
-**Acceptance Criteria**:
-- [ ] Create `calculateCreatorEarnings()` function
-- [ ] Query attributions for period
-- [ ] Calculate based on download share
-- [ ] Apply 70/30 split
-- [ ] Return breakdown by pack
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T25.4
-
-**Files to Create**:
-- `apps/api/src/services/payouts.ts`
-
----
-
-#### T25.8: Update Earnings Endpoint
-
-**Description**: Connect real data to earnings endpoint.
-
-**Acceptance Criteria**:
-- [ ] Call `calculateCreatorEarnings()` for current month
-- [ ] Return real download-based earnings
-- [ ] Include Stripe Connect status
-- [ ] Include payout threshold info
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: T25.7
-
-**Files to Modify**:
-- `apps/api/src/routes/creator.ts`
-
----
-
-#### T25.9: Create Payout Report Script
-
-**Description**: Create admin script to generate monthly payout reports.
-
-**Acceptance Criteria**:
-- [ ] Create `scripts/generate-payout-report.ts`
-- [ ] Calculate earnings for all creators
-- [ ] Output CSV or JSON report
-- [ ] Flag creators above threshold
-- [ ] Show total payout amount
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T25.7
-
-**Files to Create**:
-- `scripts/generate-payout-report.ts`
-
----
-
-#### T25.10: Add Earnings Dashboard UI (Web)
-
-**Description**: Create earnings display in creator dashboard.
-
-**Acceptance Criteria**:
-- [ ] Show lifetime earnings
-- [ ] Show current month earnings
-- [ ] Show Stripe Connect status
-- [ ] "Connect Stripe" button for non-connected users
-- [ ] Link to Stripe Express dashboard for connected users
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T25.8
-
-**Files to Create**:
-- `apps/web/src/app/(dashboard)/creator/earnings/page.tsx`
-
----
-
-### Sprint 25 Summary
-
-| Task | Description | Effort | Status |
-|------|-------------|--------|--------|
-| T25.1 | Download attribution schema | S | ✅ Complete |
-| T25.2 | Creator payouts schema | S | ✅ Complete |
-| T25.3 | Stripe Connect user fields | S | ✅ Complete |
-| T25.4 | Track download attributions | M | ✅ Complete |
-| T25.5 | Stripe Connect onboarding | M | ✅ Complete |
-| T25.6 | Stripe Connect webhook | M | ✅ Complete |
-| T25.7 | Calculate earnings | M | ✅ Complete |
-| T25.8 | Update earnings endpoint | S | ✅ Complete |
-| T25.9 | Payout report script | M | ✅ Complete |
-| T25.10 | Earnings dashboard UI | M | ✅ Complete |
-
-**Total Estimated Effort**: ~16 hours
-
----
-
-## Feature Summary: Pack Submission & Creator Program
-
-### Phase Breakdown
-
-| Phase | Sprint | Description | Status |
-|-------|--------|-------------|--------|
-| 1 | Sprint 23 | Core submission workflow | ✅ Complete |
-| 2 | Sprint 24 | Creator dashboard | ✅ Complete |
-| 3 | Sprint 25 | Revenue sharing foundation | ✅ Complete |
-
-### Total Effort
-
-| Sprint | Hours |
-|--------|-------|
-| Sprint 23 | ~18 |
-| Sprint 24 | ~12 |
-| Sprint 25 | ~16 |
-| **Total** | **~46** |
-
-### Dependencies
-
-```
-Sprint 23: Core Submission
-├── T23.1 Schema ──► T23.2 Migration ──► T23.3 Service
-│                                              │
-├── T23.9 Templates ──► T23.10 Email Funcs ────┼──► T23.11 Integration
-│                                              │
-└── T23.3 ──┬──► T23.4 Submit ─────────────────┼──► T23.11
-            ├──► T23.5 Withdraw               │
-            ├──► T23.6 Review Status          │
-            ├──► T23.7 Admin Review ──────────┼──► T23.11
-            └──► T23.8 Admin Queue            │
-                                              │
-                                              ▼
-Sprint 24: Creator Dashboard
-├── T24.1 Creator Service ──► T24.3 Packs Endpoint
-├── T24.2 Routes ──► T24.3 ──► T24.6 Dashboard Page
-│           └──► T24.4 Earnings ──► T24.6
-│           └──► T24.5 Register
-└── T24.6 ──► T24.7 Submit Modal
-        └──► T24.8 Status Display
-                                              │
-                                              ▼
-Sprint 25: Revenue Sharing
-├── T25.1 Attribution Schema ──► T25.4 Track Downloads
-├── T25.2 Payouts Schema
-├── T25.3 User Fields ──► T25.5 Connect Onboarding
-│                    └──► T25.6 Webhook
-└── T25.4 ──► T25.7 Calculate Earnings ──► T25.8 Endpoint
-                                      └──► T25.9 Report Script
-                                      └──► T25.10 Dashboard UI
-```
-
-### Success Criteria
-
-After Sprint 25:
-- [ ] Creators can submit packs for review via web UI or API
-- [ ] Admins receive email notifications for new submissions
-- [ ] Admins can approve/reject with structured feedback
-- [ ] Creators receive email notifications for decisions
-- [ ] Rejected creators can edit and resubmit
-- [ ] Creator dashboard shows all packs with status
-- [ ] Download attributions tracked for premium packs
-- [ ] Earnings calculated and displayed (manual payouts)
-- [ ] Stripe Connect onboarding available
-
----
-
-**Document Status**: All sprints complete
-**Next Command**: Deploy to production or start new development cycle
-
----
-
-## Sprint 26: Marketing Website (constructs.network)
-
-**Goal**: Build and deploy the public marketing website for Loa Constructs at constructs.network using the GTM strategy, positioning, and website copy developed in gtm-grimoire.
-
-**Duration**: 2-3 days
-
-**References**:
-- GTM Strategy: `gtm-grimoire/NOTES.md`
-- Positioning: `gtm-grimoire/strategy/positioning.md`
-- Pricing: `gtm-grimoire/strategy/pricing-strategy.md`
-- Website Copy: `gtm-grimoire/execution/website-copy-*.md` (19 files)
-- Launch Plan: `gtm-grimoire/execution/launch-plan.md`
-
-### Sprint Configuration
-
-| Parameter | Value |
-|-----------|-------|
-| **Domain** | `constructs.network` |
-| **Hosting** | Vercel (existing apps/web deployment) |
-| **Tech Stack** | Next.js 14, TUI components, Tailwind CSS |
-| **Risk Level** | Low |
-| **Prerequisites** | Sprint 18-20 (TUI components complete) |
-
-### Design Principles
-
-Based on GTM strategy:
-1. **TUI Aesthetic**: Maintain terminal-style design from dashboard
-2. **Developer-First Copy**: Direct, no marketing jargon (per positioning.md)
-3. **Demo-Focused**: Show CLI commands, GIFs, code blocks
-4. **Conversion Flow**: Free → Browse → Register → Pro upgrade
-
-### Page Structure
-
-```
-constructs.network/
-├── / (Landing - Hero, Problem, Solution, GTM Collective, Pricing, CTA)
-├── /about (Origin story, team, philosophy)
-├── /pricing (Detailed tier comparison, FAQ)
-├── /packs (Public pack catalog - browse without login)
-├── /packs/[slug] (Pack detail - install command, features)
-├── /docs (Documentation hub - getting started, CLI)
-├── /blog (Launch post, tutorials placeholder)
-├── /login (Auth redirect to dashboard)
-├── /register (Registration flow)
-└── /legal (Terms, Privacy)
-```
-
-### Tasks
-
----
-
-#### T26.1: Create Marketing Layout Component
-
-**Description**: Create a layout component for public marketing pages (distinct from dashboard layout).
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/app/(marketing)/layout.tsx`
-- [ ] Include header with nav: Home, Packs, Pricing, Docs, Login
-- [ ] Include footer with links, copyright, social
-- [ ] TUI styling with semi-transparent boxes
-- [ ] JWST background visible
-- [ ] Mobile responsive hamburger menu
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: Sprint 18 TUI components
-
-**Files to Create**:
-- `apps/web/src/app/(marketing)/layout.tsx`
-- `apps/web/src/components/marketing/header.tsx`
-- `apps/web/src/components/marketing/footer.tsx`
-
----
-
-#### T26.2: Redesign Landing Page with GTM Copy
-
-**Description**: Replace current landing page with GTM-approved messaging and copy.
-
-**Acceptance Criteria**:
-- [ ] Update `apps/web/src/app/page.tsx` or create `(marketing)/page.tsx`
-- [ ] Hero section: "Skill packs for Claude Code. Beyond coding."
-- [ ] Subheadline: "Pre-built agent workflows for GTM, documentation, security, and deployment."
-- [ ] CLI demo with package manager tabs (npm, pnpm, yarn, bun)
-- [ ] Install command: `claude skills add gtm-collective`
-- [ ] Problem section: "You're building the prompts instead of the product"
-- [ ] Solution section: "Agent skills that just work"
-- [ ] Stats section (placeholder: Skills, Downloads, Users)
-- [ ] CTA buttons: "Get Started Free", "Browse Packs"
-- [ ] Use copy from `website-copy-indie-devs.md`
-
-**Effort**: Large (4 hours)
-
-**Dependencies**: T26.1
-
-**Files to Modify**:
-- `apps/web/src/app/page.tsx`
-
-**Reference**: `gtm-grimoire/execution/website-copy-indie-devs.md`
-
----
-
-#### T26.3: Create GTM Collective Feature Section
-
-**Description**: Add dedicated section showcasing the GTM Collective pack.
-
-**Acceptance Criteria**:
-- [ ] Section title: "Go-to-market without leaving your terminal"
-- [ ] Description: "8 skills. 14 commands. Everything you need to launch."
-- [ ] Commands table showing all GTM commands
-- [ ] "Built by founders who shipped 10+ products" credibility
-- [ ] CTA: "Try GTM Collective" → /packs/gtm-collective
-- [ ] TUI box styling
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T26.2
-
-**Files to Modify**:
-- `apps/web/src/app/page.tsx` or separate component
-
----
-
-#### T26.4: Update Pricing Section with Approved Tiers
-
-**Description**: Update landing page pricing preview to match GTM-approved pricing.
-
-**Acceptance Criteria**:
-- [ ] Free: $0, "Forever free", public packs, 3 API keys
-- [ ] Pro: $29/mo, "For serious builders", all packs, priority support
-- [ ] Team: $99/mo, "For growing teams", 5 seats, collaboration
-- [ ] Enterprise: $299/mo, "For organizations", SSO, SLA
-- [ ] Pro tier highlighted as "Most Popular"
-- [ ] Link to full /pricing page
-- [ ] Match copy from `website-copy-pricing.md`
-
-**Effort**: Small (1.5 hours)
-
-**Dependencies**: T26.2
-
-**Files to Modify**:
-- `apps/web/src/app/page.tsx`
-
-**Reference**: `gtm-grimoire/execution/website-copy-pricing.md`, `gtm-grimoire/strategy/pricing-strategy.md`
-
----
-
-#### T26.5: Create Dedicated Pricing Page
-
-**Description**: Create full pricing page with comparison table and FAQ.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/app/(marketing)/pricing/page.tsx`
-- [ ] Headline: "Simple pricing. No surprises."
-- [ ] Full comparison table (features by tier)
-- [ ] FAQ section with common questions
-- [ ] "Start Free" and "Go Pro" CTAs
-- [ ] SEO metadata: "Pricing | Loa Constructs"
-- [ ] All copy from `website-copy-pricing.md`
-
-**Effort**: Medium (3 hours)
-
-**Dependencies**: T26.1
-
-**Files to Create**:
-- `apps/web/src/app/(marketing)/pricing/page.tsx`
-
-**Reference**: `gtm-grimoire/execution/website-copy-pricing.md`
-
----
-
-#### T26.6: Create About Page
-
-**Description**: Create about page with origin story and team info.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/app/(marketing)/about/page.tsx`
-- [ ] "Why we built this" origin story
-- [ ] "What is Loa?" etymology section
-- [ ] "Who we are" - The Honey Jar team
-- [ ] "What we believe" philosophy
-- [ ] "Open source" section with GitHub link
-- [ ] Contact section with email, Discord, Twitter
-- [ ] SEO metadata
-- [ ] All copy from `website-copy-about.md`
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T26.1
-
-**Files to Create**:
-- `apps/web/src/app/(marketing)/about/page.tsx`
-
-**Reference**: `gtm-grimoire/execution/website-copy-about.md`
-
----
-
-#### T26.7: Create Public Packs Catalog Page
-
-**Description**: Create public-facing pack catalog (no auth required to browse).
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/app/(marketing)/packs/page.tsx`
-- [ ] List all published packs
-- [ ] Show: name, description, category tag, download count
-- [ ] Filter by category (GTM, Security, Docs, etc.)
-- [ ] Search functionality
-- [ ] "Free" vs "Premium" badges
-- [ ] Link to individual pack pages
-- [ ] TUI list styling
-
-**Effort**: Medium (3 hours)
-
-**Dependencies**: T26.1
-
-**Files to Create**:
-- `apps/web/src/app/(marketing)/packs/page.tsx`
-
----
-
-#### T26.8: Create Public Pack Detail Page
-
-**Description**: Create individual pack detail page for marketing.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/app/(marketing)/packs/[slug]/page.tsx`
-- [ ] Pack name, description, version
-- [ ] Install command in copyable code block
-- [ ] Commands list with descriptions
-- [ ] "Get Started" CTA (→ register if not logged in)
-- [ ] Premium badge for paid packs
-- [ ] Creator attribution
-- [ ] Related packs (future)
-- [ ] SEO metadata with pack name
-
-**Effort**: Medium (3 hours)
-
-**Dependencies**: T26.7
-
-**Files to Create**:
-- `apps/web/src/app/(marketing)/packs/[slug]/page.tsx`
-
-**Reference**: `gtm-grimoire/execution/website-copy-pack-detail.md`
-
----
-
-#### T26.9: Create Documentation Hub Page
-
-**Description**: Create docs landing page with getting started guide.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/app/(marketing)/docs/page.tsx`
-- [ ] Quick start section with install commands
-- [ ] CLI reference links
-- [ ] Link to GitHub for full docs
-- [ ] Getting started steps (register, install CLI, add pack)
-- [ ] TUI styling with code blocks
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T26.1
-
-**Files to Create**:
-- `apps/web/src/app/(marketing)/docs/page.tsx`
-
-**Reference**: `gtm-grimoire/execution/website-copy-docs.md`
-
----
-
-#### T26.10: Create Blog Landing Page
-
-**Description**: Create blog index page for launch post and future content.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/app/(marketing)/blog/page.tsx`
-- [ ] List blog posts (initially just launch announcement)
-- [ ] Post card: title, date, excerpt
-- [ ] Link to individual posts
-- [ ] TUI styling
-
-**Effort**: Small (1.5 hours)
-
-**Dependencies**: T26.1
-
-**Files to Create**:
-- `apps/web/src/app/(marketing)/blog/page.tsx`
-
----
-
-#### T26.11: Create Launch Announcement Blog Post
-
-**Description**: Create the launch announcement blog post.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/app/(marketing)/blog/launch/page.tsx`
-- [ ] Title: "Introducing Loa Constructs: Skill Packs for Claude Code"
-- [ ] Content based on launch plan blog outline
-- [ ] Problem, solution, GTM Collective demo
-- [ ] Pricing overview
-- [ ] Call to action
-- [ ] Share buttons (Twitter, LinkedIn)
-- [ ] SEO metadata
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T26.10
-
-**Files to Create**:
-- `apps/web/src/app/(marketing)/blog/launch/page.tsx`
-
-**Reference**: `gtm-grimoire/execution/launch-plan.md` (blog post outline)
-
----
-
-#### T26.12: Create Legal Pages (Terms & Privacy)
-
-**Description**: Create terms of service and privacy policy pages.
-
-**Acceptance Criteria**:
-- [ ] Create `apps/web/src/app/(marketing)/terms/page.tsx`
-- [ ] Create `apps/web/src/app/(marketing)/privacy/page.tsx`
-- [ ] Use copy from `website-copy-legal.md`
-- [ ] Plain text styling (not TUI boxes)
-- [ ] Last updated date
-- [ ] Contact email for questions
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: T26.1
-
-**Files to Create**:
-- `apps/web/src/app/(marketing)/terms/page.tsx`
-- `apps/web/src/app/(marketing)/privacy/page.tsx`
-
-**Reference**: `gtm-grimoire/execution/website-copy-legal.md`
-
----
-
-#### T26.13: Add SEO Metadata and Open Graph
-
-**Description**: Configure SEO metadata, Open Graph, and Twitter cards.
-
-**Acceptance Criteria**:
-- [ ] Add `metadata` export to all pages
-- [ ] Title pattern: "Page | Loa Constructs"
-- [ ] Description from positioning.md
-- [ ] Open Graph images (1200x630)
-- [ ] Twitter card configuration
-- [ ] Canonical URLs
-- [ ] Sitemap.xml generation
-- [ ] Robots.txt
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: All T26.* pages
-
-**Files to Modify**:
-- All marketing pages
-- `apps/web/src/app/layout.tsx`
-
-**Files to Create**:
-- `apps/web/public/og-image.png`
-- `apps/web/src/app/sitemap.ts`
-- `apps/web/src/app/robots.ts`
-
----
-
-#### T26.14: Create Demo GIFs/Videos
-
-**Description**: Create demo assets showing CLI usage.
-
-**Acceptance Criteria**:
-- [ ] CLI install GIF (npm install, claude skills add)
-- [ ] GTM Collective demo GIF (running /gtm-setup)
-- [ ] Optimize for web (<5MB each)
-- [ ] Store in `apps/web/public/demos/`
-- [ ] Add to landing page hero section
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: T26.2
-
-**Files to Create**:
-- `apps/web/public/demos/cli-install.gif`
-- `apps/web/public/demos/gtm-demo.gif`
-
----
-
-#### T26.15: Add Analytics Integration
-
-**Description**: Add analytics tracking for marketing pages.
-
-**Acceptance Criteria**:
-- [ ] Add Plausible or Vercel Analytics
-- [ ] Track page views
-- [ ] Track CTA button clicks
-- [ ] Track registration funnel
-- [ ] Configure goals: Register, Pro conversion
-- [ ] Privacy-respecting (no cookies if possible)
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: T26.1
-
-**Files to Modify**:
-- `apps/web/src/app/layout.tsx`
-
----
-
-#### T26.16: Mobile Responsive Polish
-
-**Description**: Ensure all marketing pages work well on mobile.
-
-**Acceptance Criteria**:
-- [ ] Test all pages on mobile viewport
-- [ ] Hero text readable on small screens
-- [ ] Navigation hamburger menu works
-- [ ] Pricing cards stack properly
-- [ ] Code blocks scrollable
-- [ ] CTAs full-width on mobile
-- [ ] Touch targets adequate (44px)
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: All T26.* pages
-
-**Files to Modify**:
-- Various marketing page components
-
----
-
-#### T26.17: Configure Custom Domain (constructs.network)
-
-**Description**: Point constructs.network domain to Vercel deployment.
-
-**Acceptance Criteria**:
-- [ ] Add domain in Vercel dashboard
-- [ ] Configure DNS records at registrar
-- [ ] Verify HTTPS certificate issued
-- [ ] Test www redirect to apex
-- [ ] Verify all pages load correctly
-- [ ] Update environment variables if needed
-
-**Effort**: Small (30 min)
-
-**Dependencies**: All T26.* pages complete
-
----
-
-#### T26.18: Integration Test Marketing Pages
-
-**Description**: Add E2E tests for critical marketing flows.
-
-**Acceptance Criteria**:
-- [ ] Test landing page loads
-- [ ] Test navigation to all marketing pages
-- [ ] Test pricing page displays all tiers
-- [ ] Test pack catalog loads
-- [ ] Test registration CTA flow
-- [ ] Test mobile menu
-
-**Effort**: Medium (2 hours)
-
-**Dependencies**: All T26.* pages
-
-**Files to Create**:
-- `apps/web/e2e/marketing.spec.ts`
-
----
-
-### Sprint 26 Summary
-
-| Task | Description | Effort | Status |
-|------|-------------|--------|--------|
-| T26.1 | Marketing layout component | M | ✅ Complete |
-| T26.2 | Landing page with GTM copy | L | ✅ Complete |
-| T26.3 | GTM Collective feature section | M | ✅ Complete |
-| T26.4 | Pricing section update | S | ✅ Complete |
-| T26.5 | Dedicated pricing page | M | ✅ Complete |
-| T26.6 | About page | M | ✅ Complete |
-| T26.7 | Public packs catalog | M | ✅ Complete |
-| T26.8 | Pack detail page | M | ✅ Complete |
-| T26.9 | Documentation hub | M | ✅ Complete |
-| T26.10 | Blog landing page | S | ✅ Complete |
-| T26.11 | Launch blog post | M | ✅ Complete |
-| T26.12 | Legal pages | S | ✅ Complete |
-| T26.13 | SEO & Open Graph | M | ✅ Complete |
-| T26.14 | Demo GIFs | M | ⏳ Manual task |
-| T26.15 | Analytics integration | S | ✅ Complete |
-| T26.16 | Mobile polish | M | ⏳ Manual task |
-| T26.17 | Custom domain setup | S | ⏳ Manual task |
-| T26.18 | E2E tests | M | ✅ Complete |
-
-**Total Estimated Effort**: ~36 hours (3-4 days)
-
----
-
-### Website Architecture
-
-```
-apps/web/src/app/
-├── (marketing)/              # Public marketing pages
-│   ├── layout.tsx            # Marketing layout (header, footer)
-│   ├── page.tsx              # Landing page (moved from root)
-│   ├── about/
-│   │   └── page.tsx
-│   ├── pricing/
-│   │   └── page.tsx
-│   ├── packs/
-│   │   ├── page.tsx          # Pack catalog
-│   │   └── [slug]/
-│   │       └── page.tsx      # Pack detail
-│   ├── docs/
-│   │   └── page.tsx
-│   ├── blog/
-│   │   ├── page.tsx          # Blog index
-│   │   └── launch/
-│   │       └── page.tsx      # Launch post
-│   ├── terms/
-│   │   └── page.tsx
-│   └── privacy/
-│       └── page.tsx
-├── (auth)/                   # Auth pages (existing)
-│   ├── login/
-│   ├── register/
-│   └── ...
-└── (dashboard)/              # Protected dashboard (existing)
-    ├── dashboard/
-    ├── skills/
-    └── ...
-```
-
-### Content Sources (GTM Grimoire)
-
-| Page | Source File |
-|------|-------------|
-| Landing | `website-copy-indie-devs.md` |
-| Pricing | `website-copy-pricing.md` |
-| About | `website-copy-about.md` |
-| Pack Detail | `website-copy-pack-detail.md` |
-| Docs | `website-copy-docs.md` |
-| Legal | `website-copy-legal.md` |
-| Register | `website-copy-register.md` |
-| Emails | `website-copy-emails.md` |
-
-### Key Messaging (from positioning.md)
-
-- **Headline**: "Skill packs for Claude Code. Beyond coding."
-- **Tagline**: "The other 50% of shipping products."
-- **Value Prop**: "Pre-built agent workflows for GTM, documentation, security, and deployment."
-- **Differentiation**: "Workflows, not prompts."
-- **Price Anchor**: "$29/mo = less than one hour of consultant time"
-
-### Launch Checklist (Pre-Sprint 26 Completion)
-
-- [ ] All marketing pages deployed
-- [ ] Custom domain verified
-- [ ] SEO metadata configured
-- [ ] Demo GIFs created
-- [ ] Analytics tracking
-- [ ] Mobile tested
-- [ ] E2E tests passing
-- [ ] Launch blog post ready
-
----
-
-**Sprint 26 Status**: Complete
-**Status**: All automated tasks complete. Manual tasks remaining: Demo GIFs, Mobile polish, Custom domain setup
-
----
-
-## Sprint 27: Security Remediation (Critical)
-
-**Goal**: Address critical SQL injection vulnerabilities identified in security audit before production deployment.
-
-**Duration**: 1 day (URGENT - blocking production)
-
-**Security Audit Reference**: `grimoires/loa/a2a/audits/2026-01-21/SECURITY-AUDIT-REPORT.md`
-
-**Priority**: BLOCKING - Do NOT deploy to production until complete.
-
-### Tasks
-
----
-
-#### T27.1: Fix SQL Injection in Skills Service (C-001)
-
-**Description**: Replace unsafe `sql.raw()` usage in skills tag filtering with parameterized query.
-
-**Acceptance Criteria**:
-- [ ] Replace `sql.raw()` at `services/skills.ts:191` with Drizzle's `arrayOverlaps()` operator
-- [ ] Verify skills search by tags still works correctly
-- [ ] Add unit test for malicious tag injection attempt
-- [ ] Manual test with payload: `tags=a'; DROP TABLE users; --`
-
-**Effort**: Small (1 hour)
-
-**Dependencies**: None
-
-**Files to Modify**:
-- `apps/api/src/services/skills.ts`
-
-**Files to Create**:
-- Add test case in `apps/api/src/services/skills.test.ts`
-
-**Remediation Doc**: `grimoires/loa/a2a/audits/2026-01-21/remediation/C-001-sql-injection-tags.md`
-
 ---
 
-#### T27.2: Fix SQL Injection in Analytics Service (C-002)
+#### T21.6: Test skill trigger patterns
 
-**Description**: Replace unsafe `sql.raw()` usage in analytics queries with Drizzle's `inArray()` operator.
+**Description**: Manually test that the skill triggers correctly.
 
 **Acceptance Criteria**:
-- [ ] Replace `sql.raw()` at `services/analytics.ts:337` with `inArray()`
-- [ ] Replace `sql.raw()` at `services/analytics.ts:370` with `inArray()`
-- [ ] Verify analytics queries return correct data
-- [ ] Add unit tests for edge cases (empty arrays, single values)
+- [ ] "find a skill for X" triggers skill
+- [ ] "is there a construct that..." triggers skill
+- [ ] "I need help with deployment" triggers skill
+- [ ] Regular questions don't trigger skill
+- [ ] Skill presents results correctly
 
-**Effort**: Small (1 hour)
+**Effort**: M (1 hour)
+**Dependencies**: T21.4
 
-**Dependencies**: None
-
-**Files to Modify**:
-- `apps/api/src/services/analytics.ts`
-
-**Files to Create**:
-- Add test cases in `apps/api/src/services/analytics.test.ts`
-
-**Remediation Doc**: `grimoires/loa/a2a/audits/2026-01-21/remediation/C-002-sql-injection-analytics.md`
-
 ---
 
-#### T27.3: Add Rate Limiting to Submission Endpoints (H-001)
+#### T21.7: Document opt-out mechanism
 
-**Description**: Add explicit rate limiting to pack submission endpoints to prevent spam and resource exhaustion.
+**Description**: Add documentation for disabling the skill.
 
 **Acceptance Criteria**:
-- [ ] Create submission-specific rate limiter (5 req/min)
-- [ ] Create upload-specific rate limiter (10 req/min)
-- [ ] Apply to POST/PATCH endpoints in `routes/submissions.ts`
-- [ ] Verify 429 response includes Retry-After header
-- [ ] Add integration test for rate limiting
+- [ ] Settings.json snippet in SKILL.md
+- [ ] Explain when user might want to opt out
+- [ ] Note that opt-out is per-project
 
-**Effort**: Small (1 hour)
+**Effort**: S (15 min)
+**Dependencies**: T21.5
 
-**Dependencies**: None
-
-**Files to Modify**:
-- `apps/api/src/routes/submissions.ts`
-- `apps/api/src/middleware/rate-limiter.ts` (if needed)
-
-**Remediation Doc**: `grimoires/loa/a2a/audits/2026-01-21/remediation/H-001-rate-limiting.md`
-
 ---
-
-#### T27.4: Admin SQL Parameterization (Defense in Depth)
 
-**Description**: Replace `sql.raw()` in admin tier override with parameterized query for defense in depth.
+### Sprint 21 Deliverables
 
-**Acceptance Criteria**:
-- [ ] Replace `sql.raw()` at `routes/admin.ts:253` with parameterized JSONB update
-- [ ] Verify tier override functionality still works
-- [ ] Test all four tier values (free, pro, team, enterprise)
-
-**Effort**: Small (30 min)
-
-**Dependencies**: None
-
-**Files to Modify**:
-- `apps/api/src/routes/admin.ts`
+| Deliverable | Location |
+|-------------|----------|
+| Skill index | `.claude/skills/finding-constructs/index.yaml` |
+| Skill workflow | `.claude/skills/finding-constructs/SKILL.md` |
+| Trigger docs | `.claude/skills/finding-constructs/resources/triggers.md` |
 
 ---
-
-#### T27.5: Security Verification & Re-Audit
-
-**Description**: Run full test suite and verify all SQL injection vulnerabilities are fixed.
-
-**Acceptance Criteria**:
-- [ ] All existing tests passing (`npm test`)
-- [ ] TypeScript compiles without errors (`npm run typecheck`)
-- [ ] No `sql.raw()` with string interpolation in codebase
-- [ ] Manual security verification of fixed endpoints
-- [ ] Update remediation docs with completion status
 
-**Effort**: Small (1 hour)
+## Appendix A: Task Summary
 
-**Dependencies**: T27.1, T27.2, T27.3, T27.4
+| Sprint | Task | Effort | Dependencies |
+|--------|------|--------|--------------|
+| 19 | T19.1: search_keywords to skills | S | - |
+| 19 | T19.2: search_use_cases to skills | S | T19.1 |
+| 19 | T19.3: search_keywords to packs | S | T19.1 |
+| 19 | T19.4: search_use_cases to packs | S | T19.3 |
+| 19 | T19.5: GIN indexes | S | T19.1-T19.4 |
+| 19 | T19.6: Generate migration | S | T19.5 |
+| 20 | T20.1: calculateRelevanceScore | M | - |
+| 20 | T20.2: Multi-field SQL builder | M | Sprint 19 |
+| 20 | T20.3: fetchSkillsAsConstructs update | S | T20.2 |
+| 20 | T20.4: fetchPacksAsConstructs update | S | T20.3 |
+| 20 | T20.5: Sort by relevance | S | T20.1, T20.4 |
+| 20 | T20.6: Response enhancement | S | T20.5 |
+| 20 | T20.7: OpenAPI update | S | T20.6 |
+| 20 | T20.8: Unit tests | M | T20.1 |
+| 20 | T20.9: Integration tests | M | T20.6 |
+| 21 | T21.1: Skill directory | S | - |
+| 21 | T21.2: index.yaml | S | T21.1 |
+| 21 | T21.3: SKILL.md workflow | M | T21.2, Sprint 20 |
+| 21 | T21.4: Fallback behavior | S | T21.3 |
+| 21 | T21.5: triggers.md docs | S | T21.2 |
+| 21 | T21.6: Test triggers | M | T21.4 |
+| 21 | T21.7: Opt-out docs | S | T21.5 |
 
-**Files to Modify**:
-- `grimoires/loa/a2a/audits/2026-01-21/remediation/C-001-sql-injection-tags.md`
-- `grimoires/loa/a2a/audits/2026-01-21/remediation/C-002-sql-injection-analytics.md`
-- `grimoires/loa/a2a/audits/2026-01-21/remediation/H-001-rate-limiting.md`
+**Effort Key**: S = Small (< 30 min), M = Medium (30 min - 2 hours), L = Large (> 2 hours)
 
 ---
 
-### Sprint 27 Summary
+## Appendix B: Goal Traceability
 
-| Task | Description | Effort | Status |
-|------|-------------|--------|--------|
-| T27.1 | Fix SQL injection in skills.ts | S | ✅ Complete |
-| T27.2 | Fix SQL injection in analytics.ts | S | ✅ Complete |
-| T27.3 | Add rate limiting to submissions | S | ✅ Complete |
-| T27.4 | Admin SQL parameterization | S | ✅ Complete |
-| T27.5 | Security verification | S | ✅ Complete |
+| Goal | Tasks |
+|------|-------|
+| G-1 (Discoverable at right moment) | T21.1-T21.7 |
+| G-2 (Quality search results 80%+) | T20.1-T20.6, T20.8-T20.9 |
+| G-3 (Non-intrusive <5% rejection) | T21.2, T21.4, T21.7 |
+| G-4 (API-first discovery) | T19.1-T19.6, T20.7 |
 
-**Total Estimated Effort**: ~4.5 hours
-
-**Status**: ALL CRITICAL VULNERABILITIES REMEDIATED
-
 ---
-
-### Security Fix Implementation Guide
-
-#### For T27.1 (Skills Tags):
-
-```typescript
-// BEFORE (vulnerable):
-conditions.push(sql`${skills.tags} && ${sql.raw(`ARRAY[${tags.map((t) => `'${t}'`).join(',')}]::text[]`)}`);
-
-// AFTER (safe):
-import { arrayOverlaps } from 'drizzle-orm/pg-core';
-conditions.push(arrayOverlaps(skills.tags, tags));
-```
-
-#### For T27.2 (Analytics):
-
-```typescript
-// BEFORE (vulnerable):
-sql`${skills.ownerId} in ${sql.raw(`('${teamIds.join("','")}')`)}`
-
-// AFTER (safe):
-import { inArray } from 'drizzle-orm';
-inArray(skills.ownerId, teamIds)
-```
 
-#### For T27.3 (Rate Limiting):
+## Appendix C: E2E Validation Task
 
-```typescript
-// In routes/submissions.ts
-const submissionRateLimiter = createRateLimiter({
-  prefix: 'submission',
-  maxRequests: 5,
-  windowMs: 60 * 1000,
-});
+**Final Sprint (21) includes E2E goal validation:**
 
-submissionsRouter.use('*', submissionRateLimiter);
-```
+- [ ] G-1: finding-constructs skill triggers on patterns, surfaces relevant construct
+- [ ] G-2: Search query returns top-3 with relevance_score, matches expected construct
+- [ ] G-3: Skill fallback tested, opt-out mechanism documented
+- [ ] G-4: API returns search metadata, OpenAPI documented
 
 ---
 
-**Sprint 27 Status**: Complete
-**Security Remediation**: All critical vulnerabilities (C-001, C-002) fixed and verified
+**Document Status**: Ready for Implementation
+**Next Step**: `/implement sprint-19` (or `/run sprint-19` for autonomous execution)
