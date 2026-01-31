@@ -2,7 +2,7 @@
 
 [![Version](https://img.shields.io/badge/version-1.11.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE.md)
-[![Release](https://img.shields.io/badge/release-Smart%20Feedback%20Routing-purple.svg)](CHANGELOG.md#1110---2026-02-01--smart-feedback-routing--developer-experience)
+[![Release](https://img.shields.io/badge/release-Autonomous%20Agents-purple.svg)](CHANGELOG.md#1110---2026-02-01--autonomous-agents--developer-experience)
 
 > *"The Loa are pragmatic entities... They're not worshipped for salvation—they're worked with for practical results."*
 

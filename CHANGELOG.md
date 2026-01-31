@@ -5,15 +5,101 @@ All notable changes to Loa will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.11.0] - 2026-02-01 — Smart Feedback Routing & Developer Experience
+## [1.11.0] - 2026-02-01 — Autonomous Agents & Developer Experience
 
 ### Why This Release
 
-This release focuses on **developer experience improvements** with two major features: **Smart Feedback Routing** automatically routes feedback to the correct ecosystem repository, and **WIP Branch Testing** lets you safely test Loa feature branches before merging. Additionally, this release includes comprehensive **security hardening** based on a thorough code audit.
+This is a **major release** with six significant features: the **Autonomous Agent Orchestra** (#82) for end-to-end workflow automation, **LLM-as-Judge** (#69) structured evaluation for auditors, **Adversarial Critic Protocol** (#85) for rigorous code reviews, **Decision Lineage Schema** (#86) for tracking architectural decisions, **Smart Feedback Routing** (#81) for ecosystem-aware issue routing, and **WIP Branch Testing** (#91) for safe framework updates. Plus comprehensive **security hardening** and **attention budget enforcement** (#83) across all skills.
 
-*"Route feedback where it belongs. Test safely before you commit."*
+*"The orchestra plays. The agents review. The decisions persist."*
 
 ### Added
+
+#### Autonomous Agent Orchestra (#82)
+
+Meta-orchestrator skill for exhaustive Loa process compliance with 8-phase execution model.
+
+- **`/autonomous` command** - End-to-end autonomous workflow
+  - Phase 1: Initialization & context loading
+  - Phase 2: PRD discovery & requirements
+  - Phase 3: Architecture design
+  - Phase 4: Sprint planning
+  - Phase 5: Implementation cycles
+  - Phase 6: Review & audit loops
+  - Phase 7: Deployment preparation
+  - Phase 8: Completion & learning extraction
+
+- **Operator Detection** - Identifies workflow context and adapts behavior
+- **Quality Gates** - Configurable checkpoints between phases
+- **Escalation Templates** - Structured handoff when human intervention needed
+
+- **New Skill**: `.claude/skills/autonomous-agent/`
+  - `index.yaml` - Skill metadata
+  - `SKILL.md` - 8-phase execution model
+  - Resources: operator-detection, phase-checklist, quality-gates
+
+#### LLM-as-Judge Auditor Enhancement (#69)
+
+Structured evaluation rubrics with machine-parseable output for the auditing-security skill.
+
+- **23 Scoring Dimensions** across 5 categories:
+  - Security (injection, auth, crypto, data protection)
+  - Architecture (coupling, scalability, resilience)
+  - Code Quality (complexity, testing, documentation)
+  - Operations (logging, monitoring, deployment)
+  - Compliance (privacy, licensing, accessibility)
+
+- **Output Schema** - JSONL format with reasoning traces
+- **New Resources**:
+  - `RUBRICS.md` - 23 evaluation dimensions
+  - `OUTPUT-SCHEMA.md` - JSONL schema specification
+
+#### Adversarial Critic Protocol (#85)
+
+Enhances code reviews with adversarial analysis that challenges assumptions and identifies edge cases.
+
+- **Structured Adversarial Sections**:
+  - Concerns identified
+  - Assumptions challenged
+  - Alternatives not considered
+  - Adversarial verdict
+
+- **Review Template** - `reviewing-code/resources/templates/review-feedback.md`
+
+#### Decision Lineage Schema (#86)
+
+Track architectural decisions with full lineage - why decisions were made, alternatives considered, and connections to requirements.
+
+- **Decision Record Structure**:
+  ```yaml
+  decisions:
+    - id: DEC-001
+      title: "Decision title"
+      context: "Why this decision was needed"
+      options: [{ name: "Option A", pros: [...], cons: [...] }]
+      chosen: "Option A"
+      rationale: "Why this option was chosen"
+      supersedes: null  # Links to previous decisions
+  ```
+
+- **New Files**:
+  - `.claude/schemas/decisions.schema.json` - JSON schema
+  - `.claude/protocols/decision-capture.md` - Capture protocol
+  - `docs/architecture/decision-lineage.md` - Documentation
+
+#### Attention Budget Enforcement (#83)
+
+Tool Result Clearing attention budgets added to all 7 search-heavy skills.
+
+- **Token Thresholds**:
+  | Context Type | Limit | Action |
+  |--------------|-------|--------|
+  | Single search result | 2,000 tokens | Apply 4-step clearing |
+  | Accumulated results | 5,000 tokens | MANDATORY clearing |
+  | Full file load | 3,000 tokens | Synthesize immediately |
+  | Session total | 15,000 tokens | STOP, synthesize to NOTES.md |
+
+- **Skills Updated**: `auditing-security`, `implementing-tasks`, `discovering-requirements`, `riding-codebase`, `reviewing-code`, `planning-sprints`, `designing-architecture`
 
 #### Smart Feedback Routing (#81, #93)
 
@@ -103,7 +189,14 @@ Comprehensive security improvements based on code audit findings.
 
 - **`/feedback` command** - Now v2.1.0 with smart routing
 - **`/update-loa` command** - Now v1.2.0 with WIP branch testing
-- **CLAUDE.md** - Added Smart Feedback Routing and WIP Branch Testing sections
+- **7 skills** - Added attention budget sections with token thresholds
+- **CLAUDE.md** - Added documentation for all new features
+
+### New Commands
+
+| Command | Description |
+|---------|-------------|
+| `/autonomous` | End-to-end autonomous workflow execution |
 
 ### Configuration
 
