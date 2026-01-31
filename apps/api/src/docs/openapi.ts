@@ -68,11 +68,13 @@ Rate limit headers are included in all responses:
     { name: 'OAuth', description: 'OAuth provider authentication' },
     { name: 'Skills', description: 'Skill management endpoints' },
     { name: 'Constructs', description: 'Unified construct discovery (skills + packs)' },
+    { name: 'Graduation', description: 'Construct maturity and graduation system' },
     { name: 'Teams', description: 'Team management endpoints' },
     { name: 'Subscriptions', description: 'Subscription management' },
     { name: 'Analytics', description: 'Usage analytics' },
     { name: 'Audit', description: 'Audit log endpoints' },
     { name: 'Creator', description: 'Skill creator endpoints' },
+    { name: 'Admin', description: 'Admin management endpoints' },
   ],
   paths: {
     // Health
@@ -773,6 +775,7 @@ Rate limit headers are included in all responses:
             description: 'Filter to featured constructs only',
             schema: { type: 'boolean' },
           },
+          { $ref: '#/components/parameters/Maturity' },
           {
             name: 'page',
             in: 'query',
@@ -844,6 +847,161 @@ Rate limit headers are included in all responses:
         responses: {
           '200': { description: 'Construct exists' },
           '404': { description: 'Construct not found' },
+        },
+      },
+    },
+
+    // Graduation
+    '/v1/constructs/{slug}/graduation-status': {
+      get: {
+        tags: ['Graduation'],
+        summary: 'Get graduation status',
+        description: 'Get current maturity level and graduation eligibility for a construct',
+        operationId: 'getGraduationStatus',
+        parameters: [{ $ref: '#/components/parameters/ConstructSlug' }],
+        responses: {
+          '200': {
+            description: 'Graduation status',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/GraduationStatusResponse' },
+              },
+            },
+          },
+          '404': { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/v1/constructs/{slug}/request-graduation': {
+      post: {
+        tags: ['Graduation'],
+        summary: 'Request graduation',
+        description: 'Request graduation to the next maturity level. Auto-approved for experimental → beta if criteria met after 14 days.',
+        operationId: 'requestGraduation',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ $ref: '#/components/parameters/ConstructSlug' }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/GraduationRequestInput' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Graduation auto-approved',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/GraduationRequestResponse' },
+              },
+            },
+          },
+          '201': {
+            description: 'Graduation request created (pending review)',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/GraduationRequestResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+    '/v1/constructs/{slug}/graduation-request': {
+      delete: {
+        tags: ['Graduation'],
+        summary: 'Withdraw graduation request',
+        description: 'Withdraw a pending graduation request',
+        operationId: 'withdrawGraduationRequest',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ $ref: '#/components/parameters/ConstructSlug' }],
+        responses: {
+          '200': {
+            description: 'Request withdrawn',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/MessageResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
+    // Admin Graduation
+    '/v1/admin/graduations': {
+      get: {
+        tags: ['Admin', 'Graduation'],
+        summary: 'List pending graduations',
+        description: 'List all pending graduation requests (admin only)',
+        operationId: 'listPendingGraduations',
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: 'page',
+            in: 'query',
+            description: 'Page number',
+            schema: { type: 'integer', minimum: 1, default: 1 },
+          },
+          {
+            name: 'per_page',
+            in: 'query',
+            description: 'Results per page',
+            schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          },
+        ],
+        responses: {
+          '200': {
+            description: 'Pending graduation requests',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/PendingGraduationsListResponse' },
+              },
+            },
+          },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+        },
+      },
+    },
+    '/v1/admin/graduations/{id}/review': {
+      post: {
+        tags: ['Admin', 'Graduation'],
+        summary: 'Review graduation request',
+        description: 'Approve or reject a graduation request (admin only)',
+        operationId: 'reviewGraduation',
+        security: [{ bearerAuth: [] }],
+        parameters: [{ $ref: '#/components/parameters/GraduationRequestId' }],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: { $ref: '#/components/schemas/ReviewGraduationInput' },
+            },
+          },
+        },
+        responses: {
+          '200': {
+            description: 'Review completed',
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/ReviewGraduationResponse' },
+              },
+            },
+          },
+          '400': { $ref: '#/components/responses/ValidationError' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
         },
       },
     },
@@ -984,6 +1142,19 @@ Rate limit headers are included in all responses:
         required: true,
         description: 'Construct slug (pack or skill)',
         schema: { type: 'string' },
+      },
+      Maturity: {
+        name: 'maturity',
+        in: 'query',
+        description: 'Filter by maturity level (comma-separated for multiple)',
+        schema: { type: 'string', example: 'beta,stable' },
+      },
+      GraduationRequestId: {
+        name: 'id',
+        in: 'path',
+        required: true,
+        description: 'Graduation request ID (UUID)',
+        schema: { type: 'string', format: 'uuid' },
       },
     },
     schemas: {
@@ -1372,6 +1543,8 @@ Rate limit headers are included in all responses:
           rating: { type: 'number', nullable: true },
           is_featured: { type: 'boolean' },
           manifest: { $ref: '#/components/schemas/ConstructManifestSummary' },
+          maturity: { $ref: '#/components/schemas/MaturityLevel' },
+          graduated_at: { type: 'string', format: 'date-time', nullable: true },
           created_at: { type: 'string', format: 'date-time' },
           updated_at: { type: 'string', format: 'date-time' },
         },
@@ -1478,6 +1651,162 @@ Rate limit headers are included in all responses:
             },
           },
           tier_required: { type: 'string', enum: ['free', 'pro', 'team', 'enterprise'] },
+        },
+      },
+
+      // Graduation
+      MaturityLevel: {
+        type: 'string',
+        enum: ['experimental', 'beta', 'stable', 'deprecated'],
+        description: 'Construct maturity level',
+      },
+      GraduationCriteria: {
+        type: 'object',
+        properties: {
+          met: {
+            type: 'object',
+            additionalProperties: { type: 'boolean' },
+            description: 'Criteria that have been met',
+          },
+          missing: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                key: { type: 'string' },
+                current: { type: 'number', nullable: true },
+                required: { type: 'number' },
+              },
+            },
+            description: 'Criteria that are not yet met',
+          },
+        },
+      },
+      GraduationStatus: {
+        type: 'object',
+        properties: {
+          construct_type: { type: 'string', enum: ['skill', 'pack'] },
+          construct_id: { type: 'string', format: 'uuid' },
+          current_maturity: { $ref: '#/components/schemas/MaturityLevel' },
+          next_level: { $ref: '#/components/schemas/MaturityLevel', nullable: true },
+          criteria: { $ref: '#/components/schemas/GraduationCriteria' },
+          eligible_for_auto_graduation: { type: 'boolean' },
+          can_request: { type: 'boolean' },
+          pending_request: { $ref: '#/components/schemas/PendingRequest', nullable: true },
+        },
+      },
+      PendingRequest: {
+        type: 'object',
+        nullable: true,
+        properties: {
+          id: { type: 'string', format: 'uuid' },
+          target_maturity: { $ref: '#/components/schemas/MaturityLevel' },
+          status: { type: 'string', enum: ['pending', 'approved', 'rejected', 'withdrawn'] },
+          requested_at: { type: 'string', format: 'date-time' },
+        },
+      },
+      GraduationStatusResponse: {
+        type: 'object',
+        properties: {
+          data: { $ref: '#/components/schemas/GraduationStatus' },
+          request_id: { type: 'string' },
+        },
+      },
+      GraduationRequestInput: {
+        type: 'object',
+        properties: {
+          notes: { type: 'string', maxLength: 2000, description: 'Optional notes for the review' },
+        },
+      },
+      GraduationRequestResponse: {
+        type: 'object',
+        properties: {
+          data: {
+            type: 'object',
+            properties: {
+              request_id: { type: 'string', format: 'uuid' },
+              construct_type: { type: 'string', enum: ['skill', 'pack'] },
+              construct_id: { type: 'string', format: 'uuid' },
+              current_maturity: { $ref: '#/components/schemas/MaturityLevel' },
+              target_maturity: { $ref: '#/components/schemas/MaturityLevel' },
+              status: { type: 'string', enum: ['pending', 'approved'] },
+              requested_at: { type: 'string', format: 'date-time' },
+              auto_approved: { type: 'boolean' },
+            },
+          },
+          message: { type: 'string' },
+          request_id: { type: 'string' },
+        },
+      },
+      PendingGraduationsListResponse: {
+        type: 'object',
+        properties: {
+          data: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', format: 'uuid' },
+                construct_type: { type: 'string', enum: ['skill', 'pack'] },
+                construct_id: { type: 'string', format: 'uuid' },
+                construct_name: { type: 'string' },
+                construct_slug: { type: 'string' },
+                current_maturity: { $ref: '#/components/schemas/MaturityLevel' },
+                target_maturity: { $ref: '#/components/schemas/MaturityLevel' },
+                requested_at: { type: 'string', format: 'date-time' },
+                request_notes: { type: 'string', nullable: true },
+                criteria_snapshot: { $ref: '#/components/schemas/GraduationCriteria' },
+                owner: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    email: { type: 'string', format: 'email' },
+                  },
+                },
+              },
+            },
+          },
+          pagination: {
+            type: 'object',
+            properties: {
+              page: { type: 'integer' },
+              per_page: { type: 'integer' },
+              total: { type: 'integer' },
+              total_pages: { type: 'integer' },
+            },
+          },
+          request_id: { type: 'string' },
+        },
+      },
+      ReviewGraduationInput: {
+        type: 'object',
+        required: ['decision', 'review_notes'],
+        properties: {
+          decision: { type: 'string', enum: ['approved', 'rejected'] },
+          review_notes: { type: 'string', minLength: 1, maxLength: 2000 },
+          rejection_reason: {
+            type: 'string',
+            enum: ['quality_standards', 'incomplete_documentation', 'insufficient_testing', 'stability_concerns', 'other'],
+            description: 'Required when decision is rejected',
+          },
+        },
+      },
+      ReviewGraduationResponse: {
+        type: 'object',
+        properties: {
+          data: {
+            type: 'object',
+            properties: {
+              request_id: { type: 'string', format: 'uuid' },
+              construct_type: { type: 'string', enum: ['skill', 'pack'] },
+              construct_id: { type: 'string', format: 'uuid' },
+              status: { type: 'string', enum: ['approved', 'rejected'] },
+              new_maturity: { $ref: '#/components/schemas/MaturityLevel', nullable: true },
+              reviewed_at: { type: 'string', format: 'date-time' },
+            },
+          },
+          message: { type: 'string' },
+          request_id: { type: 'string' },
         },
       },
 
