@@ -227,6 +227,23 @@ Read ALL context documents in order:
 5. Check architecture alignment with SDD
 6. Perform security audit (see `resources/REFERENCE.md` §Security)
 7. Check performance and resource management
+8. **Karpathy Principles Check** (see below)
+
+### Karpathy Principles Verification
+
+Verify implementation follows the four principles:
+
+| Principle | Check | Fail Condition |
+|-----------|-------|----------------|
+| **Think Before Coding** | Assumptions documented in reviewer.md | Silent assumptions, missing clarifications |
+| **Simplicity First** | Minimal code, no speculative features | Unused abstractions, "just in case" code |
+| **Surgical Changes** | Diff only includes requested changes | Unrelated formatting, drive-by improvements |
+| **Goal-Driven** | Clear success criteria, tests verify them | Vague tests, untestable outcomes |
+
+**Flag violations as feedback:**
+- "SIMPLICITY: Abstraction X is only used once - consider inlining"
+- "SURGICAL: Lines Y-Z were reformatted but not part of the task"
+- "GOAL-DRIVEN: Test doesn't verify the actual acceptance criteria"
 
 ## Phase 3: Previous Feedback Verification
 
@@ -410,6 +427,7 @@ Before approving any sprint, check for validation reports in `grimoires/loa/a2a/
 | Architecture | `architecture-validation-*.md` | CRITICAL_VIOLATION |
 | Security | `security-scan-*.md` | CRITICAL, HIGH |
 | Test Adequacy | `test-adequacy-*.md` | INSUFFICIENT |
+| Goal Validation | `goal-validation-*.md` | GOAL_BLOCKED |
 
 ### Workflow
 
@@ -597,3 +615,41 @@ br sync --flush-only  # Export SQLite → JSONL before commit
 
 **Protocol Reference**: See `.claude/protocols/beads-integration.md`
 </beads_workflow>
+
+<visual_communication>
+## Visual Communication (Optional)
+
+Follow `.claude/protocols/visual-communication.md` for diagram standards.
+
+### When to Include Diagrams
+
+Code review feedback may benefit from visual aids for:
+- **Code Flow** (flowchart) - Illustrate data or control flow issues
+- **Architecture Concerns** (flowchart) - Show structural problems
+
+### Output Format
+
+If including diagrams in feedback, use Mermaid with preview URLs:
+
+```markdown
+### Suggested Refactoring
+
+Current flow has unnecessary complexity:
+
+```mermaid
+graph TD
+    A[Input] --> B[Validate]
+    B --> C[Process]
+    C --> D[Transform]
+    D --> E[Output]
+```
+
+> **Preview**: [View diagram](https://agents.craft.do/mermaid?code=...&theme=github)
+```
+
+### Theme Configuration
+
+Read theme from `.loa.config.yaml` visual_communication.theme setting.
+
+Diagram inclusion is **optional** for code reviews - use when visual explanation helps.
+</visual_communication>
