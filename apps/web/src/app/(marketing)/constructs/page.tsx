@@ -148,7 +148,7 @@ export default async function ConstructsPage({
                 fontSize: '14px',
               }}
             >
-              {error}. Showing cached data or try again later.
+              Unable to load constructs: {error}. Please try again later.
             </div>
           </div>
         </section>
