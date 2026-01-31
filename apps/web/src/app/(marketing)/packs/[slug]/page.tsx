@@ -1,6 +1,6 @@
 /**
  * Public Pack Detail Page
- * Individual pack detail fetched from registry API
+ * Individual pack detail fetched from unified constructs API
  * @see sprint.md T26.8: Create Public Pack Detail Page
  */
 
@@ -10,7 +10,7 @@ import { notFound } from 'next/navigation';
 import { TuiBox } from '@/components/tui/tui-box';
 import { TuiButton } from '@/components/tui/tui-button';
 import { TuiH2, TuiDim, TuiTag, TuiCode } from '@/components/tui/tui-text';
-import { fetchPack, PackNotFoundError, type Pack } from '@/lib/api';
+import { fetchConstruct, ConstructNotFoundError, type ConstructDetail } from '@/lib/api';
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -117,13 +117,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const resolvedParams = await params;
 
   try {
-    const response = await fetchPack(resolvedParams.slug);
+    const response = await fetchConstruct(resolvedParams.slug);
     return {
       title: response.data.name,
       description: response.data.description || `${response.data.name} skill pack for Claude Code`,
     };
   } catch (error) {
-    if (error instanceof PackNotFoundError) {
+    if (error instanceof ConstructNotFoundError) {
       return { title: 'Pack Not Found' };
     }
     // For other errors (5xx, network), return generic title
@@ -134,15 +134,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function PackDetailPage({ params }: Props) {
   const resolvedParams = await params;
-  let pack: Pack;
+  let pack: ConstructDetail;
 
   try {
-    const response = await fetchPack(resolvedParams.slug);
+    const response = await fetchConstruct(resolvedParams.slug);
     pack = response.data;
   } catch (error) {
     // Only show 404 for actual "pack not found" errors
     // Re-throw other errors (5xx, network) for error boundary to handle
-    if (error instanceof PackNotFoundError) {
+    if (error instanceof ConstructNotFoundError) {
       notFound();
     }
     throw error;

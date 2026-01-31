@@ -1,6 +1,6 @@
 /**
  * Public Packs Catalog Page
- * Browse packs from the registry API
+ * Browse packs from the unified constructs API
  * @see sprint.md T26.7: Create Public Packs Catalog Page
  */
 
@@ -8,7 +8,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { TuiButton } from '@/components/tui/tui-button';
 import { TuiH2, TuiDim, TuiTag } from '@/components/tui/tui-text';
-import { fetchPacks, type Pack } from '@/lib/api';
+import { fetchConstructs, type Construct } from '@/lib/api';
 
 export const metadata: Metadata = {
   title: 'Packs',
@@ -30,28 +30,27 @@ function formatDownloads(count: number): string {
   return count.toString();
 }
 
-function getCategory(pack: Pack): string {
+function getCategory(pack: Construct): string {
   return CATEGORY_MAP[pack.slug] || 'Workflow';
 }
 
-function getCommandCount(pack: Pack): number {
-  // Extract from latest version or use default based on known packs
+function getCommandCount(pack: Construct): number {
+  // Extract from manifest commands or use default based on known packs
   const knownCounts: Record<string, number> = {
     'gtm-collective': 14,
     'observer': 6,
     'crucible': 5,
     'artisan': 10,
   };
-  return knownCounts[pack.slug] || pack.latest_version?.file_count || 0;
+  return knownCounts[pack.slug] || pack.manifest?.commands?.length || 0;
 }
 
 export default async function PacksPage() {
-  let packs: Pack[] = [];
+  let packs: Construct[] = [];
   let error: string | null = null;
 
   try {
-    const response = await fetchPacks({ per_page: 50 });
-    // Filter to only show published packs (status check removed since API only returns published)
+    const response = await fetchConstructs({ type: 'pack', per_page: 50 });
     packs = response.data;
   } catch (e) {
     error = e instanceof Error ? e.message : 'Failed to load packs';
