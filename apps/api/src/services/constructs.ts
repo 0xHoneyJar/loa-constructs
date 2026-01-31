@@ -201,24 +201,41 @@ export async function listConstructs(
     }
   }
 
+  // When type is specified, we can use direct pagination on that table
+  // When type is NOT specified (mixed query), we must fetch enough from both
+  // sources to correctly paginate the merged, sorted result
+  const isMixedQuery = !type;
+
+  // For mixed queries: fetch (page * pageSize) items from each source to ensure
+  // correct global pagination after merge-sort. For filtered queries: use offset.
+  const fetchLimit = isMixedQuery ? page * pageSize : pageSize;
+  const fetchOffset = isMixedQuery ? 0 : offset;
+
   // Fetch skills (if type not specified or type === 'skill')
   const skillsPromise =
     !type || type === 'skill'
-      ? fetchSkillsAsConstructs({ query, tier, category, featured, limit: pageSize, offset })
+      ? fetchSkillsAsConstructs({ query, tier, category, featured, limit: fetchLimit, offset: fetchOffset })
       : Promise.resolve({ items: [], count: 0 });
 
   // Fetch packs (if type not specified or type === 'pack')
   const packsPromise =
     !type || type === 'pack'
-      ? fetchPacksAsConstructs({ query, tier, featured, limit: pageSize, offset })
+      ? fetchPacksAsConstructs({ query, tier, featured, limit: fetchLimit, offset: fetchOffset })
       : Promise.resolve({ items: [], count: 0 });
 
   const [skillsResult, packsResult] = await Promise.all([skillsPromise, packsPromise]);
 
   // Merge and sort by downloads
-  const allConstructs = [...skillsResult.items, ...packsResult.items]
-    .sort((a, b) => b.downloads - a.downloads)
-    .slice(0, pageSize);
+  let allConstructs = [...skillsResult.items, ...packsResult.items]
+    .sort((a, b) => b.downloads - a.downloads);
+
+  // For mixed queries, apply pagination after global sort
+  // For filtered queries, results are already correctly paginated
+  if (isMixedQuery) {
+    allConstructs = allConstructs.slice(offset, offset + pageSize);
+  } else {
+    allConstructs = allConstructs.slice(0, pageSize);
+  }
 
   const total = skillsResult.count + packsResult.count;
 
