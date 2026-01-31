@@ -218,13 +218,6 @@ grimoires/artisan/
 └── observations/  # Pattern observations
 ```
 
-### Syncing from Rune
-
-```bash
-# Pull latest skills from upstream rune repository
-./scripts/pull-from-rune.sh
-```
-
 ---
 
 ## Complete Workflow

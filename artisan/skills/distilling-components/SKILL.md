@@ -27,4 +27,4 @@ This skill is part of the Artisan pack for brand and UI craftsmanship.
 
 ## Coming Soon
 
-This skill is a placeholder. Full implementation pending from upstream rune repository.
+This skill is a placeholder. Full implementation coming soon.

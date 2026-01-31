@@ -2,7 +2,7 @@
 
 > *"Design is not how it looks, but how it moves. Physics is taste made tangible."*
 
-Brand and UI craftsmanship skills from **rune**. Survey patterns, synthesize taste, craft physics-based motion, and validate performance.
+Brand and UI craftsmanship skills for design systems and motion. Survey patterns, synthesize taste, craft physics-based motion, and validate performance.
 
 ## Skills (10)
 
@@ -183,19 +183,6 @@ grimoires/artisan/
 | `ease-out-expo` | `cubic-bezier(0.16, 1, 0.3, 1)` | Enter animations |
 | `ease-in-expo` | `cubic-bezier(0.7, 0, 0.84, 0)` | Exit animations |
 | `ease-in-out-expo` | `cubic-bezier(0.87, 0, 0.13, 1)` | Move/resize |
-
----
-
-## Syncing from Rune
-
-Artisan skills are sourced from the upstream **rune** repository:
-
-```bash
-# Pull latest skills
-./scripts/pull-from-rune.sh
-```
-
-This updates skill definitions while preserving local grimoire data.
 
 ---
 
