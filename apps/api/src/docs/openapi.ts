@@ -925,7 +925,7 @@ Rate limit headers are included in all responses:
             description: 'Request withdrawn',
             content: {
               'application/json': {
-                schema: { $ref: '#/components/schemas/MessageResponse' },
+                schema: { $ref: '#/components/schemas/WithdrawGraduationResponse' },
               },
             },
           },
@@ -1674,8 +1674,15 @@ Rate limit headers are included in all responses:
               type: 'object',
               properties: {
                 key: { type: 'string' },
-                current: { type: 'number', nullable: true },
-                required: { type: 'number' },
+                current: {
+                  oneOf: [{ type: 'number' }, { type: 'boolean' }],
+                  nullable: true,
+                  description: 'Current value (number for downloads/days, boolean for file existence checks)',
+                },
+                required: {
+                  oneOf: [{ type: 'number' }, { type: 'boolean' }],
+                  description: 'Required value (number for thresholds, boolean for existence checks)',
+                },
               },
             },
             description: 'Criteria that are not yet met',
@@ -1803,6 +1810,20 @@ Rate limit headers are included in all responses:
               status: { type: 'string', enum: ['approved', 'rejected'] },
               new_maturity: { $ref: '#/components/schemas/MaturityLevel', nullable: true },
               reviewed_at: { type: 'string', format: 'date-time' },
+            },
+          },
+          message: { type: 'string' },
+          request_id: { type: 'string' },
+        },
+      },
+      WithdrawGraduationResponse: {
+        type: 'object',
+        properties: {
+          data: {
+            type: 'object',
+            properties: {
+              request_id: { type: 'string', format: 'uuid' },
+              status: { type: 'string', enum: ['withdrawn'] },
             },
           },
           message: { type: 'string' },
