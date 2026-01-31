@@ -5,7 +5,7 @@
  * @see sdd-constructs-api.md §6 Service Layer Design
  */
 
-import { eq, and, or, desc, sql, ilike } from 'drizzle-orm';
+import { eq, and, or, desc, sql, ilike, inArray } from 'drizzle-orm';
 import {
   db,
   skills,
@@ -26,6 +26,8 @@ export type { ConstructManifest };
 
 export type ConstructType = 'skill' | 'pack' | 'bundle';
 
+export type MaturityLevel = 'experimental' | 'beta' | 'stable' | 'deprecated';
+
 export interface Construct {
   id: string;
   type: ConstructType;
@@ -45,6 +47,8 @@ export interface Construct {
   homepageUrl: string | null;
   documentationUrl: string | null;
   latestVersion: { version: string; changelog: string | null; publishedAt: Date | null } | null;
+  maturity: MaturityLevel;
+  graduatedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -63,6 +67,7 @@ export interface ListConstructsOptions {
   tier?: string;
   category?: string;
   featured?: boolean;
+  maturity?: MaturityLevel[];
   page?: number;
   limit?: number;
 }
@@ -136,6 +141,8 @@ function skillToConstruct(
           publishedAt: version.publishedAt,
         }
       : null,
+    maturity: (skill.maturity || 'experimental') as MaturityLevel,
+    graduatedAt: skill.graduatedAt || null,
     createdAt: skill.createdAt || new Date(),
     updatedAt: skill.updatedAt || new Date(),
   };
@@ -176,6 +183,8 @@ function packToConstruct(
           publishedAt: version.publishedAt,
         }
       : null,
+    maturity: (pack.maturity || 'experimental') as MaturityLevel,
+    graduatedAt: pack.graduatedAt || null,
     createdAt: pack.createdAt || new Date(),
     updatedAt: pack.updatedAt || new Date(),
   };
@@ -190,13 +199,14 @@ function packToConstruct(
 export async function listConstructs(
   options: ListConstructsOptions = {}
 ): Promise<ListConstructsResult> {
-  const { query, type, tier, category, featured, page = 1, limit = DEFAULT_PAGE_SIZE } = options;
+  const { query, type, tier, category, featured, maturity, page = 1, limit = DEFAULT_PAGE_SIZE } = options;
   const pageSize = Math.min(Math.max(1, limit), MAX_PAGE_SIZE);
   const offset = (Math.max(1, page) - 1) * pageSize;
 
   // Check cache for non-search queries
+  const maturityKey = maturity ? maturity.sort().join(',') : '';
   const cacheKey = !query
-    ? CACHE_KEYS.constructList(`${type}:${tier}:${category}:${featured}:${page}:${pageSize}`)
+    ? CACHE_KEYS.constructList(`${type}:${tier}:${category}:${featured}:${maturityKey}:${page}:${pageSize}`)
     : null;
 
   if (cacheKey && isRedisConfigured()) {
@@ -224,13 +234,13 @@ export async function listConstructs(
   // Fetch skills (if type not specified or type === 'skill')
   const skillsPromise =
     !type || type === 'skill'
-      ? fetchSkillsAsConstructs({ query, tier, category, featured, limit: fetchLimit, offset: fetchOffset })
+      ? fetchSkillsAsConstructs({ query, tier, category, featured, maturity, limit: fetchLimit, offset: fetchOffset })
       : Promise.resolve({ items: [], count: 0 });
 
   // Fetch packs (if type not specified or type === 'pack')
   const packsPromise =
     !type || type === 'pack'
-      ? fetchPacksAsConstructs({ query, tier, featured, limit: fetchLimit, offset: fetchOffset })
+      ? fetchPacksAsConstructs({ query, tier, featured, maturity, limit: fetchLimit, offset: fetchOffset })
       : Promise.resolve({ items: [], count: 0 });
 
   const [skillsResult, packsResult] = await Promise.all([skillsPromise, packsPromise]);
@@ -447,10 +457,15 @@ async function fetchSkillsAsConstructs(options: {
   tier?: string;
   category?: string;
   featured?: boolean;
+  maturity?: MaturityLevel[];
   limit: number;
   offset: number;
 }): Promise<{ items: Construct[]; count: number }> {
   const conditions = [eq(skills.isPublic, true), eq(skills.isDeprecated, false)];
+
+  if (options.maturity && options.maturity.length > 0) {
+    conditions.push(inArray(skills.maturity, options.maturity));
+  }
 
   if (options.tier) {
     conditions.push(eq(skills.tierRequired, options.tier as 'free' | 'pro' | 'team' | 'enterprise'));
@@ -524,10 +539,15 @@ async function fetchPacksAsConstructs(options: {
   query?: string;
   tier?: string;
   featured?: boolean;
+  maturity?: MaturityLevel[];
   limit: number;
   offset: number;
 }): Promise<{ items: Construct[]; count: number }> {
   const conditions = [eq(packs.status, 'published')];
+
+  if (options.maturity && options.maturity.length > 0) {
+    conditions.push(inArray(packs.maturity, options.maturity));
+  }
 
   if (options.tier) {
     conditions.push(eq(packs.tierRequired, options.tier as 'free' | 'pro' | 'team' | 'enterprise'));

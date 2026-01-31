@@ -25,6 +25,10 @@ import {
   sendPackApprovedEmail,
   sendPackRejectedEmail,
 } from '../services/email.js';
+import {
+  listPendingGraduationRequests,
+  reviewGraduation,
+} from '../services/graduation.js';
 
 // --- Route Instance ---
 
@@ -918,3 +922,216 @@ adminRouter.get('/analytics/packs', zValidator('query', analyticsQuerySchema), a
     recent_packs: recentPacks,
   });
 });
+
+// --- Graduation Review Routes ---
+
+const listGraduationsSchema = z.object({
+  page: z.coerce.number().int().positive().default(1),
+  per_page: z.coerce.number().int().positive().max(100).default(20),
+});
+
+const reviewGraduationSchema = z.object({
+  decision: z.enum(['approved', 'rejected']),
+  review_notes: z.string().min(1).max(2000),
+  rejection_reason: z
+    .enum([
+      'quality_standards',
+      'incomplete_documentation',
+      'insufficient_testing',
+      'stability_concerns',
+      'other',
+    ])
+    .optional(),
+});
+
+/**
+ * GET /v1/admin/graduations
+ * List pending graduation requests
+ * @see prd.md §4.4 Admin Review Queue
+ */
+adminRouter.get('/graduations', zValidator('query', listGraduationsSchema), async (c) => {
+  const adminId = c.get('userId');
+  const requestId = c.get('requestId');
+  const { page, per_page } = c.req.valid('query');
+
+  const result = await listPendingGraduationRequests({ page, limit: per_page });
+
+  // Enrich with construct details
+  const enrichedRequests = await Promise.all(
+    result.requests.map(async (request) => {
+      let constructName = '';
+      let constructSlug = '';
+      let ownerName = '';
+      let ownerEmail = '';
+
+      if (request.constructType === 'skill') {
+        const [skill] = await db
+          .select({
+            name: skills.name,
+            slug: skills.slug,
+            ownerId: skills.ownerId,
+            ownerType: skills.ownerType,
+          })
+          .from(skills)
+          .where(eq(skills.id, request.constructId))
+          .limit(1);
+
+        if (skill) {
+          constructName = skill.name;
+          constructSlug = skill.slug;
+
+          if (skill.ownerType === 'user') {
+            const [owner] = await db
+              .select({ name: users.name, email: users.email })
+              .from(users)
+              .where(eq(users.id, skill.ownerId))
+              .limit(1);
+            if (owner) {
+              ownerName = owner.name;
+              ownerEmail = owner.email;
+            }
+          }
+        }
+      } else {
+        const [pack] = await db
+          .select({
+            name: packs.name,
+            slug: packs.slug,
+            ownerId: packs.ownerId,
+            ownerType: packs.ownerType,
+          })
+          .from(packs)
+          .where(eq(packs.id, request.constructId))
+          .limit(1);
+
+        if (pack) {
+          constructName = pack.name;
+          constructSlug = pack.slug;
+
+          if (pack.ownerType === 'user') {
+            const [owner] = await db
+              .select({ name: users.name, email: users.email })
+              .from(users)
+              .where(eq(users.id, pack.ownerId))
+              .limit(1);
+            if (owner) {
+              ownerName = owner.name;
+              ownerEmail = owner.email;
+            }
+          }
+        }
+      }
+
+      return {
+        id: request.id,
+        construct_type: request.constructType,
+        construct_id: request.constructId,
+        construct_name: constructName,
+        construct_slug: constructSlug,
+        current_maturity: request.currentMaturity,
+        target_maturity: request.targetMaturity,
+        requested_at: request.requestedAt.toISOString(),
+        request_notes: request.requestNotes,
+        criteria_snapshot: request.criteriaSnapshot,
+        owner: {
+          name: ownerName,
+          email: ownerEmail,
+        },
+      };
+    })
+  );
+
+  logger.info(
+    { adminId, count: result.requests.length, total: result.total, requestId },
+    'Admin fetched pending graduation requests'
+  );
+
+  return c.json({
+    data: enrichedRequests,
+    pagination: {
+      page: result.page,
+      per_page: result.limit,
+      total: result.total,
+      total_pages: Math.ceil(result.total / result.limit),
+    },
+    request_id: requestId,
+  });
+});
+
+/**
+ * POST /v1/admin/graduations/:id/review
+ * Review a graduation request (approve/reject)
+ * @see prd.md §4.4 Admin Review Queue
+ */
+adminRouter.post(
+  '/graduations/:id/review',
+  zValidator('json', reviewGraduationSchema),
+  async (c) => {
+    const adminId = c.get('userId');
+    const requestId = c.get('requestId');
+    const graduationRequestId = c.req.param('id');
+    const body = c.req.valid('json');
+
+    // Validate UUID format
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(graduationRequestId)) {
+      throw Errors.BadRequest('Invalid graduation request ID format');
+    }
+
+    // Validate rejection reason is provided when rejecting
+    if (body.decision === 'rejected' && !body.rejection_reason) {
+      throw Errors.BadRequest('Rejection reason is required when rejecting a graduation request');
+    }
+
+    const result = await reviewGraduation(
+      graduationRequestId,
+      adminId,
+      body.decision,
+      body.review_notes,
+      body.rejection_reason
+    );
+
+    // Log audit event
+    await createAuditLog({
+      userId: adminId,
+      action: body.decision === 'approved' ? 'admin.graduation_approved' : 'admin.graduation_rejected',
+      resourceType: result.constructType,
+      resourceId: result.constructId,
+      metadata: {
+        graduation_request_id: graduationRequestId,
+        decision: body.decision,
+        review_notes: body.review_notes,
+        rejection_reason: body.rejection_reason,
+        new_maturity: body.decision === 'approved' ? result.targetMaturity : undefined,
+      },
+    });
+
+    logger.info(
+      {
+        adminId,
+        graduationRequestId,
+        constructType: result.constructType,
+        constructId: result.constructId,
+        decision: body.decision,
+        newMaturity: body.decision === 'approved' ? result.targetMaturity : undefined,
+        requestId,
+      },
+      'Admin reviewed graduation request'
+    );
+
+    return c.json({
+      data: {
+        request_id: result.id,
+        construct_type: result.constructType,
+        construct_id: result.constructId,
+        status: result.status,
+        new_maturity: body.decision === 'approved' ? result.targetMaturity : null,
+        reviewed_at: result.reviewedAt?.toISOString(),
+      },
+      message:
+        body.decision === 'approved'
+          ? `Graduation approved. Construct promoted to ${result.targetMaturity}.`
+          : 'Graduation request rejected.',
+      request_id: requestId,
+    });
+  }
+);

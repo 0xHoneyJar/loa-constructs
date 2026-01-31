@@ -43,6 +43,8 @@ export type AuditAction =
   | 'admin.skill_removed'
   | 'admin.pack_approved'
   | 'admin.pack_rejected'
+  | 'admin.graduation_approved'
+  | 'admin.graduation_rejected'
   | 'sso.login'
   | 'sso.config_updated';
 
