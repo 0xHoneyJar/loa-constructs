@@ -444,4 +444,29 @@ auth.get('/me', requireAuth(), async (c) => {
   });
 });
 
+/**
+ * GET /v1/auth/validate
+ * Validate API key or JWT token
+ * Used by Loa CLI constructs-auth.sh to verify credentials
+ * @see https://github.com/0xHoneyJar/loa/issues/77
+ */
+auth.get('/validate', requireAuth(), async (c) => {
+  const user = c.get('user');
+  const authMethod = c.get('authMethod');
+
+  // Note: API key lastUsedAt is already updated by requireAuth middleware
+  // No additional audit logging needed for validation checks
+
+  return c.json({
+    valid: true,
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      tier: user.tier,
+    },
+    auth_method: authMethod,
+  });
+});
+
 export { auth };
