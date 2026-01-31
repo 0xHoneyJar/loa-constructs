@@ -56,6 +56,17 @@ function formatConstruct(c: Construct) {
     rating: c.rating,
     is_featured: c.isFeatured,
     manifest: c.manifest ? formatManifestSummary(c.manifest) : null,
+    latest_version: c.latestVersion
+      ? {
+          version: c.latestVersion.version,
+          changelog: c.latestVersion.changelog,
+          published_at: c.latestVersion.publishedAt
+            ? c.latestVersion.publishedAt instanceof Date
+              ? c.latestVersion.publishedAt.toISOString()
+              : c.latestVersion.publishedAt
+            : null,
+        }
+      : null,
     created_at: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
     updated_at: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
   };

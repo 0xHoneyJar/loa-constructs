@@ -201,6 +201,11 @@ export interface Construct {
     commands?: string[];
     dependencies?: Record<string, string>;
   } | null;
+  latest_version: {
+    version: string;
+    changelog: string | null;
+    published_at: string | null;
+  } | null;
   created_at: string;
   updated_at: string;
 }
