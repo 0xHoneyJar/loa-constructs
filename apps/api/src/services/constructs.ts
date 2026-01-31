@@ -715,38 +715,44 @@ async function fetchSkillsAsConstructs(options: {
 
   const whereClause = and(...conditions);
 
-  const [skillsResult, countResult] = await Promise.all([
-    db
-      .select()
-      .from(skills)
-      .leftJoin(
-        skillVersions,
-        and(eq(skillVersions.skillId, skills.id), eq(skillVersions.isLatest, true))
-      )
-      .where(whereClause)
-      .orderBy(desc(skills.downloads))
-      .limit(options.limit)
-      .offset(options.offset),
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(skills)
-      .where(whereClause),
-  ]);
+  try {
+    const [skillsResult, countResult] = await Promise.all([
+      db
+        .select()
+        .from(skills)
+        .leftJoin(
+          skillVersions,
+          and(eq(skillVersions.skillId, skills.id), eq(skillVersions.isLatest, true))
+        )
+        .where(whereClause)
+        .orderBy(desc(skills.downloads))
+        .limit(options.limit)
+        .offset(options.offset),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(skills)
+        .where(whereClause),
+    ]);
 
-  // Get owner info for each skill
-  const items: Construct[] = [];
-  for (const row of skillsResult) {
-    const skill = row.skills;
-    const version = row.skill_versions;
-    const owner = await getOwnerInfo(skill.ownerId, skill.ownerType as 'user' | 'team');
-    items.push(skillToConstruct(skill, version, owner, queryTerms.length > 0 ? queryTerms : undefined));
+    // Get owner info for each skill
+    const items: Construct[] = [];
+    for (const row of skillsResult) {
+      const skill = row.skills;
+      const version = row.skill_versions;
+      const owner = await getOwnerInfo(skill.ownerId, skill.ownerType as 'user' | 'team');
+      items.push(skillToConstruct(skill, version, owner, queryTerms.length > 0 ? queryTerms : undefined));
+    }
+
+    return {
+      items,
+      count: countResult[0]?.count ?? 0,
+      queryTerms: queryTerms.length > 0 ? queryTerms : undefined,
+    };
+  } catch (error) {
+    logger.error({ error, context: 'fetchSkillsAsConstructs' }, 'Failed to fetch skills');
+    // Return empty result on error instead of throwing
+    return { items: [], count: 0 };
   }
-
-  return {
-    items,
-    count: countResult[0]?.count ?? 0,
-    queryTerms: queryTerms.length > 0 ? queryTerms : undefined,
-  };
 }
 
 async function fetchPacksAsConstructs(options: {
@@ -795,78 +801,94 @@ async function fetchPacksAsConstructs(options: {
 
   const whereClause = and(...conditions);
 
-  const [packsResult, countResult] = await Promise.all([
-    db
+  try {
+    const [packsResult, countResult] = await Promise.all([
+      db
+        .select()
+        .from(packs)
+        .leftJoin(
+          packVersions,
+          and(eq(packVersions.packId, packs.id), eq(packVersions.isLatest, true))
+        )
+        .where(whereClause)
+        .orderBy(desc(packs.downloads))
+        .limit(options.limit)
+        .offset(options.offset),
+      db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(packs)
+        .where(whereClause),
+    ]);
+
+    // Get owner info for each pack
+    const items: Construct[] = [];
+    for (const row of packsResult) {
+      const pack = row.packs;
+      const version = row.pack_versions;
+      const owner = await getOwnerInfo(pack.ownerId, pack.ownerType as 'user' | 'team');
+      items.push(packToConstruct(pack, version, owner, queryTerms.length > 0 ? queryTerms : undefined));
+    }
+
+    return {
+      items,
+      count: countResult[0]?.count ?? 0,
+      queryTerms: queryTerms.length > 0 ? queryTerms : undefined,
+    };
+  } catch (error) {
+    logger.error({ error, context: 'fetchPacksAsConstructs' }, 'Failed to fetch packs');
+    // Return empty result on error instead of throwing
+    return { items: [], count: 0 };
+  }
+}
+
+async function fetchPackAsConstruct(slug: string): Promise<Construct | null> {
+  try {
+    const [result] = await db
       .select()
       .from(packs)
       .leftJoin(
         packVersions,
         and(eq(packVersions.packId, packs.id), eq(packVersions.isLatest, true))
       )
-      .where(whereClause)
-      .orderBy(desc(packs.downloads))
-      .limit(options.limit)
-      .offset(options.offset),
-    db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(packs)
-      .where(whereClause),
-  ]);
+      .where(and(eq(packs.slug, slug), eq(packs.status, 'published')))
+      .limit(1);
 
-  // Get owner info for each pack
-  const items: Construct[] = [];
-  for (const row of packsResult) {
-    const pack = row.packs;
-    const version = row.pack_versions;
+    if (!result) return null;
+
+    const pack = result.packs;
+    const version = result.pack_versions;
     const owner = await getOwnerInfo(pack.ownerId, pack.ownerType as 'user' | 'team');
-    items.push(packToConstruct(pack, version, owner, queryTerms.length > 0 ? queryTerms : undefined));
+
+    return packToConstruct(pack, version, owner);
+  } catch (error) {
+    logger.error({ error, slug, context: 'fetchPackAsConstruct' }, 'Failed to fetch pack');
+    return null;
   }
-
-  return {
-    items,
-    count: countResult[0]?.count ?? 0,
-    queryTerms: queryTerms.length > 0 ? queryTerms : undefined,
-  };
-}
-
-async function fetchPackAsConstruct(slug: string): Promise<Construct | null> {
-  const [result] = await db
-    .select()
-    .from(packs)
-    .leftJoin(
-      packVersions,
-      and(eq(packVersions.packId, packs.id), eq(packVersions.isLatest, true))
-    )
-    .where(and(eq(packs.slug, slug), eq(packs.status, 'published')))
-    .limit(1);
-
-  if (!result) return null;
-
-  const pack = result.packs;
-  const version = result.pack_versions;
-  const owner = await getOwnerInfo(pack.ownerId, pack.ownerType as 'user' | 'team');
-
-  return packToConstruct(pack, version, owner);
 }
 
 async function fetchSkillAsConstruct(slug: string): Promise<Construct | null> {
-  const [result] = await db
-    .select()
-    .from(skills)
-    .leftJoin(
-      skillVersions,
-      and(eq(skillVersions.skillId, skills.id), eq(skillVersions.isLatest, true))
-    )
-    .where(and(eq(skills.slug, slug), eq(skills.isPublic, true)))
-    .limit(1);
+  try {
+    const [result] = await db
+      .select()
+      .from(skills)
+      .leftJoin(
+        skillVersions,
+        and(eq(skillVersions.skillId, skills.id), eq(skillVersions.isLatest, true))
+      )
+      .where(and(eq(skills.slug, slug), eq(skills.isPublic, true)))
+      .limit(1);
 
-  if (!result) return null;
+    if (!result) return null;
 
-  const skill = result.skills;
-  const version = result.skill_versions;
-  const owner = await getOwnerInfo(skill.ownerId, skill.ownerType as 'user' | 'team');
+    const skill = result.skills;
+    const version = result.skill_versions;
+    const owner = await getOwnerInfo(skill.ownerId, skill.ownerType as 'user' | 'team');
 
-  return skillToConstruct(skill, version, owner);
+    return skillToConstruct(skill, version, owner);
+  } catch (error) {
+    logger.error({ error, slug, context: 'fetchSkillAsConstruct' }, 'Failed to fetch skill');
+    return null;
+  }
 }
 
 async function getOwnerInfo(
@@ -878,24 +900,29 @@ async function getOwnerInfo(
     return null;
   }
 
-  // Handle null/undefined ownerType by defaulting to 'user'
-  const effectiveOwnerType = ownerType || 'user';
+  try {
+    // Handle null/undefined ownerType by defaulting to 'user'
+    const effectiveOwnerType = ownerType || 'user';
 
-  if (effectiveOwnerType === 'user') {
-    const [user] = await db
-      .select({ name: users.name, avatarUrl: users.avatarUrl })
-      .from(users)
-      .where(eq(users.id, ownerId))
+    if (effectiveOwnerType === 'user') {
+      const [user] = await db
+        .select({ name: users.name, avatarUrl: users.avatarUrl })
+        .from(users)
+        .where(eq(users.id, ownerId))
+        .limit(1);
+
+      return user ? { name: user.name, type: 'user', avatarUrl: user.avatarUrl } : null;
+    }
+
+    const [team] = await db
+      .select({ name: teams.name, avatarUrl: teams.avatarUrl })
+      .from(teams)
+      .where(eq(teams.id, ownerId))
       .limit(1);
 
-    return user ? { name: user.name, type: 'user', avatarUrl: user.avatarUrl } : null;
+    return team ? { name: team.name, type: 'team', avatarUrl: team.avatarUrl } : null;
+  } catch (error) {
+    logger.error({ error, ownerId, ownerType, context: 'getOwnerInfo' }, 'Failed to fetch owner info');
+    return null;
   }
-
-  const [team] = await db
-    .select({ name: teams.name, avatarUrl: teams.avatarUrl })
-    .from(teams)
-    .where(eq(teams.id, ownerId))
-    .limit(1);
-
-  return team ? { name: team.name, type: 'team', avatarUrl: team.avatarUrl } : null;
 }
