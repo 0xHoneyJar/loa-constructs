@@ -1,0 +1,22 @@
+{
+  "../../node_modules/.pnpm/@react-three+drei@10.7.7_@react-three+fiber@9.5.0_@types+react@19.0.0_@types+three@0.170.0_re_mxa4zpanob36itjrnze37b7s4u/node_modules/@react-three/drei/core/VideoTexture.js -> hls.js": {
+    "id": "../../node_modules/.pnpm/@react-three+drei@10.7.7_@react-three+fiber@9.5.0_@types+react@19.0.0_@types+three@0.170.0_re_mxa4zpanob36itjrnze37b7s4u/node_modules/@react-three/drei/core/VideoTexture.js -> hls.js",
+    "files": []
+  },
+  "../../node_modules/.pnpm/@react-three+drei@10.7.7_@react-three+fiber@9.5.0_@types+react@19.0.0_@types+three@0.170.0_re_mxa4zpanob36itjrnze37b7s4u/node_modules/@react-three/drei/web/FaceLandmarker.js -> @mediapipe/tasks-vision": {
+    "id": "../../node_modules/.pnpm/@react-three+drei@10.7.7_@react-three+fiber@9.5.0_@types+react@19.0.0_@types+three@0.170.0_re_mxa4zpanob36itjrnze37b7s4u/node_modules/@react-three/drei/web/FaceLandmarker.js -> @mediapipe/tasks-vision",
+    "files": []
+  },
+  "components/graph/graph-explorer.tsx -> ./canvas": {
+    "id": "components/graph/graph-explorer.tsx -> ./canvas",
+    "files": [
+      "static/chunks/_app-pages-browser_components_graph_canvas_tsx.js"
+    ]
+  },
+  "components/graph/graph-explorer.tsx -> ./network-graph": {
+    "id": "components/graph/graph-explorer.tsx -> ./network-graph",
+    "files": [
+      "static/chunks/_app-pages-browser_components_graph_network-graph_tsx.js"
+    ]
+  }
+}
