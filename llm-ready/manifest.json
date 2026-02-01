@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "name": "LLM Ready",
+  "slug": "llm-ready",
+  "version": "1.0.0",
+  "description": "Make websites AI-retrievable with markdown export, content auditing, and chunk optimization",
+  "author": "0xHoneyJar",
+  "license": "MIT",
+  "skills": [
+    {"slug": "auditing-content", "path": "skills/auditing-content"},
+    {"slug": "generating-markdown", "path": "skills/generating-markdown"},
+    {"slug": "optimizing-chunks", "path": "skills/optimizing-chunks"}
+  ],
+  "hooks": {
+    "post_install": "scripts/install.sh"
+  },
+  "dependencies": []
+}
