@@ -1,0 +1,66 @@
+# Run Database Migrations
+# Manual workflow to apply database migrations to production
+#
+# Usage: Trigger via GitHub Actions UI or gh CLI:
+#   gh workflow run run-migrations.yml
+
+name: Run Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  migrate:
+    name: Run Database Migrations
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run migrations
+        working-directory: apps/api
+        run: pnpm db:migrate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Verify migration
+        run: |
+          echo "Migration completed for ${{ github.event.inputs.environment }}"
+          echo "Checking API health..."
+          if [ "${{ github.event.inputs.environment }}" == "production" ]; then
+            API_URL="https://loa-constructs-api.fly.dev"
+          else
+            API_URL="https://loa-constructs-api-staging.fly.dev"
+          fi
+
+          response=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/v1/health")
+          if [ "$response" == "200" ]; then
+            echo "✅ API health check passed"
+          else
+            echo "⚠️ API health check returned: $response"
+          fi
