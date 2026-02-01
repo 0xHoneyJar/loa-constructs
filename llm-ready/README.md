@@ -156,6 +156,97 @@ grimoires/llm-ready/
     └── {page}-chunks.md
 ```
 
+## Optimization Patterns
+
+The `/optimize-chunks` command uses four patterns:
+
+### 1. Context-Carrying Block
+Transform isolated claims into self-contained paragraphs:
+
+```markdown
+<!-- Before -->
+We don't store user data.
+
+<!-- After -->
+We do not sell or share customer data with third parties.
+Operational data is stored to provide the service.
+**Applies to:** All plans | **Effective:** January 2026
+**Details:** [Privacy Policy](/privacy)
+```
+
+### 2. Claim + Scope + Evidence
+Structured format for verifiable claims:
+
+```markdown
+<!-- CLAIM -->
+Our API achieves 99.9% uptime.
+
+<!-- SCOPE -->
+**Applies to:** Paid plans only
+**Period:** Rolling 12 months
+**Excludes:** Scheduled maintenance
+
+<!-- EVIDENCE -->
+**Source:** [Status Page](https://status.example.com)
+```
+
+### 3. Canonical Page Header
+Establish authoritative source pages:
+
+```markdown
+# Security Overview
+
+> This page is the canonical source for Example's security posture.
+> Last reviewed: January 2026
+
+## TL;DR
+- SOC 2 Type II certified
+- AES-256 encryption at rest
+...
+```
+
+### 4. Temporal Authority Signal
+Manage outdated content:
+
+```markdown
+> **Note:** This blog post reflects our 2024 pricing.
+> For current pricing, see [Pricing](/pricing).
+```
+
+## Integration
+
+All three skills work together:
+
+1. `/audit-llm` identifies issues → scores pages 0-10
+2. `/optimize-chunks` provides fixes → rewrites for each issue
+3. `/add-markdown` enables export → AI can fetch clean markdown
+
+Each skill's output references the others in "Next Steps" sections.
+
+## Troubleshooting
+
+### "Content not found"
+- Check that the path matches your file structure
+- Try the full file path (e.g., `docs/api.md`)
+
+### Low audit score
+- Run `/optimize-chunks` to get specific fixes
+- Focus on high-risk claims first
+
+### Generated code doesn't match codebase style
+- The skill reads your existing patterns first
+- If no patterns found, defaults are used
+- You can adjust generated code manually
+
+### Content negotiation not working
+- Verify the route handler is deployed
+- Check `Accept: text/markdown` header is sent
+- Ensure no middleware is intercepting the request
+
+## Contributing
+
+This pack is part of the [Forge](https://github.com/0xHoneyJar/forge) sandbox.
+
 ## License
 
 MIT

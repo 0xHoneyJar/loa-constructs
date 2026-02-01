@@ -1,0 +1,12 @@
+name: optimizing-chunks
+slug: optimizing-chunks
+version: 1.0.0
+description: Analyze content for AI chunk survival. Identifies isolated claims and generates context-carrying rewrites that survive retrieval chunking.
+entry: SKILL.md
+triggers:
+  - /optimize-chunks
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Grep
