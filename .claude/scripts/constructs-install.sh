@@ -280,6 +280,11 @@ symlink_pack_skills() {
     # Ensure .claude/skills directory exists
     mkdir -p "$claude_skills_dir"
 
+    # Get absolute path of skills source for reliable symlinks
+    # This handles custom LOA_CONSTRUCTS_DIR paths correctly
+    local abs_skills_source
+    abs_skills_source=$(cd "$skills_source" && pwd)
+
     # Symlink each skill directory to .claude/skills with pack prefix
     for skill in "$skills_source"/*/; do
         [[ -d "$skill" ]] || continue
@@ -289,8 +294,8 @@ symlink_pack_skills() {
 
         # Use pack:skill format for namespacing (e.g., observer:observing-users)
         local namespaced_name="${pack_slug}:${skill_name}"
-        # Relative path from .claude/skills/ to .claude/constructs/packs/
-        local relative_path="../constructs/packs/$pack_slug/skills/$skill_name"
+        # Use absolute path for symlink target (handles custom LOA_CONSTRUCTS_DIR)
+        local abs_skill_path="$abs_skills_source/$skill_name"
         local target_link="$claude_skills_dir/$namespaced_name"
 
         # Remove existing symlink if present
@@ -302,7 +307,7 @@ symlink_pack_skills() {
         fi
 
         # Create symlink to .claude/skills (where Claude Code looks for skills)
-        ln -sf "$relative_path" "$target_link"
+        ln -sf "$abs_skill_path" "$target_link"
         ((linked++))
     done
 
