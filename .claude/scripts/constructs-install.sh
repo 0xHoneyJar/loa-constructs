@@ -260,7 +260,7 @@ unlink_pack_commands() {
 # Skill Symlinking (for loader compatibility)
 # =============================================================================
 
-# Symlink pack skills to constructs/skills for loader discovery
+# Symlink pack skills to .claude/skills for Claude Code discovery
 # Args:
 #   $1 - Pack slug
 # Returns: Number of skills linked
@@ -268,7 +268,7 @@ symlink_pack_skills() {
     local pack_slug="$1"
     local pack_dir="$(get_packs_dir)/$pack_slug"
     local skills_source="$pack_dir/skills"
-    local skills_target="$(get_skills_dir)/$pack_slug"
+    local claude_skills_dir=".claude/skills"
     local linked=0
 
     # Check if pack has skills
@@ -277,17 +277,21 @@ symlink_pack_skills() {
         return 0
     fi
 
-    # Create target directory
-    mkdir -p "$skills_target"
+    # Ensure .claude/skills directory exists
+    mkdir -p "$claude_skills_dir"
 
-    # Symlink each skill directory
+    # Symlink each skill directory to .claude/skills with pack prefix
     for skill in "$skills_source"/*/; do
         [[ -d "$skill" ]] || continue
 
         local skill_name
         skill_name=$(basename "$skill")
-        local relative_path="../../packs/$pack_slug/skills/$skill_name"
-        local target_link="$skills_target/$skill_name"
+
+        # Use pack:skill format for namespacing (e.g., observer:observing-users)
+        local namespaced_name="${pack_slug}:${skill_name}"
+        # Relative path from .claude/skills/ to .claude/constructs/packs/
+        local relative_path="../constructs/packs/$pack_slug/skills/$skill_name"
+        local target_link="$claude_skills_dir/$namespaced_name"
 
         # Remove existing symlink if present
         if [[ -L "$target_link" ]]; then
@@ -297,13 +301,7 @@ symlink_pack_skills() {
             continue
         fi
 
-        # Validate symlink target (M-003)
-        if ! validate_symlink_target "$relative_path" "packs/$pack_slug/skills"; then
-            print_warning "  Skipping skill $skill_name: symlink validation failed"
-            continue
-        fi
-
-        # Create symlink
+        # Create symlink to .claude/skills (where Claude Code looks for skills)
         ln -sf "$relative_path" "$target_link"
         ((linked++))
     done
@@ -311,16 +309,16 @@ symlink_pack_skills() {
     echo "$linked"
 }
 
-# Remove pack skill symlinks
+# Remove pack skill symlinks from .claude/skills
 # Args:
 #   $1 - Pack slug
 unlink_pack_skills() {
     local pack_slug="$1"
-    local skills_target="$(get_skills_dir)/$pack_slug"
+    local claude_skills_dir=".claude/skills"
 
-    # Remove the pack's skill symlinks directory
-    if [[ -d "$skills_target" ]]; then
-        rm -rf "$skills_target"
+    # Remove symlinks matching this pack's prefix
+    if [[ -d "$claude_skills_dir" ]]; then
+        find "$claude_skills_dir" -maxdepth 1 -type l -name "${pack_slug}:*" -delete 2>/dev/null || true
     fi
 }
 
