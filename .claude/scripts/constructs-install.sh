@@ -57,85 +57,7 @@ EXIT_ERROR=6
 # Authentication
 # =============================================================================
 
-# Check if file permissions are secure (MEDIUM-002)
-# Args: $1 - file path
-# Returns: 0 if secure, 1 if too permissive
-check_file_permissions() {
-    local file="$1"
-
-    if [[ ! -f "$file" ]]; then
-        return 0  # File doesn't exist, nothing to check
-    fi
-
-    # Cross-platform permission check using ls -l
-    # This avoids stat format differences between GNU and BSD
-    local perms
-    perms=$(ls -l "$file" 2>/dev/null | awk '{print $1}')
-
-    # Check that file is not readable by group or others
-    # Good: -rw------- (600) or -r-------- (400)
-    # Bad: anything with r in positions 5-10 (group/other read)
-    case "$perms" in
-        -rw-------)  # 600 - owner read/write only
-            return 0
-            ;;
-        -r--------)  # 400 - owner read only
-            return 0
-            ;;
-        *)
-            # Check if group or others have any permissions
-            local group_other="${perms:4:6}"
-            if [[ "$group_other" != "------" ]]; then
-                print_warning "SECURITY: Credentials file has insecure permissions: $file"
-                print_warning "  Current: $perms"
-                print_warning "  Required: -rw------- (600) or -r-------- (400)"
-                print_warning "  Fix with: chmod 600 $file"
-                return 1
-            fi
-            return 0
-            ;;
-    esac
-}
-
-# Get API key from environment or credentials file
-# Returns: API key or empty string
-get_api_key() {
-    # Check environment variable first
-    if [[ -n "${LOA_CONSTRUCTS_API_KEY:-}" ]]; then
-        echo "$LOA_CONSTRUCTS_API_KEY"
-        return 0
-    fi
-
-    # Check credentials file
-    local creds_file="${HOME}/.loa/credentials.json"
-    if [[ -f "$creds_file" ]]; then
-        # SECURITY (MED-001): Warn if file permissions are too open
-        check_file_permissions "$creds_file" || true
-
-        local key
-        key=$(jq -r '.api_key // empty' "$creds_file" 2>/dev/null)
-        if [[ -n "$key" ]]; then
-            echo "$key"
-            return 0
-        fi
-    fi
-
-    # Alternative credentials location
-    local alt_creds="${HOME}/.loa-constructs/credentials.json"
-    if [[ -f "$alt_creds" ]]; then
-        # SECURITY (MED-001): Warn if file permissions are too open
-        check_file_permissions "$alt_creds" || true
-
-        local key
-        key=$(jq -r '.api_key // .apiKey // empty' "$alt_creds" 2>/dev/null)
-        if [[ -n "$key" ]]; then
-            echo "$key"
-            return 0
-        fi
-    fi
-
-    echo ""
-}
+# NOTE: check_file_permissions() and get_api_key() moved to constructs-lib.sh (Issue #104)
 
 # =============================================================================
 # Directory Management
@@ -453,14 +375,16 @@ do_install_pack() {
     local response
     local http_code
     local tmp_file
-    tmp_file=$(mktemp)
+    tmp_file=$(mktemp) || { print_error "mktemp failed"; return 1; }
+    chmod 600 "$tmp_file"  # CRITICAL-001 FIX
 
     # Disable command tracing during API call to prevent key leakage
     { set +x; } 2>/dev/null || true
 
     # Use environment variable instead of process substitution for security
     local auth_header="Authorization: Bearer $api_key"
-    http_code=$(curl -s -w "%{http_code}" --max-time 300 \
+    # HIGH-002 FIX: Enforce HTTPS and TLS 1.2+
+    http_code=$(curl -s -w "%{http_code}" --proto =https --tlsv1.2 --max-time 300 \
         -H "$auth_header" \
         -H "Accept: application/json" \
         "$registry_url/packs/$pack_slug/download" \
@@ -779,23 +703,29 @@ do_install_skill() {
     echo "  Downloading from $registry_url/skills/$skill_slug/download..."
 
     # Download skill
-    # SECURITY (HIGH-002): Use process substitution for auth header
     local http_code
     local tmp_file
-    tmp_file=$(mktemp)
+    tmp_file=$(mktemp) || { print_error "mktemp failed"; return 1; }
+    chmod 600 "$tmp_file"  # CRITICAL-001 FIX
 
     # Disable command tracing during API call to prevent key leakage
     { set +x; } 2>/dev/null || true
 
-    http_code=$(curl -s -w "%{http_code}" \
-        -H @<(echo "Authorization: Bearer $api_key") \
+    # Use local variable instead of process substitution for security (MED-002)
+    # Process substitution creates a temporary file descriptor readable by other processes
+    local auth_header="Authorization: Bearer $api_key"
+    # HIGH-002 FIX: Enforce HTTPS and TLS 1.2+
+    http_code=$(curl -s -w "%{http_code}" --proto =https --tlsv1.2 --max-time 300 \
+        -H "$auth_header" \
         -H "Accept: application/json" \
         "$registry_url/skills/$skill_slug/download" \
         -o "$tmp_file" 2>/dev/null) || {
+        unset auth_header
         rm -f "$tmp_file"
         print_error "ERROR: Network error while downloading skill"
         return $EXIT_NETWORK_ERROR
     }
+    unset auth_header
 
     # Check HTTP status
     case "$http_code" in
