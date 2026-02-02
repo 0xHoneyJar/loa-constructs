@@ -292,8 +292,9 @@ symlink_pack_skills() {
         local skill_name
         skill_name=$(basename "$skill")
 
-        # Use pack:skill format for namespacing (e.g., observer:observing-users)
-        local namespaced_name="${pack_slug}:${skill_name}"
+        # Use pack-skill format for namespacing (e.g., observer-observing-users)
+        # Note: Colons break Claude Code's trigger registration, must use hyphens
+        local namespaced_name="${pack_slug}-${skill_name}"
         # Use absolute path for symlink target (handles custom LOA_CONSTRUCTS_DIR)
         local abs_skill_path="$abs_skills_source/$skill_name"
         local target_link="$claude_skills_dir/$namespaced_name"
@@ -321,8 +322,10 @@ unlink_pack_skills() {
     local pack_slug="$1"
     local claude_skills_dir=".claude/skills"
 
-    # Remove symlinks matching this pack's prefix
+    # Remove symlinks matching this pack's prefix (hyphen separator)
     if [[ -d "$claude_skills_dir" ]]; then
+        find "$claude_skills_dir" -maxdepth 1 -type l -name "${pack_slug}-*" -delete 2>/dev/null || true
+        # Also clean up old colon-separated symlinks from previous versions
         find "$claude_skills_dir" -maxdepth 1 -type l -name "${pack_slug}:*" -delete 2>/dev/null || true
     fi
 }
