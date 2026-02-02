@@ -1,18 +1,20 @@
-# Sigil of the Beacon (Beacon Pack)
+# 💠 Sigil of the Beacon (Beacon Pack)
 
 > *"Signal readiness to the agent network. Every business becomes an API."*
 
-Make your business agent-accessible with AI-retrievable content, trust auditing, and x402 payment integration.
+Make your business agent-accessible with AI-retrievable content, trust auditing, and x402 payment integration on Berachain.
 
 ## The Three Layers
 
-| Layer | Purpose | Skills |
-|-------|---------|--------|
-| **Content** | Make content AI-retrievable | auditing, markdown, chunks |
-| **Discovery** | Advertise capabilities to agents | well-known, action schemas |
-| **Action** | Enable transactions via x402 | payment endpoints |
+| Layer | Purpose | Skills | Status |
+|-------|---------|--------|--------|
+| **Content** | Make content AI-retrievable | auditing, markdown, chunks | ✅ Complete |
+| **Discovery** | Advertise capabilities to agents | well-known, action schemas | ✅ Complete |
+| **Action** | Enable transactions via x402 | payment endpoints | ✅ Complete |
 
-## Current Skills (Content Layer)
+## All Skills
+
+### Content Layer
 
 | Skill | Command | Purpose |
 |-------|---------|---------|
@@ -20,7 +22,22 @@ Make your business agent-accessible with AI-retrievable content, trust auditing,
 | **generating-markdown** | `/add-markdown` | Add content negotiation for markdown export |
 | **optimizing-chunks** | `/optimize-chunks` | Rewrite content to survive AI retrieval chunking |
 
+### Discovery Layer
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| **discovering-endpoints** | `/beacon-discover` | Generate `/.well-known/x402` discovery endpoint |
+| **defining-actions** | `/beacon-actions` | Generate JSON Schema and OpenAPI for endpoints |
+
+### Action Layer
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| **accepting-payments** | `/beacon-pay` | Generate x402 v2 payment middleware and hooks |
+
 ## Quick Start
+
+### Content Layer (Make AI-Retrievable)
 
 ```bash
 # 1. Audit a page for LLM-readiness
@@ -33,20 +50,35 @@ Make your business agent-accessible with AI-retrievable content, trust auditing,
 /add-markdown /pricing
 ```
 
+### Discovery + Action Layer (Enable Agent Commerce)
+
+```bash
+# 4. Generate x402 discovery endpoint
+/beacon-discover
+
+# 5. Generate action schemas for endpoints
+/beacon-actions
+
+# 6. Add payment middleware
+/beacon-pay
+```
+
 ## Workflow
 
 ```
-+-----------+    +------------------+    +---------------+
-| /audit-llm| -> | /optimize-chunks | -> | /add-markdown |
-|           |    |                  |    |               |
-| Identify  |    | Fix issues       |    | Enable export |
-| issues    |    |                  |    |               |
-+-----------+    +------------------+    +---------------+
+CONTENT LAYER                                    DISCOVERY + ACTION LAYER
++-------------+   +------------------+   +---------------+   +------------------+   +----------------+   +-------------+
+| /audit-llm  |-->| /optimize-chunks |-->| /add-markdown |-->| /beacon-discover |-->| /beacon-actions|-->| /beacon-pay |
+| Identify    |   | Fix issues       |   | Enable export |   | Advertise APIs   |   | Define schemas |   | Add payments|
++-------------+   +------------------+   +---------------+   +------------------+   +----------------+   +-------------+
 ```
 
 1. **Audit** - Understand current LLM-readiness
 2. **Optimize** - Fix content that won't survive chunking
 3. **Export** - Enable AI-friendly markdown retrieval
+4. **Discover** - Advertise endpoints to agents via `/.well-known/x402`
+5. **Define** - Generate JSON Schema and OpenAPI specs
+6. **Pay** - Enable x402 v2 payments on Berachain
 
 ## Commands
 
@@ -126,13 +158,15 @@ After installation:
 
 ```
 grimoires/beacon/
-+-- state.yaml           # Pack state tracking
-+-- audits/              # Audit reports
-|   +-- {page}-audit.md
-+-- exports/             # Generation manifests
-|   +-- {page}-manifest.md
-+-- optimizations/       # Chunk recommendations
-    +-- {page}-chunks.md
+├── state.yaml              # Pack state tracking
+├── audits/                 # Audit reports
+│   └── {page}-audit.md
+├── exports/                # Generation manifests
+│   └── {page}-manifest.md
+├── optimizations/          # Chunk recommendations
+│   └── {page}-chunks.md
+└── discovery/              # x402 discovery artifacts
+    └── openapi.yaml        # Combined OpenAPI spec
 ```
 
 ## Optimization Patterns
@@ -196,15 +230,73 @@ Manage outdated content:
 > For current pricing, see [Pricing](/pricing).
 ```
 
-## Roadmap: x402 Integration (Phase 2)
+## x402 Integration (Complete)
 
-The Beacon pack will expand to support the full agent commerce stack:
+The full agent commerce stack is now available:
 
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| `discovering-endpoints` | `/beacon-discover` | Generate /.well-known/x402 discovery endpoints |
-| `defining-actions` | `/beacon-actions` | Define JSON Schema for actionable API capabilities |
-| `accepting-payments` | `/beacon-pay` | x402 v2 payment endpoints with lifecycle hooks |
+### `/beacon-discover`
+
+Generate the x402 discovery endpoint at `/.well-known/x402`:
+
+```bash
+/beacon-discover
+```
+
+**Generates**:
+- `app/.well-known/x402/route.ts` - Discovery endpoint
+- Advertises available endpoints, pricing, and supported tokens
+
+**Discovery Response**:
+```json
+{
+  "version": "2.0",
+  "capabilities": {
+    "payments": {
+      "networks": ["eip155:80094"],
+      "tokens": ["BERA"]
+    }
+  },
+  "endpoints": [...]
+}
+```
+
+### `/beacon-actions [path]`
+
+Generate JSON Schema and OpenAPI specifications for your endpoints:
+
+```bash
+/beacon-actions
+/beacon-actions /api/generate-image
+```
+
+**Generates**:
+- `app/api/{path}/schema.json` - JSON Schema for request/response
+- `grimoires/beacon/discovery/openapi.yaml` - Combined OpenAPI spec
+
+### `/beacon-pay [options]`
+
+Generate x402 v2 payment middleware:
+
+```bash
+/beacon-pay
+/beacon-pay --endpoint /api/generate-image --subsidy 50%
+```
+
+**Generates**:
+- `lib/x402/middleware.ts` - Payment verification middleware
+- `lib/x402/ratelimit.ts` - Per-agent, per-IP rate limiting
+- `lib/x402/hooks.ts` - 4 lifecycle hooks
+
+**Rate Limits (default)**:
+- Per-agent: 10 requests/hour
+- Per-IP: 50 requests/hour
+- Daily subsidy: 1000 BERA
+
+**Lifecycle Hooks**:
+- `onPaymentRequired` - Before 402 response
+- `onPaymentVerified` - Signature valid
+- `onSettlementComplete` - Payment settled
+- `onSettlementFailed` - Settlement error
 
 **Vision**: Every future business is an API business. The Beacon makes businesses discoverable, trustworthy, and transactable by AI agents.
 
@@ -254,11 +346,17 @@ From LLM retrieval research:
 
 ## Integration
 
-All three skills work together:
+All six skills work together to make your business agent-ready:
 
+**Content Layer:**
 1. `/audit-llm` identifies issues -> scores pages 0-10
 2. `/optimize-chunks` provides fixes -> rewrites for each issue
 3. `/add-markdown` enables export -> AI can fetch clean markdown
+
+**Discovery + Action Layer:**
+4. `/beacon-discover` advertises -> agents find your APIs
+5. `/beacon-actions` defines schemas -> agents understand your APIs
+6. `/beacon-pay` enables payments -> agents can transact with your APIs
 
 Each skill's output references the others in "Next Steps" sections.
 
