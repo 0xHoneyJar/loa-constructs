@@ -34,6 +34,7 @@ export interface Construct {
   type: ConstructType;
   name: string;
   slug: string;
+  icon: string | null;
   description: string | null;
   longDescription: string | null;
   version: string | null;
@@ -270,6 +271,7 @@ function skillToConstruct(
     type: 'skill',
     name: skill.name,
     slug: skill.slug,
+    icon: null, // Skills don't have icons
     description: skill.description,
     longDescription: skill.longDescription,
     version: version?.version || null,
@@ -341,6 +343,7 @@ function packToConstruct(
     type: 'pack',
     name: pack.name,
     slug: pack.slug,
+    icon: pack.icon || null,
     description: pack.description,
     longDescription: pack.longDescription,
     version: version?.version || null,

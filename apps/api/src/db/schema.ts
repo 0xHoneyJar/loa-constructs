@@ -490,6 +490,7 @@ export const packs = pgTable(
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
 
     // Metadata
+    icon: varchar('icon', { length: 10 }), // Emoji icon for pack display
     repositoryUrl: text('repository_url'),
     homepageUrl: text('homepage_url'),
     documentationUrl: text('documentation_url'),
