@@ -11,7 +11,8 @@
     {"slug": "generating-markdown", "path": "skills/generating-markdown"},
     {"slug": "optimizing-chunks", "path": "skills/optimizing-chunks"},
     {"slug": "discovering-endpoints", "path": "skills/discovering-endpoints"},
-    {"slug": "defining-actions", "path": "skills/defining-actions"}
+    {"slug": "defining-actions", "path": "skills/defining-actions"},
+    {"slug": "accepting-payments", "path": "skills/accepting-payments"}
   ],
   "hooks": {
     "post_install": "scripts/install.sh"

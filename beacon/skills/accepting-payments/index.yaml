@@ -1,0 +1,46 @@
+name: accepting-payments
+slug: accepting-payments
+version: 1.0.0
+description: Generate x402 v2 payment middleware and route handlers for Berachain agent commerce
+entry: SKILL.md
+
+triggers:
+  - /beacon-pay
+
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Grep
+  - Edit
+  - AskUserQuestion
+
+categories:
+  - operations
+
+effort_hint: high
+danger_level: moderate
+
+inputExamples:
+  - "/beacon-pay"
+  - "/beacon-pay --endpoint /api/generate-image"
+  - "/beacon-pay --subsidy 50%"
+
+outputs:
+  - name: middleware
+    path: lib/x402/middleware.ts
+    format: detailed
+  - name: ratelimit
+    path: lib/x402/ratelimit.ts
+    format: detailed
+  - name: hooks
+    path: lib/x402/hooks.ts
+    format: detailed
+  - name: state
+    path: grimoires/beacon/state.yaml
+    format: summary
+
+environment:
+  optional:
+    - FACILITATOR_URL
+    - SUBSIDY_PROVIDER_ADDRESS
