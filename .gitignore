@@ -11,6 +11,7 @@ coverage/
 build/
 dist/
 out/
+.next/
 
 # Environment variables
 .env
@@ -40,6 +41,9 @@ out/
 .claude/commands/review-gtm.md
 .claude/commands/sync-from-gtm.md
 .claude/registry/
+
+# GPT review context (dynamically generated based on config)
+.claude/context/gpt-review-active.md
 
 # Local settings overrides (user-specific feedback trace configuration)
 # Contains opt-in trace collection settings - never commit to repository

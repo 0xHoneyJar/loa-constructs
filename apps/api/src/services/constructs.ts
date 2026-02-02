@@ -16,6 +16,7 @@ import {
   teams,
 } from '../db/index.js';
 import { getRedis, isRedisConfigured, CACHE_KEYS, CACHE_TTL } from './redis.js';
+import { normalizeCategory } from './category.js';
 import { logger } from '../lib/logger.js';
 import type { ConstructManifest } from '../lib/manifest-validator.js';
 
@@ -670,10 +671,12 @@ async function fetchSkillsAsConstructs(options: {
   }
 
   if (options.category) {
+    // Normalize legacy category slugs (e.g., gtm -> marketing)
+    const normalizedCategory = normalizeCategory(options.category);
     conditions.push(
       eq(
         skills.category,
-        options.category as
+        normalizedCategory as
           | 'development'
           | 'devops'
           | 'marketing'

@@ -1,0 +1,10 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100%" height="100%" fill="#0A0A0A"/>
+  <text x="600" y="280" font-family="monospace" font-size="72" fill="#FFFFFF" text-anchor="middle" font-weight="bold">CONSTRUCTS</text>
+  <text x="600" y="360" font-family="monospace" font-size="28" fill="#FFFFFF" opacity="0.6" text-anchor="middle">AI Agent Expertise, Composable</text>
+  <circle cx="200" cy="500" r="40" fill="#FF44FF" opacity="0.8"/>
+  <circle cx="400" cy="480" r="30" fill="#44FF88" opacity="0.8"/>
+  <circle cx="600" cy="510" r="35" fill="#FF8844" opacity="0.8"/>
+  <circle cx="800" cy="490" r="25" fill="#44DDFF" opacity="0.8"/>
+  <circle cx="1000" cy="500" r="32" fill="#4488FF" opacity="0.8"/>
+</svg>
