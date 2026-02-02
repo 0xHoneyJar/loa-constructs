@@ -1,7 +1,7 @@
 {
   "name": "loa-constructs",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "SaaS platform for distributing, licensing, and monetizing AI agent constructs",
   "packageManager": "pnpm@9.15.0",
   "engines": {

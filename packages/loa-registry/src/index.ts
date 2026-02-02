@@ -29,7 +29,7 @@ import { packUpdateCommand } from './commands/pack-update.js';
  */
 export const registryPlugin: LoaPlugin = {
   name: 'loa-constructs',
-  version: '0.3.0',
+  version: '0.4.0',
   description: 'Loa Constructs integration for Loa CLI',
 
   commands: [

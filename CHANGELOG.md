@@ -5,6 +5,69 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-02
+
+### Why This Release
+
+This release implements Projen-style ownership patterns (RFC #66), aligning loa-registry with the upstream Loa framework's managed scaffolding architecture. It also addresses security audit findings to harden credential storage, JWT handling, and privacy compliance.
+
+### Added
+
+#### Projen-Style Ownership Alignment (RFC #66)
+
+- **Magic Markers** - Pack-installed files now include ownership markers
+  - `@pack-managed` markers for `.md`, `.yaml`, `.yml` files
+  - SHA-256 hash (16 chars) for integrity verification
+  - Detection of user modifications via `verifyPackMarkerIntegrity()`
+  - Functions: `shouldAddMarker`, `addPackMarker`, `hasPackMarker`, `extractPackMarker`, `removePackMarker`
+
+- **Client-Side Feature Gating** - Offline pack control via `.loa.config.yaml`
+  - `constructs.disabled_packs` configuration option
+  - Pack installation blocked with clear guidance for disabled packs
+  - `[disabled]` indicator in `pack-list` output
+  - Functions: `loadLoaConfig`, `isPackEnabled`, `getDisabledPacks`
+
+- **CLAUDE.md Fragments** - Pack-contributed instruction fragments
+  - `claude_instructions` field in pack manifest schema
+  - Server-side validation (file must exist, max 4KB size)
+  - CLI writes fragment to `.claude/packs/{slug}/pack-claude.md`
+  - `@import` instructions displayed after successful install
+
+### Security
+
+#### Audit Remediations (SECURITY-AUDIT-REPORT 2026-02-02)
+
+- **H-001: Secure Credential Storage** (CVSS 6.5)
+  - File permissions (0600) on credentials.json via `configFileMode`
+  - Credential directory permissions (0700) on creation
+  - Auto-fix overly permissive directory permissions on Unix systems
+  - Location: `packages/loa-registry/src/auth.ts`
+
+- **H-002: Remove JWT Fallback Secret** (CVSS 7.1)
+  - Removed hardcoded `development-secret-at-least-32-chars` fallback
+  - JWT_SECRET required in all environments (not just production)
+  - Clear error message with `openssl rand -base64 32` example
+  - Locations: `apps/api/src/services/auth.ts`, `apps/api/src/routes/packs.ts`
+
+- **H-003: Privacy-Compliant Anonymous Licenses** (CVSS 4.3)
+  - Replaced IP-based watermarking with random session ID (crypto.randomUUID)
+  - Improved privacy/GDPR compliance for anonymous users
+  - Location: `apps/api/src/routes/packs.ts`
+
+### Changed
+
+- CLI plugin version bumped to 0.4.0
+- Pack install now adds markers to all supported file types
+- Pack list now shows disabled pack count in summary
+
+### Test Coverage
+
+- 48 new tests for pack-marker utilities
+- 26 new tests for config loading
+- All 94 CLI tests passing
+
+---
+
 ## [1.0.0] - 2025-12-31
 
 ### Why This Release
@@ -331,4 +394,5 @@ This is the initial production release of Loa Skills Registry, completing all 15
 
 ---
 
-[1.0.0]: https://github.com/0xHoneyJar/loa-registry/releases/tag/v1.0.0
+[1.1.0]: https://github.com/0xHoneyJar/loa-constructs/releases/tag/v1.1.0
+[1.0.0]: https://github.com/0xHoneyJar/loa-constructs/releases/tag/v1.0.0
