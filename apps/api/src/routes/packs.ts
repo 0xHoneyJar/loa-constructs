@@ -906,12 +906,8 @@ packsRouter.get('/:slug/download', optionalAuth(), async (c) => {
       effectiveTier.expiresAt
     );
   } else {
-    // Anonymous license for free packs
-    license = await generateAnonymousPackLicense(
-      pack.slug,
-      version.version,
-      c.req.header('x-forwarded-for') || c.req.header('x-real-ip') || 'unknown'
-    );
+    // Anonymous license for free packs (no IP tracking for privacy)
+    license = await generateAnonymousPackLicense(pack.slug, version.version);
   }
 
   // Track installation (userId may be null for anonymous)
@@ -994,9 +990,12 @@ async function generatePackLicense(
     .digest('hex')
     .substring(0, 32);
 
-  // Get JWT secret
+  // Get JWT secret - no hardcoded fallbacks (H-002 security fix)
   const { env } = await import('../config/env.js');
-  const secret = new TextEncoder().encode(env.JWT_SECRET || 'development-secret-at-least-32-chars');
+  if (!env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required for license generation');
+  }
+  const secret = new TextEncoder().encode(env.JWT_SECRET);
 
   // Create JWT payload
   const payload = {
@@ -1029,26 +1028,31 @@ async function generatePackLicense(
  * Generate an anonymous license token for free pack downloads
  * Used when users download free packs without authentication
  * @see issue #54: Free packs require authentication
+ * @see H-003: Privacy fix - no IP tracking in watermarks
  */
 async function generateAnonymousPackLicense(
   packSlug: string,
-  version: string,
-  ipAddress: string
+  version: string
 ): Promise<{ token: string; expiresAt: Date; watermark: string }> {
   const { SignJWT } = await import('jose');
 
   // Anonymous licenses are valid for 7 days (shorter than authenticated)
   const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-  // Generate watermark from IP for basic tracking
+  // Generate watermark using random session ID (no IP tracking for privacy/GDPR)
+  // Uses crypto.randomUUID() + timestamp for uniqueness without PII
+  const sessionId = crypto.randomUUID();
   const watermark = createHash('sha256')
-    .update(`anonymous:${ipAddress}:${Date.now()}`)
+    .update(`anonymous:${sessionId}:${Date.now()}`)
     .digest('hex')
     .substring(0, 32);
 
-  // Get JWT secret
+  // Get JWT secret - no hardcoded fallbacks (H-002 security fix)
   const { env } = await import('../config/env.js');
-  const secret = new TextEncoder().encode(env.JWT_SECRET || 'development-secret-at-least-32-chars');
+  if (!env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required for license generation');
+  }
+  const secret = new TextEncoder().encode(env.JWT_SECRET);
 
   // Create JWT payload
   const payload = {
