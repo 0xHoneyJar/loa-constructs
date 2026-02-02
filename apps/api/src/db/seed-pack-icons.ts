@@ -14,7 +14,7 @@ const PACK_ICONS: Record<string, string> = {
   artisan: '🎨',
   'gtm-collective': '🚀',
   sigil: '🔷',
-  'llm-ready': '🤖',
+  beacon: '💠', // renamed from llm-ready
 };
 
 async function seedPackIcons() {
