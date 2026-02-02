@@ -9,7 +9,7 @@
  * Page Content Types
  *
  * TypeScript interfaces for structured content that can be
- * converted to markdown. Used by the llm-ready pack.
+ * converted to markdown. Used by the Beacon pack.
  */
 
 /**

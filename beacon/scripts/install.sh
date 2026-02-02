@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# install.sh - Install llm-ready pack for a project
+# install.sh - Install Beacon pack for a project
 #
 # Usage:
 #   ./install.sh [PROJECT_ROOT]
@@ -14,12 +14,12 @@ PACK_DIR="$(dirname "$SCRIPT_DIR")"
 PROJECT_ROOT="${1:-.}"
 
 echo "╭───────────────────────────────────────────────────────╮"
-echo "│  LLM-READY PACK INSTALLER                             │"
+echo "│  SIGIL OF THE BEACON - INSTALLER                      │"
 echo "╰───────────────────────────────────────────────────────╯"
 echo ""
 
 # Create grimoire structure
-GRIMOIRE_DIR="$PROJECT_ROOT/grimoires/llm-ready"
+GRIMOIRE_DIR="$PROJECT_ROOT/grimoires/beacon"
 mkdir -p "$GRIMOIRE_DIR/audits"
 mkdir -p "$GRIMOIRE_DIR/exports"
 mkdir -p "$GRIMOIRE_DIR/optimizations"
@@ -31,7 +31,7 @@ STATE_FILE="$GRIMOIRE_DIR/state.yaml"
 if [ ! -f "$STATE_FILE" ]; then
     TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     cat > "$STATE_FILE" << YAML
-# LLM-Ready State
+# Beacon State
 # Tracks audits, exports, and optimizations
 
 version: "1.0.0"

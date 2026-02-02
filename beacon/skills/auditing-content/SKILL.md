@@ -172,13 +172,13 @@ For each high-risk claim, record:
 
 ### Phase 5: Generate Output
 
-Write the audit report to: `grimoires/llm-ready/audits/{page-slug}-audit.md`
+Write the audit report to: `grimoires/beacon/audits/{page-slug}-audit.md`
 
 Use the template from `resources/templates/audit-report.md`.
 
 ### Phase 6: Update State
 
-Update `grimoires/llm-ready/state.yaml`:
+Update `grimoires/beacon/state.yaml`:
 ```yaml
 audits:
   count: {increment}

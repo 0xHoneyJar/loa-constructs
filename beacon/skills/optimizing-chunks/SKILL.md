@@ -149,7 +149,7 @@ See `resources/templates/` for pattern templates.
 
 ### Phase 5: Generate Output Report
 
-Create report at: `grimoires/llm-ready/optimizations/{page-slug}-chunks.md`
+Create report at: `grimoires/beacon/optimizations/{page-slug}-chunks.md`
 
 **Report Structure:**
 1. Summary statistics
@@ -160,7 +160,7 @@ Create report at: `grimoires/llm-ready/optimizations/{page-slug}-chunks.md`
 
 ### Phase 6: Update State
 
-Update `grimoires/llm-ready/state.yaml`:
+Update `grimoires/beacon/state.yaml`:
 ```yaml
 optimizations:
   count: {increment}

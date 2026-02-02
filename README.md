@@ -28,8 +28,9 @@ cp -r /tmp/forge/observer .claude/constructs/packs/observer
 | **[Observer](#-sigil-of-the-observer-observer)** | 🔮 | 6 | User truth capture |
 | **[Crucible](#-sigil-of-the-crucible-crucible)** | ⚗️ | 5 | Validation & testing |
 | **[Artisan](#-sigil-of-the-artisan-artisan)** | 🎨 | 10 | Brand/UI craftsmanship |
+| **[Beacon](#-sigil-of-the-beacon-beacon)** | 💠 | 3 | Agent commerce readiness |
 
-**Total: 21 skills**
+**Total: 24 skills**
 
 ---
 
@@ -220,6 +221,51 @@ grimoires/artisan/
 
 ---
 
+## 💠 Sigil of the Beacon (Beacon)
+
+*Signal readiness to the agent network with AI-retrievable content*
+
+### Skills
+
+| Command | Skill | Description |
+|---------|-------|-------------|
+| `/audit-llm` | `auditing-content` | Score pages against 5-layer AI trust model |
+| `/add-markdown` | `generating-markdown` | Add markdown export via content negotiation |
+| `/optimize-chunks` | `optimizing-chunks` | Rewrite content to survive AI retrieval chunking |
+
+### Workflow
+
+```
++-----------+    +------------------+    +---------------+
+| /audit-llm| -> | /optimize-chunks | -> | /add-markdown |
+|           |    |                  |    |               |
+| Identify  |    | Fix issues       |    | Enable export |
+| issues    |    |                  |    |               |
++-----------+    +------------------+    +---------------+
+```
+
+### Grimoire Structure
+
+```
+grimoires/beacon/
++-- state.yaml        # Pack state tracking
++-- audits/           # Audit reports
++-- exports/          # Generation manifests
++-- optimizations/    # Chunk recommendations
+```
+
+### Roadmap: x402 Integration
+
+The Beacon pack will expand to support agent commerce:
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| `discovering-endpoints` | `/beacon-discover` | Generate /.well-known/x402 discovery |
+| `defining-actions` | `/beacon-actions` | JSON Schema for API capabilities |
+| `accepting-payments` | `/beacon-pay` | x402 v2 payment middleware |
+
+---
+
 ## Complete Workflow
 
 The three packs form a continuous feedback loop:
@@ -307,6 +353,7 @@ done
 | Observer | `observer` | Sigil of the Observer | ✅ Published |
 | Crucible | `crucible` | Sigil of the Crucible | ✅ Published |
 | Artisan | `artisan` | Sigil of the Artisan | ✅ Published |
+| Beacon | `beacon` | Sigil of the Beacon | 📝 Draft |
 
 ---
 

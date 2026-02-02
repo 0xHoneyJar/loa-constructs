@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "name": "LLM Ready",
-  "slug": "llm-ready",
+  "name": "Sigil of the Beacon",
+  "slug": "beacon",
   "version": "1.0.0",
-  "description": "Make websites AI-retrievable with markdown export, content auditing, and chunk optimization",
+  "description": "Signal readiness to the agent network with AI-retrievable content, trust auditing, and x402 payment endpoints",
   "author": "0xHoneyJar",
   "license": "MIT",
   "skills": [

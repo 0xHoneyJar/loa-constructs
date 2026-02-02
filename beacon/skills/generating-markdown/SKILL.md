@@ -140,7 +140,7 @@ if (accept.includes('text/markdown')) {
 
 ### Phase 4: Write Manifest
 
-Create manifest at: `grimoires/llm-ready/exports/{page-slug}-manifest.md`
+Create manifest at: `grimoires/beacon/exports/{page-slug}-manifest.md`
 
 Include:
 - Files generated
@@ -150,7 +150,7 @@ Include:
 
 ### Phase 5: Update State
 
-Update `grimoires/llm-ready/state.yaml`:
+Update `grimoires/beacon/state.yaml`:
 ```yaml
 exports:
   count: {increment}
