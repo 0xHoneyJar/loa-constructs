@@ -72,19 +72,22 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
  * Get the secret key for JWT signing
  * Uses a simple HMAC approach with HS256 for simplicity
  * @see sdd-v2.md §4.1 L2: JWT Secret Production Enforcement
+ * @see SECURITY-AUDIT-REPORT.md H-002: No hardcoded fallback secrets
  * Note: For production, consider RS256 with key pair
  */
 function getSecretKey(): Uint8Array {
-  // In production, JWT_SECRET is enforced by env.ts validation
-  // This fallback is only for development/test convenience
-  const secret = env.JWT_SECRET || 'development-secret-at-least-32-chars';
-
-  // Defense-in-depth: runtime check for production
-  if (env.NODE_ENV === 'production' && !env.JWT_SECRET) {
-    throw new Error('JWT_SECRET must be configured in production');
+  // JWT_SECRET is required in all environments - no hardcoded fallbacks
+  // In production, env.ts validation enforces 32+ character minimum
+  // In dev/test, developers must explicitly set JWT_SECRET
+  if (!env.JWT_SECRET) {
+    throw new Error(
+      'JWT_SECRET environment variable is required. ' +
+        'Set a secure random string of at least 32 characters. ' +
+        'Example: openssl rand -base64 32'
+    );
   }
 
-  return new TextEncoder().encode(secret);
+  return new TextEncoder().encode(env.JWT_SECRET);
 }
 
 /**

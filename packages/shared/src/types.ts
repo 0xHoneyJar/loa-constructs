@@ -240,6 +240,12 @@ export interface PackManifest {
   };
   tags?: string[];
   license?: string;
+  /**
+   * Path to CLAUDE.md instruction fragment file.
+   * Must end with .md. Max file size: 4KB.
+   * @see prd.md §4.3 CLAUDE.md Fragments (Opportunity 3)
+   */
+  claude_instructions?: string;
 }
 
 export interface PackDownload {

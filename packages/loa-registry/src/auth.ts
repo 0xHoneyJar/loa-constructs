@@ -1,13 +1,45 @@
 /**
  * Authentication & Credential Management
  * @see sprint.md T7.3: Credential Storage
+ * @see H-001: Secure credential storage with file permission hardening
  */
 
 import Conf from 'conf';
-import { homedir } from 'os';
+import { homedir, platform } from 'os';
 import path from 'path';
+import { chmodSync, mkdirSync, existsSync, statSync } from 'fs';
 import type { PluginConfig, Credentials, CredentialsStore, RegistryConfig } from './types.js';
 import { RegistryClient, DEFAULT_REGISTRY_URL } from './client.js';
+
+/**
+ * Ensure credential directory exists with secure permissions
+ * @see H-001: Directory permissions (0700) to prevent unauthorized access
+ */
+function ensureSecureCredentialDirectory(): string {
+  const credDir = path.join(homedir(), '.loa-constructs');
+
+  if (!existsSync(credDir)) {
+    // Create directory with restricted permissions (owner-only)
+    mkdirSync(credDir, { recursive: true, mode: 0o700 });
+  } else if (platform() !== 'win32') {
+    // On Unix systems, verify and fix permissions if needed
+    try {
+      const stats = statSync(credDir);
+      const mode = stats.mode & 0o777;
+      // If permissions are too permissive, restrict them
+      if (mode !== 0o700 && mode !== 0o750) {
+        chmodSync(credDir, 0o700);
+      }
+    } catch {
+      // Ignore permission check errors (e.g., if we can't stat)
+    }
+  }
+
+  return credDir;
+}
+
+// Ensure secure directory on module load
+const secureCredDir = ensureSecureCredentialDirectory();
 
 /**
  * Configuration store using conf
@@ -15,7 +47,7 @@ import { RegistryClient, DEFAULT_REGISTRY_URL } from './client.js';
  */
 const configStore = new Conf<PluginConfig>({
   projectName: 'loa-constructs',
-  cwd: path.join(homedir(), '.loa-constructs'),
+  cwd: secureCredDir,
   defaults: {
     registries: [
       {
@@ -39,11 +71,15 @@ const configStore = new Conf<PluginConfig>({
 /**
  * Credentials store
  * Stores credentials in ~/.loa-constructs/credentials.json
+ * @see H-001: Secure credential storage with restricted file permissions
  */
 const credentialsStore = new Conf<CredentialsStore>({
   projectName: 'loa-constructs-credentials',
-  cwd: path.join(homedir(), '.loa-constructs'),
+  cwd: secureCredDir,
   defaults: {},
+  // Set file permissions to 0600 (read/write only for owner)
+  // This prevents other users on shared systems from reading credentials
+  configFileMode: 0o600,
 });
 
 /**

@@ -1,12 +1,14 @@
 /**
  * Pack List Command
  * @see sprint-v2.md T15.2: CLI Pack List Command
+ * @see sprint.md T23.4: Add disabled indicator to pack-list.ts
  */
 
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import type { Command, InstalledPack } from '../types.js';
 import type { PackManifest, PackLicense } from '@loa-constructs/shared';
+import { getDisabledPacks } from '../config.js';
 
 /**
  * Pack list command implementation
@@ -100,6 +102,11 @@ export const packListCommand: Command = {
         return;
       }
 
+      // Get disabled packs from config
+      // @see prd.md §4.2 Client-Side Feature Gating
+      const disabledPacks = await getDisabledPacks(context.cwd);
+      const disabledSet = new Set(disabledPacks);
+
       // Display installed packs
       console.log('Installed Packs:\n');
 
@@ -113,7 +120,11 @@ export const packListCommand: Command = {
         }
         const contentStr = contentParts.length > 0 ? `(${contentParts.join(', ')})` : '';
 
-        console.log(`  ${pack.name}`);
+        // Show [disabled] indicator if pack is in disabled_packs
+        const isDisabled = disabledSet.has(pack.slug);
+        const disabledIndicator = isDisabled ? ' [disabled]' : '';
+
+        console.log(`  ${pack.name}${disabledIndicator}`);
         console.log(`    Version: ${pack.version} ${contentStr}`);
 
         // License status
@@ -154,11 +165,16 @@ export const packListCommand: Command = {
       const totalSkills = installedPacks.reduce((sum, p) => sum + p.skills.length, 0);
       const totalCommands = installedPacks.reduce((sum, p) => sum + p.commands.length, 0);
       const expiredCount = installedPacks.filter(p => !p.licenseValid).length;
+      const disabledCount = installedPacks.filter(p => disabledSet.has(p.slug)).length;
 
       console.log(`Total: ${installedPacks.length} pack${installedPacks.length !== 1 ? 's' : ''}, ${totalSkills} skill${totalSkills !== 1 ? 's' : ''}, ${totalCommands} command${totalCommands !== 1 ? 's' : ''}`);
 
       if (expiredCount > 0) {
         console.log(`\n⚠ ${expiredCount} pack${expiredCount !== 1 ? 's have' : ' has'} expired license${expiredCount !== 1 ? 's' : ''}`);
+      }
+
+      if (disabledCount > 0) {
+        console.log(`\n⚠ ${disabledCount} pack${disabledCount !== 1 ? 's' : ''} disabled via .loa.config.yaml`);
       }
 
     } catch (error) {

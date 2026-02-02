@@ -1,6 +1,11 @@
-# CLAUDE.md
+<!-- @loa-managed: true | version: 1.15.1 | hash: PLACEHOLDER -->
+<!-- WARNING: This file is managed by the Loa Framework. Do not edit directly. -->
+<!-- Changes will be overwritten on framework update. Use CLAUDE.md for project-specific instructions. -->
 
-Guidance for Claude Code when working in this repository.
+# Loa Framework Instructions
+
+> This file contains framework-managed instructions for Claude Code.
+> Project-specific instructions should be added to `CLAUDE.md` which imports this file.
 
 ## Project Overview
 
@@ -438,11 +443,11 @@ Persistent cross-session knowledge using grimoire-based storage. Inspired by Ant
 **Memory Categories**:
 | Category | TTL | Min Confidence | Purpose |
 |----------|-----|----------------|---------|
-| `fact` | permanent | ≥0.8 | Stable project truths |
-| `decision` | permanent | ≥0.9 | Architecture decisions |
-| `learning` | 90d | ≥0.7 | Extracted patterns |
-| `error` | 30d | ≥0.6 | Error-solution pairs |
-| `preference` | permanent | ≥0.5 | User preferences |
+| `fact` | permanent | >=0.8 | Stable project truths |
+| `decision` | permanent | >=0.9 | Architecture decisions |
+| `learning` | 90d | >=0.7 | Extracted patterns |
+| `error` | 30d | >=0.6 | Error-solution pairs |
+| `preference` | permanent | >=0.5 | User preferences |
 
 **Storage Location**:
 ```
@@ -563,8 +568,8 @@ skills:
 ```
 
 **Performance Claims** (verified against primary sources):
-- Tool Search: 85% token reduction (77K → 8.7K tokens)
-- Accuracy: Opus 4: 49%→74%, Opus 4.5: 79.5%→88.1%
+- Tool Search: 85% token reduction (77K -> 8.7K tokens)
+- Accuracy: Opus 4: 49%->74%, Opus 4.5: 79.5%->88.1%
 - inputExamples: Native Anthropic provider support only
 
 **Sources**:
@@ -607,6 +612,7 @@ grimoires/
 ├── loa/                    # Private project state (gitignored)
 │   ├── NOTES.md            # Structured agentic memory
 │   ├── ledger.json         # Sprint Ledger
+│   ├── urls.yaml           # Canonical URL registry
 │   ├── context/            # User-provided context
 │   ├── archive/            # Archived development cycles
 │   ├── prd.md              # Product Requirements
@@ -617,6 +623,44 @@ grimoires/
 │       └── sprint-N/       # Per-sprint files
 └── pub/                    # Public documents (git-tracked)
 ```
+
+### Canonical URL Registry (v1.15.1)
+
+Prevents agent URL hallucination by providing a canonical source for project URLs.
+
+**Location**: `grimoires/loa/urls.yaml`
+
+**Structure**:
+```yaml
+environments:
+  production:
+    base: https://myapp.com
+    api: https://api.myapp.com
+  staging:
+    base: https://staging.myapp.com
+  local:
+    base: http://localhost:3000
+    api: http://localhost:3000/api
+
+placeholders:
+  domain: your-domain.example.com
+```
+
+**Agent Protocol**:
+1. Before generating ANY URL, check `grimoires/loa/urls.yaml`
+2. If configured, use exact URL from registry
+3. If not configured, use placeholder: `https://your-domain.example.com`
+4. NEVER hallucinate/guess production domains
+
+**Configuration** (`.loa.config.yaml`):
+```yaml
+url_registry:
+  enabled: true
+  placeholder_domain: your-domain.example.com
+  warn_on_missing: true
+```
+
+**Protocol**: See `.claude/protocols/url-registry.md`
 
 ## Implementation Notes
 
@@ -812,9 +856,9 @@ Extended oracle with Loa compound learnings support. Query both Anthropic offici
 
 **Recursive Improvement Loop**:
 ```
-Executions → Feedback → Index → Query → Skills → Executions
-     ↑                                              ↓
-     └────────── Compound Learning ─────────────────┘
+Executions -> Feedback -> Index -> Query -> Skills -> Executions
+     ^                                              |
+     |---------- Compound Learning -----------------|
 ```
 
 **Configuration** (`.loa.config.yaml`):
@@ -906,7 +950,7 @@ Version tags: `loa@v{VERSION}`. Query with `git tag -l 'loa@*'`.
 .claude/scripts/upgrade-health-check.sh --json   # JSON output for scripting
 ```
 
-Checks: bd→br migration, deprecated settings, new config options, recommended permissions.
+Checks: bd->br migration, deprecated settings, new config options, recommended permissions.
 
 ## Integrations
 
@@ -1024,7 +1068,7 @@ Create `.claude/settings.local.json` (gitignored) to enable trace collection:
 |-------|----------------|
 | `execution` | Plan, ledger, full trajectory |
 | `full` | Everything + NOTES.md + session transcript |
-| `failure-window` | Plan, ledger, ±N turns around failure |
+| `failure-window` | Plan, ledger, +/-N turns around failure |
 
 ### Privacy Model
 
