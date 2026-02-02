@@ -5,7 +5,7 @@
 
 > *"The forge is where raw materials become precision instruments. User truth becomes testable reality."*
 
-Claude Code skill packs for **hypothesis-driven product development**. Three packs that form a complete workflow from user observation through validation.
+Claude Code skill packs for **hypothesis-driven product development** and **agent commerce**. Four packs that form a complete workflow from user observation through validation to agent-ready APIs.
 
 ## Quick Start
 
@@ -28,9 +28,9 @@ cp -r /tmp/forge/observer .claude/constructs/packs/observer
 | **[Observer](#-sigil-of-the-observer-observer)** | 🔮 | 6 | User truth capture |
 | **[Crucible](#-sigil-of-the-crucible-crucible)** | ⚗️ | 5 | Validation & testing |
 | **[Artisan](#-sigil-of-the-artisan-artisan)** | 🎨 | 10 | Brand/UI craftsmanship |
-| **[Beacon](#-sigil-of-the-beacon-beacon)** | 💠 | 3 | Agent commerce readiness |
+| **[Beacon](#-sigil-of-the-beacon-beacon)** | 💠 | 6 | Agent commerce readiness |
 
-**Total: 24 skills**
+**Total: 27 skills**
 
 ---
 
@@ -223,9 +223,11 @@ grimoires/artisan/
 
 ## 💠 Sigil of the Beacon (Beacon)
 
-*Signal readiness to the agent network with AI-retrievable content*
+*Signal readiness to the agent network. Every business becomes an API.*
 
 ### Skills
+
+**Content Layer:**
 
 | Command | Skill | Description |
 |---------|-------|-------------|
@@ -233,77 +235,90 @@ grimoires/artisan/
 | `/add-markdown` | `generating-markdown` | Add markdown export via content negotiation |
 | `/optimize-chunks` | `optimizing-chunks` | Rewrite content to survive AI retrieval chunking |
 
+**Discovery Layer:**
+
+| Command | Skill | Description |
+|---------|-------|-------------|
+| `/beacon-discover` | `discovering-endpoints` | Generate `/.well-known/x402` discovery endpoint |
+| `/beacon-actions` | `defining-actions` | Generate JSON Schema and OpenAPI for endpoints |
+
+**Action Layer:**
+
+| Command | Skill | Description |
+|---------|-------|-------------|
+| `/beacon-pay` | `accepting-payments` | Generate x402 v2 payment middleware and hooks |
+
 ### Workflow
 
 ```
-+-----------+    +------------------+    +---------------+
-| /audit-llm| -> | /optimize-chunks | -> | /add-markdown |
-|           |    |                  |    |               |
-| Identify  |    | Fix issues       |    | Enable export |
-| issues    |    |                  |    |               |
-+-----------+    +------------------+    +---------------+
+CONTENT LAYER                                    DISCOVERY + ACTION LAYER
++-------------+   +------------------+   +---------------+   +------------------+   +----------------+   +-------------+
+| /audit-llm  |-->| /optimize-chunks |-->| /add-markdown |-->| /beacon-discover |-->| /beacon-actions|-->| /beacon-pay |
+| Identify    |   | Fix issues       |   | Enable export |   | Advertise APIs   |   | Define schemas |   | Add payments|
++-------------+   +------------------+   +---------------+   +------------------+   +----------------+   +-------------+
 ```
+
+### x402 Integration (Berachain)
+
+| Feature | Details |
+|---------|---------|
+| **Network** | Berachain Mainnet (`eip155:80094`) |
+| **Token** | BERA |
+| **Protocol** | x402 v2 |
+| **Rate Limits** | 10/agent/h, 50/IP/h, 1000 BERA/day subsidy |
 
 ### Grimoire Structure
 
 ```
 grimoires/beacon/
-+-- state.yaml        # Pack state tracking
-+-- audits/           # Audit reports
-+-- exports/          # Generation manifests
-+-- optimizations/    # Chunk recommendations
+├── state.yaml        # Pack state tracking
+├── audits/           # Audit reports
+├── exports/          # Generation manifests
+├── optimizations/    # Chunk recommendations
+└── discovery/        # x402 discovery artifacts
+    └── openapi.yaml  # Combined OpenAPI spec
 ```
-
-### Roadmap: x402 Integration
-
-The Beacon pack will expand to support agent commerce:
-
-| Skill | Command | Purpose |
-|-------|---------|---------|
-| `discovering-endpoints` | `/beacon-discover` | Generate /.well-known/x402 discovery |
-| `defining-actions` | `/beacon-actions` | JSON Schema for API capabilities |
-| `accepting-payments` | `/beacon-pay` | x402 v2 payment middleware |
 
 ---
 
 ## Complete Workflow
 
-The three packs form a continuous feedback loop:
+The four packs form a continuous feedback loop from user research to agent commerce:
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│                     FORGE: COMPLETE WORKFLOW                             │
-├──────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│    🔮 OBSERVER                  ⚗️ CRUCIBLE                 🎨 ARTISAN   │
-│    ──────────                   ──────────                 ───────      │
-│                                                                          │
-│    User Feedback              Code Reality               Design System   │
-│         │                          │                          │          │
-│         ▼                          ▼                          ▼          │
-│    ┌─────────┐               ┌─────────┐               ┌─────────┐      │
-│    │ /observe│ ─────────────▶│ /ground │◀──────────── │ /survey │      │
-│    └────┬────┘               └────┬────┘               └────┬────┘      │
-│         │                         │                          │          │
-│         ▼                         ▼                          ▼          │
-│    ┌─────────┐               ┌─────────┐               ┌─────────┐      │
-│    │ /shape  │ ─────────────▶│/diagram │◀──────────── │ /craft  │      │
-│    └────┬────┘               └────┬────┘               └────┬────┘      │
-│         │                         │                          │          │
-│         ▼                         ▼                          ▼          │
-│    ┌─────────┐               ┌─────────┐               ┌─────────┐      │
-│    │/analyze │◀──────────────│/validate│──────────────▶│/validate│      │
-│    │  -gap   │               └────┬────┘               │-physics │      │
-│    └────┬────┘                    │                    └─────────┘      │
-│         │                         │                                      │
-│         ▼                         ▼                                      │
-│    ┌─────────┐               ┌─────────┐                                │
-│    │/file-gap│◀──────────────│/iterate │                                │
-│    └─────────┘               └─────────┘                                │
-│                                                                          │
-│    Issues ◀─────────────────── Feedback Loop ──────────────────▶ Tests  │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                            FORGE: COMPLETE WORKFLOW                                     │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                         │
+│  🔮 OBSERVER           ⚗️ CRUCIBLE            🎨 ARTISAN            💠 BEACON          │
+│  ──────────            ──────────            ───────               ──────              │
+│                                                                                         │
+│  User Feedback        Code Reality          Design System         Agent Commerce       │
+│       │                    │                     │                      │              │
+│       ▼                    ▼                     ▼                      ▼              │
+│  ┌─────────┐         ┌─────────┐          ┌─────────┐          ┌─────────────┐        │
+│  │ /observe│────────▶│ /ground │◀─────────│ /survey │          │ /audit-llm  │        │
+│  └────┬────┘         └────┬────┘          └────┬────┘          └──────┬──────┘        │
+│       │                   │                    │                      │              │
+│       ▼                   ▼                    ▼                      ▼              │
+│  ┌─────────┐         ┌─────────┐          ┌─────────┐          ┌─────────────┐        │
+│  │ /shape  │────────▶│/diagram │◀─────────│ /craft  │          │/beacon-disco│        │
+│  └────┬────┘         └────┬────┘          └────┬────┘          └──────┬──────┘        │
+│       │                   │                    │                      │              │
+│       ▼                   ▼                    ▼                      ▼              │
+│  ┌─────────┐         ┌─────────┐          ┌─────────┐          ┌─────────────┐        │
+│  │/analyze │◀────────│/validate│─────────▶│/validate│          │ /beacon-pay │        │
+│  │  -gap   │         └────┬────┘          │-physics │          └─────────────┘        │
+│  └────┬────┘              │               └─────────┘                                  │
+│       │                   │                                                            │
+│       ▼                   ▼                                                            │
+│  ┌─────────┐         ┌─────────┐                                                       │
+│  │/file-gap│◀────────│/iterate │                                                       │
+│  └─────────┘         └─────────┘                                                       │
+│                                                                                         │
+│  Issues ◀───────────────── Feedback Loop ─────────────────▶ Tests ────▶ Agent APIs    │
+│                                                                                         │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -321,7 +336,7 @@ cp -r /tmp/forge/observer .claude/constructs/packs/observer
 .claude/constructs/packs/observer/scripts/install.sh .
 
 # Install all packs
-for pack in observer crucible artisan; do
+for pack in observer crucible artisan beacon; do
   cp -r /tmp/forge/$pack .claude/constructs/packs/$pack
   .claude/constructs/packs/$pack/scripts/install.sh .
 done
@@ -353,7 +368,7 @@ done
 | Observer | `observer` | Sigil of the Observer | ✅ Published |
 | Crucible | `crucible` | Sigil of the Crucible | ✅ Published |
 | Artisan | `artisan` | Sigil of the Artisan | ✅ Published |
-| Beacon | `beacon` | Sigil of the Beacon | 📝 Draft |
+| Beacon | `beacon` | Sigil of the Beacon | ✅ Published |
 
 ---
 
@@ -364,6 +379,7 @@ done
 - **[observer/README.md](observer/README.md)** - Observer pack details
 - **[crucible/README.md](crucible/README.md)** - Crucible pack details
 - **[artisan/README.md](artisan/README.md)** - Artisan pack details
+- **[beacon/README.md](beacon/README.md)** - Beacon pack details
 
 ---
 
