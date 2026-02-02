@@ -700,10 +700,14 @@ packsRouter.post(
     // Update version stats
     await updatePackVersionStats(version.id, fileCount, totalSizeBytes);
 
-    // Auto-publish: When a draft pack gets its first version, publish it automatically
-    // This removes the manual publish step for pack creators
+    // Auto-publish: Only when the first version is created for a draft pack
+    // This removes the manual publish step for new pack creators
+    // but doesn't auto-publish packs that were intentionally kept in draft
     // @see https://github.com/0xHoneyJar/loa-constructs/issues/72
-    if (pack.status === 'draft') {
+    const existingVersions = await getPackVersions(pack.id);
+    const isFirstVersion = existingVersions.length === 1;
+
+    if (pack.status === 'draft' && isFirstVersion) {
       try {
         await updatePack(pack.id, { status: 'published' });
         logger.info(
