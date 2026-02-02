@@ -15,6 +15,13 @@
       "when": 1769924190111,
       "tag": "0001_striped_mentallo",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770053706905,
+      "tag": "0002_aromatic_meggan",
+      "breakpoints": true
     }
   ]
 }

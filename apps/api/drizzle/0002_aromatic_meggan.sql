@@ -1,0 +1,1 @@
+ALTER TABLE "packs" ADD COLUMN "icon" varchar(10);
