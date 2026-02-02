@@ -4,7 +4,8 @@ import { useEffect, useState, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Fuse from 'fuse.js';
 import { Badge } from '@/components/ui/badge';
-import type { ConstructNode, Domain } from '@/lib/types/graph';
+import { getCategoryColor } from '@/lib/utils/colors';
+import type { ConstructNode } from '@/lib/types/graph';
 
 interface CommandPaletteProps {
   nodes: ConstructNode[];
@@ -138,7 +139,14 @@ export function CommandPalette({ nodes }: CommandPaletteProps) {
                         <span className="font-mono text-sm font-medium text-white">
                           {node.name}
                         </span>
-                        <Badge variant={node.domain as Domain} className="text-[10px]">
+                        <Badge
+                          className="text-[10px]"
+                          style={{
+                            backgroundColor: `${getCategoryColor(node.category)}20`,
+                            borderColor: `${getCategoryColor(node.category)}40`,
+                            color: getCategoryColor(node.category),
+                          }}
+                        >
                           {node.type}
                         </Badge>
                       </div>

@@ -1,241 +1,285 @@
-# Sprint 2: Authentication System - Implementation Report
+# Sprint 2 Implementation Report: Explorer UX Enhancements
 
-## Implementation Summary
-
-Sprint 2 has been successfully implemented, delivering a complete authentication system with email/password and OAuth (GitHub, Google) support.
-
-**Status:** ✅ Complete
-**Date:** 2025-12-30
+**Date:** 2026-01-31
+**Sprint Reference:** grimoires/loa/sprint-explorer-enhancements.md
+**Focus:** Stack HUD Completion & Visual Polish
 
 ---
 
-## Deliverables Completed
+## Executive Summary
 
-### T2.1: Auth Service
-**File:** `apps/api/src/services/auth.ts`
+Sprint 2 completes the Constructs Explorer UX Enhancements with a full-featured Stack Composer HUD, enhanced node visuals for stack items, and graduation level badges throughout the UI.
 
-Implemented:
-- ✅ Password hashing with bcrypt (cost factor 12)
-- ✅ JWT signing with HS256 (jose library)
-- ✅ Access token generation (15 minute expiry)
-- ✅ Refresh token generation (30 day expiry)
-- ✅ Verification token generation (24 hour expiry)
-- ✅ Password reset token generation (1 hour expiry)
-- ✅ Refresh token hashing for database storage (SHA-256)
-- ✅ API key generation and verification (`sk_live_*` / `sk_test_*` format)
-
-**Key Functions:**
-- `hashPassword()`, `verifyPassword()` - bcrypt password operations
-- `generateTokens()` - Creates access/refresh token pair
-- `verifyAccessToken()`, `verifyRefreshToken()` - Token validation
-- `generateVerificationToken()`, `verifyVerificationToken()` - Email verification
-- `generateResetToken()`, `verifyResetToken()` - Password reset
-- `generateApiKey()`, `hashApiKey()`, `verifyApiKey()` - API key management
-
-**Note:** Implementation uses HS256 (symmetric) instead of RS256 (asymmetric) for simplicity. This is acceptable for a single-service architecture but should be upgraded to RS256 if the system becomes distributed.
-
-### T2.2: Auth Routes
-**File:** `apps/api/src/routes/auth.ts`
-
-Implemented all endpoints:
-- ✅ `POST /v1/auth/register` - Create user with email verification
-- ✅ `POST /v1/auth/login` - Authenticate and return tokens
-- ✅ `POST /v1/auth/refresh` - Refresh access token
-- ✅ `POST /v1/auth/logout` - Invalidate tokens (client-side)
-- ✅ `POST /v1/auth/forgot-password` - Request password reset
-- ✅ `POST /v1/auth/reset-password` - Reset password with token
-- ✅ `POST /v1/auth/verify` - Verify email with token
-- ✅ `POST /v1/auth/resend-verification` - Resend verification email
-- ✅ `GET /v1/auth/me` - Get current authenticated user
-
-**Security Considerations:**
-- Email enumeration prevention on forgot-password (always returns success)
-- Input validation with Zod schemas
-- Password length constraints (8-128 characters)
-- Email normalization (lowercase)
-
-### T2.3: OAuth Flows
-**File:** `apps/api/src/routes/oauth.ts`
-
-Implemented:
-- ✅ `GET /v1/auth/oauth/github` - Start GitHub OAuth
-- ✅ `GET /v1/auth/oauth/github/callback` - Handle GitHub callback
-- ✅ `GET /v1/auth/oauth/google` - Start Google OAuth
-- ✅ `GET /v1/auth/oauth/google/callback` - Handle Google callback
-- ✅ Account linking by email (OAuth to existing accounts)
-- ✅ User creation from OAuth data
-
-**OAuth Features:**
-- State parameter for CSRF protection (cookie-based)
-- Primary verified email fetching for GitHub (when not public)
-- Email verification check for Google
-- Avatar URL preservation
-
-### T2.4: Email Service
-**File:** `apps/api/src/services/email.ts`
-
-Implemented:
-- ✅ Resend client integration
-- ✅ Welcome/verification email template (HTML)
-- ✅ Password reset email template (HTML)
-- ✅ `sendVerificationEmail()` function
-- ✅ `sendPasswordResetEmail()` function
-- ✅ XSS-safe HTML escaping in templates
-
-**Template Features:**
-- Responsive design
-- Branded header with gradient
-- CTA buttons with fallback URLs
-- Link expiry information
-
-### T2.5: Auth Middleware
-**File:** `apps/api/src/middleware/auth.ts`
-
-Implemented:
-- ✅ `requireAuth()` - Blocks unauthenticated requests
-- ✅ `optionalAuth()` - Allows unauthenticated but attaches user if present
-- ✅ `requireVerifiedEmail()` - Requires email verification
-- ✅ `requireTier()` - Subscription tier gating
-- ✅ JWT validation from Authorization header
-- ✅ API key validation (sk_* prefix)
-- ✅ User context attachment
-- ✅ Hono type augmentation for TypeScript
-
-**Auth Methods Supported:**
-- Bearer token (JWT)
-- API key (sk_live_*, sk_test_*)
+**Key Accomplishments:**
+- Enhanced Stack Composer HUD with three-column Grafana-inspired layout
+- Pixel-art stack preview visualization
+- Floating toggle when HUD is collapsed
+- Enhanced node visuals (glow ring, scale, "+" prefix) for stack items
+- Graduation badge component used in tooltip and detail pages
+- Keyboard shortcuts (Escape, Cmd+C)
 
 ---
 
-## Files Created/Modified
+## Tasks Completed
 
-### New Files
-| File | Lines | Purpose |
-|------|-------|---------|
-| `apps/api/src/services/auth.ts` | 267 | Auth service (tokens, hashing) |
-| `apps/api/src/services/email.ts` | 227 | Email service (Resend) |
-| `apps/api/src/routes/auth.ts` | 389 | Auth endpoints |
-| `apps/api/src/routes/oauth.ts` | 397 | OAuth endpoints |
-| `apps/api/src/middleware/auth.ts` | 250 | Auth middleware |
-| `apps/api/src/services/auth.test.ts` | 176 | Auth service tests |
+### T2.1: Stack Composer HUD - Center Column
 
-### Modified Files
-| File | Changes |
-|------|---------|
-| `apps/api/src/app.ts` | Added auth and oauth route imports, mounted routes |
-| `apps/api/src/db/index.ts` | Added fallback DATABASE_URL for tests |
-| `apps/api/src/db/schema.ts` | Fixed SQL expression for index, fixed relations |
-| `apps/api/src/middleware/error-handler.ts` | Fixed ContentfulStatusCode type |
+**Status:** Complete
+
+**Changes:**
+- Three-column grid layout (domains | stack items | preview)
+- Domain legend grid showing 6 domains with counts
+- Stack item pills with domain colors and graduation badges
+- Soft hint banners (amber styled)
+- Install command preview with copy button
 
 ---
 
-## Test Coverage
+### T2.2: Stack Composer HUD - Right Column (Stack Preview)
 
-**Test File:** `apps/api/src/services/auth.test.ts`
+**Status:** Complete
 
-| Suite | Tests | Status |
-|-------|-------|--------|
-| Password Hashing | 4 | ✅ Pass |
-| JWT Token Generation | 6 | ✅ Pass |
-| Verification Token | 3 | ✅ Pass |
-| Reset Token | 3 | ✅ Pass |
-| Refresh Token Hash | 2 | ✅ Pass |
-| API Key | 4 | ✅ Pass |
+**Created:** `components/graph/stack-preview.tsx`
 
-**Total: 22 auth tests passing**
-
-Combined with existing health tests: **27 tests passing**
+**Features:**
+- SVG-based 7x7 grid visualization
+- Blocks positioned deterministically from slug hash
+- Block sizes vary by node type (bundles larger)
+- Domain colors with glow effect
+- Grid background lines
+- Animated block entry/exit
 
 ---
 
-## Acceptance Criteria Status
+### T2.3: Floating Toggle (Collapsed HUD State)
 
-| Criteria | Status |
-|----------|--------|
-| User can register with email/password | ✅ |
-| User receives verification email (via Resend) | ✅ |
-| User can login and receive JWT + refresh token | ✅ |
-| JWT expires in 15 minutes | ✅ |
-| Refresh token works for 30 days | ✅ |
-| GitHub OAuth redirects and creates user | ✅ |
-| Google OAuth redirects and creates user | ✅ |
-| Password reset email sends with valid token | ✅ |
+**Status:** Complete
+
+**Features:**
+- Floating bar appears when HUD is collapsed but stack has items
+- Shows chevron up icon, "STACK" label, count badge
+- Click expands the full HUD
+- Centered at bottom with backdrop blur
 
 ---
 
-## Environment Variables Required
+### T2.4: Node Visual Treatment - Stack State
 
-```env
-# JWT
-JWT_SECRET=<your-secret-key-at-least-32-chars>
-JWT_ISSUER=https://api.loaskills.dev
+**Status:** Complete
 
-# OAuth
-GITHUB_CLIENT_ID=<github-oauth-app-client-id>
-GITHUB_CLIENT_SECRET=<github-oauth-app-client-secret>
-GOOGLE_CLIENT_ID=<google-oauth-client-id>
-GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>
+**Changes to `components/graph/node.tsx`:**
+- Pulsing torus ring around stack items (domain colored)
+- 15% larger scale for stack items
+- Increased emissive intensity (1.2) for stack items
+- "+" prefix in label when in stack
+- Label background matches domain color when in stack
+- Non-stack nodes dimmed when stack has items
 
-# Email
-RESEND_API_KEY=<resend-api-key>
+---
+
+### T2.5: Graduation Badge Component
+
+**Status:** Complete
+
+**Created:** `components/ui/graduation-badge.tsx`
+
+**Features:**
+- Displays graduation level (EXP, BETA, STABLE, DEPR)
+- Uses `getGraduationConfig()` for colors and outline style
+- Hides by default for 'stable' level (configurable)
+- Consistent styling across tooltip, detail page, HUD
+
+---
+
+### T2.6: Graduation in Tooltip & Detail Page
+
+**Status:** Complete
+
+**Changes:**
+- `components/graph/hover-tooltip.tsx` - Added GraduationBadge after type badge
+- `components/construct/construct-card.tsx` - Added GraduationBadge in header
+
+---
+
+### T2.7: API Data Transform - Graduation Fallback
+
+**Status:** Complete (from Sprint 1)
+
+**Already implemented:**
+- `parseGraduationLevel()` in `fetch-constructs.ts`
+- Falls back to 'stable' when field is missing
+- Type-safe with GraduationLevel type
+
+---
+
+### T2.8: Keyboard Shortcuts
+
+**Status:** Complete
+
+**Implemented in Stack Composer HUD:**
+- `Escape` - Closes/collapses HUD (preserves stack)
+- `Cmd/Ctrl + C` - Copies install command (when HUD open and no text selected)
+
+---
+
+## Store Updates
+
+Added to `lib/stores/graph-store.ts`:
+- `isStackHudOpen: boolean` - Track HUD open/collapsed state
+- `setStackHudOpen(open)` - Set HUD state
+- `toggleStackHud()` - Toggle HUD state
+
+---
+
+## Files Summary
+
+| File | Status | Description |
+|------|--------|-------------|
+| `lib/stores/graph-store.ts` | Modified | Added HUD open state |
+| `components/graph/stack-composer-hud.tsx` | Rewritten | Three-column layout, all features |
+| `components/graph/stack-preview.tsx` | Created | Pixel-art SVG preview |
+| `components/graph/network-graph.tsx` | Modified | Pass hasStackItems to nodes |
+| `components/graph/node.tsx` | Modified | Stack visual treatment |
+| `components/graph/hover-tooltip.tsx` | Modified | Added graduation badge |
+| `components/ui/graduation-badge.tsx` | Created | Reusable badge component |
+| `components/construct/construct-card.tsx` | Modified | Added graduation badge |
+
+---
+
+## Build Verification
+
+```
+TypeScript: PASS
+Next.js Build: PASS
+Route (app)                              Size     First Load JS
+┌ ○ /                                    49 kB           171 kB
+├ ● /[slug]                              747 B           117 kB
+└ ... (other routes)
 ```
 
 ---
 
-## Technical Decisions
+## Sprint 2 Complete
 
-### 1. HS256 vs RS256 for JWT
-**Decision:** Use HS256 (symmetric)
-**Rationale:** Single service architecture, simpler key management. RS256 recommended for distributed systems.
-
-### 2. Token Storage
-**Decision:** Stateless JWTs with client-side storage
-**Rationale:** Scalability. TODO comment added for Redis blacklist implementation for true token revocation.
-
-### 3. OAuth State Verification
-**Decision:** State stored in HttpOnly cookie
-**Note:** TODO comment for full state verification implementation.
-
-### 4. API Key Format
-**Decision:** `sk_live_<uuid>` / `sk_test_<uuid>` (12-char prefix for lookup)
-**Rationale:** Familiar format, efficient database lookup by prefix.
+All 8 tasks have been implemented:
+- [x] T2.1: Stack Composer HUD - Center Column
+- [x] T2.2: Stack Composer HUD - Right Column (Stack Preview)
+- [x] T2.3: Floating Toggle (Collapsed HUD State)
+- [x] T2.4: Node Visual Treatment - Stack State
+- [x] T2.5: Graduation Badge Component
+- [x] T2.6: Graduation in Tooltip & Detail Page
+- [x] T2.7: API Data Transform - Graduation Fallback (Sprint 1)
+- [x] T2.8: Keyboard Shortcuts
 
 ---
 
-## Known TODOs for Future Sprints
+## Feature Summary
 
-1. **Token Revocation:** Implement Redis-backed refresh token blacklist
-2. **OAuth State:** Complete state verification against cookie
-3. **Rate Limiting:** Add rate limiting to auth endpoints
-4. **Audit Logging:** Log authentication events to audit_logs table
-5. **MFA:** Consider adding TOTP/WebAuthn support
+### Stack Composer HUD
+- Grafana-inspired three-column layout
+- Domain legend with counts
+- Stack item pills with remove buttons
+- Pixel-art preview visualization
+- Soft limit hints (5+ focus, 8+ large)
+- Install command with copy functionality
+- Keyboard shortcuts (Esc, Cmd+C)
+- Floating toggle when collapsed
+
+### Node Visual Treatment
+- Pulsing domain-colored ring for stack items
+- "+" prefix in label
+- Increased scale and emissive intensity
+- Non-stack nodes dimmed when stack active
+
+### Graduation Levels
+- Reusable badge component
+- Displayed in HUD, tooltip, detail page
+- Visual style varies by level (dashed/dotted/solid border)
+- Hidden by default for 'stable'
 
 ---
 
-## Dependencies Met
+## Sprint 2 Addendum: Domain→Category Migration
 
-- ✅ Sprint 1 completed (database, API skeleton)
-- ✅ Resend integration configured
-- ⚠️ GitHub OAuth app needs creation (env vars)
-- ⚠️ Google OAuth credentials need creation (env vars)
+**Date:** 2026-01-31
+**Focus:** Dynamic Category System Integration
 
----
+### Overview
 
-## Build & Test Status
+Migrated the Explorer from hardcoded `Domain` type to dynamic `Category` system fetched from API. This enables the category taxonomy to be managed entirely from the API layer.
 
-```bash
-$ npm run typecheck  # ✅ Pass (0 errors)
-$ npm test           # ✅ 27 tests passing
+### Changes Made
+
+#### Type System Updates (`lib/types/graph.ts`)
+- Removed hardcoded `Domain` type union
+- Added `Category` interface with `id`, `slug`, `label`, `color`, `description`, `constructCount`
+- Changed `ConstructNode.domain` to `ConstructNode.category: string`
+- Updated `GraphData` to use `CategoryStats[]` instead of `DomainStats[]`
+
+#### Dynamic Category Fetching (`lib/data/fetch-categories.ts`)
+- Created new file for category API fetching
+- `fetchCategories()` - Fetches from `/v1/categories` endpoint
+- `normalizeCategory(slug)` - Maps legacy slugs (gtm→marketing, dev→development, etc.)
+- `DEFAULT_CATEGORIES` - 8 fallback categories when API unavailable
+
+#### Color Utilities (`lib/utils/colors.ts`)
+- Replaced `DOMAIN_COLORS` constant with dynamic category cache
+- `setCategoryCache(categories)` - Initialize cache from API data
+- `getCategoryColor(slug)` - Get color for any category slug
+- `getCategoryLabel(slug)` - Get display label for category
+- `getAllCategories()` - Return all cached categories
+
+#### Category Initializer (`components/graph/category-initializer.tsx`)
+- New client component that runs on mount
+- Initializes the color cache with API categories
+- Initializes the Zustand store with categories
+
+#### Store Updates (`lib/stores/graph-store.ts`)
+- `activeCategories: Set<string>` (renamed from `activeDomains`)
+- `toggleCategory(slug)` (renamed from `toggleDomain`)
+- `setCategories(categories)` - Set available categories
+
+#### Component Updates
+| Component | Changes |
+|-----------|---------|
+| `category-filter.tsx` | Renamed from `domain-filter.tsx`, uses `activeCategories` |
+| `stack-composer-hud.tsx` | `CategoryLegend` replaces `DomainLegend`, uses dynamic colors |
+| `stack-preview.tsx` | Uses `getCategoryColor(node.category)` |
+| `hover-tooltip.tsx` | Badge uses inline styles with dynamic category colors |
+| `command-palette.tsx` | Badge uses inline styles with dynamic category colors |
+| `construct-card.tsx` | Badge uses inline styles with dynamic category colors |
+| `fallback.tsx` | Uses `activeCategories`, dynamic category colors for legend |
+| `footer.tsx` | Changed "DOMAINS" to "CATEGORIES", accesses `graphData.categories` |
+
+#### Layout Algorithm (`lib/data/compute-layout.ts`)
+- `CATEGORY_CENTERS` replaces `DOMAIN_CENTERS`
+- Added positions for 8 categories (octagonal layout)
+- Included legacy slug mappings for backwards compatibility
+- Uses `node.category` instead of `node.domain`
+
+### Badge Component Update
+- Removed unused `categorySlug` prop
+- Badges now receive colors via `style` prop for dynamic category styling
+- Static variants: `default`, `pack`, `skill`
+
+### Build Verification
+
+```
+TypeScript: PASS
+Next.js Build: PASS
+API Categories: Fallback to defaults (migration pending)
 ```
 
+### Notes for PR
+
+**Database Migration Required:**
+The categories table migration (`drizzle/0001_striped_mentallo.sql`) needs to be applied to the production database. Until then, the Explorer will use `DEFAULT_CATEGORIES` as a fallback.
+
+Migration steps:
+1. Set `DATABASE_URL` environment variable
+2. Run `npm run db:migrate` in apps/api
+3. Run `npm run db:seed-categories` to populate default categories
+
 ---
 
-## Ready for Review
-
-Sprint 2 implementation is complete and ready for senior tech lead review.
-
-**Reviewer Notes:**
-1. All auth flows are implemented per SDD specifications
-2. Test coverage focuses on auth service (unit tests)
-3. Integration tests for routes would require database mocking
-4. OAuth flows require actual provider credentials to test fully
+*Generated by Sprint Implementer Agent*

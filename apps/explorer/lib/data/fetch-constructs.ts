@@ -1,5 +1,5 @@
-import type { ConstructDetail, ConstructNode, Domain, GraphData, DomainStats } from '@/lib/types/graph';
-import { DOMAIN_COLORS, DOMAIN_LABELS } from '@/lib/utils/colors';
+import type { ConstructDetail, ConstructNode, GraduationLevel, GraphData, CategoryStats, Category } from '@/lib/types/graph';
+import { fetchCategories, normalizeCategory } from './fetch-categories';
 
 const API_BASE = process.env.CONSTRUCTS_API_URL || 'https://loa-constructs-api.fly.dev/v1';
 
@@ -14,6 +14,7 @@ interface APIConstruct {
   downloads: number;
   tier_required: string;
   is_featured: boolean;
+  graduation_level?: string;
   manifest?: {
     commands?: Array<{ name: string; description: string; usage?: string }>;
     skills?: Array<{ slug: string; name?: string; path?: string; description?: string } | null>;
@@ -32,25 +33,12 @@ interface APIResponse {
   };
 }
 
-function categoryToDomain(category: string | null): Domain {
-  const mapping: Record<string, Domain> = {
-    marketing: 'gtm',
-    gtm: 'gtm',
-    development: 'dev',
-    dev: 'dev',
-    security: 'security',
-    analytics: 'analytics',
-    data: 'analytics',
-    documentation: 'docs',
-    docs: 'docs',
-    support: 'docs',
-    devops: 'ops',
-    ops: 'ops',
-    operations: 'ops',
-  };
-
-  const normalized = (category || 'dev').toLowerCase();
-  return mapping[normalized] || 'dev';
+function parseGraduationLevel(level: string | undefined): GraduationLevel {
+  const validLevels: GraduationLevel[] = ['experimental', 'beta', 'stable', 'deprecated'];
+  if (level && validLevels.includes(level as GraduationLevel)) {
+    return level as GraduationLevel;
+  }
+  return 'stable';
 }
 
 function transformToNode(construct: APIConstruct): ConstructNode {
@@ -59,12 +47,16 @@ function transformToNode(construct: APIConstruct): ConstructNode {
     ? construct.description.split('.')[0].slice(0, 60)
     : 'No description';
 
+  // Normalize category (handles legacy slugs like gtm -> marketing)
+  const category = normalizeCategory(construct.category || 'development');
+
   return {
     id: construct.id,
     slug: construct.slug,
     name: construct.name,
     type: construct.type,
-    domain: categoryToDomain(construct.category),
+    category,
+    graduationLevel: parseGraduationLevel(construct.graduation_level),
     description: construct.description || 'No description available',
     shortDescription: shortDesc,
     commandCount: commands.length || (construct.type === 'skill' ? 1 : 0),
@@ -144,20 +136,26 @@ export async function fetchConstruct(slug: string): Promise<ConstructDetail | nu
   }
 }
 
-export async function fetchGraphData(): Promise<GraphData> {
-  const nodes = await fetchAllConstructs();
+export async function fetchGraphData(): Promise<{ graphData: GraphData; categories: Category[] }> {
+  // Fetch constructs and categories in parallel
+  const [nodes, categories] = await Promise.all([
+    fetchAllConstructs(),
+    fetchCategories(),
+  ]);
 
-  // Compute domain statistics
-  const domainCounts = new Map<Domain, number>();
+  // Compute category statistics from actual nodes
+  const categoryCounts = new Map<string, number>();
   for (const node of nodes) {
-    domainCounts.set(node.domain, (domainCounts.get(node.domain) || 0) + 1);
+    categoryCounts.set(node.category, (categoryCounts.get(node.category) || 0) + 1);
   }
 
-  const domains: DomainStats[] = Array.from(domainCounts.entries()).map(([id, count]) => ({
-    id,
-    label: DOMAIN_LABELS[id],
-    color: DOMAIN_COLORS[id],
-    count,
+  // Build category stats from fetched categories
+  const categoryStats: CategoryStats[] = categories.map((cat) => ({
+    id: cat.id,
+    slug: cat.slug,
+    label: cat.label,
+    color: cat.color,
+    count: categoryCounts.get(cat.slug) || 0,
   }));
 
   // Compute total commands
@@ -167,26 +165,29 @@ export async function fetchGraphData(): Promise<GraphData> {
   const edges = computeEdges(nodes);
 
   return {
-    nodes,
-    edges,
-    domains,
-    meta: {
-      totalConstructs: nodes.length,
-      totalCommands,
-      generatedAt: new Date().toISOString(),
+    graphData: {
+      nodes,
+      edges,
+      categories: categoryStats,
+      meta: {
+        totalConstructs: nodes.length,
+        totalCommands,
+        generatedAt: new Date().toISOString(),
+      },
     },
+    categories,
   };
 }
 
 function computeEdges(nodes: ConstructNode[]) {
-  // Simplified edge computation - connects packs to skills in same domain
+  // Simplified edge computation - connects packs to skills in same category
   const edges: Array<{ id: string; source: string; target: string; relationship: 'contains' | 'depends_on' | 'composes_with' }> = [];
 
   const packs = nodes.filter((n) => n.type === 'pack');
   const skills = nodes.filter((n) => n.type === 'skill');
 
   for (const pack of packs) {
-    const relatedSkills = skills.filter((s) => s.domain === pack.domain);
+    const relatedSkills = skills.filter((s) => s.category === pack.category);
     for (const skill of relatedSkills) {
       edges.push({
         id: `${pack.id}-${skill.id}`,

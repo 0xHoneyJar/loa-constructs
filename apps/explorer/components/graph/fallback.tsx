@@ -5,28 +5,20 @@ import Link from 'next/link';
 import { useGraphStore } from '@/lib/stores/graph-store';
 import { computeLayout, scalePositions } from '@/lib/data/compute-layout';
 import { Badge } from '@/components/ui/badge';
-import type { GraphData, Domain } from '@/lib/types/graph';
-
-const DOMAIN_COLORS: Record<Domain, string> = {
-  gtm: '#FF44FF',
-  dev: '#44FF88',
-  security: '#FF8844',
-  analytics: '#FFDD44',
-  docs: '#44DDFF',
-  ops: '#4488FF',
-};
+import { getCategoryColor } from '@/lib/utils/colors';
+import type { GraphData } from '@/lib/types/graph';
 
 interface GraphFallbackProps {
   data: GraphData;
 }
 
 export function GraphFallback({ data }: GraphFallbackProps) {
-  const { activeDomains, searchResults } = useGraphStore();
+  const { activeCategories, searchResults } = useGraphStore();
 
-  // Filter nodes by active domains
+  // Filter nodes by active categories
   const filteredNodes = useMemo(() => {
-    return data.nodes.filter((node) => activeDomains.has(node.domain));
-  }, [data.nodes, activeDomains]);
+    return data.nodes.filter((node) => activeCategories.has(node.category));
+  }, [data.nodes, activeCategories]);
 
   // Filter edges
   const filteredEdges = useMemo(() => {
@@ -65,7 +57,7 @@ export function GraphFallback({ data }: GraphFallbackProps) {
 
             if (!sourcePos || !targetPos || !sourceNode) return null;
 
-            const color = DOMAIN_COLORS[sourceNode.domain];
+            const color = getCategoryColor(sourceNode.category);
             const isHighlighted =
               searchResults.includes(edge.source) ||
               searchResults.includes(edge.target);
@@ -91,7 +83,7 @@ export function GraphFallback({ data }: GraphFallbackProps) {
             const pos = positions.get(node.id);
             if (!pos) return null;
 
-            const color = DOMAIN_COLORS[node.domain];
+            const color = getCategoryColor(node.category);
             const isHighlighted = searchResults.includes(node.id);
             const radius = node.type === 'pack' ? 12 : node.type === 'bundle' ? 14 : 8;
 
@@ -139,9 +131,17 @@ export function GraphFallback({ data }: GraphFallbackProps) {
           Legend
         </div>
         <div className="flex flex-wrap gap-2">
-          {data.domains.map((domain) => (
-            <Badge key={domain.id} variant={domain.id as Domain} className="text-[10px]">
-              {domain.label}
+          {data.categories.map((category) => (
+            <Badge
+              key={category.id}
+              className="text-[10px]"
+              style={{
+                backgroundColor: `${category.color}20`,
+                borderColor: `${category.color}40`,
+                color: category.color,
+              }}
+            >
+              {category.label}
             </Badge>
           ))}
         </div>

@@ -5,9 +5,10 @@ import dynamic from 'next/dynamic';
 import { useWebGL } from '@/lib/hooks/use-webgl';
 import { useGraphStore } from '@/lib/stores/graph-store';
 import { GraphSkeleton } from './skeleton';
-import { DomainFilter } from './domain-filter';
+import { CategoryFilter } from './category-filter';
 import { HoverTooltip } from './hover-tooltip';
 import { GraphFallback } from './fallback';
+import { StackComposerHud } from './stack-composer-hud';
 import { CommandPalette } from '@/components/search/command-palette';
 import type { GraphData } from '@/lib/types/graph';
 
@@ -39,9 +40,9 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
   if (!webglSupported) {
     return (
       <div className="relative flex h-full w-full flex-col">
-        {/* Domain filters */}
+        {/* Category filters */}
         <div className="absolute left-4 top-4 z-10 max-w-[calc(100%-2rem)] overflow-x-auto">
-          <DomainFilter domains={data.domains} />
+          <CategoryFilter categories={data.categories} />
         </div>
 
         {/* Stats */}
@@ -57,8 +58,11 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
 
         {/* Instructions */}
         <div className="absolute bottom-4 left-4 z-10 font-mono text-xs text-white/30">
-          <span>Click node to view details • <kbd className="rounded border border-border bg-surface px-1">⌘K</kbd> search</span>
+          <span>Click to add to stack • <kbd className="rounded border border-border bg-surface px-1">⌘K</kbd> search</span>
         </div>
+
+        {/* Stack Composer HUD */}
+        <StackComposerHud nodes={data.nodes} />
 
         {/* Command Palette */}
         <CommandPalette nodes={data.nodes} />
@@ -68,9 +72,9 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
 
   return (
     <div className="relative flex h-full w-full flex-col">
-      {/* Domain filters */}
+      {/* Category filters */}
       <div className="absolute left-4 top-4 z-10">
-        <DomainFilter domains={data.domains} />
+        <CategoryFilter categories={data.categories} />
       </div>
 
       {/* Stats */}
@@ -93,8 +97,11 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
 
       {/* Instructions */}
       <div className="absolute bottom-4 left-4 z-10 font-mono text-xs text-white/30">
-        <span>Scroll to zoom • Drag to pan • Click node to view details • <kbd className="rounded border border-border bg-surface px-1">⌘K</kbd> search</span>
+        <span>Scroll to zoom • Drag to pan • Click to add to stack • <kbd className="rounded border border-border bg-surface px-1">⌘K</kbd> search</span>
       </div>
+
+      {/* Stack Composer HUD */}
+      <StackComposerHud nodes={data.nodes} />
 
       {/* Command Palette */}
       <CommandPalette nodes={data.nodes} />

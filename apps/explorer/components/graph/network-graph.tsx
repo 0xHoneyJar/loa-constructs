@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { useGraphStore } from '@/lib/stores/graph-store';
 import { computeLayout, scalePositions } from '@/lib/data/compute-layout';
 import { GraphNode } from './node';
@@ -14,19 +13,19 @@ interface NetworkGraphProps {
 }
 
 export function NetworkGraph({ data }: NetworkGraphProps) {
-  const router = useRouter();
   const {
     hoveredNodeId,
-    selectedNodeId,
-    activeDomains,
+    stackNodeIds,
+    activeCategories,
     searchResults,
     setHoveredNode,
+    toggleStackNode,
   } = useGraphStore();
 
-  // Filter nodes by active domains
+  // Filter nodes by active categories
   const filteredNodes = useMemo(() => {
-    return data.nodes.filter((node) => activeDomains.has(node.domain));
-  }, [data.nodes, activeDomains]);
+    return data.nodes.filter((node) => activeCategories.has(node.category));
+  }, [data.nodes, activeCategories]);
 
   // Filter edges to only include those between visible nodes
   const filteredEdges = useMemo(() => {
@@ -60,8 +59,9 @@ export function NetworkGraph({ data }: NetworkGraphProps) {
       }
     }
 
-    if (selectedNodeId) {
-      ids.add(selectedNodeId);
+    // Add stack nodes
+    for (const id of stackNodeIds) {
+      ids.add(id);
     }
 
     // Add search results
@@ -70,13 +70,10 @@ export function NetworkGraph({ data }: NetworkGraphProps) {
     }
 
     return ids;
-  }, [hoveredNodeId, selectedNodeId, searchResults, filteredEdges]);
+  }, [hoveredNodeId, stackNodeIds, searchResults, filteredEdges]);
 
   const handleNodeClick = (id: string) => {
-    const node = nodeMap.get(id);
-    if (node) {
-      router.push(`/${node.slug}`);
-    }
+    toggleStackNode(id);
   };
 
   return (
@@ -99,7 +96,7 @@ export function NetworkGraph({ data }: NetworkGraphProps) {
             edge={edge}
             sourcePosition={[sourcePos.x, sourcePos.y, 0]}
             targetPosition={[targetPos.x, targetPos.y, 0]}
-            sourceDomain={sourceNode.domain}
+            sourceCategory={sourceNode.category}
             isHighlighted={isHighlighted}
           />
         );
@@ -111,8 +108,9 @@ export function NetworkGraph({ data }: NetworkGraphProps) {
         if (!pos) return null;
 
         const isHovered = hoveredNodeId === node.id;
-        const isSelected = selectedNodeId === node.id;
+        const isInStack = stackNodeIds.has(node.id);
         const isSearchMatch = searchResults.includes(node.id);
+        const hasStackItems = stackNodeIds.size > 0;
 
         return (
           <GraphNode
@@ -120,7 +118,8 @@ export function NetworkGraph({ data }: NetworkGraphProps) {
             node={node}
             position={[pos.x, pos.y, 0]}
             isHovered={isHovered || isSearchMatch}
-            isSelected={isSelected}
+            isSelected={isInStack}
+            hasStackItems={hasStackItems}
             onHover={setHoveredNode}
             onClick={handleNodeClick}
           />

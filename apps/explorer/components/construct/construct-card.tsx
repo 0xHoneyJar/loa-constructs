@@ -1,20 +1,21 @@
 import type { ConstructDetail } from '@/lib/types/graph';
 import { Badge } from '@/components/ui/badge';
-import { getDomainColor } from '@/lib/utils/colors';
+import { GraduationBadge } from '@/components/ui/graduation-badge';
+import { getCategoryColor, getCategoryLabel } from '@/lib/utils/colors';
 
 interface ConstructCardProps {
   construct: ConstructDetail;
 }
 
 export function ConstructCard({ construct }: ConstructCardProps) {
-  const domainColor = getDomainColor(construct.domain);
+  const categoryColor = getCategoryColor(construct.category);
 
   return (
     <div className="space-y-4">
       {/* Color accent bar */}
       <div
         className="h-1 w-16"
-        style={{ backgroundColor: domainColor }}
+        style={{ backgroundColor: categoryColor }}
       />
 
       {/* Name and badges */}
@@ -27,9 +28,16 @@ export function ConstructCard({ construct }: ConstructCardProps) {
           <Badge variant={construct.type === 'pack' ? 'pack' : 'skill'}>
             {construct.type}
           </Badge>
-          <Badge variant={construct.domain}>
-            {construct.domain}
+          <Badge
+            style={{
+              backgroundColor: `${categoryColor}20`,
+              borderColor: `${categoryColor}40`,
+              color: categoryColor,
+            }}
+          >
+            {getCategoryLabel(construct.category)}
           </Badge>
+          <GraduationBadge level={construct.graduationLevel} />
           {construct.skills && construct.skills.length > 0 && (
             <span className="font-mono text-xs text-white/40">
               {construct.skills.length} SKILLS

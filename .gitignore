@@ -11,6 +11,7 @@ coverage/
 build/
 dist/
 out/
+.next/
 
 # Environment variables
 .env

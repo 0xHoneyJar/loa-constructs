@@ -1032,3 +1032,29 @@ export const graduationRequestsRelations = relations(graduationRequests, ({ one 
     references: [users.id],
   }),
 }));
+
+// --- Categories ---
+
+/**
+ * Categories table
+ * API-driven taxonomy for constructs (skills and packs)
+ * @see prd-category-taxonomy.md §3.1 The 8 Categories
+ * @see sdd-category-taxonomy.md §3.1 Categories Table
+ */
+export const categories = pgTable(
+  'categories',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    slug: varchar('slug', { length: 50 }).unique().notNull(),
+    label: varchar('label', { length: 100 }).notNull(),
+    color: varchar('color', { length: 7 }).notNull(), // Hex color e.g. #FF44FF
+    description: text('description'),
+    sortOrder: integer('sort_order').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    slugIdx: uniqueIndex('idx_categories_slug').on(table.slug),
+    sortOrderIdx: index('idx_categories_sort_order').on(table.sortOrder),
+  })
+);

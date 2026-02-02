@@ -1,66 +1,130 @@
 import { create } from 'zustand';
 import Fuse from 'fuse.js';
-import type { Domain, GraphData, ConstructNode } from '@/lib/types/graph';
+import type { GraphData, ConstructNode, Category } from '@/lib/types/graph';
+
+// Soft limits for stack composition
+const STACK_SOFT_LIMIT_WARNING = 5;
+const STACK_SOFT_LIMIT_MAX = 8;
+
+export type StackHint = 'none' | 'focus' | 'large';
 
 interface GraphState {
   // Data
   graphData: GraphData | null;
+  categories: Category[];
 
   // UI State
   hoveredNodeId: string | null;
-  selectedNodeId: string | null;
-  activeDomains: Set<Domain>;
+  stackNodeIds: Set<string>;
+  isStackHudOpen: boolean;
+  activeCategories: Set<string>;
 
   // Search
   searchQuery: string;
   searchResults: string[];
 
+  // Computed
+  stackHint: StackHint;
+
   // Actions
   setGraphData: (data: GraphData) => void;
+  setCategories: (categories: Category[]) => void;
   setHoveredNode: (id: string | null) => void;
-  setSelectedNode: (id: string | null) => void;
-  toggleDomain: (domain: Domain) => void;
-  setAllDomains: (active: boolean) => void;
+  toggleStackNode: (id: string) => void;
+  addToStack: (id: string) => void;
+  removeFromStack: (id: string) => void;
+  clearStack: () => void;
+  setStackHudOpen: (open: boolean) => void;
+  toggleStackHud: () => void;
+  toggleCategory: (categorySlug: string) => void;
+  setAllCategories: (active: boolean) => void;
   setSearchQuery: (query: string) => void;
   clearSelection: () => void;
 }
 
-const ALL_DOMAINS: Domain[] = ['gtm', 'dev', 'security', 'ops', 'docs', 'analytics'];
+function computeStackHint(size: number): StackHint {
+  if (size >= STACK_SOFT_LIMIT_MAX) return 'large';
+  if (size >= STACK_SOFT_LIMIT_WARNING) return 'focus';
+  return 'none';
+}
 
 export const useGraphStore = create<GraphState>((set, get) => ({
   // Initial state
   graphData: null,
+  categories: [],
   hoveredNodeId: null,
-  selectedNodeId: null,
-  activeDomains: new Set(ALL_DOMAINS),
+  stackNodeIds: new Set(),
+  isStackHudOpen: true,
+  activeCategories: new Set<string>(),
   searchQuery: '',
   searchResults: [],
+  stackHint: 'none',
 
   // Actions
   setGraphData: (data) => set({ graphData: data }),
 
+  setCategories: (categories) => {
+    // Initialize all categories as active
+    const allSlugs = categories.map((c) => c.slug);
+    set({ categories, activeCategories: new Set(allSlugs) });
+  },
+
   setHoveredNode: (id) => set({ hoveredNodeId: id }),
 
-  setSelectedNode: (id) => {
-    const current = get().selectedNodeId;
-    // Toggle selection if clicking same node
-    set({ selectedNodeId: current === id ? null : id });
-  },
-
-  toggleDomain: (domain) => {
-    const current = get().activeDomains;
-    const newDomains = new Set(current);
-    if (newDomains.has(domain)) {
-      newDomains.delete(domain);
+  toggleStackNode: (id) => {
+    const current = get().stackNodeIds;
+    const newStack = new Set(current);
+    if (newStack.has(id)) {
+      newStack.delete(id);
     } else {
-      newDomains.add(domain);
+      newStack.add(id);
     }
-    set({ activeDomains: newDomains });
+    set({ stackNodeIds: newStack, stackHint: computeStackHint(newStack.size) });
   },
 
-  setAllDomains: (active) => {
+  addToStack: (id) => {
+    const current = get().stackNodeIds;
+    if (current.has(id)) return;
+    const newStack = new Set(current);
+    newStack.add(id);
+    set({ stackNodeIds: newStack, stackHint: computeStackHint(newStack.size) });
+  },
+
+  removeFromStack: (id) => {
+    const current = get().stackNodeIds;
+    if (!current.has(id)) return;
+    const newStack = new Set(current);
+    newStack.delete(id);
+    set({ stackNodeIds: newStack, stackHint: computeStackHint(newStack.size) });
+  },
+
+  clearStack: () => {
+    set({ stackNodeIds: new Set(), stackHint: 'none' });
+  },
+
+  setStackHudOpen: (open) => {
+    set({ isStackHudOpen: open });
+  },
+
+  toggleStackHud: () => {
+    set({ isStackHudOpen: !get().isStackHudOpen });
+  },
+
+  toggleCategory: (categorySlug) => {
+    const current = get().activeCategories;
+    const newCategories = new Set(current);
+    if (newCategories.has(categorySlug)) {
+      newCategories.delete(categorySlug);
+    } else {
+      newCategories.add(categorySlug);
+    }
+    set({ activeCategories: newCategories });
+  },
+
+  setAllCategories: (active) => {
+    const { categories } = get();
     set({
-      activeDomains: active ? new Set(ALL_DOMAINS) : new Set(),
+      activeCategories: active ? new Set(categories.map((c) => c.slug)) : new Set(),
     });
   },
 
@@ -85,7 +149,8 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   clearSelection: () => {
     set({
       hoveredNodeId: null,
-      selectedNodeId: null,
+      stackNodeIds: new Set(),
+      stackHint: 'none',
       searchQuery: '',
       searchResults: [],
     });

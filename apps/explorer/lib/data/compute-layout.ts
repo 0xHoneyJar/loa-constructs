@@ -1,4 +1,4 @@
-import type { ConstructNode, ConstructEdge, Domain } from '@/lib/types/graph';
+import type { ConstructNode, ConstructEdge } from '@/lib/types/graph';
 
 interface Vector2 {
   x: number;
@@ -11,17 +11,26 @@ interface LayoutConfig {
   iterations: number;
   repulsionStrength: number;
   attractionStrength: number;
-  domainGravity: number;
+  categoryGravity: number;
 }
 
-// Domain cluster centers - arranged in a hexagonal pattern (spread out more)
-const DOMAIN_CENTERS: Record<Domain, Vector2> = {
+// Category cluster centers - arranged in an octagonal pattern for 8 categories
+const CATEGORY_CENTERS: Record<string, Vector2> = {
+  // Primary categories (outer ring)
+  marketing: { x: -320, y: 140 },
+  development: { x: 320, y: 140 },
+  security: { x: 0, y: -280 },
+  operations: { x: 320, y: -140 },
+  documentation: { x: -320, y: -140 },
+  analytics: { x: 0, y: 280 },
+  // New categories (fill gaps)
+  design: { x: -200, y: 0 },
+  infrastructure: { x: 200, y: 0 },
+  // Legacy slug mappings (for backwards compatibility)
   gtm: { x: -320, y: 140 },
   dev: { x: 320, y: 140 },
-  security: { x: 0, y: -280 },
   ops: { x: 320, y: -140 },
   docs: { x: -320, y: -140 },
-  analytics: { x: 0, y: 280 },
 };
 
 const DEFAULT_CONFIG: LayoutConfig = {
@@ -30,7 +39,7 @@ const DEFAULT_CONFIG: LayoutConfig = {
   iterations: 50,
   repulsionStrength: 12000,
   attractionStrength: 0.05,
-  domainGravity: 0.03,
+  categoryGravity: 0.03,
 };
 
 function distance(a: Vector2, b: Vector2): number {
@@ -53,9 +62,9 @@ export function computeLayout(
   const positions = new Map<string, Vector2>();
   const velocities = new Map<string, Vector2>();
 
-  // Initialize positions near domain centers with some randomness
+  // Initialize positions near category centers with some randomness
   for (const node of nodes) {
-    const center = DOMAIN_CENTERS[node.domain] || { x: 0, y: 0 };
+    const center = CATEGORY_CENTERS[node.category] || { x: 0, y: 0 };
     // Use node id hash for deterministic "randomness"
     const hash = node.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
     const angle = (hash % 360) * (Math.PI / 180);
@@ -112,12 +121,12 @@ export function computeLayout(
         fy += dir.y * attraction;
       }
 
-      // Domain gravity - pull toward cluster center
-      const center = DOMAIN_CENTERS[node.domain] || { x: 0, y: 0 };
+      // Category gravity - pull toward cluster center
+      const center = CATEGORY_CENTERS[node.category] || { x: 0, y: 0 };
       const toCenterX = center.x - pos.x;
       const toCenterY = center.y - pos.y;
-      fx += toCenterX * config.domainGravity;
-      fy += toCenterY * config.domainGravity;
+      fx += toCenterX * config.categoryGravity;
+      fy += toCenterY * config.categoryGravity;
 
       // Packs get extra central gravity
       if (node.type === 'pack') {

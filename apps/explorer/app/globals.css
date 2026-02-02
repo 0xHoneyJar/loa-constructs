@@ -20,6 +20,20 @@
   --domain-analytics: #FFDD44;
   --domain-docs: #44DDFF;
   --domain-ops: #4488FF;
+
+  /* Domain colors with opacity */
+  --domain-gtm-20: #FF44FF33;
+  --domain-dev-20: #44FF8833;
+  --domain-security-20: #FF884433;
+  --domain-analytics-20: #FFDD4433;
+  --domain-docs-20: #44DDFF33;
+  --domain-ops-20: #4488FF33;
+
+  /* Graduation colors */
+  --graduation-experimental: #FF6B6B;
+  --graduation-beta: #FFD93D;
+  --graduation-stable: #6BCB77;
+  --graduation-deprecated: #888888;
 }
 
 * {

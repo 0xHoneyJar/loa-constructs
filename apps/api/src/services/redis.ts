@@ -59,6 +59,10 @@ export const CACHE_KEYS = {
   constructDetail: (slug: string) => `constructs:detail:${slug}`,
   constructSummary: () => 'constructs:summary',
   constructExists: (slug: string) => `constructs:exists:${slug}`,
+
+  // Categories
+  categoryList: () => 'categories:list',
+  categoryDetail: (slug: string) => `categories:detail:${slug}`,
 } as const;
 
 /**
@@ -72,4 +76,5 @@ export const CACHE_TTL = {
   constructDetail: 60, // 1 minute
   constructSummary: 60, // 1 minute
   constructExists: 300, // 5 minutes
+  categories: 3600, // 1 hour
 } as const;

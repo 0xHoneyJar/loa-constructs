@@ -2,32 +2,24 @@
 
 import { useMemo } from 'react';
 import { Line } from '@react-three/drei';
-import type { ConstructEdge, Domain } from '@/lib/types/graph';
-
-const DOMAIN_COLORS: Record<Domain, string> = {
-  gtm: '#FF44FF',
-  dev: '#44FF88',
-  security: '#FF8844',
-  analytics: '#FFDD44',
-  docs: '#44DDFF',
-  ops: '#4488FF',
-};
+import type { ConstructEdge } from '@/lib/types/graph';
+import { getCategoryColor } from '@/lib/utils/colors';
 
 interface GraphEdgeProps {
   edge: ConstructEdge;
   sourcePosition: [number, number, number];
   targetPosition: [number, number, number];
-  sourceDomain: Domain;
+  sourceCategory: string;
   isHighlighted: boolean;
 }
 
 export function GraphEdge({
   sourcePosition,
   targetPosition,
-  sourceDomain,
+  sourceCategory,
   isHighlighted,
 }: GraphEdgeProps) {
-  const color = DOMAIN_COLORS[sourceDomain] || '#666666';
+  const color = getCategoryColor(sourceCategory);
 
   const points = useMemo(() => {
     // Create a slight curve for visual interest

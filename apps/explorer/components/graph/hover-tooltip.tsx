@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useGraphStore } from '@/lib/stores/graph-store';
 import { Badge } from '@/components/ui/badge';
-import type { ConstructNode, Domain } from '@/lib/types/graph';
+import { GraduationBadge } from '@/components/ui/graduation-badge';
+import { getCategoryColor } from '@/lib/utils/colors';
+import type { ConstructNode } from '@/lib/types/graph';
 
 interface HoverTooltipProps {
   nodes: ConstructNode[];
@@ -46,7 +48,16 @@ export function HoverTooltip({ nodes }: HoverTooltipProps) {
       }}
     >
       <div className="mb-2 flex items-center gap-2">
-        <Badge variant={node.domain as Domain}>{node.type}</Badge>
+        <Badge
+          style={{
+            backgroundColor: `${getCategoryColor(node.category)}20`,
+            borderColor: `${getCategoryColor(node.category)}40`,
+            color: getCategoryColor(node.category),
+          }}
+        >
+          {node.type}
+        </Badge>
+        <GraduationBadge level={node.graduationLevel} />
         <span className="font-mono text-xs text-white/40">v{node.version}</span>
       </div>
 

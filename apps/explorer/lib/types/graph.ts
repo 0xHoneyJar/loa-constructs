@@ -1,15 +1,29 @@
 export type ConstructType = 'skill' | 'pack' | 'bundle';
 
-export type Domain = 'gtm' | 'dev' | 'security' | 'ops' | 'docs' | 'analytics';
+export type GraduationLevel = 'experimental' | 'beta' | 'stable' | 'deprecated';
 
 export type EdgeRelationship = 'contains' | 'depends_on' | 'composes_with';
+
+/**
+ * Category from API
+ * @see prd-category-taxonomy.md §3.1 The 8 Categories
+ */
+export interface Category {
+  id: string;
+  slug: string;
+  label: string;
+  color: string;
+  description?: string;
+  constructCount: number;
+}
 
 export interface ConstructNode {
   id: string;
   slug: string;
   name: string;
   type: ConstructType;
-  domain: Domain;
+  category: string; // Dynamic category slug from API
+  graduationLevel: GraduationLevel;
   description: string;
   shortDescription: string;
   commandCount: number;
@@ -47,8 +61,9 @@ export interface ConstructDetail extends ConstructNode {
   installCommand: string;
 }
 
-export interface DomainStats {
-  id: Domain;
+export interface CategoryStats {
+  id: string;
+  slug: string;
   label: string;
   color: string;
   count: number;
@@ -57,7 +72,7 @@ export interface DomainStats {
 export interface GraphData {
   nodes: ConstructNode[];
   edges: ConstructEdge[];
-  domains: DomainStats[];
+  categories: CategoryStats[];
   meta: {
     totalConstructs: number;
     totalCommands: number;
