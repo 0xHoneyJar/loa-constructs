@@ -9,7 +9,9 @@
   "skills": [
     {"slug": "auditing-content", "path": "skills/auditing-content"},
     {"slug": "generating-markdown", "path": "skills/generating-markdown"},
-    {"slug": "optimizing-chunks", "path": "skills/optimizing-chunks"}
+    {"slug": "optimizing-chunks", "path": "skills/optimizing-chunks"},
+    {"slug": "discovering-endpoints", "path": "skills/discovering-endpoints"},
+    {"slug": "defining-actions", "path": "skills/defining-actions"}
   ],
   "hooks": {
     "post_install": "scripts/install.sh"
