@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "@loa-constructs/shared": "workspace:*",
-    "conf": "^12.0.0"
+    "conf": "^12.0.0",
+    "yaml": "^2.8.2"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

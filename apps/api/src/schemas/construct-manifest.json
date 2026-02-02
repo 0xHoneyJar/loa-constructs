@@ -158,6 +158,12 @@
       "type": "string",
       "enum": ["free", "pro", "team", "enterprise"],
       "description": "Minimum subscription tier required"
+    },
+    "claude_instructions": {
+      "type": "string",
+      "maxLength": 500,
+      "pattern": "\\.md$",
+      "description": "Path to CLAUDE.md instruction fragment file (must end with .md). Max file size: 4KB."
     }
   }
 }

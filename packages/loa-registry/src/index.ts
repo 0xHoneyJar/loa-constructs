@@ -93,3 +93,27 @@ export {
   skillBeforeLoadHook,
 } from './license.js';
 export type { LicenseValidationResult } from './license.js';
+
+// Re-export pack marker utilities
+// @see prd.md §4.1 Magic Markers (Opportunity 1)
+export {
+  shouldAddMarker,
+  addPackMarker,
+  computeContentHash,
+  hasPackMarker,
+  extractPackMarker,
+  removePackMarker,
+  verifyPackMarkerIntegrity,
+} from './pack-marker.js';
+export type { PackMarkerInfo } from './pack-marker.js';
+
+// Re-export config utilities
+// @see prd.md §4.2 Client-Side Feature Gating (Opportunity 2)
+export {
+  loadLoaConfig,
+  isPackEnabled,
+  getDisabledPacks,
+  getConfigPath as getLoaConfigPath,
+  hasConfig,
+} from './config.js';
+export type { LoaConfig, LoaConstructsConfig } from './config.js';

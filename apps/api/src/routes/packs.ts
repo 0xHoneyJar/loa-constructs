@@ -622,6 +622,34 @@ packsRouter.post(
       throw Errors.Conflict('Version already exists');
     }
 
+    // Validate claude_instructions if present
+    // @see prd.md §4.3 CLAUDE.md Fragments (Opportunity 3)
+    const claudeInstructions = (body.manifest as Record<string, unknown>).claude_instructions as string | undefined;
+    if (claudeInstructions) {
+      // Check if file exists in uploaded files
+      const instructionFile = body.files.find(f => f.path === claudeInstructions);
+      if (!instructionFile) {
+        throw Errors.BadRequest(
+          `claude_instructions references "${claudeInstructions}" but this file was not included in the upload`
+        );
+      }
+
+      // Check file size (max 4KB = 4096 bytes)
+      const content = Buffer.from(instructionFile.content, 'base64');
+      const MAX_CLAUDE_INSTRUCTIONS_SIZE = 4096;
+      if (content.length > MAX_CLAUDE_INSTRUCTIONS_SIZE) {
+        throw Errors.BadRequest(
+          `claude_instructions file "${claudeInstructions}" is ${content.length} bytes, ` +
+          `but maximum allowed size is ${MAX_CLAUDE_INSTRUCTIONS_SIZE} bytes (4KB)`
+        );
+      }
+
+      logger.info(
+        { packSlug: slug, claudeInstructions, fileSize: content.length, requestId },
+        'claude_instructions validated'
+      );
+    }
+
     // Create version
     const version = await createPackVersion({
       packId: pack.id,

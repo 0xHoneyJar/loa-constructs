@@ -1,6 +1,7 @@
 /**
  * Pack Install Command
  * @see sprint-v2.md T15.1: CLI Pack Install Command
+ * @see sprint.md T22.3: Integrate markers into pack-install.ts
  */
 
 import * as fs from 'fs/promises';
@@ -9,6 +10,8 @@ import type { Command } from '../types.js';
 import type { PackLicense } from '@loa-constructs/shared';
 import { getClient, getCredentials, canAccessTier } from '../auth.js';
 import { RegistryError } from '../client.js';
+import { shouldAddMarker, addPackMarker } from '../pack-marker.js';
+import { isPackEnabled, getConfigPath } from '../config.js';
 
 /**
  * Pack install command implementation
@@ -48,6 +51,19 @@ export const packInstallCommand: Command = {
     const creds = getCredentials(registry);
     if (!creds) {
       console.error('Not logged in. Run /skill-login first.');
+      return;
+    }
+
+    // Check if pack is disabled in .loa.config.yaml
+    // @see prd.md §4.2 Client-Side Feature Gating
+    const enabled = await isPackEnabled(slug, context.cwd);
+    if (!enabled) {
+      console.error(`\nPack "${slug}" is disabled in .loa.config.yaml`);
+      console.log(`\nTo enable this pack, edit ${getConfigPath(context.cwd)}`);
+      console.log('and remove the pack from the disabled_packs list:');
+      console.log('\n  constructs:');
+      console.log('    disabled_packs:');
+      console.log(`      - ${slug}  # Remove this line`);
       return;
     }
 
@@ -125,11 +141,18 @@ export const packInstallCommand: Command = {
 
       // 7. Process files based on manifest
       const manifest = download.pack.manifest;
+      const packVersion = download.pack.version;
 
       for (const file of download.pack.files) {
         // Decode base64 content
-        const content = Buffer.from(file.content, 'base64').toString('utf-8');
+        let content = Buffer.from(file.content, 'base64').toString('utf-8');
         totalBytes += content.length;
+
+        // Add pack marker to markable files (.md, .yaml, .yml)
+        // @see prd.md §4.1 Magic Markers
+        if (shouldAddMarker(file.path)) {
+          content = addPackMarker(content, slug, packVersion, file.path);
+        }
 
         // Determine destination based on file path
         if (file.path.startsWith('skills/')) {
@@ -244,6 +267,29 @@ export const packInstallCommand: Command = {
         });
         if (installedCommands.length > 10) {
           console.log(`  ... and ${installedCommands.length - 10} more`);
+        }
+      }
+
+      // Handle claude_instructions if present
+      // @see prd.md §4.3 CLAUDE.md Fragments (Opportunity 3)
+      const claudeInstructions = (manifest as { claude_instructions?: string }).claude_instructions;
+      if (claudeInstructions) {
+        // Find the claude_instructions file in downloaded files
+        const instructionFile = download.pack.files.find(f => f.path === claudeInstructions);
+        if (instructionFile) {
+          // Decode content
+          const content = Buffer.from(instructionFile.content, 'base64').toString('utf-8');
+
+          // Write to .claude/packs/{slug}/pack-claude.md
+          // Note: Fragment files are NOT marked since they are documentation, not managed code
+          const fragmentPath = path.join(packDir, 'pack-claude.md');
+          await fs.writeFile(fragmentPath, content, 'utf-8');
+
+          // Show instructions to user
+          console.log('\nCLAUDE.md fragment available:');
+          console.log(`   .claude/packs/${slug}/pack-claude.md`);
+          console.log('\n   To enable, add to your CLAUDE.md:');
+          console.log(`   @import .claude/packs/${slug}/pack-claude.md`);
         }
       }
 

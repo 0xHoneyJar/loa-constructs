@@ -1,6 +1,7 @@
 /**
  * Pack Update Command
  * @see sprint-v2.md T15.3: CLI Pack Update Command
+ * @see sprint.md T22.4: Integrate markers into pack-update.ts
  */
 
 import * as fs from 'fs/promises';
@@ -9,6 +10,7 @@ import type { Command } from '../types.js';
 import type { PackManifest, PackLicense } from '@loa-constructs/shared';
 import { getClient, getCredentials, canAccessTier } from '../auth.js';
 import { RegistryError } from '../client.js';
+import { shouldAddMarker, addPackMarker } from '../pack-marker.js';
 
 /**
  * Pack update command implementation
@@ -163,10 +165,17 @@ export const packUpdateCommand: Command = {
           // Track installed items
           const installedSkills: string[] = [];
           const installedCommands: string[] = [];
+          const packVersion = download.pack.version;
 
           // Install new files
           for (const file of download.pack.files) {
-            const content = Buffer.from(file.content, 'base64').toString('utf-8');
+            let content = Buffer.from(file.content, 'base64').toString('utf-8');
+
+            // Add pack marker to markable files (.md, .yaml, .yml)
+            // @see prd.md §4.1 Magic Markers
+            if (shouldAddMarker(file.path)) {
+              content = addPackMarker(content, slug, packVersion, file.path);
+            }
 
             if (file.path.startsWith('skills/')) {
               const parts = file.path.split('/');

@@ -207,6 +207,14 @@ export const packManifestSchema = z.object({
       node: z.string().optional(),
     })
     .optional(),
+
+  // CLAUDE.md instruction fragment
+  // @see prd.md §4.3 CLAUDE.md Fragments (Opportunity 3)
+  claude_instructions: z
+    .string()
+    .max(500)
+    .regex(/\.md$/, 'claude_instructions must end with .md')
+    .optional(),
 });
 
 /**
