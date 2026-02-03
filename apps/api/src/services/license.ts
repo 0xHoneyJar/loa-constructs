@@ -123,6 +123,36 @@ async function getSigningCredentials(): Promise<{
   throw new Error('No signing key configured - set JWT_PRIVATE_KEY/JWT_PUBLIC_KEY or JWT_SECRET');
 }
 
+/**
+ * Get RS256 signing credentials or throw.
+ * Use this for pack licenses which require RS256 (no fallback).
+ * @see sdd-pack-license-rs256.md §3.1
+ * @throws Error if RS256 keys are not configured
+ */
+export async function getRS256SigningCredentials(): Promise<{
+  key: jose.KeyLike;
+  algorithm: 'RS256';
+  keyId: string;
+}> {
+  if (!isRS256Available()) {
+    throw new Error('RS256 keys not configured - JWT_PRIVATE_KEY and JWT_PUBLIC_KEY required');
+  }
+
+  const privateKeyPem = getPrivateKey();
+  const privateKey = await jose.importPKCS8(privateKeyPem, 'RS256');
+  const keyMeta = await getCurrentKeyMetadata();
+
+  if (!keyMeta?.keyId) {
+    throw new Error('RS256 key metadata missing keyId');
+  }
+
+  return {
+    key: privateKey,
+    algorithm: 'RS256',
+    keyId: keyMeta.keyId,
+  };
+}
+
 // --- Core Functions ---
 
 /**

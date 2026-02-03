@@ -7,7 +7,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
+import type { JWTHeaderParameters } from 'jose';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
+import { getRS256SigningCredentials } from '../services/license.js';
 import {
   createPack,
   getPackBySlug,
@@ -1013,12 +1015,9 @@ async function generatePackLicense(
     .digest('hex')
     .substring(0, 32);
 
-  // Get JWT secret - no hardcoded fallbacks (H-002 security fix)
-  const { env } = await import('../config/env.js');
-  if (!env.JWT_SECRET) {
-    throw new Error('JWT_SECRET environment variable is required for license generation');
-  }
-  const secret = new TextEncoder().encode(env.JWT_SECRET);
+  // Get RS256 signing credentials (throws if not configured)
+  // @see sdd-pack-license-rs256.md §3.2
+  const { key, algorithm, keyId } = await getRS256SigningCredentials();
 
   // Create JWT payload
   const payload = {
@@ -1030,17 +1029,24 @@ async function generatePackLicense(
     watermark,
   };
 
-  // Sign token
+  // Build header with kid for key rotation support
+  const header: JWTHeaderParameters = {
+    alg: algorithm,
+    typ: 'JWT',
+    kid: keyId,
+  };
+
+  // Sign token with RS256
   const token = await new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
+    .setProtectedHeader(header)
     .setIssuedAt()
     .setIssuer('https://api.constructs.network')
     .setAudience('loa-constructs-client')
     .setExpirationTime(expiresAt)
-    .sign(secret);
+    .sign(key);
 
   logger.info(
-    { userId, packSlug, version, tier, watermark, expiresAt },
+    { userId, packSlug, version, tier, watermark, expiresAt, algorithm, keyId },
     'Pack license generated'
   );
 
@@ -1070,14 +1076,11 @@ async function generateAnonymousPackLicense(
     .digest('hex')
     .substring(0, 32);
 
-  // Get JWT secret - no hardcoded fallbacks (H-002 security fix)
-  const { env } = await import('../config/env.js');
-  if (!env.JWT_SECRET) {
-    throw new Error('JWT_SECRET environment variable is required for license generation');
-  }
-  const secret = new TextEncoder().encode(env.JWT_SECRET);
+  // Get RS256 signing credentials (throws if not configured)
+  // @see sdd-pack-license-rs256.md §3.3
+  const { key, algorithm, keyId } = await getRS256SigningCredentials();
 
-  // Create JWT payload
+  // Create JWT payload (maintains anonymous fields)
   const payload = {
     type: 'pack',
     pack: packSlug,
@@ -1088,17 +1091,24 @@ async function generateAnonymousPackLicense(
     anonymous: true,
   };
 
-  // Sign token
+  // Build header with kid for key rotation support
+  const header: JWTHeaderParameters = {
+    alg: algorithm,
+    typ: 'JWT',
+    kid: keyId,
+  };
+
+  // Sign token with RS256
   const token = await new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
+    .setProtectedHeader(header)
     .setIssuedAt()
     .setIssuer('https://api.constructs.network')
     .setAudience('loa-constructs-client')
     .setExpirationTime(expiresAt)
-    .sign(secret);
+    .sign(key);
 
   logger.info(
-    { packSlug, version, watermark, expiresAt, anonymous: true },
+    { packSlug, version, watermark, expiresAt, anonymous: true, algorithm, keyId },
     'Anonymous pack license generated'
   );
 
