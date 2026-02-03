@@ -1,17 +1,13 @@
 name: synthesizing-taste
 slug: synthesizing-taste
 version: 1.0.0
-description: Synthesize brand taste from reference materials
+description: Extract brand taste tokens from reference materials into taste.md
 entry: SKILL.md
 triggers:
-  - /synthesize-taste
+  - /synthesize
 allowed-tools:
   - Read
-  - 
   - Write
-  - 
   - Glob
-  - 
   - Grep
-  - 
   - Edit

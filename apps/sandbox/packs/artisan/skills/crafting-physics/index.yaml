@@ -1,17 +1,13 @@
 name: crafting-physics
 slug: crafting-physics
 version: 1.0.0
-description: Create physics-based animations with spring dynamics
+description: Design physics system for UI interactions - sync strategies, timing, confirmations
 entry: SKILL.md
 triggers:
-  - /craft
+  - /physics
 allowed-tools:
   - Read
-  - 
   - Write
-  - 
   - Glob
-  - 
   - Grep
-  - 
   - Edit

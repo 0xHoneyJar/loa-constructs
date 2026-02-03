@@ -15,8 +15,8 @@
     {"slug": "styling-material", "path": "skills/styling-material"},
     {"slug": "surveying-patterns", "path": "skills/surveying-patterns"},
     {"slug": "synthesizing-taste", "path": "skills/synthesizing-taste"},
-    {"slug": "validating-physics", "path": "skills/validating-physics"},
-    {"slug": "web3-testing", "path": "skills/web3-testing"}
+    {"slug": "rams", "path": "skills/rams"},
+    {"slug": "next-best-practices", "path": "skills/next-best-practices"}
   ],
   "contexts": {
     "taste_dir": "contexts/taste"

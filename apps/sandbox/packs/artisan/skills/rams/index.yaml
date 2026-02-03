@@ -1,0 +1,14 @@
+name: rams
+slug: rams
+version: 1.0.0
+description: Accessibility and visual design review based on WCAG 2.1
+entry: SKILL.md
+triggers:
+  - /rams
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Grep
+  - Edit
+  - Bash

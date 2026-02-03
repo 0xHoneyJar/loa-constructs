@@ -1,0 +1,13 @@
+name: next-best-practices
+slug: next-best-practices
+version: 1.0.0
+description: React and Next.js performance optimization patterns from Vercel Engineering
+entry: SKILL.md
+triggers:
+  - /next
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Grep
+  - Edit

@@ -1,17 +1,13 @@
 name: animating-motion
 slug: animating-motion
 version: 1.0.0
-description: Motion design and animation patterns for UI
+description: Motion design and animation patterns for UI based on Emil Kowalski's principles
 entry: SKILL.md
 triggers:
   - /animate
 allowed-tools:
   - Read
-  - 
   - Write
-  - 
   - Glob
-  - 
   - Grep
-  - 
   - Edit

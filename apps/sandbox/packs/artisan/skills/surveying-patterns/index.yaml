@@ -1,17 +1,13 @@
 name: surveying-patterns
 slug: surveying-patterns
 version: 1.0.0
-description: Discover and catalog UI patterns in codebase
+description: UI baseline constraints and pattern enforcement to prevent interface slop
 entry: SKILL.md
 triggers:
   - /survey
 allowed-tools:
   - Read
-  - 
   - Write
-  - 
   - Glob
-  - 
   - Grep
-  - 
   - Edit

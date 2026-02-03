@@ -1,17 +1,13 @@
 name: applying-behavior
 slug: applying-behavior
 version: 1.0.0
-description: Apply interaction behavior patterns to components
+description: Touch, keyboard, and form interaction patterns for accessible UI
 entry: SKILL.md
 triggers:
   - /behavior
 allowed-tools:
   - Read
-  - 
   - Write
-  - 
   - Glob
-  - 
   - Grep
-  - 
   - Edit
