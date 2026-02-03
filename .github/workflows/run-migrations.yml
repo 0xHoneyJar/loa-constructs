@@ -53,9 +53,9 @@ jobs:
           echo "Migration completed for ${{ github.event.inputs.environment }}"
           echo "Checking API health..."
           if [ "${{ github.event.inputs.environment }}" == "production" ]; then
-            API_URL="https://loa-constructs-api.fly.dev"
+            API_URL="https://loa-constructs-api-production.up.railway.app"
           else
-            API_URL="https://loa-constructs-api-staging.fly.dev"
+            API_URL="https://loa-constructs-api-staging.up.railway.app"
           fi
 
           response=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/v1/health")
