@@ -64,7 +64,37 @@ const envSchema = z
 
     // Logging
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+
+    // Development
+    // @see sdd-local-dev-dx.md §3.5 env.ts Modification
+    DEV_MOCK_DB: z.enum(['true', 'false']).default('false'),
   })
+  .refine(
+    (data) => {
+      // Block mock mode in production - never serve fake data in prod
+      if (data.NODE_ENV === 'production' && data.DEV_MOCK_DB === 'true') {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'DEV_MOCK_DB cannot be enabled in production',
+      path: ['DEV_MOCK_DB'],
+    }
+  )
+  .refine(
+    (data) => {
+      // DATABASE_URL required unless mock mode is enabled
+      if (data.DEV_MOCK_DB !== 'true' && !data.DATABASE_URL) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'DATABASE_URL is required unless DEV_MOCK_DB=true',
+      path: ['DATABASE_URL'],
+    }
+  )
   .refine(
     (data) => {
       // In production, JWT_SECRET is required and must be at least 32 characters
