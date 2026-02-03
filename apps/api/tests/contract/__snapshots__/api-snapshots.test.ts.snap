@@ -17,7 +17,7 @@ exports[`Contract Tests: API Response Shapes > GET /v1/packs/:slug - 404 Respons
     "code": "NOT_FOUND",
     "message": "Route not found",
   },
-  "request_id": "4590b5fb-b0e2-4583-80c8-4495facac134",
+  "request_id": Any<String>,
 }
 `;
 

@@ -235,8 +235,10 @@ describe('Contract Tests: API Response Shapes', () => {
       // Error message should be descriptive
       expect(body.error.message.toLowerCase()).toContain('not found');
 
-      // Snapshot test for 404 response shape
-      expect(body).toMatchSnapshot();
+      // Snapshot test for 404 response shape (exclude dynamic request_id)
+      expect(body).toMatchSnapshot({
+        request_id: expect.any(String),
+      });
     });
 
     it('should include request_id in error response if available', async () => {
