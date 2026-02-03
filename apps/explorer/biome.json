@@ -4,13 +4,7 @@
     "enabled": false
   },
   "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "complexity": {
-        "useArrowFunction": "off"
-      }
-    }
+    "enabled": false
   },
   "formatter": {
     "enabled": false
