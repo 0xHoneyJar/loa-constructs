@@ -15,7 +15,7 @@
  */
 
 import { db, packs } from './index.js';
-import { eq, inArray } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 const PACKS_TO_PUBLISH = [
   'observer',

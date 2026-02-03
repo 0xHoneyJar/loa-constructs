@@ -2,11 +2,12 @@
  * Webhook Routes
  * @see sprint.md T3.3: Adapt Existing Webhook Code
  * @see sdd.md §5.4 POST /v1/webhooks/stripe
+ * @see sdd-infrastructure-migration.md §4.3 Dual Stripe Webhook Handler
  */
 
 import { Hono } from 'hono';
 import type Stripe from 'stripe';
-import { verifyWebhookSignature, getStripe, getTierFromPriceId } from '../services/stripe.js';
+import { verifyWebhookSignatureDual, getStripe, getTierFromPriceId } from '../services/stripe.js';
 import {
   createSubscription,
   updateSubscription,
@@ -20,6 +21,7 @@ import {
 } from '../services/stripe-connect.js';
 import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
+import { getRedis, isRedisConfigured } from '../services/redis.js';
 
 // --- Route Instance ---
 
@@ -233,12 +235,68 @@ function mapStripeStatus(stripeStatus: string): SubscriptionStatus {
   }
 }
 
+// --- Idempotency ---
+
+/**
+ * Acquire idempotency lock for a Stripe event
+ * Uses atomic SET NX EX to prevent duplicate processing
+ * @see sdd-infrastructure-migration.md §4.3 Dual Stripe Webhook Handler
+ *
+ * @param eventId - Stripe event ID
+ * @returns true if lock acquired (new event), false if already locked (duplicate)
+ */
+async function acquireEventLock(eventId: string): Promise<boolean> {
+  if (!isRedisConfigured()) {
+    // No Redis -> process without dedupe
+    logger.warn({ eventId }, 'Redis not configured, skipping idempotency lock');
+    return true;
+  }
+
+  try {
+    const redis = getRedis();
+    // Atomic SET with NX (only if not exists) + EX (expire in seconds)
+    // Returns 'OK' if key was set (lock acquired), null if exists (duplicate)
+    const result = await redis.set(`stripe:event:${eventId}`, '1', {
+      ex: 86400, // 24 hour TTL
+      nx: true, // Only set if not exists
+    });
+
+    return result === 'OK'; // true if lock acquired (new event)
+  } catch (err) {
+    // Log but don't block on Redis errors - fail open to allow processing
+    logger.error({ eventId, error: err }, 'Redis idempotency lock failed');
+    return true;
+  }
+}
+
+/**
+ * Release idempotency lock for a Stripe event (on processing failure)
+ * Allows Stripe to retry the event if processing failed
+ *
+ * @param eventId - Stripe event ID
+ */
+async function releaseEventLock(eventId: string): Promise<void> {
+  if (!isRedisConfigured()) return;
+
+  try {
+    const redis = getRedis();
+    await redis.del(`stripe:event:${eventId}`);
+  } catch (err) {
+    logger.error({ eventId, error: err }, 'Failed to release Stripe idempotency lock');
+  }
+}
+
 // --- Routes ---
 
 /**
  * POST /v1/webhooks/stripe
  * Handle Stripe webhook events
  * @see sdd.md §5.4 POST /v1/webhooks/stripe
+ * @see sdd-infrastructure-migration.md §4.3 Dual Stripe Webhook Handler
+ *
+ * Features:
+ * - Dual-secret verification for migration period
+ * - Idempotent handling with Redis deduplication
  */
 webhooksRouter.post('/stripe', async (c) => {
   const requestId = c.get('requestId');
@@ -251,15 +309,21 @@ webhooksRouter.post('/stripe', async (c) => {
   // Get raw body for signature verification
   const rawBody = await c.req.text();
 
-  let event: Stripe.Event;
-  try {
-    event = verifyWebhookSignature(rawBody, signature);
-  } catch (err) {
-    logger.warn({ request_id: requestId, error: err }, 'Webhook signature verification failed');
+  // Verify against both secrets during migration
+  const event = verifyWebhookSignatureDual(rawBody, signature);
+  if (!event) {
+    logger.warn({ request_id: requestId }, 'Webhook signature verification failed with all secrets');
     throw Errors.BadRequest('Invalid webhook signature');
   }
 
   logger.info({ request_id: requestId, eventType: event.type, eventId: event.id }, 'Webhook received');
+
+  // Acquire idempotency lock - skip if already processing/processed
+  const lockAcquired = await acquireEventLock(event.id);
+  if (!lockAcquired) {
+    logger.info({ eventId: event.id }, 'Duplicate webhook event, skipping');
+    return c.json({ received: true, duplicate: true });
+  }
 
   // Handle the event
   try {
@@ -288,9 +352,11 @@ webhooksRouter.post('/stripe', async (c) => {
         logger.debug({ eventType: event.type }, 'Unhandled webhook event type');
     }
   } catch (err) {
+    // Release lock on failure to allow Stripe retries
+    await releaseEventLock(event.id);
     logger.error({ request_id: requestId, eventType: event.type, error: err }, 'Webhook handler error');
-    // Return 200 to prevent Stripe from retrying, but log the error
-    // In production, you might want to queue for retry or alert
+    // Re-throw to return 500 and allow Stripe to retry
+    throw err;
   }
 
   return c.json({ received: true });

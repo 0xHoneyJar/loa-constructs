@@ -267,36 +267,83 @@ export async function isPackOwner(
 
 /**
  * Create a new pack version
+ * @see sdd-infrastructure-migration.md §4.2 Auto-Publish on First Version (Bug Fix)
+ * @see prd-infrastructure-migration.md FR-2.1 Auto-publish on first version
+ *
+ * Uses transaction with FOR UPDATE lock to prevent race conditions:
+ * - Concurrent uploads cannot both see count=0
+ * - isLatest flag is atomically updated
+ * - Pack status is updated to 'published' on first version in same transaction
  */
 export async function createPackVersion(
   input: CreatePackVersionInput
 ): Promise<PackVersion> {
-  // Set previous latest to false
-  await db
-    .update(packVersions)
-    .set({ isLatest: false })
-    .where(eq(packVersions.packId, input.packId));
+  return await db.transaction(async (tx) => {
+    // Lock the pack row to prevent concurrent version creation race
+    const [pack] = await tx
+      .select()
+      .from(packs)
+      .where(eq(packs.id, input.packId))
+      .for('update');
 
-  const [version] = await db
-    .insert(packVersions)
-    .values({
-      packId: input.packId,
-      version: input.version,
-      changelog: input.changelog,
-      manifest: input.manifest,
-      minLoaVersion: input.minLoaVersion,
-      maxLoaVersion: input.maxLoaVersion,
-      isLatest: true,
-      publishedAt: new Date(),
-    })
-    .returning();
+    if (!pack) {
+      throw new Error(`Pack not found: ${input.packId}`);
+    }
 
-  logger.info(
-    { packId: input.packId, versionId: version.id, version: input.version },
-    'Pack version created'
-  );
+    // Check existing versions count within transaction
+    const [{ count }] = await tx
+      .select({ count: sql<number>`count(*)::int` })
+      .from(packVersions)
+      .where(eq(packVersions.packId, input.packId));
 
-  return version;
+    const isFirstVersion = count === 0;
+
+    // Clear isLatest on previous versions
+    if (count > 0) {
+      await tx
+        .update(packVersions)
+        .set({ isLatest: false })
+        .where(
+          and(
+            eq(packVersions.packId, input.packId),
+            eq(packVersions.isLatest, true)
+          )
+        );
+    }
+
+    // Create the new version
+    const [version] = await tx
+      .insert(packVersions)
+      .values({
+        packId: input.packId,
+        version: input.version,
+        changelog: input.changelog,
+        manifest: input.manifest,
+        minLoaVersion: input.minLoaVersion,
+        maxLoaVersion: input.maxLoaVersion,
+        isLatest: true,
+        publishedAt: new Date(),
+      })
+      .returning();
+
+    // Auto-publish pack on first version (within same transaction)
+    // This fixes Issue #74: Packs stuck in draft status
+    if (isFirstVersion && pack.status === 'draft') {
+      await tx
+        .update(packs)
+        .set({ status: 'published', updatedAt: new Date() })
+        .where(eq(packs.id, input.packId));
+
+      logger.info({ packId: input.packId }, 'Pack auto-published on first version');
+    }
+
+    logger.info(
+      { packId: input.packId, versionId: version.id, version: input.version, isFirstVersion },
+      'Pack version created'
+    );
+
+    return version;
+  });
 }
 
 /**
