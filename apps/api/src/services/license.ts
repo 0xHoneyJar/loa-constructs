@@ -2,15 +2,23 @@
  * License Service
  * @see sprint.md T4.3: License Service
  * @see prd.md FR-4: License Enforcement
+ * @see sdd-license-jwt-rs256.md §5.2 License Service Updates
  */
 
 import * as jose from 'jose';
 import { createHash, randomBytes } from 'crypto';
 import { db, licenses, skills, subscriptions } from '../db/index.js';
 import { eq, and } from 'drizzle-orm';
-import { env } from '../config/env.js';
+import {
+  env,
+  getPrivateKey,
+  getPublicKey,
+  isRS256Available,
+  isHS256Available,
+} from '../config/env.js';
 import { logger } from '../lib/logger.js';
 import { type SubscriptionTier, canAccessTier } from './subscription.js';
+import { getCurrentKeyMetadata } from './public-keys.js';
 
 // --- Types ---
 
@@ -71,13 +79,48 @@ export function generateWatermark(userId: string): string {
 }
 
 /**
- * Get JWT secret for license signing
+ * Get JWT secret for HS256 license signing (deprecated)
  */
 function getSecret(): Uint8Array {
   if (!env.JWT_SECRET) {
     throw new Error('JWT_SECRET is not configured');
   }
   return new TextEncoder().encode(env.JWT_SECRET);
+}
+
+/**
+ * Get signing credentials for license generation
+ * Prefers RS256 (asymmetric) over HS256 (symmetric)
+ * @see sdd-license-jwt-rs256.md §5.2 License Service Updates
+ */
+async function getSigningCredentials(): Promise<{
+  key: Uint8Array | jose.KeyLike;
+  algorithm: 'RS256' | 'HS256';
+  keyId?: string;
+}> {
+  // Prefer RS256 (asymmetric key pair)
+  if (isRS256Available()) {
+    const privateKeyPem = getPrivateKey();
+    const privateKey = await jose.importPKCS8(privateKeyPem, 'RS256');
+    const keyMeta = await getCurrentKeyMetadata();
+    return {
+      key: privateKey,
+      algorithm: 'RS256',
+      keyId: keyMeta.keyId,
+    };
+  }
+
+  // Fall back to HS256 (deprecated) - no keyId for legacy HS256 tokens
+  if (isHS256Available()) {
+    logger.warn('Using deprecated HS256 signing - configure RS256 keys for production');
+    return {
+      key: getSecret(),
+      algorithm: 'HS256',
+      keyId: undefined,
+    };
+  }
+
+  throw new Error('No signing key configured - set JWT_PRIVATE_KEY/JWT_PUBLIC_KEY or JWT_SECRET');
 }
 
 // --- Core Functions ---
@@ -148,18 +191,29 @@ export async function generateLicense(
     lid: license.id,
   };
 
+  // Get signing credentials (RS256 preferred, HS256 fallback)
+  const { key, algorithm, keyId } = await getSigningCredentials();
+
+  // Build header - only include kid for RS256 tokens
+  const header: jose.JWTHeaderParameters = {
+    alg: algorithm,
+    typ: 'JWT',
+  };
+  if (algorithm === 'RS256' && keyId) {
+    header.kid = keyId;
+  }
+
   // Sign token
-  const secret = getSecret();
   const token = await new jose.SignJWT({ ...payload })
-    .setProtectedHeader({ alg: 'HS256' })
+    .setProtectedHeader(header)
     .setIssuedAt()
     .setIssuer(LICENSE_ISSUER)
     .setAudience(LICENSE_AUDIENCE)
     .setExpirationTime(expiresAt)
-    .sign(secret);
+    .sign(key);
 
   logger.info(
-    { userId, skillSlug, version, tier, watermark, licenseId: license.id },
+    { userId, skillSlug, version, tier, watermark, licenseId: license.id, algorithm, keyId },
     'License generated'
   );
 
@@ -172,68 +226,143 @@ export async function generateLicense(
 
 /**
  * Validate a license token
+ * Validates based on the token's alg header to prevent algorithm confusion attacks
  * @see sprint.md T4.3: "Validate licenses (check signature, expiry, tier)"
+ * @see sdd-license-jwt-rs256.md §5.2 License Service Updates
  */
 export async function validateLicense(token: string): Promise<LicenseValidationResult> {
+  // Decode the protected header to determine algorithm
+  let header: jose.ProtectedHeaderParameters;
+  try {
+    header = jose.decodeProtectedHeader(token);
+  } catch {
+    return { valid: false, reason: 'Invalid license token' };
+  }
+
+  // Validate based on the token's declared algorithm (prevents algorithm confusion)
+  if (header.alg === 'RS256') {
+    if (!isRS256Available()) {
+      return { valid: false, reason: 'No validation key configured for RS256' };
+    }
+
+    try {
+      const publicKeyPem = getPublicKey();
+      const publicKey = await jose.importSPKI(publicKeyPem, 'RS256');
+
+      const { payload } = await jose.jwtVerify(token, publicKey, {
+        issuer: LICENSE_ISSUER,
+        audience: LICENSE_AUDIENCE,
+        algorithms: ['RS256'], // Explicitly restrict to RS256
+      });
+
+      return await validateLicensePayload(payload);
+    } catch (error) {
+      return handleValidationError(error);
+    }
+  }
+
+  if (header.alg === 'HS256') {
+    // HS256 tokens accepted for backward compatibility during grace period
+    if (!isHS256Available()) {
+      return { valid: false, reason: 'No validation key configured for HS256' };
+    }
+    return await validateLicenseHS256(token);
+  }
+
+  // Reject unknown algorithms
+  return { valid: false, reason: `Unsupported algorithm: ${header.alg}` };
+}
+
+/**
+ * HS256 validation (deprecated, for backward compatibility)
+ * @see sdd-license-jwt-rs256.md §5.2 - 30-day grace period for HS256 tokens
+ */
+async function validateLicenseHS256(token: string): Promise<LicenseValidationResult> {
   try {
     const secret = getSecret();
-
-    // Verify JWT signature and claims
     const { payload } = await jose.jwtVerify(token, secret, {
       issuer: LICENSE_ISSUER,
       audience: LICENSE_AUDIENCE,
+      algorithms: ['HS256'], // Explicitly restrict to HS256
     });
 
+    // Log deprecation warning for monitoring
     const licensePayload = payload as unknown as LicensePayload & jose.JWTPayload;
+    logger.warn(
+      { lid: licensePayload.lid, skill: licensePayload.skill },
+      'HS256 token validated - user should refresh license for RS256'
+    );
 
-    // Check if license exists and isn't revoked
-    const licenseRecord = await db
-      .select({
-        id: licenses.id,
-        revoked: licenses.revoked,
-        expiresAt: licenses.expiresAt,
-      })
-      .from(licenses)
-      .where(eq(licenses.id, licensePayload.lid))
-      .limit(1);
-
-    if (licenseRecord.length === 0) {
-      return { valid: false, reason: 'License not found in database' };
-    }
-
-    if (licenseRecord[0].revoked) {
-      return { valid: false, reason: 'License has been revoked' };
-    }
-
-    // Check expiry (JWT verification already does this, but double-check DB)
-    const expiresAt = licenseRecord[0].expiresAt;
-    if (expiresAt && new Date(expiresAt) < new Date()) {
-      return { valid: false, reason: 'License has expired' };
-    }
-
-    return {
-      valid: true,
-      payload: {
-        sub: licensePayload.sub,
-        skill: licensePayload.skill,
-        version: licensePayload.version,
-        tier: licensePayload.tier as SubscriptionTier,
-        watermark: licensePayload.watermark,
-        lid: licensePayload.lid,
-      },
-      expiresAt: expiresAt ? new Date(expiresAt) : undefined,
-    };
+    return await validateLicensePayload(payload);
   } catch (error) {
-    if (error instanceof jose.errors.JWTExpired) {
-      return { valid: false, reason: 'License token has expired' };
-    }
-    if (error instanceof jose.errors.JWTInvalid || error instanceof jose.errors.JWSSignatureVerificationFailed) {
-      return { valid: false, reason: 'Invalid license token' };
-    }
-
-    logger.error({ error }, 'License validation failed');
-    return { valid: false, reason: 'License validation failed' };
+    return handleValidationError(error);
   }
+}
+
+/**
+ * Common payload validation after signature verification
+ * Checks database for revocation and expiry
+ */
+async function validateLicensePayload(
+  payload: jose.JWTPayload
+): Promise<LicenseValidationResult> {
+  const licensePayload = payload as unknown as LicensePayload & jose.JWTPayload;
+
+  // Check if license exists and isn't revoked
+  const licenseRecord = await db
+    .select({
+      id: licenses.id,
+      revoked: licenses.revoked,
+      expiresAt: licenses.expiresAt,
+    })
+    .from(licenses)
+    .where(eq(licenses.id, licensePayload.lid))
+    .limit(1);
+
+  if (licenseRecord.length === 0) {
+    return { valid: false, reason: 'License not found in database' };
+  }
+
+  if (licenseRecord[0].revoked) {
+    return { valid: false, reason: 'License has been revoked' };
+  }
+
+  // Check expiry (JWT verification already does this, but double-check DB)
+  const expiresAt = licenseRecord[0].expiresAt;
+  if (expiresAt && new Date(expiresAt) < new Date()) {
+    return { valid: false, reason: 'License has expired' };
+  }
+
+  return {
+    valid: true,
+    payload: {
+      sub: licensePayload.sub,
+      skill: licensePayload.skill,
+      version: licensePayload.version,
+      tier: licensePayload.tier as SubscriptionTier,
+      watermark: licensePayload.watermark,
+      lid: licensePayload.lid,
+    },
+    expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+  };
+}
+
+/**
+ * Handle JWT validation errors
+ */
+function handleValidationError(error: unknown): LicenseValidationResult {
+  if (error instanceof jose.errors.JWTExpired) {
+    return { valid: false, reason: 'License token has expired' };
+  }
+  if (
+    error instanceof jose.errors.JWTInvalid ||
+    error instanceof jose.errors.JWSSignatureVerificationFailed
+  ) {
+    return { valid: false, reason: 'Invalid license token' };
+  }
+
+  logger.error({ error }, 'License validation failed');
+  return { valid: false, reason: 'License validation failed' };
 }
 
 /**

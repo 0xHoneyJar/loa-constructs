@@ -20,6 +20,7 @@ import { packsRouter } from './routes/packs.js';
 import { constructsRouter } from './routes/constructs.js';
 import { categoriesRouter } from './routes/categories.js';
 import { adminRouter } from './routes/admin.js';
+import { publicKeysRouter } from './routes/public-keys.js';
 import { apiRateLimiter } from './middleware/rate-limiter.js';
 import { env } from './config/env.js';
 
@@ -134,6 +135,10 @@ v1.route('/categories', categoriesRouter);
 
 // Admin routes (requires admin role)
 v1.route('/admin', adminRouter);
+
+// Public keys routes (JWT signature verification)
+// @see sdd-license-jwt-rs256.md §6.2 Route Registration
+v1.route('/public-keys', publicKeysRouter);
 
 // Documentation routes (OpenAPI/Swagger)
 v1.route('/docs', docsRouter);
