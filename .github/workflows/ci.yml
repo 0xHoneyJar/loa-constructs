@@ -431,3 +431,63 @@ jobs:
           path: apps/web/playwright-report/
           retention-days: 7
           if-no-files-found: ignore
+
+  # =============================================================================
+  # SANDBOX VALIDATION - Validates skill pack structure and manifests
+  # =============================================================================
+  validate-packs:
+    name: Validate Skill Packs
+    runs-on: ubuntu-latest
+    if: hashFiles('apps/sandbox/packs/**') != ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate pack manifests
+        run: |
+          echo "Validating pack manifests..."
+          for manifest in apps/sandbox/packs/*/manifest.json; do
+            pack_name=$(dirname "$manifest" | xargs basename)
+            echo "  Checking $pack_name..."
+
+            if ! jq empty "$manifest" 2>/dev/null; then
+              echo "ERROR: Invalid JSON in $manifest"
+              exit 1
+            fi
+
+            # Check required fields
+            for field in schema_version name slug version description; do
+              if ! jq -e ".$field" "$manifest" >/dev/null 2>&1; then
+                echo "ERROR: Missing field '$field' in $manifest"
+                exit 1
+              fi
+            done
+          done
+          echo "All manifests valid"
+
+      - name: Validate skill structure
+        run: |
+          echo "Validating skill structure..."
+          for pack in apps/sandbox/packs/*/; do
+            pack_name=$(basename "$pack")
+            skills_dir="$pack/skills"
+
+            if [[ -d "$skills_dir" ]]; then
+              for skill in "$skills_dir"/*/; do
+                [[ -d "$skill" ]] || continue
+                skill_name=$(basename "$skill")
+
+                if [[ ! -f "$skill/index.yaml" ]]; then
+                  echo "ERROR: Missing index.yaml in $pack_name/$skill_name"
+                  exit 1
+                fi
+
+                if [[ ! -f "$skill/SKILL.md" ]]; then
+                  echo "ERROR: Missing SKILL.md in $pack_name/$skill_name"
+                  exit 1
+                fi
+              done
+            fi
+          done
+          echo "All skill structures valid"

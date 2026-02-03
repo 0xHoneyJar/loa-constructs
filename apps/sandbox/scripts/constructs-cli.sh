@@ -28,7 +28,8 @@ readonly EXIT_VALIDATION=5
 # Configuration
 # ═══════════════════════════════════════════════════════════════════════════════
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+SANDBOX_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+PACKS_DIR="$SANDBOX_ROOT/packs"
 
 # Default API URL
 API_URL="${LOA_CONSTRUCTS_API_URL:-https://loa-constructs-api.fly.dev/v1}"
@@ -36,7 +37,7 @@ API_KEY=""
 ADMIN_KEY=""
 
 load_config() {
-    local env_file="$REPO_ROOT/.env"
+    local env_file="$SANDBOX_ROOT/.env"
 
     if [[ -f "$env_file" ]]; then
         # Source .env file safely
@@ -101,10 +102,10 @@ validate_pack_slug() {
 }
 
 find_packs() {
-    cd "$REPO_ROOT"
+    cd "$PACKS_DIR"
     for dir in */; do
-        # Support both index.yaml (Loa skills) and manifest.json (Forge packs)
-        if [[ -f "${dir}index.yaml" || -f "${dir}manifest.json" ]]; then
+        # Look for manifest.json in each pack directory
+        if [[ -f "${dir}manifest.json" ]]; then
             echo "${dir%/}"
         fi
     done
@@ -112,8 +113,8 @@ find_packs() {
 
 get_pack_version() {
     local pack_dir="$1"
-    local index_file="$REPO_ROOT/$pack_dir/index.yaml"
-    local manifest_file="$REPO_ROOT/$pack_dir/manifest.json"
+    local index_file="$PACKS_DIR/$pack_dir/index.yaml"
+    local manifest_file="$PACKS_DIR/$pack_dir/manifest.json"
 
     if [[ -f "$manifest_file" ]]; then
         jq -r '.version // ""' "$manifest_file" 2>/dev/null
@@ -126,8 +127,8 @@ get_pack_version() {
 
 get_pack_name() {
     local pack_dir="$1"
-    local index_file="$REPO_ROOT/$pack_dir/index.yaml"
-    local manifest_file="$REPO_ROOT/$pack_dir/manifest.json"
+    local index_file="$PACKS_DIR/$pack_dir/index.yaml"
+    local manifest_file="$PACKS_DIR/$pack_dir/manifest.json"
 
     if [[ -f "$manifest_file" ]]; then
         jq -r '.name // ""' "$manifest_file" 2>/dev/null || echo "$pack_dir"
@@ -140,8 +141,8 @@ get_pack_name() {
 
 get_pack_description() {
     local pack_dir="$1"
-    local index_file="$REPO_ROOT/$pack_dir/index.yaml"
-    local manifest_file="$REPO_ROOT/$pack_dir/manifest.json"
+    local index_file="$PACKS_DIR/$pack_dir/index.yaml"
+    local manifest_file="$PACKS_DIR/$pack_dir/manifest.json"
 
     if [[ -f "$manifest_file" ]]; then
         jq -r '.description // ""' "$manifest_file" 2>/dev/null || echo "Forge pack: $pack_dir"
@@ -275,7 +276,7 @@ cmd_list() {
     packs=$(find_packs)
 
     if [[ -z "$packs" ]]; then
-        log_warn "No packs found in $REPO_ROOT"
+        log_warn "No packs found in $PACKS_DIR"
         return 0
     fi
 
