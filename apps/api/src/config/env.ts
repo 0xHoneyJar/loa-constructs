@@ -12,11 +12,21 @@ const envSchema = z
     PORT: z.coerce.number().default(3000),
     HOST: z.string().default('0.0.0.0'),
 
-    // Database
-    DATABASE_URL: z.string().url().optional(),
+    // Database - accepts postgres:// and postgresql:// schemes
+    DATABASE_URL: z
+      .string()
+      .refine((val) => val.startsWith('postgres://') || val.startsWith('postgresql://'), {
+        message: 'DATABASE_URL must be a valid PostgreSQL connection string',
+      })
+      .optional(),
 
-    // Redis
-    REDIS_URL: z.string().url().optional(),
+    // Redis - accepts redis:// and rediss:// schemes
+    REDIS_URL: z
+      .string()
+      .refine((val) => val.startsWith('redis://') || val.startsWith('rediss://'), {
+        message: 'REDIS_URL must be a valid Redis connection string',
+      })
+      .optional(),
 
     // R2 Storage
     R2_ACCOUNT_ID: z.string().optional(),
