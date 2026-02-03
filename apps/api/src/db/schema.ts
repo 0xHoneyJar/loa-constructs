@@ -14,6 +14,9 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 
+// Re-export public keys schema
+export * from './schemas/public-keys.js';
+
 /**
  * Database Schema
  * @see sdd.md §3.2 Schema Design

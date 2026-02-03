@@ -73,6 +73,7 @@ Rate limit headers are included in all responses:
     { name: 'Analytics', description: 'Usage analytics' },
     { name: 'Audit', description: 'Audit log endpoints' },
     { name: 'Creator', description: 'Skill creator endpoints' },
+    { name: 'Public Keys', description: 'JWT public key retrieval for license verification' },
   ],
   paths: {
     // Health
@@ -848,6 +849,54 @@ Rate limit headers are included in all responses:
       },
     },
 
+    // Public Keys
+    '/v1/public-keys/{keyId}': {
+      get: {
+        tags: ['Public Keys'],
+        summary: 'Get public key',
+        description: `Retrieve a public key for JWT signature verification.
+
+This is a **public endpoint** - no authentication required.
+
+The client-side license validator uses this endpoint to fetch the RSA public key
+needed to verify RS256 JWT license signatures.
+
+**Key ID Values:**
+- \`default\` - Returns the current signing key
+- Specific key ID (e.g., \`key-2026-02\`) - Returns that specific key for rotation support
+
+**Caching:**
+Response is cached for 4 hours (Cache-Control: public, max-age=14400).
+Clients should cache the public key locally to reduce API calls.`,
+        operationId: 'getPublicKey',
+        parameters: [{ $ref: '#/components/parameters/KeyId' }],
+        responses: {
+          '200': {
+            description: 'Public key retrieved successfully',
+            headers: {
+              'Cache-Control': {
+                description: 'Caching directive',
+                schema: { type: 'string', example: 'public, max-age=14400' },
+              },
+            },
+            content: {
+              'application/json': {
+                schema: { $ref: '#/components/schemas/PublicKeyResponse' },
+                example: {
+                  key_id: 'key-2026-02',
+                  algorithm: 'RS256',
+                  public_key:
+                    '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\n-----END PUBLIC KEY-----',
+                  expires_at: null,
+                },
+              },
+            },
+          },
+          '404': { $ref: '#/components/responses/NotFound' },
+        },
+      },
+    },
+
     // Audit
     '/v1/audit/me': {
       get: {
@@ -984,6 +1033,19 @@ Rate limit headers are included in all responses:
         required: true,
         description: 'Construct slug (pack or skill)',
         schema: { type: 'string' },
+      },
+      KeyId: {
+        name: 'keyId',
+        in: 'path',
+        required: true,
+        description:
+          'Key identifier from JWT `kid` header, or "default" for current key. Alphanumeric with dashes/underscores, max 64 chars.',
+        schema: {
+          type: 'string',
+          pattern: '^[a-zA-Z0-9_-]+$',
+          maxLength: 64,
+          example: 'key-2026-02',
+        },
       },
     },
     schemas: {
@@ -1502,6 +1564,38 @@ Rate limit headers are included in all responses:
           },
           tier_required: { type: 'string', enum: ['free', 'pro', 'team', 'enterprise'] },
         },
+      },
+
+      // Public Keys
+      PublicKeyResponse: {
+        type: 'object',
+        description: 'Public key for JWT signature verification',
+        properties: {
+          key_id: {
+            type: 'string',
+            description: 'Unique key identifier (matches JWT kid header)',
+            example: 'key-2026-02',
+          },
+          algorithm: {
+            type: 'string',
+            description: 'Signing algorithm',
+            enum: ['RS256'],
+            example: 'RS256',
+          },
+          public_key: {
+            type: 'string',
+            description: 'PEM-encoded RSA public key',
+            example:
+              '-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...\n-----END PUBLIC KEY-----',
+          },
+          expires_at: {
+            type: 'string',
+            format: 'date-time',
+            nullable: true,
+            description: 'Key expiration timestamp (null for non-expiring keys)',
+          },
+        },
+        required: ['key_id', 'algorithm', 'public_key'],
       },
 
       // Common

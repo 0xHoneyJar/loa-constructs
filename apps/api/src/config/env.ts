@@ -38,9 +38,16 @@ const envSchema = z
     STRIPE_TEAM_ANNUAL_PRICE_ID: z.string().optional(),
     STRIPE_TEAM_SEAT_PRICE_ID: z.string().optional(),
 
-    // JWT - Required in production, optional in dev/test
+    // JWT - HS256 (legacy, deprecated)
     JWT_SECRET: z.string().optional(),
     JWT_ISSUER: z.string().default('https://api.constructs.network'),
+
+    // JWT - RS256 (preferred)
+    // @see sdd-license-jwt-rs256.md §4.1 New Environment Variables
+    // Base64-encoded PEM keys for RS256 signing
+    JWT_PRIVATE_KEY: z.string().optional(),
+    JWT_PUBLIC_KEY: z.string().optional(),
+    JWT_KEY_ID: z.string().default('key-2026-02'),
 
     // OAuth
     GITHUB_CLIENT_ID: z.string().optional(),
@@ -57,7 +64,37 @@ const envSchema = z
 
     // Logging
     LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+
+    // Development
+    // @see sdd-local-dev-dx.md §3.5 env.ts Modification
+    DEV_MOCK_DB: z.enum(['true', 'false']).default('false'),
   })
+  .refine(
+    (data) => {
+      // Block mock mode in production - never serve fake data in prod
+      if (data.NODE_ENV === 'production' && data.DEV_MOCK_DB === 'true') {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'DEV_MOCK_DB cannot be enabled in production',
+      path: ['DEV_MOCK_DB'],
+    }
+  )
+  .refine(
+    (data) => {
+      // DATABASE_URL required unless mock mode is enabled
+      if (data.DEV_MOCK_DB !== 'true' && !data.DATABASE_URL) {
+        return false;
+      }
+      return true;
+    },
+    {
+      message: 'DATABASE_URL is required unless DEV_MOCK_DB=true',
+      path: ['DATABASE_URL'],
+    }
+  )
   .refine(
     (data) => {
       // In production, JWT_SECRET is required and must be at least 32 characters
@@ -105,3 +142,56 @@ export const isDevelopment = env.NODE_ENV === 'development';
  * Check if we're in test
  */
 export const isTest = env.NODE_ENV === 'test';
+
+// =============================================================================
+// RS256 Key Helpers
+// @see sdd-license-jwt-rs256.md §4.2 Key Loading Helpers
+// =============================================================================
+
+/**
+ * Get RSA private key for JWT signing
+ * @returns Decoded PEM string
+ * @throws Error if not configured
+ */
+export function getPrivateKey(): string {
+  if (!env.JWT_PRIVATE_KEY) {
+    throw new Error('JWT_PRIVATE_KEY not configured');
+  }
+  return Buffer.from(env.JWT_PRIVATE_KEY, 'base64').toString('utf-8');
+}
+
+/**
+ * Get RSA public key for JWT verification
+ * @returns Decoded PEM string
+ * @throws Error if not configured
+ */
+export function getPublicKey(): string {
+  if (!env.JWT_PUBLIC_KEY) {
+    throw new Error('JWT_PUBLIC_KEY not configured');
+  }
+  return Buffer.from(env.JWT_PUBLIC_KEY, 'base64').toString('utf-8');
+}
+
+/**
+ * Get current key ID for JWT kid header
+ * @returns Key identifier string
+ */
+export function getKeyId(): string {
+  return env.JWT_KEY_ID;
+}
+
+/**
+ * Check if RS256 signing is available
+ * @returns true if both private and public keys are configured
+ */
+export function isRS256Available(): boolean {
+  return !!env.JWT_PRIVATE_KEY && !!env.JWT_PUBLIC_KEY;
+}
+
+/**
+ * Check if HS256 fallback is available (deprecated)
+ * @returns true if JWT_SECRET is configured
+ */
+export function isHS256Available(): boolean {
+  return !!env.JWT_SECRET;
+}
