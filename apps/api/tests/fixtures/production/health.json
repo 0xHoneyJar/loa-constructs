@@ -1,0 +1,8 @@
+{
+  "status": "healthy",
+  "timestamp": "2026-02-02T00:00:00.000Z",
+  "version": "0.1.0",
+  "environment": "production",
+  "uptime": 3600,
+  "build": "2026-02-01T00:00:00.000Z"
+}
