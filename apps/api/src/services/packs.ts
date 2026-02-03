@@ -45,6 +45,7 @@ export interface UpdatePackInput {
   name?: string;
   description?: string;
   longDescription?: string;
+  icon?: string | null;
   pricingType?: PackPricingType;
   tierRequired?: 'free' | 'pro' | 'team' | 'enterprise';
   stripeProductId?: string | null;
@@ -149,6 +150,7 @@ export async function updatePack(
   if (input.description !== undefined) updateData.description = input.description;
   if (input.longDescription !== undefined)
     updateData.longDescription = input.longDescription;
+  if (input.icon !== undefined) updateData.icon = input.icon;
   if (input.pricingType !== undefined) updateData.pricingType = input.pricingType;
   if (input.tierRequired !== undefined) updateData.tierRequired = input.tierRequired;
   if (input.stripeProductId !== undefined)
