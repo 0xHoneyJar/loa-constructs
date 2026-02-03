@@ -45,7 +45,7 @@ import {
 } from '../services/storage.js';
 import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
-import { createHash } from 'crypto';
+import { createHash, randomUUID } from 'crypto';
 import { skillsRateLimiter, submissionRateLimiter, uploadRateLimiter } from '../middleware/rate-limiter.js';
 import { validatePath, generatePackStorageKey } from '../lib/security.js';
 import { getEffectiveTier, canAccessTier, type SubscriptionTier } from '../services/subscription.js';
@@ -757,13 +757,12 @@ packsRouter.post(
 /**
  * GET /v1/packs/:slug/download
  * Download pack files with subscription check and license generation
- * Free packs can be downloaded without authentication.
+ * Requires authentication (private beta - internal team only).
  * @see sdd-v2.md §5.1 GET /v1/packs/:slug/download
  * @see sprint-v2.md T14.3: Pack Download with Subscription Check
  * @see sprint-v2.md T14.4: Pack License Generation
- * @see issue #54: Free packs require authentication
  */
-packsRouter.get('/:slug/download', optionalAuth(), async (c) => {
+packsRouter.get('/:slug/download', requireAuth(), async (c) => {
   const slug = c.req.param('slug');
   const versionParam = c.req.query('version');
   const userId = c.get('userId'); // May be undefined for unauthenticated requests
@@ -1065,7 +1064,7 @@ async function generateAnonymousPackLicense(
 
   // Generate watermark using random session ID (no IP tracking for privacy/GDPR)
   // Uses crypto.randomUUID() + timestamp for uniqueness without PII
-  const sessionId = crypto.randomUUID();
+  const sessionId = randomUUID();
   const watermark = createHash('sha256')
     .update(`anonymous:${sessionId}:${Date.now()}`)
     .digest('hex')
