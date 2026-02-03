@@ -37,20 +37,27 @@ export async function getPublicKeyById(keyId: string): Promise<PublicKeyResponse
   const lookupId = keyId === 'default' ? currentKeyId : keyId;
 
   // Check database first (supports key rotation)
-  const [dbKey] = await db
-    .select()
-    .from(publicKeys)
-    .where(and(eq(publicKeys.keyId, lookupId), isNull(publicKeys.revokedAt)))
-    .limit(1);
+  // Wrapped in try-catch for graceful fallback when DB unavailable
+  try {
+    const [dbKey] = await db
+      .select()
+      .from(publicKeys)
+      .where(and(eq(publicKeys.keyId, lookupId), isNull(publicKeys.revokedAt)))
+      .limit(1);
 
-  if (dbKey) {
-    logger.debug({ keyId: lookupId, source: 'database' }, 'Public key found in database');
-    return {
-      key_id: dbKey.keyId,
-      algorithm: dbKey.algorithm,
-      public_key: dbKey.publicKey,
-      expires_at: dbKey.expiresAt?.toISOString() ?? null,
-    };
+    if (dbKey) {
+      logger.debug({ keyId: lookupId, source: 'database' }, 'Public key found in database');
+      return {
+        key_id: dbKey.keyId,
+        algorithm: dbKey.algorithm,
+        public_key: dbKey.publicKey,
+        expires_at: dbKey.expiresAt?.toISOString() ?? null,
+      };
+    }
+  } catch (error) {
+    // DB query failed (table doesn't exist, connection error, etc.)
+    // Fall through to environment fallback
+    logger.debug({ keyId: lookupId, error }, 'Database lookup failed, trying environment fallback');
   }
 
   // Fall back to environment key if matches current key ID
