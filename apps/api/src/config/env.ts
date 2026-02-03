@@ -84,14 +84,15 @@ const envSchema = z
   )
   .refine(
     (data) => {
-      // DATABASE_URL required unless mock mode is enabled
-      if (data.DEV_MOCK_DB !== 'true' && !data.DATABASE_URL) {
+      // DATABASE_URL required unless mock mode is enabled or running tests
+      // Tests mock the database so they don't need a real connection
+      if (data.DEV_MOCK_DB !== 'true' && data.NODE_ENV !== 'test' && !data.DATABASE_URL) {
         return false;
       }
       return true;
     },
     {
-      message: 'DATABASE_URL is required unless DEV_MOCK_DB=true',
+      message: 'DATABASE_URL is required unless DEV_MOCK_DB=true or NODE_ENV=test',
       path: ['DATABASE_URL'],
     }
   )
