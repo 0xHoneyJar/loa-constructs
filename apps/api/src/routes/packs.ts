@@ -91,6 +91,7 @@ const updatePackSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   description: z.string().max(500).optional(),
   long_description: z.string().max(10000).optional(),
+  icon: z.string().max(10).optional().nullable(),
   pricing: z
     .object({
       type: z.enum(['free', 'one_time', 'subscription']).optional(),
@@ -229,6 +230,7 @@ packsRouter.patch(
       name: body.name,
       description: body.description,
       longDescription: body.long_description,
+      icon: body.icon,
       pricingType: body.pricing?.type as PackPricingType | undefined,
       tierRequired: body.pricing?.tier_required,
       stripeProductId: body.pricing?.stripe_product_id,

@@ -48,6 +48,7 @@ function formatConstruct(c: Construct) {
     type: c.type,
     name: c.name,
     slug: c.slug,
+    icon: c.icon,
     description: c.description,
     version: c.version,
     tier_required: c.tierRequired,

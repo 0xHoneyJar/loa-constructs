@@ -9,12 +9,12 @@ import { db, packs } from './index.js';
 import { eq } from 'drizzle-orm';
 
 const PACK_ICONS: Record<string, string> = {
-  observer: '🔮',
-  crucible: '⚗️',
+  observer: '👁️',
+  crucible: '🧪',
   artisan: '🎨',
   'gtm-collective': '🚀',
   sigil: '🔷',
-  beacon: '💠', // renamed from llm-ready
+  beacon: '🔔',
 };
 
 async function seedPackIcons() {

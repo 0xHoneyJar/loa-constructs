@@ -6,7 +6,8 @@
  */
 
 import postgres from 'postgres';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
+import bcrypt from 'bcrypt';
 
 const FORGE_PACKS = [
   {
@@ -107,7 +108,32 @@ async function seedForgePacks() {
         RETURNING id
       `;
       const ownerId = systemUserResult[0].id;
-      console.log(`   ✓ System user: ${ownerId}\n`);
+      console.log(`   ✓ System user: ${ownerId}`);
+
+      // Step 1b: Create API key for publishing
+      const apiKeySecret = `sk_live_${randomBytes(32).toString('hex')}`;
+      const apiKeyHash = await bcrypt.hash(apiKeySecret, 10);
+      const apiKeyPrefix = apiKeySecret.slice(0, 12);
+
+      // Delete any existing API keys for this user and create new one
+      await tx`DELETE FROM api_keys WHERE user_id = ${ownerId}`;
+
+      {
+        await tx`
+          INSERT INTO api_keys (id, user_id, name, key_hash, key_prefix, scopes, created_at)
+          VALUES (
+            ${randomUUID()},
+            ${ownerId},
+            'System Publisher',
+            ${apiKeyHash},
+            ${apiKeyPrefix},
+            ${['packs:write', 'packs:read']},
+            NOW()
+          )
+        `;
+        (global as any).__apiKey = apiKeySecret;
+        console.log(`   ✓ API key created\n`);
+      }
 
       // Step 2: Create packs using UPSERT
       console.log('2. Creating packs...');
@@ -198,6 +224,13 @@ async function seedForgePacks() {
     }
 
     console.log('\n✅ Seeding complete!');
+
+    const savedKey = (global as any).__apiKey;
+    if (savedKey) {
+      console.log('\n📋 Add to forge/.env:');
+      console.log(`LOA_CONSTRUCTS_API_KEY=${savedKey}`);
+      console.log('LOA_CONSTRUCTS_API_URL=https://loa-constructs-api-production.up.railway.app/v1');
+    }
   } catch (error) {
     console.error('\n❌ Seeding failed:', error);
     process.exitCode = 1;
