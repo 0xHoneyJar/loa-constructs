@@ -10,6 +10,8 @@
  * @see prd-local-dev-dx.md FR-3: Mock Database Mode
  */
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { generateKeyPairSync } from 'crypto';
 import { logger } from '../lib/logger.js';
 
