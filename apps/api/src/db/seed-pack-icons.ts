@@ -20,6 +20,7 @@ const PACK_ICONS: Record<string, string> = {
 async function seedPackIcons() {
   console.log('Updating pack icons...');
 
+  let hadError = false;
   for (const [slug, icon] of Object.entries(PACK_ICONS)) {
     try {
       const result = await db
@@ -34,15 +35,21 @@ async function seedPackIcons() {
         console.log(`  - ${slug}: not found (skipped)`);
       }
     } catch (error) {
+      hadError = true;
       console.error(`  ✗ ${slug}: ${error}`);
     }
   }
 
+  if (hadError) {
+    throw new Error('One or more pack icon updates failed');
+  }
+
   console.log('Done!');
-  process.exit(0);
 }
 
-seedPackIcons().catch((error) => {
-  console.error('Failed to seed pack icons:', error);
-  process.exit(1);
-});
+seedPackIcons()
+  .then(() => process.exit(0))
+  .catch((error) => {
+    console.error('Failed to seed pack icons:', error);
+    process.exit(1);
+  });

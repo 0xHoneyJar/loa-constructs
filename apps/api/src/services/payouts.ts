@@ -90,7 +90,8 @@ export async function calculateCreatorEarnings(
         )
     `);
 
-    const revenueResult = revenueQueryResult.rows?.[0] as { total_revenue_cents: number } | undefined;
+    // postgres-js returns array directly, neon returned { rows: [...] }
+    const revenueResult = (revenueQueryResult as unknown as { total_revenue_cents: number }[])[0];
     const totalRevenueCents = revenueResult?.total_revenue_cents ?? 0;
 
     // Calculate creator's share based on their attribution percentage

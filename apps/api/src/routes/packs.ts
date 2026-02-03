@@ -700,6 +700,28 @@ packsRouter.post(
     // Update version stats
     await updatePackVersionStats(version.id, fileCount, totalSizeBytes);
 
+    // Auto-publish: Only when the first version is created for a draft pack
+    // This removes the manual publish step for new pack creators
+    // but doesn't auto-publish packs that were intentionally kept in draft
+    // @see https://github.com/0xHoneyJar/loa-constructs/issues/72
+    const existingVersions = await getPackVersions(pack.id);
+    const isFirstVersion = existingVersions.length === 1;
+
+    if (pack.status === 'draft' && isFirstVersion) {
+      try {
+        await updatePack(pack.id, { status: 'published' });
+        logger.info(
+          { packId: pack.id, packSlug: pack.slug, requestId },
+          'Pack auto-published on first version upload'
+        );
+      } catch (err) {
+        logger.warn(
+          { packId: pack.id, packSlug: pack.slug, requestId, err },
+          'Auto-publish failed; pack remains in draft status'
+        );
+      }
+    }
+
     logger.info(
       {
         userId,

@@ -27,6 +27,11 @@ const envSchema = z
     // Stripe
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    // Railway webhook secret for dual-endpoint period during migration
+    STRIPE_WEBHOOK_SECRET_RAILWAY: z.string().optional(),
+
+    // Maintenance mode for write-freeze during migration cutover
+    MAINTENANCE_MODE: z.enum(['true', 'false']).default('false'),
     STRIPE_PRO_PRICE_ID: z.string().optional(),
     STRIPE_PRO_ANNUAL_PRICE_ID: z.string().optional(),
     STRIPE_TEAM_PRICE_ID: z.string().optional(),

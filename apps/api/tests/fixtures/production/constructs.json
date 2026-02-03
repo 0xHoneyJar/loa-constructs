@@ -1,0 +1,21 @@
+{
+  "data": [
+    {
+      "id": "uuid-example",
+      "name": "Observer",
+      "slug": "observer",
+      "description": "AI-powered user research observer",
+      "status": "published",
+      "icon": "eye",
+      "maturity": "stable",
+      "createdAt": "2026-01-15T00:00:00.000Z",
+      "updatedAt": "2026-01-20T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 4,
+    "totalPages": 1
+  }
+}

@@ -4,6 +4,7 @@ import { errorHandler } from './middleware/error-handler.js';
 import { requestId } from './middleware/request-id.js';
 import { requestLogger } from './middleware/request-logger.js';
 import { securityHeaders } from './middleware/security.js';
+import { maintenanceMode } from './middleware/maintenance.js';
 import { health } from './routes/health.js';
 import { auth } from './routes/auth.js';
 import { oauth } from './routes/oauth.js';
@@ -42,6 +43,10 @@ app.use('*', errorHandler());
 
 // Request ID generation
 app.use('*', requestId());
+
+// Maintenance mode (blocks writes during migration cutover)
+// @see sdd-infrastructure-migration.md §4.1 Multi-Layer Write Freeze
+app.use('*', maintenanceMode);
 
 // Security headers
 app.use('*', securityHeaders());

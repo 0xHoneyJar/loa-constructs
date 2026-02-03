@@ -42,6 +42,7 @@ out/
 .claude/commands/sync-from-gtm.md
 .claude/registry/
 
+
 # GPT review context (dynamically generated based on config)
 .claude/context/gpt-review-active.md
 

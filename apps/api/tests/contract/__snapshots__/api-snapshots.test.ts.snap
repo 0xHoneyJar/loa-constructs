@@ -1,0 +1,66 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Contract Tests: API Response Shapes > GET /v1/health > should return expected health response shape 1`] = `
+{
+  "build": Any<String>,
+  "environment": "test",
+  "status": "healthy",
+  "timestamp": Any<String>,
+  "uptime": Any<Number>,
+  "version": "0.1.0",
+}
+`;
+
+exports[`Contract Tests: API Response Shapes > GET /v1/packs/:slug - 404 Response > should return expected 404 error response shape 1`] = `
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Route not found",
+  },
+  "request_id": Any<String>,
+}
+`;
+
+exports[`Production Response Snapshots > documents expected /v1/constructs response 1`] = `
+{
+  "data": [
+    {
+      "createdAt": "2026-01-15T00:00:00.000Z",
+      "description": "AI-powered user research observer",
+      "icon": "eye",
+      "id": "uuid-example",
+      "maturity": "stable",
+      "name": "Observer",
+      "slug": "observer",
+      "status": "published",
+      "updatedAt": "2026-01-20T00:00:00.000Z",
+    },
+  ],
+  "pagination": {
+    "limit": 20,
+    "page": 1,
+    "total": 4,
+    "totalPages": 1,
+  },
+}
+`;
+
+exports[`Production Response Snapshots > documents expected /v1/health response 1`] = `
+{
+  "build": "2026-02-01T00:00:00.000Z",
+  "environment": "production",
+  "status": "healthy",
+  "timestamp": "2026-02-02T00:00:00.000Z",
+  "uptime": 3600,
+  "version": "0.1.0",
+}
+`;
+
+exports[`Production Response Snapshots > documents expected 404 error response 1`] = `
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "message": "Pack not found",
+  },
+}
+`;
