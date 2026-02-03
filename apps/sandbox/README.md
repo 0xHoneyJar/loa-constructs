@@ -1,396 +1,182 @@
-# Forge
+# Loa Constructs Sandbox
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 > *"The forge is where raw materials become precision instruments. User truth becomes testable reality."*
 
-Claude Code skill packs for **hypothesis-driven product development** and **agent commerce**. Four packs that form a complete workflow from user observation through validation to agent-ready APIs.
+Development sandbox for Loa skill packs. This directory contains the source packs that are published to the [Loa Constructs Registry](https://loa-constructs-api-production.up.railway.app).
 
-## Quick Start
-
-```bash
-# Clone the forge
-git clone https://github.com/0xHoneyJar/forge /tmp/forge
-
-# Install a pack (from your project root)
-cp -r /tmp/forge/observer .claude/constructs/packs/observer
-.claude/constructs/packs/observer/scripts/install.sh .
-
-# Start using skills
-/observe
-```
-
-## The Packs
+## Packs
 
 | Pack | Emoji | Skills | Purpose |
 |------|-------|--------|---------|
-| **[Observer](#-sigil-of-the-observer-observer)** | 🔮 | 6 | User truth capture |
-| **[Crucible](#-sigil-of-the-crucible-crucible)** | ⚗️ | 5 | Validation & testing |
-| **[Artisan](#-sigil-of-the-artisan-artisan)** | 🎨 | 10 | Brand/UI craftsmanship |
-| **[Beacon](#-sigil-of-the-beacon-beacon)** | 💠 | 6 | Agent commerce readiness |
+| **Observer** | 🔮 | 6 | User truth capture for hypothesis-first research |
+| **Crucible** | ⚗️ | 5 | Validation and testing for journey verification |
+| **Artisan** | 🎨 | 10 | Brand and UI craftsmanship for design systems |
+| **Beacon** | 💠 | 6 | Agent commerce readiness with x402 payments |
 
 **Total: 27 skills**
 
----
-
-## 🔮 Sigil of the Observer (Observer)
-
-*Capture user truth through hypothesis-first research*
-
-### Skills
-
-| Command | Skill | Description |
-|---------|-------|-------------|
-| `/observe` | `observing-users` | Capture user feedback as hypothesis-first research with Level 3 diagnostic |
-| `/shape` | `shaping-journeys` | Shape common patterns into journey definitions with JTBD clustering |
-| - | `level-3-diagnostic` | Diagnostic-first user research framework (The Mom Test methodology) |
-| `/analyze-gap` | `analyzing-gaps` | Compare user expectations with code reality, severity scoring |
-| `/file-gap` | `filing-gaps` | Create GitHub/Linear issues from gap analysis with taxonomy labels |
-| `/import-research` | `importing-research` | Bulk convert legacy user research to UTC format |
-
-### Workflow
+## Directory Structure
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    OBSERVER WORKFLOW                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. /observe    →  User Truth Canvas (UTC)                      │
-│     ↓               Capture quotes, form hypotheses             │
-│                                                                 │
-│  2. /shape      →  Journey Definition                           │
-│     ↓               Cluster UTCs by JTBD, map states            │
-│                                                                 │
-│  3. /analyze-gap →  Gap Report                                  │
-│     ↓               Compare expectations vs code reality        │
-│                                                                 │
-│  4. /file-gap   →  GitHub/Linear Issue                          │
-│                     Track gaps with taxonomy labels             │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+apps/sandbox/
+├── packs/
+│   ├── artisan/
+│   │   ├── manifest.json
+│   │   ├── README.md
+│   │   └── skills/
+│   │       └── {skill-name}/
+│   │           ├── index.yaml
+│   │           └── SKILL.md
+│   ├── beacon/
+│   ├── crucible/
+│   └── observer/
+├── scripts/
+│   ├── constructs-cli.sh    # Registry publish CLI
+│   └── validate-pack.sh     # Pack validation
+└── package.json
 ```
 
-### Grimoire Structure
+## Commands
 
-```
-grimoires/observer/
-├── canvas/     # User Truth Canvases (UTCs)
-├── journeys/   # User journey definitions
-└── state.yaml  # Observer state tracking
-```
-
-### Context Composition
-
-Observer includes cultural context for crypto/DeFi research:
-
-| Context | File | Purpose |
-|---------|------|---------|
-| Base | `crypto-base.md` | Universal crypto patterns |
-| Berachain | `berachain-overlay.md` | Chain-specific terms |
-| DeFi | `defi-overlay.md` | Protocol terminology |
+### Validate Packs
 
 ```bash
-# Compose contexts for your project
-.claude/constructs/packs/observer/scripts/compose-context.sh .
+# Validate a single pack
+./scripts/validate-pack.sh packs/artisan
+
+# Validate all packs
+for pack in packs/*/; do ./scripts/validate-pack.sh "$pack"; done
+
+# Via Turborepo
+pnpm turbo validate --filter=@loa-constructs/sandbox
 ```
 
----
-
-## ⚗️ Sigil of the Crucible (Crucible)
-
-*Transform user journeys into validated tests*
-
-### Skills
-
-| Command | Skill | Description |
-|---------|-------|-------------|
-| `/ground` | `grounding-code` | Extract actual code behavior into reality files with state machines |
-| `/diagram` | `diagramming-states` | Generate Mermaid state diagrams (User Expects vs Code Does) |
-| `/validate` | `validating-journeys` | Generate Playwright tests from state diagrams |
-| `/walkthrough` | `walking-through` | Interactive dev browser walkthrough with wallet presets |
-| `/iterate` | `iterating-feedback` | Update upstream artifacts from test results |
-
-### Workflow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    CRUCIBLE WORKFLOW                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  1. /ground     →  Reality File                                 │
-│     ↓               Extract what code actually does             │
-│                                                                 │
-│  2. /diagram    →  State Diagrams                               │
-│     ↓               Mermaid diagrams: expects vs does           │
-│                                                                 │
-│  3. /validate   →  Playwright Tests                             │
-│     ↓               Generated from state diagrams               │
-│                                                                 │
-│  4. /walkthrough →  Manual Verification                         │
-│     ↓               Interactive browser testing                 │
-│                                                                 │
-│  5. /iterate    →  Updated Artifacts                            │
-│                     Feed results back to Observer               │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Grimoire Structure
-
-```
-grimoires/crucible/
-├── diagrams/      # Mermaid state diagrams
-├── reality/       # Code reality files
-├── gaps/          # Gap analysis reports
-├── tests/         # Generated Playwright tests
-├── walkthroughs/  # Walkthrough captures
-└── results/       # Test results
-```
-
-### Key Features
-
-| Feature | Description |
-|---------|-------------|
-| **Dual Diagrams** | Side-by-side "User Expects" vs "Code Does" |
-| **Selector Inference** | Auto-generate Playwright selectors from components |
-| **Wallet Presets** | Pre-configured states (empty, active, rewards-ready) |
-| **Confidence Preservation** | Won't overwrite high-confidence findings |
-
----
-
-## 🎨 Sigil of the Artisan (Artisan)
-
-*Brand and UI craftsmanship through physics-based motion*
-
-### Skills
-
-| Command | Skill | Description |
-|---------|-------|-------------|
-| `/survey` | `surveying-patterns` | Pattern frequency analysis, component cataloging |
-| `/synthesize-taste` | `synthesizing-taste` | Reference material analysis, brand vocabulary extraction |
-| `/inscribe` | `inscribing-taste` | Brand token application, taste consistency checking |
-| `/craft` | `crafting-physics` | Spring constant optimizer, mass/tension/friction calculator |
-| `/animate` | `animating-motion` | Spring physics, timing curves, motion orchestration |
-| `/behavior` | `applying-behavior` | Interaction state machines, gesture handlers |
-| `/style` | `styling-material` | Material 3 compliance, elevation/shadow calculator |
-| `/distill` | `distilling-components` | Component boundary detection, prop interface generation |
-| `/validate-physics` | `validating-physics` | Animation performance profiler, jank detection |
-| `/web3-test` | `web3-testing` | Wallet mocks, transaction flow testing |
-
-### Workflow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    ARTISAN WORKFLOW                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  DISCOVERY                                                      │
-│  ─────────                                                      │
-│  1. /survey     →  Pattern Observations                         │
-│  2. /synthesize-taste → Taste Document                          │
-│                                                                 │
-│  APPLICATION                                                    │
-│  ───────────                                                    │
-│  3. /inscribe   →  Brand Tokens Applied                         │
-│  4. /craft      →  Physics Config                               │
-│  5. /animate    →  Motion Sequences                             │
-│  6. /behavior   →  Interaction Handlers                         │
-│  7. /style      →  Material Styling                             │
-│                                                                 │
-│  EXTRACTION                                                     │
-│  ──────────                                                     │
-│  8. /distill    →  Component Library                            │
-│                                                                 │
-│  VALIDATION                                                     │
-│  ──────────                                                     │
-│  9. /validate-physics → Performance Report                      │
-│  10. /web3-test  →  Wallet Test Suite                           │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Grimoire Structure
-
-```
-grimoires/artisan/
-├── physics/       # Physics configurations
-├── taste/         # Brand taste definitions
-└── observations/  # Pattern observations
-```
-
----
-
-## 💠 Sigil of the Beacon (Beacon)
-
-*Signal readiness to the agent network. Every business becomes an API.*
-
-### Skills
-
-**Content Layer:**
-
-| Command | Skill | Description |
-|---------|-------|-------------|
-| `/audit-llm` | `auditing-content` | Score pages against 5-layer AI trust model |
-| `/add-markdown` | `generating-markdown` | Add markdown export via content negotiation |
-| `/optimize-chunks` | `optimizing-chunks` | Rewrite content to survive AI retrieval chunking |
-
-**Discovery Layer:**
-
-| Command | Skill | Description |
-|---------|-------|-------------|
-| `/beacon-discover` | `discovering-endpoints` | Generate `/.well-known/x402` discovery endpoint |
-| `/beacon-actions` | `defining-actions` | Generate JSON Schema and OpenAPI for endpoints |
-
-**Action Layer:**
-
-| Command | Skill | Description |
-|---------|-------|-------------|
-| `/beacon-pay` | `accepting-payments` | Generate x402 v2 payment middleware and hooks |
-
-### Workflow
-
-```
-CONTENT LAYER                                    DISCOVERY + ACTION LAYER
-+-------------+   +------------------+   +---------------+   +------------------+   +----------------+   +-------------+
-| /audit-llm  |-->| /optimize-chunks |-->| /add-markdown |-->| /beacon-discover |-->| /beacon-actions|-->| /beacon-pay |
-| Identify    |   | Fix issues       |   | Enable export |   | Advertise APIs   |   | Define schemas |   | Add payments|
-+-------------+   +------------------+   +---------------+   +------------------+   +----------------+   +-------------+
-```
-
-### x402 Integration (Berachain)
-
-| Feature | Details |
-|---------|---------|
-| **Network** | Berachain Mainnet (`eip155:80094`) |
-| **Token** | BERA |
-| **Protocol** | x402 v2 |
-| **Rate Limits** | 10/agent/h, 50/IP/h, 1000 BERA/day subsidy |
-
-### Grimoire Structure
-
-```
-grimoires/beacon/
-├── state.yaml        # Pack state tracking
-├── audits/           # Audit reports
-├── exports/          # Generation manifests
-├── optimizations/    # Chunk recommendations
-└── discovery/        # x402 discovery artifacts
-    └── openapi.yaml  # Combined OpenAPI spec
-```
-
----
-
-## Complete Workflow
-
-The four packs form a continuous feedback loop from user research to agent commerce:
-
-```
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                            FORGE: COMPLETE WORKFLOW                                     │
-├────────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                         │
-│  🔮 OBSERVER           ⚗️ CRUCIBLE            🎨 ARTISAN            💠 BEACON          │
-│  ──────────            ──────────            ───────               ──────              │
-│                                                                                         │
-│  User Feedback        Code Reality          Design System         Agent Commerce       │
-│       │                    │                     │                      │              │
-│       ▼                    ▼                     ▼                      ▼              │
-│  ┌─────────┐         ┌─────────┐          ┌─────────┐          ┌─────────────┐        │
-│  │ /observe│────────▶│ /ground │◀─────────│ /survey │          │ /audit-llm  │        │
-│  └────┬────┘         └────┬────┘          └────┬────┘          └──────┬──────┘        │
-│       │                   │                    │                      │              │
-│       ▼                   ▼                    ▼                      ▼              │
-│  ┌─────────┐         ┌─────────┐          ┌─────────┐          ┌─────────────┐        │
-│  │ /shape  │────────▶│/diagram │◀─────────│ /craft  │          │/beacon-disco│        │
-│  └────┬────┘         └────┬────┘          └────┬────┘          └──────┬──────┘        │
-│       │                   │                    │                      │              │
-│       ▼                   ▼                    ▼                      ▼              │
-│  ┌─────────┐         ┌─────────┐          ┌─────────┐          ┌─────────────┐        │
-│  │/analyze │◀────────│/validate│─────────▶│/validate│          │ /beacon-pay │        │
-│  │  -gap   │         └────┬────┘          │-physics │          └─────────────┘        │
-│  └────┬────┘              │               └─────────┘                                  │
-│       │                   │                                                            │
-│       ▼                   ▼                                                            │
-│  ┌─────────┐         ┌─────────┐                                                       │
-│  │/file-gap│◀────────│/iterate │                                                       │
-│  └─────────┘         └─────────┘                                                       │
-│                                                                                         │
-│  Issues ◀───────────────── Feedback Loop ─────────────────▶ Tests ────▶ Agent APIs    │
-│                                                                                         │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Installation
-
-### Manual Installation
+### Publish to Registry
 
 ```bash
-# Clone forge
-git clone https://github.com/0xHoneyJar/forge /tmp/forge
+# Set API credentials in .env
+LOA_CONSTRUCTS_API_KEY=sk_your_key
+LOA_CONSTRUCTS_API_URL=https://loa-constructs-api-production.up.railway.app/v1
 
-# Install desired pack
-cp -r /tmp/forge/observer .claude/constructs/packs/observer
-.claude/constructs/packs/observer/scripts/install.sh .
+# List local packs with registry status
+./scripts/constructs-cli.sh list
 
-# Install all packs
-for pack in observer crucible artisan beacon; do
-  cp -r /tmp/forge/$pack .claude/constructs/packs/$pack
-  .claude/constructs/packs/$pack/scripts/install.sh .
-done
+# Publish a pack
+./scripts/constructs-cli.sh publish artisan
 ```
 
-### Via Loa Constructs (Coming Soon)
+### Seed Database
+
+From the monorepo root:
 
 ```bash
-# Install from registry
-.claude/scripts/constructs-install.sh pack observer
-.claude/scripts/constructs-install.sh pack crucible
-.claude/scripts/constructs-install.sh pack artisan
+DATABASE_URL="..." pnpm tsx scripts/seed-forge-packs.ts
 ```
 
----
+## Creating a New Pack
 
-## Requirements
+```bash
+cd packs
 
-- Claude Code CLI
-- Loa Framework with `constructs-loader.sh`
-- Playwright (for Crucible `/validate` command)
+# Create structure
+mkdir -p new-pack/skills/my-skill
 
----
+# Create manifest
+cat > new-pack/manifest.json << 'EOF'
+{
+  "schema_version": 1,
+  "name": "New Pack",
+  "slug": "new-pack",
+  "version": "1.0.0",
+  "description": "Pack description",
+  "author": "0xHoneyJar",
+  "license": "MIT",
+  "skills": [
+    { "slug": "my-skill", "path": "skills/my-skill" }
+  ]
+}
+EOF
 
-## Registry Status
+# Create skill files
+cat > new-pack/skills/my-skill/index.yaml << 'EOF'
+name: my-skill
+description: Skill description
+triggers:
+  - pattern: "my skill trigger"
+allowed-tools: [Read, Write, Bash]
+EOF
 
-| Pack | Slug | Registry Name | Status |
-|------|------|---------------|--------|
-| Observer | `observer` | Sigil of the Observer | ✅ Published |
-| Crucible | `crucible` | Sigil of the Crucible | ✅ Published |
-| Artisan | `artisan` | Sigil of the Artisan | ✅ Published |
-| Beacon | `beacon` | Sigil of the Beacon | ✅ Published |
+cat > new-pack/skills/my-skill/SKILL.md << 'EOF'
+# My Skill
 
----
+Skill instructions go here...
+EOF
 
-## Documentation
+# Validate
+cd .. && ./scripts/validate-pack.sh packs/new-pack
+```
 
-- **[CHANGELOG.md](CHANGELOG.md)** - Version history
-- **[VERIFICATION.md](VERIFICATION.md)** - Installation verification checklist
-- **[observer/README.md](observer/README.md)** - Observer pack details
-- **[crucible/README.md](crucible/README.md)** - Crucible pack details
-- **[artisan/README.md](artisan/README.md)** - Artisan pack details
-- **[beacon/README.md](beacon/README.md)** - Beacon pack details
+## Pack Manifest Schema
 
----
+Each pack must have a `manifest.json`:
+
+```json
+{
+  "schema_version": 1,
+  "name": "Pack Name",
+  "slug": "pack-slug",
+  "version": "1.0.0",
+  "description": "Pack description",
+  "author": "0xHoneyJar",
+  "license": "MIT",
+  "skills": [
+    { "slug": "skill-name", "path": "skills/skill-name" }
+  ],
+  "hooks": {
+    "post_install": "scripts/install.sh"
+  }
+}
+```
+
+## Skill Structure
+
+Each skill directory must contain:
+- `index.yaml` - Skill metadata (name, triggers, allowed tools)
+- `SKILL.md` - Skill instructions
+
+## Pack Details
+
+### 🔮 Observer
+
+User truth capture through hypothesis-first research with Level 3 diagnostic methodology.
+
+**Skills**: `/observe`, `/shape`, `/analyze-gap`, `/file-gap`, `/import-research`
+
+### ⚗️ Crucible
+
+Transform user journeys into validated Playwright tests with dual-diagram approach.
+
+**Skills**: `/ground`, `/diagram`, `/validate`, `/walkthrough`, `/iterate`
+
+### 🎨 Artisan
+
+Brand and UI craftsmanship through physics-based motion and Material 3 compliance.
+
+**Skills**: `/survey`, `/synthesize-taste`, `/inscribe`, `/craft`, `/animate`, `/behavior`, `/style`, `/distill`, `/validate-physics`, `/web3-test`
+
+### 💠 Beacon
+
+Agent commerce readiness with x402 payment middleware for Berachain.
+
+**Skills**: `/audit-llm`, `/add-markdown`, `/optimize-chunks`, `/beacon-discover`, `/beacon-actions`, `/beacon-pay`
+
+## History
+
+This sandbox was migrated from the standalone [forge](https://github.com/0xHoneyJar/forge) repository via `git subtree` to consolidate the constructs network into a single monorepo.
 
 ## License
 
 [MIT](LICENSE) - Use freely in your projects.
-
----
-
-## Links
-
-- [Loa Framework](https://github.com/0xHoneyJar/loa)
-- [Claude Code](https://claude.ai/code)
-- [0xHoneyJar](https://github.com/0xHoneyJar)
