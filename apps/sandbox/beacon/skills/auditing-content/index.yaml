@@ -1,0 +1,12 @@
+name: auditing-content
+slug: auditing-content
+version: 1.0.0
+description: Analyze pages for LLM trust signals and retrieval resilience. Scores pages across 5 trust layers to identify content that may be misrepresented by AI systems.
+entry: SKILL.md
+triggers:
+  - /audit-llm
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Grep

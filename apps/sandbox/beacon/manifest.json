@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "name": "Sigil of the Beacon",
+  "slug": "beacon",
+  "version": "1.0.0",
+  "description": "Signal readiness to the agent network with AI-retrievable content, trust auditing, and x402 payment endpoints",
+  "author": "0xHoneyJar",
+  "license": "MIT",
+  "skills": [
+    {"slug": "auditing-content", "path": "skills/auditing-content"},
+    {"slug": "generating-markdown", "path": "skills/generating-markdown"},
+    {"slug": "optimizing-chunks", "path": "skills/optimizing-chunks"},
+    {"slug": "discovering-endpoints", "path": "skills/discovering-endpoints"},
+    {"slug": "defining-actions", "path": "skills/defining-actions"},
+    {"slug": "accepting-payments", "path": "skills/accepting-payments"}
+  ],
+  "hooks": {
+    "post_install": "scripts/install.sh"
+  },
+  "dependencies": []
+}

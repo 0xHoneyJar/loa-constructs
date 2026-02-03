@@ -1,0 +1,21 @@
+# LLM-Ready State
+# Tracks audits, exports, and optimizations
+
+version: "1.0.0"
+initialized: "2026-02-01T19:45:42Z"
+last_activity: null
+
+audits:
+  count: 0
+  last_audit: null
+  pages: {}
+
+exports:
+  count: 0
+  last_generation: null
+  pages: {}
+
+optimizations:
+  count: 0
+  last_optimization: null
+  pages: {}
