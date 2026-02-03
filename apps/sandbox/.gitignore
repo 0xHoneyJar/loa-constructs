@@ -1,0 +1,18 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Loa framework state (private)
+grimoires/
+.beads/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo

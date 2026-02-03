@@ -190,6 +190,8 @@ importers:
         specifier: ^5.7.0
         version: 5.9.3
 
+  apps/sandbox: {}
+
   apps/web:
     dependencies:
       '@fontsource/ibm-plex-mono':

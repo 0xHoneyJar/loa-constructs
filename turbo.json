@@ -29,6 +29,16 @@
     },
     "clean": {
       "cache": false
+    },
+    "validate": {
+      "cache": true,
+      "inputs": [
+        "packs/**/manifest.json",
+        "packs/**/index.yaml",
+        "packs/**/SKILL.md",
+        "scripts/validate-pack.sh"
+      ],
+      "outputs": []
     }
   }
 }

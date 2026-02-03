@@ -1,0 +1,15 @@
+{
+  "name": "@loa-constructs/sandbox",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Development sandbox for Loa skill packs",
+  "scripts": {
+    "validate": "./scripts/validate-pack.sh",
+    "validate:all": "for pack in packs/*/; do ./scripts/validate-pack.sh \"$pack\"; done",
+    "publish": "./scripts/constructs-cli.sh publish",
+    "list": "./scripts/constructs-cli.sh list"
+  },
+  "keywords": ["loa", "skills", "packs", "sandbox"],
+  "author": "0xHoneyJar",
+  "license": "MIT"
+}

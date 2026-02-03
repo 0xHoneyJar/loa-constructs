@@ -111,16 +111,16 @@ If uncertain: STOP and ASK rather than proceed with assumptions.
 │       │         │    ┌─────────────────────┤         │          │
 │       │         │    │                     │         │          │
 │       │         │    ▼                     ▼         │          │
-│       │         │  PASS?  ──YES──▶  SUBMIT ──▶ DEPLOY ──▶ LEARN │
-│       │         │    │                                          │
-│       │         │   NO                                          │
-│       │         │    │                                          │
-│       │         │    ▼                                          │
-│       │         └─ REMEDIATE ─── loop ≤3 ───┘                   │
-│       │              │                                          │
-│       │              │ loop > 3                                 │
-│       │              ▼                                          │
-│       └────────── ESCALATE ──────────────────────────────────── │
+│       │         │  PASS?  ──YES──▶  SUBMIT                      │
+│       │         │    │                │                          │
+│       │         │   NO                ▼                          │
+│       │         │    │          POST-PR-VAL ◀── (v1.25.0)       │
+│       │         │    ▼                │                          │
+│       │         └─ REMEDIATE    READY_FOR_HITL                   │
+│       │              │                │                          │
+│       │              │ loop > 3       ▼                          │
+│       │              ▼          DEPLOY ──▶ LEARN                 │
+│       └────────── ESCALATE ─────────────────────────────────────│
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -194,6 +194,52 @@ All quality gates enforced. No shortcuts.
 
 **Purpose:** Restore context, verify integrity, detect operator, select work.
 
+### 0.0 Workspace Cleanup (v1.23.0)
+
+**Purpose:** Archive previous cycle artifacts to create clean workspace.
+
+```markdown
+1. Run workspace-cleanup.sh --yes --json
+2. Parse JSON result
+3. Check for security errors (exit 3) → HALT
+4. Check for partial state (.staging/.failed exists) → HALT
+5. Other errors → log warning, continue
+```
+
+**Implementation:**
+
+```bash
+# Run cleanup in autonomous mode
+CLEANUP_RESULT=$(.claude/scripts/workspace-cleanup.sh --grimoire grimoires/loa --yes --json 2>&1)
+CLEANUP_EXIT=$?
+
+case $CLEANUP_EXIT in
+  0)
+    # Success - check for partial state
+    if echo "$CLEANUP_RESULT" | jq -e '.partial_state != null' > /dev/null 2>&1; then
+      PARTIAL=$(echo "$CLEANUP_RESULT" | jq -r '.partial_state[]? // empty')
+      if [[ -n "$PARTIAL" ]]; then
+        echo "HALT: Partial archive state detected - manual intervention required"
+        echo "Found: $PARTIAL"
+        exit 1
+      fi
+    fi
+    echo "✓ Workspace cleanup complete"
+    ;;
+  3)
+    # Security validation failure - HALT
+    echo "HALT: Workspace cleanup security validation failed"
+    exit 1
+    ;;
+  *)
+    # Other error - log and continue
+    echo "WARNING: Workspace cleanup failed (exit $CLEANUP_EXIT), continuing..."
+    ;;
+esac
+```
+
+**Fail-Closed Policy:** When operating autonomously, any security error or partial state MUST halt the workflow. This prevents propagating errors through subsequent phases.
+
 ### 0.1 Operator Detection
 
 ```markdown
@@ -243,6 +289,8 @@ ELSE:
 ```
 
 ### Exit Criteria (ALL required)
+- [ ] Workspace cleanup completed (or skipped with warning)
+- [ ] No partial archive state detected
 - [ ] NOTES.md read or created
 - [ ] No CRITICAL blockers
 - [ ] System Zone verified
@@ -287,9 +335,48 @@ VERIFY PRD contains:
 - [ ] Risks with mitigations
 ```
 
+### 1.4 Flatline PRD Review (v1.22.0)
+
+**Purpose:** Adversarial multi-model review of PRD before proceeding to Design.
+
+```markdown
+IF flatline_protocol.enabled AND autonomous_mode.enabled:
+  1. Execute Flatline Protocol on PRD:
+     ```bash
+     result=$(.claude/scripts/flatline-orchestrator.sh \
+         --doc grimoires/loa/prd.md \
+         --phase prd \
+         --autonomous \
+         --run-id "$run_id" \
+         --json)
+     ```
+
+  2. Handle results per autonomous_mode.actions:
+     ```bash
+     .claude/scripts/flatline-result-handler.sh \
+         --mode autonomous \
+         --result "$result" \
+         --document grimoires/loa/prd.md \
+         --phase prd \
+         --run-id "$run_id"
+     ```
+
+  3. Exit code handling:
+     - 0: Continue to Phase 2
+     - 1: BLOCKER halt → Generate escalation, STOP workflow
+     - 4: Disputed threshold → Generate escalation, STOP workflow
+
+  4. Log summary to NOTES.md:
+     "Flatline PRD Review: {N} integrated, {M} disputed, {K} blockers"
+
+ELSE:
+  Skip Flatline review, log "Flatline disabled for PRD phase"
+```
+
 ### Exit Criteria
 - [ ] PRD complete and verified
 - [ ] All claims grounded (file:line or [ASSUMPTION])
+- [ ] Flatline review passed (if enabled)
 - [ ] Trajectory logged
 </phase_1_discovery>
 
@@ -321,7 +408,42 @@ VERIFY PRD contains:
    - Dependencies mapped
 ```
 
-### 2.3 Design Review
+### 2.3 Flatline SDD Review (v1.22.0)
+
+**Purpose:** Adversarial multi-model review of SDD before sprint planning execution.
+
+```markdown
+IF flatline_protocol.enabled AND autonomous_mode.enabled:
+  1. Execute Flatline Protocol on SDD:
+     ```bash
+     result=$(.claude/scripts/flatline-orchestrator.sh \
+         --doc grimoires/loa/sdd.md \
+         --phase sdd \
+         --autonomous \
+         --run-id "$run_id" \
+         --json)
+     ```
+
+  2. Handle results per autonomous_mode.actions:
+     ```bash
+     .claude/scripts/flatline-result-handler.sh \
+         --mode autonomous \
+         --result "$result" \
+         --document grimoires/loa/sdd.md \
+         --phase sdd \
+         --run-id "$run_id"
+     ```
+
+  3. Exit code handling:
+     - 0: Continue to Sprint review
+     - 1: BLOCKER halt → Generate escalation, STOP workflow
+     - 4: Disputed threshold → Generate escalation, STOP workflow
+
+ELSE:
+  Skip Flatline review, log "Flatline disabled for SDD phase"
+```
+
+### 2.4 Design Review
 
 ```markdown
 VERIFY:
@@ -331,9 +453,46 @@ VERIFY:
 - [ ] No circular dependencies
 ```
 
+### 2.5 Flatline Sprint Review (v1.22.0)
+
+**Purpose:** Adversarial multi-model review of sprint plan before implementation.
+
+```markdown
+IF flatline_protocol.enabled AND autonomous_mode.enabled:
+  1. Execute Flatline Protocol on sprint plan:
+     ```bash
+     result=$(.claude/scripts/flatline-orchestrator.sh \
+         --doc grimoires/loa/sprint.md \
+         --phase sprint \
+         --autonomous \
+         --run-id "$run_id" \
+         --json)
+     ```
+
+  2. Handle results per autonomous_mode.actions:
+     ```bash
+     .claude/scripts/flatline-result-handler.sh \
+         --mode autonomous \
+         --result "$result" \
+         --document grimoires/loa/sprint.md \
+         --phase sprint \
+         --run-id "$run_id"
+     ```
+
+  3. Exit code handling:
+     - 0: Continue to Phase 3 (Implementation)
+     - 1: BLOCKER halt → Generate escalation, STOP workflow
+     - 4: Disputed threshold → Generate escalation, STOP workflow
+
+ELSE:
+  Skip Flatline review, log "Flatline disabled for sprint phase"
+```
+
 ### Exit Criteria
 - [ ] SDD complete
 - [ ] Sprint plan ready
+- [ ] Flatline SDD review passed (if enabled)
+- [ ] Flatline Sprint review passed (if enabled)
 - [ ] Design traces to requirements
 </phase_2_design>
 
@@ -529,14 +688,90 @@ VERIFY PR:
 - [ ] Branch pushed
 - [ ] PR created
 - [ ] Trajectory logged
+- [ ] → Proceed to Phase 5.5 (Post-PR Validation)
 </phase_5_submit>
+
+<phase_5_5_post_pr_validation>
+## Phase 5.5: Post-PR Validation (v1.25.0)
+
+**Purpose:** Validate PR quality before human review.
+
+**Gate:** Only enter if `post_pr_validation.enabled: true` in `.loa.config.yaml`
+
+### 5.5.1 Invoke Post-PR Orchestrator
+
+```markdown
+IF post_pr_validation.enabled:
+  1. Invoke: .claude/scripts/post-pr-orchestrator.sh --pr-url <pr_url> --mode autonomous
+  2. Handle exit codes:
+     - 0 (SUCCESS) → state = READY_FOR_HITL
+     - 1 (ERROR) → state = HALTED, log error
+     - 2 (TIMEOUT) → state = HALTED, escalate
+     - 3 (PHASE_FAIL) → state = HALTED, check findings
+     - 4 (BLOCKER) → state = HALTED, Flatline blocker found
+     - 5 (USER_HALT) → state = HALTED, user intervention
+ELSE:
+  → Skip to Phase 6 (Deploy) or Phase 7 (Learning)
+```
+
+### 5.5.2 Validation Phases
+
+The orchestrator executes these phases in sequence:
+
+| Phase | Description | Fix Loop |
+|-------|-------------|----------|
+| **POST_PR_AUDIT** | Consolidated security/quality audit | Yes (max 5) |
+| **CONTEXT_CLEAR** | Checkpoint, prompt user to `/clear` | No |
+| **E2E_TESTING** | Fresh-eyes build and test verification | Yes (max 3) |
+| **FLATLINE_PR** | Optional multi-model review (~$1.50) | No |
+
+**State File:** `.run/post-pr-state.json`
+
+### 5.5.3 Resume from Context Clear
+
+When user runs `/autonomous --resume` after context clear:
+
+```markdown
+1. Check post-PR state file (.run/post-pr-state.json)
+2. If state == CONTEXT_CLEAR:
+   - Load checkpoint from NOTES.md Session Continuity
+   - Continue with: post-pr-orchestrator.sh --resume
+   - E2E testing runs with fresh context
+3. On completion:
+   - state = READY_FOR_HITL
+   - Continue to Phase 6 or Phase 7
+```
+
+### 5.5.4 Configuration Reference
+
+```yaml
+# .loa.config.yaml
+post_pr_validation:
+  enabled: true
+  phases:
+    audit: { enabled: true, max_iterations: 5 }
+    context_clear: { enabled: true }
+    e2e: { enabled: true, max_iterations: 3 }
+    flatline: { enabled: false }  # Opt-in, ~$1.50 cost
+```
+
+### Exit Criteria
+- [ ] Post-PR audit passed (or disabled)
+- [ ] E2E tests passed (or disabled)
+- [ ] Flatline review passed (or disabled)
+- [ ] State = READY_FOR_HITL
+
+**Full Specification:** `.claude/commands/post-pr-validation.md`
+</phase_5_5_post_pr_validation>
 
 <phase_6_deploy>
 ## Phase 6: Deployment (Optional)
 
 **Purpose:** Safely deploy and verify.
 
-**Gate:** Only if `require_human_deploy_approval == false` OR approval received
+**Gate:**
+- Post-PR Validation passed (if enabled) OR state = READY_FOR_HITL
+- AND (`require_human_deploy_approval == false` OR approval received)
 
 ### 6.1 Deployment
 
@@ -664,6 +899,101 @@ Review execution:
 - [ ] Work item marked complete
 - [ ] Ready for next cycle
 </phase_7_learning>
+
+<resume_support>
+## Resume Support (v1.22.0)
+
+The `/autonomous --resume` flag enables resumption of workflows halted by Flatline BLOCKER items.
+
+### Resume Detection
+
+```bash
+IF --resume flag provided:
+  1. Check for pending escalation report:
+     ```bash
+     escalation=$(.claude/scripts/flatline-escalation.sh list | jq '.[0]')
+     ```
+
+  2. IF escalation exists:
+     - Extract run_id, phase, halted_at
+     - Validate blocker concerns addressed
+     - Resume from last completed phase
+
+  3. IF no escalation:
+     - Check NOTES.md for "Flatline Halt" section
+     - Resume from last checkpoint
+```
+
+### Resume Workflow
+
+```markdown
+1. Load escalation report:
+   - run_id: Original Flatline run ID
+   - phase: Phase where halt occurred (prd, sdd, sprint)
+   - blockers: List of BLOCKER items that caused halt
+
+2. Validate blockers addressed:
+   FOR each blocker IN escalation.blockers:
+     - Re-run Flatline on affected document
+     - Verify blocker concern resolved
+     - IF still present: HALT with "Blocker not addressed: {id}"
+
+3. Resume execution:
+   CASE phase:
+     "prd":  Resume from Phase 1.4 (Flatline PRD Review)
+     "sdd":  Resume from Phase 2.3 (Flatline SDD Review)
+     "sprint": Resume from Phase 2.5 (Flatline Sprint Review)
+
+4. Log resume event:
+   ```json
+   {
+     "type": "flatline_resume",
+     "original_run_id": "{run_id}",
+     "phase": "{phase}",
+     "blockers_resolved": N,
+     "timestamp": "{ISO8601}"
+   }
+   ```
+```
+
+### Resume Command
+
+```bash
+# Resume from Flatline halt
+/autonomous --resume
+
+# Resume with specific escalation
+/autonomous --resume --run-id flatline-run-abc123
+```
+
+### Exit Criteria for Resume
+- [ ] Escalation report found and loaded
+- [ ] All blocker concerns addressed
+- [ ] Workflow resumed from correct phase
+- [ ] Resume event logged to trajectory
+
+### Resume from Post-PR Context Clear (v1.25.0)
+
+When `/autonomous --resume` detects Post-PR Validation context clear state:
+
+```markdown
+IF state file (.run/post-pr-state.json) shows state == CONTEXT_CLEAR:
+  1. Load checkpoint from NOTES.md Session Continuity section
+  2. Verify PR still exists and is open
+  3. Continue with: .claude/scripts/post-pr-orchestrator.sh --resume
+  4. E2E testing runs with fresh context (unbiased by previous work)
+  5. On success:
+     - state = READY_FOR_HITL
+     - Continue to Phase 6 (Deploy) if enabled, or Phase 7 (Learning)
+  6. On failure:
+     - Check circuit breaker (same failure 2x → HALT)
+     - Apply fix and retry, or escalate
+```
+
+**State File:** `.run/post-pr-state.json`
+**Checkpoint Location:** `grimoires/loa/NOTES.md` → Session Continuity section
+**Full Specification:** `.claude/commands/post-pr-validation.md`
+</resume_support>
 
 <attention_budget>
 ## Attention Budget

@@ -1,0 +1,27 @@
+name: defining-actions
+slug: defining-actions
+version: 1.0.0
+description: Generate JSON Schema and OpenAPI specs for x402 endpoints
+entry: SKILL.md
+triggers:
+  - /beacon-actions
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Grep
+  - Edit
+categories:
+  - operations
+effort_hint: low
+danger_level: safe
+inputExamples:
+  - "/beacon-actions"
+  - "/beacon-actions /api/generate-image"
+outputs:
+  - name: action-schemas
+    path: "app/api/*/schema.json"
+    format: detailed
+  - name: openapi-fragment
+    path: "grimoires/beacon/discovery/openapi.yaml"
+    format: detailed

@@ -1,0 +1,28 @@
+name: discovering-endpoints
+slug: discovering-endpoints
+version: 1.0.0
+description: Generate x402 discovery endpoint for agent commerce
+entry: SKILL.md
+triggers:
+  - /beacon-discover
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Grep
+  - Edit
+  - AskUserQuestion
+categories:
+  - operations
+effort_hint: medium
+danger_level: moderate
+inputExamples:
+  - "/beacon-discover"
+  - "/beacon-discover --service mibera"
+outputs:
+  - name: discovery-endpoint
+    path: "app/.well-known/x402/route.ts"
+    format: detailed
+  - name: manifest
+    path: "grimoires/beacon/discovery/service-manifest.md"
+    format: summary

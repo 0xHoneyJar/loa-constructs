@@ -257,8 +257,11 @@ unlink_pack_commands() {
 }
 
 # =============================================================================
-# Skill Symlinking (for loader compatibility)
+# Skill Symlinking (for Claude Code discovery)
 # =============================================================================
+# Fixed: Skills are now symlinked directly to .claude/skills/ (flat structure)
+# instead of .claude/constructs/skills/<pack>/ which Claude Code doesn't discover.
+# See: https://github.com/0xHoneyJar/loa-constructs/issues/76
 
 # Symlink pack skills to .claude/skills for Claude Code discovery
 # Args:
@@ -268,7 +271,10 @@ symlink_pack_skills() {
     local pack_slug="$1"
     local pack_dir="$(get_packs_dir)/$pack_slug"
     local skills_source="$pack_dir/skills"
-    local claude_skills_dir=".claude/skills"
+    # Use repo root to ensure correct path regardless of cwd
+    local repo_root
+    repo_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    local skills_target="$repo_root/.claude/skills"
     local linked=0
 
     # Check if pack has skills
@@ -277,56 +283,83 @@ symlink_pack_skills() {
         return 0
     fi
 
-    # Ensure .claude/skills directory exists
-    mkdir -p "$claude_skills_dir"
+    # Create target directory (should already exist but ensure it does)
+    mkdir -p "$skills_target"
 
-    # Get absolute path of skills source for reliable symlinks
-    # This handles custom LOA_CONSTRUCTS_DIR paths correctly
-    local abs_skills_source
-    abs_skills_source=$(cd "$skills_source" && pwd)
-
-    # Symlink each skill directory to .claude/skills with pack prefix
+    # Symlink each skill directory
     for skill in "$skills_source"/*/; do
         [[ -d "$skill" ]] || continue
 
         local skill_name
         skill_name=$(basename "$skill")
+        # Relative path from .claude/skills/ to .claude/constructs/packs/<pack>/skills/<skill>
+        local relative_path="../constructs/packs/$pack_slug/skills/$skill_name"
+        local target_link="$skills_target/$skill_name"
 
-        # Use pack-skill format for namespacing (e.g., observer-observing-users)
-        # Note: Colons break Claude Code's trigger registration, must use hyphens
-        local namespaced_name="${pack_slug}-${skill_name}"
-        # Use absolute path for symlink target (handles custom LOA_CONSTRUCTS_DIR)
-        local abs_skill_path="$abs_skills_source/$skill_name"
-        local target_link="$claude_skills_dir/$namespaced_name"
-
-        # Remove existing symlink if present
-        if [[ -L "$target_link" ]]; then
-            rm -f "$target_link"
-        elif [[ -d "$target_link" ]]; then
-            print_warning "  Skipping skill $skill_name: directory exists"
+        # Check for collision with existing non-symlink path (directory, file, etc.)
+        if [[ -e "$target_link" ]] && [[ ! -L "$target_link" ]]; then
+            print_warning "  Skipping skill $skill_name: existing non-symlink path present"
             continue
         fi
 
-        # Create symlink to .claude/skills (where Claude Code looks for skills)
-        ln -sf "$abs_skill_path" "$target_link"
+        # Remove existing symlink if present (from same or different pack)
+        if [[ -L "$target_link" ]]; then
+            rm -f "$target_link"
+        fi
+
+        # Validate symlink target (M-003)
+        if ! validate_symlink_target "$relative_path" "constructs/packs/$pack_slug/skills" "$skills_target"; then
+            print_warning "  Skipping skill $skill_name: symlink validation failed"
+            continue
+        fi
+
+        # Create symlink
+        ln -sf "$relative_path" "$target_link"
         ((linked++))
     done
 
     echo "$linked"
 }
 
-# Remove pack skill symlinks from .claude/skills
+# Remove pack skill symlinks from .claude/skills/
 # Args:
 #   $1 - Pack slug
 unlink_pack_skills() {
     local pack_slug="$1"
-    local claude_skills_dir=".claude/skills"
+    local pack_dir="$(get_packs_dir)/$pack_slug"
+    local skills_source="$pack_dir/skills"
+    # Use repo root to ensure correct path regardless of cwd
+    local repo_root
+    repo_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    local skills_target="$repo_root/.claude/skills"
 
-    # Remove symlinks matching this pack's prefix (hyphen separator)
-    if [[ -d "$claude_skills_dir" ]]; then
-        find "$claude_skills_dir" -maxdepth 1 -type l -name "${pack_slug}-*" -delete 2>/dev/null || true
-        # Also clean up old colon-separated symlinks from previous versions
-        find "$claude_skills_dir" -maxdepth 1 -type l -name "${pack_slug}:*" -delete 2>/dev/null || true
+    # Check if pack has skills directory
+    if [[ ! -d "$skills_source" ]]; then
+        return 0
+    fi
+
+    # Remove symlinks for each skill in this pack
+    for skill in "$skills_source"/*/; do
+        [[ -d "$skill" ]] || continue
+
+        local skill_name
+        skill_name=$(basename "$skill")
+        local target_link="$skills_target/$skill_name"
+
+        # Only remove if it's a symlink pointing to this pack
+        if [[ -L "$target_link" ]]; then
+            local link_target
+            link_target=$(readlink "$target_link" 2>/dev/null || echo "")
+            if [[ "$link_target" == *"constructs/packs/$pack_slug/skills/"* ]]; then
+                rm -f "$target_link"
+            fi
+        fi
+    done
+
+    # Also clean up legacy location if it exists
+    local legacy_target="$(get_skills_dir)/$pack_slug"
+    if [[ -d "$legacy_target" ]]; then
+        rm -rf "$legacy_target"
     fi
 }
 

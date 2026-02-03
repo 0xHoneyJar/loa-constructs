@@ -1,0 +1,13 @@
+name: generating-markdown
+slug: generating-markdown
+version: 1.0.0
+description: Add markdown export capability to Next.js pages via content negotiation and/or copy button. Detects codebase patterns to generate tailored code.
+entry: SKILL.md
+triggers:
+  - /add-markdown
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Grep
+  - Edit

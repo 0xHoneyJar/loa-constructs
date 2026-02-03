@@ -1,85 +1,88 @@
 /**
  * Seed Forge Constructs
  *
- * Creates the initial packs from the forge repository manifests.
+ * Creates the initial packs from local sandbox manifests.
+ * Now reads from apps/sandbox/packs/ instead of hardcoded data.
+ *
  * Run with: DATABASE_URL="..." pnpm tsx scripts/seed-forge-packs.ts
  */
 
 import postgres from 'postgres';
 import { randomUUID, randomBytes } from 'crypto';
 import bcrypt from 'bcrypt';
+import { readdir, readFile } from 'fs/promises';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-const FORGE_PACKS = [
-  {
-    name: 'Observer',
-    slug: 'observer',
-    version: '1.0.0',
-    description: 'User truth capture skills for hypothesis-first research',
-    icon: '👁️',
-    skills: [
-      'observing-users',
-      'shaping-journeys',
-      'level-3-diagnostic',
-      'analyzing-gaps',
-      'filing-gaps',
-      'importing-research',
-    ],
-  },
-  {
-    name: 'Crucible',
-    slug: 'crucible',
-    version: '1.0.0',
-    description: 'Validation and testing skills for journey verification',
-    icon: '🧪',
-    skills: [
-      'validating-journeys',
-      'grounding-code',
-      'iterating-feedback',
-      'walking-through',
-      'diagramming-states',
-    ],
-  },
-  {
-    name: 'Artisan',
-    slug: 'artisan',
-    version: '1.0.0',
-    description: 'Brand and UI craftsmanship skills for design systems and motion',
-    icon: '🎨',
-    skills: [
-      'animating-motion',
-      'applying-behavior',
-      'crafting-physics',
-      'distilling-components',
-      'inscribing-taste',
-      'styling-material',
-      'surveying-patterns',
-      'synthesizing-taste',
-      'validating-physics',
-      'web3-testing',
-    ],
-  },
-  {
-    name: 'Beacon',
-    slug: 'beacon',
-    version: '1.0.0',
-    description:
-      'Signal readiness to the agent network with AI-retrievable content, trust auditing, and x402 payment endpoints',
-    icon: '🔔',
-    skills: [
-      'auditing-content',
-      'generating-markdown',
-      'optimizing-chunks',
-      'discovering-endpoints',
-      'defining-actions',
-      'accepting-payments',
-    ],
-  },
-];
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const SANDBOX_PATH = join(__dirname, '../apps/sandbox/packs');
+
+// Pack icons (not stored in manifest to keep manifests simple)
+const PACK_ICONS: Record<string, string> = {
+  observer: '👁️',
+  crucible: '🧪',
+  artisan: '🎨',
+  beacon: '🔔',
+};
+
+interface PackManifest {
+  schema_version: number;
+  name: string;
+  slug: string;
+  version: string;
+  description: string;
+  author?: string;
+  license?: string;
+  skills?: Array<{ slug: string; path?: string }>;
+}
+
+interface DiscoveredPack extends PackManifest {
+  icon: string;
+  skillSlugs: string[];
+}
+
+async function discoverPacks(): Promise<DiscoveredPack[]> {
+  console.log(`📂 Discovering packs in ${SANDBOX_PATH}...\n`);
+
+  const entries = await readdir(SANDBOX_PATH, { withFileTypes: true });
+  const packs: DiscoveredPack[] = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue;
+
+    const manifestPath = join(SANDBOX_PATH, entry.name, 'manifest.json');
+    try {
+      const content = await readFile(manifestPath, 'utf-8');
+      const manifest = JSON.parse(content) as PackManifest;
+
+      packs.push({
+        ...manifest,
+        icon: PACK_ICONS[manifest.slug] || '📦',
+        skillSlugs: manifest.skills?.map((s) => s.slug) || [],
+      });
+
+      console.log(`   Found: ${manifest.name} (${manifest.slug}) - ${manifest.skills?.length || 0} skills`);
+    } catch (e) {
+      console.warn(`   Skipping ${entry.name}: ${e instanceof Error ? e.message : 'unknown error'}`);
+    }
+  }
+
+  console.log(`\n   Total: ${packs.length} packs discovered\n`);
+  return packs;
+}
 
 async function seedForgePacks() {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     console.error('ERROR: DATABASE_URL environment variable is required');
+    process.exit(1);
+  }
+
+  // Discover packs from local manifests
+  const packs = await discoverPacks();
+
+  if (packs.length === 0) {
+    console.error('ERROR: No packs found in apps/sandbox/packs/');
     process.exit(1);
   }
 
@@ -137,7 +140,7 @@ async function seedForgePacks() {
 
       // Step 2: Create packs using UPSERT
       console.log('2. Creating packs...');
-      for (const pack of FORGE_PACKS) {
+      for (const pack of packs) {
         const packId = randomUUID();
         const packResult = await tx`
           INSERT INTO packs (
@@ -174,14 +177,14 @@ async function seedForgePacks() {
         // Step 3: Create pack version using UPSERT
         const versionId = randomUUID();
         const manifest = {
-          schema_version: 1,
+          schema_version: pack.schema_version || 1,
           name: pack.name,
           slug: pack.slug,
           version: pack.version,
           description: pack.description,
-          author: '0xHoneyJar',
-          license: 'MIT',
-          skills: pack.skills.map((s) => ({ slug: s, path: `skills/${s}` })),
+          author: pack.author || '0xHoneyJar',
+          license: pack.license || 'MIT',
+          skills: pack.skillSlugs.map((s) => ({ slug: s, path: `skills/${s}` })),
         };
 
         await tx`
@@ -209,11 +212,12 @@ async function seedForgePacks() {
 
     // Step 4: Verify results (after transaction commits)
     console.log('\n3. Verification...');
+    const packSlugs = packs.map((p) => p.slug);
     const finalPacks = await client`
       SELECT p.slug, p.name, p.status, p.icon, COUNT(v.id) as versions
       FROM packs p
       LEFT JOIN pack_versions v ON v.pack_id = p.id
-      WHERE p.slug IN ('observer', 'crucible', 'artisan', 'beacon')
+      WHERE p.slug = ANY(${packSlugs})
       GROUP BY p.id
       ORDER BY p.name
     `;
@@ -227,7 +231,7 @@ async function seedForgePacks() {
 
     const savedKey = (global as any).__apiKey;
     if (savedKey) {
-      console.log('\n📋 Add to forge/.env:');
+      console.log('\n📋 Add to apps/sandbox/.env:');
       console.log(`LOA_CONSTRUCTS_API_KEY=${savedKey}`);
       console.log('LOA_CONSTRUCTS_API_URL=https://loa-constructs-api-production.up.railway.app/v1');
     }
