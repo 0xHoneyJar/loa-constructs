@@ -19,6 +19,7 @@ out/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.railway
 
 # IDE and Editor
 .vscode/
@@ -37,6 +38,7 @@ out/
 .claude/skills/pricing-strategist/
 .claude/skills/reviewing-gtm/
 .claude/skills/translating-for-stakeholders/
+.claude/skills/observer-*
 .claude/commands/gtm-*.md
 .claude/commands/review-gtm.md
 .claude/commands/sync-from-gtm.md
