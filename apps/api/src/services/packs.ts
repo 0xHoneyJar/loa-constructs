@@ -365,10 +365,13 @@ export async function getPackVersions(packId: string): Promise<PackVersion[]> {
 export async function getLatestPackVersion(
   packId: string
 ): Promise<PackVersion | null> {
+  // Derive latest by published_at timestamp instead of relying on isLatest flag
+  // This avoids data integrity issues when multiple versions have isLatest=true
   const [version] = await db
     .select()
     .from(packVersions)
-    .where(and(eq(packVersions.packId, packId), eq(packVersions.isLatest, true)))
+    .where(eq(packVersions.packId, packId))
+    .orderBy(desc(packVersions.publishedAt))
     .limit(1);
 
   return version || null;

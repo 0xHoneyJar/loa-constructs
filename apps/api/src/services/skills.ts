@@ -427,12 +427,15 @@ export async function getSkillVersions(skillId: string): Promise<SkillVersion[]>
 
 /**
  * Get latest version of a skill
+ * Derives latest by published_at timestamp instead of relying on isLatest flag
+ * This avoids data integrity issues when multiple versions have isLatest=true
  */
 export async function getLatestVersion(skillId: string): Promise<SkillVersion | null> {
   const result = await db
     .select()
     .from(skillVersions)
-    .where(and(eq(skillVersions.skillId, skillId), eq(skillVersions.isLatest, true)))
+    .where(eq(skillVersions.skillId, skillId))
+    .orderBy(desc(skillVersions.publishedAt))
     .limit(1);
 
   if (result.length === 0) {
