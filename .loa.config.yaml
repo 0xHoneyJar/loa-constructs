@@ -264,8 +264,8 @@ registry:
   # Master toggle for registry features
   enabled: true
   # Default registry API URL (can be overridden with LOA_REGISTRY_URL env var)
-  # Note: Production API endpoint for Loa Constructs
-  default_url: "https://loa-constructs-api.fly.dev/v1"
+  # Note: Production API endpoint for Loa Constructs (migrated from Fly.io to Railway)
+  default_url: "https://loa-constructs-api-production.up.railway.app/v1"
   # Cache public keys for N hours (reduces API calls)
   public_key_cache_hours: 24
   # Load registry skills during /setup
