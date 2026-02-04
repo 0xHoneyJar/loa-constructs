@@ -2,7 +2,7 @@
   "schema_version": 1,
   "name": "Sigil of the Beacon",
   "slug": "beacon",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "Signal readiness to the agent network with AI-retrievable content, trust auditing, and x402 payment endpoints",
   "author": "0xHoneyJar",
   "license": "MIT",
