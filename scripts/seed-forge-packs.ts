@@ -174,7 +174,14 @@ async function seedForgePacks() {
         const resolvedPackId = packResult[0].id as string;
         console.log(`   ✓ ${pack.slug}: upserted (${resolvedPackId})`);
 
-        // Step 3: Create pack version using UPSERT
+        // Step 3: Unset isLatest on existing versions (required by partial unique constraint)
+        await tx`
+          UPDATE pack_versions
+          SET is_latest = false
+          WHERE pack_id = ${resolvedPackId}
+        `;
+
+        // Step 4: Create pack version using UPSERT
         const versionId = randomUUID();
         const manifest = {
           schema_version: pack.schema_version || 1,
