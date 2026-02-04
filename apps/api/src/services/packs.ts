@@ -5,6 +5,7 @@
  */
 
 import { eq, and, desc, sql, ilike, or } from 'drizzle-orm';
+import * as semver from 'semver';
 import {
   db,
   packs,
@@ -365,16 +366,25 @@ export async function getPackVersions(packId: string): Promise<PackVersion[]> {
 export async function getLatestPackVersion(
   packId: string
 ): Promise<PackVersion | null> {
-  // Derive latest by published_at timestamp instead of relying on isLatest flag
+  // Fetch all versions and determine latest by semver comparison
   // This avoids data integrity issues when multiple versions have isLatest=true
-  const [version] = await db
+  const versions = await db
     .select()
     .from(packVersions)
-    .where(eq(packVersions.packId, packId))
-    .orderBy(desc(packVersions.publishedAt))
-    .limit(1);
+    .where(eq(packVersions.packId, packId));
 
-  return version || null;
+  if (versions.length === 0) {
+    return null;
+  }
+
+  // Sort by semver (descending) and take the first
+  const sorted = versions.sort((a, b) => {
+    const versionA = semver.valid(a.version) ? a.version : '0.0.0';
+    const versionB = semver.valid(b.version) ? b.version : '0.0.0';
+    return semver.rcompare(versionA, versionB);
+  });
+
+  return sorted[0];
 }
 
 /**

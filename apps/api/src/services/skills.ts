@@ -6,6 +6,7 @@
 
 import { db, skills, skillVersions, skillFiles, skillUsage, users, teams } from '../db/index.js';
 import { eq, and, or, desc, asc, sql, ilike } from 'drizzle-orm';
+import * as semver from 'semver';
 import { getRedis, isRedisConfigured, CACHE_KEYS, CACHE_TTL } from './redis.js';
 import { logger } from '../lib/logger.js';
 import { type SubscriptionTier } from './subscription.js';
@@ -427,22 +428,27 @@ export async function getSkillVersions(skillId: string): Promise<SkillVersion[]>
 
 /**
  * Get latest version of a skill
- * Derives latest by published_at timestamp instead of relying on isLatest flag
+ * Derives latest by semver comparison instead of relying on isLatest flag
  * This avoids data integrity issues when multiple versions have isLatest=true
  */
 export async function getLatestVersion(skillId: string): Promise<SkillVersion | null> {
   const result = await db
     .select()
     .from(skillVersions)
-    .where(eq(skillVersions.skillId, skillId))
-    .orderBy(desc(skillVersions.publishedAt))
-    .limit(1);
+    .where(eq(skillVersions.skillId, skillId));
 
   if (result.length === 0) {
     return null;
   }
 
-  const v = result[0];
+  // Sort by semver (descending) and take the first
+  const sorted = result.sort((a, b) => {
+    const versionA = semver.valid(a.version) ? a.version : '0.0.0';
+    const versionB = semver.valid(b.version) ? b.version : '0.0.0';
+    return semver.rcompare(versionA, versionB);
+  });
+
+  const v = sorted[0];
   return {
     id: v.id,
     skillId: v.skillId,
