@@ -1,504 +1,270 @@
-# Sprint Plan: Intelligent Construct Discovery
+# Sprint Plan: isLatest Flag Data Integrity Fix
 
-**Version**: 1.0.0
-**Date**: 2026-01-31
-**Author**: Sprint Planner Agent
+**Cycle**: cycle-013
+**Issue**: [#86](https://github.com/0xHoneyJar/loa-constructs/issues/86)
+**Created**: 2026-02-03
 **Status**: Ready for Implementation
-**Cycle**: cycle-007
-**Issue**: [#51](https://github.com/0xHoneyJar/loa-constructs/issues/51)
-**PRD Reference**: grimoires/loa/prd.md v1.0.0
-**SDD Reference**: grimoires/loa/sdd.md v1.0.0
+**PRD**: grimoires/loa/prd.md
+**SDD**: grimoires/loa/sdd.md
 
 ---
 
 ## Sprint Overview
 
-### Project Summary
+**Sprint 1**: Complete isLatest Fix (Single Sprint)
 
-Enhance construct discovery in the Loa Constructs registry through multi-field search with relevance scoring and a proactive `finding-constructs` agent skill. Users will be able to discover relevant constructs more effectively through improved search quality and contextual suggestions.
-
-### Business Value
-
-| Metric | Impact |
-|--------|--------|
-| **Discovery Quality** | Top-3 results contain relevant match 80%+ of time |
-| **User Experience** | Find constructs without exact keyword matching |
-| **Agent Integration** | Proactive suggestions at the right moment |
-| **Adoption** | Lower friction to discover and install constructs |
-
-### Sprint Configuration
-
-| Parameter | Value |
-|-----------|-------|
-| **Sprint Count** | 3 (Sprints 19-21) |
-| **Total Effort** | ~12-16 hours |
-| **Team Size** | 1 engineer |
-| **Risk Level** | Low |
-
-### Success Criteria
-
-- [ ] `search_keywords` and `search_use_cases` columns added to skills/packs
-- [ ] GIN indexes created for array search performance
-- [ ] Multi-field search matches across name, description, keywords, use_cases
-- [ ] Relevance scoring algorithm implemented
-- [ ] `relevance_score` and `match_reasons` returned when `?q=` present
-- [ ] Results sorted by relevance when searching
-- [ ] finding-constructs skill triggers on intent patterns
-- [ ] Skill presents top 3 results with install commands
-- [ ] OpenAPI documentation updated
-- [ ] All existing functionality preserved (backward compatible)
+This is a focused bug fix that can be completed in a single sprint. The work is divided into 3 logical phases that must be executed in order.
 
 ---
 
-## Sprint 19: Database & Schema
+## Phase 1: Code Changes
 
-**Goal**: Add search metadata columns and indexes to enable multi-field search
+### T1.1: Update `getConstructsSummary()` with Batch Optimization
 
-**Duration**: 1 sprint (~3-4 hours)
-
-### Tasks
-
-#### T19.1: Add search_keywords column to skills table
-
-**Description**: Add `search_keywords TEXT[]` column to the skills table for storing searchable keyword arrays.
+**Priority**: P0
+**File**: `apps/api/src/services/constructs.ts` (lines 537-599)
 
 **Acceptance Criteria**:
-- [ ] Column added with `DEFAULT '{}'`
-- [ ] Drizzle schema updated in `apps/api/src/db/schema.ts`
-- [ ] Migration generated and applied
-- [ ] Existing skills have empty array (backward compatible)
+- [ ] Remove LEFT JOIN on `packVersions` with `isLatest=true`
+- [ ] Add batch fetch: query all packs, then all their versions in one query
+- [ ] Group versions by `packId` in-memory using `Map<string, PackVersion>`
+- [ ] Select highest semver per pack using `semver.gt()`
+- [ ] Handle edge case: pack with 0 versions returns `version: null`
+- [ ] Maintain existing cache behavior
+- [ ] Query count: exactly 2 (packs + versions), not N+1
 
-**Effort**: S (30 min)
-**Dependencies**: None
+**Implementation Reference**: SDD §3.1
 
 ---
 
-#### T19.2: Add search_use_cases column to skills table
+### T1.2: Update `fetchSkillsAsConstructs()` - Remove isLatest JOIN
 
-**Description**: Add `search_use_cases TEXT[]` column to the skills table for storing use case descriptions.
+**Priority**: P0
+**File**: `apps/api/src/services/constructs.ts` (lines 659-776)
 
 **Acceptance Criteria**:
-- [ ] Column added with `DEFAULT '{}'`
-- [ ] Schema updated alongside T19.1
-- [ ] Existing skills have empty array
+- [ ] Remove LEFT JOIN on `skillVersions` with `isLatest=true`
+- [ ] Remove deduplication logic (`seenSkillIds` Set) - no longer needed
+- [ ] Query skills table directly without version JOIN
+- [ ] Continue using `getLatestSkillVersion()` for each skill
+- [ ] Maintain existing query conditions (isPublic, isDeprecated, maturity, tier, category)
 
-**Effort**: S (15 min)
-**Dependencies**: T19.1 (same migration)
+**Implementation Reference**: SDD §3.2
 
 ---
 
-#### T19.3: Add search_keywords column to packs table
+### T1.3: Update `fetchPacksAsConstructs()` - Remove isLatest JOIN
 
-**Description**: Add `search_keywords TEXT[]` column to the packs table.
+**Priority**: P0
+**File**: `apps/api/src/services/constructs.ts` (lines 778-874)
 
 **Acceptance Criteria**:
-- [ ] Column added with `DEFAULT '{}'`
-- [ ] Schema updated in same file
-- [ ] Migration covers both tables
+- [ ] Remove LEFT JOIN on `packVersions` with `isLatest=true`
+- [ ] Remove deduplication logic (`seenPackIds` Set) - no longer needed
+- [ ] Query packs table directly without version JOIN
+- [ ] Continue using `getLatestPackVersion()` for each pack
+- [ ] Maintain existing query conditions (status, maturity, tier, featured)
 
-**Effort**: S (15 min)
-**Dependencies**: T19.1 (same migration)
+**Implementation Reference**: SDD §3.3
 
 ---
 
-#### T19.4: Add search_use_cases column to packs table
+### T1.4: Verify No `isLatest` Reads Remain
 
-**Description**: Add `search_use_cases TEXT[]` column to the packs table.
+**Priority**: P1
+**Type**: Verification
 
 **Acceptance Criteria**:
-- [ ] Column added with `DEFAULT '{}'`
-- [ ] Schema complete for both tables
-
-**Effort**: S (15 min)
-**Dependencies**: T19.3 (same migration)
+- [ ] Run: `grep -n "isLatest" apps/api/src/services/constructs.ts`
+- [ ] Result: 0 matches (excluding comments)
+- [ ] All version resolution uses semver comparison
 
 ---
 
-#### T19.5: Create GIN indexes for search columns
+## Phase 2: Database Migration
 
-**Description**: Create GIN indexes on all search columns for efficient array containment queries.
+### T2.1: Run Pre-flight Validation
+
+**Priority**: P0
+**Type**: Database Check
 
 **Acceptance Criteria**:
-- [ ] `idx_skills_search_keywords` GIN index created
-- [ ] `idx_skills_search_use_cases` GIN index created
-- [ ] `idx_packs_search_keywords` GIN index created
-- [ ] `idx_packs_search_use_cases` GIN index created
-- [ ] Indexes defined in Drizzle schema
+- [ ] Execute pre-flight SQL on staging database:
+  ```sql
+  SELECT version FROM pack_versions
+  WHERE version !~ '^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$';
 
-**Effort**: S (30 min)
-**Dependencies**: T19.1-T19.4
+  SELECT version FROM skill_versions
+  WHERE version !~ '^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$';
+  ```
+- [ ] Document any non-standard versions found
+- [ ] If rows returned: handle manually or adjust migration
+
+**Implementation Reference**: SDD §4.1
 
 ---
 
-#### T19.6: Generate and verify migration
+### T2.2: Create Migration File
 
-**Description**: Generate Drizzle migration and verify it applies cleanly.
+**Priority**: P0
+**File**: `apps/api/src/db/migrations/0001_fix_islatest_constraint.sql`
 
 **Acceptance Criteria**:
-- [ ] `npx drizzle-kit generate` creates migration
-- [ ] Migration file reviewed for correctness
-- [ ] TypeScript types updated
-- [ ] Local database migration succeeds
+- [ ] File contains data fix for pack_versions (keep highest semver)
+- [ ] File contains data fix for skill_versions (keep highest semver)
+- [ ] File creates partial unique index on pack_versions
+- [ ] File creates partial unique index on skill_versions
+- [ ] File includes verification queries
 
-**Effort**: S (30 min)
-**Dependencies**: T19.5
-
----
-
-### Sprint 19 Deliverables
-
-| Deliverable | Location |
-|-------------|----------|
-| Schema changes | `apps/api/src/db/schema.ts` |
-| Migration | `apps/api/drizzle/migrations/` |
+**Implementation Reference**: SDD §4.2
 
 ---
 
-## Sprint 20: Search Service Enhancement
+### T2.3: Test Migration on Staging
 
-**Goal**: Implement multi-field search with relevance scoring
-
-**Duration**: 1 sprint (~5-6 hours)
-
-### Tasks
-
-#### T20.1: Implement calculateRelevanceScore function
-
-**Description**: Create a function that calculates relevance score based on match weights.
+**Priority**: P0
+**Type**: Staging Deployment
 
 **Acceptance Criteria**:
-- [ ] Function accepts construct data and query terms
-- [ ] Weights applied: name(1.0/0.8), keywords(0.9), use_cases(0.7), description(0.6)
-- [ ] Popularity boost via log-scale downloads (0.3)
-- [ ] Maturity boost: stable(0.2), beta(0.15), experimental(0.05)
-- [ ] Rating boost when present (0.2)
-- [ ] Returns `{ score: number, matchReasons: string[] }`
-- [ ] Score capped at 2.0
-
-**Effort**: M (1.5 hours)
-**Dependencies**: None
+- [ ] Run migration on staging database
+- [ ] Verification queries return 0 rows:
+  ```sql
+  SELECT pack_id, COUNT(*) FROM pack_versions
+  WHERE is_latest = true GROUP BY pack_id HAVING COUNT(*) > 1;
+  ```
+- [ ] API endpoints still work after migration
+- [ ] No constraint violations in staging logs
 
 ---
 
-#### T20.2: Implement multi-field SQL query builder
+### T2.4: Apply Migration to Production
 
-**Description**: Extend query conditions to match across all searchable fields.
+**Priority**: P0
+**Type**: Production Deployment
 
 **Acceptance Criteria**:
-- [ ] Query terms extracted from `?q=` parameter
-- [ ] ILIKE on name and description (existing)
-- [ ] Array overlap (`&&`) on search_keywords
-- [ ] Array overlap (`&&`) on search_use_cases
-- [ ] OR combination of all conditions
-- [ ] Terms properly escaped for SQL injection
-
-**Effort**: M (1 hour)
-**Dependencies**: Sprint 19 complete
+- [ ] Code changes deployed before migration
+- [ ] Run migration on production database
+- [ ] Monitor for constraint violations
+- [ ] Verify API responses are correct
 
 ---
 
-#### T20.3: Update fetchSkillsAsConstructs to include new columns
+## Phase 3: Content Sync
 
-**Description**: Modify the skills fetch function to select and return search columns.
+### T3.1: Verify Artisan Pack Local Content
+
+**Priority**: P1
+**Type**: Verification
 
 **Acceptance Criteria**:
-- [ ] `search_keywords` selected from skills table
-- [ ] `search_use_cases` selected from skills table
-- [ ] Columns mapped to Construct interface
-- [ ] Empty arrays handled gracefully
-
-**Effort**: S (30 min)
-**Dependencies**: T20.2
+- [ ] Check `apps/sandbox/packs/artisan/manifest.json` has real commands
+- [ ] Commands array is populated (not placeholders)
+- [ ] At least 5 skills referenced
 
 ---
 
-#### T20.4: Update fetchPacksAsConstructs to include new columns
+### T3.2: Re-run Seed Script
 
-**Description**: Modify the packs fetch function to select and return search columns.
+**Priority**: P1
+**Type**: Script Execution
 
 **Acceptance Criteria**:
-- [ ] `search_keywords` selected from packs table
-- [ ] `search_use_cases` selected from packs table
-- [ ] Consistent with skills implementation
-
-**Effort**: S (30 min)
-**Dependencies**: T20.3
+- [ ] Run: `pnpm tsx scripts/seed-forge-packs.ts`
+- [ ] Script completes without errors
+- [ ] Artisan pack version updated in registry
 
 ---
 
-#### T20.5: Sort by relevance when query present
+### T3.3: Verify API Returns Correct Content
 
-**Description**: When `?q=` parameter is provided, sort results by relevance score.
+**Priority**: P1
+**Type**: Verification
 
 **Acceptance Criteria**:
-- [ ] When `query` present: sort by `relevance_score DESC, downloads DESC`
-- [ ] When `query` absent: sort by `downloads DESC` (existing behavior)
-- [ ] Application-layer sort after scoring
-
-**Effort**: S (30 min)
-**Dependencies**: T20.1, T20.4
+- [ ] `GET /v1/constructs/artisan` returns real manifest
+- [ ] Commands array is populated
+- [ ] Version is correct
+- [ ] No placeholder text in response
 
 ---
 
-#### T20.6: Add relevance_score and match_reasons to response
+## Definition of Done
 
-**Description**: Include relevance data in API response when searching.
+### Sprint Complete When:
 
-**Acceptance Criteria**:
-- [ ] `relevance_score` field added to construct in response
-- [ ] `match_reasons` array added to construct in response
-- [ ] Only present when `?q=` parameter provided
-- [ ] Null/undefined when not searching (backward compatible)
+1. **Code**:
+   - [ ] Zero `isLatest` reads in `constructs.ts` service functions
+   - [ ] `getConstructsSummary()` uses batch optimization (2 queries)
+   - [ ] No deduplication logic needed in fetch functions
 
-**Effort**: S (30 min)
-**Dependencies**: T20.5
+2. **Database**:
+   - [ ] Pre-flight validation passed
+   - [ ] Migration applied to production
+   - [ ] Partial unique indexes active
+   - [ ] Zero duplicate `isLatest=true` per pack/skill
 
----
+3. **Content**:
+   - [ ] Artisan pack shows real content via API
 
-#### T20.7: Update OpenAPI spec with new fields
-
-**Description**: Document the new response fields in OpenAPI specification.
-
-**Acceptance Criteria**:
-- [ ] `search_keywords` documented on Construct schema
-- [ ] `search_use_cases` documented on Construct schema
-- [ ] `relevance_score` documented (nullable)
-- [ ] `match_reasons` documented (nullable array)
-- [ ] Description explains when fields are present
-
-**Effort**: S (30 min)
-**Dependencies**: T20.6
+4. **Quality**:
+   - [ ] All existing tests pass
+   - [ ] No API latency regression (<200ms p95)
+   - [ ] No errors in production logs
 
 ---
 
-#### T20.8: Unit tests for scoring algorithm
+## Task Dependencies
 
-**Description**: Write unit tests for the relevance scoring function.
+```
+┌─────────────────────────────────────────────────────────┐
+│  T1.1  →  T1.2  →  T1.3  →  T1.4                       │
+│  (getConstructsSummary)  (fetchSkills)  (fetchPacks)   │
+│              │                                          │
+│              ▼                                          │
+│  T2.1  →  T2.2  →  T2.3  →  T2.4                       │
+│  (preflight)   (migration)   (staging)   (production)  │
+│                                    │                    │
+│                                    ▼                    │
+│                          T3.1  →  T3.2  →  T3.3        │
+│                          (verify)  (seed)   (api)       │
+└─────────────────────────────────────────────────────────┘
+```
 
-**Acceptance Criteria**:
-- [ ] Test exact name match scores highest
-- [ ] Test keyword match boosts score
-- [ ] Test use case match boosts score
-- [ ] Test description-only match scores lower
-- [ ] Test popularity boost (log scale)
-- [ ] Test maturity boost (stable > beta > experimental)
-- [ ] Test multi-term queries
-- [ ] Test empty/missing fields handled
-
-**Effort**: M (1 hour)
-**Dependencies**: T20.1
-
----
-
-#### T20.9: Integration tests for search
-
-**Description**: Write integration tests for the enhanced search endpoint.
-
-**Acceptance Criteria**:
-- [ ] Test search returns relevance_score when q present
-- [ ] Test results sorted by relevance
-- [ ] Test keyword match ranks higher than description-only
-- [ ] Test no relevance_score when q absent
-- [ ] Test empty query returns all (existing behavior)
-
-**Effort**: M (1 hour)
-**Dependencies**: T20.6
+**Critical Path**: T1.1 → T1.4 → T2.1 → T2.4 → T3.3
 
 ---
 
-### Sprint 20 Deliverables
+## Risk Mitigation
 
-| Deliverable | Location |
-|-------------|----------|
-| Scoring function | `apps/api/src/services/constructs.ts` |
-| Search enhancement | `apps/api/src/services/constructs.ts` |
-| Response update | `apps/api/src/routes/constructs.ts` |
-| OpenAPI update | `apps/api/src/docs/openapi.ts` |
-| Unit tests | `apps/api/src/services/constructs.test.ts` |
-| Integration tests | `apps/api/tests/e2e/constructs.test.ts` |
+| Risk | Mitigation | Owner |
+|------|------------|-------|
+| Pre-flight finds non-standard versions | Handle manually before migration | Developer |
+| Migration fails on production | Have rollback SQL ready | Developer |
+| API latency regresses | Monitor p95, batch optimization verified | Developer |
 
 ---
 
-## Sprint 21: finding-constructs Skill
+## Rollback Plan
 
-**Goal**: Create agent skill for proactive construct discovery
-
-**Duration**: 1 sprint (~4-5 hours)
-
-### Tasks
-
-#### T21.1: Create skill directory structure
-
-**Description**: Set up the finding-constructs skill directory with required files.
-
-**Acceptance Criteria**:
-- [ ] Directory created at `.claude/skills/finding-constructs/`
-- [ ] `index.yaml` file created
-- [ ] `SKILL.md` file created
-- [ ] `resources/` directory created
-- [ ] `resources/triggers.md` file created
-
-**Effort**: S (15 min)
-**Dependencies**: None
+1. **Code rollback**: Revert PR via GitHub
+2. **Constraint rollback**:
+   ```sql
+   DROP INDEX IF EXISTS idx_pack_versions_single_latest;
+   DROP INDEX IF EXISTS idx_skill_versions_single_latest;
+   ```
+3. **Data rollback**: Not needed (data fix only removes incorrect flags)
 
 ---
 
-#### T21.2: Write index.yaml with triggers
+## References
 
-**Description**: Define skill metadata and trigger patterns in index.yaml.
-
-**Acceptance Criteria**:
-- [ ] Name, version, description defined
-- [ ] Trigger patterns: "find a skill for", "find a construct for"
-- [ ] Trigger patterns: "is there a construct that", "I need help with"
-- [ ] Trigger patterns: "how do I do"
-- [ ] Domain hints: security, testing, deployment, documentation
-- [ ] Allowed tools: WebFetch, Read
-
-**Effort**: S (30 min)
-**Dependencies**: T21.1
-
----
-
-#### T21.3: Write SKILL.md workflow
-
-**Description**: Implement the discovery workflow logic in SKILL.md.
-
-**Acceptance Criteria**:
-- [ ] Step 1: Extract keywords from user intent
-- [ ] Step 2: Query API `GET /v1/constructs?q=keywords&limit=5`
-- [ ] Step 3: Filter results with relevance_score >= 0.5
-- [ ] Step 4: Present top 3 with name, description, relevance %, install command
-- [ ] Step 5: Offer choice between install or direct assistance
-- [ ] Response format is clear and actionable
-
-**Effort**: M (1.5 hours)
-**Dependencies**: T21.2, Sprint 20 complete
-
----
-
-#### T21.4: Add fallback behavior
-
-**Description**: Implement graceful fallback when no relevant constructs found.
-
-**Acceptance Criteria**:
-- [ ] If no results or all below 0.5 threshold
-- [ ] Offer direct assistance with the extracted task
-- [ ] Mention user can create their own skill with `skills init`
-- [ ] Tone is helpful, not apologetic
-
-**Effort**: S (30 min)
-**Dependencies**: T21.3
-
----
-
-#### T21.5: Write resources/triggers.md documentation
-
-**Description**: Document the trigger patterns and opt-out mechanism.
-
-**Acceptance Criteria**:
-- [ ] List all trigger patterns with examples
-- [ ] Explain domain hints and when they activate
-- [ ] Document opt-out via settings.json
-- [ ] Include example user messages that trigger the skill
-
-**Effort**: S (30 min)
-**Dependencies**: T21.2
-
----
-
-#### T21.6: Test skill trigger patterns
-
-**Description**: Manually test that the skill triggers correctly.
-
-**Acceptance Criteria**:
-- [ ] "find a skill for X" triggers skill
-- [ ] "is there a construct that..." triggers skill
-- [ ] "I need help with deployment" triggers skill
-- [ ] Regular questions don't trigger skill
-- [ ] Skill presents results correctly
-
-**Effort**: M (1 hour)
-**Dependencies**: T21.4
-
----
-
-#### T21.7: Document opt-out mechanism
-
-**Description**: Add documentation for disabling the skill.
-
-**Acceptance Criteria**:
-- [ ] Settings.json snippet in SKILL.md
-- [ ] Explain when user might want to opt out
-- [ ] Note that opt-out is per-project
-
-**Effort**: S (15 min)
-**Dependencies**: T21.5
-
----
-
-### Sprint 21 Deliverables
-
-| Deliverable | Location |
-|-------------|----------|
-| Skill index | `.claude/skills/finding-constructs/index.yaml` |
-| Skill workflow | `.claude/skills/finding-constructs/SKILL.md` |
-| Trigger docs | `.claude/skills/finding-constructs/resources/triggers.md` |
-
----
-
-## Appendix A: Task Summary
-
-| Sprint | Task | Effort | Dependencies |
-|--------|------|--------|--------------|
-| 19 | T19.1: search_keywords to skills | S | - |
-| 19 | T19.2: search_use_cases to skills | S | T19.1 |
-| 19 | T19.3: search_keywords to packs | S | T19.1 |
-| 19 | T19.4: search_use_cases to packs | S | T19.3 |
-| 19 | T19.5: GIN indexes | S | T19.1-T19.4 |
-| 19 | T19.6: Generate migration | S | T19.5 |
-| 20 | T20.1: calculateRelevanceScore | M | - |
-| 20 | T20.2: Multi-field SQL builder | M | Sprint 19 |
-| 20 | T20.3: fetchSkillsAsConstructs update | S | T20.2 |
-| 20 | T20.4: fetchPacksAsConstructs update | S | T20.3 |
-| 20 | T20.5: Sort by relevance | S | T20.1, T20.4 |
-| 20 | T20.6: Response enhancement | S | T20.5 |
-| 20 | T20.7: OpenAPI update | S | T20.6 |
-| 20 | T20.8: Unit tests | M | T20.1 |
-| 20 | T20.9: Integration tests | M | T20.6 |
-| 21 | T21.1: Skill directory | S | - |
-| 21 | T21.2: index.yaml | S | T21.1 |
-| 21 | T21.3: SKILL.md workflow | M | T21.2, Sprint 20 |
-| 21 | T21.4: Fallback behavior | S | T21.3 |
-| 21 | T21.5: triggers.md docs | S | T21.2 |
-| 21 | T21.6: Test triggers | M | T21.4 |
-| 21 | T21.7: Opt-out docs | S | T21.5 |
-
-**Effort Key**: S = Small (< 30 min), M = Medium (30 min - 2 hours), L = Large (> 2 hours)
-
----
-
-## Appendix B: Goal Traceability
-
-| Goal | Tasks |
-|------|-------|
-| G-1 (Discoverable at right moment) | T21.1-T21.7 |
-| G-2 (Quality search results 80%+) | T20.1-T20.6, T20.8-T20.9 |
-| G-3 (Non-intrusive <5% rejection) | T21.2, T21.4, T21.7 |
-| G-4 (API-first discovery) | T19.1-T19.6, T20.7 |
-
----
-
-## Appendix C: E2E Validation Task
-
-**Final Sprint (21) includes E2E goal validation:**
-
-- [ ] G-1: finding-constructs skill triggers on patterns, surfaces relevant construct
-- [ ] G-2: Search query returns top-3 with relevance_score, matches expected construct
-- [ ] G-3: Skill fallback tested, opt-out mechanism documented
-- [ ] G-4: API returns search metadata, OpenAPI documented
+- **PRD**: grimoires/loa/prd.md
+- **SDD**: grimoires/loa/sdd.md
+- **Issue**: https://github.com/0xHoneyJar/loa-constructs/issues/86
+- **Context**: grimoires/loa/context/issue-86-islatest-fix.md
 
 ---
 
 **Document Status**: Ready for Implementation
-**Next Step**: `/implement sprint-19` (or `/run sprint-19` for autonomous execution)
+**Next Step**: `/implement sprint-1` or `/run sprint-plan`

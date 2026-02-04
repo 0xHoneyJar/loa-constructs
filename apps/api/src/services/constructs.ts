@@ -6,6 +6,7 @@
  */
 
 import { eq, and, or, desc, sql, ilike, inArray } from 'drizzle-orm';
+import semver from 'semver';
 import {
   db,
   skills,
@@ -18,6 +19,8 @@ import {
 import { getRedis, isRedisConfigured, CACHE_KEYS, CACHE_TTL } from './redis.js';
 import { normalizeCategory } from './category.js';
 import { logger } from '../lib/logger.js';
+import { getLatestPackVersion } from './packs.js';
+import { getLatestVersion as getLatestSkillVersion } from './skills.js';
 import type { ConstructManifest } from '../lib/manifest-validator.js';
 
 // Re-export for consumers
@@ -553,23 +556,60 @@ export async function getConstructsSummary(): Promise<{
     }
   }
 
-  // Fetch all published packs with manifests
+  // Step 1: Fetch all published packs (no version JOIN)
+  // @see sdd.md §3.1 Batch Optimization - avoids N+1 queries
   const packsData = await db
     .select({
+      id: packs.id,
       slug: packs.slug,
       name: packs.name,
       tierRequired: packs.tierRequired,
-      manifest: packVersions.manifest,
     })
     .from(packs)
-    .leftJoin(
-      packVersions,
-      and(eq(packVersions.packId, packs.id), eq(packVersions.isLatest, true))
-    )
     .where(eq(packs.status, 'published'));
 
+  if (packsData.length === 0) {
+    const emptyResult = {
+      constructs: [],
+      total: 0,
+      last_updated: new Date().toISOString(),
+    };
+    if (isRedisConfigured()) {
+      try {
+        await getRedis().set(cacheKey, JSON.stringify(emptyResult), { ex: CACHE_TTL.constructSummary });
+      } catch (error) {
+        logger.warn({ error }, 'Failed to cache empty constructs summary');
+      }
+    }
+    return emptyResult;
+  }
+
+  // Step 2: Batch fetch ALL versions for these packs (single query)
+  const packIds = packsData.map(p => p.id);
+  const allVersions = await db
+    .select()
+    .from(packVersions)
+    .where(inArray(packVersions.packId, packIds));
+
+  // Step 3: Group by packId, pick highest semver for each
+  const latestByPack = new Map<string, typeof packVersions.$inferSelect>();
+  for (const version of allVersions) {
+    const current = latestByPack.get(version.packId);
+    if (!current) {
+      latestByPack.set(version.packId, version);
+    } else {
+      const currentSemver = semver.valid(current.version) || '0.0.0';
+      const newSemver = semver.valid(version.version) || '0.0.0';
+      if (semver.gt(newSemver, currentSemver)) {
+        latestByPack.set(version.packId, version);
+      }
+    }
+  }
+
+  // Step 4: Build response
   const constructs: ConstructSummary[] = packsData.map((p) => {
-    const manifest = p.manifest as ConstructManifest | null;
+    const latestVersion = latestByPack.get(p.id);
+    const manifest = latestVersion?.manifest as ConstructManifest | null;
     return {
       slug: p.slug,
       name: p.name,
@@ -722,14 +762,12 @@ async function fetchSkillsAsConstructs(options: {
   const whereClause = and(...conditions);
 
   try {
+    // Remove isLatest JOIN - we call getLatestSkillVersion() anyway
+    // @see sdd.md §3.2 - isLatest JOIN removal
     const [skillsResult, countResult] = await Promise.all([
       db
         .select()
         .from(skills)
-        .leftJoin(
-          skillVersions,
-          and(eq(skillVersions.skillId, skills.id), eq(skillVersions.isLatest, true))
-        )
         .where(whereClause)
         .orderBy(desc(skills.downloads))
         .limit(options.limit)
@@ -740,21 +778,13 @@ async function fetchSkillsAsConstructs(options: {
         .where(whereClause),
     ]);
 
-    // Deduplicate skills (in case of multiple isLatest versions)
-    const seenSkillIds = new Set<string>();
-    const uniqueSkillsResult = skillsResult.filter(row => {
-      if (seenSkillIds.has(row.skills.id)) {
-        return false;
-      }
-      seenSkillIds.add(row.skills.id);
-      return true;
-    });
-
-    // Get owner info for each skill
+    // No deduplication needed - query returns unique skills without version JOIN
+    // Get owner info and correct latest version for each skill
+    // Use semver-based getLatestSkillVersion for consistent version resolution
     const items: Construct[] = [];
-    for (const row of uniqueSkillsResult) {
-      const skill = row.skills;
-      const version = row.skill_versions;
+    for (const skill of skillsResult) {
+      // Get the correct latest version using semver comparison
+      const version = await getLatestSkillVersion(skill.id);
       const owner = await getOwnerInfo(skill.ownerId, skill.ownerType as 'user' | 'team');
       items.push(skillToConstruct(skill, version, owner, queryTerms.length > 0 ? queryTerms : undefined));
     }
@@ -818,14 +848,12 @@ async function fetchPacksAsConstructs(options: {
   const whereClause = and(...conditions);
 
   try {
+    // Remove isLatest JOIN - we call getLatestPackVersion() anyway
+    // @see sdd.md §3.3 - isLatest JOIN removal
     const [packsResult, countResult] = await Promise.all([
       db
         .select()
         .from(packs)
-        .leftJoin(
-          packVersions,
-          and(eq(packVersions.packId, packs.id), eq(packVersions.isLatest, true))
-        )
         .where(whereClause)
         .orderBy(desc(packs.downloads))
         .limit(options.limit)
@@ -836,21 +864,13 @@ async function fetchPacksAsConstructs(options: {
         .where(whereClause),
     ]);
 
-    // Deduplicate packs (in case of multiple isLatest versions)
-    const seenPackIds = new Set<string>();
-    const uniquePacksResult = packsResult.filter(row => {
-      if (seenPackIds.has(row.packs.id)) {
-        return false;
-      }
-      seenPackIds.add(row.packs.id);
-      return true;
-    });
-
-    // Get owner info for each pack
+    // No deduplication needed - query returns unique packs without version JOIN
+    // Get owner info and correct latest version for each pack
+    // Use semver-based getLatestPackVersion for consistent version resolution
     const items: Construct[] = [];
-    for (const row of uniquePacksResult) {
-      const pack = row.packs;
-      const version = row.pack_versions;
+    for (const pack of packsResult) {
+      // Get the correct latest version using semver comparison
+      const version = await getLatestPackVersion(pack.id);
       const owner = await getOwnerInfo(pack.ownerId, pack.ownerType as 'user' | 'team');
       items.push(packToConstruct(pack, version, owner, queryTerms.length > 0 ? queryTerms : undefined));
     }
@@ -869,20 +889,16 @@ async function fetchPacksAsConstructs(options: {
 
 async function fetchPackAsConstruct(slug: string): Promise<Construct | null> {
   try {
-    const [result] = await db
+    const [pack] = await db
       .select()
       .from(packs)
-      .leftJoin(
-        packVersions,
-        and(eq(packVersions.packId, packs.id), eq(packVersions.isLatest, true))
-      )
       .where(and(eq(packs.slug, slug), eq(packs.status, 'published')))
       .limit(1);
 
-    if (!result) return null;
+    if (!pack) return null;
 
-    const pack = result.packs;
-    const version = result.pack_versions;
+    // Get the correct latest version using semver comparison
+    const version = await getLatestPackVersion(pack.id);
     const owner = await getOwnerInfo(pack.ownerId, pack.ownerType as 'user' | 'team');
 
     return packToConstruct(pack, version, owner);
@@ -894,20 +910,16 @@ async function fetchPackAsConstruct(slug: string): Promise<Construct | null> {
 
 async function fetchSkillAsConstruct(slug: string): Promise<Construct | null> {
   try {
-    const [result] = await db
+    const [skill] = await db
       .select()
       .from(skills)
-      .leftJoin(
-        skillVersions,
-        and(eq(skillVersions.skillId, skills.id), eq(skillVersions.isLatest, true))
-      )
       .where(and(eq(skills.slug, slug), eq(skills.isPublic, true)))
       .limit(1);
 
-    if (!result) return null;
+    if (!skill) return null;
 
-    const skill = result.skills;
-    const version = result.skill_versions;
+    // Get the correct latest version using semver comparison
+    const version = await getLatestSkillVersion(skill.id);
     const owner = await getOwnerInfo(skill.ownerId, skill.ownerType as 'user' | 'team');
 
     return skillToConstruct(skill, version, owner);
