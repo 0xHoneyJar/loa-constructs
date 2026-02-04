@@ -43,6 +43,7 @@ const listConstructsSchema = z.object({
 // --- Formatters ---
 
 function formatConstruct(c: Construct) {
+  const manifestSummary = c.manifest ? formatManifestSummary(c.manifest) : null;
   return {
     id: c.id,
     type: c.type,
@@ -56,7 +57,8 @@ function formatConstruct(c: Construct) {
     downloads: c.downloads,
     rating: c.rating,
     is_featured: c.isFeatured,
-    manifest: c.manifest ? formatManifestSummary(c.manifest) : null,
+    skills_count: manifestSummary?.skills?.length || 0,
+    manifest: manifestSummary,
     latest_version: c.latestVersion
       ? {
           version: c.latestVersion.version,
@@ -104,7 +106,8 @@ function formatConstructDetail(c: Construct) {
 
 function formatManifestSummary(m: ConstructManifest) {
   return {
-    skills: m.skills?.map((s: { name: string }) => s.name) || [],
+    // Skills may have 'name' or 'slug' depending on manifest format
+    skills: m.skills?.map((s: { name?: string; slug?: string }) => s.name || s.slug).filter(Boolean) || [],
     commands: m.commands?.map((c: { name: string }) => c.name) || [],
     dependencies: m.dependencies || {},
   };

@@ -740,9 +740,19 @@ async function fetchSkillsAsConstructs(options: {
         .where(whereClause),
     ]);
 
+    // Deduplicate skills (in case of multiple isLatest versions)
+    const seenSkillIds = new Set<string>();
+    const uniqueSkillsResult = skillsResult.filter(row => {
+      if (seenSkillIds.has(row.skills.id)) {
+        return false;
+      }
+      seenSkillIds.add(row.skills.id);
+      return true;
+    });
+
     // Get owner info for each skill
     const items: Construct[] = [];
-    for (const row of skillsResult) {
+    for (const row of uniqueSkillsResult) {
       const skill = row.skills;
       const version = row.skill_versions;
       const owner = await getOwnerInfo(skill.ownerId, skill.ownerType as 'user' | 'team');
@@ -826,9 +836,19 @@ async function fetchPacksAsConstructs(options: {
         .where(whereClause),
     ]);
 
+    // Deduplicate packs (in case of multiple isLatest versions)
+    const seenPackIds = new Set<string>();
+    const uniquePacksResult = packsResult.filter(row => {
+      if (seenPackIds.has(row.packs.id)) {
+        return false;
+      }
+      seenPackIds.add(row.packs.id);
+      return true;
+    });
+
     // Get owner info for each pack
     const items: Construct[] = [];
-    for (const row of packsResult) {
+    for (const row of uniquePacksResult) {
       const pack = row.packs;
       const version = row.pack_versions;
       const owner = await getOwnerInfo(pack.ownerId, pack.ownerType as 'user' | 'team');
