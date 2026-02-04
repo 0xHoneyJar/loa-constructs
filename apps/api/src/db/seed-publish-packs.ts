@@ -1,5 +1,5 @@
 /**
- * Seed script to publish existing packs
+ * Seed script to publish all existing packs
  *
  * This fixes the issue where packs exist but have status='draft' instead of 'published',
  * causing them to not appear in the public /v1/constructs API.
@@ -15,19 +15,10 @@
  */
 
 import { db, packs } from './index.js';
-import { eq } from 'drizzle-orm';
-
-const PACKS_TO_PUBLISH = [
-  'observer',
-  'crucible',
-  'artisan',
-  'gtm-collective',
-  'sigil',
-  'beacon', // renamed from llm-ready
-];
+import { ne } from 'drizzle-orm';
 
 async function seedPublishPacks() {
-  console.log('Publishing packs...\n');
+  console.log('Publishing all packs...\n');
 
   // First, show current status of all packs
   const allPacks = await db
@@ -46,32 +37,25 @@ async function seedPublishPacks() {
   }
   console.log('');
 
-  // Update packs to published
-  let hadError = false;
-  for (const slug of PACKS_TO_PUBLISH) {
-    try {
-      const result = await db
-        .update(packs)
-        .set({
-          status: 'published',
-          updatedAt: new Date(),
-        })
-        .where(eq(packs.slug, slug))
-        .returning({ slug: packs.slug, status: packs.status, name: packs.name });
+  // Publish all unpublished packs in a single query
+  const unpublishedCount = allPacks.filter((p) => p.status !== 'published').length;
+  if (unpublishedCount === 0) {
+    console.log('All packs are already published!');
+  } else {
+    console.log(`Publishing ${unpublishedCount} pack(s)...`);
 
-      if (result.length > 0) {
-        console.log(`  ✓ Published: ${slug} (${result[0].name})`);
-      } else {
-        console.log(`  - ${slug}: not found (skipped)`);
-      }
-    } catch (error) {
-      hadError = true;
-      console.error(`  ✗ ${slug}: ${error}`);
+    const updated = await db
+      .update(packs)
+      .set({
+        status: 'published',
+        updatedAt: new Date(),
+      })
+      .where(ne(packs.status, 'published'))
+      .returning({ slug: packs.slug, name: packs.name });
+
+    for (const pack of updated) {
+      console.log(`  ✓ Published: ${pack.slug} (${pack.name})`);
     }
-  }
-
-  if (hadError) {
-    throw new Error('One or more pack updates failed');
   }
 
   // Show final status

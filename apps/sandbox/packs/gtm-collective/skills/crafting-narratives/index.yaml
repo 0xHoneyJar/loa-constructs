@@ -1,0 +1,70 @@
+name: "crafting-narratives"
+version: "1.0.0"
+model: "sonnet"
+color: "pink"
+
+description: |
+  Use this skill IF user invokes `/plan-launch` OR needs launch planning,
+  content calendar, or go-to-market execution plan.
+
+  Produces launch artifacts at `gtm-grimoire/execution/`.
+
+triggers:
+  - "/plan-launch"
+  - "launch plan"
+  - "go-to-market plan"
+  - "content calendar"
+  - "launch strategy"
+  - "product launch"
+  - "release plan"
+
+examples:
+  - context: "All strategy docs complete"
+    user_says: "/plan-launch"
+    agent_action: |
+      1. Read all strategy documents
+      2. Create phased launch timeline
+      3. Develop content calendar
+      4. Generate launch-plan.md and content-calendar.md
+
+inputs:
+  - name: "positioning"
+    type: "file"
+    path: "gtm-grimoire/strategy/positioning.md"
+    required: true
+  - name: "pricing"
+    type: "file"
+    path: "gtm-grimoire/strategy/pricing-strategy.md"
+    required: true
+  - name: "devrel"
+    type: "file"
+    path: "gtm-grimoire/strategy/devrel-strategy.md"
+    required: false
+
+outputs:
+  - path: "gtm-grimoire/execution/launch-plan.md"
+    description: "Phased launch timeline"
+  - path: "gtm-grimoire/execution/content-calendar.md"
+    description: "Content roadmap by channel"
+
+dependencies:
+  - artifact: "gtm-grimoire/strategy/positioning.md"
+    optional: false
+    purpose: "Messaging for launch content"
+  - artifact: "gtm-grimoire/strategy/pricing-strategy.md"
+    optional: false
+    purpose: "Pricing for announcements"
+
+protocols:
+  required:
+    - name: "session-continuity"
+      path: ".claude/protocols/session-continuity.md"
+    - name: "grounding-enforcement"
+      path: ".claude/protocols/grounding-enforcement.md"
+
+pack:
+  id: "gtm-collective"
+  requires_subscription: true
+
+parallel_execution:
+  enabled: false

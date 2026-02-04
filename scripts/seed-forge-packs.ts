@@ -30,6 +30,7 @@ const PACK_ICONS: Record<string, string> = {
   crucible: '🧪',
   artisan: '🎨',
   beacon: '🔔',
+  'gtm-collective': '🚀',
 };
 
 interface PackManifest {

@@ -1,0 +1,66 @@
+name: "pricing-strategist"
+version: "1.0.0"
+model: "sonnet"
+color: "green"
+
+description: |
+  Use this skill IF user invokes `/price` OR needs pricing strategy,
+  tier structure, or monetization model.
+
+  Produces pricing strategy at `gtm-grimoire/strategy/pricing-strategy.md`.
+
+triggers:
+  - "/price"
+  - "pricing strategy"
+  - "pricing model"
+  - "how much should we charge"
+  - "monetization"
+  - "tier structure"
+  - "freemium"
+  - "subscription pricing"
+
+examples:
+  - context: "Positioning complete"
+    user_says: "/price"
+    agent_action: |
+      1. Read positioning and research artifacts
+      2. Analyze competitive pricing
+      3. Develop pricing model
+      4. Create tier structure
+      5. Generate pricing-strategy.md
+
+inputs:
+  - name: "positioning"
+    type: "file"
+    path: "gtm-grimoire/strategy/positioning.md"
+    required: true
+  - name: "competitive_analysis"
+    type: "file"
+    path: "gtm-grimoire/research/competitive-analysis.md"
+    required: true
+
+outputs:
+  - path: "gtm-grimoire/strategy/pricing-strategy.md"
+    description: "Pricing model, tier structure, value metrics"
+
+dependencies:
+  - artifact: "gtm-grimoire/strategy/positioning.md"
+    optional: false
+    purpose: "Align pricing with positioning"
+  - artifact: "gtm-grimoire/research/competitive-analysis.md"
+    optional: false
+    purpose: "Competitive pricing reference"
+
+protocols:
+  required:
+    - name: "session-continuity"
+      path: ".claude/protocols/session-continuity.md"
+    - name: "grounding-enforcement"
+      path: ".claude/protocols/grounding-enforcement.md"
+
+pack:
+  id: "gtm-collective"
+  requires_subscription: true
+
+parallel_execution:
+  enabled: false

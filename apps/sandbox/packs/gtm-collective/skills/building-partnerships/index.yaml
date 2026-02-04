@@ -1,0 +1,62 @@
+name: "building-partnerships"
+version: "1.0.0"
+model: "sonnet"
+color: "orange"
+
+description: |
+  Use this skill IF user invokes `/plan-partnerships` OR needs partnership
+  strategy, BD roadmap, or integration planning.
+
+  Produces partnership strategy at `gtm-grimoire/strategy/partnership-strategy.md`.
+
+triggers:
+  - "/plan-partnerships"
+  - "partnership strategy"
+  - "business development"
+  - "BD roadmap"
+  - "integration partners"
+  - "channel partners"
+  - "ecosystem"
+
+examples:
+  - context: "Positioning complete"
+    user_says: "/plan-partnerships"
+    agent_action: |
+      1. Read positioning and research
+      2. Identify partnership categories
+      3. Develop target list
+      4. Create deal frameworks
+      5. Generate partnership-strategy.md
+
+inputs:
+  - name: "positioning"
+    type: "file"
+    path: "gtm-grimoire/strategy/positioning.md"
+    required: true
+  - name: "competitive_analysis"
+    type: "file"
+    path: "gtm-grimoire/research/competitive-analysis.md"
+    required: true
+
+outputs:
+  - path: "gtm-grimoire/strategy/partnership-strategy.md"
+    description: "Partnership categories, targets, deal frameworks"
+
+dependencies:
+  - artifact: "gtm-grimoire/strategy/positioning.md"
+    optional: false
+    purpose: "Align partnerships with positioning"
+
+protocols:
+  required:
+    - name: "session-continuity"
+      path: ".claude/protocols/session-continuity.md"
+    - name: "grounding-enforcement"
+      path: ".claude/protocols/grounding-enforcement.md"
+
+pack:
+  id: "gtm-collective"
+  requires_subscription: true
+
+parallel_execution:
+  enabled: false

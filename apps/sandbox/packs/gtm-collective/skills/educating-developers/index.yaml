@@ -1,0 +1,62 @@
+name: "educating-developers"
+version: "1.0.0"
+model: "sonnet"
+color: "cyan"
+
+description: |
+  Use this skill IF user invokes `/plan-devrel` OR needs developer relations
+  strategy, documentation plan, or community building.
+
+  Produces DevRel strategy at `gtm-grimoire/strategy/devrel-strategy.md`.
+
+triggers:
+  - "/plan-devrel"
+  - "developer relations"
+  - "devrel strategy"
+  - "documentation strategy"
+  - "community building"
+  - "developer advocacy"
+  - "developer education"
+
+examples:
+  - context: "Positioning complete"
+    user_says: "/plan-devrel"
+    agent_action: |
+      1. Read positioning and ICP profiles
+      2. Design documentation strategy
+      3. Plan community building
+      4. Create content roadmap
+      5. Generate devrel-strategy.md
+
+inputs:
+  - name: "positioning"
+    type: "file"
+    path: "gtm-grimoire/strategy/positioning.md"
+    required: true
+  - name: "icp_profiles"
+    type: "file"
+    path: "gtm-grimoire/research/icp-profiles.md"
+    required: true
+
+outputs:
+  - path: "gtm-grimoire/strategy/devrel-strategy.md"
+    description: "Documentation, community, advocacy strategy"
+
+dependencies:
+  - artifact: "gtm-grimoire/strategy/positioning.md"
+    optional: false
+    purpose: "Align DevRel with positioning"
+
+protocols:
+  required:
+    - name: "session-continuity"
+      path: ".claude/protocols/session-continuity.md"
+    - name: "grounding-enforcement"
+      path: ".claude/protocols/grounding-enforcement.md"
+
+pack:
+  id: "gtm-collective"
+  requires_subscription: true
+
+parallel_execution:
+  enabled: false
