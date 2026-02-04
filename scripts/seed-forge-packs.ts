@@ -8,14 +8,21 @@
  */
 
 import postgres from 'postgres';
-import { randomUUID, randomBytes } from 'crypto';
+import { randomUUID, randomBytes, createHash } from 'crypto';
 import bcrypt from 'bcrypt';
-import { readdir, readFile } from 'fs/promises';
-import { join, dirname } from 'path';
+import { readdir, readFile, stat } from 'fs/promises';
+import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SANDBOX_PATH = join(__dirname, '../apps/sandbox/packs');
+
+interface PackFile {
+  path: string;
+  content: string; // base64 encoded
+  sizeBytes: number;
+  contentHash: string;
+}
 
 // Pack icons (not stored in manifest to keep manifests simple)
 const PACK_ICONS: Record<string, string> = {
@@ -39,6 +46,40 @@ interface PackManifest {
 interface DiscoveredPack extends PackManifest {
   icon: string;
   skillSlugs: string[];
+  packPath: string;
+}
+
+/**
+ * Recursively collect all files from a directory
+ */
+async function collectFiles(dir: string, baseDir: string): Promise<PackFile[]> {
+  const files: PackFile[] = [];
+  const entries = await readdir(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      const subFiles = await collectFiles(fullPath, baseDir);
+      files.push(...subFiles);
+    } else if (entry.isFile()) {
+      // Skip hidden files and non-essential files
+      if (entry.name.startsWith('.')) continue;
+
+      const content = await readFile(fullPath);
+      const relativePath = relative(baseDir, fullPath);
+      const contentHash = createHash('sha256').update(content).digest('hex');
+
+      files.push({
+        path: relativePath,
+        content: content.toString('base64'),
+        sizeBytes: content.length,
+        contentHash,
+      });
+    }
+  }
+
+  return files;
 }
 
 async function discoverPacks(): Promise<DiscoveredPack[]> {
@@ -50,7 +91,8 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
   for (const entry of entries) {
     if (!entry.isDirectory()) continue;
 
-    const manifestPath = join(SANDBOX_PATH, entry.name, 'manifest.json');
+    const packPath = join(SANDBOX_PATH, entry.name);
+    const manifestPath = join(packPath, 'manifest.json');
     try {
       const content = await readFile(manifestPath, 'utf-8');
       const manifest = JSON.parse(content) as PackManifest;
@@ -59,6 +101,7 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
         ...manifest,
         icon: PACK_ICONS[manifest.slug] || '📦',
         skillSlugs: manifest.skills?.map((s) => s.slug) || [],
+        packPath,
       });
 
       console.log(`   Found: ${manifest.name} (${manifest.slug}) - ${manifest.skills?.length || 0} skills`);
@@ -194,6 +237,16 @@ async function seedForgePacks() {
           skills: pack.skillSlugs.map((s) => ({ slug: s, path: `skills/${s}` })),
         };
 
+        // Get existing version ID if it exists (for file updates)
+        const existingVersion = await tx`
+          SELECT id FROM pack_versions
+          WHERE pack_id = ${resolvedPackId} AND version = ${pack.version}
+        `;
+
+        const resolvedVersionId = existingVersion.length > 0
+          ? existingVersion[0].id as string
+          : versionId;
+
         await tx`
           INSERT INTO pack_versions (
             id, pack_id, version, changelog, is_latest, manifest,
@@ -214,6 +267,42 @@ async function seedForgePacks() {
             manifest = EXCLUDED.manifest
         `;
         console.log(`     → version ${pack.version} upserted`);
+
+        // Step 5: Collect and upload pack files
+        console.log(`     → collecting files from ${pack.packPath}...`);
+        const files = await collectFiles(pack.packPath, pack.packPath);
+
+        // Delete existing files for this version (clean slate)
+        await tx`DELETE FROM pack_files WHERE version_id = ${resolvedVersionId}`;
+
+        // Insert all files
+        let totalBytes = 0;
+        for (const file of files) {
+          await tx`
+            INSERT INTO pack_files (
+              id, version_id, path, content_hash, storage_key, size_bytes, content, created_at
+            ) VALUES (
+              ${randomUUID()},
+              ${resolvedVersionId},
+              ${file.path},
+              ${file.contentHash},
+              ${'db://' + file.path},
+              ${file.sizeBytes},
+              ${file.content},
+              NOW()
+            )
+          `;
+          totalBytes += file.sizeBytes;
+        }
+
+        // Update version stats
+        await tx`
+          UPDATE pack_versions
+          SET file_count = ${files.length}, total_size_bytes = ${totalBytes}
+          WHERE id = ${resolvedVersionId}
+        `;
+
+        console.log(`     → uploaded ${files.length} files (${(totalBytes / 1024).toFixed(1)}KB)`);
       }
     });
 
