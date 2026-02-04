@@ -10,6 +10,45 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# Configurable Paths (v1.27.0)
+# -----------------------------------------------------------------------------
+# Customize grimoire and state file locations. All paths are relative to
+# PROJECT_ROOT. Useful for OpenClaw integration or custom project structures.
+#
+# Requirements:
+# - yq v4+ (mikefarah/yq) for YAML parsing
+# - Paths must be relative (no leading /)
+# - Soul source and output must be different files
+paths:
+  # Grimoire directory (default: grimoires/loa)
+  # All derived paths (ledger, notes, trajectory, etc.) are relative to this
+  grimoire: grimoires/loa
+
+  # Beads directory (default: .beads)
+  beads: .beads
+
+  # Soul file paths (BEAUVOIR.md -> SOUL.md transformation)
+  soul:
+    source: grimoires/loa/BEAUVOIR.md   # Input template
+    output: grimoires/loa/SOUL.md       # Generated output
+
+# OpenClaw Integration Example:
+# Place SOUL.md at workspace root for OpenClaw bootstrap
+# paths:
+#   grimoire: .loa/grimoire
+#   soul:
+#     source: .loa/grimoire/BEAUVOIR.md
+#     output: SOUL.md    # At workspace root
+
+# Environment Variable Overrides:
+# - LOA_GRIMOIRE_DIR: Override grimoire path
+# - LOA_BEADS_DIR: Override beads path
+# - LOA_SOUL_SOURCE: Override soul source path
+# - LOA_SOUL_OUTPUT: Override soul output path
+# - LOA_USE_LEGACY_PATHS=1: Bypass config, use hardcoded defaults
+# - LOA_STRICT_CONFIG=1: Fail on missing yq (default: warn and use defaults)
+
+# -----------------------------------------------------------------------------
 # Plan and Analyze (v1.6.0)
 # -----------------------------------------------------------------------------
 plan_and_analyze:
@@ -349,6 +388,108 @@ run_mode:
     consolidate_pr: true
     commit_prefix: "feat"
     include_commits_by_sprint: true
+
+# -----------------------------------------------------------------------------
+# Persistent Memory (v1.28.0)
+# -----------------------------------------------------------------------------
+# Session-spanning observation storage with progressive disclosure.
+# Captures learnings, discoveries, and decisions for cross-session recall.
+# See: grimoires/loa/memory/README.md
+memory:
+  # Master toggle
+  enabled: true
+
+  # Capture settings
+  capture:
+    discoveries: true       # Capture code discoveries
+    errors: true           # Capture error-solution pairs
+    decisions: true        # Capture architecture decisions
+    patterns: true         # Capture recurring patterns
+
+  # Storage limits
+  max_observations: 10000  # Maximum observations before archiving oldest
+  retention_days: 90       # Archive observations older than this
+
+  # Progressive disclosure levels
+  disclosure:
+    index_tokens: 50       # Tokens per entry in index mode
+    summary_tokens: 200    # Tokens per entry in summary mode
+    full_tokens: 500       # Tokens for full observation
+
+  # Hook configuration
+  hooks:
+    post_tool: true        # Capture from PostToolUse hook
+    learning_signals:      # Patterns that trigger capture
+      - "discovered"
+      - "learned"
+      - "fixed"
+      - "resolved"
+      - "pattern"
+      - "insight"
+
+  # Privacy
+  privacy:
+    redact_sensitive: true # Redact content with <private> tags
+    exclude_tools:         # Tools to never capture from
+      - Read
+      - Glob
+      - Grep
+
+# -----------------------------------------------------------------------------
+# Destructive Command Guard (v1.28.0)
+# -----------------------------------------------------------------------------
+# Runtime safety layer that validates shell commands before execution.
+# Intercepts potentially dangerous operations and applies configurable policies.
+# See: .claude/protocols/destructive-command-guard.md
+destructive_command_guard:
+  # Master toggle - set to true to enable DCG
+  enabled: true
+
+  # Timeout for pattern matching (milliseconds)
+  timeout_ms: 100
+
+  # Security packs to load (core is always loaded)
+  # Each pack adds domain-specific patterns
+  packs:
+    # Database operations (SQL, MongoDB, Redis)
+    database: true
+    # Docker/container operations
+    docker: true
+    # Kubernetes operations (kubectl, helm)
+    kubernetes: false
+    # AWS CLI operations
+    cloud-aws: false
+    # Google Cloud operations
+    cloud-gcp: false
+    # Azure CLI operations
+    cloud-azure: false
+    # Terraform/OpenTofu operations
+    terraform: false
+
+  # Additional safe paths beyond defaults
+  # Paths must be absolute or use environment variables
+  safe_paths:
+    - "${PROJECT_ROOT}/tmp"
+    - "${PROJECT_ROOT}/cache"
+    # Add project-specific paths here
+    # - /app/cache
+
+  # Override default actions for specific patterns
+  # Useful for relaxing rules in specific contexts
+  overrides:
+    # Example: Allow git push --force with warning instead of block
+    # git_push_force:
+    #   action: WARN
+    #   reason: "Team workflow allows force push to feature branches"
+
+  # Run Mode integration
+  run_mode:
+    # Enable DCG during autonomous execution
+    enabled: true
+    # Log blocked commands to trajectory
+    audit_log: true
+    # Halt workflow after N blocked commands
+    halt_on_block_count: 3
 
 # -----------------------------------------------------------------------------
 # Simstim - HITL Accelerated Development (v1.24.0)

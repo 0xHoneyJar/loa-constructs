@@ -1,4 +1,4 @@
-<!-- @loa-managed: true | version: 1.26.0 | hash: PLACEHOLDER -->
+<!-- @loa-managed: true | version: 1.28.0 | hash: PLACEHOLDER -->
 <!-- WARNING: This file is managed by the Loa Framework. Do not edit directly. -->
 
 # Loa Framework Instructions
@@ -24,6 +24,25 @@ Agent-driven development framework. Skills auto-load their SKILL.md when invoked
 
 **Critical**: Never edit `.claude/` - use `.claude/overrides/` or `.loa.config.yaml`.
 
+## Configurable Paths (v1.27.0)
+
+Grimoire and state file locations are configurable via `.loa.config.yaml`:
+
+```yaml
+paths:
+  grimoire: grimoires/loa          # Default
+  beads: .beads                    # Default
+  soul:
+    source: grimoires/loa/BEAUVOIR.md
+    output: grimoires/loa/SOUL.md
+```
+
+**Environment overrides**: `LOA_GRIMOIRE_DIR`, `LOA_BEADS_DIR`, `LOA_SOUL_SOURCE`, `LOA_SOUL_OUTPUT`
+
+**Rollback**: Set `LOA_USE_LEGACY_PATHS=1` to bypass config and use hardcoded defaults.
+
+**Requirements**: yq v4+ (mikefarah/yq) for YAML parsing. Missing yq uses defaults with warning.
+
 ## Workflow
 
 | Phase | Command | Output |
@@ -46,6 +65,161 @@ Agent-driven development framework. Skills auto-load their SKILL.md when invoked
 - **Feedback**: Check audit feedback FIRST, then engineer feedback
 - **Karpathy**: Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven
 - **Git Safety**: 4-layer upstream detection with soft block
+
+## Run Mode State Recovery (v1.27.0)
+
+**CRITICAL**: After context compaction or session recovery, ALWAYS check for active run mode.
+
+### Detection
+
+Check `.run/sprint-plan-state.json`:
+```bash
+if [[ -f .run/sprint-plan-state.json ]]; then
+  state=$(jq -r '.state' .run/sprint-plan-state.json)
+  if [[ "$state" == "RUNNING" ]]; then
+    # ACTIVE RUN MODE - Resume autonomous execution
+  fi
+fi
+```
+
+### When state=RUNNING
+
+1. **Do NOT ask for confirmation** - continue autonomously
+2. Read current sprint from `.sprints.current` field
+3. Resume the sprint execution loop
+4. Update `.timestamps.last_activity` on each action
+
+### State Values
+
+| State | Meaning | Action |
+|-------|---------|--------|
+| `RUNNING` | Active autonomous execution | Resume immediately |
+| `HALTED` | Stopped due to error/blocker | Await `/run-resume` |
+| `JACKED_OUT` | Completed successfully | No action needed |
+
+### Recovery Sequence
+
+```
+1. Check .run/sprint-plan-state.json exists
+2. If state=RUNNING:
+   a. Log: "Resuming run mode after context recovery"
+   b. Read sprints.current for active sprint
+   c. Continue sprint execution loop
+   d. Do NOT prompt user for confirmation
+3. If state=HALTED:
+   a. Inform user of halt reason
+   b. Await /run-resume command
+```
+
+**Rationale**: Run mode is designed for overnight/unattended execution. Context compaction should not interrupt autonomous operation.
+
+## Post-Compact Recovery Hooks (v1.28.0)
+
+Loa provides automatic context recovery after compaction via Claude Code hooks.
+
+### How It Works
+
+1. **PreCompact Hook**: Saves current state to `.run/compact-pending`
+2. **UserPromptSubmit Hook**: Detects marker, injects recovery reminder
+3. **One-shot delivery**: Reminder appears once, marker is deleted
+
+### Automatic Recovery
+
+When compaction is detected, you will see a recovery reminder instructing you to:
+1. Re-read this file (CLAUDE.md) for conventions
+2. Check `.run/sprint-plan-state.json` - resume if `state=RUNNING`
+3. Check `.run/simstim-state.json` - resume from last phase
+4. Review `grimoires/loa/NOTES.md` for learnings
+
+### Installation
+
+Hooks are in `.claude/hooks/`. To enable, add to `~/.claude/settings.json`:
+```json
+{
+  "hooks": {
+    "PreCompact": [{"matcher": "", "hooks": [{"type": "command", "command": ".claude/hooks/pre-compact-marker.sh"}]}],
+    "UserPromptSubmit": [{"matcher": "", "hooks": [{"type": "command", "command": ".claude/hooks/post-compact-reminder.sh"}]}]
+  }
+}
+```
+
+See `.claude/hooks/README.md` for full documentation.
+
+## Flatline Beads Loop (v1.28.0)
+
+Iterative multi-model refinement of task graphs. "Check your beads N times, implement once."
+
+### How It Works
+
+1. Export beads to JSON (`br list --json`)
+2. Run Flatline Protocol review on task graph
+3. Apply HIGH_CONSENSUS suggestions automatically
+4. Repeat until changes "flatline" (< 5% change for 2 iterations)
+5. Sync final state to git
+
+### Usage
+
+```bash
+# Manual invocation
+.claude/scripts/beads-flatline-loop.sh --max-iterations 6 --threshold 5
+
+# In simstim workflow (Phase 6.5)
+# Automatically runs after FLATLINE SPRINT phase when beads_rust is installed
+```
+
+### Configuration
+
+```yaml
+simstim:
+  flatline:
+    beads_loop: true    # Enable Flatline Beads Loop
+```
+
+Requires beads_rust (`br`). See: https://github.com/Dicklesworthstone/beads_rust
+
+## Persistent Memory (v1.28.0)
+
+Session-spanning observation storage with progressive disclosure for cross-session recall.
+
+### How It Works
+
+1. **Memory Writer Hook**: Captures observations from tool outputs when learning signals detected
+2. **Observations File**: Stored in `grimoires/loa/memory/observations.jsonl`
+3. **Progressive Disclosure**: Query at different detail levels to manage token budget
+
+### Learning Signals
+
+Automatically captured: discovered, learned, fixed, resolved, pattern, insight
+
+### Query Interface
+
+```bash
+# Token-efficient index (~50 tokens per entry)
+.claude/scripts/memory-query.sh --index
+
+# Summary view (~200 tokens per entry)
+.claude/scripts/memory-query.sh --summary --limit 5
+
+# Full details (~500 tokens)
+.claude/scripts/memory-query.sh --full obs-1234567890-abc123
+
+# Filter by type
+.claude/scripts/memory-query.sh --type learning
+
+# Free-text search
+.claude/scripts/memory-query.sh "authentication pattern"
+```
+
+### Configuration
+
+```yaml
+memory:
+  enabled: true
+  max_observations: 10000
+  capture:
+    discoveries: true
+    errors: true
+```
 
 ## Invisible Prompt Enhancement (v1.17.0)
 

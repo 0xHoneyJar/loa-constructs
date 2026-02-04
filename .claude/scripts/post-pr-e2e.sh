@@ -20,6 +20,7 @@ set -euo pipefail
 # ============================================================================
 
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/bootstrap.sh"
 readonly STATE_SCRIPT="${SCRIPT_DIR}/post-pr-state.sh"
 
 # Default commands (detected from package.json or config)
@@ -28,8 +29,9 @@ TEST_CMD="${TEST_CMD:-}"
 BUILD_TIMEOUT="${BUILD_TIMEOUT:-300}"  # 5 minutes
 TEST_TIMEOUT="${TEST_TIMEOUT:-600}"     # 10 minutes
 
-# Output directory
-readonly BASE_CONTEXT_DIR="${BASE_CONTEXT_DIR:-grimoires/loa/a2a}"
+# Output directory (use path-lib)
+_GRIMOIRE_DIR=$(get_grimoire_dir)
+readonly BASE_CONTEXT_DIR="${BASE_CONTEXT_DIR:-${_GRIMOIRE_DIR}/a2a}"
 
 # ============================================================================
 # Utility Functions
@@ -53,6 +55,47 @@ timestamp() {
   date -u +"%Y-%m-%dT%H:%M:%SZ"
 }
 
+# Validate command against allowlist of safe prefixes
+# Returns 0 if command starts with a known-safe prefix, 1 otherwise
+# This prevents command injection via malicious package.json or user input
+validate_command() {
+  local cmd="$1"
+
+  # Allowlist of safe command prefixes
+  # These are standard build/test tools that don't allow arbitrary execution
+  local -a allowed_prefixes=(
+    "npm "
+    "npm run "
+    "npx "
+    "yarn "
+    "pnpm "
+    "make "
+    "cargo "
+    "go "
+    "pytest "
+    "python -m pytest"
+    "jest "
+    "vitest "
+    "mocha "
+    "bun "
+    "deno "
+    "gradle "
+    "mvn "
+    "dotnet "
+  )
+
+  for prefix in "${allowed_prefixes[@]}"; do
+    if [[ "$cmd" == "$prefix"* ]]; then
+      return 0
+    fi
+  done
+
+  # Log warning for unrecognized commands
+  log_error "Command not in allowlist: ${cmd:0:50}..."
+  log_error "Allowed prefixes: npm, yarn, pnpm, make, cargo, go, pytest, jest, vitest, mocha, bun, deno, gradle, mvn, dotnet"
+  return 1
+}
+
 # Run command with timeout
 # Note: Commands may be multi-word strings (e.g., "npm run build") requiring shell expansion.
 # This is safe because: (1) commands are auto-detected from project config or (2) user-provided
@@ -65,6 +108,12 @@ run_with_timeout() {
   # Validate command is not empty
   if [[ -z "$cmd" ]]; then
     log_error "Empty command provided to run_with_timeout"
+    return 1
+  fi
+
+  # Validate command against allowlist (HIGH-001 remediation)
+  if ! validate_command "$cmd"; then
+    log_error "Command rejected by security allowlist"
     return 1
   fi
 
