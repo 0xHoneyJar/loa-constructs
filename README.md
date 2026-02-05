@@ -4,9 +4,9 @@
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE.md)
 [![Release](https://img.shields.io/badge/release-MCP%20Hoisting%20%26%20CI%20Pipeline-purple.svg)](CHANGELOG.md#150---2026-02-05)
 
-> *"Constructs are composable intelligence — skills that ride together, validated together, shipped together."*
+> *"A construct carries everything it knew — the expertise, the workflows, the craft."*
 
-**The Constructs Network** — Platform for distributing, licensing, and managing AI agent constructs compatible with the [Loa framework](https://github.com/0xHoneyJar/loa) and Claude Code. 5 packs, 39 skills, one registry.
+**The Constructs Network** — Packaged expertise for AI agents compatible with the [Loa framework](https://github.com/0xHoneyJar/loa) and Claude Code. Workflows, domain knowledge, and skills — discovered, validated, and installed from one registry. 5 packs, 39 skills.
 
 ## Features
 
