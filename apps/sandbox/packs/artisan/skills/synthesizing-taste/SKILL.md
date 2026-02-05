@@ -31,6 +31,58 @@ Use when:
 
 ## Workflow
 
+### Phase 0: Load Visual Inspiration (if exists)
+
+Before analyzing code, check for visual context in `grimoires/artisan/inspiration/`:
+
+```
+grimoires/artisan/inspiration/
+├── direction.md       # Design direction (want vs avoid)
+├── references.md      # Reference vocabulary
+├── moodboard/         # Visual reference images
+└── evolution/         # Taste evolution history
+```
+
+**If inspiration folder exists:**
+
+1. **Read direction.md**:
+   - Parse "We Want" attributes (premium, confident, minimal, etc.)
+   - Parse "We Avoid" constraints (playful, dense, decorative, etc.)
+   - Note tension resolution priorities
+
+2. **Read references.md**:
+   - Build vocabulary map ("premium" → Stripe patterns)
+   - Load anti-references to avoid (Bootstrap, etc.)
+   - Create quick reference lookup
+
+3. **View moodboard images**:
+   - Read each .png file in moodboard/
+   - Note visual patterns: colors, spacing, shadows, corners, density
+   - Cross-reference with references.md entries
+
+4. **Ask clarifying questions based on visuals**:
+   ```
+   Looking at your moodboard:
+   - stripe-dashboard.png: Generous p-8 padding, shadow-sm
+   - linear-sidebar.png: Tight density, monospace accents
+
+   Questions:
+   1. For main content: Spacious (Stripe) or dense (Linear)?
+   2. For navigation: Same or different density?
+   3. Shadows: Subtle (Stripe) or none (Linear)?
+   ```
+
+5. **Use inspiration to guide extraction**:
+   - Extracted patterns that match direction.md → keep
+   - Extracted patterns that conflict with "We Avoid" → flag
+   - Missing patterns from references → suggest adding
+
+**If no inspiration folder:**
+- Proceed directly to Phase 1
+- Optionally prompt: "Create grimoires/artisan/inspiration/ for better grounding?"
+
+---
+
 ### Phase 1: Collect References
 
 Identify sources to analyze:
@@ -112,6 +164,21 @@ Analyze patterns to determine personality traits:
 | Rounded corners | Friendly, approachable |
 | Sans-serif fonts | Clean, contemporary |
 | Serif fonts | Traditional, editorial |
+
+**If inspiration/direction.md exists, validate:**
+
+```
+Extracted personality: Dense, Modern
+direction.md says: "We avoid: Dense"
+
+⚠️ Conflict: Code patterns suggest density, but direction.md
+   indicates you want to avoid this.
+
+Options:
+1. Flag as violation → add to Never Rules
+2. Accept code reality → update direction.md
+3. This is intentional (specific context)
+```
 
 ### Phase 4: Generate taste.md
 

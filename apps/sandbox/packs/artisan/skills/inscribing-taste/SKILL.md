@@ -26,6 +26,33 @@ Use when:
 
 ## Workflow
 
+### Phase 0: Load Visual Inspiration & Direction (if exists)
+
+Before applying taste, check for direction constraints:
+
+```
+grimoires/artisan/inspiration/
+├── direction.md       # "We Want" and "We Avoid"
+└── references.md      # Reference vocabulary
+```
+
+**If direction.md exists:**
+
+1. **Parse "We Avoid" constraints**:
+   - Build list of patterns to warn about
+   - E.g., "gradients", "heavy shadows", "rounded-full"
+
+2. **Parse "We Want" attributes**:
+   - Map to expected patterns
+   - E.g., "premium" → spacious padding, subtle shadows
+
+3. **Load reference vocabulary**:
+   - Enable suggestions like "More like Stripe's buttons"
+
+**Direction validation will be applied in Phase 3.**
+
+---
+
 ### Phase 1: Load Taste Tokens
 
 Read the project's taste file:
@@ -84,7 +111,45 @@ For the target component, identify:
 4. **Motion tokens** - What animations?
 5. **Interactive states** - Hover, focus, active?
 
-### Phase 3: Apply Tokens
+### Phase 3: Apply Tokens (with Direction Validation)
+
+**Before applying each token, validate against direction.md:**
+
+```
+Proposed: gradient-to-r from-blue-500 to-purple-500
+direction.md says: "We avoid: gradients"
+
+⚠️ DIRECTION CONFLICT
+This conflicts with your design direction.
+
+Options:
+[A]pply anyway (override)
+[S]uggest alternative (based on references)
+[C]ancel
+
+Suggested alternative (from Stripe reference):
+  bg-blue-600 (solid color, confident)
+```
+
+```
+Proposed: p-2 (tight padding)
+direction.md says: "We want: premium (spacious)"
+references.md: "Premium" → Stripe (p-6+)
+
+⚠️ DIRECTION MISMATCH
+This may conflict with your "premium" goal.
+
+Suggested: Use p-6 to align with premium direction?
+```
+
+**If user overrides, log for evolution tracking:**
+```
+# grimoires/artisan/inspiration/evolution/overrides.log
+2026-02-04: Applied p-2 despite "premium" direction (user choice)
+2026-02-04: Applied gradient despite "no gradients" (intentional exception)
+```
+
+---
 
 Map taste tokens to component styles:
 
