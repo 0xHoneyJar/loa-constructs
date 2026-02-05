@@ -105,13 +105,26 @@ fi
 
 # For each URL
 for url in $urls; do
-  # Sanitize filename
-  sanitized=$(echo "$url" | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]')
+  # Normalize URL scheme
+  if [[ "$url" =~ ^https?:// ]]; then
+    full_url="$url"
+  else
+    full_url="https://$url"
+  fi
+
+  # Basic URL validation
+  if ! [[ "$full_url" =~ ^https?://[A-Za-z0-9.-]+ ]]; then
+    echo "Invalid URL: $url - skipping"
+    continue
+  fi
+
+  # Sanitize filename (strip scheme first)
+  sanitized=$(echo "$full_url" | sed 's~https\?://~~' | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]')
   timestamp=$(date +%Y%m%d-%H%M%S)
   output_path="grimoires/artisan/inspiration/moodboard/${sanitized}-${timestamp}.png"
 
   # Capture
-  agent-browser open "https://${url}" --headed
+  agent-browser open "$full_url" --headed
   agent-browser wait --load networkidle
   agent-browser screenshot "$output_path"
   agent-browser close

@@ -160,11 +160,32 @@ log_decomposition() {
 
   local log_dir="grimoires/artisan/feedback"
   local log_file="${log_dir}/$(date +%Y-%m-%d).jsonl"
-  local session_id="${ARTISAN_SESSION_ID:-$(date +%s | sha256sum | cut -c1-8)}"
 
   mkdir -p "$log_dir"
 
-  echo "{\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"session_id\":\"${session_id}\",\"skill\":\"decomposing-feel\",\"feedback\":\"decomposed\",\"context\":{\"dimension\":\"${dimension}\",\"aspect\":\"${aspect}\"},\"resolution\":\"${resolution}\"}" >> "$log_file"
+  # Stable session_id across the session (persist to file)
+  if [[ -z "${ARTISAN_SESSION_ID:-}" ]]; then
+    local session_file="${log_dir}/.session_id"
+    if [[ -f "$session_file" ]]; then
+      ARTISAN_SESSION_ID="$(cat "$session_file")"
+    else
+      ARTISAN_SESSION_ID="$(date +%s%N | sha256sum | cut -c1-8)"
+      echo "$ARTISAN_SESSION_ID" > "$session_file"
+    fi
+    export ARTISAN_SESSION_ID
+  fi
+
+  # Use jq for safe JSON construction
+  jq -cn \
+    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    --arg session_id "$ARTISAN_SESSION_ID" \
+    --arg skill "decomposing-feel" \
+    --arg feedback "decomposed" \
+    --arg dimension "$dimension" \
+    --arg aspect "$aspect" \
+    --arg resolution "$resolution" \
+    '{ts:$ts,session_id:$session_id,skill:$skill,feedback:$feedback,context:{dimension:$dimension,aspect:$aspect},resolution:$resolution}' \
+    >> "$log_file"
 }
 ```
 

@@ -65,12 +65,17 @@ Read all JSONL files and extract pattern data:
 parse_logs() {
   local log_dir="grimoires/artisan/feedback"
 
-  # Combine all log files
-  cat "$log_dir"/*.jsonl 2>/dev/null | while read line; do
+  # Combine all log files, preserving full lines
+  cat "$log_dir"/*.jsonl 2>/dev/null | while IFS= read -r line; do
+    # Skip malformed JSONL lines
+    if ! echo "$line" | jq -e . >/dev/null 2>&1; then
+      continue
+    fi
+
     # Extract resolution field (the actual change made)
     resolution=$(echo "$line" | jq -r '.resolution // empty')
-    feedback=$(echo "$line" | jq -r '.feedback')
-    skill=$(echo "$line" | jq -r '.skill')
+    feedback=$(echo "$line" | jq -r '.feedback // empty')
+    skill=$(echo "$line" | jq -r '.skill // empty')
 
     if [[ -n "$resolution" ]]; then
       echo "$resolution|$feedback|$skill"
@@ -213,9 +218,10 @@ auto_contribute() {
   local occurrences="$3"
   local consistency="$4"
 
-  # Check if already contributed
+  # Check if already contributed (use -F for literal match, -x for whole line)
   local contributed_file="grimoires/artisan/feedback/.contributed"
-  if grep -q "$pattern" "$contributed_file" 2>/dev/null; then
+  touch "$contributed_file"
+  if grep -Fqx "$pattern" "$contributed_file" 2>/dev/null; then
     echo "Pattern already contributed: $pattern"
     return 0
   fi
@@ -244,14 +250,14 @@ The pattern suggests users generally prefer this choice when given alternatives.
 
 Update skill defaults or taste.md templates to prefer this pattern when no explicit direction exists."
 
-  # Invoke /propose-learning
-  echo "$proposal" | /propose-learning --auto --source "artisan-feedback"
-
-  # Mark as contributed
-  echo "$pattern" >> "$contributed_file"
-
-  # Notify user
-  echo "Pattern detected: $pattern ($occurrences occurrences, $consistency). Auto-contributed to upstream."
+  # Invoke /propose-learning and mark only on success
+  if echo "$proposal" | /propose-learning --auto --source "artisan-feedback"; then
+    echo "$pattern" >> "$contributed_file"
+    echo "Pattern detected: $pattern ($occurrences occurrences, $consistency). Auto-contributed to upstream."
+  else
+    echo "Pattern contribution failed for: $pattern. Will retry next run."
+    echo "$pattern" >> "grimoires/artisan/feedback/.pending"
+  fi
 }
 ```
 

@@ -169,24 +169,54 @@ Present the screenshot and request feedback using AskUserQuestion:
 ```bash
 log_feedback() {
   local feedback="$1"
-  local context="$2"
+  local context_json="$2"
   local resolution="${3:-}"
 
   local log_dir="grimoires/artisan/feedback"
   local log_file="${log_dir}/$(date +%Y-%m-%d).jsonl"
-  local session_id="${ARTISAN_SESSION_ID:-$(date +%s | sha256sum | cut -c1-8)}"
 
   mkdir -p "$log_dir"
 
-  local entry="{\"ts\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"session_id\":\"${session_id}\",\"skill\":\"iterating-visuals\",\"feedback\":\"${feedback}\",\"context\":${context}"
-
-  if [[ -n "$resolution" ]]; then
-    entry="${entry},\"resolution\":\"${resolution}\"}"
-  else
-    entry="${entry}}"
+  # Stable session_id across the session (persist to file)
+  if [[ -z "${ARTISAN_SESSION_ID:-}" ]]; then
+    local session_file="${log_dir}/.session_id"
+    if [[ -f "$session_file" ]]; then
+      ARTISAN_SESSION_ID="$(cat "$session_file")"
+    else
+      ARTISAN_SESSION_ID="$(date +%s%N | sha256sum | cut -c1-8)"
+      echo "$ARTISAN_SESSION_ID" > "$session_file"
+    fi
+    export ARTISAN_SESSION_ID
   fi
 
-  echo "$entry" >> "$log_file"
+  # Validate/normalize context JSON
+  local context
+  context=$(echo "$context_json" | jq -c . 2>/dev/null)
+  if [[ -z "$context" ]]; then
+    context="{}"
+  fi
+
+  # Use jq for safe JSON construction
+  if [[ -n "$resolution" ]]; then
+    jq -cn \
+      --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      --arg session_id "$ARTISAN_SESSION_ID" \
+      --arg skill "iterating-visuals" \
+      --arg feedback "$feedback" \
+      --arg resolution "$resolution" \
+      --argjson context "$context" \
+      '{ts:$ts,session_id:$session_id,skill:$skill,feedback:$feedback,context:$context,resolution:$resolution}' \
+      >> "$log_file"
+  else
+    jq -cn \
+      --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      --arg session_id "$ARTISAN_SESSION_ID" \
+      --arg skill "iterating-visuals" \
+      --arg feedback "$feedback" \
+      --argjson context "$context" \
+      '{ts:$ts,session_id:$session_id,skill:$skill,feedback:$feedback,context:$context}' \
+      >> "$log_file"
+  fi
 }
 ```
 
