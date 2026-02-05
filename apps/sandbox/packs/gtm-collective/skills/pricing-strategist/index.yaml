@@ -28,6 +28,14 @@ examples:
       3. Develop pricing model
       4. Create tier structure
       5. Generate pricing-strategy.md
+  - context: "Enterprise software with volume-based value delivery"
+    user_says: "What's the right pricing model for our product?"
+    agent_action: |
+      1. Review positioning and competitive pricing landscape
+      2. Map value metrics to customer segments
+      3. Design tiered pricing with usage-based add-ons
+      4. Create detailed pricing calculator and comparison table
+      5. Develop pricing communication and packaging strategy
 
 domain_hints:
   - pricing strategy

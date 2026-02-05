@@ -26,6 +26,14 @@ examples:
       2. Create phased launch timeline
       3. Develop content calendar
       4. Generate launch-plan.md and content-calendar.md
+  - context: "Product launch in 8 weeks with multi-channel strategy"
+    user_says: "What content should we create for launch?"
+    agent_action: |
+      1. Review positioning, pricing, and DevRel strategies
+      2. Create multi-channel launch narrative arc
+      3. Build monthly content calendar with editorial topics
+      4. Develop distribution plan across blog, social, email, and events
+      5. Generate content-calendar.md with channel-specific messaging
 
 domain_hints:
   - storytelling

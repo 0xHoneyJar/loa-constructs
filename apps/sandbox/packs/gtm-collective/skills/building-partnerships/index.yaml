@@ -27,6 +27,14 @@ examples:
       3. Develop target list
       4. Create deal frameworks
       5. Generate partnership-strategy.md
+  - context: "Need to expand market reach through channel partners"
+    user_says: "Create a channel partner strategy"
+    agent_action: |
+      1. Analyze positioning and competitive landscape
+      2. Define channel partner ideal profiles
+      3. Map integration opportunities
+      4. Build partner recruiting and onboarding plan
+      5. Outline co-selling and revenue share models
 
 domain_hints:
   - partnership strategy

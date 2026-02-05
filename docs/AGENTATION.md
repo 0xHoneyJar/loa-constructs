@@ -1,20 +1,41 @@
 # Agentation Integration Guide
 
-Agentation enables precise visual feedback by capturing element selectors when you click on UI problems.
+Agentation enables precise visual feedback by capturing element selectors when you click on UI problems. Version 2 introduces **MCP (Model Context Protocol)** integration, allowing agents to fetch annotations directly from a local server without manual copy-paste.
 
-## What is Agentation?
+## What is Agentation v2?
 
-[Agentation](https://github.com/benjitaylor/agentation) is a React component that lets you annotate UI elements with structured feedback. It captures class names, selectors, and positions so AI can `grep` for the exact code you're referring to.
+[Agentation](https://github.com/benjitaylor/agentation) is a React component and MCP server that bridges the gap between visual feedback and code changes.
 
-## Installation
+### Key Capabilities
 
-```bash
-npm install agentation -D
+| Feature | Description |
+|---------|-------------|
+| **MCP Server** | Annotations stored in local session database, accessible via Claude Code MCP tools |
+| **Session Management** | Multiple annotation sessions with pending/acknowledged/resolved states |
+| **Smart Filtering** | Agents query only pending annotations, automatically acknowledge after reading |
+| **Structured Schema** | Each annotation includes `id`, `comment`, `element`, `elementPath`, `reactComponents`, `intent`, `severity` |
+| **Zero Copy-Paste** | Agents fetch annotations directly from MCP server using `agentation_get_pending` |
+
+### Architecture
+
+```
+User annotates UI → Agentation Component → MCP Server (stdio) → Claude Code MCP Tools → Agent reads pending annotations
 ```
 
-## Setup
+**v1 (Legacy)**: User annotates → copies markdown → pastes to agent
+**v2 (MCP)**: User annotates → agent automatically fetches via MCP tools
 
-Add the component to your app's root:
+## Quick Start: MCP (Recommended)
+
+### 1. Install Package
+
+```bash
+npm install agentation-mcp
+```
+
+### 2. Add React Component
+
+Add `<Agentation />` to your app's root:
 
 ```tsx
 import { Agentation } from 'agentation';
@@ -29,92 +50,256 @@ function App() {
 }
 ```
 
-A small UI appears in the bottom-right corner.
+### 3. Configure Claude Code MCP
 
-## Workflow with Artisan
+Add to `~/.claude/settings.json`:
 
-### Step 1: Iterate Visuals
+```json
+{
+  "mcpServers": {
+    "agentation": {
+      "command": "npx",
+      "args": ["agentation-mcp", "server"]
+    }
+  }
+}
+```
 
-When iterating on design with `/iterate-visual`, select "Let me annotate" when asked for feedback.
+### 4. Start MCP Server
 
-### Step 2: Activate Agentation
+```bash
+npx agentation-mcp server
+```
 
-1. Click the Agentation icon (bottom-right)
-2. The UI activates with selection mode
+The server launches with stdio transport and connects to Claude Code automatically.
 
-### Step 3: Point at Problems
+### 5. Verify Installation
 
-1. Click the element that's off
-2. Agentation captures:
-   - CSS class names
-   - Element selector
-   - Position coordinates
+Run the doctor command to check MCP connectivity:
 
-### Step 4: Copy Output
+```bash
+npx agentation-mcp doctor
+```
 
-Click "Copy" to get markdown like:
+Expected output:
+- MCP server reachable
+- Sessions database initialized
+- Claude Code MCP connection active
 
+## Quick Start: Legacy v1 (Copy-Paste)
+
+If you prefer the original workflow without MCP:
+
+### 1. Install Component
+
+```bash
+npm install agentation -D
+```
+
+### 2. Add to App
+
+```tsx
+import { Agentation } from 'agentation';
+
+function App() {
+  return (
+    <>
+      <YourApp />
+      <Agentation />
+    </>
+  );
+}
+```
+
+### 3. Manual Workflow
+
+1. Click Agentation icon (bottom-right)
+2. Select UI element
+3. Add comment
+4. Click "Copy" to get markdown
+5. Paste markdown into Claude Code conversation
+
+**Format**:
 ```markdown
 ## Annotation
 
 **Element**: `.card-shadow`
 **Position**: (234, 156)
 **Note**: Shadow too heavy
-
 **Selector**: `[class*="shadow-md"]`
 ```
 
-### Step 5: Paste into Claude
+## Per-Skill Integration
 
-Paste the markdown into the conversation. Artisan's skills will:
+### `/iterate-visual` (Artisan)
 
-1. Parse the selector
-2. Grep codebase for matches
-3. Propose specific fix
+**Purpose**: Screenshot-based design iteration with feedback loop
 
-## Features
+**MCP Workflow**:
+1. Agent takes screenshot of current state
+2. User clicks Agentation to annotate issues
+3. Agent calls `agentation_get_pending` to fetch annotations
+4. Agent maps selectors to code locations
+5. Agent proposes fixes based on structured feedback
+6. Agent calls `agentation_acknowledge` for processed annotations
 
-| Feature | Description |
-|---------|-------------|
-| Element selection | Click any element for auto selector detection |
-| Text highlighting | Mark specific content within elements |
-| Batch selection | Drag across multiple components |
-| Animation pause | Freeze CSS animations to capture state |
-| Structured export | Copy markdown with selectors and positions |
-| Theme support | Auto dark/light mode |
+**Intent Support**: `fix`, `change`, `approve`
+**Severity Handling**: `blocking` items processed first
 
-## Why Use Agentation?
+### `/decompose-feel` (Artisan)
 
-| Before | After |
-|--------|-------|
-| "The shadow feels heavy" | `[class*="shadow-md"]` at Card.tsx:15 |
-| "Something's off with spacing" | `.card-content` has `p-2`, suggest `p-4` |
-| "The button doesn't look right" | `[data-testid="submit-btn"]` needs `font-semibold` |
+**Purpose**: Decompose vague aesthetic feedback into actionable changes
 
-**Result**: Vague feedback → Precise code location → Fast fix
+**MCP Workflow**:
+1. User provides vague feedback ("feels off")
+2. Agent offers Agentation as precision tool
+3. User annotates specific UI elements
+4. Agent calls `agentation_get_pending` to fetch granular feedback
+5. Agent decomposes each annotation into concrete design tokens
+6. Agent calls `agentation_resolve` after implementing changes
 
-## Integration with Skills
+**Intent Support**: `question` (clarify aesthetic intent), `change` (apply decomposed changes)
 
-### `/iterate-visual`
+### `/iterate-feedback` (Crucible)
 
-When you select "Let me annotate":
-1. Skill pauses for your annotation
-2. You use Agentation to select element
-3. Paste the markdown
-4. Skill maps selector to code and proposes fix
+**Purpose**: Capture implementation gaps during feedback review
 
-### `/decompose`
+**MCP Workflow with `--annotate` flag**:
+1. Agent presents implementation for review
+2. User runs `/iterate-feedback --annotate`
+3. User annotates gaps/issues visually
+4. Agent calls `agentation_get_pending --intent=fix` to filter implementation issues
+5. Agent creates tasks for each gap
+6. Agent calls `agentation_acknowledge` after task creation
 
-If decomposition questions don't help:
-1. Offer Agentation as alternative
-2. Direct pointing often faster than verbal description
-3. Parsed annotation feeds into specific fix
+**Intent Filtering**: Only reads `intent: fix` and `intent: change` annotations
+**Severity Priority**: `blocking` → `important` → `suggestion`
+
+### `/observe-users` (Observer)
+
+**Purpose**: Structured user research evidence collection
+
+**MCP Workflow with `--annotate` flag**:
+1. Agent conducts user research session
+2. User runs `/observe-users --annotate`
+3. User annotates behavioral evidence on UI
+4. Agent calls `agentation_get_pending --intent=question` to fetch research observations
+5. Agent synthesizes patterns across annotations
+6. Agent calls `agentation_resolve` after documenting findings
+
+**Intent Filtering**: Reads `intent: question` and `intent: approve` for research evidence
+**Session Grouping**: Each observation session stored separately
+
+## Annotation Schema Reference
+
+Each annotation captured by Agentation follows this structure:
+
+```typescript
+{
+  id: string;                    // Unique annotation identifier (e.g., "anno-1738779123456")
+  comment: string;               // User's feedback text
+  element: string;               // CSS selector (e.g., ".card-shadow", "[data-testid='btn']")
+  elementPath: string;           // DOM path (e.g., "div > header > button.primary")
+  reactComponents: string[];     // Inferred React components (e.g., ["Card", "CardHeader"])
+  intent: string;                // fix | change | question | approve
+  severity: string;              // blocking | important | suggestion
+}
+```
+
+### Intent Values
+
+| Intent | Meaning | Used By |
+|--------|---------|---------|
+| `fix` | Bug or broken behavior | `/iterate-feedback`, `/iterate-visual` |
+| `change` | Desired modification | `/decompose-feel`, `/iterate-visual` |
+| `question` | Clarification needed | `/observe-users`, `/decompose-feel` |
+| `approve` | Positive feedback | `/observe-users`, `/iterate-visual` |
+
+### Severity Values
+
+| Severity | Meaning | Priority |
+|----------|---------|----------|
+| `blocking` | Must fix before proceeding | 1 (highest) |
+| `important` | Should fix soon | 2 |
+| `suggestion` | Nice to have | 3 (lowest) |
+
+## MCP Tools Reference
+
+Agentation provides 9 MCP tools accessible to agents via Claude Code:
+
+| Tool | Description |
+|------|-------------|
+| `agentation_list_sessions` | List all annotation sessions with metadata (session_id, timestamp, annotation_count) |
+| `agentation_get_session` | Retrieve all annotations for a specific session_id |
+| `agentation_get_pending` | Fetch annotations with state=pending for current session (most common) |
+| `agentation_get_all_pending` | Fetch pending annotations across all sessions (for cross-session analysis) |
+| `agentation_acknowledge` | Mark annotation as acknowledged (state: pending → acknowledged) |
+| `agentation_resolve` | Mark annotation as resolved (state: acknowledged → resolved) |
+| `agentation_dismiss` | Dismiss annotation as not actionable (state: pending → dismissed) |
+| `agentation_reply` | Add agent response to annotation thread (e.g., "Implemented fix in commit abc123") |
+| `agentation_wait_for_action` | Block until user adds new annotation (polling for feedback) |
+
+### Tool Usage Examples
+
+**Fetch pending feedback**:
+```json
+{
+  "name": "agentation_get_pending",
+  "arguments": {
+    "intent": "fix",
+    "severity": "blocking"
+  }
+}
+```
+
+**Acknowledge after processing**:
+```json
+{
+  "name": "agentation_acknowledge",
+  "arguments": {
+    "annotation_id": "anno-1738779123456"
+  }
+}
+```
+
+**Resolve after implementation**:
+```json
+{
+  "name": "agentation_resolve",
+  "arguments": {
+    "annotation_id": "anno-1738779123456"
+  }
+}
+```
+
+**Add implementation note**:
+```json
+{
+  "name": "agentation_reply",
+  "arguments": {
+    "annotation_id": "anno-1738779123456",
+    "reply": "Fixed shadow weight in Card.tsx:45 by changing shadow-md to shadow-sm"
+  }
+}
+```
 
 ## Troubleshooting
 
-### Agentation not appearing
+### MCP Server Not Connecting
 
-Ensure it's after your app content:
+**Symptoms**: Agent cannot call agentation tools, "MCP server unreachable" error
+
+**Solutions**:
+1. Verify MCP server is running: `ps aux | grep agentation-mcp`
+2. Check Claude Code MCP config in `~/.claude/settings.json`
+3. Restart MCP server: `npx agentation-mcp server`
+4. Run doctor: `npx agentation-mcp doctor`
+
+### Agentation Component Not Appearing
+
+**Symptoms**: No annotation UI in bottom-right corner
+
+**Solution**: Ensure `<Agentation />` is rendered after app content:
 ```tsx
 <>
   <YourApp />
@@ -122,19 +307,64 @@ Ensure it's after your app content:
 </>
 ```
 
-### Selector not found in codebase
+### No Pending Annotations Found
 
-The element may use dynamic classes. Try:
-- Looking for partial matches
-- Checking parent elements
-- Using data-testid if available
+**Symptoms**: Agent calls `agentation_get_pending` but returns empty array
 
-### Copy not working
+**Solutions**:
+1. Verify you added annotations via Agentation UI
+2. Check session_id matches current session
+3. Confirm annotations weren't already acknowledged
+4. Use `agentation_list_sessions` to see all sessions
 
-Check clipboard permissions in browser settings.
+### Selector Not Found in Codebase
+
+**Symptoms**: Agent receives annotation but cannot locate code with `element` selector
+
+**Solutions**:
+1. Check if element uses dynamic classes (CSS modules, Tailwind)
+2. Use `reactComponents` field to infer file names (e.g., ["Card"] → Card.tsx)
+3. Search for partial matches with `elementPath`
+4. Look for `data-testid` attributes as stable selectors
+
+### Clipboard Copy Not Working (Legacy v1)
+
+**Symptoms**: "Copy" button in Agentation UI fails silently
+
+**Solutions**:
+1. Check browser clipboard permissions
+2. Use MCP mode instead (no clipboard needed)
+3. Try HTTPS if using HTTP (some browsers restrict clipboard on HTTP)
+
+### State Transition Errors
+
+**Symptoms**: Cannot resolve annotation, "must acknowledge first" error
+
+**Solution**: Follow state machine order:
+```
+pending → acknowledged → resolved
+        ↓
+     dismissed
+```
+
+Call `agentation_acknowledge` before `agentation_resolve`.
+
+## Pack Integration Status
+
+| Pack | Role | Integration |
+|------|------|-------------|
+| **Artisan** | Provider | Provides `agentation` MCP server via `mcp_servers` config |
+| **Crucible** | Consumer | Depends on Artisan's MCP server via `mcp_dependencies` |
+| **Observer** | Consumer | Depends on Artisan's MCP server via `mcp_dependencies` |
+| **Beacon** | None | No Agentation integration |
+
+**Note**: Only one pack (Artisan) needs to provide the MCP server. Other packs declare it as a dependency and use the shared server.
 
 ## Related
 
 - [Agentation GitHub](https://github.com/benjitaylor/agentation)
+- [MCP Specification](https://spec.modelcontextprotocol.io/)
 - [iterating-visuals skill](/apps/sandbox/packs/artisan/skills/iterating-visuals/SKILL.md)
 - [decomposing-feel skill](/apps/sandbox/packs/artisan/skills/decomposing-feel/SKILL.md)
+- [iterating-feedback skill](/apps/sandbox/packs/crucible/skills/iterating-feedback/SKILL.md)
+- [observing-users skill](/apps/sandbox/packs/observer/skills/observing-users/SKILL.md)

@@ -25,6 +25,14 @@ examples:
       2. Synthesize key messages
       3. Create pitch deck content
       4. Generate pitch-deck.md
+  - context: "Raising Series A with 12-slide limit for investors"
+    user_says: "Create an investor pitch deck for our Series A round"
+    agent_action: |
+      1. Extract core value proposition and market opportunity from positioning
+      2. Translate unit economics and GTM strategy into business metrics
+      3. Build 12-slide narrative covering problem, solution, market, and ask
+      4. Create executive summary of financial projections
+      5. Generate pitch-deck.md with speaker notes for each slide
 
 domain_hints:
   - pitch deck
