@@ -1,0 +1,71 @@
+name: iterating-visuals
+slug: iterating-visuals
+version: 1.2.0
+description: |
+  Use this skill IF user is making visual/style changes to components,
+  OR wants feedback on design iterations,
+  OR is editing CSS/Tailwind classes and needs visual verification.
+  Auto-captures screenshots and requests feedback in a tight loop.
+
+# Trigger patterns - when this skill should activate
+triggers:
+  - "/iterate-visual"
+  - "how does this look"
+  - "make it look better"
+  - "style this component"
+  - "visual feedback"
+  - "design iteration"
+  - "tweak the design"
+  - "adjust the styling"
+  - "make it more premium"
+  - "feels off visually"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User editing component styles"
+    user_says: "Can you make the card feel more premium?"
+    agent_action: "Launch iterating-visuals to apply premium styling and capture screenshot for feedback"
+  - context: "User wants visual verification"
+    user_says: "How does this look now?"
+    agent_action: "Launch iterating-visuals to capture screenshot and request structured feedback"
+  - context: "User iterating on design"
+    user_says: "The shadow is too heavy, can you reduce it?"
+    agent_action: "Launch iterating-visuals to apply shadow change and verify with screenshot"
+  - context: "User working on component"
+    user_says: "Let's iterate on the button styling"
+    agent_action: "Launch iterating-visuals to enter design feedback loop for button component"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - design
+  - ui
+  - styling
+  - visual
+  - css
+  - tailwind
+  - component
+
+entry: SKILL.md
+
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Grep
+  - Edit
+  - Bash
+  - AskUserQuestion
+
+dependencies:
+  - artifact: "grimoires/artisan/taste.md"
+    required: false
+    description: "Project taste tokens for grounded decisions"
+  - artifact: "grimoires/artisan/inspiration/direction.md"
+    required: false
+    description: "Design direction constraints"
+
+outputs:
+  - path: "grimoires/artisan/screenshots/*.png"
+    description: "Captured screenshots during iteration"
+  - path: "grimoires/artisan/feedback/*.jsonl"
+    description: "Feedback logs for pattern detection"

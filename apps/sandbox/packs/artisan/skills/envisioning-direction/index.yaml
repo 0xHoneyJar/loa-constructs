@@ -1,0 +1,69 @@
+name: envisioning-direction
+slug: envisioning-direction
+version: 1.0.0
+description: |
+  Use this skill IF user wants to establish design direction for a new project,
+  OR needs to capture visual references and inspiration,
+  OR wants to define their brand aesthetic through conversation.
+  Generates direction.md and references.md from adaptive conversation.
+
+# Trigger patterns - when this skill should activate
+triggers:
+  - "/envision"
+  - "set up design direction"
+  - "establish visual direction"
+  - "capture design inspiration"
+  - "define brand aesthetic"
+  - "what's my design direction"
+  - "moodboard"
+  - "visual references"
+  - "design vision"
+  - "starting a new project"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User starting a new project"
+    user_says: "I want to set up the visual direction for my new project"
+    agent_action: "Launch envisioning-direction to capture references and generate direction.md"
+  - context: "User has reference sites"
+    user_says: "I really like how Stripe and Linear look, can we use that as inspiration?"
+    agent_action: "Launch envisioning-direction with stripe.com and linear.app as references"
+  - context: "User wants to refine existing direction"
+    user_says: "I want to update my design direction, it's not quite right"
+    agent_action: "Launch envisioning-direction with --refine flag to update existing direction.md"
+  - context: "User describing aesthetic goals"
+    user_says: "I want my app to feel premium and minimal"
+    agent_action: "Launch envisioning-direction to translate aesthetic goals into concrete direction"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - design
+  - brand
+  - ui
+  - aesthetic
+  - visual
+  - style
+
+entry: SKILL.md
+
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Grep
+  - Edit
+  - Bash
+  - AskUserQuestion
+
+dependencies:
+  - artifact: "grimoires/artisan/inspiration/"
+    required: false
+    description: "Inspiration directory for moodboard and direction files"
+
+outputs:
+  - path: "grimoires/artisan/inspiration/direction.md"
+    description: "Generated design direction with We Want/We Avoid sections"
+  - path: "grimoires/artisan/inspiration/references.md"
+    description: "Analyzed reference sources with pattern extraction"
+  - path: "grimoires/artisan/inspiration/moodboard/*.png"
+    description: "Captured screenshots from reference URLs"
