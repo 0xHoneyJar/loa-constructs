@@ -2,10 +2,11 @@
 
 [![Version](https://img.shields.io/badge/version-1.5.0-blue.svg)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE.md)
+[![Release](https://img.shields.io/badge/release-MCP%20Hoisting%20%26%20CI%20Pipeline-purple.svg)](CHANGELOG.md#150---2026-02-05)
 
-> The marketplace for AI agent constructs
+> *"Constructs are composable intelligence — skills that ride together, validated together, shipped together."*
 
-Loa Constructs is a platform for distributing, licensing, and managing AI agent constructs compatible with the [Loa framework](https://github.com/0xHoneyJar/loa) and Claude Code. Discover, install, and manage constructs via CLI or web dashboard.
+**The Constructs Network** — Platform for distributing, licensing, and managing AI agent constructs compatible with the [Loa framework](https://github.com/0xHoneyJar/loa) and Claude Code. 5 packs, 39 skills, one registry.
 
 ## Features
 
@@ -56,6 +57,7 @@ loa-constructs/
 | **Crucible** | 5 | Journey validation, Playwright testing |
 | **Artisan** | 10 | Brand/UI craftsmanship, design systems |
 | **Beacon** | 6 | Agent commerce, x402 payments |
+| **GTM Collective** | 8 | Go-to-market strategy, pricing, partnerships |
 
 ### Tech Stack
 
