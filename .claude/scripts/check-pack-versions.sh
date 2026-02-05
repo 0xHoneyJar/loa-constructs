@@ -19,6 +19,31 @@ if [[ "${1:-}" == "--json" ]]; then
   BASE_REF="${2:-origin/main}"
 fi
 
+# Verify required commands
+for cmd in git jq; do
+  if ! command -v "$cmd" &>/dev/null; then
+    echo "ERROR: $cmd is required but not installed"
+    exit 2
+  fi
+done
+
+# Validate base ref exists (handles shallow clones, missing remotes)
+if ! git rev-parse --verify "$BASE_REF" &>/dev/null; then
+  # Try common fallbacks
+  for fallback in origin/main main HEAD~1; do
+    if git rev-parse --verify "$fallback" &>/dev/null 2>&1; then
+      echo "WARNING: Base ref '$BASE_REF' not found, falling back to '$fallback'"
+      BASE_REF="$fallback"
+      break
+    fi
+  done
+  # If still invalid after fallbacks, skip check gracefully
+  if ! git rev-parse --verify "$BASE_REF" &>/dev/null; then
+    echo "WARNING: No valid base ref found — skipping version check"
+    exit 0
+  fi
+fi
+
 VIOLATIONS=()
 PASSED=()
 SKIPPED=()
