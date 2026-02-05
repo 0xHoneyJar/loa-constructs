@@ -233,6 +233,15 @@ servers:
     url: "https://agentation.dev"
     docs: "https://agentation.dev/mcp"
 
+    # Runtime configuration (source of truth — previously in artisan/manifest.json)
+    transport: stdio
+    command: "npx"
+    args: ["agentation-mcp", "server"]
+    security:
+      risk_level: low
+      data_access: read-write
+    auto_start: false
+
     scopes:
       - agentation_list_sessions     # Discover active annotation sessions
       - agentation_get_session       # Retrieve session with all annotations

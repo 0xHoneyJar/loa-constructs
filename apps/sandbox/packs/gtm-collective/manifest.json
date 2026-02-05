@@ -101,6 +101,5 @@
   "quick_start": {
     "command": "/position",
     "description": "define your product positioning"
-  },
-  "dependencies": []
+  }
 }

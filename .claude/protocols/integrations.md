@@ -134,9 +134,16 @@ integrations: []
 integrations_source: ".claude/mcp-registry.yaml"
 ```
 
+## MCP Server Ownership
+
+MCP servers are a **network-level concern**. No individual pack "provides" or "owns" an MCP server. The registry (`.claude/mcp-registry.yaml`) is the single source of truth for all server definitions, including runtime configuration (transport, command, security).
+
+Packs declare `mcp_dependencies` to indicate what they consume. The `mcp_servers` field has been removed from the pack manifest schema as of v1.2.0.
+
 ## Adding New Integrations
 
-1. Add server definition to `mcp-registry.yaml`
+1. Add server definition to `mcp-registry.yaml` (including transport, command, security)
 2. Add to appropriate group(s)
 3. Update skills/commands that can use it
 4. Test with `mcp-registry.sh info <server>`
+5. Run `validate-mcp-deps.sh` to verify resolution

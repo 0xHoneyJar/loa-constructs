@@ -27,21 +27,6 @@ export interface McpToolDefinition {
   docs_url?: string;
 }
 
-export interface McpServerDefinition {
-  description: string;
-  transport: 'stdio' | 'sse';
-  command?: string;
-  args?: string[];
-  endpoint?: string;
-  env?: Record<string, string>;
-  scopes?: string[];
-  security?: {
-    risk_level?: 'low' | 'medium' | 'high';
-    data_access?: 'read-only' | 'read-write';
-  };
-  auto_start?: boolean;
-}
-
 export interface McpDependencyDefinition {
   required?: boolean;
   required_scopes?: string[];
@@ -88,7 +73,6 @@ export interface ConstructManifest {
   claude_instructions?: string;
   schema_version?: number;
   tools?: Record<string, McpToolDefinition>;
-  mcp_servers?: Record<string, McpServerDefinition>;
   mcp_dependencies?: Record<string, McpDependencyDefinition>;
 }
 

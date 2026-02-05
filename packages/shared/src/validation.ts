@@ -192,24 +192,6 @@ export const mcpToolDefinitionSchema = z.object({
 });
 
 /**
- * MCP server definition schema (pack provides)
- */
-export const mcpServerDefinitionSchema = z.object({
-  description: z.string().max(300),
-  transport: z.enum(['stdio', 'sse']),
-  command: z.string().max(200).optional(),
-  args: z.array(z.string()).optional(),
-  endpoint: z.string().url().optional(),
-  env: z.record(z.string()).optional(),
-  scopes: z.array(z.string().max(100)).optional(),
-  security: z.object({
-    risk_level: z.enum(['low', 'medium', 'high']).optional(),
-    data_access: z.enum(['read-only', 'read-write']).optional(),
-  }).optional(),
-  auto_start: z.boolean().default(false),
-});
-
-/**
  * MCP dependency definition schema (pack consumes)
  */
 export const mcpDependencyDefinitionSchema = z.object({
@@ -281,10 +263,7 @@ export const packManifestSchema = z.object({
   // Tool dependencies
   tools: z.record(toolKeySchema, mcpToolDefinitionSchema).optional(),
 
-  // MCP servers provided
-  mcp_servers: z.record(toolKeySchema, mcpServerDefinitionSchema).optional(),
-
-  // MCP servers consumed
+  // MCP servers consumed (MCP server definitions live in .claude/mcp-registry.yaml)
   mcp_dependencies: z.record(toolKeySchema, mcpDependencyDefinitionSchema).optional(),
 
   // Quick start hint for install summary
@@ -387,6 +366,5 @@ export type CreatePackVersionInput = z.infer<typeof createPackVersionSchema>;
 
 // MCP types
 export type McpToolDefinition = z.infer<typeof mcpToolDefinitionSchema>;
-export type McpServerDefinition = z.infer<typeof mcpServerDefinitionSchema>;
 export type McpDependencyDefinition = z.infer<typeof mcpDependencyDefinitionSchema>;
 export type QuickStart = z.infer<typeof quickStartSchema>;

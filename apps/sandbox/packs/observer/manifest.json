@@ -33,6 +33,5 @@
   },
   "hooks": {
     "post_install": "scripts/install.sh"
-  },
-  "dependencies": []
+  }
 }

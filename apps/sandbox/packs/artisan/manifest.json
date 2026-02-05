@@ -2,7 +2,7 @@
   "schema_version": 2,
   "name": "Artisan",
   "slug": "artisan",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Brand and UI craftsmanship skills for design systems, motion, and visual iteration",
   "author": "0xHoneyJar",
   "license": "MIT",
@@ -21,13 +21,10 @@
       "docs_url": "https://agentation.dev/mcp"
     }
   },
-  "mcp_servers": {
+  "mcp_dependencies": {
     "agentation": {
-      "description": "Visual annotation feedback for UI elements",
-      "transport": "stdio",
-      "command": "npx",
-      "args": ["agentation-mcp", "server"],
-      "scopes": [
+      "required": false,
+      "required_scopes": [
         "agentation_list_sessions",
         "agentation_get_session",
         "agentation_get_pending",
@@ -38,11 +35,8 @@
         "agentation_reply",
         "agentation_wait_for_action"
       ],
-      "security": {
-        "risk_level": "low",
-        "data_access": "read-write"
-      },
-      "auto_start": false
+      "reason": "Visual annotation feedback for design iteration",
+      "fallback": "Manual copy-paste from Agentation UI"
     }
   },
   "quick_start": {
@@ -72,6 +66,5 @@
   },
   "hooks": {
     "post_install": "scripts/install.sh"
-  },
-  "dependencies": []
+  }
 }

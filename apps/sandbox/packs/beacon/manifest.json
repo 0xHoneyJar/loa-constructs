@@ -20,6 +20,5 @@
   "quick_start": {
     "command": "/audit-content",
     "description": "check your site's LLM readiness"
-  },
-  "dependencies": []
+  }
 }

@@ -351,14 +351,16 @@ Call `agentation_acknowledge` before `agentation_resolve`.
 
 ## Pack Integration Status
 
-| Pack | Role | Integration |
-|------|------|-------------|
-| **Artisan** | Provider | Provides `agentation` MCP server via `mcp_servers` config |
-| **Crucible** | Consumer | Depends on Artisan's MCP server via `mcp_dependencies` |
-| **Observer** | Consumer | Depends on Artisan's MCP server via `mcp_dependencies` |
-| **Beacon** | None | No Agentation integration |
+MCP servers are a **network-level concern** defined in `.claude/mcp-registry.yaml`. No pack "owns" or "provides" an MCP server — all packs are equal consumers that declare what they need via `mcp_dependencies`.
 
-**Note**: Only one pack (Artisan) needs to provide the MCP server. Other packs declare it as a dependency and use the shared server.
+| Pack | Integration |
+|------|-------------|
+| **Artisan** | Consumes Agentation via `mcp_dependencies` (9 scopes) |
+| **Crucible** | Consumes Agentation via `mcp_dependencies` (2 scopes) |
+| **Observer** | Consumes Agentation via `mcp_dependencies` (2 scopes) |
+| **Beacon** | No Agentation integration |
+
+**Server configuration**: See `.claude/mcp-registry.yaml` → `servers.agentation` for transport, command, and security settings.
 
 ## Related
 

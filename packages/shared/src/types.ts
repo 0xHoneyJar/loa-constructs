@@ -256,22 +256,7 @@ export interface PackManifest {
     check: string;
     docs_url?: string;
   }>;
-  /** MCP servers this pack provides */
-  mcp_servers?: Record<string, {
-    description: string;
-    transport: 'stdio' | 'sse';
-    command?: string;
-    args?: string[];
-    endpoint?: string;
-    env?: Record<string, string>;
-    scopes?: string[];
-    security?: {
-      risk_level?: 'low' | 'medium' | 'high';
-      data_access?: 'read-only' | 'read-write';
-    };
-    auto_start?: boolean;
-  }>;
-  /** MCP servers this pack consumes */
+  /** MCP servers this pack consumes (server definitions live in .claude/mcp-registry.yaml) */
   mcp_dependencies?: Record<string, {
     required?: boolean;
     required_scopes?: string[];

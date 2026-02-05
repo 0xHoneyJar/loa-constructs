@@ -5,6 +5,49 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-02-05
+
+### Why This Release
+
+This release hoists MCP server ownership from individual packs to the network level, introduces per-pack changelogs with CI enforcement, and strengthens the validation pipeline.
+
+### Changed
+
+#### MCP Architecture: Network-Level Server Ownership
+
+- Removed `mcp_servers` field from pack manifest schema (JSON Schema, TypeScript, Zod)
+- MCP server definitions now live exclusively in `.claude/mcp-registry.yaml` with full runtime config (transport, command, security)
+- Artisan pack converted from MCP provider to peer consumer via `mcp_dependencies`
+- All packs are now equal consumers — no pack "owns" an MCP server
+
+#### Per-Pack Changelogs
+
+- Added `CHANGELOG.md` to all 5 packs (Artisan, Observer, Crucible, Beacon, GTM Collective)
+- Keep a Changelog 1.1.0 format with independent semver per pack
+
+#### CI Validation Pipeline
+
+- `validate-packs` job now runs Zod schema validation via `validate-pack-manifests.mjs`
+- MCP dependency resolution check via `validate-mcp-deps.sh`
+- Version bump enforcement via `check-pack-versions.sh`
+- Skill enrichment audit via `constructs-audit-index.sh` (39/39 skills)
+
+### Fixed
+
+- Removed invalid `dependencies: []` from pack manifests (should be object, not array)
+
+### Pack Versions
+
+| Pack | Version |
+|------|---------|
+| Artisan | 1.3.0 |
+| Observer | 1.0.2 |
+| Crucible | 1.0.3 |
+| Beacon | 1.0.2 |
+| GTM Collective | 1.0.0 |
+
+---
+
 ## [1.1.0] - 2026-02-02
 
 ### Why This Release

@@ -206,65 +206,6 @@
         }
       }
     },
-    "mcp_servers": {
-      "type": "object",
-      "description": "MCP servers this construct provides.",
-      "additionalProperties": {
-        "type": "object",
-        "required": ["description", "transport"],
-        "properties": {
-          "description": {
-            "type": "string",
-            "maxLength": 300
-          },
-          "transport": {
-            "type": "string",
-            "enum": ["stdio", "sse"]
-          },
-          "command": {
-            "type": "string",
-            "maxLength": 200,
-            "description": "Binary to launch (for stdio transport)"
-          },
-          "args": {
-            "type": "array",
-            "items": { "type": "string" }
-          },
-          "endpoint": {
-            "type": "string",
-            "format": "uri",
-            "description": "URL for SSE transport"
-          },
-          "env": {
-            "type": "object",
-            "additionalProperties": { "type": "string" }
-          },
-          "scopes": {
-            "type": "array",
-            "items": { "type": "string", "maxLength": 100 },
-            "description": "MCP tool names this server exposes"
-          },
-          "security": {
-            "type": "object",
-            "properties": {
-              "risk_level": {
-                "type": "string",
-                "enum": ["low", "medium", "high"]
-              },
-              "data_access": {
-                "type": "string",
-                "enum": ["read-only", "read-write"]
-              }
-            }
-          },
-          "auto_start": {
-            "type": "boolean",
-            "default": false,
-            "description": "Must be false by default for security"
-          }
-        }
-      }
-    },
     "mcp_dependencies": {
       "type": "object",
       "description": "MCP servers this construct consumes. Keys should match mcp-registry.yaml entries.",
