@@ -2,9 +2,42 @@ name: discovering-endpoints
 slug: discovering-endpoints
 version: 1.0.0
 description: Generate x402 discovery endpoint for agent commerce
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /beacon-discover
+  - "/beacon-discover"
+  - "create x402 discovery endpoint"
+  - "generate well-known endpoint for agents"
+  - "enable agent commerce discovery"
+  - "advertise payment endpoints"
+  - "set up x402 protocol"
+  - "make my API discoverable to AI agents"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User building agent-payable service"
+    user_says: "I need to advertise my image generation API to AI agents with pricing"
+    agent_action: "Launch discovering-endpoints to generate /.well-known/x402 discovery endpoint with service metadata"
+  - context: "User implementing x402 protocol"
+    user_says: "How do I let agents know what payment endpoints I support?"
+    agent_action: "Launch discovering-endpoints to create discovery endpoint listing available routes and pricing"
+  - context: "User configuring subsidy"
+    user_says: "Set up x402 discovery with 0xHoneyJar subsidy for my mint endpoint"
+    agent_action: "Launch discovering-endpoints to generate discovery endpoint with subsidy configuration"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - x402
+  - discovery
+  - agent-commerce
+  - payment-endpoints
+  - well-known
+  - protocol
+  - berachain
+  - service-metadata
+
+entry: SKILL.md
+
 allowed-tools:
   - Read
   - Write
@@ -12,13 +45,17 @@ allowed-tools:
   - Grep
   - Edit
   - AskUserQuestion
+
 categories:
   - operations
+
 effort_hint: medium
 danger_level: moderate
+
 inputExamples:
   - "/beacon-discover"
   - "/beacon-discover --service mibera"
+
 outputs:
   - name: discovery-endpoint
     path: "app/.well-known/x402/route.ts"

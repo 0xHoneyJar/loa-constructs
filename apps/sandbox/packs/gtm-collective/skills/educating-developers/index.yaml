@@ -28,6 +28,16 @@ examples:
       4. Create content roadmap
       5. Generate devrel-strategy.md
 
+domain_hints:
+  - developer relations
+  - developer education
+  - documentation strategy
+  - developer advocacy
+  - community building
+  - technical tutorials
+  - API documentation
+  - developer community
+
 inputs:
   - name: "positioning"
     type: "file"

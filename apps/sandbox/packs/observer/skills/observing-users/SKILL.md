@@ -32,12 +32,14 @@ Always:
 ```
 /observe @{username} "{quote}"
 /observe @{username} "{quote}" --context "{source}"
+/observe @{username} --annotate              # Fetch Agentation annotations as research evidence
 ```
 
 **Examples:**
 ```bash
 /observe @papa-flavio "planning henlo burns"
 /observe @tchallason "realtime harvesting counter" --context "Discord #feedback"
+/observe @beta-tester --annotate             # Requires agentation MCP server
 ```
 
 ---

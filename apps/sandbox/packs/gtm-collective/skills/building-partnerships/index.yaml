@@ -28,6 +28,16 @@ examples:
       4. Create deal frameworks
       5. Generate partnership-strategy.md
 
+domain_hints:
+  - partnership strategy
+  - business development
+  - co-marketing
+  - integration partnerships
+  - channel strategy
+  - ecosystem partnerships
+  - strategic alliances
+  - partner operations
+
 inputs:
   - name: "positioning"
     type: "file"

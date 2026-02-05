@@ -58,6 +58,13 @@ dependencies:
     required: false
     description: "Project taste tokens for grounded resolution"
 
+integrations:
+  optional:
+    - name: "agentation"
+      scopes: [agentation_get_pending, agentation_get_session]
+      reason: "Access element annotations for precise decomposition"
+      fallback: "Manual 'what feels off' decomposition questions"
+
 outputs:
   - path: "grimoires/artisan/feedback/*.jsonl"
     description: "Decomposition logs for pattern detection"

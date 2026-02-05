@@ -64,6 +64,13 @@ dependencies:
     required: false
     description: "Design direction constraints"
 
+integrations:
+  optional:
+    - name: "agentation"
+      scopes: [agentation_get_pending, agentation_resolve, agentation_wait_for_action]
+      reason: "Fetch visual annotations directly via MCP"
+      fallback: "Manual copy-paste of Agentation v1 markdown"
+
 outputs:
   - path: "grimoires/artisan/screenshots/*.png"
     description: "Captured screenshots during iteration"

@@ -1,13 +1,60 @@
 name: observing-users
 slug: observing-users
 version: 1.0.0
-description: Capture user feedback as hypothesis-first research using Level 3 diagnostic. Forms theories (not conclusions) from quotes.
-entry: SKILL.md
+description: |
+  Use this skill IF user shares feedback quotes from Discord/Telegram/support,
+  OR needs to create hypothesis-first research canvases,
+  OR wants to capture user behavior patterns as structured observations.
+  Forms theories (not conclusions) from quotes using Level 3 diagnostic.
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /observe
+  - "/observe"
+  - "capture user feedback"
+  - "record user interaction"
+  - "user research"
+  - "observe users"
+  - "log user feedback"
+  - "create canvas from feedback"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User shares Discord feedback"
+    user_says: "Papa-flavio said 'planning henlo burns' in Discord"
+    agent_action: "Launch observing-users to create/update canvas with Level 3 diagnostic analysis"
+  - context: "User wants to track behavioral pattern"
+    user_says: "Multiple users are asking about reward timing, capture this pattern"
+    agent_action: "Launch observing-users to record observations across relevant user canvases"
+  - context: "User has Agentation annotation from research session"
+    user_says: "I annotated what the user was clicking on, add it to their canvas"
+    agent_action: "Launch observing-users with --annotate to fetch visual annotations as research evidence"
+  - context: "User preparing for feature decisions"
+    user_says: "What do we know about how users interact with the deposit flow?"
+    agent_action: "Launch observing-users in list mode to surface existing canvases and hypotheses"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - user-research
+  - feedback
+  - canvas
+  - hypothesis
+  - level-3
+  - diagnostic
+  - observation
+  - utc
+
+entry: SKILL.md
+
 allowed-tools:
   - Read
   - Write
   - Glob
   - Grep
   - Edit
+
+integrations:
+  optional:
+    - name: "agentation"
+      scopes: [agentation_list_sessions, agentation_get_pending]
+      reason: "Capture visual annotations as research evidence"
+      fallback: "Manual /observe quotes from user feedback"

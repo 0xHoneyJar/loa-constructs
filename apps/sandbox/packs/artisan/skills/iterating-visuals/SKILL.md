@@ -257,7 +257,18 @@ Based on user response:
 - If pattern emerges, offer to add to taste.md
 
 #### "Let me annotate"
-- Provide Agentation instructions:
+
+**Agentation v2 (MCP)** — If `agentation` MCP server is available:
+- Fetch pending annotations directly:
+  ```
+  I'll check Agentation for your annotations...
+  ```
+- Use `agentation_get_pending` to retrieve annotations
+- Use `agentation_resolve` after applying fixes
+- No copy-paste needed — annotations stream in automatically
+
+**Agentation v1 (Fallback)** — If MCP unavailable:
+- Provide manual instructions:
   ```
   To annotate precisely:
 

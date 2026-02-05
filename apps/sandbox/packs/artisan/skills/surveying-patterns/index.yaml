@@ -2,9 +2,45 @@ name: surveying-patterns
 slug: surveying-patterns
 version: 1.0.0
 description: UI baseline constraints and pattern enforcement to prevent interface slop
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /survey
+  - "/survey"
+  - "enforce UI constraints"
+  - "check baseline patterns"
+  - "prevent interface slop"
+  - "review against standards"
+  - "apply UI rules"
+  - "pattern violations"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User writing new component"
+    user_says: "Apply baseline UI constraints to this work"
+    agent_action: "Launch surveying-patterns to enforce stack constraints (Tailwind, motion/react, cn utility)"
+  - context: "User reviewing code"
+    user_says: "Check this file for pattern violations"
+    agent_action: "Launch surveying-patterns to audit against component, interaction, and animation constraints"
+  - context: "User implementing animation"
+    user_says: "Is this animation following best practices?"
+    agent_action: "Launch surveying-patterns to verify transform/opacity-only, 200ms max, and reduced motion support"
+  - context: "User building destructive action"
+    user_says: "Do I need AlertDialog for this delete button?"
+    agent_action: "Launch surveying-patterns to enforce AlertDialog requirement for destructive interactions"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - constraints
+  - patterns
+  - baseline
+  - standards
+  - enforcement
+  - audit
+  - anti-patterns
+  - quality
+
+entry: SKILL.md
+
 allowed-tools:
   - Read
   - Write

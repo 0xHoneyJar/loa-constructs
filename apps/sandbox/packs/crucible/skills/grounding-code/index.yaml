@@ -1,10 +1,49 @@
 name: grounding-code
 slug: grounding-code
 version: 1.0.0
-description: Extract actual code behavior into a structured reality file.
-entry: SKILL.md
+description: |
+  Use this skill IF user needs to understand what code actually does,
+  OR wants to extract component behavior into structured documentation,
+  OR needs to compare implementation vs expectations,
+  OR is debugging state management flows.
+  Creates reality files documenting states, transitions, and error handling with file:line evidence.
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /ground
+  - "/ground"
+  - "what does this code do"
+  - "extract component behavior"
+  - "understand this hook"
+  - "document the states"
+  - "map the flow"
+  - "analyze the implementation"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User debugging unclear state behavior"
+    user_says: "What states does use-recipe-deposit-flow actually have?"
+    agent_action: "Launch grounding-code to extract state definitions and transitions with line numbers"
+  - context: "User comparing expectations vs reality"
+    user_says: "I need to understand what the withdraw flow actually does"
+    agent_action: "Launch grounding-code to create reality file documenting actual behavior"
+  - context: "User preparing for gap analysis"
+    user_says: "Can you extract the actual behavior of this component?"
+    agent_action: "Launch grounding-code with --journey flag to link reality to journey for gap analysis"
+  - context: "User wants deep dependency analysis"
+    user_says: "Show me all the states in this hook and its dependencies"
+    agent_action: "Launch grounding-code with --deep flag to follow imports and extract full behavior"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - state
+  - behavior
+  - implementation
+  - reality
+  - hook
+  - component
+  - analysis
+
+entry: SKILL.md
 allowed-tools:
   - Read
   - Write

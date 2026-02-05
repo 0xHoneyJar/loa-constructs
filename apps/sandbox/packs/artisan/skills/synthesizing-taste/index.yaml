@@ -2,9 +2,45 @@ name: synthesizing-taste
 slug: synthesizing-taste
 version: 1.0.0
 description: Extract brand taste tokens from reference materials into taste.md
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /synthesize
+  - "/synthesize"
+  - "extract taste tokens"
+  - "generate taste file"
+  - "capture brand style"
+  - "codify design system"
+  - "reverse engineer brand"
+  - "create taste.md"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User onboarding to project"
+    user_says: "Generate a taste.md from the existing codebase"
+    agent_action: "Launch synthesizing-taste to scan components, extract patterns, and generate taste.md with brand personality"
+  - context: "User with design files"
+    user_says: "Can you extract design tokens from these Figma exports?"
+    agent_action: "Launch synthesizing-taste to parse design-tokens.json and generate structured taste.md"
+  - context: "User updating design system"
+    user_says: "Our brand changed, need to update taste.md"
+    agent_action: "Launch synthesizing-taste to re-analyze patterns and regenerate taste tokens with new personality"
+  - context: "User starting new project"
+    user_says: "Create taste.md based on these reference websites"
+    agent_action: "Launch synthesizing-taste to analyze references, load moodboard, and synthesize brand tokens"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - taste
+  - extraction
+  - brand
+  - tokens
+  - design-system
+  - codification
+  - analysis
+  - synthesis
+
+entry: SKILL.md
+
 allowed-tools:
   - Read
   - Write

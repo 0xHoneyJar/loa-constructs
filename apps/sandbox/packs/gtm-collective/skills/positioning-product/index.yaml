@@ -27,6 +27,16 @@ examples:
       3. Create messaging hierarchy
       4. Generate positioning.md
 
+domain_hints:
+  - product positioning
+  - messaging framework
+  - value proposition
+  - differentiation strategy
+  - market positioning
+  - brand messaging
+  - competitive positioning
+  - target audience messaging
+
 inputs:
   - name: "market_landscape"
     type: "file"

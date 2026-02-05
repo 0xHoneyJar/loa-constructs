@@ -4,11 +4,45 @@ version: 1.0.0
 description: |
   Diagnostic-first user research for support conversations and feedback analysis.
   Reaches Level 3 (user goal) before investigating or fixing.
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - user feedback
-  - bug report
-  - support conversation
+  - "/level-3"
+  - "user feedback"
+  - "bug report"
+  - "support conversation"
+  - "diagnose before fixing"
+  - "what were they trying to accomplish"
+  - "apply The Mom Test"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User reports feature not working as expected"
+    user_says: "User says the claim button is disabled for hours - what's wrong?"
+    agent_action: "Launch level-3-diagnostic to ask 'What were they trying to do?' before investigating code"
+  - context: "Feature request that might be discoverability issue"
+    user_says: "User wants a feature to track their rewards history"
+    agent_action: "Launch level-3-diagnostic to check if existing features solve this before building new ones"
+  - context: "Support conversation with expectation mismatch"
+    user_says: "User expected rewards to update every 5 minutes but they don't"
+    agent_action: "Launch level-3-diagnostic to trace where expectation came from (docs/competitor/assumption)"
+  - context: "Bug report without clear reproduction"
+    user_says: "Process user feedback: 'Doesn't work, button stays disabled'"
+    agent_action: "Launch level-3-diagnostic to reach Level 3 goal before scoping investigation"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - support
+  - bug-triage
+  - user-goals
+  - expectation-tracing
+  - mom-test
+  - diagnostic
+  - feedback-analysis
+  - product-intelligence
+  - level-3
+
+entry: SKILL.md
 allowed-tools:
   - Read
   - Write

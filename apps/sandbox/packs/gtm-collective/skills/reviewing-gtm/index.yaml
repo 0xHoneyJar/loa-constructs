@@ -27,6 +27,16 @@ examples:
       4. Validate against product reality
       5. Produce review verdict
 
+domain_hints:
+  - GTM strategy review
+  - launch readiness
+  - consistency check
+  - gap analysis
+  - strategy validation
+  - GTM assessment
+  - pre-launch review
+  - execution readiness
+
 inputs:
   - name: "research_dir"
     type: "directory"

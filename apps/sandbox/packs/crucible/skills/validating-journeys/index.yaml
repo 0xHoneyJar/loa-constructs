@@ -1,10 +1,48 @@
 name: validating-journeys
 slug: validating-journeys
 version: 1.0.0
-description: Generate Playwright test scripts from state diagrams and execute them.
-entry: SKILL.md
+description: |
+  Use this skill IF user wants to generate automated tests from state diagrams,
+  OR needs to execute E2E tests for user journeys,
+  OR wants to validate flows with Playwright.
+  Converts state machine diagrams into executable test scripts.
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /validate
+  - "/validate"
+  - "generate playwright tests"
+  - "create e2e tests"
+  - "run journey tests"
+  - "test this flow"
+  - "validate the journey"
+  - "execute tests"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User has a state diagram and needs tests"
+    user_says: "Can you generate Playwright tests for the deposit flow?"
+    agent_action: "Launch validating-journeys to convert diagram to test script"
+  - context: "User wants to run existing tests"
+    user_says: "Run the tests for reward-understanding journey"
+    agent_action: "Launch validating-journeys with --run flag to execute tests"
+  - context: "User debugging test failures"
+    user_says: "The deposit tests are failing, can you check them?"
+    agent_action: "Launch validating-journeys with --run to execute and capture failure screenshots"
+  - context: "User updating diagram after code changes"
+    user_says: "I updated the flow, regenerate the tests"
+    agent_action: "Launch validating-journeys with --update to regenerate from updated diagram"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - testing
+  - e2e
+  - playwright
+  - automation
+  - validation
+  - journey
+  - flow
+
+entry: SKILL.md
 allowed-tools:
   - Read
   - Write

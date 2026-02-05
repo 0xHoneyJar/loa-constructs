@@ -29,6 +29,16 @@ examples:
       4. Create tier structure
       5. Generate pricing-strategy.md
 
+domain_hints:
+  - pricing strategy
+  - monetization model
+  - pricing models
+  - value-based pricing
+  - tier structure
+  - pricing psychology
+  - revenue model
+  - subscription pricing
+
 inputs:
   - name: "positioning"
     type: "file"

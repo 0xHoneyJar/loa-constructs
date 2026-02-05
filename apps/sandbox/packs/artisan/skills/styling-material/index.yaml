@@ -2,9 +2,45 @@ name: styling-material
 slug: styling-material
 version: 1.0.0
 description: UI polish patterns for typography, visual design, layout, and dark mode
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /style
+  - "/style"
+  - "polish this UI"
+  - "typography issues"
+  - "dark mode support"
+  - "layout shift problem"
+  - "visual refinement"
+  - "make this look polished"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User experiencing layout shift"
+    user_says: "Tab text jumps when I hover because font-weight changes"
+    agent_action: "Launch styling-material to replace font-weight change with color transition to prevent layout shift"
+  - context: "User implementing dark mode"
+    user_says: "Need to add dark mode to this interface"
+    agent_action: "Launch styling-material to set up CSS variable color scale and data-theme attribute pattern"
+  - context: "User polishing typography"
+    user_says: "These headings have awkward line breaks"
+    agent_action: "Launch styling-material to apply text-wrap: balance for better line distribution"
+  - context: "User adding shadows"
+    user_says: "Should I use border or box-shadow for this subtle outline?"
+    agent_action: "Launch styling-material to recommend box-shadow: 0 0 0 1px for better blending"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - typography
+  - polish
+  - dark-mode
+  - visual
+  - shadows
+  - layout
+  - refinement
+  - css
+
+entry: SKILL.md
+
 allowed-tools:
   - Read
   - Write

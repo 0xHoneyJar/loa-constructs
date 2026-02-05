@@ -2,9 +2,43 @@ name: filing-gaps
 slug: filing-gaps
 version: 1.0.0
 description: Create GitHub/Linear issues from gap analysis reports with proper taxonomy labels.
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /file-gap
+  - "/file-gap"
+  - "create issue from gap"
+  - "file this gap as an issue"
+  - "turn gap into GitHub issue"
+  - "file all open gaps"
+  - "create issues from gap report"
+
+# Natural language examples for intent matching
+examples:
+  - context: "Gap report exists with identified issues"
+    user_says: "File GAP-reward-understanding-3 as a GitHub issue"
+    agent_action: "Launch filing-gaps to create structured issue with taxonomy labels and evidence links"
+  - context: "Multiple gaps need to be filed at once"
+    user_says: "Create issues for all the gaps in the deposit-flow analysis"
+    agent_action: "Launch filing-gaps with --all flag to batch-create issues for all open gaps"
+  - context: "User wants to preview issue before creating"
+    user_says: "Show me what the issue would look like for GAP-deposit-flow-1"
+    agent_action: "Launch filing-gaps with --dry-run to preview issue content without creating"
+  - context: "Need to file gap to specific provider"
+    user_says: "File this gap to Linear instead of GitHub"
+    agent_action: "Launch filing-gaps with --provider linear to create issue in Linear workspace"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - issue-creation
+  - github
+  - linear
+  - gap-report
+  - taxonomy
+  - jtbd
+  - artifact-linking
+  - bug-tracking
+
+entry: SKILL.md
 allowed-tools:
   - Read
   - Write

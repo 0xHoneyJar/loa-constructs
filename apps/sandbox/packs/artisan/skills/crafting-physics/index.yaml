@@ -2,9 +2,45 @@ name: crafting-physics
 slug: crafting-physics
 version: 1.0.0
 description: Design physics system for UI interactions - sync strategies, timing, confirmations
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /physics
+  - "/physics"
+  - "optimistic update"
+  - "loading state"
+  - "needs confirmation"
+  - "sync strategy"
+  - "how should this mutation work"
+  - "timing for this action"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User implementing delete button"
+    user_says: "Should this delete have a confirmation dialog?"
+    agent_action: "Launch crafting-physics to determine effect type (destructive) and apply pessimistic sync with AlertDialog"
+  - context: "User building archive feature"
+    user_says: "Want archive to feel instant with undo option"
+    agent_action: "Launch crafting-physics to implement optimistic sync with toast undo for soft delete effect"
+  - context: "User implementing wallet withdrawal"
+    user_says: "How long should the withdrawal loading state show?"
+    agent_action: "Launch crafting-physics to apply 800ms minimum for financial effect with pessimistic sync"
+  - context: "User working on theme toggle"
+    user_says: "Theme switch needs to feel instant"
+    agent_action: "Launch crafting-physics to classify as local state with immediate 100ms timing"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - mutation
+  - loading
+  - confirmation
+  - optimistic
+  - pessimistic
+  - sync
+  - timing
+  - ux
+
+entry: SKILL.md
+
 allowed-tools:
   - Read
   - Write

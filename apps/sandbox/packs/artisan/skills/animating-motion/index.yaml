@@ -2,9 +2,46 @@ name: animating-motion
 slug: animating-motion
 version: 1.0.0
 description: Motion design and animation patterns for UI based on Emil Kowalski's principles
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /animate
+  - "/animate"
+  - "add animation"
+  - "make this transition smoother"
+  - "animate the modal"
+  - "how should this move"
+  - "motion design"
+  - "add entrance animation"
+  - "smooth the transition"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User implementing modal animation"
+    user_says: "The modal needs to fade in smoothly when it opens"
+    agent_action: "Launch animating-motion to apply ease-out entrance animation with proper duration"
+  - context: "User asking about animation performance"
+    user_says: "This animation feels laggy, how can I optimize it?"
+    agent_action: "Launch animating-motion to ensure only transform/opacity are animated for GPU acceleration"
+  - context: "User implementing drag gesture"
+    user_says: "I want drag-to-dismiss with momentum on this drawer"
+    agent_action: "Launch animating-motion to implement spring-based drag with velocity calculation"
+  - context: "User working on accessibility"
+    user_says: "Need to respect reduced motion for this animation"
+    agent_action: "Launch animating-motion to add prefers-reduced-motion media query support"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - animation
+  - motion
+  - transition
+  - easing
+  - spring
+  - gesture
+  - framer-motion
+  - accessibility
+
+entry: SKILL.md
+
 allowed-tools:
   - Read
   - Write

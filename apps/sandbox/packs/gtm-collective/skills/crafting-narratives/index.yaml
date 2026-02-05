@@ -27,6 +27,16 @@ examples:
       3. Develop content calendar
       4. Generate launch-plan.md and content-calendar.md
 
+domain_hints:
+  - storytelling
+  - content creation
+  - brand narratives
+  - launch messaging
+  - content calendar
+  - product launch
+  - go-to-market execution
+  - brand positioning
+
 inputs:
   - name: "positioning"
     type: "file"

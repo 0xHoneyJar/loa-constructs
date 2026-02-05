@@ -26,6 +26,16 @@ examples:
       3. Create pitch deck content
       4. Generate pitch-deck.md
 
+domain_hints:
+  - pitch deck
+  - investor presentation
+  - executive communication
+  - stakeholder communication
+  - business translation
+  - technical translation
+  - board presentation
+  - fundraising pitch
+
 inputs:
   - name: "positioning"
     type: "file"
