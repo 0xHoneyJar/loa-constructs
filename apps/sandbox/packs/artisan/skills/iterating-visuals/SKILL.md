@@ -95,7 +95,7 @@ After style change, capture the visual result:
 
 ```bash
 # Open dev server page
-agent-browser open $DEV_SERVER --headed
+agent-browser open "$DEV_SERVER" --headed
 
 # Wait for render
 agent-browser wait --load networkidle
@@ -191,10 +191,7 @@ log_feedback() {
 
   # Validate/normalize context JSON
   local context
-  context=$(echo "$context_json" | jq -c . 2>/dev/null)
-  if [[ -z "$context" ]]; then
-    context="{}"
-  fi
+  context=$(printf '%s' "$context_json" | jq -ce . 2>/dev/null) || context="{}"
 
   # Use jq for safe JSON construction
   if [[ -n "$resolution" ]]; then

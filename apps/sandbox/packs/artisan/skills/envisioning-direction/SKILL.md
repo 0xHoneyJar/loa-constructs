@@ -103,8 +103,12 @@ else
   SCREENSHOT_ENABLED=true
 fi
 
-# For each URL
-for url in $urls; do
+# For each URL (disable globbing and split safely)
+set -f
+read -r -a url_list <<< "$urls"
+set +f
+
+for url in "${url_list[@]}"; do
   # Normalize URL scheme
   if [[ "$url" =~ ^https?:// ]]; then
     full_url="$url"

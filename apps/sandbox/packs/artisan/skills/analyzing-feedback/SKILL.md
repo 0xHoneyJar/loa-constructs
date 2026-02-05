@@ -221,7 +221,7 @@ auto_contribute() {
   # Check if already contributed (use -F for literal match, -x for whole line)
   local contributed_file="grimoires/artisan/feedback/.contributed"
   touch "$contributed_file"
-  if grep -Fqx "$pattern" "$contributed_file" 2>/dev/null; then
+  if grep -Fqx -- "$pattern" "$contributed_file" 2>/dev/null; then
     echo "Pattern already contributed: $pattern"
     return 0
   fi
