@@ -330,7 +330,7 @@ async function seedForgePacks() {
     if (savedKey) {
       console.log('\n📋 Add to apps/sandbox/.env:');
       console.log(`LOA_CONSTRUCTS_API_KEY=${savedKey}`);
-      console.log('LOA_CONSTRUCTS_API_URL=https://loa-constructs-api-production.up.railway.app/v1');
+      console.log('LOA_CONSTRUCTS_API_URL=https://api.constructs.network/v1');
     }
   } catch (error) {
     console.error('\n❌ Seeding failed:', error);

@@ -6,7 +6,7 @@
 
 import type { Category } from '@/lib/types/graph';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://loa-constructs-api.fly.dev/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network/v1';
 
 /**
  * Default categories for fallback when API is unavailable

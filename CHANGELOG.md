@@ -291,14 +291,13 @@ This is the initial production release of Loa Skills Registry, completing all 15
 | Component | Technology |
 |-----------|------------|
 | API | Hono + Node.js |
-| Database | PostgreSQL (Neon) + Drizzle ORM |
+| Database | PostgreSQL (Supabase) + Drizzle ORM |
 | Cache | Redis (Upstash) |
 | Storage | Cloudflare R2 |
-| Auth | JWT (jose) + bcrypt |
-| Payments | Stripe |
+| Auth | JWT RS256 (jose) + bcrypt |
 | Email | Resend |
 | Frontend | Next.js 14 + Tailwind CSS |
-| Hosting | Fly.io |
+| Hosting | Railway |
 | Monorepo | Turborepo + pnpm |
 
 ### API Endpoints

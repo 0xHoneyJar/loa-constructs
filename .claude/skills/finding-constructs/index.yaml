@@ -39,7 +39,7 @@ allowed_tools:
 config:
   min_relevance_threshold: 0.5
   max_results: 3
-  api_endpoint: "https://loa-constructs-api.fly.dev/v1/constructs"
+  api_endpoint: "https://api.constructs.network/v1/constructs"
 
 # User-invocable (can be called with /finding-constructs)
 user_invocable: false

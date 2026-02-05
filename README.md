@@ -5,17 +5,17 @@
 
 > The marketplace for AI agent constructs
 
-Loa Constructs is a SaaS platform for distributing, licensing, and monetizing AI agent constructs compatible with the [Loa framework](https://github.com/0xHoneyJar/loa) and Claude Code. Discover, install, and manage constructs via CLI or web dashboard.
+Loa Constructs is a platform for distributing, licensing, and managing AI agent constructs compatible with the [Loa framework](https://github.com/0xHoneyJar/loa) and Claude Code. Discover, install, and manage constructs via CLI or web dashboard.
 
 ## Features
 
-- **Skill Marketplace** - Browse, search, and discover curated AI agent skills
-- **CLI Integration** - Install and update skills directly from Claude Code
-- **Subscription Tiers** - Free, Pro, Team, and Enterprise plans
-- **Pack System** - Bundle multiple skills into installable packs
-- **Team Management** - Shared subscriptions with seat management
+- **Construct Registry** - Browse, search, and discover curated AI agent skills and packs
+- **CLI Integration** - Install and update constructs directly from Claude Code
+- **Pack System** - Bundle multiple skills into installable packs with ownership markers
+- **3D Explorer** - Interactive visualization of the construct ecosystem
 - **Creator Dashboard** - Publish skills, track downloads, view analytics
-- **License Enforcement** - Watermarked licenses with usage tracking
+- **License Enforcement** - JWT RS256 signed licenses with usage tracking
+- **Team Management** - Shared access with seat management
 
 ## Quick Start
 
@@ -30,7 +30,8 @@ Loa Constructs is a SaaS platform for distributing, licensing, and monetizing AI
 
 ### Browse the Registry
 
-Visit [constructs.network](https://constructs.network) to browse available constructs and manage your subscription.
+- **Dashboard**: [constructs.network](https://constructs.network)
+- **Explorer**: [constructs.loa.dev](https://constructs.loa.dev)
 
 ## Architecture
 
@@ -38,45 +39,51 @@ Visit [constructs.network](https://constructs.network) to browse available const
 loa-constructs/
 ├── apps/
 │   ├── api/          # Hono API server (Node.js)
-│   └── web/          # Next.js dashboard
+│   ├── web/          # Next.js dashboard
+│   ├── explorer/     # Next.js 3D construct explorer
+│   └── sandbox/      # Pack development & publishing
 ├── packages/
 │   ├── loa-registry/ # CLI plugin for Claude Code
-│   └── shared/       # Shared types and validation
-└── loa-grimoire/     # Project documentation
+│   └── shared/       # Shared types and validation (Zod)
+└── grimoires/loa/    # Project documentation
 ```
+
+### Available Packs
+
+| Pack | Skills | Description |
+|------|--------|-------------|
+| **Observer** | 6 | User truth capture, hypothesis-first research |
+| **Crucible** | 5 | Journey validation, Playwright testing |
+| **Artisan** | 10 | Brand/UI craftsmanship, design systems |
+| **Beacon** | 6 | Agent commerce, x402 payments |
 
 ### Tech Stack
 
 | Component | Technology |
 |-----------|------------|
 | API | Hono + Node.js |
-| Database | PostgreSQL (Neon) |
+| Database | PostgreSQL (Supabase) |
 | Cache | Redis (Upstash) |
 | Storage | Cloudflare R2 |
-| Auth | JWT + OAuth (GitHub, Google) |
-| Payments | Stripe |
+| Auth | JWT RS256 + OAuth (GitHub, Google) |
 | Email | Resend |
-| Hosting | Fly.io |
-| Frontend | Next.js 14 + Tailwind |
-
-## Subscription Tiers
-
-| Feature | Free | Pro | Team | Enterprise |
-|---------|------|-----|------|------------|
-| Public skills | Unlimited | Unlimited | Unlimited | Unlimited |
-| Pro skills | - | Unlimited | Unlimited | Unlimited |
-| Team skills | - | - | Unlimited | Unlimited |
-| API rate limit | 100/min | 500/min | 500/min | 1000/min |
-| Team members | - | - | Up to 10 | Unlimited |
-| Priority support | - | - | - | Yes |
+| Hosting (API) | Railway |
+| Frontend | Next.js + Tailwind |
+| Monorepo | Turborepo + pnpm |
 
 ## API Endpoints
+
+Base URL: `https://api.constructs.network/v1`
 
 ### Authentication
 - `POST /v1/auth/register` - Create account
 - `POST /v1/auth/login` - Login
 - `POST /v1/auth/refresh` - Refresh tokens
 - `POST /v1/auth/logout` - Logout (blacklists token)
+
+### Constructs
+- `GET /v1/constructs` - Unified search across skills and packs
+- `GET /v1/constructs/:slug` - Get construct details
 
 ### Skills
 - `GET /v1/skills` - List/search skills
@@ -87,7 +94,7 @@ loa-constructs/
 ### Packs
 - `GET /v1/packs` - List available packs
 - `GET /v1/packs/:slug` - Get pack details
-- `GET /v1/packs/:slug/download` - Download pack (requires subscription)
+- `GET /v1/packs/:slug/download` - Download pack
 
 ### Teams
 - `GET /v1/teams` - List user's teams
@@ -100,16 +107,16 @@ loa-constructs/
 ### Prerequisites
 
 - Node.js 20+
-- pnpm 8+
-- PostgreSQL (or Neon account)
+- pnpm 9+
+- PostgreSQL (or Supabase account)
 - Redis (or Upstash account)
 
 ### Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/0xHoneyJar/loa.git
-cd loa
+git clone https://github.com/0xHoneyJar/loa-constructs.git
+cd loa-constructs
 
 # Install dependencies
 pnpm install
@@ -129,12 +136,10 @@ pnpm dev
 ```bash
 # Required
 DATABASE_URL=postgresql://...
-REDIS_URL=redis://...
 JWT_SECRET=your-secret-at-least-32-chars
 
-# Stripe
-STRIPE_SECRET_KEY=sk_...
-STRIPE_WEBHOOK_SECRET=whsec_...
+# Redis (optional for local dev)
+REDIS_URL=redis://...
 
 # Email
 RESEND_API_KEY=re_...
@@ -167,7 +172,7 @@ pnpm typecheck
 
 ## Security
 
-- JWT authentication with token blacklisting
+- JWT RS256 authentication with token blacklisting
 - bcrypt password hashing (cost factor 12)
 - Rate limiting with fail-closed for auth endpoints
 - CSRF protection (double-submit cookie)
@@ -192,5 +197,5 @@ See [SECURITY-AUDIT-REPORT.md](SECURITY-AUDIT-REPORT.md) for the full audit.
 ## Links
 
 - [Loa Framework](https://github.com/0xHoneyJar/loa)
-- [Documentation](https://constructs.network/docs)
-- [Issues](https://github.com/0xHoneyJar/loa/issues)
+- [Constructs Explorer](https://constructs.loa.dev)
+- [Issues](https://github.com/0xHoneyJar/loa-constructs/issues)

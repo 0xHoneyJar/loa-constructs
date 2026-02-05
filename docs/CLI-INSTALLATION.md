@@ -14,11 +14,10 @@ The Loa Constructs CLI integrates with Claude Code to provide:
 
 | Service | URL | Description |
 |---------|-----|-------------|
-| **API** | `https://loa-constructs-api.fly.dev` | REST API (Fly.io) |
-| **Dashboard** | Vercel (behind SSO during soft launch) | Web interface |
-| **Database** | Neon PostgreSQL | Data storage |
-
-> **Note**: During soft launch, the web dashboard is behind Vercel SSO. Use the CLI or API directly for access.
+| **API** | `https://api.constructs.network` | REST API (Railway) |
+| **Dashboard** | `https://constructs.network` | Web interface |
+| **Explorer** | `https://constructs.loa.dev` | 3D construct browser |
+| **Database** | Supabase PostgreSQL | Data storage |
 
 ## Prerequisites
 
@@ -44,18 +43,12 @@ pnpm --filter @loa-constructs/cli build
 
 ### 2. Configure the Registry URL
 
-For the soft launch, the API is hosted at `loa-constructs-api.fly.dev`:
+The CLI defaults to `https://api.constructs.network/v1`. No configuration needed for production use.
+
+For local development:
 
 ```bash
-# Set the production API URL (add to your shell profile)
-export LOA_CONSTRUCTS_URL="https://loa-constructs-api.fly.dev/v1"
-```
-
-Add this to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.) for persistence:
-
-```bash
-echo 'export LOA_CONSTRUCTS_URL="https://loa-constructs-api.fly.dev/v1"' >> ~/.zshrc
-source ~/.zshrc
+export LOA_CONSTRUCTS_URL="http://localhost:3001/v1"
 ```
 
 ### 3. Authenticate
@@ -87,14 +80,14 @@ API keys can be generated from the dashboard once it's publicly accessible.
 
 ```bash
 # Test API health
-curl https://loa-constructs-api.fly.dev/v1/health
+curl https://api.constructs.network/v1/health
 
 # List available packs (public endpoint)
-curl https://loa-constructs-api.fly.dev/v1/packs
+curl https://api.constructs.network/v1/packs
 
 # Or with authentication
 curl -H "Authorization: Bearer $LOA_CONSTRUCTS_API_KEY" \
-  https://loa-constructs-api.fly.dev/v1/packs
+  https://api.constructs.network/v1/packs
 
 # Using Claude Code commands
 /skill-pack-list
@@ -131,37 +124,6 @@ Configuration is stored in `~/.loa-constructs/`:
     "checkInterval": 86400
   }
 }
-```
-
-### Soft Launch Configuration
-
-For the soft launch, override the default URL:
-
-```bash
-# Option 1: Environment variable (recommended)
-export LOA_CONSTRUCTS_URL="https://loa-constructs-api.fly.dev/v1"
-
-# Option 2: Edit config directly
-cat > ~/.loa-constructs/config.json << 'EOF'
-{
-  "registries": [
-    {
-      "name": "default",
-      "url": "https://loa-constructs-api.fly.dev/v1",
-      "default": true
-    }
-  ],
-  "cache": {
-    "enabled": true,
-    "ttl": 86400,
-    "maxSize": "500MB"
-  },
-  "autoUpdate": {
-    "enabled": true,
-    "checkInterval": 86400
-  }
-}
-EOF
 ```
 
 ## Available Commands
@@ -206,27 +168,14 @@ EOF
 | `LOA_CONSTRUCTS_URL` | Registry API URL | `https://api.constructs.network/v1` |
 | `LOA_CONSTRUCTS_API_KEY` | API key for authentication | (none) |
 
-## Subscription Tiers
+## Available Packs
 
-Access to skills and packs depends on your subscription tier:
-
-| Tier | Access |
-|------|--------|
-| Free | Free skills only |
-| Pro | Pro skills + packs (GTM Collective, etc.) |
-| Team | Pro + team features |
-| Enterprise | All features + priority support |
-
-## GTM Collective Pack
-
-The GTM Collective pack is available for Pro+ subscribers:
-
-```bash
-# Install the pack
-/skill-pack-install gtm-collective
-```
-
-This installs 8 skills and 14 commands for go-to-market activities.
+| Pack | Skills | Description |
+|------|--------|-------------|
+| **Observer** | 6 | User truth capture, hypothesis-first research |
+| **Crucible** | 5 | Journey validation, Playwright testing |
+| **Artisan** | 10 | Brand/UI craftsmanship, design systems |
+| **Beacon** | 6 | Agent commerce, x402 payments |
 
 ## Troubleshooting
 
@@ -246,7 +195,7 @@ Ensure the registry URL is correct:
 
 ```bash
 echo $LOA_CONSTRUCTS_URL
-# Should be: https://loa-constructs-api.fly.dev/v1
+# Should be: https://api.constructs.network/v1
 ```
 
 ### Connection Refused
@@ -254,7 +203,7 @@ echo $LOA_CONSTRUCTS_URL
 Check if the API is healthy:
 
 ```bash
-curl https://loa-constructs-api.fly.dev/v1/health
+curl https://api.constructs.network/v1/health
 # Expected: {"status":"healthy",...}
 ```
 
@@ -286,7 +235,7 @@ THJ team members have `thjBypass` enabled, allowing access to all packs regardle
 
 ## API Endpoints Reference
 
-Base URL: `https://loa-constructs-api.fly.dev/v1`
+Base URL: `https://api.constructs.network/v1`
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -294,6 +243,7 @@ Base URL: `https://loa-constructs-api.fly.dev/v1`
 | `/auth/login` | POST | Authenticate with email/password |
 | `/auth/refresh` | POST | Refresh access token |
 | `/users/me` | GET | Get current user info |
+| `/constructs` | GET | Unified search across skills and packs |
 | `/skills` | GET | List skills |
 | `/skills/:slug` | GET | Get skill details |
 | `/skills/:slug/download` | GET | Download skill files |
@@ -308,6 +258,6 @@ Base URL: `https://loa-constructs-api.fly.dev/v1`
 
 ---
 
-*Last updated: 2026-01-02*
+*Last updated: 2026-02-05*
 *API Version: v1*
-*CLI Version: 0.3.0*
+*CLI Version: 0.4.0*

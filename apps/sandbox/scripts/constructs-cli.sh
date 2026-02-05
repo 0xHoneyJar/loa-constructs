@@ -32,7 +32,7 @@ SANDBOX_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PACKS_DIR="$SANDBOX_ROOT/packs"
 
 # Default API URL
-API_URL="${LOA_CONSTRUCTS_API_URL:-https://loa-constructs-api.fly.dev/v1}"
+API_URL="${LOA_CONSTRUCTS_API_URL:-https://api.constructs.network/v1}"
 API_KEY=""
 ADMIN_KEY=""
 
@@ -56,7 +56,7 @@ load_config() {
 
     API_KEY="${LOA_CONSTRUCTS_API_KEY:-}"
     ADMIN_KEY="${LOA_CONSTRUCTS_ADMIN_KEY:-}"
-    API_URL="${LOA_CONSTRUCTS_API_URL:-https://loa-constructs-api.fly.dev/v1}"
+    API_URL="${LOA_CONSTRUCTS_API_URL:-https://api.constructs.network/v1}"
 
     if [[ -z "$API_KEY" ]]; then
         log_error "LOA_CONSTRUCTS_API_KEY not set"
@@ -543,7 +543,7 @@ COMMANDS:
 ENVIRONMENT:
     LOA_CONSTRUCTS_API_KEY      API key for authentication (required)
     LOA_CONSTRUCTS_ADMIN_KEY    Admin key for approve command (optional)
-    LOA_CONSTRUCTS_API_URL      API base URL (default: https://loa-constructs-api.fly.dev/v1)
+    LOA_CONSTRUCTS_API_URL      API base URL (default: https://api.constructs.network/v1)
 
 EXIT CODES:
     0    Success

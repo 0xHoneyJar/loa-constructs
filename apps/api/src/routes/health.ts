@@ -132,12 +132,11 @@ async function checkDatabase(): Promise<HealthCheckResult['checks'][0]> {
     };
   }
 
-  // For Neon serverless, we just verify the URL is configured
-  // Actual connections are made per-request
+  // Verify the database URL is configured
   return {
     name: 'database',
     status: 'pass',
-    message: 'Database configured (serverless mode)',
+    message: 'Database configured',
     duration_ms: Math.round(performance.now() - start),
   };
 }

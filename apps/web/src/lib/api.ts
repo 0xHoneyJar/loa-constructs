@@ -3,7 +3,7 @@
  * Fetches packs and skills from the registry API
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://loa-constructs-api.fly.dev';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network';
 
 // --- Error Classes ---
 

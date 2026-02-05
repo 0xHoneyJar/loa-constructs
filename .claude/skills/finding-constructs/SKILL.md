@@ -43,7 +43,7 @@ Extract relevant keywords from the user's message:
 Query the Loa Constructs API:
 
 ```
-GET https://loa-constructs-api.fly.dev/v1/constructs?q={keywords}&limit=5
+GET https://api.constructs.network/v1/constructs?q={keywords}&limit=5
 ```
 
 Use WebFetch to make this request.
@@ -134,7 +134,7 @@ Key fields to use:
 |---------|---------|-------------|
 | `min_relevance_threshold` | 0.5 | Minimum score to show construct |
 | `max_results` | 3 | Maximum constructs to present |
-| `api_endpoint` | `https://loa-constructs-api.fly.dev/v1/constructs` | API base URL |
+| `api_endpoint` | `https://api.constructs.network/v1/constructs` | API base URL |
 
 ---
 

@@ -9,7 +9,7 @@
 set -e
 
 PACK_DIR="${1:-.}"
-API_URL="${LOA_CONSTRUCTS_API_URL:-https://loa-constructs-api.fly.dev/v1}"
+API_URL="${LOA_CONSTRUCTS_API_URL:-https://api.constructs.network/v1}"
 
 # Check for API key
 if [ -z "$LOA_CONSTRUCTS_API_KEY" ]; then

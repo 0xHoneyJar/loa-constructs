@@ -1,7 +1,7 @@
 import type { ConstructDetail, ConstructNode, GraduationLevel, GraphData, CategoryStats, Category } from '@/lib/types/graph';
 import { fetchCategories, normalizeCategory } from './fetch-categories';
 
-const API_BASE = process.env.CONSTRUCTS_API_URL || 'https://loa-constructs-api.fly.dev/v1';
+const API_BASE = process.env.CONSTRUCTS_API_URL || 'https://api.constructs.network/v1';
 
 interface APIConstruct {
   id: string;

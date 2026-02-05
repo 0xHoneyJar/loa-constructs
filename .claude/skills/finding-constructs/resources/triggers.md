@@ -118,7 +118,7 @@ Constructs below the threshold trigger the fallback behavior (offer direct assis
 This skill requires access to:
 
 ```
-https://loa-constructs-api.fly.dev/v1/constructs?q={query}
+https://api.constructs.network/v1/constructs?q={query}
 ```
 
 If the API is unavailable, the skill will gracefully fall back to offering direct assistance.

@@ -10,8 +10,8 @@ This document provides everything needed to connect the Loa framework to the Loa
 
 | Service | URL | Status |
 |---------|-----|--------|
-| **API** | `https://loa-constructs-api.fly.dev/v1` | Live |
-| **Health Check** | `https://loa-constructs-api.fly.dev/v1/health` | Live |
+| **API** | `https://api.constructs.network/v1` | Live |
+| **Health Check** | `https://api.constructs.network/v1/health` | Live |
 
 ## Quick Start for Loa Framework (Shell Integration)
 
@@ -22,14 +22,14 @@ The loa framework (`0xHoneyJar/loa`) uses bash scripts for registry integration.
 Add to your shell profile (`~/.bashrc`, `~/.zshrc`):
 
 ```bash
-export LOA_REGISTRY_URL="https://loa-constructs-api.fly.dev/v1"
+export LOA_REGISTRY_URL="https://api.constructs.network/v1"
 ```
 
 Or set it in `.loa.config.yaml`:
 
 ```yaml
 registry:
-  default_url: "https://loa-constructs-api.fly.dev/v1"
+  default_url: "https://api.constructs.network/v1"
 ```
 
 ### 2. Verify Connection
@@ -71,7 +71,7 @@ In the loa repository, update `.claude/scripts/registry-lib.sh`:
 config_url=$(get_registry_config 'default_url' 'https://api.loaskills.dev/v1')
 
 # To:
-config_url=$(get_registry_config 'default_url' 'https://loa-constructs-api.fly.dev/v1')
+config_url=$(get_registry_config 'default_url' 'https://api.constructs.network/v1')
 ```
 
 This ensures the production API is used even without the environment variable.
@@ -101,7 +101,7 @@ registryPlugin.commands.forEach(cmd => {
 If you prefer to call the API directly without the plugin:
 
 ```typescript
-const API_BASE = 'https://loa-constructs-api.fly.dev/v1';
+const API_BASE = 'https://api.constructs.network/v1';
 
 // Public endpoints (no auth required)
 const packs = await fetch(`${API_BASE}/packs`).then(r => r.json());
@@ -195,7 +195,7 @@ The plugin respects these environment variables:
 
 **For soft launch**, set:
 ```bash
-export LOA_CONSTRUCTS_URL="https://loa-constructs-api.fly.dev/v1"
+export LOA_CONSTRUCTS_URL="https://api.constructs.network/v1"
 ```
 
 ## Configuration Storage
@@ -428,7 +428,7 @@ The GTM Collective pack is live and available for Pro+ subscribers:
 
 ```bash
 # Verify it's accessible
-curl https://loa-constructs-api.fly.dev/v1/packs/gtm-collective
+curl https://api.constructs.network/v1/packs/gtm-collective
 ```
 
 Contains:
@@ -439,16 +439,16 @@ Contains:
 
 ```bash
 # 1. Test API connectivity
-curl https://loa-constructs-api.fly.dev/v1/health
+curl https://api.constructs.network/v1/health
 # Expected: {"status":"healthy",...}
 
 # 2. List packs (public)
-curl https://loa-constructs-api.fly.dev/v1/packs
+curl https://api.constructs.network/v1/packs
 # Expected: {"data":[{"name":"GTM Collective",...}],...}
 
 # 3. Test authenticated endpoint
 curl -H "Authorization: Bearer YOUR_TOKEN" \
-  https://loa-constructs-api.fly.dev/v1/users/me
+  https://api.constructs.network/v1/users/me
 # Expected: {"data":{"id":"...","email":"...","effective_tier":"pro"}}
 ```
 
@@ -493,7 +493,7 @@ The shell integration stores config in:
 # Get registry URL (respects env var override)
 get_registry_url() {
     local config_url
-    config_url=$(yq -r '.registry.default_url // "https://loa-constructs-api.fly.dev/v1"' .loa.config.yaml 2>/dev/null)
+    config_url=$(yq -r '.registry.default_url // "https://api.constructs.network/v1"' .loa.config.yaml 2>/dev/null)
     echo "${LOA_REGISTRY_URL:-$config_url}"
 }
 
