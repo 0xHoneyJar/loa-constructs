@@ -227,6 +227,64 @@ servers:
           }
         }
 
+  agentation:
+    name: "Agentation"
+    description: "Visual annotation feedback from React applications via MCP"
+    url: "https://agentation.dev"
+    docs: "https://agentation.dev/mcp"
+
+    # Runtime configuration (source of truth — previously in artisan/manifest.json)
+    transport: stdio
+    command: "npx"
+    args: ["agentation-mcp", "server"]
+    security:
+      risk_level: low
+      data_access: read-write
+    auto_start: false
+
+    scopes:
+      - agentation_list_sessions     # Discover active annotation sessions
+      - agentation_get_session       # Retrieve session with all annotations
+      - agentation_get_pending       # Get unacknowledged annotations for a session
+      - agentation_get_all_pending   # Get pending annotations across all sessions
+      - agentation_acknowledge       # Mark annotation as reviewed
+      - agentation_resolve           # Mark annotation as addressed
+      - agentation_dismiss           # Reject feedback with reasoning
+      - agentation_reply             # Add threaded response to annotation
+      - agentation_wait_for_action   # Block until user sends annotations
+
+    required_by:
+      - skill: "iterating-visuals"
+        reason: "Fetch visual annotations directly without copy-paste"
+        required: false
+      - skill: "decomposing-feel"
+        reason: "Access element annotations for precise decomposition"
+        required: false
+      - skill: "iterating-feedback"
+        reason: "Visual feedback annotations for gap discovery"
+        required: false
+      - skill: "observing-users"
+        reason: "Visual journey annotations for user research"
+        required: false
+
+    setup:
+      steps:
+        - "Install Agentation v2: npm install agentation@latest -D"
+        - "Add <Agentation /> to your app root component"
+        - "Run setup wizard: npx agentation-mcp init"
+        - "Restart Claude Code to apply changes"
+        - "Verify: npx agentation-mcp doctor"
+      env_vars: []
+      config_example: |
+        {
+          "mcpServers": {
+            "agentation": {
+              "command": "npx",
+              "args": ["agentation-mcp", "server"]
+            }
+          }
+        }
+
 # Server groups for batch configuration
 groups:
   essential:
@@ -257,6 +315,11 @@ groups:
     servers:
       - gdrive
 
+  visual-feedback:
+    description: "Visual annotation and feedback tools"
+    servers:
+      - agentation
+
   all:
     description: "All available MCP servers"
     servers:
@@ -266,3 +329,4 @@ groups:
       - discord
       - web3-stats
       - gdrive
+      - agentation

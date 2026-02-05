@@ -2,9 +2,43 @@ name: optimizing-chunks
 slug: optimizing-chunks
 version: 1.0.0
 description: Analyze content for AI chunk survival. Identifies isolated claims and generates context-carrying rewrites that survive retrieval chunking.
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /optimize-chunks
+  - "/optimize-chunks"
+  - "check for chunk-vulnerable content"
+  - "find claims that lose context"
+  - "optimize for AI retrieval"
+  - "make paragraphs self-contained"
+  - "fix orphan facts"
+  - "add temporal context to claims"
+  - "improve chunk resilience"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User worried about misquoted claims"
+    user_says: "Our security page has absolute claims like 'we don't store data' without scope. Will AI misquote that?"
+    agent_action: "Launch optimizing-chunks to identify absolute claims and generate context-carrying rewrites"
+  - context: "User reviewing pricing content"
+    user_says: "My pricing page has numbers without dates. Can you fix that for AI retrieval?"
+    agent_action: "Launch optimizing-chunks to find unscoped numbers and add temporal markers"
+  - context: "User preparing documentation"
+    user_says: "Check if these feature descriptions will be misleading when quoted out of context"
+    agent_action: "Launch optimizing-chunks to analyze chunk boundaries and generate self-contained paragraphs"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - chunking
+  - retrieval
+  - context-preservation
+  - claim-scoping
+  - temporal-markers
+  - ai-optimization
+  - content-resilience
+  - paragraph-structure
+
+entry: SKILL.md
+
 allowed-tools:
   - Read
   - Write

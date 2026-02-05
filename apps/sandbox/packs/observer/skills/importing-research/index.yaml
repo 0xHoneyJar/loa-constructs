@@ -2,9 +2,43 @@ name: importing-research
 slug: importing-research
 version: 1.0.0
 description: Bulk convert legacy user research profiles to UTC (User Truth Canvas) format.
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /import-research
+  - "/import-research"
+  - "migrate legacy user research"
+  - "convert profiles to UTC"
+  - "import existing research into laboratory"
+  - "bulk migrate user profiles"
+  - "transform legacy research format"
+
+# Natural language examples for intent matching
+examples:
+  - context: "Legacy user profiles exist in grimoires/pub/research/users/"
+    user_says: "Migrate all the legacy user research to UTC format"
+    agent_action: "Launch importing-research to bulk convert legacy profiles with JTBD inference and learning status"
+  - context: "Need to migrate specific user profile"
+    user_says: "Import the ncs user research into laboratory"
+    agent_action: "Launch importing-research with --user ncs to convert single profile to UTC canvas"
+  - context: "Want to preview migration before executing"
+    user_says: "Show me what would be imported from legacy research without writing files"
+    agent_action: "Launch importing-research with --dry-run to preview JTBD classification and learning status"
+  - context: "After importing, need to process canvases"
+    user_says: "We have old user research in grimoires/pub/research that needs to be in laboratory format"
+    agent_action: "Launch importing-research to migrate profiles, then suggest running /shape to extract journeys"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - migration
+  - legacy-research
+  - utc
+  - jtbd-inference
+  - bulk-import
+  - user-profiles
+  - canvas-creation
+  - learning-status
+
+entry: SKILL.md
 allowed-tools:
   - Read
   - Write

@@ -246,6 +246,28 @@ export interface PackManifest {
    * @see prd.md §4.3 CLAUDE.md Fragments (Opportunity 3)
    */
   claude_instructions?: string;
+  /** Manifest schema version */
+  schema_version?: number;
+  /** CLI tool dependencies */
+  tools?: Record<string, {
+    install?: string;
+    required?: boolean;
+    purpose: string;
+    check: string;
+    docs_url?: string;
+  }>;
+  /** MCP servers this pack consumes (server definitions live in .claude/mcp-registry.yaml) */
+  mcp_dependencies?: Record<string, {
+    required?: boolean;
+    required_scopes?: string[];
+    reason: string;
+    fallback?: string;
+  }>;
+  /** Quick start hint for install summary */
+  quick_start?: {
+    command: string;
+    description: string;
+  };
 }
 
 export interface PackDownload {

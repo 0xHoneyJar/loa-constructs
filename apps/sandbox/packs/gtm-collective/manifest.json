@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "GTM Collective",
   "slug": "gtm-collective",
   "version": "1.0.0",
@@ -98,5 +98,8 @@
       "path": "commands/sync-from-gtm.md"
     }
   ],
-  "dependencies": []
+  "quick_start": {
+    "command": "/position",
+    "description": "define your product positioning"
+  }
 }

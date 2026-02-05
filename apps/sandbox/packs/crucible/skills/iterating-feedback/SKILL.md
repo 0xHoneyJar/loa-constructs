@@ -16,6 +16,7 @@ Close the feedback loop by analyzing test results and proposing updates to upstr
 ```
 /iterate {journey-id}                        # Analyze latest results, propose updates
 /iterate {journey-id} --add-gap "{description}"  # Add gap from visual testing
+/iterate {journey-id} --annotate             # Fetch Agentation annotations as gaps
 /iterate {journey-id} --apply                # Apply proposed updates
 ```
 
@@ -23,6 +24,7 @@ Close the feedback loop by analyzing test results and proposing updates to upstr
 ```bash
 /iterate deposit-flow
 /iterate rewards-display --add-gap "spinner persists after completion"
+/iterate deposit-flow --annotate             # Requires agentation MCP server
 /iterate deposit-flow --apply
 ```
 
@@ -436,7 +438,8 @@ Next Steps:
 - **diagramming-states**: Diagram updates as output
 - **shaping-journeys**: Journey updates as output
 - **observing-users**: Canvas updates as output
-- **Agentation**: Visual feedback via `--add-gap`
+- **Agentation v2 (MCP)**: Visual feedback via `--annotate` (fetches annotations directly)
+- **Agentation v1 (Fallback)**: Visual feedback via `--add-gap` (manual description)
 
 ---
 

@@ -26,6 +26,24 @@ examples:
       3. Identify gaps
       4. Validate against product reality
       5. Produce review verdict
+  - context: "Before launch in 30 days, need to verify strategy coherence"
+    user_says: "Is our GTM strategy ready to execute?"
+    agent_action: |
+      1. Review all research, positioning, pricing, and launch documents
+      2. Validate messaging alignment across strategy documents
+      3. Check that launch plan matches positioning and pricing
+      4. Identify dependencies and potential execution risks
+      5. Produce approval or remediation recommendations
+
+domain_hints:
+  - GTM strategy review
+  - launch readiness
+  - consistency check
+  - gap analysis
+  - strategy validation
+  - GTM assessment
+  - pre-launch review
+  - execution readiness
 
 inputs:
   - name: "research_dir"

@@ -2,9 +2,45 @@ name: distilling-components
 slug: distilling-components
 version: 1.0.0
 description: Component design patterns - compound components, composition, props API
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /distill
+  - "/distill"
+  - "design this component API"
+  - "refactor component structure"
+  - "make this more composable"
+  - "component props design"
+  - "compound component"
+  - "too many props"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User building complex component"
+    user_says: "This Dialog component has too many props for customization"
+    agent_action: "Launch distilling-components to refactor into compound component pattern with Dialog.Trigger, Dialog.Content"
+  - context: "User creating reusable component"
+    user_says: "Should I use asChild pattern for this Button component?"
+    agent_action: "Launch distilling-components to evaluate if polymorphic rendering is needed and implement Radix Slot pattern"
+  - context: "User reviewing component API"
+    user_says: "How do I make this Card component more flexible?"
+    agent_action: "Launch distilling-components to apply composition over configuration with CardHeader/CardContent slots"
+  - context: "User implementing input component"
+    user_says: "Need this to work as both controlled and uncontrolled"
+    agent_action: "Launch distilling-components to implement dual controlled/uncontrolled state pattern"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - components
+  - api
+  - composition
+  - props
+  - compound
+  - pattern
+  - architecture
+  - design-system
+
+entry: SKILL.md
+
 allowed-tools:
   - Read
   - Write

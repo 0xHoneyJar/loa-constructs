@@ -40,6 +40,16 @@ examples:
       2. If missing, suggest /gtm-setup or /gtm-adopt first
       3. Proceed with available information
 
+domain_hints:
+  - market research
+  - competitive analysis
+  - TAM SAM SOM
+  - market sizing
+  - ideal customer profile
+  - customer segmentation
+  - market trends
+  - industry landscape
+
 inputs:
   - name: "product_context"
     type: "file"

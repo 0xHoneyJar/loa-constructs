@@ -2,9 +2,43 @@ name: shaping-journeys
 slug: shaping-journeys
 version: 1.0.0
 description: List user canvases and shape common patterns into journey definitions.
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /shape
+  - "/shape"
+  - "create journey from canvases"
+  - "consolidate user research"
+  - "synthesize user patterns"
+  - "shape user flows"
+  - "extract journeys from feedback"
+
+# Natural language examples for intent matching
+examples:
+  - context: "Multiple user canvases exist with similar goals"
+    user_says: "Can you synthesize the deposit feedback into a user journey?"
+    agent_action: "Launch shaping-journeys to extract common patterns and create deposit-flow journey"
+  - context: "User wants to see what journeys exist"
+    user_says: "What journeys have we identified from user research?"
+    agent_action: "Launch shaping-journeys in list mode to display all canvases and linked journeys"
+  - context: "Ready to consolidate research into testable flows"
+    user_says: "Let's shape the canvas patterns into journey definitions"
+    agent_action: "Launch shaping-journeys with --run to create journey files from canvas patterns"
+  - context: "User wants to see specific journey details"
+    user_says: "Show me the deposit-flow journey details"
+    agent_action: "Launch shaping-journeys with --journey deposit-flow to display full journey"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - journey
+  - user-flow
+  - canvas
+  - synthesis
+  - pattern-detection
+  - user-research
+  - flow-mapping
+  - utc
+
+entry: SKILL.md
 allowed-tools:
   - Read
   - Write

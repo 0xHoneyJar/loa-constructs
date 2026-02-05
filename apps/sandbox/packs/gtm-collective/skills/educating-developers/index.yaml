@@ -27,6 +27,24 @@ examples:
       3. Plan community building
       4. Create content roadmap
       5. Generate devrel-strategy.md
+  - context: "Low developer adoption due to documentation gaps"
+    user_says: "How do we improve developer engagement?"
+    agent_action: |
+      1. Review positioning, ICP profiles, and market analysis
+      2. Design API docs, tutorials, and SDK guides
+      3. Plan community initiatives like Discord, forums, and meetups
+      4. Create 12-month developer education roadmap
+      5. Define success metrics for adoption and community growth
+
+domain_hints:
+  - developer relations
+  - developer education
+  - documentation strategy
+  - developer advocacy
+  - community building
+  - technical tutorials
+  - API documentation
+  - developer community
 
 inputs:
   - name: "positioning"

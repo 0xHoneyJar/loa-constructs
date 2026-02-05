@@ -2,9 +2,45 @@ name: applying-behavior
 slug: applying-behavior
 version: 1.0.0
 description: Touch, keyboard, and form interaction patterns for accessible UI
-entry: SKILL.md
+
+# Trigger patterns - when this skill should activate
 triggers:
-  - /behavior
+  - "/behavior"
+  - "touch interaction"
+  - "keyboard navigation"
+  - "mobile tap target"
+  - "form accessibility"
+  - "focus management"
+  - "add keyboard support"
+
+# Natural language examples for intent matching
+examples:
+  - context: "User building mobile interface"
+    user_says: "These buttons are too small to tap on mobile"
+    agent_action: "Launch applying-behavior to ensure 44px minimum tap targets with proper touch-action"
+  - context: "User implementing modal"
+    user_says: "Need to trap focus inside the modal dialog"
+    agent_action: "Launch applying-behavior to implement focus trap and restore focus on close"
+  - context: "User working on forms"
+    user_says: "The email input isn't showing the email keyboard on iOS"
+    agent_action: "Launch applying-behavior to set correct input type and ensure 16px minimum font size"
+  - context: "User debugging touch issues"
+    user_says: "Hover effects are triggering incorrectly on touch devices"
+    agent_action: "Launch applying-behavior to gate hover effects with @media (hover: hover)"
+
+# Domain hints for proactive suggestion
+domain_hints:
+  - touch
+  - mobile
+  - keyboard
+  - accessibility
+  - forms
+  - focus
+  - input
+  - gesture
+
+entry: SKILL.md
+
 allowed-tools:
   - Read
   - Write

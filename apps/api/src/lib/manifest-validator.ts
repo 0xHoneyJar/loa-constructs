@@ -19,6 +19,21 @@ const constructManifestSchema = require('../schemas/construct-manifest.json');
 
 // --- Types ---
 
+export interface McpToolDefinition {
+  install?: string;
+  required?: boolean;
+  purpose: string;
+  check: string;
+  docs_url?: string;
+}
+
+export interface McpDependencyDefinition {
+  required?: boolean;
+  required_scopes?: string[];
+  reason: string;
+  fallback?: string;
+}
+
 export interface ConstructManifest {
   name?: string;
   version?: string;
@@ -55,6 +70,10 @@ export interface ConstructManifest {
     composes_with?: string[];
   };
   tier_required?: 'free' | 'pro' | 'team' | 'enterprise';
+  claude_instructions?: string;
+  schema_version?: number;
+  tools?: Record<string, McpToolDefinition>;
+  mcp_dependencies?: Record<string, McpDependencyDefinition>;
 }
 
 export interface ManifestValidationResult {

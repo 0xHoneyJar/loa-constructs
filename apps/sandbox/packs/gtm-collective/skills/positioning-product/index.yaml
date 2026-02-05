@@ -26,6 +26,24 @@ examples:
       2. Synthesize positioning framework
       3. Create messaging hierarchy
       4. Generate positioning.md
+  - context: "Need to differentiate from 3 direct competitors in platform market"
+    user_says: "How should we position ourselves?"
+    agent_action: |
+      1. Analyze competitive positioning and market landscape
+      2. Identify unique value through ICP needs analysis
+      3. Define positioning statement and core pillars
+      4. Create messaging for different buyer personas
+      5. Build brand narrative that resonates with target segments
+
+domain_hints:
+  - product positioning
+  - messaging framework
+  - value proposition
+  - differentiation strategy
+  - market positioning
+  - brand messaging
+  - competitive positioning
+  - target audience messaging
 
 inputs:
   - name: "market_landscape"

@@ -260,7 +260,20 @@ Level 3: Specific fix
 
 ## Agentation Integration
 
-When user has Agentation installed, offer annotation option:
+**Agentation v2 (MCP)** — If `agentation` MCP server is available:
+
+```
+Can you point to exactly what's off?
+
+Click the problematic element in your app — I'll detect your annotation automatically.
+```
+
+- Use `agentation_get_pending` to fetch annotations with element selectors
+- Parse `elementPath` and `reactComponents` for precise code mapping
+- Use `agentation_get_session` for session context
+- After resolving, no manual copy-paste needed
+
+**Agentation v1 (Fallback)** — If MCP unavailable:
 
 ```
 Can you point to exactly what's off?

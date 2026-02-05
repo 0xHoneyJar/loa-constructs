@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Crucible",
   "slug": "crucible",
   "version": "1.0.3",
@@ -14,6 +14,18 @@
       "check": "agent-browser --version"
     }
   },
+  "mcp_dependencies": {
+    "agentation": {
+      "required": false,
+      "required_scopes": ["agentation_get_all_pending", "agentation_resolve"],
+      "reason": "Visual feedback annotations for gap discovery and walkthrough",
+      "fallback": "Manual gap description via --add-gap flag"
+    }
+  },
+  "quick_start": {
+    "command": "/walkthrough",
+    "description": "validate a user journey against your code"
+  },
   "skills": [
     {"slug": "validating-journeys", "path": "skills/validating-journeys"},
     {"slug": "grounding-code", "path": "skills/grounding-code"},
@@ -23,6 +35,5 @@
   ],
   "hooks": {
     "post_install": "scripts/install.sh"
-  },
-  "dependencies": []
+  }
 }
