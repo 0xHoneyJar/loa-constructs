@@ -167,6 +167,56 @@
       "items": { "type": "string" },
       "description": "Semantic groupings for skill search. Based on Anthropic Tool Search patterns."
     },
+    "domain_hints": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 50 },
+      "description": "Domain keywords for proactive skill suggestion"
+    },
+    "integrations": {
+      "type": "object",
+      "properties": {
+        "required": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "reason"],
+            "properties": {
+              "name": { "type": "string" },
+              "scopes": { "type": "array", "items": { "type": "string" } },
+              "reason": { "type": "string" },
+              "fallback": { "type": "string" }
+            }
+          }
+        },
+        "optional": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "reason"],
+            "properties": {
+              "name": { "type": "string" },
+              "scopes": { "type": "array", "items": { "type": "string" } },
+              "reason": { "type": "string" },
+              "fallback": { "type": "string" }
+            }
+          }
+        }
+      },
+      "description": "MCP server integrations (references keys in mcp-registry.yaml)"
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["purpose", "check"],
+        "properties": {
+          "required": { "type": "boolean", "default": false },
+          "purpose": { "type": "string" },
+          "check": { "type": "string" }
+        }
+      },
+      "description": "CLI tool requirements for this skill"
+    },
     "inputExamples": {
       "type": "array",
       "items": {

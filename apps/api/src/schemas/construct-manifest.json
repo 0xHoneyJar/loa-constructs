@@ -164,6 +164,134 @@
       "maxLength": 500,
       "pattern": "\\.md$",
       "description": "Path to CLAUDE.md instruction fragment file (must end with .md). Max file size: 4KB."
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 1,
+      "description": "Manifest schema version"
+    },
+    "tools": {
+      "type": "object",
+      "description": "CLI tool dependencies. Keys are tool binary names.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["purpose", "check"],
+        "properties": {
+          "install": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Shell command to install (documentation only, never auto-executed)"
+          },
+          "required": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether pack is non-functional without this tool"
+          },
+          "purpose": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Why this tool is needed"
+          },
+          "check": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Shell command to verify installation (exit 0 = installed)"
+          },
+          "docs_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Documentation link"
+          }
+        }
+      }
+    },
+    "mcp_servers": {
+      "type": "object",
+      "description": "MCP servers this construct provides.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["description", "transport"],
+        "properties": {
+          "description": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "transport": {
+            "type": "string",
+            "enum": ["stdio", "sse"]
+          },
+          "command": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Binary to launch (for stdio transport)"
+          },
+          "args": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "description": "URL for SSE transport"
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          },
+          "scopes": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 100 },
+            "description": "MCP tool names this server exposes"
+          },
+          "security": {
+            "type": "object",
+            "properties": {
+              "risk_level": {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              "data_access": {
+                "type": "string",
+                "enum": ["read-only", "read-write"]
+              }
+            }
+          },
+          "auto_start": {
+            "type": "boolean",
+            "default": false,
+            "description": "Must be false by default for security"
+          }
+        }
+      }
+    },
+    "mcp_dependencies": {
+      "type": "object",
+      "description": "MCP servers this construct consumes. Keys should match mcp-registry.yaml entries.",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "required": {
+            "type": "boolean",
+            "default": false
+          },
+          "required_scopes": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 50 },
+            "description": "Scopes needed from the external server"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "fallback": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "What happens without this server"
+          }
+        }
+      }
     }
   }
 }

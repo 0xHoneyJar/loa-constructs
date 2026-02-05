@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Artisan",
   "slug": "artisan",
   "version": "1.2.0",
@@ -12,7 +12,42 @@
       "required": false,
       "purpose": "Screenshot capture for design iteration and reference import",
       "check": "agent-browser --version"
+    },
+    "agentation": {
+      "install": "npm install agentation@latest -D && npx agentation-mcp init",
+      "required": false,
+      "purpose": "Visual annotation MCP for design iteration feedback",
+      "check": "npx agentation-mcp doctor",
+      "docs_url": "https://agentation.dev/mcp"
     }
+  },
+  "mcp_servers": {
+    "agentation": {
+      "description": "Visual annotation feedback for UI elements",
+      "transport": "stdio",
+      "command": "npx",
+      "args": ["agentation-mcp", "server"],
+      "scopes": [
+        "agentation_list_sessions",
+        "agentation_get_session",
+        "agentation_get_pending",
+        "agentation_get_all_pending",
+        "agentation_acknowledge",
+        "agentation_resolve",
+        "agentation_dismiss",
+        "agentation_reply",
+        "agentation_wait_for_action"
+      ],
+      "security": {
+        "risk_level": "low",
+        "data_access": "read-write"
+      },
+      "auto_start": false
+    }
+  },
+  "quick_start": {
+    "command": "/iterate-visual",
+    "description": "design iteration with live screenshot feedback"
   },
   "skills": [
     {"slug": "analyzing-feedback", "path": "skills/analyzing-feedback"},

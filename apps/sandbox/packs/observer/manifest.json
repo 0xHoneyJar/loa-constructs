@@ -1,11 +1,23 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "name": "Observer",
   "slug": "observer",
   "version": "1.0.2",
   "description": "User truth capture skills for hypothesis-first research",
   "author": "0xHoneyJar",
   "license": "MIT",
+  "mcp_dependencies": {
+    "agentation": {
+      "required": false,
+      "required_scopes": ["agentation_list_sessions", "agentation_get_pending"],
+      "reason": "Visual annotation capture for user research",
+      "fallback": "Manual observation via /observe quotes"
+    }
+  },
+  "quick_start": {
+    "command": "/observe",
+    "description": "capture user feedback as hypothesis-first research"
+  },
   "skills": [
     {"slug": "observing-users", "path": "skills/observing-users"},
     {"slug": "shaping-journeys", "path": "skills/shaping-journeys"},

@@ -24,6 +24,17 @@ export const semverSchema = z
   .string()
   .regex(/^\d+\.\d+\.\d+(-[a-zA-Z0-9.-]+)?$/, 'Invalid semver version');
 
+/**
+ * Tool/MCP key schema - relaxed vs slugSchema for record keys
+ * Allows shorter keys (min 1) and underscores for tool identifiers
+ * @see Flatline SDD review: slugSchema min(3) rejects valid keys like "br", "gh"
+ */
+export const toolKeySchema = z
+  .string()
+  .min(1, 'Key must be at least 1 character')
+  .max(100, 'Key must be less than 100 characters')
+  .regex(/^[a-z0-9_-]+$/, 'Key must contain only lowercase letters, numbers, hyphens, and underscores');
+
 // --- Auth Schemas ---
 
 export const registerSchema = z.object({
@@ -169,6 +180,54 @@ export const packDependenciesSchema = z.object({
 });
 
 /**
+ * MCP tool definition schema
+ * @see prd-constructs-tooling-modernization.md §WS1
+ */
+export const mcpToolDefinitionSchema = z.object({
+  install: z.string().max(500).optional(),
+  required: z.boolean().default(false),
+  purpose: z.string().max(200),
+  check: z.string().max(200),
+  docs_url: z.string().url().optional(),
+});
+
+/**
+ * MCP server definition schema (pack provides)
+ */
+export const mcpServerDefinitionSchema = z.object({
+  description: z.string().max(300),
+  transport: z.enum(['stdio', 'sse']),
+  command: z.string().max(200).optional(),
+  args: z.array(z.string()).optional(),
+  endpoint: z.string().url().optional(),
+  env: z.record(z.string()).optional(),
+  scopes: z.array(z.string().max(100)).optional(),
+  security: z.object({
+    risk_level: z.enum(['low', 'medium', 'high']).optional(),
+    data_access: z.enum(['read-only', 'read-write']).optional(),
+  }).optional(),
+  auto_start: z.boolean().default(false),
+});
+
+/**
+ * MCP dependency definition schema (pack consumes)
+ */
+export const mcpDependencyDefinitionSchema = z.object({
+  required: z.boolean().default(false),
+  required_scopes: z.array(z.string().max(50)).optional(),
+  reason: z.string().max(200),
+  fallback: z.string().max(300).optional(),
+});
+
+/**
+ * Quick start hint schema
+ */
+export const quickStartSchema = z.object({
+  command: z.string().max(100),
+  description: z.string().max(200),
+});
+
+/**
  * Full pack manifest schema
  * @see sdd-v2.md §2.3 Pack Manifest Schema
  */
@@ -179,7 +238,7 @@ export const packManifestSchema = z.object({
   version: semverSchema,
   description: z.string().max(500).optional(),
   long_description: z.string().max(10000).optional(),
-  author: packAuthorSchema.optional(),
+  author: z.union([z.string().max(255), packAuthorSchema]).optional(),
   license: z.string().max(50).default('MIT'),
   repository: z.string().url().optional(),
   homepage: z.string().url().optional(),
@@ -187,6 +246,9 @@ export const packManifestSchema = z.object({
 
   // Pricing configuration
   pricing: packPricingSchema.optional(),
+
+  // Schema version
+  schema_version: z.number().int().min(1).default(1),
 
   // Pack contents
   skills: z.array(packSkillRefSchema).default([]),
@@ -215,7 +277,19 @@ export const packManifestSchema = z.object({
     .max(500)
     .regex(/\.md$/, 'claude_instructions must end with .md')
     .optional(),
-});
+
+  // Tool dependencies
+  tools: z.record(toolKeySchema, mcpToolDefinitionSchema).optional(),
+
+  // MCP servers provided
+  mcp_servers: z.record(toolKeySchema, mcpServerDefinitionSchema).optional(),
+
+  // MCP servers consumed
+  mcp_dependencies: z.record(toolKeySchema, mcpDependencyDefinitionSchema).optional(),
+
+  // Quick start hint for install summary
+  quick_start: quickStartSchema.optional(),
+}).passthrough();
 
 /**
  * Validate a pack manifest
@@ -310,3 +384,9 @@ export type PackDependencies = z.infer<typeof packDependenciesSchema>;
 export type ListPacksQuery = z.infer<typeof listPacksQuerySchema>;
 export type CreatePackInput = z.infer<typeof createPackSchema>;
 export type CreatePackVersionInput = z.infer<typeof createPackVersionSchema>;
+
+// MCP types
+export type McpToolDefinition = z.infer<typeof mcpToolDefinitionSchema>;
+export type McpServerDefinition = z.infer<typeof mcpServerDefinitionSchema>;
+export type McpDependencyDefinition = z.infer<typeof mcpDependencyDefinitionSchema>;
+export type QuickStart = z.infer<typeof quickStartSchema>;
