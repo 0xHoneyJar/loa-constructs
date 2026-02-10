@@ -39,6 +39,19 @@ domain_hints:
   - learning-status
 
 entry: SKILL.md
+
+capabilities:
+  model_tier: sonnet
+  danger_level: safe
+  effort_hint: medium
+  downgrade_allowed: true
+  execution_hint: parallelizable
+  requires:
+    native_runtime: false
+    tool_calling: true
+    thinking_traces: false
+    vision: false
+
 allowed-tools:
   - Read
   - Write

@@ -39,6 +39,19 @@ domain_hints:
   - bug-tracking
 
 entry: SKILL.md
+
+capabilities:
+  model_tier: sonnet
+  danger_level: moderate
+  effort_hint: small
+  downgrade_allowed: true
+  execution_hint: parallelizable
+  requires:
+    native_runtime: false
+    tool_calling: true
+    thinking_traces: optional
+    vision: false
+
 allowed-tools:
   - Read
   - Write

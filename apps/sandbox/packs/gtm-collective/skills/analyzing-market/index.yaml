@@ -90,5 +90,17 @@ pack:
   id: "gtm-collective"
   requires_subscription: true
 
+capabilities:
+  model_tier: sonnet
+  danger_level: safe
+  effort_hint: medium
+  downgrade_allowed: true
+  execution_hint: sequential
+  requires:
+    native_runtime: false
+    tool_calling: true
+    thinking_traces: false
+    vision: false
+
 parallel_execution:
   enabled: false
