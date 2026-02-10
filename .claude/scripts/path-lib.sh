@@ -150,16 +150,15 @@ _read_config_paths() {
   fi
   rm -f "$yq_stderr"
 
-  if [[ -n "$grimoire_raw" && "$grimoire_raw" != "null" ]]; then
-    # Reject absolute paths
-    if [[ "$grimoire_raw" == /* ]]; then
-      echo "ERROR: paths.grimoire must be relative, got: $grimoire_raw" >&2
-      return 1
-    fi
-    export LOA_GRIMOIRE_DIR="${PROJECT_ROOT}/${grimoire_raw}"
-  else
-    export LOA_GRIMOIRE_DIR="${PROJECT_ROOT}/${_DEFAULT_GRIMOIRE}"
+  if [[ -n "$grimoire_raw" && "$grimoire_raw" != "null" && "$grimoire_raw" != "$_DEFAULT_GRIMOIRE" ]]; then
+    # DEPRECATED: Custom grimoire paths are deprecated as of Phase 2 (2026-02-09).
+    # 15/21 pack skills hardcode grimoires/ paths, making this config option a trap.
+    # Always use the default path; log a warning if a custom path is configured.
+    echo "WARNING: paths.grimoire is deprecated. Custom value '$grimoire_raw' ignored." >&2
+    echo "  grimoires/loa is the canonical, immutable grimoire directory." >&2
+    echo "  Remove paths.grimoire from .loa.config.yaml to silence this warning." >&2
   fi
+  export LOA_GRIMOIRE_DIR="${PROJECT_ROOT}/${_DEFAULT_GRIMOIRE}"
 
   # Read beads path
   local beads_raw

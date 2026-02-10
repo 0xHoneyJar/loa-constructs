@@ -97,21 +97,23 @@ import { test, expect, type Page } from '@playwright/test';
  * Wallet Interactions: {wallet_count}
  */
 
-// QA Fixtures from apps/web/components/qa-cli.tsx
-const QA_FIXTURES = {
-  'rewards-ready': '0x79092A805f1cf9B0F5bE3c5A296De6e51c1DEd34',
-  'new-user': '0xdA0758706E9E488bc6c7Ea487FFe48c415718e95',
-} as const;
+// QA Fixtures — loaded from context overlay
+// > **Required context:** `qa_fixtures` — see `contexts/overlays/qa-fixtures.json.example`
+// > If no context file exists, run:
+// >   cp contexts/overlays/qa-fixtures.json.example contexts/overlays/qa-fixtures.json
+// >   and fill in your project's test wallet addresses.
+const QA_FIXTURES = {context:qa_fixtures};
 
 test.describe('{journey-id}', () => {
 
   test.beforeEach(async ({ page }) => {
-    // Navigate to app
-    await page.goto('http://localhost:3003');
+    // Navigate to app — URL from context overlay
+    // > **Required context:** `dev_environment` — see `contexts/overlays/dev-environment.json.example`
+    await page.goto('{context:dev_environment.base_url}');
 
     // Set QA fixture for testing
     // await page.evaluate((addr) => {
-    //   localStorage.setItem('sf-qa-effective-address', JSON.stringify({
+    //   localStorage.setItem('{context:dev_environment.qa_storage_key}', JSON.stringify({
     //     effectiveAddress: addr,
     //     fixtureName: 'rewards-ready'
     //   }));
@@ -450,30 +452,33 @@ await page.waitForSelector('[data-testid="approval-complete"]', {
 
 ## QA Fixture Integration
 
-### Available Fixtures
+### Context Setup
 
-From `apps/web/components/qa-cli.tsx`:
+> **Required context:** `qa_fixtures` and `dev_environment`
+> See `contexts/overlays/qa-fixtures.json.example` and `contexts/overlays/dev-environment.json.example`
+>
+> If no context files exist:
+> ```bash
+> cp contexts/overlays/qa-fixtures.json.example contexts/overlays/qa-fixtures.json
+> cp contexts/overlays/dev-environment.json.example contexts/overlays/dev-environment.json
+> ```
+> Then fill in your project's test wallet addresses and dev URL.
 
-```typescript
-const QA_FIXTURES = {
-  'rewards-ready': '0x79092A805f1cf9B0F5bE3c5A296De6e51c1DEd34',
-  'new-user': '0xdA0758706E9E488bc6c7Ea487FFe48c415718e95',
-};
-```
+Fixtures are loaded from `{context:qa_fixtures}`. The dev environment URL comes from `{context:dev_environment.base_url}`.
 
 ### Using Fixtures in Tests
 
 ```typescript
 test.beforeEach(async ({ page }) => {
-  await page.goto('http://localhost:3003');
+  await page.goto('{context:dev_environment.base_url}');
 
   // Set QA fixture
   await page.evaluate((addr) => {
-    localStorage.setItem('sf-qa-effective-address', JSON.stringify({
+    localStorage.setItem('{context:dev_environment.qa_storage_key}', JSON.stringify({
       effectiveAddress: addr,
       fixtureName: 'rewards-ready'
     }));
-  }, '0x79092A805f1cf9B0F5bE3c5A296De6e51c1DEd34');
+  }, QA_FIXTURES['rewards-ready']);
 
   await page.reload();
   await page.waitForLoadState('networkidle');

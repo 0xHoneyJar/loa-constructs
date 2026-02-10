@@ -1,0 +1,8 @@
+{
+  "network_id": "eip155:1",
+  "chain_name": "Ethereum",
+  "default_token": "ETH",
+  "org_name": "YourOrg",
+  "payment_facilitator_url": "https://x402.org/facilitator",
+  "block_explorer_url": "https://etherscan.io"
+}

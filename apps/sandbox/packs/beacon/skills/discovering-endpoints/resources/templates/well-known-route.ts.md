@@ -29,8 +29,8 @@ const DISCOVERY_RESPONSE = {
   capabilities: {
     payments: {
       kinds: ['exact'],
-      networks: ['eip155:80094'], // Berachain Mainnet
-      tokens: ['BERA']
+      networks: ['{{NETWORK_ID}}'],
+      tokens: ['{{DEFAULT_TOKEN}}']
     },
     extensions: ['discovery', 'receipts', 'subsidy']
   },
@@ -67,9 +67,9 @@ export async function GET() {
 | Placeholder | Description | Example |
 |-------------|-------------|---------|
 | `{{ENDPOINTS}}` | Array of endpoint objects | See below |
-| `{{SERVICE_NAME}}` | Human-readable service name | `"Mibera Generator"` |
+| `{{SERVICE_NAME}}` | Human-readable service name | `"YourService"` |
 | `{{SERVICE_DESCRIPTION}}` | Brief service description | `"AI image generation and NFT minting"` |
-| `{{SUBSIDY_PROVIDER}}` | Entity subsidizing payments | `"0xHoneyJar"` |
+| `{{SUBSIDY_PROVIDER}}` | Entity subsidizing payments | `"{{ORG_NAME}}"` |
 | `{{SUBSIDY_COVERAGE}}` | Percentage of coverage | `"50%"` |
 
 ## Endpoint Object Structure
@@ -81,7 +81,7 @@ export async function GET() {
   description: 'Generate AI image from prompt',
   pricing: {
     amount: '1',
-    currency: 'BERA',
+    currency: '{{DEFAULT_TOKEN}}',
     subsidized: true
   },
   schema: '/api/generate-image/schema.json' // Optional
@@ -97,7 +97,7 @@ export async function GET() {
   path: '/api/generate-image',
   method: 'POST',
   description: 'Generate AI image from prompt',
-  pricing: { amount: '1', currency: 'BERA', subsidized: true }
+  pricing: { amount: '1', currency: '{{DEFAULT_TOKEN}}', subsidized: true }
 }
 ```
 
@@ -108,7 +108,7 @@ export async function GET() {
   path: '/api/download-image',
   method: 'GET',
   description: 'Download generated image by ID',
-  pricing: { amount: '0.1', currency: 'BERA', subsidized: true }
+  pricing: { amount: '0.1', currency: '{{DEFAULT_TOKEN}}', subsidized: true }
 }
 ```
 
@@ -118,8 +118,8 @@ export async function GET() {
 {
   path: '/api/mint',
   method: 'POST',
-  description: 'Mint image as NFT on Berachain',
-  pricing: { amount: '5', currency: 'BERA', subsidized: false }
+  description: 'Mint image as NFT',
+  pricing: { amount: '5', currency: '{{DEFAULT_TOKEN}}', subsidized: false }
 }
 ```
 
@@ -131,8 +131,8 @@ const DISCOVERY_RESPONSE = {
   capabilities: {
     payments: {
       kinds: ['exact'],
-      networks: ['eip155:80094'],
-      tokens: ['BERA']
+      networks: ['{{NETWORK_ID}}'],
+      tokens: ['{{DEFAULT_TOKEN}}']
     },
     extensions: ['discovery', 'receipts', 'subsidy']
   },
@@ -141,26 +141,26 @@ const DISCOVERY_RESPONSE = {
       path: '/api/generate-image',
       method: 'POST',
       description: 'Generate AI image from prompt',
-      pricing: { amount: '1', currency: 'BERA', subsidized: true }
+      pricing: { amount: '1', currency: '{{DEFAULT_TOKEN}}', subsidized: true }
     },
     {
       path: '/api/download-image',
       method: 'GET',
       description: 'Download generated image by ID',
-      pricing: { amount: '0.1', currency: 'BERA', subsidized: true }
+      pricing: { amount: '0.1', currency: '{{DEFAULT_TOKEN}}', subsidized: true }
     },
     {
       path: '/api/mint',
       method: 'POST',
-      description: 'Mint image as NFT on Berachain',
-      pricing: { amount: '5', currency: 'BERA', subsidized: false }
+      description: 'Mint image as NFT',
+      pricing: { amount: '5', currency: '{{DEFAULT_TOKEN}}', subsidized: false }
     }
   ],
   metadata: {
-    name: 'Mibera Generator',
-    description: 'AI image generation and NFT minting for Mibera culture',
+    name: '{{SERVICE_NAME}}',
+    description: 'AI image generation and NFT minting for your project',
     subsidy: {
-      provider: '0xHoneyJar',
+      provider: '{{SUBSIDY_PROVIDER}}',
       coverage: '50%'
     }
   }

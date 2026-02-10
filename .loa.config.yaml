@@ -36,6 +36,8 @@ disabled_agents: []
 # Custom Paths
 # =============================================================================
 paths:
+  # DEPRECATED: grimoire path is locked to grimoires/loa as of Phase 2 (2026-02-09).
+  # Custom values are ignored. 15/21 pack skills hardcode grimoires/ paths.
   grimoire: grimoires/loa
   beads: .beads
 

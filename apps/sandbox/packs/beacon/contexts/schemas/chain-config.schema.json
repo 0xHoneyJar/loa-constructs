@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Chain Configuration",
+  "description": "Blockchain network configuration for Beacon pack",
+  "type": "object",
+  "required": ["network_id", "chain_name", "default_token", "org_name"],
+  "properties": {
+    "network_id": { "type": "string", "description": "CAIP-2 chain identifier (e.g., eip155:1)" },
+    "chain_name": { "type": "string", "description": "Human-readable chain name" },
+    "default_token": { "type": "string", "description": "Default payment token symbol" },
+    "org_name": { "type": "string", "description": "Organization name for branding" },
+    "payment_facilitator_url": { "type": "string", "format": "uri", "description": "x402 facilitator endpoint" },
+    "block_explorer_url": { "type": "string", "format": "uri" }
+  }
+}
