@@ -199,6 +199,59 @@ Taste Compliance Check:
 └── [ ] No hardcoded values that bypass tokens
 ```
 
+## Counterfactuals — Theme Token Compliance
+
+### The Target (What We Do)
+
+Apply taste tokens as CSS custom properties and Tailwind classes that reference the project's `taste.md`. Every color, spacing, typography, and motion value resolves to a defined token — never a raw hex, pixel, or duration literal.
+
+```tsx
+// Target: Token-based component
+<Card className="bg-surface text-foreground rounded-radius-md p-spacing-4">
+  <motion.div transition={{ duration: 'var(--duration-fast)', ease: 'var(--ease-default)' }}>
+    {children}
+  </motion.div>
+</Card>
+```
+
+### The Near Miss — Partial Token Adoption (Seductively Close, But Wrong)
+
+**What it looks like:** Colors use tokens but spacing/motion use raw values.
+
+```tsx
+// Near Miss: Mixed token and raw values
+<Card className="bg-surface text-foreground rounded-lg p-4">
+  <motion.div transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}>
+    {children}
+  </motion.div>
+</Card>
+```
+
+**Why it's tempting:** The component looks correct — colors match the design system. Tailwind's `p-4` and `rounded-lg` feel like tokens, and hardcoded motion values "work."
+
+**Physics of Error:** *Brittle Dependency* — Raw spacing values create a shadow design system. When taste.md spacing scale changes from 4px-base to 6px-base, token-based components adapt automatically; partial-token components silently drift. The system bifurcates into "components that respond to taste changes" and "components that don't," with no way to distinguish them programmatically.
+
+**Detection signal:** Any Tailwind utility class that doesn't map to a taste.md token; any motion duration/easing expressed as a literal number rather than a CSS variable.
+
+### The Category Error — Direct Style Override (Fundamentally Wrong)
+
+**What it looks like:** Inline styles or `!important` overrides that bypass the token system entirely.
+
+```tsx
+// Category Error: Bypassing the design system
+<Card style={{ backgroundColor: '#1a1a2e', padding: '16px', borderRadius: '8px' }}>
+  <div style={{ transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+    {children}
+  </div>
+</Card>
+```
+
+**Why someone might try it:** "The design needs this specific shade" or "the token doesn't have exactly what I need." Inline styles provide immediate visual results without understanding the token architecture.
+
+**Physics of Error:** *Layer Violation* — Inline styles operate at a different cascade layer than the design system. They cannot be overridden by theme changes, dark mode toggles, or responsive adaptations. This CANNOT produce a maintainable component because it severs the relationship between the component and the taste system — the component becomes a rendering island that no design system operation can reach.
+
+**Bridgebuilder action:** Immediate rejection. Regenerate from Target using the nearest token values.
+
 ## Token Mapping Reference
 
 ### Colors
