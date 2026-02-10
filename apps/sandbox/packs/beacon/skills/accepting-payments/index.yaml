@@ -1,14 +1,14 @@
 name: accepting-payments
 slug: accepting-payments
 version: 1.0.0
-description: Generate x402 v2 payment middleware and route handlers for Berachain agent commerce
+description: Generate x402 v2 payment middleware and route handlers for agent commerce
 
 # Trigger patterns - when this skill should activate
 triggers:
   - "/beacon-pay"
   - "enable payments on my API"
   - "add x402 middleware"
-  - "accept BERA for this endpoint"
+  - "accept payment for this endpoint"
   - "set up agent payments"
   - "generate payment middleware"
   - "configure subsidy for agents"
@@ -17,10 +17,10 @@ triggers:
 # Natural language examples for intent matching
 examples:
   - context: "User building paid API service"
-    user_says: "I want to charge 1 BERA for each image generation request"
+    user_says: "I want to charge 1 token for each image generation request"
     agent_action: "Launch accepting-payments to generate x402 middleware with pricing and rate limits"
   - context: "User configuring subsidy"
-    user_says: "Set up payment verification with 50% subsidy from 0xHoneyJar"
+    user_says: "Set up payment verification with 50% subsidy"
     agent_action: "Launch accepting-payments to create middleware with subsidy configuration and lifecycle hooks"
   - context: "User implementing x402 protocol"
     user_says: "Add payment verification to my Next.js API routes"
@@ -31,14 +31,26 @@ domain_hints:
   - x402
   - payments
   - middleware
-  - berachain
+  - blockchain
   - agent-commerce
   - subsidy
   - rate-limiting
   - monetization
-  - bera
+  - token-payments
 
 entry: SKILL.md
+
+capabilities:
+  model_tier: sonnet
+  danger_level: moderate
+  effort_hint: large
+  downgrade_allowed: false
+  execution_hint: sequential
+  requires:
+    native_runtime: true
+    tool_calling: true
+    thinking_traces: false
+    vision: false
 
 allowed-tools:
   - Read
@@ -50,9 +62,6 @@ allowed-tools:
 
 categories:
   - operations
-
-effort_hint: high
-danger_level: moderate
 
 inputExamples:
   - "/beacon-pay"

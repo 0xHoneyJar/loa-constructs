@@ -1,0 +1,58 @@
+name: Validate Topology
+
+# Prevents topology contamination regression in skill packs.
+# SDD Reference: §6.1 (Constructs Network Phase 2)
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'apps/sandbox/packs/**'
+      - '.claude/constructs/packs/**'
+      - 'scripts/validate-topology.sh'
+
+jobs:
+  topology-check:
+    name: Topology Contamination Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Run topology validation (strict)
+        run: scripts/validate-topology.sh --strict --verbose
+
+      - name: Check for new files in apps/sandbox/packs/
+        run: |
+          echo "Checking for drift-back to sandbox packs..."
+
+          # Get files added in this PR (not modified, only added)
+          ADDED_FILES=$(git diff --name-only --diff-filter=A origin/${{ github.base_ref }}...HEAD -- 'apps/sandbox/packs/' || true)
+
+          if [[ -n "$ADDED_FILES" ]]; then
+            echo ""
+            echo "============================================================"
+            echo "WARNING: New files added to apps/sandbox/packs/"
+            echo "============================================================"
+            echo ""
+            echo "The following files were added to the sandbox (git-tracked) pack directory:"
+            echo ""
+            echo "$ADDED_FILES"
+            echo ""
+            echo "If these are new skills or pack updates, this is expected."
+            echo "If these are runtime/overlay files, they should go in .claude/constructs/packs/ instead."
+            echo "============================================================"
+          else
+            echo "No new sandbox pack files detected"
+          fi

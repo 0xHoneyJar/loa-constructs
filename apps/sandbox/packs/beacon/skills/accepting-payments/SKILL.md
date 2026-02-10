@@ -1,6 +1,8 @@
 # Skill: accepting-payments
 
-> Generate x402 v2 payment middleware and route handlers for Berachain agent commerce.
+> Generate x402 v2 payment middleware and route handlers for agent commerce.
+>
+> **Required context:** `chain_config` — see `contexts/overlays/chain-config.json.example`
 
 ## Purpose
 
@@ -19,7 +21,7 @@ Turn any Next.js API route into a paid endpoint using the x402 protocol. This sk
 **Options:**
 - `--endpoint PATH` - Generate for specific endpoint only
 - `--subsidy PERCENT` - Default subsidy percentage (0-100)
-- `--token TOKEN` - Payment token (default: BERA)
+- `--token TOKEN` - Payment token (default: `{context:chain_config.default_token}`)
 
 ## Workflow
 
@@ -42,7 +44,7 @@ Turn any Next.js API route into a paid endpoint using the x402 protocol. This sk
 
 1. **Use AskUserQuestion to gather:**
    - Endpoint paths to enable (multiSelect from detected routes)
-   - Pricing per endpoint (amount in BERA)
+   - Pricing per endpoint (amount in `{context:chain_config.default_token}`)
    - Subsidy configuration (percentage, max per agent)
    - Rate limits (per-agent, per-IP)
 
@@ -121,7 +123,7 @@ Turn any Next.js API route into a paid endpoint using the x402 protocol. This sk
        // Business logic here
        // payment.agentAddress available
      },
-     { price: '1', token: 'BERA' }
+     { price: '1', token: '{context:chain_config.default_token}' }
    );
    ```
 
@@ -135,7 +137,7 @@ payments:
   endpoints:
     - path: /api/generate-image
       price: 1
-      token: BERA
+      token: "{context:chain_config.default_token}"
       subsidy: 50%
   rate_limits:
     per_agent: 10/h
@@ -172,14 +174,14 @@ Agent                          Service                    Facilitator
 ```
 X-Payment-Required: base64({
   "version": "2.0",
-  "network": "eip155:80094",
-  "token": "BERA",
+  "network": "{context:chain_config.network_id}",
+  "token": "{context:chain_config.default_token}",
   "amount": "1000000000000000000",
   "recipient": "0x...",
   "validUntil": 1234567890
 })
 X-Payment-Version: 2
-X-Payment-Token: BERA
+X-Payment-Token: {context:chain_config.default_token}
 ```
 
 **Payment Request Header:**
@@ -193,9 +195,9 @@ X-Payment: base64({
 
 ### Facilitator Integration
 
-Default facilitator for Berachain:
+Default facilitator URL from context:
 ```
-https://x402.org/facilitator
+{context:chain_config.payment_facilitator_url}
 ```
 
 The facilitator:
@@ -227,10 +229,10 @@ If middleware already exists:
 2. Ask user to confirm overwrite
 3. Backup existing files to `.backup/`
 
-### Non-BERA Token
+### Non-Default Token
 
-If user specifies different token:
-1. Warn that BERA is recommended for Berachain
+If user specifies a token different from `{context:chain_config.default_token}`:
+1. Warn that the configured default token is recommended for the target chain
 2. Allow configuration but note in comments
 3. Update discovery endpoint if it exists
 
@@ -250,7 +252,7 @@ Which endpoints should accept payments?
 ☑ /api/mint
 
 What price for /api/generate-image?
-> 1 BERA
+> 1 {context:chain_config.default_token}
 
 Enable subsidy? (Recommended)
 > Yes, 50%

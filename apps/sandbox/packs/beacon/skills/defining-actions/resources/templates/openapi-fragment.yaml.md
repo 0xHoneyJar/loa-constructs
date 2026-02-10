@@ -16,8 +16,8 @@ info:
     This API uses the x402 v2 payment protocol. All payment-enabled endpoints
     require an `X-Payment` header with a valid payment.
 
-    **Supported Networks:** Berachain Mainnet (eip155:80094)
-    **Supported Tokens:** BERA
+    **Supported Networks:** {{CHAIN_NAME}} ({{NETWORK_ID}})
+    **Supported Tokens:** {{DEFAULT_TOKEN}}
 
     See /.well-known/x402 for discovery endpoint.
   version: '{{VERSION}}'
@@ -69,11 +69,11 @@ security:
     description: |
       Generate an AI image from a text prompt.
 
-      **Payment:** 1 BERA (50% subsidized)
+      **Payment:** 1 {{DEFAULT_TOKEN}} (50% subsidized)
     operationId: generateImage
     x-payment:
       amount: '1'
-      currency: BERA
+      currency: {{DEFAULT_TOKEN}}
       subsidized: true
     requestBody:
       required: true
@@ -104,7 +104,7 @@ security:
             description: Required payment token
             schema:
               type: string
-              enum: ['BERA']
+              enum: ['{{DEFAULT_TOKEN}}']
       '429':
         description: Rate limit exceeded
         content:
@@ -181,8 +181,8 @@ info:
     This API uses the x402 v2 payment protocol. All payment-enabled endpoints
     require an `X-Payment` header with a valid payment.
 
-    **Supported Networks:** Berachain Mainnet (eip155:80094)
-    **Supported Tokens:** BERA
+    **Supported Networks:** {{CHAIN_NAME}} ({{NETWORK_ID}})
+    **Supported Tokens:** {{DEFAULT_TOKEN}}
 
     See /.well-known/x402 for discovery endpoint.
   version: '1.0.0'
@@ -202,7 +202,7 @@ paths:
       operationId: generateImage
       x-payment:
         amount: '1'
-        currency: BERA
+        currency: {{DEFAULT_TOKEN}}
         subsidized: true
       requestBody:
         required: true
@@ -223,11 +223,11 @@ paths:
   /api/mint:
     post:
       summary: Mint NFT
-      description: Mint a generated image as an NFT on Berachain.
+      description: Mint a generated image as an NFT.
       operationId: mintNFT
       x-payment:
         amount: '5'
-        currency: BERA
+        currency: {{DEFAULT_TOKEN}}
         subsidized: false
       requestBody:
         required: true

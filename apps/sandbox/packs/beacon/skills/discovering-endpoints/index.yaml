@@ -22,7 +22,7 @@ examples:
     user_says: "How do I let agents know what payment endpoints I support?"
     agent_action: "Launch discovering-endpoints to create discovery endpoint listing available routes and pricing"
   - context: "User configuring subsidy"
-    user_says: "Set up x402 discovery with 0xHoneyJar subsidy for my mint endpoint"
+    user_says: "Set up x402 discovery with subsidy for my mint endpoint"
     agent_action: "Launch discovering-endpoints to generate discovery endpoint with subsidy configuration"
 
 # Domain hints for proactive suggestion
@@ -33,10 +33,22 @@ domain_hints:
   - payment-endpoints
   - well-known
   - protocol
-  - berachain
+  - blockchain
   - service-metadata
 
 entry: SKILL.md
+
+capabilities:
+  model_tier: sonnet
+  danger_level: moderate
+  effort_hint: medium
+  downgrade_allowed: false
+  execution_hint: sequential
+  requires:
+    native_runtime: true
+    tool_calling: true
+    thinking_traces: false
+    vision: false
 
 allowed-tools:
   - Read
@@ -49,12 +61,9 @@ allowed-tools:
 categories:
   - operations
 
-effort_hint: medium
-danger_level: moderate
-
 inputExamples:
   - "/beacon-discover"
-  - "/beacon-discover --service mibera"
+  - "/beacon-discover --service my-service"
 
 outputs:
   - name: discovery-endpoint

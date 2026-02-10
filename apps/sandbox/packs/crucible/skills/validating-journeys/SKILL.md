@@ -97,21 +97,23 @@ import { test, expect, type Page } from '@playwright/test';
  * Wallet Interactions: {wallet_count}
  */
 
-// QA Fixtures from apps/web/components/qa-cli.tsx
-const QA_FIXTURES = {
-  'rewards-ready': '0x79092A805f1cf9B0F5bE3c5A296De6e51c1DEd34',
-  'new-user': '0xdA0758706E9E488bc6c7Ea487FFe48c415718e95',
-} as const;
+// QA Fixtures — loaded from context overlay
+// > **Required context:** `qa_fixtures` — see `contexts/overlays/qa-fixtures.json.example`
+// > If no context file exists, run:
+// >   cp contexts/overlays/qa-fixtures.json.example contexts/overlays/qa-fixtures.json
+// >   and fill in your project's test wallet addresses.
+const QA_FIXTURES = {context:qa_fixtures};
 
 test.describe('{journey-id}', () => {
 
   test.beforeEach(async ({ page }) => {
-    // Navigate to app
-    await page.goto('http://localhost:3003');
+    // Navigate to app — URL from context overlay
+    // > **Required context:** `dev_environment` — see `contexts/overlays/dev-environment.json.example`
+    await page.goto('{context:dev_environment.base_url}');
 
     // Set QA fixture for testing
     // await page.evaluate((addr) => {
-    //   localStorage.setItem('sf-qa-effective-address', JSON.stringify({
+    //   localStorage.setItem('{context:dev_environment.qa_storage_key}', JSON.stringify({
     //     effectiveAddress: addr,
     //     fixtureName: 'rewards-ready'
     //   }));
@@ -450,35 +452,100 @@ await page.waitForSelector('[data-testid="approval-complete"]', {
 
 ## QA Fixture Integration
 
-### Available Fixtures
+### Context Setup
 
-From `apps/web/components/qa-cli.tsx`:
+> **Required context:** `qa_fixtures` and `dev_environment`
+> See `contexts/overlays/qa-fixtures.json.example` and `contexts/overlays/dev-environment.json.example`
+>
+> If no context files exist:
+> ```bash
+> cp contexts/overlays/qa-fixtures.json.example contexts/overlays/qa-fixtures.json
+> cp contexts/overlays/dev-environment.json.example contexts/overlays/dev-environment.json
+> ```
+> Then fill in your project's test wallet addresses and dev URL.
 
-```typescript
-const QA_FIXTURES = {
-  'rewards-ready': '0x79092A805f1cf9B0F5bE3c5A296De6e51c1DEd34',
-  'new-user': '0xdA0758706E9E488bc6c7Ea487FFe48c415718e95',
-};
-```
+Fixtures are loaded from `{context:qa_fixtures}`. The dev environment URL comes from `{context:dev_environment.base_url}`.
 
 ### Using Fixtures in Tests
 
 ```typescript
 test.beforeEach(async ({ page }) => {
-  await page.goto('http://localhost:3003');
+  await page.goto('{context:dev_environment.base_url}');
 
   // Set QA fixture
   await page.evaluate((addr) => {
-    localStorage.setItem('sf-qa-effective-address', JSON.stringify({
+    localStorage.setItem('{context:dev_environment.qa_storage_key}', JSON.stringify({
       effectiveAddress: addr,
       fixtureName: 'rewards-ready'
     }));
-  }, '0x79092A805f1cf9B0F5bE3c5A296De6e51c1DEd34');
+  }, QA_FIXTURES['rewards-ready']);
 
   await page.reload();
   await page.waitForLoadState('networkidle');
 });
 ```
+
+## Counterfactuals — E2E Test Methodology
+
+### The Target (What We Do)
+
+Generate Playwright tests that validate user journeys against the state diagram — each test follows a journey path from entry to exit, asserting state transitions at each step. Tests use QA fixtures for deterministic data and context slots for environment-neutral selectors.
+
+```typescript
+// Target: Journey-driven test
+test('deposit flow: wallet connected → amount entered → confirmed', async ({ page }) => {
+  await page.goto('{context:dev_environment.base_url}/deposit');
+  // State: WALLET_CONNECTED (fixture provides connected wallet)
+  await expect(page.getByRole('heading', { name: /deposit/i })).toBeVisible();
+
+  // Transition: ENTER_AMOUNT
+  await page.getByLabel('Amount').fill('100');
+  await expect(page.getByRole('button', { name: /confirm/i })).toBeEnabled();
+
+  // Transition: CONFIRM
+  await page.getByRole('button', { name: /confirm/i }).click();
+  await expect(page.getByText(/transaction submitted/i)).toBeVisible();
+});
+```
+
+### The Near Miss — Implementation-Coupled Tests (Seductively Close, But Wrong)
+
+**What it looks like:** Tests that validate UI behavior but are coupled to implementation details — CSS classes, component hierarchy, internal state management.
+
+```typescript
+// Near Miss: Implementation-coupled test
+test('deposit works', async ({ page }) => {
+  await page.goto('http://localhost:3000/deposit');
+  await page.locator('.deposit-form__input--amount').fill('100');
+  await page.locator('div.modal-container > div:nth-child(2) > button.btn-primary').click();
+  await expect(page.locator('.toast--success')).toHaveCount(1);
+});
+```
+
+**Why it's tempting:** CSS selectors are precise. The test passes. Implementation-specific selectors avoid the ambiguity of role-based queries. And `localhost:3000` works on the developer's machine.
+
+**Physics of Error:** *Brittle Dependency* — CSS class selectors create a hidden contract between tests and styling. A designer renaming `.btn-primary` to `.button--action` breaks every test that uses that selector, even though the user-visible behavior is unchanged. Hardcoded URLs bind tests to a single environment. The test validates the implementation artifact, not the user journey — so refactoring the component (same behavior, different structure) causes test failures that communicate nothing about regression.
+
+**Detection signal:** CSS class selectors (`.class-name`), nth-child selectors, hardcoded `localhost` URLs, no reference to journey states or context slots.
+
+### The Category Error — Unit Testing User Journeys (Fundamentally Wrong)
+
+**What it looks like:** Testing journey logic with unit tests against component render output, mocking the browser environment.
+
+```typescript
+// Category Error: Unit test pretending to be E2E
+test('deposit journey', () => {
+  const { getByText } = render(<DepositPage />);
+  fireEvent.click(getByText('Confirm'));
+  expect(mockRouter.push).toHaveBeenCalledWith('/success');
+});
+```
+
+**Why someone might try it:** Unit tests are fast, deterministic, and don't need browser infrastructure. "We're testing the same logic."
+
+**Physics of Error:** *Semantic Collapse* — User journeys are emergent behaviors of the full system: routing, state management, API calls, browser APIs, and rendering interacting together. Unit tests mock away exactly the interactions that create journey bugs — race conditions, navigation timing, focus management, network failures. This CANNOT validate a user journey because it removes the system that produces the journey. The mock IS the test, and mocks only fail when you already know what's wrong.
+
+**Bridgebuilder action:** Immediate rejection. Regenerate from Target using Playwright E2E tests with journey state assertions.
 
 ---
 

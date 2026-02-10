@@ -287,6 +287,47 @@ module.exports = {
 };
 ```
 
+## Counterfactuals — Design System Synthesis
+
+### The Target (What We Do)
+
+Extract a coherent taste.md from existing UI by identifying the actual token set in use — colors, typography scale, spacing rhythm, motion curves — and encoding them as a single-source-of-truth document. The Tailwind config is generated FROM taste.md, never the reverse.
+
+```
+taste.md → Tailwind config → Components
+         ↘ CSS variables   ↗
+```
+
+### The Near Miss — Tailwind-First Synthesis (Seductively Close, But Wrong)
+
+**What it looks like:** Extracting the Tailwind config directly from code, then writing taste.md to describe what Tailwind already has.
+
+```
+Tailwind config → taste.md (describing Tailwind)
+Components → Tailwind config
+```
+
+**Why it's tempting:** Tailwind config is machine-readable and already structured. It seems efficient to "just document what's there." The result even looks correct — taste.md matches the Tailwind config perfectly.
+
+**Physics of Error:** *Coupling Inversion* — The taste document becomes a downstream artifact of implementation rather than an upstream source of truth. When a new component needs a color decision, there's no principled basis for choice — only "what does Tailwind already have?" The design system loses its ability to say "no" because it's descriptive, not prescriptive. Drift is guaranteed because additions go to Tailwind first and taste.md lags behind.
+
+**Detection signal:** taste.md that mirrors Tailwind config structure 1:1; no design rationale or usage guidance in taste.md; taste.md updated AFTER Tailwind config changes.
+
+### The Category Error — Component-Level Extraction (Fundamentally Wrong)
+
+**What it looks like:** Surveying individual component styles and averaging them into a "design system."
+
+```
+Component A uses blue-500, Component B uses blue-600
+→ taste.md: "primary blue is between blue-500 and blue-600"
+```
+
+**Why someone might try it:** "Let's see what the codebase actually uses." This feels empirical and grounded.
+
+**Physics of Error:** *Semantic Collapse* — Individual component styling decisions reflect local context (hover states, emphasis, hierarchy), not system-level tokens. Averaging local decisions destroys the semantic relationships between tokens (primary vs. muted, interactive vs. static). The result CANNOT function as a design system because it conflates implementation artifacts with design intentions — like deriving a grammar by averaging sentence lengths.
+
+**Bridgebuilder action:** Immediate rejection. Regenerate from Target by extracting design intentions, not implementation details.
+
 ## Output Format
 
 ```

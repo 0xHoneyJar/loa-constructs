@@ -345,6 +345,67 @@ Flag these signal words and add to Future Promises table:
 
 **Note**: Insights are synthesized only after validation, not from initial quotes.
 
+## Counterfactuals — User Research Methodology
+
+### The Target (What We Do)
+
+Create hypothesis-first canvases from user feedback. Start with Level 3 diagnostic (what is the user's actual goal?) before recording. Each canvas contains raw quotes, a hypothesis about the underlying goal, and explicit confidence levels. Observations feed future validation — never conclusions.
+
+```yaml
+# Target: Hypothesis-first canvas
+canvas:
+  user: papa-flavio
+  hypothesis: "User wants to optimize reward timing for maximum yield"
+  confidence: low  # Only 1 data point
+  level_3_goal: "Maximize returns with minimal active management"
+  quotes:
+    - text: "planning henlo burns"
+      source: discord
+      date: 2026-01-15
+  promises: []  # No conclusions yet
+```
+
+### The Near Miss — Conclusion-First Recording (Seductively Close, But Wrong)
+
+**What it looks like:** Recording feedback with immediate conclusions — "the user wants X" — without hypothesis framing or confidence calibration.
+
+```yaml
+# Near Miss: Conclusion-first canvas
+canvas:
+  user: papa-flavio
+  finding: "User wants to burn HENLO tokens"  # Conclusion, not hypothesis
+  action_item: "Add HENLO burn feature"        # Premature action
+  quotes:
+    - text: "planning henlo burns"
+      source: discord
+```
+
+**Why it's tempting:** The quote seems clear. "Planning henlo burns" appears to directly state intent. Drawing conclusions feels productive — it creates actionable items for the product team.
+
+**Physics of Error:** *Concept Impermanence* — Single quotes are ambiguous. "Planning henlo burns" could mean: planning to burn HENLO tokens, planning a HENLO community event ("burns" as slang), or discussing someone else's plans. Conclusion-first recording locks in one interpretation before gathering corroborating evidence. The canvas becomes evidence FOR the conclusion rather than a container for hypotheses. Subsequent observations get filtered through confirmation bias — quotes that support the conclusion are recorded, contradictory signals are ignored.
+
+**Detection signal:** Canvas with "finding" or "conclusion" instead of "hypothesis"; missing confidence level; action items present before 3+ corroborating quotes; no Level 3 diagnostic.
+
+### The Category Error — Aggregated Sentiment Analysis (Fundamentally Wrong)
+
+**What it looks like:** Collecting feedback and running sentiment analysis to determine "what users feel" about features.
+
+```yaml
+# Category Error: Sentiment-based research
+analysis:
+  feature: "rewards"
+  positive_mentions: 45
+  negative_mentions: 12
+  sentiment_score: 0.79
+  recommendation: "Users are generally positive about rewards"
+```
+
+**Why someone might try it:** Sentiment analysis is quantitative, scalable, and produces clean metrics. It feels scientific. NLP tools can process thousands of messages automatically.
+
+**Physics of Error:** *Semantic Collapse* — Sentiment analysis destroys the diagnostic signal. "I love the rewards but can never figure out when to claim" scores positive but contains a critical usability failure. "This sucks, fix the timing" scores negative but identifies the exact issue. Aggregating sentiment collapses individual user goals (Level 3) into a single scalar that cannot inform design decisions. This CANNOT produce useful research because user goals are not emotions — they are behaviors with context, constraints, and mental models that sentiment polarity cannot represent.
+
+**Bridgebuilder action:** Immediate rejection. Regenerate from Target using hypothesis-first canvases with individual quote attribution.
+
 ---
 
 ## Integration Points

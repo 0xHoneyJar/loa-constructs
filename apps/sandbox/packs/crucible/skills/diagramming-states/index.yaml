@@ -44,6 +44,19 @@ domain_hints:
   - mapping
 
 entry: SKILL.md
+
+capabilities:
+  model_tier: sonnet
+  danger_level: moderate
+  effort_hint: medium
+  downgrade_allowed: true
+  execution_hint: sequential
+  requires:
+    native_runtime: true
+    tool_calling: true
+    thinking_traces: false
+    vision: false
+
 allowed-tools:
   - Read
   - Write

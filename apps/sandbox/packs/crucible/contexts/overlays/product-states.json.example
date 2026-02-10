@@ -1,0 +1,21 @@
+{
+  "states": {
+    "empty": {
+      "description": "New user, no activity, no balance",
+      "test_purpose": "Verify onboarding flow renders correctly"
+    },
+    "active": {
+      "description": "User has engaged with core action, has balance",
+      "test_purpose": "Verify primary value loop functions"
+    },
+    "earned-unclaimed": {
+      "description": "User has earned value but not yet claimed it",
+      "test_purpose": "Verify claim/reward flow and notification states"
+    }
+  },
+  "state_combinations": [
+    { "name": "cold-start", "states": ["empty"], "wallet_fixture": "new-user" },
+    { "name": "mid-journey", "states": ["active"], "wallet_fixture": "active-user" },
+    { "name": "reward-ready", "states": ["earned-unclaimed"], "wallet_fixture": "rewards-ready" }
+  ]
+}

@@ -14,8 +14,8 @@
  * Configuration (from PRD):
  * - Per-agent: 10 requests per hour
  * - Per-IP: 50 requests per hour
- * - Daily subsidy budget: 1000 BERA
- * - Per-agent subsidy: 50 BERA max
+ * - Daily subsidy budget: 1000 {{DEFAULT_TOKEN}}
+ * - Per-agent subsidy: 50 {{DEFAULT_TOKEN}} max
  */
 
 // =============================================================================
@@ -195,7 +195,7 @@ function checkLimit(
  * Check and consume subsidy budget for an agent.
  *
  * @param agentAddress - The agent requesting subsidy
- * @param amount - Subsidy amount in BERA
+ * @param amount - Subsidy amount in {{DEFAULT_TOKEN}}
  * @param config - Optional custom configuration
  */
 export async function consumeSubsidy(
@@ -357,8 +357,8 @@ export async function checkRateLimitRedis(
 | `{{PER_AGENT_WINDOW_MS}}` | Agent rate limit window in ms | `3600000` (1 hour) |
 | `{{PER_IP_MAX}}` | Max requests per IP per window | `50` |
 | `{{PER_IP_WINDOW_MS}}` | IP rate limit window in ms | `3600000` (1 hour) |
-| `{{DAILY_SUBSIDY_MAX}}` | Daily subsidy budget in BERA | `1000` |
-| `{{PER_AGENT_SUBSIDY_MAX}}` | Per-agent subsidy limit in BERA | `50` |
+| `{{DAILY_SUBSIDY_MAX}}` | Daily subsidy budget in {{DEFAULT_TOKEN}} | `1000` |
+| `{{PER_AGENT_SUBSIDY_MAX}}` | Per-agent subsidy limit in {{DEFAULT_TOKEN}} | `50` |
 
 ## Default Configuration
 
@@ -375,8 +375,8 @@ const DEFAULT_CONFIG: RateLimitConfig = {
     windowMs: 60 * 60 * 1000  // 1 hour
   },
   subsidyBudget: {
-    dailyMax: 1000,           // 1000 BERA/day
-    perAgentMax: 50           // 50 BERA/agent
+    dailyMax: 1000,           // 1000 {{DEFAULT_TOKEN}}/day
+    perAgentMax: 50           // 50 {{DEFAULT_TOKEN}}/agent
   }
 };
 ```

@@ -22,9 +22,9 @@ import { hooks } from './hooks';
 // Configuration
 // =============================================================================
 
-const FACILITATOR_URL = process.env.FACILITATOR_URL || 'https://x402.org/facilitator';
-const NETWORK_ID = 'eip155:80094'; // Berachain Mainnet
-const DEFAULT_TOKEN = 'BERA';
+const FACILITATOR_URL = process.env.FACILITATOR_URL || '{{FACILITATOR_URL}}';
+const NETWORK_ID = '{{NETWORK_ID}}';
+const DEFAULT_TOKEN = '{{DEFAULT_TOKEN}}';
 const RECIPIENT_ADDRESS = process.env.PAYMENT_RECIPIENT || '{{RECIPIENT_ADDRESS}}';
 
 // =============================================================================
@@ -93,7 +93,7 @@ type RouteHandler = (
  *     console.log('Paid by:', payment.agentAddress);
  *     return NextResponse.json({ success: true });
  *   },
- *   { price: '1', token: 'BERA' }
+ *   { price: '1', token: '{{DEFAULT_TOKEN}}' }
  * );
  * ```
  */
@@ -187,7 +187,7 @@ async function buildPaymentRequirement(
   req: NextRequest
 ): Promise<PaymentRequirement> {
   const token = config.token || DEFAULT_TOKEN;
-  const amount = parseUnits(config.price, 18); // BERA has 18 decimals
+  const amount = parseUnits(config.price, 18); // {{DEFAULT_TOKEN}} has 18 decimals
 
   const requirement: PaymentRequirement = {
     version: '2.0',
@@ -402,8 +402,8 @@ export const POST = withX402(
     });
   },
   {
-    price: '1',           // 1 BERA
-    token: 'BERA',
+    price: '1',           // 1 {{DEFAULT_TOKEN}}
+    token: '{{DEFAULT_TOKEN}}',
     subsidyPercent: 50    // 50% subsidized
   }
 );
