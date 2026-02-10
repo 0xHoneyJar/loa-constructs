@@ -223,7 +223,7 @@ paths:
   /api/mint:
     post:
       summary: Mint NFT
-      description: Mint a generated image as an NFT on Berachain.
+      description: Mint a generated image as an NFT.
       operationId: mintNFT
       x-payment:
         amount: '5'
