@@ -63,7 +63,7 @@ categories:
 
 inputExamples:
   - "/beacon-discover"
-  - "/beacon-discover --service mibera"
+  - "/beacon-discover --service my-service"
 
 outputs:
   - name: discovery-endpoint

@@ -43,7 +43,7 @@ entry: SKILL.md
 
 capabilities:
   model_tier: sonnet
-  danger_level: safe
+  danger_level: moderate
   effort_hint: medium
   downgrade_allowed: true
   execution_hint: sequential
