@@ -1,6 +1,8 @@
 # Skill: discovering-endpoints
 
 > Generate x402 v2 discovery endpoint for agent commerce.
+>
+> **Required context:** `chain_config` — see `contexts/overlays/chain-config.json.example`
 
 ## Purpose
 
@@ -63,8 +65,8 @@ Build the x402 v2 discovery response structure:
   capabilities: {
     payments: {
       kinds: ['exact'],
-      networks: ['eip155:80094'],  // Berachain Mainnet
-      tokens: ['BERA']
+      networks: ['{context:chain_config.network_id}'],
+      tokens: ['{context:chain_config.default_token}']
     },
     extensions: ['discovery', 'receipts', 'subsidy']
   },
@@ -73,12 +75,12 @@ Build the x402 v2 discovery response structure:
       path: '/api/generate-image',
       method: 'POST',
       description: 'Generate AI image from prompt',
-      pricing: { amount: '1', currency: 'BERA', subsidized: true }
+      pricing: { amount: '1', currency: '{context:chain_config.default_token}', subsidized: true }
     }
   ],
   metadata: {
     name: '{{SERVICE_NAME}}',
-    subsidy: { provider: '0xHoneyJar' }
+    subsidy: { provider: '{context:chain_config.org_name}' }
   }
 }
 ```
@@ -113,7 +115,7 @@ discovery:
   generated_at: "{timestamp}"
   endpoints:
     - path: /api/generate-image
-      price: 1 BERA
+      price: "1 {context:chain_config.default_token}"
 ```
 
 ## Protocol Reference
@@ -124,23 +126,26 @@ discovery:
 ```
 X-Payment: <base64-encoded-payment>
 X-Payment-Version: 2
-X-Payment-Network: eip155:80094
+X-Payment-Network: {context:chain_config.network_id}
 ```
 
 **Response (402):**
 ```
 X-Payment-Required: <base64-encoded-requirements>
 X-Payment-Version: 2
-X-Payment-Token: BERA
+X-Payment-Token: {context:chain_config.default_token}
 ```
 
 ### Network IDs (CAIP-2)
 
+# Example configurations
 | Network | ID |
 |---------|-----|
-| Berachain Mainnet | `eip155:80094` |
 | Ethereum Mainnet | `eip155:1` |
 | Base | `eip155:8453` |
+| Berachain Mainnet | `eip155:80094` |
+
+Your project's network is configured via `{context:chain_config.network_id}`.
 
 ## Examples
 

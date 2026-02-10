@@ -41,6 +41,18 @@ domain_hints:
 
 entry: SKILL.md
 
+capabilities:
+  model_tier: sonnet
+  danger_level: moderate
+  effort_hint: large
+  downgrade_allowed: false
+  execution_hint: parallel
+  requires:
+    native_runtime: true
+    tool_calling: true
+    thinking_traces: false
+    vision: false
+
 allowed-tools:
   - Read
   - Write

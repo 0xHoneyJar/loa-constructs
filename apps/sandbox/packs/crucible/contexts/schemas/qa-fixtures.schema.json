@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "QA Fixtures",
+  "description": "Test wallet addresses and fixture data for E2E testing",
+  "type": "object",
+  "required": ["wallets"],
+  "properties": {
+    "wallets": {
+      "type": "object",
+      "description": "Named wallet fixtures for test scenarios",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["address", "description"],
+        "properties": {
+          "address": { "type": "string", "pattern": "^0x[a-fA-F0-9]{40}$" },
+          "description": { "type": "string" },
+          "fixture_name": { "type": "string" }
+        }
+      }
+    }
+  }
+}

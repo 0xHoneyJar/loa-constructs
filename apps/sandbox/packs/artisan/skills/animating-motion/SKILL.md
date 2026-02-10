@@ -307,6 +307,59 @@ const isInView = useInView(ref);
 | Best for | Simple, predetermined | Dynamic, interruptible |
 | Interruptibility | Restarts from zero | Maintains velocity |
 
+## Counterfactuals — Motion Design
+
+### The Target (What We Do)
+
+Apply motion that serves the interaction model: entrances use ease-out (fast start, gentle land), exits use ease-in (gentle start, fast departure), continuous movements use spring physics. Duration scales with distance traveled. Every animation has a clear purpose — guiding attention, confirming action, or showing spatial relationships.
+
+```tsx
+// Target: Purpose-driven motion
+<motion.div
+  initial={{ opacity: 0, y: 8 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ duration: 0.15, ease: [0, 0, 0.2, 1] }}  // ease-out for entrance
+/>
+```
+
+### The Near Miss — Decorative Motion (Seductively Close, But Wrong)
+
+**What it looks like:** Technically correct animations that don't serve an interaction purpose — elements that bounce, pulse, or slide without communicating state change.
+
+```tsx
+// Near Miss: Motion without purpose
+<motion.div
+  animate={{ scale: [1, 1.02, 1] }}
+  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
+/>
+// This button pulses forever. Why? What state does it communicate?
+```
+
+**Why it's tempting:** Motion makes interfaces feel "alive" and "polished." Subtle animations are praised in design showcases. The animation runs smoothly and doesn't break anything.
+
+**Physics of Error:** *Semantic Drift* — Motion without purpose trains users to ignore animation. When every element moves, movement stops signaling state change. The critical animations (loading → loaded, error → recovery, hidden → visible) lose their communicative power because they compete with decorative noise. Worse, infinite animations consume GPU compositing budget on mobile, causing the purposeful animations to stutter.
+
+**Detection signal:** Any `repeat: Infinity` animation not attached to a loading/progress state; animations with no corresponding state transition; motion that fires on mount without user trigger.
+
+### The Category Error — Wrong Easing Direction (Fundamentally Wrong)
+
+**What it looks like:** Using ease-in for entrances and ease-out for exits — the physical opposite of real-world motion.
+
+```tsx
+// Category Error: Inverted physics
+<motion.div
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{ ease: [0.4, 0, 1, 1] }}  // ease-in for entrance — WRONG
+/>
+```
+
+**Why someone might try it:** "Ease-in" sounds like "easing into view." The naming is misleading. The animation still runs and the element appears.
+
+**Physics of Error:** *Layer Violation* — Easing curves encode physical laws. Ease-in means acceleration (slow start, fast end) — objects entering view should decelerate (fast start, slow end = ease-out). Inverting this violates the spatial metaphor that makes animation feel natural. Users perceive the interface as "off" without being able to articulate why, because the motion contradicts the physics their visual system expects. This CANNOT feel natural because it violates the perceptual model that makes animation meaningful rather than decorative.
+
+**Bridgebuilder action:** Immediate rejection. Regenerate from Target with correct easing direction.
+
 ## Quick Reference Card
 
 ```

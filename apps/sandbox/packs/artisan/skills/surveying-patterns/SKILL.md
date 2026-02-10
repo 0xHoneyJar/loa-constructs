@@ -171,6 +171,50 @@ Review the file and output violations, why they matter, and fixes.
 | Accent Colors | SHOULD limit accent color to one per view |
 | Color Tokens | SHOULD use existing theme/Tailwind colors first |
 
+## Counterfactuals — Pattern Survey Methodology
+
+### The Target (What We Do)
+
+Survey the FULL codebase to identify recurring visual patterns, then classify by frequency and consistency. The survey scans every component directory, groups by visual similarity (layout, spacing, color usage), and reports both patterns AND anti-patterns with their occurrence counts.
+
+```
+Survey scope: ALL components in src/
+Classification: { pattern_name, occurrences, consistency_score, violations }
+Output: Pattern inventory with frequency data
+```
+
+### The Near Miss — Selective Sampling (Seductively Close, But Wrong)
+
+**What it looks like:** Surveying only "representative" components — the homepage, a settings page, and a modal — then declaring "these are the patterns."
+
+```
+Survey scope: 3-5 "key" pages
+Classification: patterns found in sampled pages
+Output: Pattern list without frequency data
+```
+
+**Why it's tempting:** Full codebase surveys take time. Sampling feels efficient and "statistically sound." The sampled pages often DO contain the primary patterns, so the results look reasonable.
+
+**Physics of Error:** *Concept Impermanence* — Patterns identified from samples reflect the sample, not the system. Edge cases, admin views, error states, and onboarding flows often contain the highest-value pattern violations — the exact places where inconsistency causes user confusion. A sample-based survey creates false confidence: "we have 5 patterns" when the codebase actually contains 12, with 7 lurking in unsurveyed components.
+
+**Detection signal:** Survey report that covers fewer than 80% of component directories; no violation/anti-pattern section; missing occurrence counts; no consistency score.
+
+### The Category Error — Screenshot-Based Survey (Fundamentally Wrong)
+
+**What it looks like:** Taking screenshots of the UI and visually identifying patterns without reading component source code.
+
+```
+Survey input: Screenshots of running application
+Classification: "this looks like that"
+Output: Visual similarity groups
+```
+
+**Why someone might try it:** Visual patterns are, by definition, visual. Screenshots show "what the user sees." This feels like the most direct approach.
+
+**Physics of Error:** *Semantic Drift* — Screenshots capture rendered output, not design intent. Two components can look identical but use completely different implementation patterns (one uses design tokens, one uses hardcoded values). Visual similarity does NOT imply implementation consistency. This CANNOT produce a useful pattern inventory because the purpose of the survey is to find implementation patterns for standardization — rendered pixels tell you nothing about whether components share a token system, consistent spacing rhythm, or compatible motion curves.
+
+**Bridgebuilder action:** Immediate rejection. Regenerate from Target using source code analysis.
+
 ## Review Output Format
 
 When reviewing a file, output:

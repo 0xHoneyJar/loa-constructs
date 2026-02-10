@@ -1,8 +1,8 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "name": "Artisan",
   "slug": "artisan",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Brand and UI craftsmanship skills for design systems, motion, and visual iteration",
   "author": "0xHoneyJar",
   "license": "MIT",
@@ -63,6 +63,22 @@
     "taste_dir": "contexts/taste",
     "inspiration_dir": "grimoires/artisan/inspiration",
     "feedback_dir": "grimoires/artisan/feedback"
+  },
+  "pack_dependencies": [],
+  "events": {
+    "emits": [
+      {
+        "type": "forge.artisan.taste_inscribed",
+        "description": "Emitted when taste tokens are applied to components",
+        "data_schema": {"components": "array", "taste_source": "string"}
+      },
+      {
+        "type": "forge.artisan.pattern_surveyed",
+        "description": "Emitted when a design pattern survey is completed",
+        "data_schema": {"patterns_found": "number", "report_path": "string"}
+      }
+    ],
+    "consumes": []
   },
   "hooks": {
     "post_install": "scripts/install.sh"

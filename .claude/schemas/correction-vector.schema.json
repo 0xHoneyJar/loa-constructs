@@ -1,0 +1,89 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Correction Vector",
+  "description": "Structured violation record from Bridgebuilder review",
+  "type": "object",
+  "required": ["timestamp", "source_pr", "pack", "skill", "violation"],
+  "properties": {
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp of when the violation was detected"
+    },
+    "source_pr": {
+      "type": "string",
+      "description": "PR number or identifier where the violation was found"
+    },
+    "pack": {
+      "type": "string",
+      "enum": ["artisan", "observer", "crucible", "beacon", "gtm-collective"],
+      "description": "Pack that owns the violated skill"
+    },
+    "skill": {
+      "type": "string",
+      "description": "Skill slug where the violation occurred"
+    },
+    "violation": {
+      "type": "object",
+      "required": ["type", "category", "file", "physics_of_error"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["near_miss", "category_error"],
+          "description": "Near Miss (structurally close) or Category Error (fundamentally wrong)"
+        },
+        "category": {
+          "type": "string",
+          "description": "Specific violation category from the persona detection rules"
+        },
+        "file": {
+          "type": "string",
+          "description": "File path where the violation was found"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Line number of the violation"
+        },
+        "found": {
+          "type": "string",
+          "description": "The actual content that was found"
+        },
+        "expected_pattern": {
+          "type": "string",
+          "description": "What should have been used instead"
+        },
+        "physics_of_error": {
+          "type": "string",
+          "enum": [
+            "Brittle Dependency",
+            "Concept Impermanence",
+            "Semantic Drift",
+            "Coupling Inversion",
+            "Semantic Collapse",
+            "Layer Violation"
+          ],
+          "description": "Named principle explaining why the violation is structurally wrong"
+        }
+      }
+    },
+    "suggested_persona_update": {
+      "type": "object",
+      "description": "Optional suggestion to update persona detection rules",
+      "properties": {
+        "target_file": {
+          "type": "string",
+          "description": "Persona file to update"
+        },
+        "section": {
+          "type": "string",
+          "description": "Section within the persona file"
+        },
+        "addition": {
+          "type": "string",
+          "description": "New detection rule or refinement to add"
+        }
+      }
+    }
+  }
+}

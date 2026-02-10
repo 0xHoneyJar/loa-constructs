@@ -1,8 +1,8 @@
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "name": "Observer",
   "slug": "observer",
-  "version": "1.0.2",
+  "version": "1.1.0",
   "description": "User truth capture skills for hypothesis-first research",
   "author": "0xHoneyJar",
   "license": "MIT",
@@ -30,6 +30,47 @@
     "base": "contexts/base/crypto-base.md",
     "overlays_dir": "contexts/overlays",
     "composed_dir": "contexts/composed"
+  },
+  "pack_dependencies": [
+    {
+      "pack": "crucible",
+      "required": false,
+      "relationship": "consumes",
+      "artifacts": ["grimoires/crucible/gaps/*.md"],
+      "description": "Gap analysis reports feed back into user research"
+    },
+    {
+      "pack": "artisan",
+      "required": false,
+      "relationship": "consumes",
+      "artifacts": ["grimoires/artisan/observations/*.md"],
+      "description": "Design observations inform user research"
+    }
+  ],
+  "events": {
+    "emits": [
+      {
+        "type": "forge.observer.canvas_created",
+        "description": "Emitted when a new user truth canvas is created",
+        "data_schema": {"user_id": "string", "canvas_path": "string"}
+      },
+      {
+        "type": "forge.observer.journey_shaped",
+        "description": "Emitted when a user journey is shaped from canvases",
+        "data_schema": {"journey_id": "string", "journey_path": "string"}
+      },
+      {
+        "type": "forge.observer.gap_filed",
+        "description": "Emitted when a gap analysis issue is filed",
+        "data_schema": {"gap_id": "string", "issue_url": "string"}
+      }
+    ],
+    "consumes": [
+      {
+        "type": "forge.crucible.journey_validated",
+        "description": "Journey validation results feed back into research"
+      }
+    ]
   },
   "hooks": {
     "post_install": "scripts/install.sh"

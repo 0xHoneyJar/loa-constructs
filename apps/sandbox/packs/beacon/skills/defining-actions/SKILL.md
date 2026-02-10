@@ -89,7 +89,7 @@ paths:
       summary: Generate AI image
       x-payment:
         amount: 1
-        currency: BERA
+        currency: "{context:chain_config.default_token}"
       requestBody:
         content:
           application/json:

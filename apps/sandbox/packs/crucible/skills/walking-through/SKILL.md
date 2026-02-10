@@ -34,7 +34,7 @@ Interactive walkthrough skill using agent-browser for manual testing of user jou
 ## Prerequisites
 
 1. **agent-browser installed**: `npm install -g agent-browser`
-2. **Local app running**: `bun dev` on port 3003
+2. **Local app running**: `bun dev` on the port specified in `{context:dev_environment.dev_port}`
 3. **Wallet extension**: Rabby configured in agent-browser profile (optional for Web3 flows)
 
 ---
@@ -130,14 +130,15 @@ gaps_discovered: 0
 ### Step 5: Launch Browser
 
 ```bash
-agent-browser open http://localhost:3003 --headed
+agent-browser open {context:dev_environment.base_url} --headed
 agent-browser wait --load networkidle
 ```
 
 **Optional: Set QA fixture (if using mock wallet)**
 ```bash
 # Via browser console or localStorage
-agent-browser run "localStorage.setItem('sf-qa-effective-address', JSON.stringify({effectiveAddress: '{address}', fixtureName: '{fixture}'}))"
+# Context: dev_environment.qa_storage_key — see contexts/overlays/dev-environment.json.example
+agent-browser run "localStorage.setItem('{context:dev_environment.qa_storage_key}', JSON.stringify({effectiveAddress: '{address}', fixtureName: '{fixture}'}))"
 agent-browser reload
 agent-browser wait --load networkidle
 ```
