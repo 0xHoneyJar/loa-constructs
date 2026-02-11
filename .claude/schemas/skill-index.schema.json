@@ -18,9 +18,8 @@
     },
     "model": {
       "type": "string",
-      "enum": ["sonnet", "opus", "haiku"],
-      "default": "sonnet",
-      "description": "Recommended model for this skill"
+      "default": "native",
+      "description": "Model binding for this skill. Use 'native' for Claude Code session, or a Hounfour alias (e.g., 'reviewer', 'reasoning') or provider:model-id from the provider registry."
     },
     "color": {
       "type": "string",
@@ -29,14 +28,19 @@
     "description": {
       "type": "string",
       "minLength": 50,
-      "maxLength": 500,
-      "description": "Skill description (50-500 characters)"
+      "maxLength": 1024,
+      "description": "Skill description (50-1024 characters). Should follow WHAT+WHEN+capabilities formula per Anthropic best practices."
     },
     "triggers": {
       "type": "array",
       "items": { "type": "string" },
       "minItems": 1,
       "description": "Activation patterns for this skill"
+    },
+    "negative_triggers": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Phrases that should NOT trigger this skill (advisory, per Anthropic best practices)"
     },
     "examples": {
       "type": "array",

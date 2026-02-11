@@ -10,6 +10,16 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# Ride Configuration (v1.31.0)
+# -----------------------------------------------------------------------------
+# Controls /ride codebase analysis behavior.
+ride:
+  # Days before ride artifacts are considered stale. When /ride is invoked
+  # and .reality-meta.json shows artifacts younger than this, the user is
+  # prompted to skip or re-analyze. Use --fresh flag to bypass.
+  staleness_days: 7
+
+# -----------------------------------------------------------------------------
 # Configurable Paths (v1.27.0)
 # -----------------------------------------------------------------------------
 # Customize grimoire and state file locations. All paths are relative to
@@ -447,6 +457,159 @@ beads:
     sync_stale_hours: 24
 
 # -----------------------------------------------------------------------------
+# Hounfour Multi-Model Provider Abstraction (v1.31.0)
+# -----------------------------------------------------------------------------
+# Configure upstream model routing, pricing, budget enforcement, and circuit
+# breakers. System defaults ship in .claude/defaults/model-config.yaml —
+# only override values you want to change here.
+#
+# Architecture: SDD §4.1.2 (Config Schema), §4.2 (Routing), §4.5 (Metering)
+# Feature flag: hounfour.flatline_routing controls Sprint 2 routing path
+hounfour:
+  # Feature flag — controls whether Flatline uses Hounfour routing (Sprint 2)
+  # or the legacy direct-call path. Set to true when ready to migrate.
+  flatline_routing: false
+
+  # Provider registry — override endpoints, auth, or add new providers
+  # Providers not listed here use system defaults from model-config.yaml
+  providers:
+    openai:
+      # type: openai                    # Provider SDK type
+      # endpoint: "https://api.openai.com/v1"
+      auth: "{env:OPENAI_API_KEY}"      # Auth template (env: prefix resolves env vars)
+      models:
+        gpt-5.2:
+          capabilities: [chat, tools, function_calling]
+          context_window: 128000
+          pricing:
+            input_per_mtok: 10000000    # $10.00/M tokens (integer micro-USD)
+            output_per_mtok: 30000000   # $30.00/M tokens
+        gpt-5.2-codex:
+          capabilities: [chat, tools, function_calling, code]
+          context_window: 200000
+          pricing:
+            input_per_mtok: 15000000
+            output_per_mtok: 60000000
+
+    anthropic:
+      auth: "{env:ANTHROPIC_API_KEY}"
+      models:
+        claude-opus-4-6:
+          capabilities: [chat, tools, function_calling, thinking_traces]
+          context_window: 200000
+          pricing:
+            input_per_mtok: 5000000     # $5.00/M tokens
+            output_per_mtok: 25000000   # $25.00/M tokens
+        claude-sonnet-4-6:
+          capabilities: [chat, tools, function_calling]
+          context_window: 200000
+          pricing:
+            input_per_mtok: 3000000
+            output_per_mtok: 15000000
+
+  # Aliases — short names mapping to provider:model-id
+  aliases:
+    native: "claude-code:session"         # Reserved — Claude Code native runtime
+    reviewer: "openai:gpt-5.2"            # Primary review model
+    reasoning: "openai:gpt-5.2"           # Reasoning/skeptic model
+    cheap: "anthropic:claude-sonnet-4-6"  # Budget-conscious model
+    opus: "anthropic:claude-opus-4-6"     # High-quality model
+
+  # Agent bindings — which model each agent uses + requirements
+  # Agents not listed here use the system defaults from model-config.yaml
+  agents:
+    reviewing-code:
+      model: reviewer
+      temperature: 0.3
+    translating-for-executives:
+      model: cheap
+      temperature: 0.5
+    flatline-reviewer:
+      model: reviewer
+      temperature: 0.3
+    flatline-skeptic:
+      model: reasoning
+      temperature: 0.5
+      requires:
+        thinking_traces: preferred
+    # Agents bound to native runtime (Claude Code session):
+    # implementing-tasks, riding-codebase, designing-architecture,
+    # planning-sprints, discovering-requirements, auditing-security
+
+  # Routing — fallback chains (provider down) and downgrade chains (budget)
+  routing:
+    fallback:
+      openai: [anthropic]               # OpenAI down → try Anthropic
+      anthropic: [openai]               # Anthropic down → try OpenAI
+    downgrade:
+      reviewer: [cheap]                 # Budget exceeded → downgrade
+
+    # Circuit breaker — per-provider state machine (CLOSED/OPEN/HALF_OPEN)
+    # State files: .run/circuit-breaker-{provider}.json
+    circuit_breaker:
+      failure_threshold: 5              # Consecutive failures to trip OPEN
+      reset_timeout_seconds: 60         # Seconds in OPEN before probing
+      half_open_max_probes: 1           # Concurrent probes in HALF_OPEN
+      count_window_seconds: 300         # Rolling window for failure count
+
+  # Retry — per-request retry with exponential backoff
+  retry:
+    max_retries: 3                      # Per-provider retries
+    max_total_attempts: 6               # Global hard cap (SDD §4.2.7)
+    max_provider_switches: 2            # Maximum fallback chain depth
+    base_delay_seconds: 1.0             # Exponential backoff base
+
+  # Metering — JSONL cost ledger with integer micro-USD arithmetic
+  metering:
+    enabled: true
+    ledger_path: "grimoires/loa/a2a/cost-ledger.jsonl"
+    budget:
+      daily_micro_usd: 500000000        # $500/day (500M micro-USD)
+      warn_at_percent: 80               # Warn at 80% of daily budget
+      on_exceeded: downgrade            # downgrade | block | warn
+
+  # Timeouts — per-provider connection/read/write limits
+  defaults:
+    connect_timeout: 10                 # seconds
+    read_timeout: 120                   # seconds
+    write_timeout: 30                   # seconds
+
+# Hounfour Examples:
+#
+# Example 1: Conservative (all native, no remote calls)
+# hounfour:
+#   flatline_routing: false
+#   agents:
+#     reviewing-code:
+#       model: native
+#     flatline-reviewer:
+#       model: native
+#
+# Example 2: Budget-conscious (lower daily limit, aggressive downgrade)
+# hounfour:
+#   metering:
+#     budget:
+#       daily_micro_usd: 50000000       # $50/day
+#       warn_at_percent: 60
+#       on_exceeded: block              # Hard stop instead of downgrade
+#
+# Example 3: Custom provider (e.g., Azure OpenAI)
+# hounfour:
+#   providers:
+#     azure-openai:
+#       type: openai
+#       endpoint: "https://myorg.openai.azure.com/openai/deployments/gpt-5"
+#       auth: "{env:AZURE_OPENAI_KEY}"
+#       models:
+#         gpt-5-azure:
+#           capabilities: [chat, tools, function_calling]
+#           pricing:
+#             input_per_mtok: 10000000
+#             output_per_mtok: 30000000
+#   aliases:
+#     reviewer: "azure-openai:gpt-5-azure"
+
+# -----------------------------------------------------------------------------
 # Persistent Memory (v1.28.0)
 # -----------------------------------------------------------------------------
 # Session-spanning observation storage with progressive disclosure.
@@ -767,6 +930,38 @@ flatline_protocol:
       notebook_id: ""          # Your NotebookLM notebook ID
       timeout_ms: 30000        # Query timeout
 
+  # Adversarial cross-model dissent for quality gates (#224)
+  # A second model reviews code that Claude already reviewed
+  code_review:
+    enabled: false               # Opt-in: enable for /review-sprint
+    model: "gpt-5.2-codex"      # Dissenter model
+    timeout_seconds: 60          # Per-call timeout
+    budget_cents: 150            # Max cost per dissent call
+  security_audit:
+    enabled: false               # Opt-in: enable for /audit-sprint
+    model: "gpt-5.2-codex"      # Dissenter model
+    timeout_seconds: 60
+    budget_cents: 150
+  stable_anchors:
+    required: true               # Demote anchorless high-severity findings
+    preferred_format: "symbol"   # symbol | hunk_header | line_number
+    enforce_for: ["BLOCKING", "CRITICAL", "HIGH"]
+  context_escalation:
+    enabled: true                # Full-file context for P0 files
+    secondary_token_budget: 15000
+    max_file_lines: 500
+    max_file_bytes: 51200        # 50KB
+    denylist: ["*.pem", "*.key", "*.p12", "*.pfx", "id_rsa*", ".env*", "credentials.*", "secrets.*", "*.secret"]
+  secret_scanning:
+    enabled: true                # Pre-send redaction (recommended)
+    patterns:                    # Format-specific regex patterns
+      - "AKIA[0-9A-Z]{16}"
+      - "-----BEGIN[A-Z ]*PRIVATE KEY-----"
+      - "ghp_[A-Za-z0-9]{36}"
+    allowlist:                   # False-positive exclusions
+      - "sha256:[a-f0-9]{64}"
+      - "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+
 # -----------------------------------------------------------------------------
 # Autonomous Flatline Mode (v1.22.0)
 # -----------------------------------------------------------------------------
@@ -969,3 +1164,49 @@ post_pr_validation:
     enabled: true
     # Mode for auto-invoked validation
     mode: "autonomous"
+
+# =============================================================================
+# Bridgebuilder — Autonomous PR Review
+# =============================================================================
+# Configuration for the /bridgebuilder skill. All fields have sensible defaults.
+# Precedence: CLI flags > env vars > this config > auto-detect > built-in defaults.
+bridgebuilder:
+  # Master toggle — set to false to disable the skill entirely
+  enabled: true
+
+  # Additional repositories to review (owner/repo format).
+  # Auto-detected repo from git remote is always included unless --no-auto-detect.
+  # Env: BRIDGEBUILDER_REPOS (comma-separated)
+  repos: []
+
+  # LLM model for generating reviews.
+  # Env: BRIDGEBUILDER_MODEL
+  model: "claude-sonnet-4-5-20250929"
+
+  # Maximum open PRs to process per run
+  max_prs: 10
+
+  # Maximum files per PR (excess truncated, risk-prioritized: security files first)
+  max_files_per_pr: 50
+
+  # Maximum diff size in bytes (100KB default)
+  max_diff_bytes: 100000
+
+  # Token budget for LLM input (persona + diff + metadata)
+  max_input_tokens: 8000
+
+  # Maximum response tokens for generated review
+  max_output_tokens: 4000
+
+  # Review dimensions (subset of: security, quality, test-coverage, operational-readiness)
+  dimensions:
+    - security
+    - quality
+    - test-coverage
+
+  # HTML comment marker for idempotency detection
+  review_marker: "bridgebuilder-review"
+
+  # Path to persona override (project-specific reviewer personality).
+  # Falls back to built-in resources/BEAUVOIR.md if file not found.
+  persona_path: "grimoires/bridgebuilder/BEAUVOIR.md"

@@ -70,6 +70,10 @@ tmp/
 temp/
 *.tmp
 
+# Skill backup files (local-only rollback safety net)
+# Use git tags for rollback reference instead of committed .bak files
+.claude/skills/**/*.bak*
+
 # Loa Framework State (Legacy - v0.14.0 and earlier)
 # The .loa-setup-complete file is no longer created as of v0.15.0.
 # THJ membership is now detected via LOA_CONSTRUCTS_API_KEY environment variable.
@@ -128,6 +132,12 @@ grimoires/loa/prd*.md
 grimoires/loa/sdd*.md
 grimoires/loa/sprint*.md
 grimoires/loa/NOTES.md
+grimoires/loa/BEAUVOIR.md
+grimoires/loa/SOUL.md
+grimoires/loa/decisions.yaml
+
+# User config (copy from .loa.config.yaml.example)
+.loa.config.yaml
 
 # Sprint Ledger (project-specific cycle/sprint history)
 # Created by /plan-and-analyze, tracks development cycles per-project
@@ -144,9 +154,11 @@ grimoires/loa/a2a/*
 !grimoires/loa/a2a/trajectory/
 grimoires/loa/a2a/trajectory/*
 !grimoires/loa/a2a/trajectory/README.md
-# Compound learning state (tracked for cross-session learning)
+# Compound learning state (project-specific, generated per-project)
 !grimoires/loa/a2a/compound/
+grimoires/loa/a2a/compound/*.json
 grimoires/loa/a2a/compound/review-markers/*
+!grimoires/loa/a2a/compound/.gitkeep
 !grimoires/loa/a2a/compound/review-markers/.gitkeep
 
 # Deployment artifacts (project-specific)
@@ -186,23 +198,27 @@ grimoires/pub/research/*
 # - Users should install via /skill-pack-install command
 .claude/constructs/
 
+# Development-specific docs (not part of template)
+docs/planning/
+docs/proposals/
+docs/research/
+docs/mockups/
+docs/screenshots/
+
 # =============================================================================
 # PROJECT-SPECIFIC EXCLUSIONS (for repos that use loa as a base)
 # =============================================================================
 # Beads graph memory (sprint task tracking)
-# By default, .beads/ is tracked for team collaboration on sprint state.
-# Uncomment to keep local-only:
-# .beads/
+# For the template repo, .beads/ is fully excluded.
+# Project repos that want team-visible sprint state can remove this line
+# and selectively ignore runtime files below instead.
+.beads/
 
-# Beads runtime files (never commit)
-.beads/daemon.lock
-.beads/.local_version
-.beads/beads.db
-.beads/*.meta.json
-
-# Beads task graph (template repo - exclude all)
-# For project repos, remove this line to track sprint tasks
-.beads/*.jsonl
+# Beads runtime files (never commit, even if .beads/ is tracked)
+# .beads/daemon.lock
+# .beads/.local_version
+# .beads/beads.db
+# .beads/*.meta.json
 
 # Application artifacts (app/)
 app/src/
