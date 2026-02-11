@@ -5,6 +5,65 @@ All notable changes to Loa will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.33.0] - 2026-02-11 — Garde Release
+
+### Why This Release
+
+The Garde Release builds protective infrastructure around Loa's development lifecycle. A full **eval sandbox** lands with deterministic framework testing, 9 code-based graders, CI pipeline with dual-checkout trust boundaries, and baseline regression detection. Alongside this, **bug mode** (`/bug`) introduces a lightweight triage-to-fix workflow that enforces test-first development while bypassing PRD/SDD gates for observed failures. **6 PRs** covering eval infrastructure, bug-fixing workflows, and RTFM-surfaced documentation repairs.
+
+### Added
+
+#### Eval Sandbox — Framework Evals, Regression Suite, CI Pipeline (#277, #282)
+
+Full evaluation infrastructure for deterministic framework testing:
+
+- **7-script harness pipeline**: `run-eval.sh` orchestrator, `validate-task.sh`, `sandbox.sh`, `grade.sh`, `compare.sh`, `report.sh`, `pr-comment.sh`
+- **9 code-based graders**: `file-exists`, `tests-pass`, `function-exported`, `pattern-match`, `diff-compare`, `quality-gate`, `no-secrets`, `constraint-enforced`, `skill-index-validator`
+- **Framework correctness suite**: 22 deterministic tasks covering config validation, constraint enforcement, golden path structure, quality gates
+- **Regression suite scaffold**: 11 agent-simulated tasks — bug triage, implementation, and review scenarios with 3 trials per task
+- **5 test fixtures**: `loa-skill-dir`, `hello-world-ts`, `buggy-auth-ts`, `simple-python`, `shell-scripts`
+- **GitHub Actions CI pipeline**: dual-checkout trust model (base=trusted graders, PR=untrusted tasks), source-injection scanning, symlink escape prevention, PR comment reports with collapsible results
+- **Dockerfile.sandbox**: container isolation with yq, jq, git, bash 4.0+
+- **Baseline comparison**: Wilson confidence intervals, regression/improvement/new/missing classification
+- **`/eval` command**: skill registration for running suites from Claude Code
+- 61 unit + integration tests across harness and graders
+
+#### Bug Mode — Lightweight Bug-Fixing Workflow (#278, #279)
+
+New `/bug` command and `bug-triaging` skill for observed-failure triage:
+
+- **5-phase triage**: dependency check → eligibility validation → hybrid interview → codebase analysis → micro-sprint creation
+- **Eligibility scoring**: 2-3 point rubric with disqualifiers for feature requests
+- **PII redaction**: API keys, JWT tokens, passwords, emails stripped from imported content
+- **GitHub issue import**: `--from-issue N` flag for automated intake
+- **Test-first enforcement**: HALTs if no test infrastructure detected
+- **Run mode integration**: `/run --bug "description"` with circuit breaker
+- **Golden path awareness**: `/build` auto-detects active bugs and routes correctly
+- **State management**: bug state tracking in `.run/bugs/{id}/state.json` with TOCTOU-safe detection
+- **Process compliance**: C-PROC-015 (validate eligibility) and C-PROC-016 (no feature work via `/bug`)
+
+### Changed
+
+- Process compliance tables in CLAUDE.loa.md updated to include `/bug` as valid implementation path
+- `/loa` status command extended to detect and report active bug workflows
+- Run mode SKILL.md updated with `/run --bug` documentation
+
+### Fixed
+
+- **CI trust boundary false positives**: refactored globstar save/restore in `run-eval.sh` to avoid `eval` command; test directories excluded from trust boundary scanner (#283)
+- **Fixture config tracking**: `.gitignore` negation for `evals/fixtures/**/.loa.config.yaml` — global ignore rule caused 3 framework task failures (#284)
+- **PR comment coverage**: workflow step now posts results for ALL suites, not just most recent run directory (#284)
+- **README documentation gaps**: added "What Is This?" definition, clarified slash commands vs shell commands, added prerequisites, post-install verification, first-run expectations, and beads_rust requirement clarification
+- **INSTALLATION documentation gaps**: moved optional enhancements after core install, fixed config bootstrap path, added minimal working config example, clarified `.beads/` creation timing, resolved beads_rust requirement contradiction, added uninstall section, added failure recovery guidance
+
+### Documentation
+
+- **Eval CI pipeline guide**: trust model, dual-checkout architecture, pipeline steps, suite types, artifact retention (#285)
+- **Eval health checks**: local verification commands, task category reference, monitoring recommendations (#285)
+- **Eval operational runbook**: adding tasks/graders/fixtures, investigating CI failures, baseline update procedures (#285)
+
+---
+
 ## [1.32.0] - 2026-02-10 — Hounfour Release
 
 ### Why This Release
