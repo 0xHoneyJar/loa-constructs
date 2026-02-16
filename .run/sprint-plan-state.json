@@ -1,46 +1,30 @@
 {
-  "plan_id": "plan-20260215-c017phase2",
-  "branch": "feat/cycle-017-butterfreezone-excellence",
-  "state": "RUNNING",
+  "plan_id": "plan-20260215-c014repo",
+  "branch": "feat/sync-architecture-plan",
+  "state": "JACKED_OUT",
   "timestamps": {
-    "started": "2026-02-15T20:00:00Z",
-    "last_activity": "2026-02-15T20:30:00Z"
+    "started": "2026-02-16T04:12:00Z",
+    "last_activity": "2026-02-16T10:30:00Z"
   },
   "sprints": {
     "total": 3,
-    "completed": 1,
-    "current": "sprint-6",
+    "completed": 3,
+    "current": null,
     "list": [
-      {
-        "id": "sprint-5",
-        "status": "completed",
-        "cycles": 1,
-        "global_id": "sprint-110",
-        "files_changed": 6
-      },
-      {
-        "id": "sprint-6",
-        "status": "in_progress",
-        "cycles": 0,
-        "global_id": "sprint-111"
-      },
-      {
-        "id": "sprint-7",
-        "status": "pending",
-        "cycles": 0,
-        "global_id": "sprint-112"
-      }
+      {"id": "sprint-1", "status": "completed", "cycles": 1, "files_changed": 10},
+      {"id": "sprint-2", "status": "completed", "cycles": 1, "files_changed": 13},
+      {"id": "sprint-3", "status": "completed", "cycles": 1, "files_changed": 9}
     ]
   },
   "options": {
-    "from": 5,
-    "to": 7,
+    "from": 1,
+    "to": 3,
     "max_cycles": 20,
     "timeout_hours": 8
   },
   "metrics": {
-    "total_cycles": 1,
-    "total_files_changed": 6,
-    "total_findings_fixed": 0
+    "total_cycles": 3,
+    "total_files_changed": 32,
+    "total_findings_fixed": 11
   }
 }

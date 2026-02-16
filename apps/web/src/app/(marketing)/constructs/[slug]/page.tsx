@@ -10,7 +10,7 @@ import { notFound } from 'next/navigation';
 import { TuiBox } from '@/components/tui/tui-box';
 import { TuiButton } from '@/components/tui/tui-button';
 import { TuiH2, TuiDim, TuiTag, TuiCode } from '@/components/tui/tui-text';
-import { fetchConstruct, ConstructNotFoundError, type ConstructDetail, type ConstructType, type ConstructIdentity } from '@/lib/api';
+import { fetchConstruct, ConstructNotFoundError, type ConstructDetail, type ConstructType } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network';
 
