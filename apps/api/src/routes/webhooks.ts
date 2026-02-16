@@ -562,6 +562,34 @@ webhooksRouter.post('/github', async (c) => {
             updatedAt: new Date(),
           })
           .where(eq(packs.id, pack.id));
+
+        // Upsert identity if present
+        if (syncResult.identity) {
+          const { constructIdentities } = await import('../db/index.js');
+          await tx
+            .insert(constructIdentities)
+            .values({
+              packId: pack.id,
+              personaYaml: syncResult.identity.personaYaml,
+              expertiseYaml: syncResult.identity.expertiseYaml,
+              cognitiveFrame: syncResult.identity.cognitiveFrame,
+              expertiseDomains: syncResult.identity.expertiseDomains,
+              voiceConfig: syncResult.identity.voiceConfig,
+              modelPreferences: syncResult.identity.modelPreferences,
+            })
+            .onConflictDoUpdate({
+              target: [constructIdentities.packId],
+              set: {
+                personaYaml: syncResult.identity.personaYaml,
+                expertiseYaml: syncResult.identity.expertiseYaml,
+                cognitiveFrame: syncResult.identity.cognitiveFrame,
+                expertiseDomains: syncResult.identity.expertiseDomains,
+                voiceConfig: syncResult.identity.voiceConfig,
+                modelPreferences: syncResult.identity.modelPreferences,
+                updatedAt: new Date(),
+              },
+            });
+        }
       });
 
       await recordSyncEvent(pack.id, 'webhook').catch(() => {});

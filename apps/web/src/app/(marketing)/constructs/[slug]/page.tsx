@@ -10,7 +10,7 @@ import { notFound } from 'next/navigation';
 import { TuiBox } from '@/components/tui/tui-box';
 import { TuiButton } from '@/components/tui/tui-button';
 import { TuiH2, TuiDim, TuiTag, TuiCode } from '@/components/tui/tui-text';
-import { fetchConstruct, ConstructNotFoundError, type ConstructDetail, type ConstructType } from '@/lib/api';
+import { fetchConstruct, ConstructNotFoundError, type ConstructDetail, type ConstructType, type ConstructIdentity } from '@/lib/api';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network';
 
@@ -244,6 +244,108 @@ export default async function ConstructDetailPage({ params }: Props) {
                 {construct.long_description}
               </div>
             </TuiBox>
+          </div>
+        </section>
+      )}
+
+      {/* Identity */}
+      {construct.has_identity && construct.identity && (
+        <section style={{ padding: '0 24px 48px' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+            <TuiH2 style={{ marginBottom: '16px' }}>Identity</TuiH2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+              {/* Cognitive Frame */}
+              {construct.identity.cognitive_frame && (
+                <TuiBox title="Cognitive Frame">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {construct.identity.cognitive_frame.archetype && (
+                      <div>
+                        <TuiDim style={{ fontSize: '11px', textTransform: 'uppercase' }}>Archetype</TuiDim>
+                        <div style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                          {construct.identity.cognitive_frame.archetype}
+                        </div>
+                      </div>
+                    )}
+                    {construct.identity.cognitive_frame.disposition && (
+                      <div>
+                        <TuiDim style={{ fontSize: '11px', textTransform: 'uppercase' }}>Disposition</TuiDim>
+                        <div style={{ color: 'var(--fg)' }}>
+                          {construct.identity.cognitive_frame.disposition}
+                        </div>
+                      </div>
+                    )}
+                    {construct.identity.cognitive_frame.thinking_style && (
+                      <div>
+                        <TuiDim style={{ fontSize: '11px', textTransform: 'uppercase' }}>Thinking Style</TuiDim>
+                        <div style={{ color: 'var(--fg)' }}>
+                          {construct.identity.cognitive_frame.thinking_style}
+                        </div>
+                      </div>
+                    )}
+                    {construct.identity.cognitive_frame.decision_making && (
+                      <div>
+                        <TuiDim style={{ fontSize: '11px', textTransform: 'uppercase' }}>Decision Making</TuiDim>
+                        <div style={{ color: 'var(--fg)' }}>
+                          {construct.identity.cognitive_frame.decision_making}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </TuiBox>
+              )}
+
+              {/* Expertise Domains */}
+              {construct.identity.expertise_domains && construct.identity.expertise_domains.length > 0 && (
+                <TuiBox title="Expertise">
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                    {construct.identity.expertise_domains.map((domain) => (
+                      <div
+                        key={domain.name}
+                        style={{
+                          padding: '6px 12px',
+                          border: '1px solid var(--border)',
+                          fontSize: '13px',
+                          color: 'var(--cyan)',
+                        }}
+                      >
+                        {domain.name}
+                        {domain.depth && (
+                          <span style={{ color: 'var(--fg-dim)', fontSize: '11px', marginLeft: '6px' }}>
+                            {domain.depth}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </TuiBox>
+              )}
+
+              {/* Voice */}
+              {construct.identity.voice_config && (
+                <TuiBox title="Voice">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {construct.identity.voice_config.tone && (
+                      <div>
+                        <TuiDim style={{ fontSize: '11px', textTransform: 'uppercase' }}>Tone</TuiDim>
+                        <div style={{ color: 'var(--fg)' }}>{construct.identity.voice_config.tone}</div>
+                      </div>
+                    )}
+                    {construct.identity.voice_config.register && (
+                      <div>
+                        <TuiDim style={{ fontSize: '11px', textTransform: 'uppercase' }}>Register</TuiDim>
+                        <div style={{ color: 'var(--fg)' }}>{construct.identity.voice_config.register}</div>
+                      </div>
+                    )}
+                    {construct.identity.voice_config.vocabulary && (
+                      <div>
+                        <TuiDim style={{ fontSize: '11px', textTransform: 'uppercase' }}>Vocabulary</TuiDim>
+                        <div style={{ color: 'var(--fg)' }}>{construct.identity.voice_config.vocabulary}</div>
+                      </div>
+                    )}
+                  </div>
+                </TuiBox>
+              )}
+            </div>
           </div>
         </section>
       )}

@@ -15,6 +15,14 @@ type Props = {
   params: Promise<{ username: string }>;
 };
 
+interface TrustSignal {
+  maturityBadge: string;
+  downloadCount: number;
+  hasIdentity: boolean;
+  hasRating: boolean;
+  score: number;
+}
+
 interface CreatorProfile {
   username: string;
   displayName: string;
@@ -29,12 +37,21 @@ interface CreatorProfile {
     ratingAvg: number | null;
     maturity: string | null;
     sourceType: string | null;
+    trustSignals: TrustSignal;
   }>;
   stats: {
     totalConstructs: number;
     totalDownloads: number;
     avgRating: number | null;
+    reputationScore: number;
   };
+}
+
+function getReputationLabel(score: number): { label: string; color: string } {
+  if (score >= 80) return { label: 'Trusted', color: 'var(--green)' };
+  if (score >= 60) return { label: 'Established', color: 'var(--cyan)' };
+  if (score >= 40) return { label: 'Growing', color: 'var(--accent)' };
+  return { label: 'New', color: 'var(--fg-dim)' };
 }
 
 async function fetchCreatorProfile(username: string): Promise<CreatorProfile | null> {
@@ -105,7 +122,21 @@ export default async function CreatorProfilePage({ params }: Props) {
           </div>
 
           {/* Stats Bar */}
-          <div style={{ display: 'flex', gap: '32px', fontSize: '14px', color: 'var(--fg-dim)' }}>
+          <div style={{ display: 'flex', gap: '32px', fontSize: '14px', color: 'var(--fg-dim)', flexWrap: 'wrap', alignItems: 'center' }}>
+            {(() => {
+              const rep = getReputationLabel(profile.stats.reputationScore);
+              return (
+                <div style={{
+                  padding: '4px 12px',
+                  border: `1px solid ${rep.color}`,
+                  color: rep.color,
+                  fontSize: '13px',
+                  fontWeight: 600,
+                }}>
+                  {rep.label} ({profile.stats.reputationScore})
+                </div>
+              );
+            })()}
             <div>
               <span style={{ color: 'var(--fg-bright)', fontWeight: 600 }}>{profile.stats.totalConstructs}</span> constructs
             </div>
@@ -143,12 +174,18 @@ export default async function CreatorProfilePage({ params }: Props) {
                   <TuiDim style={{ fontSize: '13px', marginBottom: '12px', display: 'block' }}>
                     {construct.description || 'No description'}
                   </TuiDim>
-                  <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--fg-dim)' }}>
+                  <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--fg-dim)', alignItems: 'center', flexWrap: 'wrap' }}>
                     <span>{construct.downloads.toLocaleString()} downloads</span>
                     {construct.ratingAvg && <span>{construct.ratingAvg.toFixed(1)} rating</span>}
                     {construct.sourceType === 'git' && (
                       <TuiTag color="cyan" style={{ fontSize: '11px' }}>GIT</TuiTag>
                     )}
+                    {construct.trustSignals.hasIdentity && (
+                      <TuiTag color="green" style={{ fontSize: '11px' }}>IDENTITY</TuiTag>
+                    )}
+                    <span style={{ marginLeft: 'auto', color: 'var(--fg-dim)', fontSize: '11px' }}>
+                      Trust: {construct.trustSignals.score}
+                    </span>
                   </div>
                 </TuiBox>
               </Link>

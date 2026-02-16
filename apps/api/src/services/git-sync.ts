@@ -80,6 +80,12 @@ export interface CollectedFile {
 export interface IdentityData {
   persona: Record<string, unknown> | null;
   expertise: Record<string, unknown> | null;
+  personaYaml: string | null;
+  expertiseYaml: string | null;
+  cognitiveFrame: Record<string, unknown> | null;
+  expertiseDomains: unknown[] | null;
+  voiceConfig: Record<string, unknown> | null;
+  modelPreferences: Record<string, unknown> | null;
 }
 
 // --- Schema Validation ---
@@ -597,26 +603,60 @@ export async function parseIdentity(
 
   let persona: Record<string, unknown> | null = null;
   let expertise: Record<string, unknown> | null = null;
+  let personaYaml: string | null = null;
+  let expertiseYaml: string | null = null;
 
   try {
     const personaPath = path.join(identityDir, 'persona.yaml');
-    const content = await fs.readFile(personaPath, 'utf-8');
-    persona = yaml.load(content) as Record<string, unknown>;
+    personaYaml = await fs.readFile(personaPath, 'utf-8');
+    persona = yaml.load(personaYaml) as Record<string, unknown>;
   } catch {
     // persona.yaml not found — ok
   }
 
   try {
     const expertisePath = path.join(identityDir, 'expertise.yaml');
-    const content = await fs.readFile(expertisePath, 'utf-8');
-    expertise = yaml.load(content) as Record<string, unknown>;
+    expertiseYaml = await fs.readFile(expertisePath, 'utf-8');
+    expertise = yaml.load(expertiseYaml) as Record<string, unknown>;
   } catch {
     // expertise.yaml not found — ok
   }
 
   if (!persona && !expertise) return null;
 
-  return { persona, expertise };
+  // Extract structured fields from persona
+  const cognitiveFrame = persona
+    ? {
+        archetype: persona.archetype ?? null,
+        disposition: persona.disposition ?? null,
+        thinking_style: persona.thinking_style ?? null,
+        decision_making: persona.decision_making ?? null,
+      }
+    : null;
+
+  const voiceConfig = persona?.voice
+    ? (persona.voice as Record<string, unknown>)
+    : null;
+
+  const modelPreferences = persona?.model_preferences
+    ? (persona.model_preferences as Record<string, unknown>)
+    : null;
+
+  // Extract expertise domains
+  const expertiseDomains = expertise?.domains
+    ? (expertise.domains as unknown[])
+    : null;
+
+  return {
+    persona,
+    expertise,
+    personaYaml,
+    expertiseYaml,
+    cognitiveFrame,
+    expertiseDomains,
+    voiceConfig,
+    modelPreferences,
+  };
 }
 
 // --- Orchestrator ---

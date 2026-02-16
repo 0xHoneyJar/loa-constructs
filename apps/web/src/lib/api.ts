@@ -217,6 +217,25 @@ export interface Construct {
   updated_at: string;
 }
 
+export interface ConstructIdentity {
+  cognitive_frame: {
+    archetype?: string;
+    disposition?: string;
+    thinking_style?: string;
+    decision_making?: string;
+  } | null;
+  expertise_domains: Array<{
+    name: string;
+    depth?: string;
+  }> | null;
+  voice_config: {
+    tone?: string;
+    register?: string;
+    vocabulary?: string;
+  } | null;
+  model_preferences: Record<string, unknown> | null;
+}
+
 export interface ConstructDetail extends Omit<Construct, 'manifest'> {
   manifest: ConstructManifest | null;
   owner: {
@@ -228,6 +247,8 @@ export interface ConstructDetail extends Omit<Construct, 'manifest'> {
   homepage_url: string | null;
   documentation_url: string | null;
   git_url: string | null;
+  has_identity: boolean;
+  identity: ConstructIdentity | null;
   latest_version: {
     version: string;
     changelog: string | null;

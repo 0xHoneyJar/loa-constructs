@@ -1121,6 +1121,36 @@ export const githubWebhookDeliveries = pgTable(
   })
 );
 
+// --- Construct Identities ---
+
+/**
+ * Construct Identities table
+ * Stores parsed identity data from identity/persona.yaml + identity/expertise.yaml
+ * 1:1 with packs table.
+ * @see sprint.md T3.1: Construct Identities Table
+ * @see sdd.md §3.1.3 Identity Table
+ */
+export const constructIdentities = pgTable(
+  'construct_identities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    personaYaml: text('persona_yaml'),
+    expertiseYaml: text('expertise_yaml'),
+    cognitiveFrame: jsonb('cognitive_frame'),
+    expertiseDomains: jsonb('expertise_domains'),
+    voiceConfig: jsonb('voice_config'),
+    modelPreferences: jsonb('model_preferences'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    packIdx: uniqueIndex('idx_construct_identities_pack').on(table.packId),
+  })
+);
+
 // --- Categories ---
 
 /**
