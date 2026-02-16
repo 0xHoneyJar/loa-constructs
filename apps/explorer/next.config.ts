@@ -1,4 +1,9 @@
 import type { NextConfig } from 'next';
+import bundleAnalyzer from '@next/bundle-analyzer';
+
+const withBundleAnalyzer = bundleAnalyzer({
+  enabled: process.env.ANALYZE === 'true',
+});
 
 const config: NextConfig = {
   reactStrictMode: true,
@@ -49,4 +54,5 @@ const config: NextConfig = {
   },
 };
 
-export default config;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- bundle-analyzer types lag behind Next.js 15
+export default withBundleAnalyzer(config as any);
