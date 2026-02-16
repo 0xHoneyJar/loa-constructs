@@ -1,0 +1,42 @@
+{
+  "simstim_id": "simstim-20260215-c018ride",
+  "schema_version": 1,
+  "state": "COMPLETE",
+  "phase": "complete",
+  "timestamps": {
+    "started": "2026-02-15T09:35:00Z",
+    "last_activity": "2026-02-15T12:30:00Z"
+  },
+  "phases": {
+    "preflight": "completed",
+    "discovery": "skipped",
+    "flatline_prd": "skipped",
+    "architecture": "completed",
+    "flatline_sdd": "skipped",
+    "planning": "completed",
+    "flatline_sprint": "skipped",
+    "flatline_beads": "skipped",
+    "implementation": "completed",
+    "complete": "completed"
+  },
+  "artifacts": {
+    "prd": {
+      "path": "grimoires/loa/prd.md"
+    },
+    "sdd": {
+      "path": "grimoires/loa/sdd.md"
+    },
+    "sprint": {
+      "path": "grimoires/loa/sprint.md"
+    }
+  },
+  "skip_reasons": {
+    "discovery": "PRD created via /plan-and-analyze from issues #333 and #332",
+    "flatline_prd": "PRD freshly written, grounded in codebase exploration",
+    "flatline_sdd": "flatline-invoke.sh not available",
+    "flatline_sprint": "flatline-invoke.sh not available",
+    "flatline_beads": "beads not initialized for this cycle"
+  },
+  "cycle": "cycle-018",
+  "issues": ["https://github.com/0xHoneyJar/loa/issues/333", "https://github.com/0xHoneyJar/loa/issues/332"]
+}

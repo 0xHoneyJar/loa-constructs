@@ -1,0 +1,29 @@
+{
+  "bridge_id": "bridge-20260216-c020s4",
+  "pr_number": 341,
+  "pr_url": "https://github.com/0xHoneyJar/loa/pull/341",
+  "state": "ITERATING",
+  "branch": "feat/cycle-020-teamcreate-compat",
+  "base_branch": "main",
+  "depth": 5,
+  "current_iteration": 0,
+  "previous_bridge": "bridge-20260216-c020s3",
+  "iterations": [],
+  "timestamps": {
+    "started": "2026-02-16T23:30:00Z",
+    "last_activity": "2026-02-16T23:30:00Z"
+  },
+  "metrics": {
+    "total_iterations": 0,
+    "total_sprints": 0,
+    "total_files_changed": 0,
+    "total_findings_addressed": 0,
+    "total_visions_captured": 0
+  },
+  "flatline": {
+    "threshold": 0.05,
+    "consecutive_required": 2,
+    "consecutive_count": 0,
+    "detected": false
+  }
+}
