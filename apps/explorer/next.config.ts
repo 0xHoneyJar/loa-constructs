@@ -10,7 +10,7 @@ const config: NextConfig = {
 
   // Optimize package imports for smaller bundles
   experimental: {
-    optimizePackageImports: ['clsx', 'tailwind-merge', 'three', 'fuse.js'],
+    optimizePackageImports: ['clsx', 'tailwind-merge', 'three', 'fuse.js', '@tanstack/react-query'],
   },
 
   // Disable x-powered-by header

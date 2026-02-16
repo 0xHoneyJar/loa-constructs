@@ -3,10 +3,7 @@
 import { create } from 'zustand';
 import Cookies from 'js-cookie';
 import {
-  loginApi,
   registerApi,
-  refreshTokenApi,
-  logoutApi,
   fetchMe,
   type User,
   type LoginRequest,
@@ -99,9 +96,21 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
   login: async (data, rememberMe = false): Promise<AuthResult> => {
     try {
-      const tokens = await loginApi(data);
-      get().setTokens(tokens.access_token, tokens.refresh_token, tokens.expires_in, rememberMe);
-      const user = await fetchMe(tokens.access_token);
+      // Call route handler — it sets HttpOnly refresh cookie and returns access_token
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Login failed' }));
+        return { ok: false, message: error.message || error.error || 'Login failed' };
+      }
+      const { access_token, expires_in } = await response.json();
+      const expires = rememberMe ? 30 : expires_in ? expires_in / 86400 : 1;
+      Cookies.set('access_token', access_token, { ...COOKIE_OPTIONS, expires });
+      const user = await fetchMe(access_token);
       set({ user, isAuthenticated: true, isLoading: false });
       return { ok: true };
     } catch (error) {
@@ -127,47 +136,70 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     }
 
     refreshPromise = (async (): Promise<AuthResult> => {
-      const refreshToken = Cookies.get('refresh_token');
-      if (!refreshToken) {
-        return { ok: false, message: 'No refresh token' };
-      }
-
       try {
-        const tokens = await refreshTokenApi(refreshToken);
-        get().setTokens(tokens.access_token, tokens.refresh_token, tokens.expires_in);
-        return { ok: true };
-      } catch (error) {
-        // Check if it's a 401 from refresh endpoint — clear and fail
-        if (error && typeof error === 'object' && 'status' in error && error.status === 401) {
-          get().clearTokens();
-          set({ user: null, isAuthenticated: false });
-          return { ok: false, message: 'Refresh token expired' };
-        }
+        // Call route handler — it reads HttpOnly refresh cookie and returns new access_token
+        const response = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+        });
 
-        // Network error — retry once after 2s
-        if (error instanceof TypeError) {
+        if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            get().clearTokens();
+            set({ user: null, isAuthenticated: false });
+            return { ok: false, message: 'Refresh token expired' };
+          }
+
+          // Network/server error — retry once after 2s
           await new Promise((r) => setTimeout(r, 2000));
-          try {
-            const tokens = await refreshTokenApi(refreshToken);
-            get().setTokens(tokens.access_token, tokens.refresh_token, tokens.expires_in);
-            return { ok: true };
-          } catch {
+          const retryResponse = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+          });
+
+          if (!retryResponse.ok) {
             get().clearTokens();
             set({ user: null, isAuthenticated: false });
             return { ok: false, message: 'Refresh failed after retry' };
           }
+
+          const retryTokens = await retryResponse.json();
+          Cookies.set('access_token', retryTokens.access_token, { ...COOKIE_OPTIONS, expires: retryTokens.expires_in ? retryTokens.expires_in / 86400 : 1 });
+          return { ok: true };
         }
 
-        // Non-401 server error — retry once
-        try {
-          const tokens = await refreshTokenApi(refreshToken);
-          get().setTokens(tokens.access_token, tokens.refresh_token, tokens.expires_in);
-          return { ok: true };
-        } catch {
-          get().clearTokens();
-          set({ user: null, isAuthenticated: false });
-          return { ok: false, message: 'Refresh failed' };
+        const { access_token, expires_in } = await response.json();
+        Cookies.set('access_token', access_token, { ...COOKIE_OPTIONS, expires: expires_in ? expires_in / 86400 : 1 });
+        return { ok: true };
+      } catch (error) {
+        if (error instanceof TypeError) {
+          // Network error — retry once
+          await new Promise((r) => setTimeout(r, 2000));
+          try {
+            const retryResponse = await fetch('/api/auth/refresh', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+            });
+            if (!retryResponse.ok) {
+              get().clearTokens();
+              set({ user: null, isAuthenticated: false });
+              return { ok: false, message: 'Refresh failed after retry' };
+            }
+            const retryTokens = await retryResponse.json();
+            Cookies.set('access_token', retryTokens.access_token, { ...COOKIE_OPTIONS, expires: retryTokens.expires_in ? retryTokens.expires_in / 86400 : 1 });
+            return { ok: true };
+          } catch {
+            get().clearTokens();
+            set({ user: null, isAuthenticated: false });
+            return { ok: false, message: 'Refresh failed' };
+          }
         }
+        get().clearTokens();
+        set({ user: null, isAuthenticated: false });
+        return { ok: false, message: 'Refresh failed' };
       }
     })().finally(() => {
       refreshPromise = null;
@@ -182,29 +214,33 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     queryClient.clear();
     set({ user: null, isAuthenticated: false, isLoading: false });
 
-    if (accessToken) {
-      try {
-        await logoutApi(accessToken);
-      } catch {
-        // Best-effort logout on server
-      }
+    // Call route handler — it clears HttpOnly refresh cookie and does best-effort server logout
+    try {
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        credentials: 'include',
+      });
+    } catch {
+      // Best-effort
     }
   },
 
   getAccessToken: () => Cookies.get('access_token'),
 
-  setTokens: (accessToken, refreshToken, expiresIn, rememberMe) => {
+  setTokens: (accessToken, _refreshToken, expiresIn, rememberMe) => {
     const expires = rememberMe ? 30 : expiresIn ? expiresIn / 86400 : 1;
     Cookies.set('access_token', accessToken, { ...COOKIE_OPTIONS, expires });
-    Cookies.set('refresh_token', refreshToken, {
-      ...COOKIE_OPTIONS,
-      expires: rememberMe ? 30 : 7,
-    });
+    // Refresh token is now managed as HttpOnly cookie by route handlers.
+    // This method is kept for OAuth callback compatibility.
   },
 
   clearTokens: () => {
     Cookies.remove('access_token', { path: '/' });
-    Cookies.remove('refresh_token', { path: '/' });
+    // Refresh token (HttpOnly) is cleared by /api/auth/logout route handler
   },
 }));
 
