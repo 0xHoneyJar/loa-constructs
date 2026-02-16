@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   integer,
+  bigint,
   pgEnum,
   jsonb,
   inet,
@@ -497,6 +498,16 @@ export const packs = pgTable(
     repositoryUrl: text('repository_url'),
     homepageUrl: text('homepage_url'),
     documentationUrl: text('documentation_url'),
+
+    // Git source fields (cycle-014: Construct-as-Repo Architecture)
+    // @see prd.md §FR-1.1 Git Repository Registration
+    sourceType: varchar('source_type', { length: 20 }).default('registry'),
+    gitUrl: text('git_url'),
+    gitRef: varchar('git_ref', { length: 100 }),
+    lastSyncCommit: varchar('last_sync_commit', { length: 40 }),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+    githubRepoId: bigint('github_repo_id', { mode: 'number' }),
+
     isFeatured: boolean('is_featured').default(false),
     thjBypass: boolean('thj_bypass').default(false),
 
@@ -528,6 +539,7 @@ export const packs = pgTable(
       .on(table.isFeatured)
       .where(sql`is_featured = true`),
     maturityIdx: index('idx_packs_maturity').on(table.maturity),
+    sourceTypeIdx: index('idx_packs_source_type').on(table.sourceType),
     // GIN indexes for array search
     // @see sdd.md §3.1 Database Schema (cycle-007)
     searchKeywordsIdx: index('idx_packs_search_keywords').using('gin', table.searchKeywords),
@@ -651,6 +663,26 @@ export const packInstallations = pgTable(
     packIdx: index('idx_pack_installations_pack').on(table.packId),
     userIdx: index('idx_pack_installations_user').on(table.userId),
     createdIdx: index('idx_pack_installations_created').on(table.createdAt),
+  })
+);
+
+/**
+ * Pack Sync Events table (rate limiting)
+ * @see prd.md §FR-1.4 Manual Sync
+ * @see sprint.md T1.8: Sync Rate Limiting
+ */
+export const packSyncEvents = pgTable(
+  'pack_sync_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    triggerType: varchar('trigger_type', { length: 20 }).notNull(), // 'manual' | 'webhook'
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    rateLimitIdx: index('idx_pack_sync_events_rate_limit').on(table.packId, table.createdAt),
   })
 );
 

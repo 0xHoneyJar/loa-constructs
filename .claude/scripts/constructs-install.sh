@@ -478,6 +478,81 @@ do_install_pack() {
     # Parse response and extract files
     local pack_dir="$packs_dir/$pack_slug"
 
+    # Check source_type from download response — branch on git vs registry
+    local source_type
+    source_type=$(jq -r '.data.pack.source_type // "registry"' "$tmp_file" 2>/dev/null || echo "registry")
+
+    if [[ "$source_type" == "git" ]]; then
+        local git_url git_ref last_synced_at
+        git_url=$(jq -r '.data.pack.git_url // ""' "$tmp_file" 2>/dev/null || echo "")
+        git_ref=$(jq -r '.data.pack.git_ref // "main"' "$tmp_file" 2>/dev/null || echo "main")
+        last_synced_at=$(jq -r '.data.pack.last_synced_at // ""' "$tmp_file" 2>/dev/null || echo "")
+
+        if [[ -n "$git_url" ]]; then
+            echo "  Git-sourced pack detected, attempting clone..."
+            if do_install_pack_git "$pack_slug" "$git_url" "$git_ref" "$pack_dir" "$last_synced_at"; then
+                # Save license from download response (before deleting tmp_file)
+                local license_token license_expires_at license_watermark
+                license_token=$(jq -r '.data.license.token // ""' "$tmp_file" 2>/dev/null || echo "")
+                license_expires_at=$(jq -r '.data.license.expires_at // ""' "$tmp_file" 2>/dev/null || echo "")
+                license_watermark=$(jq -r '.data.license.watermark // ""' "$tmp_file" 2>/dev/null || echo "")
+
+                # Git clone succeeded — clean up download response
+                rm -f "$tmp_file"
+
+                if [[ -n "$license_token" ]]; then
+                    echo "{\"token\":\"$license_token\",\"expires_at\":\"$license_expires_at\",\"watermark\":\"$license_watermark\"}" > "$pack_dir/.license.json"
+                fi
+
+                # Continue to symlinks, validation, and meta update
+                echo "  Linking commands..."
+                local commands_linked
+                commands_linked=$(symlink_pack_commands "$pack_slug")
+                echo "  Created $commands_linked command symlinks"
+
+                echo "  Linking skills..."
+                local skills_linked
+                skills_linked=$(symlink_pack_skills "$pack_slug")
+                echo "  Created $skills_linked skill symlinks"
+
+                echo "  Validating license..."
+                local validator="$SCRIPT_DIR/constructs-loader.sh"
+                if [[ -x "$validator" ]]; then
+                    local validation_result=0
+                    "$validator" validate-pack "$pack_dir" >/dev/null 2>&1 || validation_result=$?
+                    case $validation_result in
+                        0) print_success "  License valid" ;;
+                        1) print_warning "  License in grace period - please renew soon" ;;
+                        2) print_error "  License expired - pack may not work correctly" ;;
+                        3) print_warning "  No license file found - pack may be free tier" ;;
+                        *) print_warning "  License validation returned code $validation_result" ;;
+                    esac
+                fi
+
+                update_pack_meta "$pack_slug" "$pack_dir" "git" "$git_url" "$git_ref"
+
+                echo ""
+                print_success "Pack '$pack_slug' installed via git clone!"
+
+                local commands_dir="$pack_dir/commands"
+                if [[ -d "$commands_dir" ]]; then
+                    echo ""
+                    echo "Available commands:"
+                    for cmd in "$commands_dir"/*.md; do
+                        [[ -f "$cmd" ]] || continue
+                        local cmd_name
+                        cmd_name=$(basename "$cmd" .md)
+                        echo "  /$cmd_name"
+                    done
+                fi
+
+                return $EXIT_SUCCESS
+            else
+                echo "  Falling back to base64 extraction..."
+            fi
+        fi
+    fi
+
     echo "  Extracting files..."
 
     # Create pack directory
@@ -660,23 +735,154 @@ PYEOF
     return $EXIT_SUCCESS
 }
 
+# Install pack via git clone with base64 fallback
+# @see sprint.md T1.7: Install Script — Git Clone Support
+# Args:
+#   $1 - Pack slug
+#   $2 - Git URL
+#   $3 - Git ref (branch/tag)
+#   $4 - Pack directory (target)
+do_install_pack_git() {
+    local pack_slug="$1"
+    local git_url="$2"
+    local git_ref="${3:-main}"
+    local pack_dir="$4"
+    local last_synced_at="${5:-}"
+
+    # Staleness warning: log if last_synced_at > 7 days ago
+    if [[ -n "$last_synced_at" ]]; then
+        local synced_epoch
+        synced_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${last_synced_at%%.*}" "+%s" 2>/dev/null || date -d "${last_synced_at}" "+%s" 2>/dev/null || echo "0")
+        local now_epoch
+        now_epoch=$(date "+%s")
+        local seven_days=$((7 * 24 * 60 * 60))
+        if [[ $((now_epoch - synced_epoch)) -gt $seven_days ]]; then
+            print_warning "  Pack was last synced over 7 days ago. Consider asking the author to sync."
+        fi
+    fi
+
+    # Validate HTTPS
+    if [[ ! "$git_url" =~ ^https:// ]]; then
+        print_error "ERROR: Only HTTPS git URLs are allowed"
+        return 1
+    fi
+
+    # Reject credentials in URL (userinfo)
+    if [[ "$git_url" =~ ^https://[^/]*@ ]]; then
+        print_error "ERROR: Git URLs with embedded credentials are not allowed"
+        return 1
+    fi
+
+    # Check git is available
+    if ! command -v git &>/dev/null; then
+        print_error "ERROR: git is not installed"
+        return 1
+    fi
+
+    echo "  Cloning from $git_url (ref: $git_ref)..."
+
+    # Clone to a temp directory first
+    local tmp_clone
+    tmp_clone=$(mktemp -d) || { print_error "mktemp failed"; return 1; }
+
+    local clone_result=0
+    GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 \
+        git clone --depth 1 --branch "$git_ref" --single-branch \
+        -c submodule.recurse=false \
+        "$git_url" "$tmp_clone" 2>/dev/null || clone_result=$?
+
+    if [[ $clone_result -ne 0 ]]; then
+        rm -rf "$tmp_clone"
+        print_warning "  Git clone failed (exit $clone_result), falling back to base64 download"
+        return 1
+    fi
+
+    # Remove .git/ directory (no history at install site)
+    rm -rf "$tmp_clone/.git"
+
+    # Tree validation: reject symlinks
+    local symlinks
+    symlinks=$(find "$tmp_clone" -type l 2>/dev/null | head -1)
+    if [[ -n "$symlinks" ]]; then
+        rm -rf "$tmp_clone"
+        print_error "ERROR: Symlinks detected in repository"
+        return 1
+    fi
+
+    # Tree validation: reject path traversal components (.. in path segments)
+    local traversal=0
+    while IFS= read -r -d '' f; do
+        [[ "$f" == "$tmp_clone" ]] && continue
+        local rel="${f#$tmp_clone/}"
+        if [[ "$rel" == "/"* || "$rel" == ".." || "$rel" == "../"* || "$rel" == *"/../"* || "$rel" == *"/.." ]]; then
+            traversal=1
+            break
+        fi
+    done < <(find "$tmp_clone" -print0 2>/dev/null)
+
+    if [[ $traversal -eq 1 ]]; then
+        rm -rf "$tmp_clone"
+        print_error "ERROR: Path traversal detected in repository"
+        return 1
+    fi
+
+    # Verify manifest exists
+    if [[ ! -f "$tmp_clone/construct.yaml" ]] && [[ ! -f "$tmp_clone/manifest.json" ]]; then
+        rm -rf "$tmp_clone"
+        print_error "ERROR: No manifest found in repository"
+        return 1
+    fi
+
+    # Move to pack directory
+    rm -rf "$pack_dir"
+    mv "$tmp_clone" "$pack_dir"
+
+    # Get the git commit for metadata
+    local git_commit="unknown"
+    if command -v git &>/dev/null; then
+        # We removed .git, but we can parse from clone output or use the ref
+        git_commit="$git_ref"
+    fi
+
+    echo "  Clone successful"
+    return 0
+}
+
 # Update pack metadata in .constructs-meta.json
 # Args:
 #   $1 - Pack slug
 #   $2 - Pack directory
+#   $3 - Source type (optional: "git" or "registry")
+#   $4 - Git URL (optional)
+#   $5 - Git commit/ref (optional)
 update_pack_meta() {
     local pack_slug="$1"
     local pack_dir="$2"
+    local source_type="${3:-registry}"
+    local git_url="${4:-}"
+    local git_commit="${5:-}"
     local meta_path
     meta_path=$(get_registry_meta_path)
     local now
     now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-    # Get pack version from manifest
+    # Get pack version from manifest (try construct.yaml first, then manifest.json)
     local version="unknown"
-    local manifest_file="$pack_dir/manifest.json"
-    if [[ -f "$manifest_file" ]]; then
-        version=$(jq -r '.version // "unknown"' "$manifest_file" 2>/dev/null || echo "unknown")
+    if [[ -f "$pack_dir/construct.yaml" ]] && command -v python3 &>/dev/null; then
+        version=$(python3 -c "
+import yaml, sys
+try:
+    with open('$pack_dir/construct.yaml') as f:
+        d = yaml.safe_load(f)
+    print(d.get('version', 'unknown'))
+except: print('unknown')
+" 2>/dev/null || echo "unknown")
+    fi
+    if [[ "$version" == "unknown" ]]; then
+        local manifest_file="$pack_dir/manifest.json"
+        if [[ -f "$manifest_file" ]]; then
+            version=$(jq -r '.version // "unknown"' "$manifest_file" 2>/dev/null || echo "unknown")
+        fi
     fi
 
     # Get license expiry
@@ -695,20 +901,41 @@ update_pack_meta() {
     # Ensure meta file exists
     init_registry_meta
 
-    # Update meta
+    # Update meta with git fields when applicable
     local tmp_file="${meta_path}.tmp"
-    jq --arg slug "$pack_slug" \
-       --arg version "$version" \
-       --arg installed_at "$now" \
-       --arg license_expires "$license_expires" \
-       --argjson skills "$skills_json" \
-       '.installed_packs[$slug] = {
-           "version": $version,
-           "installed_at": $installed_at,
-           "registry": "default",
-           "license_expires": $license_expires,
-           "skills": $skills
-       }' "$meta_path" > "$tmp_file" && mv "$tmp_file" "$meta_path"
+    if [[ "$source_type" == "git" ]]; then
+        jq --arg slug "$pack_slug" \
+           --arg version "$version" \
+           --arg installed_at "$now" \
+           --arg license_expires "$license_expires" \
+           --arg source_type "$source_type" \
+           --arg git_url "$git_url" \
+           --arg git_commit "$git_commit" \
+           --argjson skills "$skills_json" \
+           '.installed_packs[$slug] = {
+               "version": $version,
+               "installed_at": $installed_at,
+               "registry": "default",
+               "license_expires": $license_expires,
+               "source_type": $source_type,
+               "git_url": $git_url,
+               "git_commit": $git_commit,
+               "skills": $skills
+           }' "$meta_path" > "$tmp_file" && mv "$tmp_file" "$meta_path"
+    else
+        jq --arg slug "$pack_slug" \
+           --arg version "$version" \
+           --arg installed_at "$now" \
+           --arg license_expires "$license_expires" \
+           --argjson skills "$skills_json" \
+           '.installed_packs[$slug] = {
+               "version": $version,
+               "installed_at": $installed_at,
+               "registry": "default",
+               "license_expires": $license_expires,
+               "skills": $skills
+           }' "$meta_path" > "$tmp_file" && mv "$tmp_file" "$meta_path"
+    fi
 }
 
 # =============================================================================
