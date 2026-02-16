@@ -14,6 +14,7 @@ import { skillsRouter } from './routes/skills.js';
 import { teamsRouter } from './routes/teams.js';
 import { analyticsRouter } from './routes/analytics.js';
 import { creatorRouter } from './routes/creator.js';
+import { creatorsRouter } from './routes/creators.js';
 import { auditRouter } from './routes/audit.js';
 import { docsRouter } from './routes/docs.js';
 import { packsRouter } from './routes/packs.js';
@@ -120,6 +121,9 @@ v1.route('/', analyticsRouter);
 
 // Creator routes (skill publishing)
 v1.route('/creator', creatorRouter);
+
+// Public creator profiles
+v1.route('/creators', creatorsRouter);
 
 // Audit routes (audit log queries)
 v1.route('/audit', auditRouter);

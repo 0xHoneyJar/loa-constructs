@@ -174,6 +174,11 @@ export interface ConstructManifest {
   skills?: Array<{ name: string; description?: string }>;
   commands?: Array<{ name: string; description?: string }>;
   dependencies?: Record<string, string>;
+  pack_dependencies?: Record<string, string>;
+  events?: {
+    emits?: string[];
+    consumes?: string[];
+  };
   tier_required?: 'free' | 'pro' | 'team' | 'enterprise';
   unix?: {
     composes_with?: string[];
@@ -196,6 +201,8 @@ export interface Construct {
   downloads: number;
   rating: number | null;
   is_featured: boolean;
+  maturity: 'experimental' | 'beta' | 'stable' | null;
+  source_type: 'registry' | 'git' | null;
   manifest: {
     skills?: string[];
     commands?: string[];
@@ -220,6 +227,7 @@ export interface ConstructDetail extends Omit<Construct, 'manifest'> {
   repository_url: string | null;
   homepage_url: string | null;
   documentation_url: string | null;
+  git_url: string | null;
   latest_version: {
     version: string;
     changelog: string | null;
@@ -254,6 +262,7 @@ export async function fetchConstructs(options?: {
   tier?: string;
   category?: string;
   featured?: boolean;
+  sort?: string;
   page?: number;
   per_page?: number;
 }): Promise<ConstructsResponse> {
@@ -263,6 +272,7 @@ export async function fetchConstructs(options?: {
   if (options?.tier) params.set('tier', options.tier);
   if (options?.category) params.set('category', options.category);
   if (options?.featured !== undefined) params.set('featured', String(options.featured));
+  if (options?.sort) params.set('sort', options.sort);
   if (options?.page) params.set('page', String(options.page));
   if (options?.per_page) params.set('per_page', String(options.per_page));
 

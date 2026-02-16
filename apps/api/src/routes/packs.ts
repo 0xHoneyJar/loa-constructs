@@ -1401,3 +1401,136 @@ async function generateAnonymousPackLicense(
   return { token, expiresAt, watermark };
 }
 
+// --- Review Endpoints ---
+
+/**
+ * POST /v1/packs/:slug/reviews
+ * Create a review for a construct. One review per user per pack.
+ * @see sprint.md T2.2: Review API Endpoints
+ */
+packsRouter.post(
+  '/:slug/reviews',
+  requireAuth(),
+  zValidator(
+    'json',
+    z.object({
+      rating: z.number().int().min(1).max(5),
+      title: z.string().max(200).optional(),
+      body: z.string().max(5000).optional(),
+    })
+  ),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const userId = c.get('userId');
+    const requestId = c.get('requestId');
+    const { rating, title, body } = c.req.valid('json');
+
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    // Cannot review own pack
+    const isOwner = await isPackOwner(pack.id, userId);
+    if (isOwner) {
+      throw Errors.Forbidden('Cannot review your own construct');
+    }
+
+    const { createReview, getUserReview } = await import('../services/reviews.js');
+
+    // Check for existing review
+    const existing = await getUserReview(pack.id, userId);
+    if (existing) {
+      throw new AppError('CONFLICT', 'You have already reviewed this construct', 409);
+    }
+
+    let review;
+    try {
+      review = await createReview({
+        packId: pack.id,
+        userId,
+        rating,
+        title,
+        body,
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'DUPLICATE_REVIEW') {
+        throw new AppError('CONFLICT', 'You have already reviewed this construct', 409);
+      }
+      throw err;
+    }
+
+    logger.info({ packId: pack.id, slug, userId, rating, requestId }, 'Review created');
+
+    return c.json({ data: review, request_id: requestId }, 201);
+  }
+);
+
+/**
+ * GET /v1/packs/:slug/reviews
+ * List reviews for a construct. Public endpoint.
+ * @see sprint.md T2.2: Review API Endpoints
+ */
+packsRouter.get('/:slug/reviews', async (c) => {
+  const slug = c.req.param('slug');
+  const requestId = c.get('requestId');
+  const sort = (c.req.query('sort') || 'newest') as 'newest' | 'highest' | 'lowest';
+  const limit = Math.min(parseInt(c.req.query('limit') || '20', 10), 50);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+
+  const pack = await getPackBySlug(slug);
+  if (!pack) {
+    throw Errors.NotFound('Pack not found');
+  }
+
+  const { getPackReviews } = await import('../services/reviews.js');
+  const { reviews, total } = await getPackReviews(pack.id, { sort, limit, offset });
+
+  return c.json({
+    data: reviews,
+    pagination: { total, limit, offset },
+    request_id: requestId,
+  });
+});
+
+/**
+ * PATCH /v1/packs/:slug/reviews/:reviewId/respond
+ * Add author response to a review. Pack owner only.
+ * @see sprint.md T2.2: Review API Endpoints
+ */
+packsRouter.patch(
+  '/:slug/reviews/:reviewId/respond',
+  requireAuth(),
+  zValidator(
+    'json',
+    z.object({
+      response: z.string().max(5000),
+    })
+  ),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const reviewId = c.req.param('reviewId');
+    const userId = c.get('userId');
+    const requestId = c.get('requestId');
+    const { response } = c.req.valid('json');
+
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    // Only pack owner can respond
+    const isOwner = await isPackOwner(pack.id, userId);
+    if (!isOwner) {
+      throw Errors.Forbidden('Only pack owners can respond to reviews');
+    }
+
+    const { addAuthorResponse } = await import('../services/reviews.js');
+    const updated = await addAuthorResponse(reviewId, pack.id, response);
+
+    logger.info({ packId: pack.id, reviewId, requestId }, 'Author response added');
+
+    return c.json({ data: updated, request_id: requestId });
+  }
+);
+

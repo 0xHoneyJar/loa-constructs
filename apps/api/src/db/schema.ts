@@ -1069,6 +1069,58 @@ export const graduationRequestsRelations = relations(graduationRequests, ({ one 
   }),
 }));
 
+// --- Construct Reviews ---
+
+/**
+ * Construct Reviews table
+ * @see sprint.md T2.1: Construct Reviews Table + Rating Aggregation
+ * @see sdd.md §3.1.2 Reviews Table
+ */
+export const constructReviews = pgTable(
+  'construct_reviews',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    rating: integer('rating').notNull(), // 1-5
+    title: varchar('title', { length: 200 }),
+    body: text('body'),
+    authorResponse: text('author_response'),
+    authorRespondedAt: timestamp('author_responded_at', { withTimezone: true }),
+    isHidden: boolean('is_hidden').default(false),
+    hiddenReason: text('hidden_reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    packIdx: index('idx_construct_reviews_pack').on(table.packId),
+    userIdx: index('idx_construct_reviews_user').on(table.userId),
+    uniqueReview: uniqueIndex('idx_construct_reviews_unique').on(table.packId, table.userId),
+  })
+);
+
+// --- GitHub Webhook Deliveries (Replay Protection) ---
+
+/**
+ * Tracks GitHub webhook delivery IDs to prevent replay attacks.
+ * @see sprint.md T2.4: GitHub Webhook Endpoint
+ */
+export const githubWebhookDeliveries = pgTable(
+  'github_webhook_deliveries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    deliveryId: varchar('delivery_id', { length: 100 }).notNull(),
+    receivedAt: timestamp('received_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    deliveryIdx: uniqueIndex('idx_github_webhook_delivery').on(table.deliveryId),
+  })
+);
+
 // --- Categories ---
 
 /**

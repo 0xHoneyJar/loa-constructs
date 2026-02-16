@@ -12,6 +12,78 @@ import { TuiButton } from '@/components/tui/tui-button';
 import { TuiH2, TuiDim, TuiTag, TuiCode } from '@/components/tui/tui-text';
 import { fetchConstruct, ConstructNotFoundError, type ConstructDetail, type ConstructType } from '@/lib/api';
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network';
+
+interface Review {
+  id: string;
+  rating: number;
+  title: string | null;
+  body: string | null;
+  authorResponse: string | null;
+  authorRespondedAt: string | null;
+  createdAt: string | null;
+}
+
+async function ReviewsSection({ slug }: { slug: string }) {
+  let reviews: Review[] = [];
+  let total = 0;
+
+  try {
+    const res = await fetch(`${API_URL}/v1/packs/${slug}/reviews?limit=5&sort=newest`, {
+      next: { revalidate: 300 },
+    });
+    if (res.ok) {
+      const json = await res.json();
+      reviews = json.data || [];
+      total = json.pagination?.total || 0;
+    }
+  } catch {
+    // Reviews section is non-critical — fail silently
+  }
+
+  if (total === 0) return null;
+
+  return (
+    <section style={{ padding: '0 24px 48px' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+        <TuiH2 style={{ marginBottom: '16px' }}>
+          Reviews ({total})
+        </TuiH2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {reviews.map((review) => (
+            <TuiBox key={review.id}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                  {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                </span>
+                {review.title && (
+                  <span style={{ fontWeight: 600, color: 'var(--fg-bright)' }}>{review.title}</span>
+                )}
+              </div>
+              {review.body && (
+                <p style={{ fontSize: '14px', color: 'var(--fg)', lineHeight: 1.6, marginBottom: '8px' }}>
+                  {review.body}
+                </p>
+              )}
+              {review.createdAt && (
+                <TuiDim style={{ fontSize: '12px' }}>
+                  {new Date(review.createdAt).toLocaleDateString()}
+                </TuiDim>
+              )}
+              {review.authorResponse && (
+                <div style={{ marginTop: '12px', paddingLeft: '16px', borderLeft: '2px solid var(--border)' }}>
+                  <TuiDim style={{ fontSize: '12px', marginBottom: '4px' }}>Author Response</TuiDim>
+                  <p style={{ fontSize: '13px', color: 'var(--fg)' }}>{review.authorResponse}</p>
+                </div>
+              )}
+            </TuiBox>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 type Props = {
   params: Promise<{ slug: string }>;
 };
@@ -69,6 +141,22 @@ export default async function ConstructDetailPage({ params }: Props) {
   const composesWithList = construct.manifest?.unix?.composes_with || [];
   const dependencies = construct.manifest?.dependencies || {};
   const skills = construct.manifest?.skills || [];
+  const packDependencies = construct.manifest?.pack_dependencies || {};
+  const eventsConsumed = construct.manifest?.events?.consumes || [];
+
+  // Build "works with" list from pack_dependencies + events.consumes
+  const worksWithSlugs = new Set<string>();
+  for (const slug of Object.keys(packDependencies)) {
+    worksWithSlugs.add(slug);
+  }
+  for (const event of eventsConsumed) {
+    // Events are formatted as "pack-slug.event-name"
+    const dotIdx = event.indexOf('.');
+    if (dotIdx > 0) {
+      worksWithSlugs.add(event.substring(0, dotIdx));
+    }
+  }
+  const worksWithList = Array.from(worksWithSlugs);
 
   return (
     <>
@@ -112,7 +200,9 @@ export default async function ConstructDetailPage({ params }: Props) {
                   <span style={{ color: 'var(--fg-dim)' }}>{construct.rating.toFixed(1)}</span>
                 )}
                 {construct.owner && (
-                  <span style={{ color: 'var(--fg-dim)' }}>by {construct.owner.name}</span>
+                  <Link href={`/creators/${encodeURIComponent(construct.owner.name)}`} style={{ color: 'var(--cyan)', textDecoration: 'none' }}>
+                    by {construct.owner.name}
+                  </Link>
                 )}
               </div>
             </div>
@@ -215,6 +305,37 @@ export default async function ConstructDetailPage({ params }: Props) {
         </section>
       )}
 
+      {/* Works With (from pack_dependencies + events.consumes) */}
+      {worksWithList.length > 0 && (
+        <section style={{ padding: '0 24px 48px' }}>
+          <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+            <TuiH2 style={{ marginBottom: '16px' }}>Works With</TuiH2>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              {worksWithList.map((slug) => (
+                <Link key={slug} href={`/constructs/${slug}`} style={{ textDecoration: 'none' }}>
+                  <div
+                    style={{
+                      padding: '12px 20px',
+                      border: '1px solid var(--border)',
+                      background: 'rgba(0, 0, 0, 0.75)',
+                      color: 'var(--green)',
+                      fontSize: '14px',
+                    }}
+                  >
+                    {slug}
+                    {packDependencies[slug] && (
+                      <span style={{ color: 'var(--fg-dim)', fontSize: '12px', marginLeft: '8px' }}>
+                        {packDependencies[slug]}
+                      </span>
+                    )}
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Dependencies */}
       {(Object.keys(dependencies).length > 0 || skills.length > 0) && (
         <section style={{ padding: '0 24px 48px' }}>
@@ -267,7 +388,7 @@ export default async function ConstructDetailPage({ params }: Props) {
       )}
 
       {/* Links */}
-      {(construct.repository_url || construct.documentation_url) && (
+      {(construct.repository_url || construct.documentation_url || construct.git_url) && (
         <section style={{ padding: '0 24px 48px' }}>
           <div style={{ maxWidth: '900px', margin: '0 auto' }}>
             <TuiH2 style={{ marginBottom: '16px' }}>Links</TuiH2>
@@ -285,6 +406,21 @@ export default async function ConstructDetailPage({ params }: Props) {
                   }}
                 >
                   GitHub Repository
+                </Link>
+              )}
+              {construct.git_url && !construct.repository_url && (
+                <Link
+                  href={construct.git_url.replace(/\.git$/, '')}
+                  target="_blank"
+                  style={{
+                    padding: '12px 20px',
+                    border: '1px solid var(--border)',
+                    color: 'var(--fg)',
+                    textDecoration: 'none',
+                    fontSize: '14px',
+                  }}
+                >
+                  Source Repository
                 </Link>
               )}
               {construct.documentation_url && (
@@ -306,6 +442,9 @@ export default async function ConstructDetailPage({ params }: Props) {
           </div>
         </section>
       )}
+
+      {/* Reviews Section */}
+      <ReviewsSection slug={construct.slug} />
 
       {/* CTA */}
       <section

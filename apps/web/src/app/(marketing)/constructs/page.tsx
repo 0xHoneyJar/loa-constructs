@@ -35,6 +35,14 @@ function getTypeBadgeColor(type: ConstructType): 'cyan' | 'green' | 'accent' {
   }
 }
 
+function getMaturityColor(maturity: string | null): 'cyan' | 'green' | 'accent' {
+  switch (maturity) {
+    case 'stable': return 'green';
+    case 'beta': return 'cyan';
+    default: return 'accent';
+  }
+}
+
 function getCommandCount(construct: Construct): number {
   if (construct.manifest?.commands) {
     return construct.manifest.commands.length;
@@ -47,6 +55,7 @@ type SearchParams = Promise<{
   type?: string;
   tier?: string;
   q?: string;
+  sort?: string;
 }>;
 
 export default async function ConstructsPage({
@@ -58,6 +67,7 @@ export default async function ConstructsPage({
   const typeFilter = resolvedParams.type as ConstructType | undefined;
   const tierFilter = resolvedParams.tier;
   const queryFilter = resolvedParams.q;
+  const sortFilter = resolvedParams.sort || 'downloads';
 
   let constructs: Construct[] = [];
   let error: string | null = null;
@@ -67,6 +77,7 @@ export default async function ConstructsPage({
       type: typeFilter,
       tier: tierFilter,
       query: queryFilter,
+      sort: sortFilter,
       per_page: 50,
     });
     constructs = response.data;
@@ -84,6 +95,25 @@ export default async function ConstructsPage({
     { value: 'pack', label: 'Packs' },
     { value: 'skill', label: 'Skills' },
   ];
+
+  const sortOptions: Array<{ value: string; label: string }> = [
+    { value: 'downloads', label: 'Most Downloads' },
+    { value: 'rating', label: 'Highest Rated' },
+    { value: 'newest', label: 'Newest' },
+    { value: 'updated', label: 'Recently Updated' },
+  ];
+
+  function buildUrl(overrides: { type?: string; sort?: string }): string {
+    const p = new URLSearchParams();
+    const t = overrides.type !== undefined ? overrides.type : (typeFilter || '');
+    const s = overrides.sort !== undefined ? overrides.sort : sortFilter;
+    if (t) p.set('type', t);
+    if (tierFilter) p.set('tier', tierFilter);
+    if (queryFilter) p.set('q', queryFilter);
+    if (s && s !== 'downloads') p.set('sort', s);
+    const qs = p.toString();
+    return `/constructs${qs ? `?${qs}` : ''}`;
+  }
 
   return (
     <>
@@ -104,33 +134,52 @@ export default async function ConstructsPage({
         </TuiDim>
       </section>
 
-      {/* Type Filters */}
+      {/* Type Filters + Sort */}
       <section style={{ padding: '0 24px 24px' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {typeFilters.map((filter) => {
-              const isActive = typeFilter === filter.value;
-              const href = filter.value
-                ? `/constructs?type=${filter.value}${tierFilter ? `&tier=${tierFilter}` : ''}${queryFilter ? `&q=${queryFilter}` : ''}`
-                : `/constructs${tierFilter ? `?tier=${tierFilter}` : ''}${queryFilter ? `${tierFilter ? '&' : '?'}q=${queryFilter}` : ''}`;
-
-              return (
-                <Link key={filter.label} href={href} style={{ textDecoration: 'none' }}>
-                  <div
-                    style={{
-                      padding: '8px 16px',
-                      border: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
-                      background: isActive ? 'rgba(95, 175, 255, 0.1)' : 'transparent',
-                      color: isActive ? 'var(--accent)' : 'var(--fg-dim)',
-                      fontSize: '13px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {filter.label}
-                  </div>
-                </Link>
-              );
-            })}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {typeFilters.map((filter) => {
+                const isActive = typeFilter === filter.value;
+                return (
+                  <Link key={filter.label} href={buildUrl({ type: filter.value || '' })} style={{ textDecoration: 'none' }}>
+                    <div
+                      style={{
+                        padding: '8px 16px',
+                        border: isActive ? '1px solid var(--accent)' : '1px solid var(--border)',
+                        background: isActive ? 'rgba(95, 175, 255, 0.1)' : 'transparent',
+                        color: isActive ? 'var(--accent)' : 'var(--fg-dim)',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {filter.label}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {sortOptions.map((option) => {
+                const isActive = sortFilter === option.value;
+                return (
+                  <Link key={option.value} href={buildUrl({ sort: option.value })} style={{ textDecoration: 'none' }}>
+                    <div
+                      style={{
+                        padding: '6px 12px',
+                        border: isActive ? '1px solid var(--cyan)' : '1px solid var(--border)',
+                        background: isActive ? 'rgba(95, 205, 235, 0.1)' : 'transparent',
+                        color: isActive ? 'var(--cyan)' : 'var(--fg-dim)',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {option.label}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
           </div>
         </div>
       </section>
@@ -248,6 +297,11 @@ export default async function ConstructsPage({
                     ) : (
                       <TuiTag color="green">FREE</TuiTag>
                     )}
+                    {construct.maturity && (
+                      <TuiTag color={getMaturityColor(construct.maturity)}>
+                        {construct.maturity.toUpperCase()}
+                      </TuiTag>
+                    )}
                   </div>
 
                   {/* Description */}
@@ -262,8 +316,16 @@ export default async function ConstructsPage({
                         <span style={{ color: 'var(--cyan)' }}>{construct.category}</span>
                       )}
                       <span style={{ color: 'var(--fg-dim)' }}>{getCommandCount(construct)} cmds</span>
+                      {construct.rating !== null && (
+                        <span style={{ color: 'var(--fg-dim)' }}>{construct.rating.toFixed(1)}</span>
+                      )}
                     </div>
-                    <span style={{ color: 'var(--fg-dim)' }}>{formatDownloads(construct.downloads)}</span>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      {construct.source_type === 'git' && (
+                        <TuiTag color="cyan" style={{ fontSize: '10px' }}>GIT</TuiTag>
+                      )}
+                      <span style={{ color: 'var(--fg-dim)' }}>{formatDownloads(construct.downloads)}</span>
+                    </div>
                   </div>
                 </div>
               </Link>

@@ -19,9 +19,13 @@ import {
   XCircle,
   AlertCircle,
   Send,
+  GitBranch,
+  RefreshCw,
+  Link2,
 } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/auth-context';
 
 interface CreatorData {
@@ -210,6 +214,11 @@ export default function CreatorPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [_submittingSlug, setSubmittingSlug] = useState<string | null>(null);
+  const [repoUrl, setRepoUrl] = useState('');
+  const [repoRef, setRepoRef] = useState('main');
+  const [registeringSlug, setRegisteringSlug] = useState<string | null>(null);
+  const [syncingSlug, setSyncingSlug] = useState<string | null>(null);
+  const [repoMessage, setRepoMessage] = useState<{ slug: string; type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     async function fetchCreatorPacks() {
@@ -290,6 +299,75 @@ export default function CreatorPage() {
     }
   };
 
+  const handleRegisterRepo = async (slug: string) => {
+    const token = getAccessToken();
+    if (!token || !repoUrl) return;
+
+    setRegisteringSlug(slug);
+    setRepoMessage(null);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/v1/packs/${slug}/register-repo`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ git_url: repoUrl, git_ref: repoRef }),
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || 'Failed to register repository');
+      }
+
+      setRepoMessage({ slug, type: 'success', text: 'Repository registered successfully!' });
+      setRepoUrl('');
+      setRepoRef('main');
+    } catch (err) {
+      setRepoMessage({ slug, type: 'error', text: err instanceof Error ? err.message : 'Failed' });
+    } finally {
+      setRegisteringSlug(null);
+    }
+  };
+
+  const handleSyncPack = async (slug: string) => {
+    const token = getAccessToken();
+    if (!token) return;
+
+    setSyncingSlug(slug);
+    setRepoMessage(null);
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/v1/packs/${slug}/sync`,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({}),
+        }
+      );
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error?.message || 'Failed to sync');
+      }
+
+      const result = await response.json();
+      setRepoMessage({ slug, type: 'success', text: `Synced to v${result.data.version} (${result.data.files_synced} files)` });
+    } catch (err) {
+      setRepoMessage({ slug, type: 'error', text: err instanceof Error ? err.message : 'Sync failed' });
+    } finally {
+      setSyncingSlug(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -356,6 +434,77 @@ export default function CreatorPage() {
               <PacksTable packs={data.packs} onSubmit={handleSubmitPack} />
             </CardContent>
           </Card>
+
+          {/* Repository Registration */}
+          {data.packs.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <GitBranch className="h-5 w-5" />
+                  Connect Repository
+                </CardTitle>
+                <CardDescription>
+                  Link a GitHub repository to your pack for git-based distribution and auto-sync.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {data.packs.map((pack) => (
+                    <div key={pack.slug} className="border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium">{pack.name}</span>
+                          <span className="text-sm text-muted-foreground">({pack.slug})</span>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSyncPack(pack.slug)}
+                          disabled={syncingSlug === pack.slug}
+                        >
+                          <RefreshCw className={`h-4 w-4 mr-1 ${syncingSlug === pack.slug ? 'animate-spin' : ''}`} />
+                          Sync Now
+                        </Button>
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="https://github.com/org/construct-name.git"
+                          value={registeringSlug === pack.slug ? repoUrl : ''}
+                          onChange={(e) => {
+                            setRegisteringSlug(pack.slug);
+                            setRepoUrl(e.target.value);
+                          }}
+                          className="flex-1"
+                        />
+                        <Input
+                          placeholder="main"
+                          value={registeringSlug === pack.slug ? repoRef : 'main'}
+                          onChange={(e) => {
+                            setRegisteringSlug(pack.slug);
+                            setRepoRef(e.target.value);
+                          }}
+                          className="w-24"
+                        />
+                        <Button
+                          onClick={() => handleRegisterRepo(pack.slug)}
+                          disabled={registeringSlug !== pack.slug || !repoUrl}
+                        >
+                          <Link2 className="h-4 w-4 mr-1" />
+                          Register
+                        </Button>
+                      </div>
+                      {repoMessage?.slug === pack.slug && (
+                        <p className={`text-sm mt-2 ${repoMessage.type === 'success' ? 'text-green-600' : 'text-destructive'}`}>
+                          {repoMessage.text}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
     </div>
