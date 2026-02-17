@@ -50,18 +50,36 @@ jobs:
       # 3. Copy trusted harness/graders from base to PR workspace
       - name: Copy trusted eval infrastructure
         run: |
-          # Use graders and harness from BASE branch (tamper-proof)
-          cp -a base/evals/harness/ pr/evals/harness/
-          cp -a base/evals/graders/ pr/evals/graders/
-
-          # Validate symlinks in PR workspace
+          # Validate symlinks BEFORE any rm/cp to prevent traversal attacks
           echo "Checking for suspicious symlinks in PR workspace..."
-          suspicious=$(find pr/ -type l -exec readlink -f {} \; 2>/dev/null | grep -v "^$(realpath pr)/" || true)
+          pr_root="$(realpath pr)"
+          for check_path in pr/evals pr/evals/harness pr/evals/graders; do
+            if [[ -L "$check_path" ]]; then
+              echo "::error::Symlinked eval path detected: $check_path"
+              exit 1
+            fi
+            if [[ -e "$check_path" ]]; then
+              resolved="$(realpath "$check_path")"
+              if [[ "$resolved" != "$pr_root/"* ]]; then
+                echo "::error::Eval path escapes workspace: $check_path -> $resolved"
+                exit 1
+              fi
+            fi
+          done
+
+          suspicious=$(find pr/ -type l -exec readlink -f {} \; 2>/dev/null | grep -v "^${pr_root}/" || true)
           if [[ -n "$suspicious" ]]; then
             echo "::error::Symlinks pointing outside workspace detected"
             echo "$suspicious"
             exit 1
           fi
+
+          # Remove PR versions first to prevent injected extra scripts surviving
+          rm -rf pr/evals/harness pr/evals/graders
+
+          # Use graders and harness from BASE branch (tamper-proof)
+          cp -a base/evals/harness/ pr/evals/harness/
+          cp -a base/evals/graders/ pr/evals/graders/
 
       # 3a. Copy trusted suite definitions from base branch
       - name: Copy trusted suite definitions
@@ -85,12 +103,12 @@ jobs:
         run: |
           new_files=()
           if [[ -d "pr-suites-check/evals/suites/" ]]; then
-            for f in $(find pr-suites-check/evals/suites/ -type f \( -name '*.yaml' -o -name '*.yml' \) 2>/dev/null); do
-              basename_f=$(basename "$f")
-              if [[ ! -f "base/evals/suites/$basename_f" ]]; then
-                new_files+=("$basename_f")
+            while IFS= read -r -d '' f; do
+              rel="${f#pr-suites-check/evals/suites/}"
+              if [[ ! -f "base/evals/suites/$rel" ]]; then
+                new_files+=("$rel")
               fi
-            done
+            done < <(find pr-suites-check/evals/suites/ -type f \( -name '*.yaml' -o -name '*.yml' \) -print0 2>/dev/null)
           fi
 
           if [[ ${#new_files[@]} -gt 0 ]]; then
@@ -103,7 +121,7 @@ jobs:
       - name: Validate suite paths
         run: |
           violations=0
-          for f in $(find pr/evals/suites/ -type f \( -name '*.yaml' -o -name '*.yml' \) 2>/dev/null); do
+          while IFS= read -r -d '' f; do
             # Check for path traversal
             if grep -qE '\.\.\/' "$f"; then
               echo "::error file=$f::Path traversal pattern '../' detected in suite file"
@@ -115,7 +133,7 @@ jobs:
               echo "::error file=$f::Absolute path in glob detected in suite file"
               violations=$((violations + 1))
             fi
-          done
+          done < <(find pr/evals/suites/ -type f \( -name '*.yaml' -o -name '*.yml' \) -print0 2>/dev/null)
 
           if [[ $violations -gt 0 ]]; then
             echo "::error::Found $violations path violations in suite YAML files"
@@ -141,13 +159,13 @@ jobs:
               [[ "$line" =~ ^[[:space:]]*# ]] && continue
 
               # Detect: source $VAR, . $VAR, source $(cmd), eval $(...), eval "$var"
-              if echo "$line" | grep -qE '(^|[;&|])[[:space:]]*(source|\.)[ \t]+.*(\$|`)'; then
+              if printf '%s\n' "$line" | grep -qE '(^|[;&|])[[:space:]]*(source|\.)[ \t]+.{0,500}(\$|`)'; then
                 echo "::error file=$f::Source directive with variable expansion: $line"
                 violations=$((violations + 1))
               fi
 
               # Detect: eval with variable expansion
-              if echo "$line" | grep -qE '(^|[;&|])[[:space:]]*eval[ \t]+.*(\$|`)'; then
+              if printf '%s\n' "$line" | grep -qE '(^|[;&|])[[:space:]]*eval[ \t]+.{0,500}(\$|`)'; then
                 echo "::error file=$f::Eval with variable expansion: $line"
                 violations=$((violations + 1))
               fi
@@ -191,13 +209,13 @@ jobs:
               return 0  # Graceful degradation — no key, skip validation
             fi
             local sig
-            sig=$(echo "$entry" | jq -r '.__sig // empty')
+            sig=$(printf '%s\n' "$entry" | jq -r '.__sig // empty')
             if [[ -z "$sig" ]]; then
               echo "::warning::Unsigned ledger entry found"
               return 0  # Accept unsigned entries for backward compatibility
             fi
             local clean_entry
-            clean_entry=$(echo "$entry" | jq -c 'del(.__sig)')
+            clean_entry=$(printf '%s\n' "$entry" | jq -c 'del(.__sig)')
             local expected
             expected="hmac-sha256:$(echo -n "$clean_entry" | openssl dgst -sha256 -hmac "$key" -binary | xxd -p -c 256)"
             if [[ "$sig" != "$expected" ]]; then
@@ -210,29 +228,27 @@ jobs:
           ledger="pr/evals/results/eval-ledger.jsonl"
           if [[ -f "$ledger" ]]; then
             echo "Validating ledger JSONL integrity..."
-            if ! jq -e . "$ledger" >/dev/null 2>&1; then
-              # Try line-by-line validation (JSON + optional HMAC)
-              invalid_lines=0
-              tampered_lines=0
-              valid_tmp=$(mktemp)
-              while IFS= read -r line; do
-                if [[ -z "$line" ]]; then continue; fi
-                if ! echo "$line" | jq -e . >/dev/null 2>&1; then
-                  invalid_lines=$((invalid_lines + 1))
-                  continue
-                fi
-                if ! validate_ledger_sig "$line"; then
-                  tampered_lines=$((tampered_lines + 1))
-                  continue
-                fi
-                echo "$line" >> "$valid_tmp"
-              done < "$ledger"
-              if [[ $invalid_lines -gt 0 || $tampered_lines -gt 0 ]]; then
-                echo "::warning::Eval ledger: $invalid_lines invalid, $tampered_lines tampered lines removed."
-                mv "$valid_tmp" "$ledger"
-              else
-                rm -f "$valid_tmp"
+            # Always validate line-by-line (JSON + optional HMAC) to catch tampered entries
+            invalid_lines=0
+            tampered_lines=0
+            valid_tmp=$(mktemp)
+            while IFS= read -r line; do
+              if [[ -z "$line" ]]; then continue; fi
+              if ! printf '%s\n' "$line" | jq -e . >/dev/null 2>&1; then
+                invalid_lines=$((invalid_lines + 1))
+                continue
               fi
+              if ! validate_ledger_sig "$line"; then
+                tampered_lines=$((tampered_lines + 1))
+                continue
+              fi
+              printf '%s\n' "$line" >> "$valid_tmp"
+            done < "$ledger"
+            if [[ $invalid_lines -gt 0 || $tampered_lines -gt 0 ]]; then
+              echo "::warning::Eval ledger: $invalid_lines invalid, $tampered_lines tampered lines removed."
+              mv "$valid_tmp" "$ledger"
+            else
+              rm -f "$valid_tmp"
             fi
           fi
 
