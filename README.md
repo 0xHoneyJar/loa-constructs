@@ -22,15 +22,19 @@ This is what we're building. Not chatbots. Not prompt templates. **Constructs** 
 
 ## Why Naming Matters
 
-Here's the thing about latent space that most people miss: **naming is compression**.
+Human language looks restrictive on the surface. But every domain expert knows this isn't true — expertise speaks a language that most people can't. A senior engineer doesn't just "fix performance problems." They profile flame graphs, identify contention on hot paths, reason about cache line alignment, and know when the real bottleneck is a lock three layers down that nobody's looking at. That's not general knowledge. That's a *language* — precise, compressed, earned through years of practice.
 
-When you take twenty years of distributed systems expertise and call it a name — give it a persona, a cognitive frame, a set of domain boundaries — you've created something an AI agent can *grab*. A handle in semantic space. A function signature for human craft.
+The problem is that this language lives inside people. It's tacit. You can't Google it. You can't prompt for it. The expert carries it as intuition, as muscle memory, as the thing they do without thinking that a junior couldn't do if they thought about it for a week.
 
-Without a name, expertise is diffuse. It's "be good at design" or "know about security." With a name — with identity files that declare a cognitive archetype, a thinking style, a voice register, specific domain depths rated 1 through 5 — you've created an addressable unit that language models can invoke, compose, and orchestrate.
+**When you can name it, you can build it.**
 
-A construct named and published on the network isn't just a bundle of skills. It's a **compressed representation of tacit knowledge** — the kind of knowledge that experts carry but can't easily articulate. The kind that takes years to develop and seconds to deploy. In cyberspace, identity *is* interface.
+This is the core insight. Not just naming constructs — naming *anything*. A workflow. A decision framework. A way of seeing problems. A diagnostic reflex. The moment you give a name to what you do — the moment you say "this is how I decompose a design system" or "this is how I triage a production incident" or "this is how I evaluate market positioning" — you've crossed a boundary. You've taken something that was locked in your head and made it addressable.
 
-This is why the Sprawl's mercenaries had street names. Case. Molly. The Finn. A name collapses a vast space of capability into something you can reference, trust, hire. In the Constructs Network, every expert gets to be a named entity — discoverable, composable, deployable.
+And addressable means everything in the age of AI agents. **Naming is compression** — it collapses a vast space of tacit knowledge into a handle that language models can grab, invoke, compose, and orchestrate. Without a name, expertise is diffuse: "be good at design." With a name — with a cognitive frame, a thinking style, domain depths rated 1 through 5, explicit boundaries declaring what you will and won't do — you've created a function signature for human craft.
+
+A construct on the network isn't just a bundle of skills. It's a **named unit of expertise that speaks a language most people can't** — packaged so that anyone can access it, compose it, deploy it. The kind of knowledge that takes years to develop and seconds to install. In cyberspace, identity *is* interface.
+
+This is why the Sprawl's mercenaries had street names. Case. Molly. The Finn. A name carried a contract: specific expertise, specific boundaries, specific results. In the Constructs Network, every expert gets to name what they do — and the moment they do, it becomes discoverable, composable, deployable. It becomes something that can ride alongside anyone who needs it.
 
 ## What You Can Build
 
