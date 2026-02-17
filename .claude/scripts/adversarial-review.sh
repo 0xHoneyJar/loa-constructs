@@ -121,6 +121,21 @@ load_adversarial_config() {
 }
 
 # =============================================================================
+# Allowlist Pattern Validation (HIGH-3: ReDoS prevention)
+# =============================================================================
+
+validate_allowlist_pattern() {
+    local pattern="$1"
+    # Reject nested quantifiers (common ReDoS patterns)
+    # Matches: (X+)+, (X*)+, (X+)*, (X*)*, (X{n,})+
+    if echo "$pattern" | grep -qE '\([^)]*[+*][^)]*\)[+*{]'; then
+        echo "WARNING: Rejected allowlist pattern with nested quantifier: $pattern" >&2
+        return 1
+    fi
+    return 0
+}
+
+# =============================================================================
 # Secret Scanning (NFR-4)
 # =============================================================================
 
@@ -140,11 +155,20 @@ secret_scan_content() {
   # Pre-scan: protect allowlisted matches with unique placeholders before redaction.
   # This ensures patterns like SHA-256 hashes and UUIDs survive the redaction pass.
   # See: Bridgebuilder Review Finding #4
+  # Validate all allowlist patterns before use (HIGH-3: ReDoS prevention)
+  validated_patterns=()
+  for pattern in "${CONF_SECRET_ALLOWLIST[@]}"; do
+      if validate_allowlist_pattern "$pattern"; then
+          validated_patterns+=("$pattern")
+      fi
+  done
+  CONF_SECRET_ALLOWLIST=("${validated_patterns[@]}")
+
   if [[ ${#CONF_SECRET_ALLOWLIST[@]} -gt 0 ]]; then
     local al_idx=0
     for pattern in "${CONF_SECRET_ALLOWLIST[@]}"; do
       local matches
-      matches=$(grep -oE "$pattern" "$scan_tmp" 2>/dev/null | sort -u || true)
+      matches=$(timeout 0.5s grep -oE "$pattern" "$scan_tmp" 2>/dev/null | sort -u || true)
       if [[ -n "$matches" ]]; then
         while IFS= read -r match; do
           [[ -z "$match" ]] && continue

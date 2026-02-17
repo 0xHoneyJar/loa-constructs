@@ -189,11 +189,25 @@ is_flatline_enabled() {
 }
 
 get_model_primary() {
-    read_config '.flatline_protocol.models.primary' 'opus'
+    local configured
+    configured=$(read_config '.flatline_protocol.models.primary' '')
+    if [[ -n "$configured" ]]; then
+        echo "$configured"
+    else
+        warn "No primary model configured, using default 'opus'"
+        echo "opus"
+    fi
 }
 
 get_model_secondary() {
-    read_config '.flatline_protocol.models.secondary' 'gpt-5.2'
+    local configured
+    configured=$(read_config '.flatline_protocol.models.secondary' '')
+    if [[ -n "$configured" ]]; then
+        echo "$configured"
+    else
+        warn "No secondary model configured, using default 'gpt-5.2'"
+        echo "gpt-5.2"
+    fi
 }
 
 # FR-3: Optional tertiary model for 3-model Flatline (e.g., Gemini 3 Pro)
@@ -232,6 +246,29 @@ validate_model() {
     fi
 
     return 0
+}
+
+# Handle model unavailability errors with fallback (LOW-1).
+# Exit codes 40/41 from model-adapter indicate model not found / deprecated.
+handle_model_error() {
+    local exit_code="$1"
+    local model="$2"
+    local config_key="$3"  # "primary" or "secondary"
+
+    if [[ "$exit_code" == "40" || "$exit_code" == "41" ]]; then
+        warn "Model '$model' unavailable (exit $exit_code)"
+        if [[ "$config_key" == "primary" ]]; then
+            local fallback
+            fallback=$(get_model_secondary)
+            warn "Falling back to secondary model: $fallback"
+            echo "$fallback"
+            return 0
+        else
+            error "Secondary model '$model' also unavailable. Cannot proceed."
+            return 1
+        fi
+    fi
+    return "$exit_code"
 }
 
 is_notebooklm_enabled() {

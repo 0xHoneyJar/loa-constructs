@@ -16,6 +16,8 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import * as crypto from 'node:crypto';
 import * as dns from 'node:dns';
+import * as http from 'node:http';
+import * as net from 'node:net';
 import yaml from 'js-yaml';
 import AjvModule from 'ajv';
 import { logger } from '../lib/logger.js';
@@ -88,6 +90,18 @@ export interface IdentityData {
   modelPreferences: Record<string, unknown> | null;
 }
 
+/**
+ * Result of DNS-validated URL check, used for TOCTOU-safe DNS pinning.
+ * The resolvedIp is captured at validation time and reused at clone time
+ * so that git connects to the exact IP we verified, not a potentially
+ * different address from a second DNS lookup.
+ */
+export interface ValidatedUrl {
+  original: string;
+  resolvedIp: string;
+  hostname: string;
+}
+
 // --- Schema Validation ---
 
 let ajvInstance: InstanceType<typeof Ajv> | null = null;
@@ -150,8 +164,9 @@ function isPrivateIpv6(address: string): boolean {
 /**
  * Validate a git URL for safety.
  * Phase 1: HTTPS only, github.com only, SSRF protection via DNS resolution.
+ * Returns a ValidatedUrl with the resolved IP for TOCTOU-safe DNS pinning.
  */
-export async function validateGitUrl(url: string): Promise<void> {
+export async function validateGitUrl(url: string): Promise<ValidatedUrl> {
   // Parse URL
   let parsed: URL;
   try {
@@ -193,6 +208,8 @@ export async function validateGitUrl(url: string): Promise<void> {
   }
 
   // DNS resolution check — resolve hostname and reject private IPs
+  let firstPublicIpv4: string | null = null;
+
   try {
     const addresses = await dnsLookup(parsed.hostname, { all: true });
     const results = Array.isArray(addresses) ? addresses : [addresses];
@@ -213,6 +230,11 @@ export async function validateGitUrl(url: string): Promise<void> {
           `DNS resolved to private IPv6: ${address}`
         );
       }
+
+      // Capture first public IPv4 for DNS pinning
+      if (family === 4 && !firstPublicIpv4) {
+        firstPublicIpv4 = address;
+      }
     }
   } catch (err) {
     if (err instanceof GitSyncError) throw err;
@@ -221,6 +243,73 @@ export async function validateGitUrl(url: string): Promise<void> {
       `Failed to resolve hostname: ${parsed.hostname}`
     );
   }
+
+  // Ensure we found at least one public IPv4 address for pinning
+  if (!firstPublicIpv4) {
+    throw new GitSyncError(
+      'DNS_RESOLUTION_FAILED',
+      `No valid public IPv4 address found for hostname: ${parsed.hostname}`
+    );
+  }
+
+  return {
+    original: url,
+    resolvedIp: firstPublicIpv4,
+    hostname: parsed.hostname,
+  };
+}
+
+// --- DNS Pinning Proxy ---
+
+/**
+ * Create a local CONNECT proxy that tunnels HTTPS to a pinned IP.
+ * Git connects to this proxy, which forwards the TCP connection to the
+ * validated IP while preserving the hostname for TLS verification.
+ * The proxy only allows connections to the specified hostname on port 443.
+ */
+async function createPinnedProxy(
+  pinnedIp: string,
+  hostname: string
+): Promise<{ server: http.Server; url: string }> {
+  const server = http.createServer((_req, res) => {
+    res.statusCode = 405;
+    res.end();
+  });
+
+  server.on('connect', (req, clientSocket, head) => {
+    const target = req.url || '';
+    const [host, portStr] = target.split(':');
+    const port = Number(portStr || '443');
+
+    // Only allow connections to the validated hostname on port 443
+    if (host !== hostname || port !== 443) {
+      clientSocket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+      clientSocket.destroy();
+      return;
+    }
+
+    const upstream = net.connect({ host: pinnedIp, port: 443 }, () => {
+      clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+      if (head && head.length > 0) upstream.write(head);
+      upstream.pipe(clientSocket);
+      clientSocket.pipe(upstream);
+    });
+
+    const onError = () => {
+      clientSocket.destroy();
+      upstream.destroy();
+    };
+    clientSocket.on('error', onError);
+    upstream.on('error', onError);
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => resolve());
+  });
+
+  const address = server.address() as net.AddressInfo;
+  return { server, url: `http://127.0.0.1:${address.port}` };
 }
 
 // --- Clone ---
@@ -228,14 +317,34 @@ export async function validateGitUrl(url: string): Promise<void> {
 /**
  * Clone a git repo to a temp directory with hardening.
  * Uses execFile (not exec) to prevent command injection.
+ * Supports optional DNS pinning via pinnedIp/hostname to mitigate TOCTOU
+ * attacks where DNS could resolve to a different (malicious) IP between
+ * validation and clone time.
  */
 export async function cloneRepo(
   url: string,
   ref: string,
-  targetDir: string
+  targetDir: string,
+  pinnedIp?: string,
+  hostname?: string
 ): Promise<string> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), CLONE_TIMEOUT_MS);
+
+  // TOCTOU mitigation: route git HTTPS through a local CONNECT proxy that
+  // tunnels to the exact IP we validated during validateGitUrl(). This
+  // preserves the hostname for TLS certificate verification while forcing
+  // the TCP connection to the pinned IP address.
+  let proxyServer: http.Server | null = null;
+  const proxyEnv: Record<string, string> = {};
+
+  if (pinnedIp && hostname) {
+    const proxy = await createPinnedProxy(pinnedIp, hostname);
+    proxyServer = proxy.server;
+    proxyEnv.GIT_CONFIG_COUNT = '1';
+    proxyEnv.GIT_CONFIG_KEY_0 = `http.https://${hostname}/.proxy`;
+    proxyEnv.GIT_CONFIG_VALUE_0 = proxy.url;
+  }
 
   try {
     await execFileAsync(
@@ -255,6 +364,7 @@ export async function cloneRepo(
           ...process.env,
           GIT_TERMINAL_PROMPT: '0',
           GIT_LFS_SKIP_SMUDGE: '1',
+          ...proxyEnv,
         },
         timeout: CLONE_TIMEOUT_MS,
       }
@@ -275,6 +385,9 @@ export async function cloneRepo(
     throw new GitSyncError('CLONE_FAILED', `Git clone failed: ${message}`);
   } finally {
     clearTimeout(timeout);
+    if (proxyServer) {
+      await new Promise<void>((resolve) => proxyServer!.close(() => resolve()));
+    }
   }
 }
 
@@ -675,12 +788,12 @@ export async function syncFromRepo(
   );
 
   try {
-    // 1. Validate URL
-    await validateGitUrl(gitUrl);
+    // 1. Validate URL and pin resolved IP for TOCTOU-safe clone
+    const validated = await validateGitUrl(gitUrl);
 
-    // 2. Clone
-    logger.info({ gitUrl, gitRef, tmpDir }, 'Starting git clone');
-    const commit = await cloneRepo(gitUrl, gitRef, tmpDir);
+    // 2. Clone with DNS pinning — git connects to the exact IP we validated
+    logger.info({ gitUrl, gitRef, tmpDir, pinnedIp: validated.resolvedIp }, 'Starting git clone');
+    const commit = await cloneRepo(gitUrl, gitRef, tmpDir, validated.resolvedIp, validated.hostname);
     logger.info({ commit }, 'Clone complete');
 
     // 3. Validate tree

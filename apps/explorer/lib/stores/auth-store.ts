@@ -19,10 +19,18 @@ type AuthResult =
   | { ok: true }
   | { ok: false; message: string };
 
+interface RefreshLogEntry {
+  timestamp: number;
+  success: boolean;
+  reason: string;
+}
+
 interface AuthState {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isRefreshing: boolean;
+  refreshLog: RefreshLogEntry[];
 
   initialize: () => Promise<InitResult>;
   login: (data: LoginRequest, rememberMe?: boolean) => Promise<AuthResult>;
@@ -30,6 +38,7 @@ interface AuthState {
   refreshToken: () => Promise<AuthResult>;
   logout: () => Promise<void>;
   getAccessToken: () => string | undefined;
+  waitForRefresh: () => Promise<void>;
   setTokens: (accessToken: string, refreshToken: string, expiresIn?: number, rememberMe?: boolean) => void;
   clearTokens: () => void;
 }
@@ -46,9 +55,13 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   user: null,
   isLoading: true,
   isAuthenticated: false,
+  isRefreshing: false,
+  refreshLog: [],
 
   initialize: async (): Promise<InitResult> => {
-    const accessToken = Cookies.get('access_token');
+    // Wait for any in-flight refresh before reading the token
+    await get().waitForRefresh();
+    const accessToken = get().getAccessToken();
     if (!accessToken) {
       set({ isLoading: false, isAuthenticated: false, user: null });
       return { ok: false, reason: 'unauthorized' };
@@ -130,10 +143,12 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   },
 
   refreshToken: async (): Promise<AuthResult> => {
-    // Single-flight lock
+    // Single-flight lock — concurrent callers coalesce onto one refresh
     if (refreshPromise) {
       return refreshPromise;
     }
+
+    set({ isRefreshing: true });
 
     refreshPromise = (async (): Promise<AuthResult> => {
       try {
@@ -201,7 +216,19 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         set({ user: null, isAuthenticated: false });
         return { ok: false, message: 'Refresh failed' };
       }
-    })().finally(() => {
+    })().then(
+      (result) => {
+        const log: RefreshLogEntry = { timestamp: Date.now(), success: result.ok, reason: result.ok ? 'success' : ('message' in result ? result.message : 'unknown') };
+        set((state) => ({ refreshLog: [...state.refreshLog.slice(-19), log] }));
+        return result;
+      },
+      (err) => {
+        const log: RefreshLogEntry = { timestamp: Date.now(), success: false, reason: err instanceof Error ? err.message : 'unknown' };
+        set((state) => ({ refreshLog: [...state.refreshLog.slice(-19), log] }));
+        throw err;
+      },
+    ).finally(() => {
+      set({ isRefreshing: false });
       refreshPromise = null;
     });
 
@@ -229,7 +256,19 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     }
   },
 
-  getAccessToken: () => Cookies.get('access_token'),
+  getAccessToken: () => {
+    // Return undefined during refresh to signal callers to await refreshPromise.
+    // Check both refreshPromise (immediate) and isRefreshing (state) to eliminate
+    // the micro-window between promise creation and state propagation.
+    if (refreshPromise || get().isRefreshing) return undefined;
+    return Cookies.get('access_token');
+  },
+
+  waitForRefresh: async () => {
+    if (refreshPromise) {
+      await refreshPromise;
+    }
+  },
 
   setTokens: (accessToken, _refreshToken, expiresIn, rememberMe) => {
     const expires = rememberMe ? 30 : expiresIn ? expiresIn / 86400 : 1;

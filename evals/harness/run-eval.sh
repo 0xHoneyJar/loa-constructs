@@ -98,6 +98,21 @@ log_verbose() {
   fi
 }
 
+sign_ledger_entry() {
+    local entry="$1"
+    local key="${EVAL_LEDGER_KEY:-}"
+    if [[ -z "$key" ]]; then
+        echo "WARNING: EVAL_LEDGER_KEY not set, skipping signature" >&2
+        echo "$entry"
+        return
+    fi
+    local clean_entry
+    clean_entry=$(echo "$entry" | jq -c 'del(.__sig)')
+    local sig
+    sig=$(echo -n "$clean_entry" | openssl dgst -sha256 -hmac "$key" -binary | xxd -p -c 256)
+    echo "$clean_entry" | jq -c --arg sig "hmac-sha256:$sig" '. + {__sig: $sig}'
+}
+
 preflight() {
   log "[PREFLIGHT] Checking required tools..."
 
@@ -543,13 +558,20 @@ finalize_results() {
   done
 
   # Append to eval ledger (with flock for atomicity)
+  # Sign each entry with HMAC if EVAL_LEDGER_KEY is set (MEDIUM-1)
   local ledger_file="$RESULTS_DIR/eval-ledger.jsonl"
   if [[ -f "$merged_file" && -s "$merged_file" ]]; then
+    local signed_tmp
+    signed_tmp=$(mktemp)
+    while IFS= read -r entry; do
+      [[ -z "$entry" ]] && continue
+      sign_ledger_entry "$entry" >> "$signed_tmp"
+    done < "$merged_file"
     (
       flock -w 5 200 || { log "WARNING: Could not acquire ledger lock"; exit 0; }
-      cat "$merged_file" >> "$ledger_file"
+      cat "$signed_tmp" >> "$ledger_file"
     ) 200>"$ledger_file.lock"
-    rm -f "$ledger_file.lock"
+    rm -f "$ledger_file.lock" "$signed_tmp"
   fi
 
   # Write run metadata

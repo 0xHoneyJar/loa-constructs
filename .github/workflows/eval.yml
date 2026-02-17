@@ -63,6 +63,66 @@ jobs:
             exit 1
           fi
 
+      # 3a. Copy trusted suite definitions from base branch
+      - name: Copy trusted suite definitions
+        run: |
+          if [[ -d "base/evals/suites/" ]]; then
+            echo "Copying trusted suite definitions from base branch..."
+            cp -a base/evals/suites/ pr/evals/suites/
+          else
+            echo "No suite definitions in base branch, skipping"
+          fi
+
+      # 3b. Detect new suite files introduced by PR
+      - name: Checkout PR suites (for new-file detection)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: pr-suites-check
+          sparse-checkout: evals/suites
+
+      - name: Detect new suite files from PR
+        run: |
+          new_files=()
+          if [[ -d "pr-suites-check/evals/suites/" ]]; then
+            for f in $(find pr-suites-check/evals/suites/ -type f \( -name '*.yaml' -o -name '*.yml' \) 2>/dev/null); do
+              basename_f=$(basename "$f")
+              if [[ ! -f "base/evals/suites/$basename_f" ]]; then
+                new_files+=("$basename_f")
+              fi
+            done
+          fi
+
+          if [[ ${#new_files[@]} -gt 0 ]]; then
+            echo "::error::PR introduces new eval suite files not in base branch: ${new_files[*]}. New suite files require explicit review before CI will run them."
+            exit 1
+          fi
+          echo "No new suite files detected"
+
+      # 3c. Validate suite paths (no traversal or absolute paths)
+      - name: Validate suite paths
+        run: |
+          violations=0
+          for f in $(find pr/evals/suites/ -type f \( -name '*.yaml' -o -name '*.yml' \) 2>/dev/null); do
+            # Check for path traversal
+            if grep -qE '\.\.\/' "$f"; then
+              echo "::error file=$f::Path traversal pattern '../' detected in suite file"
+              violations=$((violations + 1))
+            fi
+
+            # Check for absolute paths
+            if grep -qE '^[^#]*glob:\s*/' "$f"; then
+              echo "::error file=$f::Absolute path in glob detected in suite file"
+              violations=$((violations + 1))
+            fi
+          done
+
+          if [[ $violations -gt 0 ]]; then
+            echo "::error::Found $violations path violations in suite YAML files"
+            exit 1
+          fi
+          echo "Suite path validation passed"
+
       # 3.5. Validate grader trust boundary
       #   Graders execute during eval and have access to the workspace.
       #   Ensure no grader/harness script sources files from outside the
@@ -119,23 +179,59 @@ jobs:
           path: pr/evals/results/
         continue-on-error: true
 
-      # 6. Validate downloaded ledger integrity
+      # 6. Validate downloaded ledger integrity (JSON + HMAC signature)
       - name: Validate ledger integrity
+        env:
+          EVAL_LEDGER_KEY: ${{ secrets.EVAL_LEDGER_KEY }}
         run: |
+          validate_ledger_sig() {
+            local entry="$1"
+            local key="${EVAL_LEDGER_KEY:-}"
+            if [[ -z "$key" ]]; then
+              return 0  # Graceful degradation — no key, skip validation
+            fi
+            local sig
+            sig=$(echo "$entry" | jq -r '.__sig // empty')
+            if [[ -z "$sig" ]]; then
+              echo "::warning::Unsigned ledger entry found"
+              return 0  # Accept unsigned entries for backward compatibility
+            fi
+            local clean_entry
+            clean_entry=$(echo "$entry" | jq -c 'del(.__sig)')
+            local expected
+            expected="hmac-sha256:$(echo -n "$clean_entry" | openssl dgst -sha256 -hmac "$key" -binary | xxd -p -c 256)"
+            if [[ "$sig" != "$expected" ]]; then
+              echo "::warning::Ledger entry signature mismatch — skipping entry"
+              return 1
+            fi
+            return 0
+          }
+
           ledger="pr/evals/results/eval-ledger.jsonl"
           if [[ -f "$ledger" ]]; then
             echo "Validating ledger JSONL integrity..."
             if ! jq -e . "$ledger" >/dev/null 2>&1; then
-              # Try line-by-line validation
+              # Try line-by-line validation (JSON + optional HMAC)
               invalid_lines=0
+              tampered_lines=0
+              valid_tmp=$(mktemp)
               while IFS= read -r line; do
-                if [[ -n "$line" ]] && ! echo "$line" | jq -e . >/dev/null 2>&1; then
+                if [[ -z "$line" ]]; then continue; fi
+                if ! echo "$line" | jq -e . >/dev/null 2>&1; then
                   invalid_lines=$((invalid_lines + 1))
+                  continue
                 fi
+                if ! validate_ledger_sig "$line"; then
+                  tampered_lines=$((tampered_lines + 1))
+                  continue
+                fi
+                echo "$line" >> "$valid_tmp"
               done < "$ledger"
-              if [[ $invalid_lines -gt 0 ]]; then
-                echo "::warning::Eval ledger has $invalid_lines invalid lines. Starting fresh."
-                rm -f "$ledger"
+              if [[ $invalid_lines -gt 0 || $tampered_lines -gt 0 ]]; then
+                echo "::warning::Eval ledger: $invalid_lines invalid, $tampered_lines tampered lines removed."
+                mv "$valid_tmp" "$ledger"
+              else
+                rm -f "$valid_tmp"
               fi
             fi
           fi

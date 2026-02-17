@@ -100,6 +100,12 @@ export function createAuthClient({ getToken, onRefresh, onAuthFailure }: AuthCli
     body?: unknown,
     options?: RequestInit,
   ): Promise<T> {
+    // Wait for any in-flight refresh before making the request to avoid
+    // a wasted 401 round-trip with a stale token (CRITICAL-1 fix)
+    if (refreshPromise) {
+      await refreshPromise;
+    }
+
     const token = getToken();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
