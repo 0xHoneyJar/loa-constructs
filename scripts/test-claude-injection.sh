@@ -344,8 +344,7 @@ scenario_10() {
     if [[ -f "$dir/.claude/constructs/CLAUDE.constructs.md" ]]; then
       pass "Managed file created despite CLAUDE.md failure"
     else
-      # Acceptable: both failed is OK if error message was printed
-      pass "Both files failed — injection correctly reported error"
+      fail "Managed file not created — fallback broken"
     fi
   fi
 

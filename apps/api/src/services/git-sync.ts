@@ -739,12 +739,14 @@ export async function parseIdentity(
   if (!persona && !expertise) return null;
 
   // Extract structured fields from persona
+  // Supports both nested (cognitiveFrame.archetype) and flat (archetype) formats
+  const cf = persona?.cognitiveFrame as Record<string, unknown> | undefined;
   const cognitiveFrame = persona
     ? {
-        archetype: persona.archetype ?? null,
-        disposition: persona.disposition ?? null,
-        thinking_style: persona.thinking_style ?? null,
-        decision_making: persona.decision_making ?? null,
+        archetype: cf?.archetype ?? persona.archetype ?? null,
+        disposition: cf?.disposition ?? persona.disposition ?? null,
+        thinking_style: cf?.thinking_style ?? persona.thinking_style ?? null,
+        decision_making: cf?.decision_making ?? persona.decision_making ?? null,
       }
     : null;
 

@@ -1438,7 +1438,11 @@ _inject_validate_paths() {
         return 1
     fi
 
-    # Check for symlinks on critical paths
+    # Check for symlinks on critical paths (pre-lock, defense-in-depth)
+    # NOTE: Authoritative symlink check is inside inject_construct_claude_md()
+    # after lock acquisition. This early check is an optimization to fail fast
+    # before attempting lock. TOCTOU between here and the post-lock check is
+    # mitigated by the redundant check after lock (see inject_construct_claude_md).
     if [ -L "$root/CLAUDE.md" ]; then
         echo "ERROR: CLAUDE.md is a symlink — refusing to modify" >&2
         return 1

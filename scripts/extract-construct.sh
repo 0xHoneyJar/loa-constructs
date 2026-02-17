@@ -425,7 +425,11 @@ Generated construct.yaml, identity skeletons, CLAUDE.md, and CI workflow.
 Source: 0xHoneyJar/loa-constructs (cycle-016)"
 
 git remote add origin "https://github.com/$ORG/$REPO_NAME.git"
-git push -u origin main --force
+if ! git push -u origin main 2>&1; then
+  echo "  ✗ Push failed — remote has diverged." >&2
+  echo "  If this is a re-extraction, use: git push -u origin main --force" >&2
+  exit 1
+fi
 
 echo "  ✓ Pushed to $ORG/$REPO_NAME"
 echo ""
