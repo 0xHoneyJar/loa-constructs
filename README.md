@@ -1,24 +1,78 @@
-# Loa Constructs
+<div align="center">
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](CHANGELOG.md)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-green.svg)](LICENSE.md)
-[![Packs](https://img.shields.io/badge/packs-5-purple.svg)](https://constructs.network)
-[![Skills](https://img.shields.io/badge/skills-39-orange.svg)](https://constructs.network)
+![Version](https://img.shields.io/badge/version-2.1.0-blue)
+![License](https://img.shields.io/badge/license-AGPL--3.0-green)
+![Packs](https://img.shields.io/badge/packs-5-purple)
+![Skills](https://img.shields.io/badge/skills-39-orange)
 
-> *"He'd operated on an almost permanent adrenaline high, a byproduct of youth and proficiency, jacked into a custom cyberspace deck that projected his disembodied consciousness into the consensual hallucination that was the matrix."*
-> — William Gibson, *Neuromancer*
+*"He'd operated on an almost permanent adrenaline high..."* — William Gibson, *Neuromancer*
 
-> *"The Loa are pragmatic entities... They're not worshipped for salvation — they're worked with for practical results."*
+</div>
+
+# Constructs Network
+
+**A marketplace for AI agent expertise.** Constructs are named, distributable units of expertise — they carry identity, skills, cognitive frames, and boundaries. Install one and your agent gains a new specialization. Build one and others can use it. Built on the [Loa framework](https://github.com/0xHoneyJar/loa) for Claude Code.
+
+```mermaid
+graph LR
+    A[Create] --> B[Publish]
+    B --> C[Install]
+    C --> D[Earn]
+    style A fill:#1a1a2e,color:#e94560
+    style B fill:#1a1a2e,color:#e94560
+    style C fill:#1a1a2e,color:#e94560
+    style D fill:#1a1a2e,color:#e94560
+```
+
+Browse available constructs at **[constructs.network](https://constructs.network)**
 
 ---
 
-## The Constructs Network
+## Get Started
 
-In Gibson's Sprawl trilogy, a **construct** is something extraordinary: the recorded expertise of a master practitioner, persisted beyond the limits of any single session, any single body, any single lifetime. The Dixie Flatline — McCoy Pauley's ROM personality matrix — doesn't just know how to hack. It *thinks* like a hacker. It carries intuition, craft judgment, the muscle memory of ten thousand intrusions compressed into something that can be loaded, consulted, and jacked into on demand.
+### Install a Construct
 
-This is what we're building. Not chatbots. Not prompt templates. **Constructs** — named, identitied, distributable units of expertise that carry everything they know: the domain mastery, the workflows, the cognitive frame, the voice, the principles, the boundaries of what they will and won't do. Each one is a mercenary specialist you can hire into any codebase, any project, any team.
+```bash
+constructs-install.sh <construct-slug>
+```
 
-**The Constructs Network is a marketplace for AI agent expertise.** Create a construct from what you know. Name it. Give it identity. Publish it. Let others install it, compose it with other constructs, and pay you for the privilege. This is the future of consulting — every domain expert packages their craft once, distributes it infinitely, earns continuously.
+Find constructs to install at [constructs.network](https://constructs.network).
+
+### Create Your Own
+
+```bash
+gh repo create my-org/construct-my-expertise \
+  --template 0xHoneyJar/construct-template --private
+```
+
+1. Edit `construct.yaml` — name, version, description
+2. Define identity — persona, expertise domains, boundaries
+3. Add skills — the actions your construct performs
+4. Push to publish
+
+Full template and docs: [construct-template](https://github.com/0xHoneyJar/construct-template)
+
+---
+
+## What's Inside a Construct
+
+```
+construct.yaml          # Manifest — name, version, metadata
+identity/
+  persona.yaml          # How it thinks — archetype, cognitive style
+  expertise.yaml        # What it knows — domains rated 1-5, hard boundaries
+skills/                 # What it does — executable capabilities
+commands/               # Slash commands exposed to users
+CLAUDE.md               # Instructions injected on install
+```
+
+**Persona** defines the cognitive frame — an archetype, thinking style, and communication patterns. Your construct doesn't just execute; it *reasons* within a specific discipline.
+
+**Expertise** declares bounded domains with depth ratings (1–5) and explicit hard boundaries — what the construct will *refuse* to do. Constraints are features.
+
+**Skills** are the actions — each skill is a self-contained unit with its own capability metadata (model tier, danger level, execution hints) for intelligent routing.
+
+---
 
 ## Why Naming Matters
 
@@ -38,11 +92,11 @@ Here's what happens when you name expertise. Each layer of naming adds structure
 
 ```mermaid
 graph LR
-    A["🧠 Tacit Knowledge<br/><i>Locked in your head</i>"] -->|name it| B["📛 Named Expertise<br/><i>Addressable</i>"]
-    B -->|define the frame| C["🔲 Cognitive Frame<br/><i>How it thinks</i>"]
-    B -->|map the domains| D["📊 Bounded Expertise<br/><i>What it knows</i>"]
-    B -->|extract the workflows| E["⚡ Executable Skills<br/><i>What it does</i>"]
-    C --> F["📦 Construct<br/><i>Installable, composable,<br/>deployable</i>"]
+    A["Tacit Knowledge<br/><i>Locked in your head</i>"] -->|name it| B["Named Expertise<br/><i>Addressable</i>"]
+    B -->|define the frame| C["Cognitive Frame<br/><i>How it thinks</i>"]
+    B -->|map the domains| D["Bounded Expertise<br/><i>What it knows</i>"]
+    B -->|extract the workflows| E["Executable Skills<br/><i>What it does</i>"]
+    C --> F["Construct<br/><i>Installable, composable,<br/>deployable</i>"]
     D --> F
     E --> F
 
@@ -86,15 +140,15 @@ Notice what naming gives you: a Craftsman with depth-5 Design Systems and depth-
 
 ```mermaid
 graph TD
-    subgraph UNNAMED["❌ Without Naming"]
+    subgraph UNNAMED["Without Naming"]
         U1["Vague prompt:<br/>'help me with design'"] --> U2["Generic output<br/>No boundaries, no depth"]
         U2 --> U3["Unpredictable results<br/>No composability"]
     end
 
-    subgraph NAMED["✅ With Naming"]
-        N1["Named construct:<br/>'Artisan — Craftsman archetype'"] --> N2["Cognitive frame shapes reasoning<br/>Depth 5 in Design Systems"]
+    subgraph NAMED["With Naming"]
+        N1["Named construct:<br/>Craftsman archetype"] --> N2["Cognitive frame shapes reasoning<br/>Depth 5 in Design Systems"]
         N2 --> N3["Bounded, composable, predictable<br/>Refuses what it shouldn't do"]
-        N3 --> N4["Composes with Observer + Beacon<br/>Event-driven collaboration"]
+        N3 --> N4["Composes with other constructs<br/>Event-driven collaboration"]
     end
 
     style UNNAMED fill:#2d1117,stroke:#f85149,color:#fff
@@ -118,52 +172,101 @@ When expertise is properly named, constructs can work together through typed eve
 
 ```mermaid
 graph LR
-    Observer["👁️ Observer<br/><i>Researcher</i>"] -->|"taste_inscribed<br/>pattern_surveyed"| Artisan["🎨 Artisan<br/><i>Craftsman</i>"]
-    Observer -->|"gap_filed"| Crucible["🔥 Crucible<br/><i>Validator</i>"]
-    Artisan -->|"component_refined"| Crucible
-    Beacon["📡 Beacon<br/><i>Signal Engineer</i>"] -->|"structured_data_added"| GTM["🚀 GTM Collective<br/><i>Strategist</i>"]
-    Crucible -->|"journey_validated"| Beacon
+    R["Research<br/><i>Researcher</i>"] -->|"pattern_surveyed"| C["Craft<br/><i>Craftsman</i>"]
+    R -->|"gap_filed"| V["Validation<br/><i>Validator</i>"]
+    C -->|"component_refined"| V
+    S["Signal<br/><i>Signal Engineer</i>"] -->|"structured_data_added"| G["Strategy<br/><i>Strategist</i>"]
+    V -->|"journey_validated"| S
 
-    style Observer fill:#1a1a2e,stroke:#e94560,color:#fff
-    style Artisan fill:#16213e,stroke:#0f3460,color:#fff
-    style Crucible fill:#0f3460,stroke:#e94560,color:#fff
-    style Beacon fill:#1a1a2e,stroke:#e94560,color:#fff
-    style GTM fill:#16213e,stroke:#0f3460,color:#fff
+    style R fill:#1a1a2e,stroke:#e94560,color:#fff
+    style C fill:#16213e,stroke:#0f3460,color:#fff
+    style V fill:#0f3460,stroke:#e94560,color:#fff
+    style S fill:#1a1a2e,stroke:#e94560,color:#fff
+    style G fill:#16213e,stroke:#0f3460,color:#fff
 ```
 
 None of this composition is possible with unnamed, unbounded expertise. It's the **names** — the archetypes, the domains, the boundaries, the events — that give agents the structure to orchestrate.
 
-This is why the Sprawl's mercenaries had street names. Case. Molly. The Finn. A name carried a contract: specific expertise, specific boundaries, specific results. In the Constructs Network, every expert gets to name what they do — and the moment they do, it becomes discoverable, composable, deployable. It becomes something that can ride alongside anyone who needs it.
+---
 
-## What You Can Build
+## The Depth of a Construct
 
-A construct is a standalone GitHub repository with a defined anatomy:
+A construct can be a single skill that does one thing exceptionally well — or it can be an entire methodology with phased workflows, cultural context, templates, and typed events that other constructs consume. Both are valid. The architecture supports depth without requiring it.
 
+Imagine a construct built for user research — not just collecting feedback, but transforming raw observations into tracked, actionable issues through a structured pipeline:
+
+```mermaid
+flowchart LR
+    subgraph Capture
+        A[Raw feedback] --> B[Structured evidence\nwith hypotheses]
+    end
+    subgraph Synthesis
+        B --> C[Pattern clustering\n& composite views]
+    end
+    subgraph Analysis
+        C --> D[Gap detection\nagainst code reality]
+    end
+    subgraph Action
+        D --> E[Filed issues with\ntaxonomy & priority]
+    end
+
+    style Capture fill:#1a1a2e,stroke:#e94560,color:#fff
+    style Synthesis fill:#1a1a2e,stroke:#0f3460,color:#fff
+    style Analysis fill:#1a1a2e,stroke:#533483,color:#fff
+    style Action fill:#1a1a2e,stroke:#16c79a,color:#fff
 ```
-construct.yaml          # Manifest — name, version, skills, events, dependencies
-identity/
-  persona.yaml          # Cognitive frame: archetype, disposition, thinking style
-  expertise.yaml        # Domains with depth ratings (1-5), specializations, boundaries
-skills/                 # Agent capabilities — each with SKILL.md + index.yaml
-commands/               # Slash commands registered in the runtime
-CLAUDE.md               # Instructions injected into consumer projects on install
+
+Each phase has a dedicated skill. Each skill's output becomes the next skill's input:
+
+| Phase | What the Skill Does | Input | Output Artifact |
+|-------|-------------------|-------|-----------------|
+| **Capture** | Structures raw observations into evidence with confidence scores | Unstructured feedback, session notes | Evidence canvas with tagged hypotheses |
+| **Synthesis** | Clusters evidence by pattern, infers relationships | Multiple evidence canvases | Journey definitions, composite views |
+| **Analysis** | Compares synthesized patterns against product reality | Journeys + actual codebase | Severity-classified gap report |
+| **Action** | Files trackable issues with taxonomy labels and evidence links | Gap report | GitHub/Linear issues ready for triage |
+
+A construct this deep might also include a **diagnostic skill** — a conversational framework that helps you ask better questions before entering the pipeline at all — and a **migration skill** that converts legacy research formats into the construct's native artifacts.
+
+### Context Composition
+
+Mature constructs can layer domain knowledge. A base context defines universal patterns, then **overlays** extend it for specific domains — composing at runtime without duplication:
+
+> **Base context** (web development fundamentals) + **React overlay** (component patterns, hook conventions) + **Accessibility overlay** (ARIA, screen reader testing) = a composed context that understands all three simultaneously.
+
+This means one construct can serve multiple domains without forking.
+
+### Cross-Construct Communication
+
+Constructs don't have to work alone. Typed events let one construct's output trigger another construct's workflow:
+
+```mermaid
+flowchart LR
+    R[Research Construct] -->|"gap_filed &#123;severity, evidence&#125;"| T[Task Construct]
+    T -->|"task_completed &#123;resolution, diff&#125;"| R
+    R -->|"pattern_detected &#123;cluster, confidence&#125;"| S[Strategy Construct]
+
+    style R fill:#1a1a2e,stroke:#e94560,color:#fff
+    style T fill:#1a1a2e,stroke:#16c79a,color:#fff
+    style S fill:#1a1a2e,stroke:#0f3460,color:#fff
 ```
 
-The persona file defines *how the construct thinks* — its archetype (Craftsman, Researcher, Strategist, Signal Engineer), its disposition, its voice. The expertise file defines *what it knows* — domains with explicit depth ratings, specializations within each domain, and hard boundaries declaring what it will not attempt.
+Events are declared in the pack manifest — `artifact_created`, `pattern_detected`, `gap_filed` — so the network knows what each construct emits and consumes. Pack dependencies make these relationships explicit.
 
-**Imagine what's possible:**
+### None of This Is Required
 
-- A construct that embodies 20 years of distributed systems expertise — it thinks in failure modes, speaks in SLAs, and knows the difference between a timeout and a partition
-- A construct that carries the aesthetic judgment of a senior design director — it decomposes interfaces into feel, motion, and material, and insists on pixel-level precision
-- A construct that packages an entire go-to-market playbook — positioning frameworks, pricing models, partnership strategies, competitive analysis — as executable agent skills
-- A construct that encodes a security researcher's paranoia — OWASP instincts, threat modeling reflexes, the ability to look at code and smell injection vulnerabilities
-- A construct that captures the craft of technical writing — the art of explaining complex systems to different audiences, translating architecture into narrative
+A construct with a single skill and a clear boundary is perfectly valid. Some of the most useful constructs in the network do **one thing** extremely well — a focused diagnostic, a specific code generation pattern, a single analysis framework. The phased pipelines, context overlays, and event systems exist for those who discover they need depth. They don't constrain those who want simplicity. Start with one skill. Let the structure emerge from real need.
 
-Each of these isn't a prompt. It's a **named identity with bounded expertise, deployable skills, and a cognitive frame that shapes how it approaches every problem**. They compose with each other — a design construct can declare a dependency on a user research construct, or emit events that a content construct consumes.
+---
 
 ## How It Works
 
-### The Lifecycle: Create → Publish → Distribute → Install → Earn
+### The Horse and the Rider
+
+In Haitian Vodou, when a Loa spirit possesses a person, that person is called the *cheval* — the horse. They are "ridden" by the Loa. The spirit doesn't replace them. It *channels through them*, bringing expertise, knowledge, and capability that the horse alone doesn't possess.
+
+This is how constructs work. When you install a construct into your project, it rides alongside you. Its CLAUDE.md is injected into your agent's instruction chain. Its skills become available as slash commands. Its persona influences how the agent approaches problems in that domain. You're still driving — but now you've got a specialist in the passenger seat who's done this a thousand times.
+
+### The Lifecycle
 
 **Create.** Fork the [construct template](https://github.com/0xHoneyJar/construct-template). Define your manifest, identity, skills, and commands. Push to GitHub.
 
@@ -175,13 +278,49 @@ Each of these isn't a prompt. It's a **named identity with bounded expertise, de
 
 **Earn.** JWT RS256 signed licenses with usage tracking, team management, and seat-based access. Create once. Distribute infinitely. Earn continuously.
 
-### The Horse and the Rider
+---
 
-In Haitian Vodou, when a Loa spirit possesses a person, that person is called the *cheval* — the horse. They are "ridden" by the Loa. The spirit doesn't replace them. It *channels through them*, bringing expertise, knowledge, and capability that the horse alone doesn't possess.
+## The Network
 
-This is how constructs work. When you install a construct into your project, it rides alongside you. Its CLAUDE.md is injected into your agent's instruction chain. Its skills become available as slash commands. Its persona influences how the agent approaches problems in that domain. You're still driving — but now you've got a specialist in the passenger seat who's done this a thousand times.
+In Gibson's Sprawl, every specialist had a street name and a reputation. Case was the best cowboy in the Chiba sky. Molly's razorgirl reflexes preceded her through every door. The Finn knew where to find anything, for a price. They didn't do everything — they went deep in one thing and the network handled the rest.
 
-Gibson saw this in Count Zero, where the AIs from Wintermute fragmented into Loa — entities that manifest in cyberspace as voodoo spirits, riding the matrix, riding people through neural interfaces. Baron Samedi, Erzulie, Legba — each with their own domain, their own expertise, their own way of seeing the world. The Constructs Network is the registry where these spirits are born, named, and made available for hire.
+The Constructs Network is that marketplace for AI agent expertise.
+
+**What the network provides:**
+
+- **Discovery** — Find constructs by domain, capability, or reputation
+- **Distribution** — Install with a single command, stay current with upstream improvements
+- **Composition** — Combine constructs from different experts into unified workflows
+- **Identity** — Every construct carries its creator's name, methodology, and versioned history
+- **Licensing** — Create once, distribute infinitely, earn continuously
+
+### Why Experts Build Constructs
+
+A full-stack developer who's decent at frontend, backend, and design will produce a decent generalist construct. But the developer who splits that into three — a frontend construct with deep component architecture instincts, a backend construct with battle-tested API design patterns, a design construct with real taste — gets something qualitatively different. Each one goes deep enough to be worth installing.
+
+That's the leverage model. Every hour you spend deepening a construct — adding skills, refining the cognitive frame, expanding domain coverage — benefits every person who has it installed. Your time compounds across the entire network. You do what you love at extreme depth, and the distribution model means that depth reaches everyone who needs it.
+
+The best constructs won't come from people trying to cover everything. They'll come from specialists who can't stop thinking about their domain — the security researcher who dreams in attack surfaces, the accessibility expert who feels a missing aria-label like a splinter, the database architect who sees query plans in their sleep.
+
+Package that obsession once. Let it propagate.
+
+### Why Teams Install Constructs
+
+Installing a construct isn't downloading a tool. It's getting access to how an expert thinks — their diagnostic reflexes, their decision frameworks, the boundaries they've learned the hard way.
+
+A well-built construct can teach. It can walk a junior developer through a security audit with the same patience and rigor as the expert who built it. It can guide a team through architectural decisions using frameworks refined across hundreds of real projects. The conversation patterns, the diagnostic levels, the templates — they carry methodology, not just capability.
+
+Some constructs are designed to educate. Others are designed for expert-only use — dense, opinionated, uncompromising. The structure supports both. A single focused skill or an entire methodology with cultural contexts, event systems, and cross-construct dependencies. The flexibility is the point.
+
+### The Open Market
+
+Every time an open market has been created where creative people can push boundaries — forums, modding communities, freelancing platforms, gaming economies — abundance followed in forms nobody predicted. The Constructs Network is that for AI agent expertise.
+
+We don't know what people will build. Someone will package a niche regulatory compliance methodology that saves entire industries weeks of work. Someone will create a construct for a discipline that doesn't have a name yet. Someone will compose three constructs together in a way that produces something none of the original creators imagined.
+
+The structure is ready. The network is live. What happens next is up to the people who build on it.
+
+---
 
 ## Architecture
 
@@ -248,41 +387,7 @@ Every construct installation goes through a hardened pipeline:
 - **License verification** — JWT RS256 signed tokens with expiry and watermarking
 - **Rate limiting** — fail-closed on auth endpoints, sync rate limiting per pack
 
-## Quick Start
-
-### Browse the Registry
-
-**[constructs.network](https://constructs.network)** — Discover, search, and install constructs.
-
-### Install a Construct
-
-```bash
-# Inside any project with the Loa framework
-.claude/scripts/constructs-install.sh <construct-slug>
-
-# Or browse and install interactively
-/loa-constructs browse
-```
-
-### Create Your Own
-
-```bash
-# Use the template
-gh repo create my-org/construct-my-expertise --template 0xHoneyJar/construct-template --private
-
-# Clone and customize
-git clone https://github.com/my-org/construct-my-expertise.git
-cd construct-my-expertise
-
-# Edit construct.yaml — name, skills, identity
-# Edit identity/persona.yaml — how it thinks
-# Edit identity/expertise.yaml — what it knows
-# Add skills under skills/
-# Push to publish
-git push origin main
-```
-
-### Development
+## Development
 
 ```bash
 # Clone the monorepo
@@ -324,20 +429,6 @@ R2_ENDPOINT=https://...
 GITHUB_CLIENT_ID=...
 GITHUB_CLIENT_SECRET=...
 ```
-
-## The Network
-
-The Sprawl was full of freelance specialists — console cowboys, razorgirls, info-brokers — each with a street name, a reputation, a price. You didn't hire a "general purpose worker." You hired Molly for wetwork. You hired Case for intrusion. You hired the Finn for hardware. Each name carried a contract: specific expertise, specific boundaries, specific results.
-
-The Constructs Network is that marketplace. Every construct is a named specialist — discoverable through the registry, installable in seconds, composable with other constructs. The network provides:
-
-- **Discovery** — Search by domain, browse by capability, explore the ecosystem graph
-- **Distribution** — Git-native delivery with shallow clones and content validation
-- **Licensing** — Cryptographically signed licenses with team management and seat-based access
-- **Composition** — Constructs declare dependencies on each other and communicate through typed events
-- **Identity** — Every construct carries a persona, expertise boundaries, and cognitive frame
-
-This is the infrastructure for a new kind of economy. One where expertise isn't locked inside individuals or consultancies — it's packaged, named, distributed, and earning for its creator every time someone installs it.
 
 ## Loa Framework
 
