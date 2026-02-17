@@ -36,7 +36,7 @@ const MAX_FILE_SIZE = 256 * 1024; // 256KB per file
 const MAX_TOTAL_SIZE = 5 * 1024 * 1024; // 5MB total
 
 /** Directories allowed for file collection from construct repos */
-const ALLOWED_DIRS = ['skills', 'commands', 'contexts', 'identity', 'scripts'];
+const ALLOWED_DIRS = ['skills', 'commands', 'contexts', 'identity', 'scripts', 'templates'];
 
 /** Root files allowed for collection */
 const ALLOWED_ROOT_FILES = [
@@ -44,6 +44,7 @@ const ALLOWED_ROOT_FILES = [
   'manifest.json',
   'README.md',
   'LICENSE',
+  'CLAUDE.md',
 ];
 
 /** Phase 1: only github.com is allowed as a git host */
