@@ -1373,6 +1373,213 @@ do_link_commands() {
 }
 
 # =============================================================================
+# CLAUDE.md Injection — Sentinel Block Architecture (SDD §F / §7.2)
+# =============================================================================
+#
+# Architecture: Single Managed Import
+#   Root CLAUDE.md gets ONE sentinel block with ONE @import to a managed file.
+#   Individual construct imports are added to the managed file only.
+#   This means root CLAUDE.md is mutated once, then never again.
+#
+# Layout:
+#   Root CLAUDE.md:
+#     @.claude/loa/CLAUDE.loa.md              (Loa framework - existing)
+#     <!-- constructs:begin -->
+#     @.claude/constructs/CLAUDE.constructs.md (single managed import)
+#     <!-- constructs:end -->
+#
+#   .claude/constructs/CLAUDE.constructs.md:   (managed by installer)
+#     @.claude/constructs/packs/observer/CLAUDE.md
+#     @.claude/constructs/packs/artisan/CLAUDE.md
+# =============================================================================
+
+# Portable mkdir-based lock (macOS + Linux compatible)
+_inject_lock_dir=""
+
+_inject_acquire_lock() {
+    local root="${CONSTRUCTS_ROOT:-.}"
+    _inject_lock_dir="$root/.constructs-inject.lock"
+    local timeout=10
+    local start=$SECONDS
+
+    while ! mkdir "$_inject_lock_dir" 2>/dev/null; do
+        if [ $((SECONDS - start)) -ge $timeout ]; then
+            # Check for stale lock via PID file
+            if [ -f "$_inject_lock_dir/pid" ]; then
+                local lock_pid
+                lock_pid=$(cat "$_inject_lock_dir/pid")
+                if ! kill -0 "$lock_pid" 2>/dev/null; then
+                    rm -rf "$_inject_lock_dir"
+                    continue
+                fi
+            fi
+            echo "ERROR: Lock held >${timeout}s. Another install may be running." >&2
+            return 1
+        fi
+        sleep 0.5
+    done
+    echo $$ > "$_inject_lock_dir/pid"
+}
+
+_inject_release_lock() {
+    if [ -n "$_inject_lock_dir" ] && [ -d "$_inject_lock_dir" ]; then
+        rm -rf "$_inject_lock_dir"
+    fi
+}
+
+# Validate slug format and reject symlinks on path components
+_inject_validate_paths() {
+    local slug="$1"
+    local root="${CONSTRUCTS_ROOT:-.}"
+
+    # Validate slug format (kebab-case, matches construct.schema.json pattern)
+    if ! echo "$slug" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
+        echo "ERROR: Invalid slug format: $slug" >&2
+        return 1
+    fi
+
+    # Check for symlinks on critical paths
+    if [ -L "$root/CLAUDE.md" ]; then
+        echo "ERROR: CLAUDE.md is a symlink — refusing to modify" >&2
+        return 1
+    fi
+}
+
+# Inject a construct's CLAUDE.md import into the managed file + sentinel block
+# Usage: inject_construct_claude_md <slug>
+# Environment: CONSTRUCTS_ROOT (optional, defaults to ".")
+inject_construct_claude_md() {
+    local slug="$1"
+    local root="${CONSTRUCTS_ROOT:-.}"
+    local claude_md="$root/CLAUDE.md"
+    local managed_dir="$root/.claude/constructs"
+    local managed_file="$managed_dir/CLAUDE.constructs.md"
+    local import_line="@.claude/constructs/packs/${slug}/CLAUDE.md"
+    local managed_import="@.claude/constructs/CLAUDE.constructs.md"
+    local sentinel_begin="<!-- constructs:begin -->"
+    local sentinel_end="<!-- constructs:end -->"
+
+    # Step 1: Validate paths
+    _inject_validate_paths "$slug" || return 1
+
+    # Step 2: Acquire lock
+    _inject_acquire_lock || return 1
+    # Ensure lock is released on exit
+    trap '_inject_release_lock' EXIT
+
+    # Step 3: Update managed file (create dir if needed)
+    mkdir -p "$managed_dir"
+
+    if [ -f "$managed_file" ] && grep -qF "$import_line" "$managed_file" 2>/dev/null; then
+        # Already present — idempotent, skip
+        :
+    else
+        # Append import line via atomic write
+        local tmp_managed
+        tmp_managed=$(mktemp "$managed_dir/CLAUDE.constructs.md.XXXXXX")
+        if [ -f "$managed_file" ]; then
+            cat "$managed_file" > "$tmp_managed"
+        fi
+        echo "$import_line" >> "$tmp_managed"
+        mv "$tmp_managed" "$managed_file"
+    fi
+
+    # Step 4: Ensure sentinel block in root CLAUDE.md
+    if [ -L "$claude_md" ]; then
+        echo "ERROR: CLAUDE.md is a symlink — refusing to modify" >&2
+        _inject_release_lock
+        trap - EXIT
+        return 1
+    fi
+
+    if [ -f "$claude_md" ]; then
+        # Check if sentinel already present
+        if grep -qF "$sentinel_begin" "$claude_md" 2>/dev/null; then
+            # Sentinel exists — check if managed import is inside
+            if grep -qF "$managed_import" "$claude_md" 2>/dev/null; then
+                # All good, nothing to do
+                :
+            else
+                # Sentinel exists but managed import missing — malformed state
+                echo "WARNING: Sentinel block exists but managed import missing. Adding import." >&2
+                local tmp_claude
+                tmp_claude=$(mktemp "$root/CLAUDE.md.XXXXXX")
+                # Insert managed import after sentinel_begin
+                while IFS= read -r line || [ -n "$line" ]; do
+                    echo "$line" >> "$tmp_claude"
+                    if [ "$line" = "$sentinel_begin" ]; then
+                        echo "$managed_import" >> "$tmp_claude"
+                    fi
+                done < "$claude_md"
+                mv "$tmp_claude" "$claude_md"
+            fi
+        else
+            # No sentinel — add it
+            local tmp_claude
+            tmp_claude=$(mktemp "$root/CLAUDE.md.XXXXXX")
+            cat "$claude_md" > "$tmp_claude"
+            # Append sentinel block at end
+            {
+                echo ""
+                echo "$sentinel_begin"
+                echo "$managed_import"
+                echo "$sentinel_end"
+            } >> "$tmp_claude"
+            mv "$tmp_claude" "$claude_md"
+        fi
+    else
+        # No CLAUDE.md — create with sentinel block
+        local tmp_claude
+        tmp_claude=$(mktemp "$root/CLAUDE.md.XXXXXX")
+        {
+            echo "$sentinel_begin"
+            echo "$managed_import"
+            echo "$sentinel_end"
+        } > "$tmp_claude"
+        mv "$tmp_claude" "$claude_md"
+    fi
+
+    # Step 5: Release lock
+    _inject_release_lock
+    trap - EXIT
+    return 0
+}
+
+# Remove a construct's import from the managed file
+# Usage: remove_construct_claude_md <slug>
+# Environment: CONSTRUCTS_ROOT (optional, defaults to ".")
+remove_construct_claude_md() {
+    local slug="$1"
+    local root="${CONSTRUCTS_ROOT:-.}"
+    local managed_dir="$root/.claude/constructs"
+    local managed_file="$managed_dir/CLAUDE.constructs.md"
+    local import_line="@.claude/constructs/packs/${slug}/CLAUDE.md"
+
+    # Step 1: Validate slug
+    if ! echo "$slug" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
+        echo "ERROR: Invalid slug format: $slug" >&2
+        return 1
+    fi
+
+    # Step 2: Acquire lock
+    _inject_acquire_lock || return 1
+    trap '_inject_release_lock' EXIT
+
+    # Step 3: Remove import from managed file
+    if [ -f "$managed_file" ]; then
+        local tmp_managed
+        tmp_managed=$(mktemp "$managed_dir/CLAUDE.constructs.md.XXXXXX")
+        grep -vF "$import_line" "$managed_file" > "$tmp_managed" 2>/dev/null || true
+        mv "$tmp_managed" "$managed_file"
+    fi
+
+    # Step 4: Release lock
+    _inject_release_lock
+    trap - EXIT
+    return 0
+}
+
+# =============================================================================
 # Command Line Interface
 # =============================================================================
 
