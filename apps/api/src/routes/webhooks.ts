@@ -6,6 +6,7 @@
  */
 
 import { Hono } from 'hono';
+import { createHmac, timingSafeEqual } from 'crypto';
 import type Stripe from 'stripe';
 import { verifyWebhookSignatureDual, getStripe, getTierFromPriceId } from '../services/stripe.js';
 import {
@@ -360,4 +361,251 @@ webhooksRouter.post('/stripe', async (c) => {
   }
 
   return c.json({ received: true });
+});
+
+// --- GitHub Webhook ---
+
+/**
+ * POST /v1/webhooks/github
+ * Auto-sync on push/tag via GitHub webhooks.
+ * @see sprint.md T2.4: GitHub Webhook Endpoint
+ *
+ * Verifies X-Hub-Signature-256, matches pack by github_repo_id or git_url,
+ * triggers sync on push to default branch or tag creation.
+ */
+webhooksRouter.post('/github', async (c) => {
+  const requestId = c.get('requestId');
+  const signature = c.req.header('x-hub-signature-256');
+  const event = c.req.header('x-github-event');
+  const deliveryId = c.req.header('x-github-delivery');
+
+  if (!signature || !event || !deliveryId) {
+    return c.json({ error: 'Missing signature, event, or delivery header' }, 400);
+  }
+
+  const webhookSecret = process.env.GITHUB_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    logger.error('GITHUB_WEBHOOK_SECRET not configured');
+    return c.json({ error: 'Webhook not configured' }, 500);
+  }
+
+  // Verify signature using raw bytes
+  const rawBodyBuffer = Buffer.from(await c.req.arrayBuffer());
+  const rawBody = rawBodyBuffer.toString('utf8');
+
+  const expectedSigHex = createHmac('sha256', webhookSecret).update(rawBodyBuffer).digest('hex');
+  const sigHex = signature.startsWith('sha256=') ? signature.slice(7) : '';
+
+  // Constant-time comparison on hex-decoded bytes to prevent timing attacks
+  const sigBuffer = Buffer.from(sigHex, 'hex');
+  const expectedBuffer = Buffer.from(expectedSigHex, 'hex');
+
+  if (sigBuffer.length !== expectedBuffer.length || !timingSafeEqual(sigBuffer, expectedBuffer)) {
+    logger.warn({ requestId }, 'GitHub webhook signature verification failed');
+    return c.json({ error: 'Invalid signature' }, 401);
+  }
+
+  // Replay protection: record delivery ID
+  const { db, packs, githubWebhookDeliveries } = await import('../db/index.js');
+  const { eq, or, sql } = await import('drizzle-orm');
+
+  const [deliveryInsert] = await db
+    .insert(githubWebhookDeliveries)
+    .values({ deliveryId })
+    .onConflictDoNothing({ target: [githubWebhookDeliveries.deliveryId] })
+    .returning({ id: githubWebhookDeliveries.id });
+
+  if (!deliveryInsert) {
+    logger.warn({ requestId, deliveryId }, 'GitHub webhook replay detected');
+    return c.json({ received: true, action: 'ignored', reason: 'Replay' });
+  }
+
+  // Only handle push and create (tag) events
+  if (event !== 'push' && event !== 'create') {
+    return c.json({ received: true, action: 'ignored', reason: `Unhandled event: ${event}` });
+  }
+
+  let payload: {
+    repository?: { id: number; clone_url?: string; default_branch?: string };
+    ref?: string;
+    ref_type?: string;
+  };
+
+  try {
+    payload = JSON.parse(rawBody);
+  } catch {
+    return c.json({ error: 'Invalid JSON payload' }, 400);
+  }
+
+  if (!payload.repository) {
+    return c.json({ received: true, action: 'ignored', reason: 'No repository in payload' });
+  }
+
+  const repoId = payload.repository.id;
+  const cloneUrl = payload.repository.clone_url?.toLowerCase().replace(/\.git$/, '') || '';
+
+  // Determine the ref to sync
+  let syncRef: string | null = null;
+
+  if (event === 'push') {
+    // Only sync pushes to default branch
+    const defaultBranch = payload.repository.default_branch || 'main';
+    const pushRef = payload.ref || '';
+    if (pushRef === `refs/heads/${defaultBranch}`) {
+      syncRef = defaultBranch;
+    }
+  } else if (event === 'create' && payload.ref_type === 'tag') {
+    syncRef = payload.ref || null;
+  }
+
+  if (!syncRef) {
+    return c.json({ received: true, action: 'ignored', reason: 'Not a default branch push or tag' });
+  }
+
+  // Match pack by github_repo_id (primary) or normalized git_url (fallback)
+  const matchedPacks = await db
+    .select({ id: packs.id, slug: packs.slug, gitUrl: packs.gitUrl })
+    .from(packs)
+    .where(
+      or(
+        eq(packs.githubRepoId, repoId),
+        sql`lower(replace(${packs.gitUrl}, '.git', '')) = ${cloneUrl}`
+      )
+    );
+
+  if (matchedPacks.length === 0) {
+    // Return 200 to acknowledge — don't leak which packs are registered
+    return c.json({ received: true });
+  }
+
+  // Rate limit + sync each matched pack
+  const { checkSyncRateLimit, recordSyncEvent } = await import('../services/sync-rate-limit.js');
+  const { syncFromRepo, GitSyncError } = await import('../services/git-sync.js');
+  const { packVersions, packFiles } = await import('../db/index.js');
+  const { and } = await import('drizzle-orm');
+
+  const results: Array<{ slug: string; status: string }> = [];
+
+  for (const pack of matchedPacks) {
+    // Rate limit check
+    const allowed = await checkSyncRateLimit(pack.id);
+    if (!allowed) {
+      results.push({ slug: pack.slug, status: 'rate_limited' });
+      continue;
+    }
+
+    if (!pack.gitUrl) {
+      results.push({ slug: pack.slug, status: 'no_git_url' });
+      continue;
+    }
+
+    try {
+      const syncResult = await syncFromRepo(pack.gitUrl, syncRef);
+
+      // Single DB transaction: version + files + pack metadata
+      await db.transaction(async (tx) => {
+        await tx
+          .update(packVersions)
+          .set({ isLatest: false })
+          .where(
+            and(
+              eq(packVersions.packId, pack.id),
+              eq(packVersions.isLatest, true)
+            )
+          );
+
+        const [version] = await tx
+          .insert(packVersions)
+          .values({
+            packId: pack.id,
+            version: syncResult.version,
+            manifest: syncResult.manifest,
+            isLatest: true,
+            publishedAt: new Date(),
+            totalSizeBytes: syncResult.totalSizeBytes,
+            fileCount: syncResult.files.length,
+          })
+          .onConflictDoUpdate({
+            target: [packVersions.packId, packVersions.version],
+            set: {
+              manifest: syncResult.manifest,
+              isLatest: true,
+              publishedAt: new Date(),
+              totalSizeBytes: syncResult.totalSizeBytes,
+              fileCount: syncResult.files.length,
+            },
+          })
+          .returning();
+
+        await tx
+          .delete(packFiles)
+          .where(eq(packFiles.versionId, version.id));
+
+        for (const file of syncResult.files) {
+          await tx.insert(packFiles).values({
+            versionId: version.id,
+            path: file.path,
+            contentHash: file.contentHash,
+            storageKey: `packs/${pack.slug}/${syncResult.version}/${file.path}`,
+            sizeBytes: file.sizeBytes,
+            mimeType: file.mimeType,
+            content: file.content,
+          });
+        }
+
+        await tx
+          .update(packs)
+          .set({
+            gitRef: syncRef,
+            lastSyncCommit: syncResult.commit,
+            lastSyncedAt: new Date(),
+            updatedAt: new Date(),
+          })
+          .where(eq(packs.id, pack.id));
+
+        // Upsert identity if present
+        if (syncResult.identity) {
+          const { constructIdentities } = await import('../db/index.js');
+          await tx
+            .insert(constructIdentities)
+            .values({
+              packId: pack.id,
+              personaYaml: syncResult.identity.personaYaml,
+              expertiseYaml: syncResult.identity.expertiseYaml,
+              cognitiveFrame: syncResult.identity.cognitiveFrame,
+              expertiseDomains: syncResult.identity.expertiseDomains,
+              voiceConfig: syncResult.identity.voiceConfig,
+              modelPreferences: syncResult.identity.modelPreferences,
+            })
+            .onConflictDoUpdate({
+              target: [constructIdentities.packId],
+              set: {
+                personaYaml: syncResult.identity.personaYaml,
+                expertiseYaml: syncResult.identity.expertiseYaml,
+                cognitiveFrame: syncResult.identity.cognitiveFrame,
+                expertiseDomains: syncResult.identity.expertiseDomains,
+                voiceConfig: syncResult.identity.voiceConfig,
+                modelPreferences: syncResult.identity.modelPreferences,
+                updatedAt: new Date(),
+              },
+            });
+        }
+      });
+
+      await recordSyncEvent(pack.id, 'webhook').catch(() => {});
+
+      logger.info(
+        { packId: pack.id, slug: pack.slug, version: syncResult.version, commit: syncResult.commit, requestId },
+        'Pack synced via GitHub webhook'
+      );
+
+      results.push({ slug: pack.slug, status: 'synced' });
+    } catch (err) {
+      const message = err instanceof GitSyncError ? err.message : 'Unknown error';
+      logger.error({ packId: pack.id, slug: pack.slug, error: message, requestId }, 'Webhook sync failed');
+      results.push({ slug: pack.slug, status: 'error' });
+    }
+  }
+
+  return c.json({ received: true, results });
 });

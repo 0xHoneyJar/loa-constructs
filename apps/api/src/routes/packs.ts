@@ -45,14 +45,14 @@ import {
   downloadFile,
   isStorageConfigured,
 } from '../services/storage.js';
-import { Errors } from '../lib/errors.js';
+import { Errors, AppError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { createHash, randomUUID } from 'crypto';
 import { skillsRateLimiter, submissionRateLimiter, uploadRateLimiter } from '../middleware/rate-limiter.js';
 import { validatePath, generatePackStorageKey } from '../lib/security.js';
 import { getEffectiveTier, canAccessTier, type SubscriptionTier } from '../services/subscription.js';
-import { db, packs } from '../db/index.js';
-import { eq } from 'drizzle-orm';
+import { db, packs, packVersions, packFiles } from '../db/index.js';
+import { eq, and } from 'drizzle-orm';
 
 // --- Route Instance ---
 
@@ -757,6 +757,310 @@ packsRouter.post(
 );
 
 /**
+ * POST /v1/packs/:slug/register-repo
+ * Register a git repository for a pack. Owner-only.
+ * @see sprint.md T1.4: Register-Repo API Endpoint
+ */
+packsRouter.post(
+  '/:slug/register-repo',
+  requireAuth(),
+  zValidator(
+    'json',
+    z.object({
+      git_url: z.string().url(),
+      git_ref: z.string().max(100).optional().default('main'),
+    })
+  ),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const userId = c.get('userId');
+    const requestId = c.get('requestId');
+    const { git_url, git_ref } = c.req.valid('json');
+
+    // Get pack
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    // Check ownership
+    const isOwner = await isPackOwner(pack.id, userId);
+    if (!isOwner) {
+      throw Errors.Forbidden('Only pack owners can register repositories');
+    }
+
+    // Validate URL via GitSyncService
+    const { validateGitUrl, cloneRepo, readManifest, GitSyncError } = await import('../services/git-sync.js');
+
+    try {
+      await validateGitUrl(git_url);
+    } catch (err) {
+      if (err instanceof GitSyncError) {
+        throw Errors.BadRequest(`Invalid git URL: ${err.message}`);
+      }
+      throw err;
+    }
+
+    // Shallow clone test — verify repo is accessible and has a manifest
+    const tmpDir = `/tmp/register-test-${randomUUID()}`;
+    try {
+      await cloneRepo(git_url, git_ref, tmpDir);
+      await readManifest(tmpDir);
+    } catch (err) {
+      if (err instanceof GitSyncError) {
+        throw new AppError('UNPROCESSABLE_ENTITY', err.message, 422);
+      }
+      throw new AppError('UNPROCESSABLE_ENTITY', 'Repository unreachable or missing manifest', 422);
+    } finally {
+      const fs = await import('node:fs/promises');
+      await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+    }
+
+    // Fetch github_repo_id via GitHub API
+    let githubRepoId: number | null = null;
+    try {
+      const urlParts = new URL(git_url);
+      const pathParts = urlParts.pathname.replace(/\.git$/, '').split('/').filter(Boolean);
+      if (pathParts.length >= 2) {
+        const owner = pathParts[0];
+        const repo = pathParts[1];
+        const resp = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+          headers: {
+            'Accept': 'application/vnd.github.v3+json',
+            'User-Agent': 'constructs-network/1.0',
+          },
+        });
+        if (resp.ok) {
+          const data = await resp.json() as { id: number };
+          githubRepoId = data.id;
+        }
+      }
+    } catch {
+      // Non-fatal: github_repo_id is optional, webhook matching falls back to URL
+      logger.warn({ git_url }, 'Failed to fetch github_repo_id');
+    }
+
+    // Update pack
+    const [updated] = await db
+      .update(packs)
+      .set({
+        sourceType: 'git',
+        gitUrl: git_url,
+        gitRef: git_ref,
+        githubRepoId: githubRepoId,
+        updatedAt: new Date(),
+      })
+      .where(eq(packs.id, pack.id))
+      .returning();
+
+    logger.info(
+      { packId: pack.id, slug, git_url, git_ref, githubRepoId, requestId },
+      'Repository registered for pack'
+    );
+
+    return c.json({
+      data: {
+        slug: updated.slug,
+        source_type: updated.sourceType,
+        git_url: updated.gitUrl,
+        git_ref: updated.gitRef,
+        updated_at: updated.updatedAt?.toISOString(),
+      },
+      request_id: requestId,
+    });
+  }
+);
+
+/**
+ * POST /v1/packs/:slug/sync
+ * Trigger a sync from the registered git repository. Owner-only.
+ * @see sprint.md T1.5: Sync API Endpoint
+ */
+packsRouter.post(
+  '/:slug/sync',
+  requireAuth(),
+  zValidator(
+    'json',
+    z
+      .object({
+        git_ref: z.string().max(100).optional(),
+      })
+      .optional()
+      .default({})
+  ),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const userId = c.get('userId');
+    const requestId = c.get('requestId');
+    const body = c.req.valid('json');
+
+    // Get pack
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    // Must be git-sourced
+    if (pack.sourceType !== 'git' || !pack.gitUrl) {
+      throw Errors.NotFound('Pack is not git-sourced. Register a repo first.');
+    }
+
+    // Check ownership
+    const isOwner = await isPackOwner(pack.id, userId);
+    if (!isOwner) {
+      throw Errors.Forbidden('Only pack owners can trigger sync');
+    }
+
+    // Rate limit check: max 10 syncs per pack per hour
+    const { checkSyncRateLimit, recordSyncEvent } = await import('../services/sync-rate-limit.js');
+    const allowed = await checkSyncRateLimit(pack.id);
+    if (!allowed) {
+      throw Errors.RateLimited('Max 10 syncs per pack per hour. Try again later.');
+    }
+
+    // Use provided ref or fall back to registered ref
+    const gitRef = body.git_ref || pack.gitRef || 'main';
+
+    // Run sync
+    const { syncFromRepo, GitSyncError } = await import('../services/git-sync.js');
+
+    let syncResult;
+    try {
+      syncResult = await syncFromRepo(pack.gitUrl, gitRef);
+    } catch (err) {
+      if (err instanceof GitSyncError) {
+        throw new AppError('UNPROCESSABLE_ENTITY', err.message, 422);
+      }
+      throw err;
+    }
+
+    // Single DB transaction: version + files + pack metadata
+    await db.transaction(async (tx) => {
+      // Clear isLatest on previous versions
+      await tx
+        .update(packVersions)
+        .set({ isLatest: false })
+        .where(
+          and(
+            eq(packVersions.packId, pack.id),
+            eq(packVersions.isLatest, true)
+          )
+        );
+
+      // Create or update pack version
+      const [version] = await tx
+        .insert(packVersions)
+        .values({
+          packId: pack.id,
+          version: syncResult.version,
+          manifest: syncResult.manifest,
+          isLatest: true,
+          publishedAt: new Date(),
+          totalSizeBytes: syncResult.totalSizeBytes,
+          fileCount: syncResult.files.length,
+        })
+        .onConflictDoUpdate({
+          target: [packVersions.packId, packVersions.version],
+          set: {
+            manifest: syncResult.manifest,
+            isLatest: true,
+            publishedAt: new Date(),
+            totalSizeBytes: syncResult.totalSizeBytes,
+            fileCount: syncResult.files.length,
+          },
+        })
+        .returning();
+
+      // Delete old files for this version and insert new ones
+      await tx
+        .delete(packFiles)
+        .where(eq(packFiles.versionId, version.id));
+
+      for (const file of syncResult.files) {
+        await tx.insert(packFiles).values({
+          versionId: version.id,
+          path: file.path,
+          contentHash: file.contentHash,
+          storageKey: `packs/${pack.slug}/${syncResult.version}/${file.path}`,
+          sizeBytes: file.sizeBytes,
+          mimeType: file.mimeType,
+          content: file.content, // base64 stored directly in DB
+        });
+      }
+
+      // Update pack metadata
+      await tx
+        .update(packs)
+        .set({
+          gitRef: gitRef,
+          lastSyncCommit: syncResult.commit,
+          lastSyncedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(packs.id, pack.id));
+
+      // Upsert identity if present
+      if (syncResult.identity) {
+        const { constructIdentities } = await import('../db/index.js');
+        await tx
+          .insert(constructIdentities)
+          .values({
+            packId: pack.id,
+            personaYaml: syncResult.identity.personaYaml,
+            expertiseYaml: syncResult.identity.expertiseYaml,
+            cognitiveFrame: syncResult.identity.cognitiveFrame,
+            expertiseDomains: syncResult.identity.expertiseDomains,
+            voiceConfig: syncResult.identity.voiceConfig,
+            modelPreferences: syncResult.identity.modelPreferences,
+          })
+          .onConflictDoUpdate({
+            target: [constructIdentities.packId],
+            set: {
+              personaYaml: syncResult.identity.personaYaml,
+              expertiseYaml: syncResult.identity.expertiseYaml,
+              cognitiveFrame: syncResult.identity.cognitiveFrame,
+              expertiseDomains: syncResult.identity.expertiseDomains,
+              voiceConfig: syncResult.identity.voiceConfig,
+              modelPreferences: syncResult.identity.modelPreferences,
+              updatedAt: new Date(),
+            },
+          });
+      }
+
+    });
+
+    // Record sync event for rate limiting (outside transaction — non-critical)
+    await recordSyncEvent(pack.id, 'manual').catch((err) => {
+      logger.warn({ err, packId: pack.id }, 'Failed to record sync event');
+    });
+
+    logger.info(
+      {
+        packId: pack.id,
+        slug,
+        version: syncResult.version,
+        commit: syncResult.commit,
+        fileCount: syncResult.files.length,
+        requestId,
+      },
+      'Pack synced from git'
+    );
+
+    return c.json({
+      data: {
+        slug: pack.slug,
+        version: syncResult.version,
+        commit: syncResult.commit,
+        files_synced: syncResult.files.length,
+        total_size_bytes: syncResult.totalSizeBytes,
+        synced_at: new Date().toISOString(),
+      },
+      request_id: requestId,
+    });
+  }
+);
+
+/**
  * GET /v1/packs/:slug/download
  * Download pack files with subscription check and license generation
  * Requires authentication (private beta - internal team only).
@@ -964,15 +1268,25 @@ packsRouter.get('/:slug/download', requireAuth(), async (c) => {
     'Pack downloaded'
   );
 
+  // Build response — add git metadata when source_type is 'git'
+  const packData: Record<string, unknown> = {
+    name: pack.name,
+    slug: pack.slug,
+    version: version.version,
+    manifest: version.manifest,
+    files: fileContents,
+  };
+
+  if (pack.sourceType === 'git') {
+    packData.source_type = 'git';
+    packData.git_url = pack.gitUrl;
+    packData.git_ref = pack.gitRef;
+    packData.last_synced_at = pack.lastSyncedAt?.toISOString() || null;
+  }
+
   return c.json({
     data: {
-      pack: {
-        name: pack.name,
-        slug: pack.slug,
-        version: version.version,
-        manifest: version.manifest,
-        files: fileContents,
-      },
+      pack: packData,
       license: {
         token: license.token,
         expires_at: license.expiresAt.toISOString(),
@@ -1114,4 +1428,137 @@ async function generateAnonymousPackLicense(
 
   return { token, expiresAt, watermark };
 }
+
+// --- Review Endpoints ---
+
+/**
+ * POST /v1/packs/:slug/reviews
+ * Create a review for a construct. One review per user per pack.
+ * @see sprint.md T2.2: Review API Endpoints
+ */
+packsRouter.post(
+  '/:slug/reviews',
+  requireAuth(),
+  zValidator(
+    'json',
+    z.object({
+      rating: z.number().int().min(1).max(5),
+      title: z.string().max(200).optional(),
+      body: z.string().max(5000).optional(),
+    })
+  ),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const userId = c.get('userId');
+    const requestId = c.get('requestId');
+    const { rating, title, body } = c.req.valid('json');
+
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    // Cannot review own pack
+    const isOwner = await isPackOwner(pack.id, userId);
+    if (isOwner) {
+      throw Errors.Forbidden('Cannot review your own construct');
+    }
+
+    const { createReview, getUserReview } = await import('../services/reviews.js');
+
+    // Check for existing review
+    const existing = await getUserReview(pack.id, userId);
+    if (existing) {
+      throw new AppError('CONFLICT', 'You have already reviewed this construct', 409);
+    }
+
+    let review;
+    try {
+      review = await createReview({
+        packId: pack.id,
+        userId,
+        rating,
+        title,
+        body,
+      });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'DUPLICATE_REVIEW') {
+        throw new AppError('CONFLICT', 'You have already reviewed this construct', 409);
+      }
+      throw err;
+    }
+
+    logger.info({ packId: pack.id, slug, userId, rating, requestId }, 'Review created');
+
+    return c.json({ data: review, request_id: requestId }, 201);
+  }
+);
+
+/**
+ * GET /v1/packs/:slug/reviews
+ * List reviews for a construct. Public endpoint.
+ * @see sprint.md T2.2: Review API Endpoints
+ */
+packsRouter.get('/:slug/reviews', async (c) => {
+  const slug = c.req.param('slug');
+  const requestId = c.get('requestId');
+  const sort = (c.req.query('sort') || 'newest') as 'newest' | 'highest' | 'lowest';
+  const limit = Math.min(parseInt(c.req.query('limit') || '20', 10), 50);
+  const offset = parseInt(c.req.query('offset') || '0', 10);
+
+  const pack = await getPackBySlug(slug);
+  if (!pack) {
+    throw Errors.NotFound('Pack not found');
+  }
+
+  const { getPackReviews } = await import('../services/reviews.js');
+  const { reviews, total } = await getPackReviews(pack.id, { sort, limit, offset });
+
+  return c.json({
+    data: reviews,
+    pagination: { total, limit, offset },
+    request_id: requestId,
+  });
+});
+
+/**
+ * PATCH /v1/packs/:slug/reviews/:reviewId/respond
+ * Add author response to a review. Pack owner only.
+ * @see sprint.md T2.2: Review API Endpoints
+ */
+packsRouter.patch(
+  '/:slug/reviews/:reviewId/respond',
+  requireAuth(),
+  zValidator(
+    'json',
+    z.object({
+      response: z.string().max(5000),
+    })
+  ),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const reviewId = c.req.param('reviewId');
+    const userId = c.get('userId');
+    const requestId = c.get('requestId');
+    const { response } = c.req.valid('json');
+
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    // Only pack owner can respond
+    const isOwner = await isPackOwner(pack.id, userId);
+    if (!isOwner) {
+      throw Errors.Forbidden('Only pack owners can respond to reviews');
+    }
+
+    const { addAuthorResponse } = await import('../services/reviews.js');
+    const updated = await addAuthorResponse(reviewId, pack.id, response);
+
+    logger.info({ packId: pack.id, reviewId, requestId }, 'Author response added');
+
+    return c.json({ data: updated, request_id: requestId });
+  }
+);
 

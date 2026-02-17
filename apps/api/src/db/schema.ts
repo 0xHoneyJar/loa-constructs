@@ -6,6 +6,7 @@ import {
   boolean,
   timestamp,
   integer,
+  bigint,
   pgEnum,
   jsonb,
   inet,
@@ -497,6 +498,16 @@ export const packs = pgTable(
     repositoryUrl: text('repository_url'),
     homepageUrl: text('homepage_url'),
     documentationUrl: text('documentation_url'),
+
+    // Git source fields (cycle-014: Construct-as-Repo Architecture)
+    // @see prd.md §FR-1.1 Git Repository Registration
+    sourceType: varchar('source_type', { length: 20 }).default('registry'),
+    gitUrl: text('git_url'),
+    gitRef: varchar('git_ref', { length: 100 }),
+    lastSyncCommit: varchar('last_sync_commit', { length: 40 }),
+    lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+    githubRepoId: bigint('github_repo_id', { mode: 'number' }),
+
     isFeatured: boolean('is_featured').default(false),
     thjBypass: boolean('thj_bypass').default(false),
 
@@ -528,6 +539,7 @@ export const packs = pgTable(
       .on(table.isFeatured)
       .where(sql`is_featured = true`),
     maturityIdx: index('idx_packs_maturity').on(table.maturity),
+    sourceTypeIdx: index('idx_packs_source_type').on(table.sourceType),
     // GIN indexes for array search
     // @see sdd.md §3.1 Database Schema (cycle-007)
     searchKeywordsIdx: index('idx_packs_search_keywords').using('gin', table.searchKeywords),
@@ -651,6 +663,26 @@ export const packInstallations = pgTable(
     packIdx: index('idx_pack_installations_pack').on(table.packId),
     userIdx: index('idx_pack_installations_user').on(table.userId),
     createdIdx: index('idx_pack_installations_created').on(table.createdAt),
+  })
+);
+
+/**
+ * Pack Sync Events table (rate limiting)
+ * @see prd.md §FR-1.4 Manual Sync
+ * @see sprint.md T1.8: Sync Rate Limiting
+ */
+export const packSyncEvents = pgTable(
+  'pack_sync_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    triggerType: varchar('trigger_type', { length: 20 }).notNull(), // 'manual' | 'webhook'
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    rateLimitIdx: index('idx_pack_sync_events_rate_limit').on(table.packId, table.createdAt),
   })
 );
 
@@ -1036,6 +1068,88 @@ export const graduationRequestsRelations = relations(graduationRequests, ({ one 
     references: [users.id],
   }),
 }));
+
+// --- Construct Reviews ---
+
+/**
+ * Construct Reviews table
+ * @see sprint.md T2.1: Construct Reviews Table + Rating Aggregation
+ * @see sdd.md §3.1.2 Reviews Table
+ */
+export const constructReviews = pgTable(
+  'construct_reviews',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    rating: integer('rating').notNull(), // 1-5
+    title: varchar('title', { length: 200 }),
+    body: text('body'),
+    authorResponse: text('author_response'),
+    authorRespondedAt: timestamp('author_responded_at', { withTimezone: true }),
+    isHidden: boolean('is_hidden').default(false),
+    hiddenReason: text('hidden_reason'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    packIdx: index('idx_construct_reviews_pack').on(table.packId),
+    userIdx: index('idx_construct_reviews_user').on(table.userId),
+    uniqueReview: uniqueIndex('idx_construct_reviews_unique').on(table.packId, table.userId),
+  })
+);
+
+// --- GitHub Webhook Deliveries (Replay Protection) ---
+
+/**
+ * Tracks GitHub webhook delivery IDs to prevent replay attacks.
+ * @see sprint.md T2.4: GitHub Webhook Endpoint
+ */
+export const githubWebhookDeliveries = pgTable(
+  'github_webhook_deliveries',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    deliveryId: varchar('delivery_id', { length: 100 }).notNull(),
+    receivedAt: timestamp('received_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    deliveryIdx: uniqueIndex('idx_github_webhook_delivery').on(table.deliveryId),
+  })
+);
+
+// --- Construct Identities ---
+
+/**
+ * Construct Identities table
+ * Stores parsed identity data from identity/persona.yaml + identity/expertise.yaml
+ * 1:1 with packs table.
+ * @see sprint.md T3.1: Construct Identities Table
+ * @see sdd.md §3.1.3 Identity Table
+ */
+export const constructIdentities = pgTable(
+  'construct_identities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    personaYaml: text('persona_yaml'),
+    expertiseYaml: text('expertise_yaml'),
+    cognitiveFrame: jsonb('cognitive_frame'),
+    expertiseDomains: jsonb('expertise_domains'),
+    voiceConfig: jsonb('voice_config'),
+    modelPreferences: jsonb('model_preferences'),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    packIdx: uniqueIndex('idx_construct_identities_pack').on(table.packId),
+  })
+);
 
 // --- Categories ---
 

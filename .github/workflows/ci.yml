@@ -97,6 +97,21 @@ jobs:
           echo "WARNING: Template guard bypassed via [skip-template-guard] in commit message"
           echo "This should only be used for exceptional circumstances!"
 
+  # =============================================================================
+  # FIXTURE SYNC - Ensures eval fixtures match source files
+  # =============================================================================
+  fixture-sync:
+    name: Fixture Sync Check
+    needs: template-guard
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Check fixture drift
+        run: bash evals/fixtures/sync-fixtures.sh --check
+
   validate:
     name: Validate Framework Files
     needs: template-guard
@@ -219,18 +234,22 @@ jobs:
 
           for mdfile in README.md CLAUDE.md PROCESS.md CONTRIBUTING.md; do
             # Extract markdown links like [text](file.md) or [text](./path/file.md)
-            grep -oP '\[.*?\]\(\K[^)]+(?=\))' "$mdfile" 2>/dev/null | while read link; do
-              # Skip external URLs
+            # Use process substitution to avoid subshell variable scoping bug
+            while read -r link; do
+              # Skip external URLs and pure anchors
               if [[ "$link" == http* ]] || [[ "$link" == "#"* ]]; then
                 continue
               fi
 
+              # Strip anchor fragment before checking file existence
+              local_path="${link%%#*}"
+
               # Check if file exists
-              if [ ! -f "$link" ] && [ ! -d "$link" ]; then
+              if [ ! -f "$local_path" ] && [ ! -d "$local_path" ]; then
                 echo "Broken link in $mdfile: $link"
                 LINKS_OK=false
               fi
-            done
+            done < <(grep -oP '\[.*?\]\(\K[^)]+(?=\))' "$mdfile" 2>/dev/null || true)
           done
 
           if [ "$LINKS_OK" = false ]; then
@@ -254,7 +273,7 @@ jobs:
           node-version: '20'
 
       - name: Install markdownlint-cli
-        run: npm install -g markdownlint-cli
+        run: npm install -g markdownlint-cli@0.47.0
 
       - name: Create markdownlint config
         run: |
@@ -283,7 +302,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
       - name: Install yamllint
-        run: pip install yamllint
+        run: pip install yamllint==1.38.0
 
       - name: Lint YAML files
         run: yamllint .github/ || true
@@ -464,55 +483,11 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-      - name: Upload Web build artifact
+      - name: Upload Explorer build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: web-build
-          path: apps/web/.next
-          retention-days: 7
-          if-no-files-found: ignore
-
-  registry-e2e:
-    name: Registry - E2E Tests
-    runs-on: ubuntu-latest
-    needs: registry-build
-    if: hashFiles('apps/web/e2e/**') != ''
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        run: cd apps/web && npx playwright install --with-deps chromium
-
-      - name: Build application
-        run: pnpm build
-
-      - name: Run E2E tests
-        run: cd apps/web && pnpm test:e2e --project=chromium
-        env:
-          CI: true
-
-      - name: Upload test results
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: apps/web/playwright-report/
+          name: explorer-build
+          path: apps/explorer/.next
           retention-days: 7
           if-no-files-found: ignore
 

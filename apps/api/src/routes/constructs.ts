@@ -70,6 +70,8 @@ function formatConstruct(c: Construct) {
             : null,
         }
       : null,
+    maturity: c.maturity,
+    source_type: c.sourceType,
     created_at: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
     updated_at: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
   };
@@ -90,6 +92,16 @@ function formatConstructDetail(c: Construct) {
     repository_url: c.repositoryUrl,
     homepage_url: c.homepageUrl,
     documentation_url: c.documentationUrl,
+    git_url: c.gitUrl,
+    has_identity: c.hasIdentity,
+    identity: c.identity
+      ? {
+          cognitive_frame: c.identity.cognitiveFrame,
+          expertise_domains: c.identity.expertiseDomains,
+          voice_config: c.identity.voiceConfig,
+          model_preferences: c.identity.modelPreferences,
+        }
+      : null,
     latest_version: c.latestVersion
       ? {
           version: c.latestVersion.version,

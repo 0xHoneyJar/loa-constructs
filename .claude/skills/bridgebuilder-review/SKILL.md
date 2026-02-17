@@ -1,46 +1,77 @@
-# Bridgebuilder Review
+---
+zones:
+  system:
+    path: .claude
+    permission: read
+  state:
+    paths: [grimoires/bridgebuilder]
+    permission: read
+  app:
+    permission: none
+---
 
-## Purpose
+# Bridgebuilder — Autonomous PR Review
 
-Multi-persona adversarial review of pack outputs. Applies Physics of Error vocabulary to detect Near Misses and Category Errors in generated artifacts.
+## Prerequisites
 
-## Runtime Dependency
-
-The review engine implementation lives in the **midi-interface** repository (`0xHoneyJar/midi-interface`). This skill provides:
-
-- **Persona definitions** (`resources/personas/*.md`) — review standards and detection rules
-- **Correction Vector schema** (`.claude/schemas/correction-vector.schema.json`) — structured violation output
-- **Feedback convention** (`grimoires/bridgebuilder/feedback/`) — violation record storage
-
-The actual review orchestration (reading outputs, applying persona rules, generating correction vectors) requires the midi-interface runtime. Without it, personas can be used as manual review checklists.
-
-## Personas
-
-| Persona | Pack | Focus |
-|---------|------|-------|
-| `taste.md` | Artisan | Design system compliance, theme tokens, motion |
-| `research.md` | Observer | Mom Test, hypothesis-first, confidence calibration |
-| `strategy.md` | GTM-Collective | Factual grounding, assumption tracking, pricing |
+- `gh` CLI installed and authenticated (`gh auth status`)
+- `ANTHROPIC_API_KEY` environment variable set
+- Node.js >= 20.0.0
 
 ## Usage
 
+```bash
+/bridgebuilder                          # Review all open PRs on auto-detected repo
+/bridgebuilder --dry-run                # Preview reviews without posting
+/bridgebuilder --pr 42                  # Review only PR #42
+/bridgebuilder --repo owner/repo        # Target specific repo
+/bridgebuilder --no-auto-detect         # Skip git remote detection
 ```
-/bridgebuilder-review --persona taste src/components/Card.tsx
-/bridgebuilder-review --persona research grimoires/observer/canvas/user-123.md
-/bridgebuilder-review --persona strategy grimoires/gtm/strategy/positioning.md
+
+## How It Works
+
+1. Resolves configuration from 5-level precedence: CLI > env > YAML > auto-detect > defaults
+2. Detects current repo from `git remote -v` (unless `--no-auto-detect`)
+3. Fetches open PRs via `gh` CLI
+4. For each PR:
+   - Checks if already reviewed (marker: `<!-- bridgebuilder-review: {sha} -->`)
+   - Builds review prompt from persona + truncated diff
+   - Calls Anthropic API for review generation
+   - Sanitizes output (redacts leaked secrets)
+   - Posts review to GitHub (`COMMENT` or `REQUEST_CHANGES`)
+5. Prints JSON summary: `{ reviewed, skipped, errors }`
+
+## Configuration
+
+Set in `.loa.config.yaml` under `bridgebuilder:` section, or via environment variables:
+
+| Setting | Env Var | Default |
+|---------|---------|---------|
+| repos | `BRIDGEBUILDER_REPOS` | Auto-detected from git remote |
+| model | `BRIDGEBUILDER_MODEL` | `claude-sonnet-4-5-20250929` |
+| dry_run | `BRIDGEBUILDER_DRY_RUN` | `false` |
+| max_prs | — | `10` |
+| max_files_per_pr | — | `50` |
+| max_diff_bytes | — | `100000` |
+| max_input_tokens | — | `8000` |
+| max_output_tokens | — | `4000` |
+| persona_path | — | `grimoires/bridgebuilder/BEAUVOIR.md` |
+
+## Persona
+
+Override the default reviewer persona by creating `grimoires/bridgebuilder/BEAUVOIR.md`. The default persona reviews across 4 dimensions: Security, Quality, Test Coverage, and Operational Readiness.
+
+## Execution
+
+This skill runs `entry.sh` which invokes the compiled Node.js application:
+
+```bash
+.claude/skills/bridgebuilder-review/resources/entry.sh [flags]
 ```
 
-## Output
+## Exit Codes
 
-Correction Vectors are written to `grimoires/bridgebuilder/feedback/{YYYY-MM-DD}-{pack}-{skill}.json` following the schema at `.claude/schemas/correction-vector.schema.json`.
-
-## Physics of Error Vocabulary
-
-| Principle | Meaning |
-|-----------|---------|
-| Brittle Dependency | Value that cannot adapt when upstream changes |
-| Concept Impermanence | Premature crystallization that resists revision |
-| Semantic Drift | Gradual loss of meaning through misuse or overloading |
-| Coupling Inversion | Downstream artifact driving upstream decisions |
-| Semantic Collapse | Reducing complex structure to a single scalar |
-| Layer Violation | Bypassing the intended abstraction boundary |
+| Code | Meaning |
+|------|---------|
+| 0 | All reviews completed successfully |
+| 1 | One or more reviews encountered errors |

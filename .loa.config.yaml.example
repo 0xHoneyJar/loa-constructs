@@ -10,6 +10,34 @@
 # =============================================================================
 
 # -----------------------------------------------------------------------------
+# Ride Configuration (v1.31.0)
+# -----------------------------------------------------------------------------
+# Controls /ride codebase analysis behavior.
+ride:
+  # Days before ride artifacts are considered stale. When /ride is invoked
+  # and .reality-meta.json shows artifacts younger than this, the user is
+  # prompted to skip or re-analyze. Use --fresh flag to bypass.
+  staleness_days: 7
+
+  # Enrichment phases (v1.39.0) — opt-in depth for /ride
+  # These phases run after the standard ride when --with-gaps, --with-decisions,
+  # --with-terms, or --enriched flags are passed. No flags = standard ride unchanged.
+  enrichment:
+    gaps:
+      # Maximum open gaps before error. Prevents gap tracker from growing unbounded.
+      max_open: 200
+      # Warning threshold. Logs a warning when open gaps reach this count.
+      warn_at: 150
+    decisions:
+      # Months before an ADR is flagged as stale and recommended for reconfirmation.
+      stale_months: 12
+      # Additional ADR directory paths to scan (beyond the 5 built-in patterns).
+      extra_paths: []
+    terminology:
+      # Maximum terms to extract from source code. Ranked by frequency, capped here.
+      max_terms: 50
+
+# -----------------------------------------------------------------------------
 # Configurable Paths (v1.27.0)
 # -----------------------------------------------------------------------------
 # Customize grimoire and state file locations. All paths are relative to
@@ -401,6 +429,83 @@ run_mode:
     create_draft_pr: true
 
 # -----------------------------------------------------------------------------
+# BUTTERFREEZONE — Agent-Grounded README (v1.35.0)
+# -----------------------------------------------------------------------------
+# Generates BUTTERFREEZONE.md: a provenance-tagged, checksum-verified,
+# token-efficient project summary for AI agent consumption.
+# "The zone where only truth survives — no butter, no hype."
+butterfreezone:
+  enabled: true                         # On by default, opt-out via false
+  output_path: BUTTERFREEZONE.md        # Relative to repo root
+  word_budget:
+    total: 3200                         # ~8000 tokens (model-agnostic)
+    per_section: 800                    # ~2000 tokens per section
+  staleness_days: 7                     # Advisory freshness window
+  hooks:
+    run_bridge: true                    # Regenerate in bridge FINALIZING phase
+    run_sprint_plan: false              # Phase 2: regenerate after sprint plan
+    post_merge: false                   # Phase 2: regenerate on merge to main
+    ride: false                         # Future: regenerate after /ride
+    ship: false                         # Phase 2: regenerate on /ship
+  rtfm:
+    check_enabled: true                 # Include in RTFM validation
+    strict_mode: false                  # false=advisory warnings, true=hard gate
+  ecosystem:                              # Cross-repo discovery graph (v1.40.0)
+    # Each entry declares a related repository with its role and interface.
+    # Agents traverse these links to build a multi-repo capability graph.
+    # Schema per entry:
+    #   repo (required):     GitHub slug — machine-resolvable via gh
+    #   role (required):     semantic relationship (runtime, protocol, distribution, billing, client, library)
+    #   interface (required): integration surface (hounfour-router, npm-package, jwt-auth, etc.)
+    #   protocol (optional): shared contract version from a common package
+    - repo: 0xHoneyJar/loa-finn
+      role: runtime
+      interface: hounfour-router
+      protocol: loa-hounfour@4.6.0
+    - repo: 0xHoneyJar/loa-hounfour
+      role: protocol
+      interface: npm-package
+      protocol: loa-hounfour@4.6.0
+    - repo: 0xHoneyJar/arrakis
+      role: distribution
+      interface: jwt-auth
+      protocol: loa-hounfour@4.6.0
+  culture:                                # Cultural BUTTERFREEZONE (v1.40.0)
+    # Optional section communicating project principles, naming, methodology.
+    # Provenance: OPERATIONAL. Omitted when not configured.
+    naming_etymology: "Vodou terminology as cognitive hooks for framework concepts"
+    principles:
+      - "Think Before Coding — plan and analyze before implementing"
+      - "Simplicity First — minimum complexity for the current task"
+    methodology: "Agent-driven development with iterative excellence loops"
+  manual_sections:
+    sentinel_start: "<!-- manual-start -->"
+    sentinel_end: "<!-- manual-end -->"
+  # Capability overrides — manual adjustments to inferred capabilities (v1.40.0)
+  # The generator infers capabilities from SKILL.md keyword analysis. These
+  # overrides let you suppress false positives or add capabilities the
+  # inference engine cannot detect.
+  capability_overrides:
+    # Suppress: list of strings to remove from inferred capabilities.
+    # Uses grep -Fv (fixed-string, case-sensitive, substring match).
+    # A value of "ci" removes ANY capability line containing "ci"
+    # (e.g., "ci-deploy" but also "specificity-analysis").
+    # Values are NOT regexes — special characters are treated literally.
+    suppress: []
+    # Examples:
+    #   suppress:
+    #     - "network: read"           # Remove inferred network read capability
+    #     - "model: invoke"           # Remove inferred model invocation
+    #
+    # Add: list of capability strings to force-include.
+    # add: []
+    # Examples:
+    #   add:
+    #     - "filesystem: write (scope: app)"
+  security:
+    redaction_enabled: true             # Gitleaks-pattern secret redaction
+
+# -----------------------------------------------------------------------------
 # Beads-First Infrastructure (v1.29.0)
 # -----------------------------------------------------------------------------
 # Task tracking via beads_rust (br) is the EXPECTED DEFAULT.
@@ -445,6 +550,159 @@ beads:
     db_warn_size_mb: 100
     # Warn when JSONL hasn't been synced in this many hours
     sync_stale_hours: 24
+
+# -----------------------------------------------------------------------------
+# Hounfour Multi-Model Provider Abstraction (v1.31.0)
+# -----------------------------------------------------------------------------
+# Configure upstream model routing, pricing, budget enforcement, and circuit
+# breakers. System defaults ship in .claude/defaults/model-config.yaml —
+# only override values you want to change here.
+#
+# Architecture: SDD §4.1.2 (Config Schema), §4.2 (Routing), §4.5 (Metering)
+# Feature flag: hounfour.flatline_routing controls Sprint 2 routing path
+hounfour:
+  # Feature flag — controls whether Flatline uses Hounfour routing (Sprint 2)
+  # or the legacy direct-call path. Set to true when ready to migrate.
+  flatline_routing: false
+
+  # Provider registry — override endpoints, auth, or add new providers
+  # Providers not listed here use system defaults from model-config.yaml
+  providers:
+    openai:
+      # type: openai                    # Provider SDK type
+      # endpoint: "https://api.openai.com/v1"
+      auth: "{env:OPENAI_API_KEY}"      # Auth template (env: prefix resolves env vars)
+      models:
+        gpt-5.2:
+          capabilities: [chat, tools, function_calling]
+          context_window: 128000
+          pricing:
+            input_per_mtok: 10000000    # $10.00/M tokens (integer micro-USD)
+            output_per_mtok: 30000000   # $30.00/M tokens
+        gpt-5.2-codex:
+          capabilities: [chat, tools, function_calling, code]
+          context_window: 200000
+          pricing:
+            input_per_mtok: 15000000
+            output_per_mtok: 60000000
+
+    anthropic:
+      auth: "{env:ANTHROPIC_API_KEY}"
+      models:
+        claude-opus-4-6:
+          capabilities: [chat, tools, function_calling, thinking_traces]
+          context_window: 200000
+          pricing:
+            input_per_mtok: 5000000     # $5.00/M tokens
+            output_per_mtok: 25000000   # $25.00/M tokens
+        claude-sonnet-4-6:
+          capabilities: [chat, tools, function_calling]
+          context_window: 200000
+          pricing:
+            input_per_mtok: 3000000
+            output_per_mtok: 15000000
+
+  # Aliases — short names mapping to provider:model-id
+  aliases:
+    native: "claude-code:session"         # Reserved — Claude Code native runtime
+    reviewer: "openai:gpt-5.2"            # Primary review model
+    reasoning: "openai:gpt-5.2"           # Reasoning/skeptic model
+    cheap: "anthropic:claude-sonnet-4-6"  # Budget-conscious model
+    opus: "anthropic:claude-opus-4-6"     # High-quality model
+
+  # Agent bindings — which model each agent uses + requirements
+  # Agents not listed here use the system defaults from model-config.yaml
+  agents:
+    reviewing-code:
+      model: reviewer
+      temperature: 0.3
+    translating-for-executives:
+      model: cheap
+      temperature: 0.5
+    flatline-reviewer:
+      model: reviewer
+      temperature: 0.3
+    flatline-skeptic:
+      model: reasoning
+      temperature: 0.5
+      requires:
+        thinking_traces: preferred
+    # Agents bound to native runtime (Claude Code session):
+    # implementing-tasks, riding-codebase, designing-architecture,
+    # planning-sprints, discovering-requirements, auditing-security
+
+  # Routing — fallback chains (provider down) and downgrade chains (budget)
+  routing:
+    fallback:
+      openai: [anthropic]               # OpenAI down → try Anthropic
+      anthropic: [openai]               # Anthropic down → try OpenAI
+    downgrade:
+      reviewer: [cheap]                 # Budget exceeded → downgrade
+
+    # Circuit breaker — per-provider state machine (CLOSED/OPEN/HALF_OPEN)
+    # State files: .run/circuit-breaker-{provider}.json
+    circuit_breaker:
+      failure_threshold: 5              # Consecutive failures to trip OPEN
+      reset_timeout_seconds: 60         # Seconds in OPEN before probing
+      half_open_max_probes: 1           # Concurrent probes in HALF_OPEN
+      count_window_seconds: 300         # Rolling window for failure count
+
+  # Retry — per-request retry with exponential backoff
+  retry:
+    max_retries: 3                      # Per-provider retries
+    max_total_attempts: 6               # Global hard cap (SDD §4.2.7)
+    max_provider_switches: 2            # Maximum fallback chain depth
+    base_delay_seconds: 1.0             # Exponential backoff base
+
+  # Metering — JSONL cost ledger with integer micro-USD arithmetic
+  metering:
+    enabled: true
+    ledger_path: "grimoires/loa/a2a/cost-ledger.jsonl"
+    budget:
+      daily_micro_usd: 500000000        # $500/day (500M micro-USD)
+      warn_at_percent: 80               # Warn at 80% of daily budget
+      on_exceeded: downgrade            # downgrade | block | warn
+
+  # Timeouts — per-provider connection/read/write limits
+  defaults:
+    connect_timeout: 10                 # seconds
+    read_timeout: 120                   # seconds
+    write_timeout: 30                   # seconds
+
+# Hounfour Examples:
+#
+# Example 1: Conservative (all native, no remote calls)
+# hounfour:
+#   flatline_routing: false
+#   agents:
+#     reviewing-code:
+#       model: native
+#     flatline-reviewer:
+#       model: native
+#
+# Example 2: Budget-conscious (lower daily limit, aggressive downgrade)
+# hounfour:
+#   metering:
+#     budget:
+#       daily_micro_usd: 50000000       # $50/day
+#       warn_at_percent: 60
+#       on_exceeded: block              # Hard stop instead of downgrade
+#
+# Example 3: Custom provider (e.g., Azure OpenAI)
+# hounfour:
+#   providers:
+#     azure-openai:
+#       type: openai
+#       endpoint: "https://myorg.openai.azure.com/openai/deployments/gpt-5"
+#       auth: "{env:AZURE_OPENAI_KEY}"
+#       models:
+#         gpt-5-azure:
+#           capabilities: [chat, tools, function_calling]
+#           pricing:
+#             input_per_mtok: 10000000
+#             output_per_mtok: 30000000
+#   aliases:
+#     reviewer: "azure-openai:gpt-5-azure"
 
 # -----------------------------------------------------------------------------
 # Persistent Memory (v1.28.0)
@@ -767,6 +1025,38 @@ flatline_protocol:
       notebook_id: ""          # Your NotebookLM notebook ID
       timeout_ms: 30000        # Query timeout
 
+  # Adversarial cross-model dissent for quality gates (#224)
+  # A second model reviews code that Claude already reviewed
+  code_review:
+    enabled: false               # Opt-in: enable for /review-sprint
+    model: "gpt-5.2-codex"      # Dissenter model
+    timeout_seconds: 60          # Per-call timeout
+    budget_cents: 150            # Max cost per dissent call
+  security_audit:
+    enabled: false               # Opt-in: enable for /audit-sprint
+    model: "gpt-5.2-codex"      # Dissenter model
+    timeout_seconds: 60
+    budget_cents: 150
+  stable_anchors:
+    required: true               # Demote anchorless high-severity findings
+    preferred_format: "symbol"   # symbol | hunk_header | line_number
+    enforce_for: ["BLOCKING", "CRITICAL", "HIGH"]
+  context_escalation:
+    enabled: true                # Full-file context for P0 files
+    secondary_token_budget: 15000
+    max_file_lines: 500
+    max_file_bytes: 51200        # 50KB
+    denylist: ["*.pem", "*.key", "*.p12", "*.pfx", "id_rsa*", ".env*", "credentials.*", "secrets.*", "*.secret"]
+  secret_scanning:
+    enabled: true                # Pre-send redaction (recommended)
+    patterns:                    # Format-specific regex patterns
+      - "AKIA[0-9A-Z]{16}"
+      - "-----BEGIN[A-Z ]*PRIVATE KEY-----"
+      - "ghp_[A-Za-z0-9]{36}"
+    allowlist:                   # False-positive exclusions
+      - "sha256:[a-f0-9]{64}"
+      - "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+
 # -----------------------------------------------------------------------------
 # Autonomous Flatline Mode (v1.22.0)
 # -----------------------------------------------------------------------------
@@ -880,6 +1170,58 @@ autonomous_mode:
 #     blocker: log               # Log blockers instead of halting
 #   # WARNING: This may allow problematic changes to accumulate
 
+# -----------------------------------------------------------------------------
+# Eval Sandbox (v1.32.0)
+# -----------------------------------------------------------------------------
+# Configuration for the eval framework: deterministic framework evals and
+# stochastic agent evals with baseline comparison and CI integration.
+# See: evals/README.md for architecture and usage.
+eval:
+  # Default suite to run when no --suite specified
+  default_suite: framework
+
+  # Sandbox mode: local (default) or container (Docker)
+  sandbox_mode: local
+
+  # Trial configuration
+  trials:
+    # Default trials for framework evals (deterministic, 1 is sufficient)
+    framework: 1
+    # Default trials for agent evals (stochastic, 3+ recommended)
+    agent: 3
+
+  # Comparison thresholds
+  comparison:
+    # Regression threshold — pass rate drop larger than this triggers regression
+    threshold: 0.10
+    # Use Wilson confidence intervals for multi-trial comparisons
+    wilson_ci: true
+    # Model version skew makes results advisory-only
+    advisory_on_model_skew: true
+
+  # CI integration
+  ci:
+    # Post PR comment with eval results
+    post_pr_comment: true
+    # Block PR on regressions (exit code 1)
+    block_on_regression: true
+    # Allow infrastructure errors to pass (exit code 2)
+    allow_infra_errors: true
+
+  # Baseline management
+  baselines:
+    # Require --reason flag when updating baselines
+    require_reason: true
+    # Directory for baseline YAML files
+    directory: evals/baselines
+
+  # Result storage
+  results:
+    # JSONL ledger for historical results
+    ledger: evals/results/eval-ledger.jsonl
+    # Retention for CI artifacts (days)
+    artifact_retention_days: 90
+
 # =============================================================================
 # Post-PR Validation Loop (v1.25.0)
 # =============================================================================
@@ -969,3 +1311,249 @@ post_pr_validation:
     enabled: true
     # Mode for auto-invoked validation
     mode: "autonomous"
+
+# =============================================================================
+# Run Bridge — Autonomous Excellence Loop (v1.34.0)
+# =============================================================================
+# Iterative sprint-plan → Bridgebuilder review → findings → repeat loop.
+# Each iteration leaves a GitHub trail and captures visions.
+run_bridge:
+  # Master toggle — must be true to use /run-bridge
+  enabled: false
+
+  # Default parameters
+  defaults:
+    # Maximum bridge iterations (1-5)
+    depth: 3
+    # Review after each sprint vs full plan
+    per_sprint: false
+    # Flatline threshold: ratio of current/initial score below which to count as "flat"
+    flatline_threshold: 0.05
+    # How many consecutive below-threshold iterations before stopping
+    consecutive_flatline: 2
+
+  # Timeout limits
+  timeouts:
+    # Maximum hours per bridge iteration
+    per_iteration_hours: 4
+    # Maximum total hours for entire bridge run
+    total_hours: 24
+
+  # GitHub trail configuration
+  github_trail:
+    # Post Bridgebuilder review as PR comment after each iteration
+    post_comments: true
+    # Update PR body with iteration summary table
+    update_pr_body: true
+    # Commit message prefix for bridge iteration commits
+    commit_prefix: "bridge"
+
+  # Ground Truth generation
+  ground_truth:
+    enabled: true
+    # Max tokens per GT section file
+    max_tokens_per_section: 2000
+    # Max tokens for GT index file
+    index_max_tokens: 500
+
+  # Vision Registry
+  vision_registry:
+    enabled: true
+    # Auto-capture VISION findings from Bridgebuilder reviews
+    auto_capture: true
+
+  # RTFM documentation gate (runs after loop termination)
+  rtfm:
+    enabled: true
+    # Maximum fix iterations on RTFM failure (capped to prevent loops)
+    max_fix_iterations: 1
+
+  # Lore integration
+  lore:
+    enabled: true
+    # Which lore categories to load for bridge context
+    categories:
+      - mibera
+      - neuromancer
+
+  # Bridgebuilder persona enrichment (v1.35.0)
+  bridgebuilder:
+    # Enable persona-driven enriched reviews
+    persona_enabled: true
+    # Path to persona definition file
+    persona_path: .claude/data/bridgebuilder-persona.md
+    # Include enriched fields (faang_parallel, metaphor, teachable_moment, connection)
+    enriched_findings: true
+    # Generate insights stream (rich prose surrounding findings)
+    insights_stream: true
+    # Include PRAISE severity findings for good engineering decisions
+    praise_findings: true
+    # Verify persona file integrity against base branch
+    integrity_check: true
+    # Token budget for review output
+    token_budget:
+      # Maximum tokens for findings JSON stream
+      findings_tokens: 5000
+      # Maximum tokens for insights prose stream
+      insights_tokens: 25000
+      # Maximum total tokens (both streams)
+      total_tokens: 30000
+    # Size limits for PR comments
+    size_limits:
+      # Truncate preserving findings JSON (65KB)
+      truncate_bytes: 66560
+      # Findings-only emergency fallback (256KB)
+      findings_only_bytes: 262144
+    # Security content redaction
+    redaction:
+      # Enable gitleaks-inspired pattern redaction
+      enabled: true
+      # Block posting if secrets remain after redaction
+      post_redaction_safety: true
+
+# =============================================================================
+# Agent Teams Compatibility (v1.39.0)
+# =============================================================================
+# Experimental: Requires CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
+# Enables multi-agent orchestration with Loa's workflow.
+# See: .claude/loa/reference/agent-teams-reference.md
+agent_teams:
+  # Detection mode: auto (use if available), true (require), false (disable)
+  enabled: auto
+
+  # Beads access model: Only the team lead runs br commands;
+  # teammates report task status via SendMessage
+  beads_access: lead_only
+
+  # State file behavior when Agent Teams is active
+  state_files:
+    # Use teammate-scoped state files (.run/*.{name}.json)
+    scoped: true
+    # Lead merges teammate state into canonical files on TeamDelete
+    merge_on_shutdown: true
+
+# =============================================================================
+# Post-Merge Automation Pipeline (v1.36.0)
+# =============================================================================
+# Automated post-merge pipeline triggered on push to main.
+# 3-layer architecture: GH Actions → claude-code-action → shell orchestrator.
+post_merge:
+  # Master toggle — must be true for GH Actions workflow to process merges
+  enabled: false
+
+  # Phase matrix for each PR type
+  # cycle: all 8 phases (classify, semver, changelog, gt_regen, rtfm, tag, release, notify)
+  # bugfix: 4 phases (classify, semver, tag, notify)
+  # other: 4 phases (classify, semver, tag, notify)
+
+  # claude-code-action configuration
+  claude_code_action:
+    # Model for cycle pipeline execution
+    model: "claude-sonnet-4-5-20250929"
+    # Maximum conversation turns
+    max_turns: 15
+    # Tool allowlist
+    allowed_tools: "Bash(bash),Read,Write,Glob,Grep"
+
+  # Timeouts
+  timeouts:
+    # Full pipeline timeout in minutes (GH Actions job timeout)
+    full_pipeline_minutes: 30
+
+  # Phase-specific options
+  phases:
+    # Skip ground truth regeneration
+    skip_gt: false
+    # Skip RTFM validation
+    skip_rtfm: false
+
+  # Notification
+  notify:
+    # Post pipeline summary as PR comment
+    pr_comment: true
+    # Discord notification on failure (requires DISCORD_WEBHOOK_URL secret)
+    discord_on_failure: true
+
+# =============================================================================
+# Harness Engineering — Safety Hooks, Deny Rules, Audit (v1.37.0)
+# =============================================================================
+# Defense-in-depth configuration for agent safety. Hooks operate at the Claude
+# Code platform level, providing protection across all modes (interactive,
+# autonomous, simstim). Source: Trail of Bits + OpenAI harness patterns.
+harness:
+  # Safety hooks — PreToolUse:Bash destructive command blocking
+  safety_hooks:
+    enabled: true                         # Master toggle for safety hook
+    # Individual pattern toggles (all true by default)
+    block_rm_rf: true                     # Block rm -rf (suggest trash)
+    block_force_push: true                # Block git push --force (suggest --force-with-lease)
+    block_reset_hard: true                # Block git reset --hard (suggest git stash)
+    block_git_clean: true                 # Block git clean -f without -n dry-run
+
+  # Deny rules — platform-level file access blocking
+  deny_rules:
+    # Auto-install during /mount (blocks ~/.ssh, ~/.aws, ~/.kube, etc.)
+    auto_install: true                    # Set false to skip during /mount
+    # Template: .claude/hooks/settings.deny.json
+    # Installer: .claude/scripts/install-deny-rules.sh
+
+  # Audit logging — PostToolUse:Bash mutation logger
+  audit_logging:
+    enabled: true                         # Log mutating commands to .run/audit.jsonl
+    max_file_size_mb: 10                  # Rotate when audit log exceeds this size
+
+  # Stop guard — prevent premature exit during autonomous runs
+  stop_guard:
+    enabled: true                         # Check for active /run, /run-bridge, /simstim
+
+  # Invariant linter — mechanical validation of Loa structure
+  invariant_linting:
+    enabled: true                         # Enable lint-invariants.sh
+    on_mount: true                        # Run after /mount
+    on_run_preflight: true                # Run during /run preflight
+
+# =============================================================================
+# Bridgebuilder — Autonomous PR Review
+# =============================================================================
+# Configuration for the /bridgebuilder skill. All fields have sensible defaults.
+# Precedence: CLI flags > env vars > this config > auto-detect > built-in defaults.
+bridgebuilder:
+  # Master toggle — set to false to disable the skill entirely
+  enabled: true
+
+  # Additional repositories to review (owner/repo format).
+  # Auto-detected repo from git remote is always included unless --no-auto-detect.
+  # Env: BRIDGEBUILDER_REPOS (comma-separated)
+  repos: []
+
+  # LLM model for generating reviews.
+  # Env: BRIDGEBUILDER_MODEL
+  model: "claude-sonnet-4-5-20250929"
+
+  # Maximum open PRs to process per run
+  max_prs: 10
+
+  # Maximum files per PR (excess truncated, risk-prioritized: security files first)
+  max_files_per_pr: 50
+
+  # Maximum diff size in bytes (100KB default)
+  max_diff_bytes: 100000
+
+  # Token budget for LLM input (persona + diff + metadata)
+  max_input_tokens: 8000
+
+  # Maximum response tokens for generated review
+  max_output_tokens: 4000
+
+  # Review dimensions (subset of: security, quality, test-coverage, operational-readiness)
+  dimensions:
+    - security
+    - quality
+    - test-coverage
+
+  # HTML comment marker for idempotency detection
+  review_marker: "bridgebuilder-review"
+
+  # Path to persona override (project-specific reviewer personality).
+  # Falls back to built-in resources/BEAUVOIR.md if file not found.
+  persona_path: "grimoires/bridgebuilder/BEAUVOIR.md"

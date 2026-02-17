@@ -1,0 +1,21 @@
+{
+  "captured": "2026-02-16",
+  "sprint": "sprint-1",
+  "note": "Baseline captured after T1.1 deps added but before dashboard/marketing routes",
+  "shared_js": {
+    "total_kb": 105,
+    "chunks": {
+      "507-b10998e4a97a72f4.js": 50.5,
+      "7b034d96-ba85f0e8848a2363.js": 52.9,
+      "other": 2.08
+    }
+  },
+  "routes": {
+    "/": { "size_kb": 49.5, "first_load_kb": 171 },
+    "/[slug]": { "size_kb": 0.747, "first_load_kb": 117 },
+    "/about": { "size_kb": 0.172, "first_load_kb": 109 },
+    "/install": { "size_kb": 0.174, "first_load_kb": 109 }
+  },
+  "middleware_kb": 32,
+  "threshold": "shared_js must not exceed 125KB (baseline + 20KB)"
+}

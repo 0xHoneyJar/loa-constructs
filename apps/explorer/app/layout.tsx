@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
-import { Header } from '@/components/layout/header';
-import { Footer } from '@/components/layout/footer';
 import './globals.css';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://constructs.loa.dev';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://constructs.network';
 
 export const metadata: Metadata = {
   title: {
@@ -55,6 +53,12 @@ export const metadata: Metadata = {
   },
 };
 
+// Minimal root layout — no providers, no Header/Footer.
+// Route group layouts handle their own chrome:
+//   (marketing)/layout.tsx → Header + Footer
+//   (dashboard)/layout.tsx → QueryClientProvider + AuthInitializer + DashboardShell
+//   (auth)/layout.tsx → Centered minimal layout
+// Root pages (/, /[slug], /about, /install) inherit only this minimal shell.
 export default function RootLayout({
   children,
 }: {
@@ -65,11 +69,7 @@ export default function RootLayout({
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} min-h-screen bg-background text-white antialiased`}
       >
-        <div className="flex min-h-screen flex-col">
-          <Header />
-          <main className="flex-1">{children}</main>
-          <Footer />
-        </div>
+        {children}
       </body>
     </html>
   );

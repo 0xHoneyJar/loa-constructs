@@ -15,6 +15,7 @@ import {
   skillVersions,
   users,
   teams,
+  constructIdentities,
 } from '../db/index.js';
 import { getRedis, isRedisConfigured, CACHE_KEYS, CACHE_TTL } from './redis.js';
 import { normalizeCategory } from './category.js';
@@ -54,6 +55,15 @@ export interface Construct {
   latestVersion: { version: string; changelog: string | null; publishedAt: Date | null } | null;
   maturity: MaturityLevel;
   graduatedAt: Date | null;
+  sourceType: string | null;
+  gitUrl: string | null;
+  hasIdentity: boolean;
+  identity: {
+    cognitiveFrame: unknown;
+    expertiseDomains: unknown;
+    voiceConfig: unknown;
+    modelPreferences: unknown;
+  } | null;
   createdAt: Date;
   updatedAt: Date;
   // Search metadata (populated when ?q= present)
@@ -297,6 +307,10 @@ function skillToConstruct(
       : null,
     maturity,
     graduatedAt: skill.graduatedAt || null,
+    sourceType: null,
+    gitUrl: null,
+    hasIdentity: false,
+    identity: null,
     createdAt: skill.createdAt || new Date(),
     updatedAt: skill.updatedAt || new Date(),
     // Search metadata
@@ -315,7 +329,8 @@ function packToConstruct(
   pack: typeof packs.$inferSelect,
   version: typeof packVersions.$inferSelect | null,
   owner: { name: string; type: 'user' | 'team'; avatarUrl: string | null } | null,
-  queryTerms?: string[]
+  queryTerms?: string[],
+  identityRow?: { cognitiveFrame: unknown; expertiseDomains: unknown; voiceConfig: unknown; modelPreferences: unknown } | null
 ): Construct {
   const manifest = version?.manifest as ConstructManifest | null;
   const rating = calculateRating(pack.ratingSum || 0, pack.ratingCount || 0);
@@ -369,6 +384,17 @@ function packToConstruct(
       : null,
     maturity,
     graduatedAt: pack.graduatedAt || null,
+    sourceType: (pack as any).sourceType || null,
+    gitUrl: (pack as any).gitUrl || null,
+    hasIdentity: !!identityRow,
+    identity: identityRow
+      ? {
+          cognitiveFrame: identityRow.cognitiveFrame,
+          expertiseDomains: identityRow.expertiseDomains,
+          voiceConfig: identityRow.voiceConfig,
+          modelPreferences: identityRow.modelPreferences,
+        }
+      : null,
     createdAt: pack.createdAt || new Date(),
     updatedAt: pack.updatedAt || new Date(),
     // Search metadata
@@ -901,7 +927,25 @@ async function fetchPackAsConstruct(slug: string): Promise<Construct | null> {
     const version = await getLatestPackVersion(pack.id);
     const owner = await getOwnerInfo(pack.ownerId, pack.ownerType as 'user' | 'team');
 
-    return packToConstruct(pack, version, owner);
+    // Fetch identity data if exists
+    let identityRow: { cognitiveFrame: unknown; expertiseDomains: unknown; voiceConfig: unknown; modelPreferences: unknown } | null = null;
+    try {
+      const [identity] = await db
+        .select({
+          cognitiveFrame: constructIdentities.cognitiveFrame,
+          expertiseDomains: constructIdentities.expertiseDomains,
+          voiceConfig: constructIdentities.voiceConfig,
+          modelPreferences: constructIdentities.modelPreferences,
+        })
+        .from(constructIdentities)
+        .where(eq(constructIdentities.packId, pack.id))
+        .limit(1);
+      identityRow = identity || null;
+    } catch {
+      // Identity table might not exist yet — fail gracefully
+    }
+
+    return packToConstruct(pack, version, owner, undefined, identityRow);
   } catch (error) {
     logger.error({ error, slug, context: 'fetchPackAsConstruct' }, 'Failed to fetch pack');
     return null;

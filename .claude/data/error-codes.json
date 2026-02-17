@@ -63,6 +63,62 @@
     "fix": "Ensure you are inside a git repository, or that .claude/ or .loa.config.yaml exists in a parent directory."
   },
   {
+    "code": "E010",
+    "name": "mount_no_git_repo",
+    "category": "mount",
+    "what": "Directory is not a git repository (or git is not installed).",
+    "fix": "Install git (https://git-scm.com/downloads) and run 'git init' first, then retry mount.",
+    "severity": "error"
+  },
+  {
+    "code": "E011",
+    "name": "mount_empty_repo_commit_failed",
+    "category": "mount",
+    "what": "Repository has no commits and auto-commit failed.",
+    "fix": "Create initial commit: echo '# Project' > README.md && git add . && git commit -m 'init', then retry.",
+    "severity": "error"
+  },
+  {
+    "code": "E012",
+    "name": "mount_git_user_not_configured",
+    "category": "mount",
+    "what": "git user.name or user.email not set (common cause of commit failure).",
+    "fix": "Run: git config user.name \"Your Name\" && git config user.email \"you@example.com\"",
+    "severity": "error"
+  },
+  {
+    "code": "E013",
+    "name": "mount_commit_failed",
+    "category": "mount",
+    "what": "Framework commit failed for an unexpected reason.",
+    "fix": "Check 'git status' and resolve any issues, then retry with --force.",
+    "severity": "error"
+  },
+  {
+    "code": "E014",
+    "name": "mount_staging_failed",
+    "category": "mount",
+    "what": "Could not stage framework files (git add failed).",
+    "fix": "Check directory permissions and disk space. Remove any .git/index.lock if present.",
+    "severity": "error"
+  },
+  {
+    "code": "E015",
+    "name": "mount_bare_repo",
+    "category": "mount",
+    "what": "Repository is bare (no working tree).",
+    "fix": "Clone to a working directory: git clone <repo> myproject && cd myproject, then retry.",
+    "severity": "error"
+  },
+  {
+    "code": "E016",
+    "name": "mount_commit_policy_detected",
+    "category": "mount",
+    "what": "Commit policies (GPG signing, hooks) detected; auto-commit skipped.",
+    "fix": "Framework files are created. Commit manually: git add .claude CLAUDE.md PROCESS.md && git commit -m 'chore(loa): mount framework'",
+    "severity": "warning"
+  },
+  {
     "code": "E101",
     "name": "prd_not_found",
     "category": "workflow",
@@ -145,6 +201,20 @@
     "category": "workflow",
     "what": "Using Claude's TaskCreate instead of beads for sprint task tracking.",
     "fix": "Use br create, br update, and br list for sprint tasks. TaskCreate is for session progress display only."
+  },
+  {
+    "code": "E115",
+    "name": "no_skip_to_implementation",
+    "category": "workflow",
+    "what": "Skipped from sprint plan directly to implementation without /run sprint-plan, /run sprint-N, or /bug triage.",
+    "fix": "Use /run sprint-plan or /run sprint-N to execute sprints with the implement→review→audit cycle."
+  },
+  {
+    "code": "E116",
+    "name": "always_complete_full_cycle",
+    "category": "workflow",
+    "what": "The full implement → review → audit cycle was not completed.",
+    "fix": "Always complete /implement, /review-sprint, and /audit-sprint for each sprint."
   },
   {
     "code": "E201",

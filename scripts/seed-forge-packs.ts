@@ -33,6 +33,16 @@ const PACK_ICONS: Record<string, string> = {
   'gtm-collective': '🚀',
 };
 
+// Git source configurations for packs with registered repos
+// @see sprint.md T1.9: Seed Script Compatibility
+const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
+  'gtm-collective': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-gtm-collective.git',
+    gitRef: 'v1.1.0',
+  },
+  // Add more packs here as they are migrated to standalone repos
+};
+
 interface PackManifest {
   schema_version: number;
   name: string;
@@ -217,6 +227,20 @@ async function seedForgePacks() {
 
         const resolvedPackId = packResult[0].id as string;
         console.log(`   ✓ ${pack.slug}: upserted (${resolvedPackId})`);
+
+        // Set git source fields if pack has a registered repo
+        const gitConfig = GIT_CONFIGS[pack.slug];
+        if (gitConfig) {
+          await tx`
+            UPDATE packs
+            SET source_type = 'git',
+                git_url = ${gitConfig.gitUrl},
+                git_ref = ${gitConfig.gitRef},
+                updated_at = NOW()
+            WHERE id = ${resolvedPackId}
+          `;
+          console.log(`     → git source set: ${gitConfig.gitUrl} (${gitConfig.gitRef})`);
+        }
 
         // Step 3: Unset isLatest on existing versions (required by partial unique constraint)
         await tx`

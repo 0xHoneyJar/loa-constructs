@@ -22,6 +22,18 @@ const config: Config = {
           docs: '#44DDFF',
           ops: '#4488FF',
         },
+        tui: {
+          bg: '#0a0a0a',
+          fg: '#c0c0c0',
+          bright: '#ffffff',
+          dim: '#606060',
+          accent: '#5fafff',
+          green: '#5fff87',
+          yellow: '#ffff5f',
+          red: '#ff5f5f',
+          cyan: '#5fffff',
+          border: '#5f5f5f',
+        },
       },
       fontFamily: {
         sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],

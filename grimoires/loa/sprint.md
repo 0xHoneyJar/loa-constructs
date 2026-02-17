@@ -1,270 +1,234 @@
-# Sprint Plan: isLatest Flag Data Integrity Fix
+# Sprint Plan: Bridgebuilder Security Remediation — PR #123
 
-**Cycle**: cycle-013
-**Issue**: [#86](https://github.com/0xHoneyJar/loa-constructs/issues/86)
-**Created**: 2026-02-03
+**Cycle**: cycle-015 (remediation sub-plan)
+**PRD**: grimoires/loa/prd-bridgebuilder-remediation.md
+**SDD**: grimoires/loa/sdd-bridgebuilder-remediation.md
+**Created**: 2026-02-16
 **Status**: Ready for Implementation
-**PRD**: grimoires/loa/prd.md
-**SDD**: grimoires/loa/sdd.md
 
 ---
 
-## Sprint Overview
+## Overview
 
-**Sprint 1**: Complete isLatest Fix (Single Sprint)
+| Aspect | Value |
+|--------|-------|
+| Total sprints | 2 |
+| Team size | 1 (AI agent) |
+| Sprint duration | 1 sprint = 1 `/run` cycle |
+| Total tasks | 10 |
+| Goal | Resolve 7 Bridgebuilder findings (6 requiring code, 1 already resolved) |
 
-This is a focused bug fix that can be completed in a single sprint. The work is divided into 3 logical phases that must be executed in order.
+### Sprint Summary
 
----
-
-## Phase 1: Code Changes
-
-### T1.1: Update `getConstructsSummary()` with Batch Optimization
-
-**Priority**: P0
-**File**: `apps/api/src/services/constructs.ts` (lines 537-599)
-
-**Acceptance Criteria**:
-- [ ] Remove LEFT JOIN on `packVersions` with `isLatest=true`
-- [ ] Add batch fetch: query all packs, then all their versions in one query
-- [ ] Group versions by `packId` in-memory using `Map<string, PackVersion>`
-- [ ] Select highest semver per pack using `semver.gt()`
-- [ ] Handle edge case: pack with 0 versions returns `version: null`
-- [ ] Maintain existing cache behavior
-- [ ] Query count: exactly 2 (packs + versions), not N+1
-
-**Implementation Reference**: SDD §3.1
+| Sprint | Focus | Tasks | Key Deliverable |
+|--------|-------|-------|-----------------|
+| 1 | Security-Critical | 6 | Token refresh race fix, eval trust boundary, DNS pinning, regex DoS |
+| 2 | Hardening | 4 | Eval ledger HMAC, model fallback, verification of MEDIUM-3 |
 
 ---
 
-### T1.2: Update `fetchSkillsAsConstructs()` - Remove isLatest JOIN
+## Sprint 1: Security-Critical
 
-**Priority**: P0
-**File**: `apps/api/src/services/constructs.ts` (lines 659-776)
+**Goal**: Resolve all CRITICAL and HIGH findings that block PR #123 merge.
 
-**Acceptance Criteria**:
-- [ ] Remove LEFT JOIN on `skillVersions` with `isLatest=true`
-- [ ] Remove deduplication logic (`seenSkillIds` Set) - no longer needed
-- [ ] Query skills table directly without version JOIN
-- [ ] Continue using `getLatestSkillVersion()` for each skill
-- [ ] Maintain existing query conditions (isPublic, isDeprecated, maturity, tier, category)
+**Verification**: `pnpm --filter explorer build` succeeds. `pnpm --filter api build` succeeds. Eval workflow unchanged for existing suites. Auth refresh works without 401 cascades.
 
-**Implementation Reference**: SDD §3.2
+### Tasks
 
----
+#### T1.1: Add `isRefreshing` state and `refreshLog` to auth store
 
-### T1.3: Update `fetchPacksAsConstructs()` - Remove isLatest JOIN
+- **File(s)**: `apps/explorer/lib/stores/auth-store.ts`
+- **Description**: Add `isRefreshing: boolean` and `refreshLog` array to auth store state. Set `isRefreshing = true` at start of `refreshToken()`, `false` in `.finally()`. Modify `getAccessToken()` to return `undefined` when `isRefreshing === true`. Add `waitForRefresh()` method that awaits `refreshPromise`. Append to `refreshLog` (capped at 20 entries) on each refresh completion.
+- **Acceptance Criteria**:
+  - `isRefreshing` starts as `false`, set `true` during refresh, reset in `.finally()`
+  - `getAccessToken()` returns `undefined` when `isRefreshing === true`
+  - `getAccessToken()` returns cookie value when `isRefreshing === false` (existing behavior preserved)
+  - `waitForRefresh()` resolves when `refreshPromise` completes
+  - `refreshLog` entries have `{ timestamp: number, success: boolean, reason: string }`
+  - `refreshLog` never exceeds 20 entries
+  - Single-flight lock behavior preserved (multiple `refreshToken()` calls coalesce via `refreshPromise`)
+  - 14-minute interval refresh continues to work (no regression to `auth-initializer.tsx`)
+  - Visibility-change refresh continues to work
+- **Effort**: Medium
+- **Dependencies**: None
+- **Testing**: Unit tests for `getAccessToken()` returning `undefined` during refresh, `refreshLog` population and cap
 
-**Priority**: P0
-**File**: `apps/api/src/services/constructs.ts` (lines 778-874)
+#### T1.2: Add refresh-await to API client interceptor
 
-**Acceptance Criteria**:
-- [ ] Remove LEFT JOIN on `packVersions` with `isLatest=true`
-- [ ] Remove deduplication logic (`seenPackIds` Set) - no longer needed
-- [ ] Query packs table directly without version JOIN
-- [ ] Continue using `getLatestPackVersion()` for each pack
-- [ ] Maintain existing query conditions (status, maturity, tier, featured)
+- **File(s)**: `apps/explorer/lib/api/client.ts`
+- **Description**: In `authFetch()` (line 97), add a check at the top: if `refreshPromise` is non-null, await it before making the initial request. This avoids the 401 round-trip when a refresh is already in flight.
+- **Acceptance Criteria**:
+  - Concurrent API calls during refresh wait for refresh completion instead of firing with stale token
+  - After awaiting refresh, the fresh token is used for the request
+  - Single-flight refresh lock in `client.ts` (line 94) still works independently
+  - No change to public API surface of `createAuthClient`
+- **Effort**: Small
+- **Dependencies**: T1.1
+- **Testing**: Integration test: two concurrent `authFetch` calls during refresh both succeed without 401
 
-**Implementation Reference**: SDD §3.3
+#### T1.3: Copy eval suites from base branch in CI
 
----
+- **File(s)**: `.github/workflows/eval.yml`
+- **Description**: Add workflow steps to: (1) copy `evals/suites/` from base branch alongside harness/graders, (2) sparse-checkout PR's `evals/suites/` to detect new files, (3) fail CI if PR introduces suite files not in base, (4) reject path traversal (`../`) and absolute paths in suite YAML globs.
+- **Acceptance Criteria**:
+  - Suite definitions sourced from base branch (not PR branch)
+  - New suite files in PR trigger explicit failure message ("requires explicit review")
+  - `../` patterns in suite YAML globs are rejected
+  - Absolute path globs (`glob: /...`) are rejected
+  - Existing legitimate eval workflows pass unchanged
+  - Symlink check still runs on combined workspace
+- **Effort**: Medium
+- **Dependencies**: None
+- **Testing**: Verify framework suite still runs. Verify new-suite detection message fires for added file.
 
-### T1.4: Verify No `isLatest` Reads Remain
+#### T1.4: Pin resolved IP for git clone (TOCTOU mitigation)
 
-**Priority**: P1
-**Type**: Verification
+- **File(s)**: `apps/api/src/services/git-sync.ts`
+- **Description**: Modify `validateGitUrl()` to return a `ValidatedUrl` object containing `{ original, resolvedIp, hostname }` instead of `void`. Modify `cloneRepo()` to accept optional `pinnedIp` and `hostname` params, using `GIT_CONFIG_COUNT`/`GIT_CONFIG_KEY_0`/`GIT_CONFIG_VALUE_0` env vars to rewrite the URL at git transport layer. Update callers to pass the resolved IP through.
+- **Acceptance Criteria**:
+  - `validateGitUrl()` returns resolved public IPv4 address
+  - `cloneRepo()` uses pinned IP via `GIT_CONFIG` env vars when provided
+  - DNS cannot be re-resolved between validation and clone
+  - `github.com` allowlist and private IP checks preserved
+  - Clone timeout (30s) still applies
+  - Add code comment explaining the TOCTOU mitigation
+- **Effort**: Medium
+- **Dependencies**: None
+- **Testing**: Verify clone succeeds for legitimate github.com repos. Verify `validateGitUrl` returns resolved IP.
 
-**Acceptance Criteria**:
-- [ ] Run: `grep -n "isLatest" apps/api/src/services/constructs.ts`
-- [ ] Result: 0 matches (excluding comments)
-- [ ] All version resolution uses semver comparison
+#### T1.5: Validate regex allowlist patterns and add timeout
 
----
+- **File(s)**: `.claude/scripts/adversarial-review.sh`
+- **Description**: Add `validate_allowlist_pattern()` function that rejects patterns with nested quantifiers (e.g., `(a+)+`, `(a*)*`). Filter `CONF_SECRET_ALLOWLIST` through validation before use. Wrap all `grep -oE "$pattern"` calls with `timeout 0.5s` guard. Log rejected patterns and timeouts.
+- **Acceptance Criteria**:
+  - Patterns with nested quantifiers (`(X+)+`, `(X*)+`, `(X+)*`, `(X*)*`) rejected with clear message
+  - `grep -oE` operations have 0.5s timeout
+  - Legitimate patterns (e.g., `[0-9a-f]{64}`, `sha256:[a-f0-9]+`) work correctly
+  - Rejected patterns logged to stderr with explanation
+  - Timeout events logged to stderr with pattern info
+  - Existing BATS tests pass
+- **Effort**: Small
+- **Dependencies**: None
+- **Testing**: Test with `(a+)+` pattern (rejected). Test with `[0-9a-f]{64}` (accepted). Verify timeout kills slow grep.
 
-## Phase 2: Database Migration
+#### T1.6: Sprint 1 verification
 
-### T2.1: Run Pre-flight Validation
-
-**Priority**: P0
-**Type**: Database Check
-
-**Acceptance Criteria**:
-- [ ] Execute pre-flight SQL on staging database:
-  ```sql
-  SELECT version FROM pack_versions
-  WHERE version !~ '^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$';
-
-  SELECT version FROM skill_versions
-  WHERE version !~ '^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?(\+[a-zA-Z0-9.]+)?$';
-  ```
-- [ ] Document any non-standard versions found
-- [ ] If rows returned: handle manually or adjust migration
-
-**Implementation Reference**: SDD §4.1
-
----
-
-### T2.2: Create Migration File
-
-**Priority**: P0
-**File**: `apps/api/src/db/migrations/0001_fix_islatest_constraint.sql`
-
-**Acceptance Criteria**:
-- [ ] File contains data fix for pack_versions (keep highest semver)
-- [ ] File contains data fix for skill_versions (keep highest semver)
-- [ ] File creates partial unique index on pack_versions
-- [ ] File creates partial unique index on skill_versions
-- [ ] File includes verification queries
-
-**Implementation Reference**: SDD §4.2
-
----
-
-### T2.3: Test Migration on Staging
-
-**Priority**: P0
-**Type**: Staging Deployment
-
-**Acceptance Criteria**:
-- [ ] Run migration on staging database
-- [ ] Verification queries return 0 rows:
-  ```sql
-  SELECT pack_id, COUNT(*) FROM pack_versions
-  WHERE is_latest = true GROUP BY pack_id HAVING COUNT(*) > 1;
-  ```
-- [ ] API endpoints still work after migration
-- [ ] No constraint violations in staging logs
-
----
-
-### T2.4: Apply Migration to Production
-
-**Priority**: P0
-**Type**: Production Deployment
-
-**Acceptance Criteria**:
-- [ ] Code changes deployed before migration
-- [ ] Run migration on production database
-- [ ] Monitor for constraint violations
-- [ ] Verify API responses are correct
+- **File(s)**: None (verification task)
+- **Description**: Run `pnpm --filter explorer build` and `pnpm --filter api build` to ensure no regressions. Verify auth store changes work with existing auth-initializer. Spot-check eval workflow YAML is valid.
+- **Acceptance Criteria**:
+  - Explorer builds without errors
+  - API builds without errors
+  - Auth store TypeScript compiles cleanly
+  - eval.yml passes `actionlint` or manual YAML review
+- **Effort**: Small
+- **Dependencies**: T1.1, T1.2, T1.3, T1.4, T1.5
+- **Testing**: Build verification
 
 ---
 
-## Phase 3: Content Sync
+## Sprint 2: Hardening
 
-### T3.1: Verify Artisan Pack Local Content
+**Goal**: Resolve MEDIUM and LOW findings. Verify MEDIUM-3 is already resolved.
 
-**Priority**: P1
-**Type**: Verification
+**Verification**: Eval ledger entries are signed when key is set. Flatline falls back on model 404. Truncation priority confirmed correct.
 
-**Acceptance Criteria**:
-- [ ] Check `apps/sandbox/packs/artisan/manifest.json` has real commands
-- [ ] Commands array is populated (not placeholders)
-- [ ] At least 5 skills referenced
+### Tasks
+
+#### T2.1: HMAC signing for eval ledger entries
+
+- **File(s)**: `evals/harness/run-eval.sh`, `.github/workflows/eval.yml`
+- **Description**: Add `sign_ledger_entry()` function to `run-eval.sh` that appends an HMAC-SHA256 `__sig` field to each JSONL entry using `EVAL_LEDGER_KEY` repo secret. Add `validate_ledger_entry()` to eval.yml's ledger validation step that checks signatures. Both degrade gracefully when `EVAL_LEDGER_KEY` is not set (warn, skip signing/validation).
+- **Acceptance Criteria**:
+  - New ledger entries include `__sig` field with `hmac-sha256:` prefix
+  - Tampered entries (modified after signing) rejected with warning
+  - Missing `EVAL_LEDGER_KEY` degrades gracefully: entries written unsigned, validation skipped with warning
+  - Unsigned entries from before this change are still readable (backward compatible)
+  - Existing eval workflow still passes
+  - `openssl dgst` used for HMAC computation (available in CI runner)
+- **Effort**: Medium
+- **Dependencies**: None
+- **Testing**: Sign an entry, verify passes validation. Tamper an entry, verify rejection. Remove key, verify graceful degradation.
+
+#### T2.2: Flatline model fallback on unavailability
+
+- **File(s)**: `.claude/scripts/flatline-orchestrator.sh`
+- **Description**: Add `handle_model_error()` function that catches model 404/deprecated exit codes and falls back to secondary model. Ensure config-specified models take precedence over hardcoded defaults. Log model resolution with warning on fallback.
+- **Acceptance Criteria**:
+  - Model 404 (exit code 40) or deprecated (exit code 41) triggers fallback to secondary model
+  - Fallback logged with `WARN` level including original and fallback model names
+  - Config models (`flatline_protocol.models.primary/secondary`) take precedence over hardcoded defaults
+  - Secondary model failure is a hard error (no infinite fallback chain)
+  - Hardcoded defaults (`opus`, `gpt-5.2`) only used when config is empty, with warning
+- **Effort**: Small
+- **Dependencies**: None
+- **Testing**: Verify warning is logged when using hardcoded default. Verify fallback flow with simulated exit code 40.
+
+#### T2.3: Verify MEDIUM-3 truncation priority (no-code)
+
+- **File(s)**: `.claude/skills/bridgebuilder-review/resources/core/truncation.ts` (read-only verification)
+- **Description**: Confirm that `.github/workflows/` files already get highest truncation priority via `SECURITY_PATTERNS` (line 40) and `getFilePriority()` (line 617). Confirm `Dockerfile` and `docker-compose` patterns present (lines 43-44). Document verification in reviewer.md.
+- **Acceptance Criteria**:
+  - `isHighRisk('.github/workflows/eval.yml')` returns `true`
+  - `getFilePriority()` returns `4` for workflow files
+  - `Dockerfile` pattern present in `SECURITY_PATTERNS`
+  - `docker-compose` pattern present in `SECURITY_PATTERNS`
+  - No code changes needed — document as "verified, already resolved"
+- **Effort**: Small (verification only)
+- **Dependencies**: None
+- **Testing**: Code review / assertion check
+
+#### T2.4: Sprint 2 verification
+
+- **File(s)**: None (verification task)
+- **Description**: Run eval harness locally if possible. Verify `flatline-orchestrator.sh` syntax (`bash -n`). Full build check.
+- **Acceptance Criteria**:
+  - `bash -n .claude/scripts/flatline-orchestrator.sh` passes
+  - `bash -n .claude/scripts/adversarial-review.sh` passes
+  - `bash -n evals/harness/run-eval.sh` passes
+  - Explorer and API builds succeed
+- **Effort**: Small
+- **Dependencies**: T2.1, T2.2, T2.3
+- **Testing**: Syntax and build verification
 
 ---
 
-### T3.2: Re-run Seed Script
+## Dependency Graph
 
-**Priority**: P1
-**Type**: Script Execution
+```
+Sprint 1:
+  T1.1 ──→ T1.2 ──┐
+  T1.3 ────────────┤
+  T1.4 ────────────┼──→ T1.6
+  T1.5 ────────────┘
 
-**Acceptance Criteria**:
-- [ ] Run: `pnpm tsx scripts/seed-forge-packs.ts`
-- [ ] Script completes without errors
-- [ ] Artisan pack version updated in registry
+Sprint 2:
+  T2.1 ────────────┐
+  T2.2 ────────────┼──→ T2.4
+  T2.3 ────────────┘
+```
+
+T1.1 → T1.2 is the only inter-task dependency (API client needs auth store changes first). All other tasks are independent within their sprint.
 
 ---
 
-### T3.3: Verify API Returns Correct Content
+## Risk Register
 
-**Priority**: P1
-**Type**: Verification
-
-**Acceptance Criteria**:
-- [ ] `GET /v1/constructs/artisan` returns real manifest
-- [ ] Commands array is populated
-- [ ] Version is correct
-- [ ] No placeholder text in response
+| Risk | Mitigation |
+|------|------------|
+| Auth store change breaks 14-min refresh interval | Test `auth-initializer.tsx` integration explicitly |
+| `GIT_CONFIG` env vars conflict with user's git config | Use `GIT_CONFIG_COUNT` (additive), not `GIT_CONFIG` (overwrite) |
+| `openssl dgst` not available in CI runner | ubuntu-latest includes openssl; fallback: skip signing with warning |
+| Regex validation rejects legitimate config patterns | Conservative check — only nested quantifiers, not all complex patterns |
+| Sparse checkout step adds CI time | Only fetches `evals/suites/` — negligible disk/time |
 
 ---
 
 ## Definition of Done
 
-### Sprint Complete When:
-
-1. **Code**:
-   - [ ] Zero `isLatest` reads in `constructs.ts` service functions
-   - [ ] `getConstructsSummary()` uses batch optimization (2 queries)
-   - [ ] No deduplication logic needed in fetch functions
-
-2. **Database**:
-   - [ ] Pre-flight validation passed
-   - [ ] Migration applied to production
-   - [ ] Partial unique indexes active
-   - [ ] Zero duplicate `isLatest=true` per pack/skill
-
-3. **Content**:
-   - [ ] Artisan pack shows real content via API
-
-4. **Quality**:
-   - [ ] All existing tests pass
-   - [ ] No API latency regression (<200ms p95)
-   - [ ] No errors in production logs
-
----
-
-## Task Dependencies
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  T1.1  →  T1.2  →  T1.3  →  T1.4                       │
-│  (getConstructsSummary)  (fetchSkills)  (fetchPacks)   │
-│              │                                          │
-│              ▼                                          │
-│  T2.1  →  T2.2  →  T2.3  →  T2.4                       │
-│  (preflight)   (migration)   (staging)   (production)  │
-│                                    │                    │
-│                                    ▼                    │
-│                          T3.1  →  T3.2  →  T3.3        │
-│                          (verify)  (seed)   (api)       │
-└─────────────────────────────────────────────────────────┘
-```
-
-**Critical Path**: T1.1 → T1.4 → T2.1 → T2.4 → T3.3
-
----
-
-## Risk Mitigation
-
-| Risk | Mitigation | Owner |
-|------|------------|-------|
-| Pre-flight finds non-standard versions | Handle manually before migration | Developer |
-| Migration fails on production | Have rollback SQL ready | Developer |
-| API latency regresses | Monitor p95, batch optimization verified | Developer |
-
----
-
-## Rollback Plan
-
-1. **Code rollback**: Revert PR via GitHub
-2. **Constraint rollback**:
-   ```sql
-   DROP INDEX IF EXISTS idx_pack_versions_single_latest;
-   DROP INDEX IF EXISTS idx_skill_versions_single_latest;
-   ```
-3. **Data rollback**: Not needed (data fix only removes incorrect flags)
-
----
-
-## References
-
-- **PRD**: grimoires/loa/prd.md
-- **SDD**: grimoires/loa/sdd.md
-- **Issue**: https://github.com/0xHoneyJar/loa-constructs/issues/86
-- **Context**: grimoires/loa/context/issue-86-islatest-fix.md
-
----
-
-**Document Status**: Ready for Implementation
-**Next Step**: `/implement sprint-1` or `/run sprint-plan`
+1. All CRITICAL and HIGH findings resolved with tests (Sprint 1)
+2. MEDIUM-1 and LOW-1 resolved with tests (Sprint 2)
+3. MEDIUM-3 verified as already resolved — documented
+4. CI passes with all fixes applied
+5. Auth store changes verified with build + type check
+6. Eval workflow YAML validated
+7. Shell scripts pass `bash -n` syntax check

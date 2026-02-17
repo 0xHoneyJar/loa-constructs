@@ -81,6 +81,23 @@ This skill operates under **Managed Scaffolding**:
 | `src/`, `lib/`, `app/` | Read-only | App zone - requires user confirmation |
 
 **NEVER** suggest modifications to `.claude/`. Direct users to `.claude/overrides/` or `.loa.config.yaml`.
+
+### Review Scope Filtering (#303)
+
+When reviewing Loa-mounted projects, **focus audit on app zone files** (src/, lib/, app/).
+Use `.reviewignore` patterns and zone detection from `.loa-version.json` to determine which files
+are in scope. Files in the system zone (`.claude/`) and state zone (`grimoires/`, `.beads/`, `.run/`)
+are excluded from audit by default.
+
+To determine in-scope files, reference the shared review scope utility:
+```bash
+source .claude/scripts/review-scope.sh
+detect_zones
+load_reviewignore
+# Check individual files: is_excluded "path/to/file"
+```
+
+Override with `--no-reviewignore` flag to audit everything (power user mode).
 </zone_constraints>
 
 <integrity_precheck>
@@ -445,6 +462,33 @@ Check for stored data that becomes dangerous when retrieved:
 - URLs stored then fetched later
 
 **Document in TODO.md "Cross-Request Flows" section.**
+
+## Phase 1C: Security Dissenter Analysis
+
+**Condition**: Only runs if `flatline_protocol.security_audit.enabled: true` in `.loa.config.yaml`.
+
+**Objective**: Run independent security-focused cross-model review. The dissenter does NOT receive any Phase 1A/1B findings — it evaluates the code independently to prevent anchoring bias (per FR-2.5).
+
+**Steps**:
+1. Prepare git diff: `git diff main...HEAD > /tmp/adversarial-audit-diff.txt`
+2. Invoke security dissenter:
+   ```bash
+   findings=$(.claude/scripts/adversarial-review.sh \
+     --type audit \
+     --sprint-id "$sprint_id" \
+     --diff-file /tmp/adversarial-audit-diff.txt \
+     --json)
+   ```
+   Note: NO `--context-file` is passed — the dissenter operates independently.
+3. Parse findings and hold for merge in Phase 2 (Report Generation):
+   - CRITICAL/HIGH findings: add to audit report (may change verdict)
+   - MEDIUM/LOW findings: append as "Cross-Model Security Observations"
+   - Duplicates (same anchor + concern): merged with "Confirmed by cross-model review"
+4. Clean up temp files
+
+**Output**: Findings written to `grimoires/loa/a2a/{sprint_id}/adversarial-audit.json`
+
+**Failure mode**: If unavailable (timeout, API error, budget exceeded), proceed with single-model audit. Set `DEGRADED_SECURITY_REVIEW` marker if sprint completes without dissenter input (per FR-6.4). Empty findings = normal success, no DEGRADED marker.
 
 ## Phase 1: Systematic Audit
 
