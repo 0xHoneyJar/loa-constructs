@@ -36,7 +36,7 @@ const MAX_FILE_SIZE = 256 * 1024; // 256KB per file
 const MAX_TOTAL_SIZE = 5 * 1024 * 1024; // 5MB total
 
 /** Directories allowed for file collection from construct repos */
-const ALLOWED_DIRS = ['skills', 'commands', 'contexts', 'identity', 'scripts'];
+const ALLOWED_DIRS = ['skills', 'commands', 'contexts', 'identity', 'scripts', 'templates'];
 
 /** Root files allowed for collection */
 const ALLOWED_ROOT_FILES = [
@@ -44,6 +44,7 @@ const ALLOWED_ROOT_FILES = [
   'manifest.json',
   'README.md',
   'LICENSE',
+  'CLAUDE.md',
 ];
 
 /** Phase 1: only github.com is allowed as a git host */
@@ -738,12 +739,14 @@ export async function parseIdentity(
   if (!persona && !expertise) return null;
 
   // Extract structured fields from persona
+  // Supports both nested (cognitiveFrame.archetype) and flat (archetype) formats
+  const cf = persona?.cognitiveFrame as Record<string, unknown> | undefined;
   const cognitiveFrame = persona
     ? {
-        archetype: persona.archetype ?? null,
-        disposition: persona.disposition ?? null,
-        thinking_style: persona.thinking_style ?? null,
-        decision_making: persona.decision_making ?? null,
+        archetype: cf?.archetype ?? persona.archetype ?? null,
+        disposition: cf?.disposition ?? persona.disposition ?? null,
+        thinking_style: cf?.thinking_style ?? persona.thinking_style ?? null,
+        decision_making: cf?.decision_making ?? persona.decision_making ?? null,
       }
     : null;
 

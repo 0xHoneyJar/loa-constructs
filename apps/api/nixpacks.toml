@@ -1,0 +1,8 @@
+[phases.setup]
+nixPkgs = ["...", "git"]
+
+[phases.install]
+cmds = ["npm i"]
+
+[start]
+cmd = "node dist/index.js"

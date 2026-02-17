@@ -59,6 +59,8 @@ export interface ConstructDetail extends ConstructNode {
   skills?: SkillRef[];
   composesWith: string[];
   installCommand: string;
+  sourceType?: string | null;
+  gitUrl?: string | null;
 }
 
 export interface CategoryStats {

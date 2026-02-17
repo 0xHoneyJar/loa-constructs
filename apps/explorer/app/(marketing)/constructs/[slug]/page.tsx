@@ -160,6 +160,16 @@ export default async function ConstructDetailPage({
         >
           View in graph →
         </Link>
+        {construct.sourceType === 'git' && construct.gitUrl && (
+          <a
+            href={construct.gitUrl.replace(/\.git$/, '')}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border border-white/20 px-4 py-2 text-white/60 hover:bg-white/10 transition-colors"
+          >
+            View Source on GitHub →
+          </a>
+        )}
         <Link
           href="/constructs"
           className="text-white/40 hover:text-white/60 transition-colors flex items-center"
