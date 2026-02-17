@@ -11,7 +11,7 @@
 
 # Constructs Network
 
-**A marketplace for AI agent expertise.** Constructs are named, distributable units of expertise — they carry identity, skills, cognitive frames, and boundaries. Install one and your agent gains a new specialization. Build one and others can use it. Built on the [Loa framework](https://github.com/0xHoneyJar/loa) for Claude Code.
+**A marketplace for AI agent expertise.** Constructs are named, distributable units of expertise — they carry identity, skills, cognitive frames, and boundaries. Install one and your agent gains a new specialization. Build one and others can use it. Ridden with [Loa](https://github.com/0xHoneyJar/loa) for Claude Code.
 
 ```mermaid
 graph LR
@@ -432,7 +432,7 @@ GITHUB_CLIENT_SECRET=...
 
 ## Loa Framework
 
-The Constructs Network is built on and distributed through the [Loa framework](https://github.com/0xHoneyJar/loa) — an agent-driven development framework for Claude Code. Loa provides the runtime that loads constructs, executes their skills, manages their instructions, and orchestrates multi-agent workflows. Constructs are the expertise. Loa is the interface through which they ride.
+The Constructs Network is ridden with [Loa](https://github.com/0xHoneyJar/loa) — an agent-driven development framework for Claude Code. Loa provides the runtime that loads constructs, executes their skills, manages their instructions, and orchestrates multi-agent workflows. Constructs are the expertise. Loa is the horse they ride.
 
 ## Contributing
 
