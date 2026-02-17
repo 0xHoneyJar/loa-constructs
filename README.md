@@ -30,9 +30,108 @@ The problem is that this language lives inside people. It's tacit. You can't Goo
 
 This is the core insight. Not just naming constructs — naming *anything*. A workflow. A decision framework. A way of seeing problems. A diagnostic reflex. The moment you give a name to what you do — the moment you say "this is how I decompose a design system" or "this is how I triage a production incident" or "this is how I evaluate market positioning" — you've crossed a boundary. You've taken something that was locked in your head and made it addressable.
 
-And addressable means everything in the age of AI agents. **Naming is compression** — it collapses a vast space of tacit knowledge into a handle that language models can grab, invoke, compose, and orchestrate. Without a name, expertise is diffuse: "be good at design." With a name — with a cognitive frame, a thinking style, domain depths rated 1 through 5, explicit boundaries declaring what you will and won't do — you've created a function signature for human craft.
+And addressable means everything in the age of AI agents. **Naming is compression** — it collapses a vast space of tacit knowledge into a handle that language models can grab, invoke, compose, and orchestrate.
 
-A construct on the network isn't just a bundle of skills. It's a **named unit of expertise that speaks a language most people can't** — packaged so that anyone can access it, compose it, deploy it. The kind of knowledge that takes years to develop and seconds to install. In cyberspace, identity *is* interface.
+### From Tacit Knowledge to Named Construct
+
+Here's what happens when you name expertise. Each layer of naming adds structure that AI agents can reason about, compose, and deploy:
+
+```mermaid
+graph LR
+    A["🧠 Tacit Knowledge<br/><i>Locked in your head</i>"] -->|name it| B["📛 Named Expertise<br/><i>Addressable</i>"]
+    B -->|define the frame| C["🔲 Cognitive Frame<br/><i>How it thinks</i>"]
+    B -->|map the domains| D["📊 Bounded Expertise<br/><i>What it knows</i>"]
+    B -->|extract the workflows| E["⚡ Executable Skills<br/><i>What it does</i>"]
+    C --> F["📦 Construct<br/><i>Installable, composable,<br/>deployable</i>"]
+    D --> F
+    E --> F
+
+    style A fill:#1a1a2e,stroke:#e94560,color:#fff
+    style B fill:#16213e,stroke:#0f3460,color:#fff
+    style F fill:#0f3460,stroke:#e94560,color:#fff
+```
+
+Without a name, expertise is diffuse: *"be good at design."* With a name — with a cognitive frame, a thinking style, domain depths rated 1 through 5, explicit boundaries declaring what you will and won't do — you've created a **function signature for human craft**.
+
+### What Naming Actually Looks Like
+
+Every construct on the network starts with the same question: *what do you call what you do?* The answer becomes structure that agents can use:
+
+| What You Name | What It Becomes | Schema | Why It Matters |
+|---------------|-----------------|--------|----------------|
+| How you think about problems | **Cognitive Frame** | `persona.yaml → cognitiveFrame.archetype` | Agents adopt your reasoning style, not just your knowledge |
+| Your working disposition | **Disposition** | `persona.yaml → cognitiveFrame.disposition` | "Detail-obsessed" vs "big-picture" shapes every decision |
+| How you make decisions | **Decision Making** | `persona.yaml → cognitiveFrame.decision_making` | "Evidence-weighted" vs "intuition-first" — agents follow your methodology |
+| What you know deeply | **Domains with Depth** | `expertise.yaml → domains[].depth` | Depth 1 (aware) through 5 (world-class) — agents know their limits |
+| What you specialize in | **Specializations** | `expertise.yaml → domains[].specializations` | The specific niche skills within each domain |
+| What you refuse to do | **Boundaries** | `expertise.yaml → domains[].boundaries` | Hard limits prevent agents from overreaching — "does NOT write backend logic" |
+| Your workflows | **Skills** | `skills/*/SKILL.md` | Repeatable processes become executable agent capabilities |
+| How you communicate | **Voice** | `persona.yaml → voice.tone, register` | Technical vs conversational, precise vs warm — agents speak your language |
+
+### Naming in Practice: Five Archetypes
+
+This is how real expertise gets named into real constructs. Each row is a named archetype — a way of thinking that took years to develop, compressed into something installable:
+
+| Archetype | Named Thinking Style | Named Domains (Depth) | Named Boundaries |
+|-----------|---------------------|----------------------|------------------|
+| **Craftsman** | Visual-spatial — decomposes interfaces into feel, motion, and material | Design Systems (5), Motion Design (5), Visual Refinement (4), Taste Compounding (4) | Does NOT implement backend logic. Does NOT replace user research. |
+| **Researcher** | Abductive reasoning — synthesizes user quotes, behaviors, and context into testable hypotheses | User Research (5), Gap Analysis (4), Journey Shaping (4) | Does NOT build UI prototypes. Does NOT make product decisions. |
+| **Validator** | Deductive verification — starts from expectations, traces through code reality, identifies divergence | Journey Validation (5), Code Grounding (4), Interactive Testing (4) | Does NOT write unit tests. Does NOT refactor code. |
+| **Signal Engineer** | Structural — maps content to machine-readable schemas and discovery surfaces | Structured Data (5), SEO Engineering (4), Content Discovery (4) | Does NOT create marketing content. Does NOT manage ad campaigns. |
+| **Strategist** | Systems thinking — connects product capabilities to market opportunities | Product Positioning (5), Launch Strategy (4), Developer Relations (4), Pricing (3) | Does NOT create visual brand assets. Does NOT run paid campaigns. |
+
+Notice what naming gives you: a Craftsman with depth-5 Design Systems and depth-5 Motion Design *thinks differently* than a Strategist with depth-5 Positioning. The Craftsman decomposes a landing page into feel, weight, and rhythm. The Strategist decomposes it into value proposition, competitive differentiation, and conversion signals. **Same artifact, completely different expertise applied** — because the name carries the cognitive frame, not just the knowledge.
+
+### Why Builders Need to Understand This
+
+```mermaid
+graph TD
+    subgraph UNNAMED["❌ Without Naming"]
+        U1["Vague prompt:<br/>'help me with design'"] --> U2["Generic output<br/>No boundaries, no depth"]
+        U2 --> U3["Unpredictable results<br/>No composability"]
+    end
+
+    subgraph NAMED["✅ With Naming"]
+        N1["Named construct:<br/>'Artisan — Craftsman archetype'"] --> N2["Cognitive frame shapes reasoning<br/>Depth 5 in Design Systems"]
+        N2 --> N3["Bounded, composable, predictable<br/>Refuses what it shouldn't do"]
+        N3 --> N4["Composes with Observer + Beacon<br/>Event-driven collaboration"]
+    end
+
+    style UNNAMED fill:#2d1117,stroke:#f85149,color:#fff
+    style NAMED fill:#0d1117,stroke:#58a6ff,color:#fff
+```
+
+If you're an expert building a construct, naming forces you to **externalize what makes your expertise different**. Not "I'm good at design" but:
+
+- **Archetype**: Craftsman (not Researcher, not Strategist)
+- **Thinking style**: Visual-spatial — decomposes into feel, motion, material
+- **Decision making**: Taste-driven with systematic validation
+- **Depth 5**: Design Systems, Motion Design
+- **Depth 3**: Frontend Best Practices (knows enough to implement, not architect)
+- **Hard boundary**: Does NOT implement backend logic
+
+This precision is what makes constructs composable. An agent can route a design task to the Craftsman, a user research task to the Researcher, and a launch task to the Strategist — because each name carries enough structure to know *what it should handle* and *what it should refuse*.
+
+### Naming Creates Composability
+
+When expertise is properly named, constructs can work together through typed events and declared dependencies:
+
+```mermaid
+graph LR
+    Observer["👁️ Observer<br/><i>Researcher</i>"] -->|"taste_inscribed<br/>pattern_surveyed"| Artisan["🎨 Artisan<br/><i>Craftsman</i>"]
+    Observer -->|"gap_filed"| Crucible["🔥 Crucible<br/><i>Validator</i>"]
+    Artisan -->|"component_refined"| Crucible
+    Beacon["📡 Beacon<br/><i>Signal Engineer</i>"] -->|"structured_data_added"| GTM["🚀 GTM Collective<br/><i>Strategist</i>"]
+    Crucible -->|"journey_validated"| Beacon
+
+    style Observer fill:#1a1a2e,stroke:#e94560,color:#fff
+    style Artisan fill:#16213e,stroke:#0f3460,color:#fff
+    style Crucible fill:#0f3460,stroke:#e94560,color:#fff
+    style Beacon fill:#1a1a2e,stroke:#e94560,color:#fff
+    style GTM fill:#16213e,stroke:#0f3460,color:#fff
+```
+
+None of this composition is possible with unnamed, unbounded expertise. It's the **names** — the archetypes, the domains, the boundaries, the events — that give agents the structure to orchestrate.
 
 This is why the Sprawl's mercenaries had street names. Case. Molly. The Finn. A name carried a contract: specific expertise, specific boundaries, specific results. In the Constructs Network, every expert gets to name what they do — and the moment they do, it becomes discoverable, composable, deployable. It becomes something that can ride alongside anyone who needs it.
 
