@@ -38,9 +38,24 @@ const PACK_ICONS: Record<string, string> = {
 const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
   'gtm-collective': {
     gitUrl: 'https://github.com/0xHoneyJar/construct-gtm-collective.git',
-    gitRef: 'v1.1.0',
+    gitRef: 'main',
   },
-  // Add more packs here as they are migrated to standalone repos
+  artisan: {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-artisan.git',
+    gitRef: 'main',
+  },
+  beacon: {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-beacon.git',
+    gitRef: 'main',
+  },
+  observer: {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-observer.git',
+    gitRef: 'main',
+  },
+  crucible: {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-crucible.git',
+    gitRef: 'main',
+  },
 };
 
 interface PackManifest {

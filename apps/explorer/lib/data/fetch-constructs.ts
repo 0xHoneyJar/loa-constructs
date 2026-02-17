@@ -15,6 +15,8 @@ interface APIConstruct {
   tier_required: string;
   is_featured: boolean;
   graduation_level?: string;
+  source_type?: string | null;
+  git_url?: string | null;
   manifest?: {
     commands?: Array<{ name: string; description: string; usage?: string }>;
     skills?: Array<{ slug: string; name?: string; path?: string; description?: string } | null>;
@@ -91,6 +93,8 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
     skills,
     composesWith,
     installCommand: `/constructs install ${construct.slug}`,
+    sourceType: construct.source_type,
+    gitUrl: construct.git_url,
   };
 }
 

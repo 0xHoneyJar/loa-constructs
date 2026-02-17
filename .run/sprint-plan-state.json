@@ -1,21 +1,21 @@
 {
   "plan_id": "plan-20260217-construct-extraction",
   "branch": "feature/construct-extraction",
-  "state": "RUNNING",
+  "state": "COMPLETE",
   "timestamps": {
     "started": "2026-02-17T09:00:00Z",
-    "last_activity": "2026-02-17T09:00:00Z"
+    "last_activity": "2026-02-17T12:00:00Z"
   },
   "sprints": {
     "total": 5,
-    "completed": 0,
-    "current": "sprint-0",
+    "completed": 5,
+    "current": null,
     "list": [
-      {"id": "sprint-0", "status": "pending", "cycles": 0},
-      {"id": "sprint-1", "status": "pending", "cycles": 0},
-      {"id": "sprint-2", "status": "pending", "cycles": 0},
-      {"id": "sprint-3", "status": "pending", "cycles": 0},
-      {"id": "sprint-4", "status": "pending", "cycles": 0}
+      {"id": "sprint-0", "status": "completed", "cycles": 1},
+      {"id": "sprint-1", "status": "completed", "cycles": 2},
+      {"id": "sprint-2", "status": "completed", "cycles": 1},
+      {"id": "sprint-3", "status": "completed", "cycles": 1},
+      {"id": "sprint-4", "status": "completed", "cycles": 1}
     ]
   },
   "options": {
@@ -25,8 +25,8 @@
     "timeout_hours": 8
   },
   "metrics": {
-    "total_cycles": 0,
-    "total_files_changed": 0,
-    "total_findings_fixed": 0
+    "total_cycles": 6,
+    "total_files_changed": 15,
+    "total_findings_fixed": 4
   }
 }
