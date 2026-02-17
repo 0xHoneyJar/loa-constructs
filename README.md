@@ -198,16 +198,16 @@ Imagine a construct built for user research — not just collecting feedback, bu
 ```mermaid
 flowchart LR
     subgraph Capture
-        A[Raw feedback] --> B[Structured evidence\nwith hypotheses]
+        A[Raw feedback] --> B[Structured evidence<br/>with hypotheses]
     end
     subgraph Synthesis
-        B --> C[Pattern clustering\n& composite views]
+        B --> C[Pattern clustering<br/>& composite views]
     end
     subgraph Analysis
-        C --> D[Gap detection\nagainst code reality]
+        C --> D[Gap detection<br/>against code reality]
     end
     subgraph Action
-        D --> E[Filed issues with\ntaxonomy & priority]
+        D --> E[Filed issues with<br/>taxonomy & priority]
     end
 
     style Capture fill:#1a1a2e,stroke:#e94560,color:#fff
