@@ -28,6 +28,9 @@ RUN pnpm build
 # --- Production Stage ---
 FROM node:20-alpine AS runner
 
+# Install git (required by git-sync service for construct repo cloning)
+RUN apk add --no-cache git
+
 # Enable pnpm
 RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
