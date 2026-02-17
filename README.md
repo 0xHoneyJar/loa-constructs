@@ -432,7 +432,7 @@ GITHUB_CLIENT_SECRET=...
 
 ## Loa Framework
 
-The Constructs Network is ridden with [Loa](https://github.com/0xHoneyJar/loa) — an agent-driven development framework for Claude Code. Loa provides the runtime that loads constructs, executes their skills, manages their instructions, and orchestrates multi-agent workflows. Constructs are the expertise. Loa is the horse they ride.
+The Constructs Network is ridden with [Loa](https://github.com/0xHoneyJar/loa) — an agent-driven development framework for Claude Code. Loa provides the runtime that loads constructs, executes their skills, manages their instructions, and orchestrates multi-agent workflows. Constructs are the expertise. Loa is the interface through which they ride.
 
 ## Contributing
 
