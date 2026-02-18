@@ -57,7 +57,8 @@
     {"slug": "surveying-patterns", "path": "skills/surveying-patterns"},
     {"slug": "synthesizing-taste", "path": "skills/synthesizing-taste"},
     {"slug": "rams", "path": "skills/rams"},
-    {"slug": "next-best-practices", "path": "skills/next-best-practices"}
+    {"slug": "next-best-practices", "path": "skills/next-best-practices"},
+    {"slug": "composing-interfaces", "path": "skills/composing-interfaces"}
   ],
   "contexts": {
     "taste_dir": "contexts/taste",

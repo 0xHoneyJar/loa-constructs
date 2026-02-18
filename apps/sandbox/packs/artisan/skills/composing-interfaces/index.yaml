@@ -1,0 +1,61 @@
+name: composing-interfaces
+slug: composing-interfaces
+version: 1.0.0
+description: |
+  Design philosophy and interface composition grounded in perceptual science.
+  Teaches the thinking process behind cohesive UI — hierarchy, component families,
+  spacing, progressive disclosure, and color strategy — backed by Weber-Fechner,
+  Gestalt, information theory, and cognitive load research.
+
+triggers:
+  - "/compose"
+  - "how should I structure this layout"
+  - "how should I organize these components"
+  - "this feels cluttered"
+  - "this doesn't feel cohesive"
+  - "how do I create a design system"
+  - "how do I make these components feel related"
+  - "how much should I show on this page"
+
+examples:
+  - context: "Starting a new app and need to establish design foundations"
+    user_says: "I need to set up the design system for this app"
+    agent_action: "Walk through the bootstrap process: brand references → tokens → large layout components → small components → iterate"
+  - context: "Multiple cards on a page feel disconnected"
+    user_says: "These cards don't feel like they belong together"
+    agent_action: "Apply component family theory — identify shared DNA (spacing, border, animation) and introduce variation only through layout or minor accent changes (10-20% JND range)"
+  - context: "A page feels overwhelming with too much content"
+    user_says: "This page has too much going on"
+    agent_action: "Apply viewport budget and progressive disclosure — collapse sections beyond 2 rows, hide explanatory text behind interactions, maximize signal-to-noise on the main surface"
+  - context: "Deciding what deserves visual emphasis"
+    user_says: "How do I make this element stand out without breaking the design"
+    agent_action: "Apply Von Restorff isolation effect — give the element a unique accent or effect not used elsewhere, but only if the surrounding system is disciplined enough for the contrast to register"
+
+domain_hints:
+  - ui-design
+  - design-systems
+  - component-architecture
+  - visual-hierarchy
+  - layout-composition
+  - perceptual-science
+
+entry: SKILL.md
+
+capabilities:
+  model_tier: sonnet
+  danger_level: safe
+  effort_hint: medium
+  downgrade_allowed: true
+  execution_hint: sequential
+  requires:
+    native_runtime: false
+    tool_calling: true
+    thinking_traces: false
+    vision: false
+
+allowed-tools:
+  - Read
+  - Write
+  - Glob
+  - Grep
+  - Edit
