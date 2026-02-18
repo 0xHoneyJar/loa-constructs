@@ -1,6 +1,0 @@
-{
-  "base_url": "http://localhost:3000",
-  "dev_port": 3000,
-  "qa_cli_path": "apps/web/components/qa-cli.tsx",
-  "qa_storage_key": "sf-qa-effective-address"
-}

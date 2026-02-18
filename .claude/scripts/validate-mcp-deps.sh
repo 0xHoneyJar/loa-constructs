@@ -18,7 +18,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 REGISTRY="$ROOT_DIR/.claude/mcp-registry.yaml"
-PACKS_DIR="$ROOT_DIR/apps/sandbox/packs"
+PACKS_DIR="$ROOT_DIR/.claude/constructs/packs"
 JSON_MODE=false
 
 [[ "${1:-}" == "--json" ]] && JSON_MODE=true

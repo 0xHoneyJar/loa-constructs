@@ -33,10 +33,9 @@
     "validate": {
       "cache": true,
       "inputs": [
-        "packs/**/manifest.json",
-        "packs/**/index.yaml",
-        "packs/**/SKILL.md",
-        "scripts/validate-pack.sh"
+        ".claude/constructs/packs/**/manifest.json",
+        ".claude/constructs/packs/**/index.yaml",
+        ".claude/constructs/packs/**/SKILL.md"
       ],
       "outputs": []
     }

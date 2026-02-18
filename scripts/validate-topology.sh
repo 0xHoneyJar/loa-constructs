@@ -16,7 +16,6 @@ set -euo pipefail
 # Configuration
 # ---------------------------------------------------------------------------
 
-PACKS_DIR="apps/sandbox/packs"
 CONSTRUCTS_DIR=".claude/constructs/packs"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -164,10 +163,9 @@ is_allowed() {
   return 1
 }
 
-# Resolve pack search directories (check both sandbox and constructs)
+# Resolve pack search directories
 get_pack_dirs() {
   local dirs=()
-  [[ -d "$ROOT_DIR/$PACKS_DIR" ]] && dirs+=("$ROOT_DIR/$PACKS_DIR")
   [[ -d "$ROOT_DIR/$CONSTRUCTS_DIR" ]] && dirs+=("$ROOT_DIR/$CONSTRUCTS_DIR")
   echo "${dirs[@]}"
 }

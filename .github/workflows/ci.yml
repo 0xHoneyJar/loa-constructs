@@ -492,13 +492,13 @@ jobs:
           if-no-files-found: ignore
 
   # =============================================================================
-  # SANDBOX VALIDATION - Validates skill pack structure and manifests
+  # PACK VALIDATION - Validates skill pack structure and manifests
   # =============================================================================
   validate-packs:
     name: Validate Skill Packs
     runs-on: ubuntu-latest
     needs: template-guard
-    if: hashFiles('apps/sandbox/packs/**') != ''
+    if: hashFiles('.claude/constructs/packs/**') != ''
 
     steps:
       - name: Checkout repository
@@ -531,7 +531,7 @@ jobs:
       - name: Validate pack manifests (JSON structure)
         run: |
           echo "Validating pack manifests..."
-          for manifest in apps/sandbox/packs/*/manifest.json; do
+          for manifest in .claude/constructs/packs/*/manifest.json; do
             pack_name=$(dirname "$manifest" | xargs basename)
             echo "  Checking $pack_name..."
 
@@ -556,7 +556,7 @@ jobs:
       - name: Validate skill structure
         run: |
           echo "Validating skill structure..."
-          for pack in apps/sandbox/packs/*/; do
+          for pack in .claude/constructs/packs/*/; do
             pack_name=$(basename "$pack")
             skills_dir="$pack/skills"
 

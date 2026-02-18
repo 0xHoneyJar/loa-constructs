@@ -10,7 +10,6 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'apps/sandbox/packs/**'
       - '.claude/constructs/packs/**'
       - 'scripts/validate-topology.sh'
 
@@ -33,26 +32,3 @@ jobs:
       - name: Run topology validation (strict)
         run: scripts/validate-topology.sh --strict --verbose
 
-      - name: Check for new files in apps/sandbox/packs/
-        run: |
-          echo "Checking for drift-back to sandbox packs..."
-
-          # Get files added in this PR (not modified, only added)
-          ADDED_FILES=$(git diff --name-only --diff-filter=A origin/${{ github.base_ref }}...HEAD -- 'apps/sandbox/packs/' || true)
-
-          if [[ -n "$ADDED_FILES" ]]; then
-            echo ""
-            echo "============================================================"
-            echo "WARNING: New files added to apps/sandbox/packs/"
-            echo "============================================================"
-            echo ""
-            echo "The following files were added to the sandbox (git-tracked) pack directory:"
-            echo ""
-            echo "$ADDED_FILES"
-            echo ""
-            echo "If these are new skills or pack updates, this is expected."
-            echo "If these are runtime/overlay files, they should go in .claude/constructs/packs/ instead."
-            echo "============================================================"
-          else
-            echo "No new sandbox pack files detected"
-          fi

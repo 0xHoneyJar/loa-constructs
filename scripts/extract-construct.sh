@@ -23,7 +23,7 @@ usage() {
   cat <<'EOF'
 Usage: extract-construct.sh --slug <slug> [options]
 
-Extract a construct pack from apps/sandbox/packs/<slug> into a standalone repo.
+Extract a construct pack from .claude/constructs/packs/<slug> into a standalone repo.
 
 Options:
   --slug <slug>           Pack slug to extract (required)
@@ -64,7 +64,7 @@ if ! echo "$SLUG" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
   exit 1
 fi
 
-PACK_DIR="$REPO_ROOT/apps/sandbox/packs/$SLUG"
+PACK_DIR="$REPO_ROOT/.claude/constructs/packs/$SLUG"
 MANIFEST="$PACK_DIR/manifest.json"
 REPO_NAME="construct-$SLUG"
 OUTPUT_DIR="${OUTPUT_DIR:-/tmp/$REPO_NAME}"
@@ -419,7 +419,7 @@ git init -b main
 git add -A
 git commit -m "feat: initial extraction from loa-constructs monorepo
 
-Extracted $CONSTRUCT_NAME ($SKILL_COUNT skills) from apps/sandbox/packs/$SLUG.
+Extracted $CONSTRUCT_NAME ($SKILL_COUNT skills) from .claude/constructs/packs/$SLUG.
 Generated construct.yaml, identity skeletons, CLAUDE.md, and CI workflow.
 
 Source: 0xHoneyJar/loa-constructs (cycle-016)"
