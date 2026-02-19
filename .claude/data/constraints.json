@@ -1,6 +1,6 @@
 {
   "$schema": "../schemas/constraints.schema.json",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "constraints": [
     {
       "id": "C-PROC-001",
@@ -12,6 +12,12 @@
         "claude-loa-md": "NEVER write application code outside of `/implement` skill invocation"
       },
       "why": "Code written outside `/implement` bypasses review and audit gates",
+      "construct_yield": {
+        "enabled": true,
+        "condition": "construct with workflow.gates is active",
+        "yield_text": "OR when a construct with declared `workflow.gates` owns the current workflow",
+        "yield_on_gates": ["implement"]
+      },
       "order": 0,
       "layers": [
         {
@@ -75,6 +81,12 @@
         "skill-md": "Implementation phases MUST use `/run sprint-plan`, `/run sprint-N`, or `/bug` — NEVER implement directly"
       },
       "why": "`/run` wraps implement+review+audit in a cycle loop with circuit breaker. `/bug` produces a triage handoff that feeds directly into `/implement`.",
+      "construct_yield": {
+        "enabled": true,
+        "condition": "construct with workflow.gates is active",
+        "yield_text": "OR when a construct with `workflow.gates` declares pipeline composition",
+        "yield_on_gates": ["implement"]
+      },
       "order": 2,
       "layers": [
         {
@@ -107,6 +119,12 @@
         "skill-md": "Do NOT use `/implement` without `/run` — `/run` provides the review→audit cycle"
       },
       "why": "These are the only validation that code meets acceptance criteria and security standards",
+      "construct_yield": {
+        "enabled": true,
+        "condition": "construct declares review: skip or audit: skip",
+        "yield_text": "Yield when construct declares `review: skip` or `audit: skip`",
+        "yield_on_gates": ["review", "audit"]
+      },
       "order": 3,
       "layers": [
         {
@@ -232,6 +250,12 @@
         "protocol": "Sprint plan exists ||| ALWAYS ||| `test -f grimoires/loa/sprint.md`"
       },
       "why": "Prevents ad-hoc implementation without requirements traceability",
+      "construct_yield": {
+        "enabled": true,
+        "condition": "construct declares sprint: skip",
+        "yield_text": "Yield when construct declares `sprint: skip`",
+        "yield_on_gates": ["sprint"]
+      },
       "order": 3,
       "layers": [
         {
@@ -1226,6 +1250,86 @@
       ],
       "severity": "critical",
       "source_incident": "bridgebuilder-horizon-pr341"
+    },
+    {
+      "id": "C-PERM-001",
+      "name": "may_question_frame",
+      "category": "permission",
+      "rule_type": "MAY",
+      "text": "question the framing of requirements during `/plan-and-analyze` and bridge reviews, proposing alternative problem definitions when the analysis warrants reframing",
+      "text_variants": {
+        "claude-loa-md": "MAY question the framing of requirements during `/plan-and-analyze` and bridge reviews when analysis warrants reframing"
+      },
+      "why": "The deepest architectural insights come from questioning the frame, not just analyzing within it. Permission to ask 'is this the right problem?' enables the level of inquiry that produced findings like lot_invariant-as-social-contract and Ostrom-as-governance.",
+      "order": 0,
+      "layers": [
+        {
+          "target": "claude-loa-md",
+          "section": "permission_grants",
+          "render_as": "table_row"
+        }
+      ],
+      "severity": "low"
+    },
+    {
+      "id": "C-PERM-002",
+      "name": "may_explore_visions",
+      "category": "permission",
+      "rule_type": "MAY",
+      "text": "allocate time within a sprint for Vision Registry exploration when a captured vision is relevant to the current work",
+      "text_variants": {
+        "claude-loa-md": "MAY allocate time for Vision Registry exploration when a captured vision is relevant to current work"
+      },
+      "why": "The Vision Registry captures speculative insights but none have ever been explored. Permission to allocate effort enables the 20% creative exploration that transforms captured ideas into actionable proposals.",
+      "order": 1,
+      "layers": [
+        {
+          "target": "claude-loa-md",
+          "section": "permission_grants",
+          "render_as": "table_row"
+        }
+      ],
+      "severity": "low"
+    },
+    {
+      "id": "C-PERM-003",
+      "name": "may_propose_alternatives",
+      "category": "permission",
+      "rule_type": "MAY",
+      "text": "propose alternative approaches that challenge existing architecture during bridge reviews and `/review-sprint`",
+      "text_variants": {
+        "claude-loa-md": "MAY propose alternative architectural approaches during bridge reviews and `/review-sprint`"
+      },
+      "why": "Architectural evolution requires the ability to propose alternatives. Reviews that only check conformance to existing patterns cannot discover when the pattern itself should change.",
+      "order": 2,
+      "layers": [
+        {
+          "target": "claude-loa-md",
+          "section": "permission_grants",
+          "render_as": "table_row"
+        }
+      ],
+      "severity": "low"
+    },
+    {
+      "id": "C-PERM-004",
+      "name": "may_speculate_in_planning",
+      "category": "permission",
+      "rule_type": "MAY",
+      "text": "create SPECULATION findings during planning and review skills (`/plan-and-analyze`, `/architect`, `/review-sprint`, bridge reviews) — explicitly excluded from `/implement` and `/audit-sprint`",
+      "text_variants": {
+        "claude-loa-md": "MAY create SPECULATION findings during planning and review skills — excluded from `/implement` and `/audit-sprint`"
+      },
+      "why": "SPECULATION is currently scoped to bridge reviews only. Extending to planning and review skills enables creative architectural thinking at the stages where it has the most impact, while excluding implementation and audit where it could rationalize unsafe changes.",
+      "order": 3,
+      "layers": [
+        {
+          "target": "claude-loa-md",
+          "section": "permission_grants",
+          "render_as": "table_row"
+        }
+      ],
+      "severity": "low"
     }
   ]
 }

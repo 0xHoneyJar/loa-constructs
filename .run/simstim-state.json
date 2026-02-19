@@ -1,77 +1,71 @@
 {
-  "simstim_id": "simstim-20260216-extraction",
+  "simstim_id": "simstim-20260219-c027qmd",
   "schema_version": 1,
   "state": "RUNNING",
   "phase": "implementation",
   "timestamps": {
-    "started": "2026-02-16T18:00:00Z",
-    "last_activity": "2026-02-17T08:35:00Z"
+    "started": "2026-02-19T04:00:00Z",
+    "last_activity": "2026-02-19T04:30:00Z"
   },
   "phases": {
     "preflight": "completed",
     "discovery": "completed",
-    "flatline_prd": "completed",
+    "flatline_prd": "skipped",
     "architecture": "completed",
-    "flatline_sdd": "completed",
+    "flatline_sdd": "skipped",
     "planning": "completed",
-    "flatline_sprint": "completed",
+    "flatline_sprint": "skipped",
     "flatline_beads": "skipped",
-    "implementation": "pending",
+    "implementation": "in_progress",
     "complete": "pending"
-  },
-  "context_files": [
-    "grimoires/loa/context/construct-extraction-plan.md",
-    "grimoires/loa/context/construct-as-repo-architecture.md",
-    "grimoires/loa/context/construct-sandbox-prd.md"
-  ],
-  "flatline_results": {
-    "prd": {
-      "high_consensus": 4,
-      "disputed": 1,
-      "blockers_presented": 7,
-      "user_decisions": {
-        "claude_md_injection": "sentinel_blocks_with_managed_file_fallback",
-        "identity_authoring": "decoupled_skeleton_draft",
-        "dependency_resolution": "added_to_prd",
-        "backward_compat_contract": "skipped_internal_milestone",
-        "loa_pr_357_overlap": "noted_for_future_surface"
-      }
-    },
-    "sdd": {
-      "high_consensus": 4,
-      "disputed": 1,
-      "blockers_presented": 7,
-      "user_decisions": {
-        "windows_wsl": "rejected",
-        "webhook_secret_strategy": "overridden_resolve_during_sprint",
-        "license_audit": "overridden_resolve_during_sprint",
-        "identity_skeletons": "overridden_resolve_during_sprint",
-        "claude_md_trust": "overridden_resolve_during_sprint",
-        "extraction_script_brittleness": "overridden_resolve_during_sprint",
-        "webhook_trust_boundary": "overridden_resolve_during_sprint",
-        "install_flow_pinning": "overridden_resolve_during_sprint"
-      }
-    },
-    "sprint": {
-      "high_consensus": 5,
-      "disputed": 1,
-      "blockers_presented": 9,
-      "user_decisions": {
-        "e2e_smoke_test": "accepted",
-        "blockers": "overridden_all"
-      }
-    }
   },
   "artifacts": {
     "prd": {
-      "path": "grimoires/loa/prd.md"
+      "path": "grimoires/loa/prd.md",
+      "checksum": "sha256:f7b31b9a27ba5925c0385a492ff99b59876e6b8624f0aaabb99a5399febd1052"
     },
     "sdd": {
-      "path": "grimoires/loa/sdd.md"
+      "path": "grimoires/loa/sdd.md",
+      "checksum": "sha256:4ef178bd8f92db9e97c21bcf62718ea1861db30911f896f40c55f882304a9086"
     },
     "sprint": {
-      "path": "grimoires/loa/sprint.md"
+      "path": "grimoires/loa/sprint.md",
+      "checksum": "sha256:89fbbef408b996f7ffa53a19210ec66964161a72e408433eb3ceb8b19659e27d"
     }
   },
-  "notes": "PRD created via /plan-and-analyze with 3 GPT review iterations (all 7 issues resolved, APPROVED). Flatline PRD: 4 HIGH_CONSENSUS auto-integrated, 3 user decisions applied, IMP-009 skipped. SDD created with 3 GPT review iterations (6 blocking issues → all resolved → APPROVED). Flatline SDD: 4 HIGH_CONSENSUS auto-integrated, 1 DISPUTED rejected, 7 blockers overridden. Sprint plan created with 5 sprints, 36 tasks. GPT review: 5 blocking issues (testability gaps) → all fixed → APPROVED iteration 2. Flatline Sprint: 5 HIGH_CONSENSUS auto-integrated (T0.0 webhook secret, T1.2 checkpointing, T1.9 fallback+smoke, T4.7 soak SQL, per-sprint rollback notes), 1 DISPUTED accepted (E2E smoke test), 9 blockers overridden. GPT iteration 3: APPROVED. Flatline Beads: skipped (no beads created yet)."
+  "flatline_results": {
+    "prd": {
+      "high_consensus": 4,
+      "disputed": 0,
+      "blockers": 5,
+      "integrated": ["IMP-001", "IMP-002", "IMP-004", "IMP-008", "SKP-001", "SKP-002", "SKP-003", "SKP-004", "SKP-005"],
+      "blocker_action": "integrated_all"
+    },
+    "sdd": {
+      "high_consensus": 5,
+      "disputed": 0,
+      "blockers": 6,
+      "integrated": ["IMP-001", "IMP-002", "IMP-003", "IMP-005", "IMP-006", "SKP-001", "SKP-002", "SKP-003", "SKP-004", "SKP-005", "SKP-006"],
+      "blocker_action": "integrated_all"
+    },
+    "sprint": {
+      "high_consensus": 2,
+      "disputed": 1,
+      "blockers": 6,
+      "integrated": ["IMP-001", "IMP-002", "IMP-009", "SKP-001", "SKP-002", "SKP-003", "SKP-007", "SKP-008", "SKP-009"],
+      "blocker_action": "integrated_all"
+    },
+    "beads": {
+      "iterations": 1,
+      "high_consensus": 2,
+      "disputed": 1,
+      "blockers": 5,
+      "genuinely_new": ["SKP-002"],
+      "integrated": ["IMP-003", "IMP-004", "SKP-002"],
+      "converged": true,
+      "converge_reason": "most_findings_overlap_sprint"
+    }
+  },
+  "cycle": "cycle-027",
+  "title": "Broader QMD Integration Across Core Skills"
 }
