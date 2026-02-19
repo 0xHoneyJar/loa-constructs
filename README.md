@@ -176,6 +176,10 @@ Loa uses a **three-zone model** inspired by AWS Projen and Google's ADK:
 | **[CLAUDE.md](CLAUDE.md)** | Technical reference for Claude Code |
 | **[CHANGELOG.md](CHANGELOG.md)** | Version history |
 
+## Maintainer
+
+[@janitooor](https://github.com/janitooor)
+
 ## License
 
 [AGPL-3.0](LICENSE.md) — Use, modify, distribute freely. Network service deployments must release source code.
