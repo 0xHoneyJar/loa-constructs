@@ -1,61 +1,63 @@
-# PRD: Bridgebuilder Cycle A — Make the Workshop Work
+# PRD: Bridgebuilder Cycle B — Wire the Workshop Through
 
-**Cycle**: cycle-030
+**Cycle**: cycle-031
 **Created**: 2026-02-19
 **Status**: Draft
-**Grounded in**: ARCHETYPE.md, STRATEGIC-GAP.md, 7 primary issues + 14 related, codebase audit (7 surfaces)
+**Grounded in**: ARCHETYPE.md, STRATEGIC-GAP.md (Cycle B), cycle-b-plan.md, codebase audit (5 surfaces)
 **Archetype**: The Bridgebuilder (grimoires/bridgebuilder/ARCHETYPE.md)
+**Depends on**: Cycle A (PR #130) — schema foundation complete
 
 ---
 
 ## 1. Problem Statement
 
-The Constructs Network has 5 packs (39 skills) distributed across standalone repos, with 2 active deployments: midi-interface (Observer) and hub-interface (Artisan). The team building these products IS the network's only user base.
+Cycle A (PR #130) added Bridgebuilder fields (`domain`, `expertise`, `golden_path`, `workflow`, `methodology`, `tier`) to the 4-layer schema stack. 41 tests pass, all schemas are in sync. The foundation is laid. But the data still doesn't flow.
 
-Three categories of friction compound daily:
+Two categories of broken wiring compound into a dead-end experience:
 
-**1. Pipeline friction (#129)**: Every change — including a 26-line UI tweak — is forced through the full PRD → SDD → Sprint → Implement → Review → Audit pipeline. Constructs already operate as self-contained expertise packages with their own workflows, but the framework doesn't formally recognize this. The Loa upstream (cycle-029) just merged "Construct-Aware Constraint Yielding" — the runtime can now yield to construct-declared gates. But no manifest declares gates yet. The infrastructure exists. The declaration doesn't.
+**1. Explorer frontend lies about construct state**
 
-> Evidence: #129 documents a FE/UI change where ~40% of session time was process overhead. Observer has 11 skills with its own workflow. Artisan has 14. Neither goes through PRD/SDD.
-> Source: `packages/shared/src/types.ts:219-271` — no `workflow` or `gates` field in PackManifest
+The explorer marketplace at `constructs.network` displays every construct as "stable" maturity regardless of actual state. The API sends `maturity` (line 73 of `constructs.ts`), but the frontend reads `graduation_level` (line 17 of `fetch-constructs.ts`) — a field the API doesn't send. The result: `parseGraduationLevel(undefined)` always returns `'stable'`.
 
-**2. Schema bottleneck (#119, #118, #128)**: The manifest has 20 fields but none of the ones the open issues need: `domain`, `expertise`, `golden_path`, `workflow`, `methodology`, `tier`. Every forward-looking feature — MoE routing, progressive leveling, workflow gates, third-party constructs — is blocked on these fields existing. The Zod schema uses `.passthrough()` (`validation.ts:271`), so extensions are non-breaking. But the TypeScript types and Zod validators don't include them, which means no type safety, no validation, and no documentation.
+Additionally, the API already serves identity data (`cognitiveFrame`, `expertiseDomains`, `voiceConfig`), owner information, rating, and long descriptions via `formatConstructDetail()` (lines 80-117 of `constructs.ts`). The explorer frontend consumes none of it. The `APIConstruct` interface (lines 6-26 of `fetch-constructs.ts`) has 20 fields — zero of the enrichment fields the API provides.
 
-> Evidence: 6 of 7 primary issues (#119, #127, #129, #118, #122, #128) are blocked on manifest fields that don't exist
-> Source: `packages/shared/src/validation.ts:216-271`, `packages/shared/src/types.ts:219-271`
+> Evidence: `apps/explorer/lib/data/fetch-constructs.ts:17` — `graduation_level?: string` (wrong field name)
+> Evidence: `apps/explorer/lib/data/fetch-constructs.ts:61` — `parseGraduationLevel(construct.graduation_level)` → always undefined
+> Evidence: `apps/api/src/routes/constructs.ts:80-117` — `formatConstructDetail` returns identity, owner, rating, long_description
+> Evidence: `apps/explorer/lib/types/graph.ts:57-64` — `ConstructDetail` has no rating, owner, identity, or longDescription
 
-**3. Post-install dead end (#127)**: After installing a construct, the browsing-constructs skill shows a flat command list and ends. The `quick_start` field exists in the schema (`types.ts:267-270`, `validation.ts:269-270`) but the install flow doesn't reference it. There's no "start here," no workflow progression, no "you are here" indicator. Every time a construct is installed, the builder has to remember the workflow themselves.
+**2. Golden-path script has zero construct awareness**
 
-> Evidence: #127 feedback after 31 canvases and 8 journey definitions: "after running any command, there's no 'you are here' indicator or 'try this next' recommendation"
-> Source: `.claude/skills/browsing-constructs/SKILL.md` — Phase 6 (post-install report) ignores `quick_start`
+The golden-path.sh script (901 lines, 9-state machine) provides the `/loa`, `/plan`, `/build`, `/review`, `/ship` porcelain commands. It renders a visual journey bar. It detects workflow state. It is excellent infrastructure — but it operates exclusively at the framework level. No installed construct's `golden_path.commands` are ever read. No construct-level "you are here" exists.
 
-**Additionally (surfaced during grounding):**
+The `construct-workflow-read.sh` script that reads workflow gates uses `jq` (JSON parser) directly on manifest files (line 148). All installed construct manifests are `construct.yaml` — YAML format. The script silently fails, returning exit code 1 (no workflow), even if a manifest declares `workflow.gates`.
 
-**4. TS/Zod schema drift**: TypeScript says `dependencies.skills: string[]` (`types.ts:234`), Zod says `dependencies.skills: z.record(z.string())` (`validation.ts:178`). TypeScript is missing fields that Zod has (`long_description`, `repository`, `homepage`, `documentation`, `keywords`, `engines`). These types are the shared contract between API, explorer, and CLI — drift means silent bugs.
+> Evidence: `.claude/scripts/golden-path.sh` — 901 lines, zero references to construct manifests
+> Evidence: `.claude/scripts/construct-workflow-read.sh:148` — `jq -e '.workflow // empty' "$manifest"` on YAML files
+> Evidence: No installed pack currently has `golden_path` or `workflow` fields (schema_version 3 → 4 adoption pending)
 
-> Source: `packages/shared/src/types.ts:232-236` vs `packages/shared/src/validation.ts:176-180`
+**The compounding effect**: The schema foundation from Cycle A is inert without wiring. Builders cannot see construct state in the explorer, cannot navigate construct-level journeys in the CLI, and the workflow gate enforcement pipeline silently breaks on YAML manifests. The bridge is half-built.
 
-**5. Construct distribution cobweb**: Installing constructs across repos requires manual pointing at the most mature version. Observer has been cloned and evolved on midi-interface but never synced back to construct-observer or the registry. Learnings don't flow upstream. Updates don't flow downstream. The construct-template repo just got created. The extraction infrastructure (PR #121 — git-sync, webhooks, register-repo) exists but isn't fully exercised.
-
-> Source: User testimony, cycle-016 PRD (archived), construct-template repo existence
+> Source: STRATEGIC-GAP.md Cycle B ("Build The Span"), ARCHETYPE.md §5.0-5.2
 
 ---
 
 ## 2. Product Vision
 
-**Make the workshop work before opening the marketplace.**
+**Wire the workshop through so the data flows.**
 
-The Constructs Network's value isn't in its explorer page or its download counts. It's in what midi-interface and hub-interface accomplish with constructs installed. Today, the team building these products is the network's only user, maintainer, and quality signal. The workshop needs to be frictionless for this team before it can serve anyone else.
+Cycle A built the schema. Cycle B connects the pipes. The API already serves rich data. The golden-path script already has the journey bar pattern. The workflow reader already has the validation logic. Every piece exists — they just aren't connected to each other.
 
-This cycle lays the structural foundation that everything else builds on:
-- Constructs can declare their workflow depth → the framework respects it → pipeline friction drops
-- The manifest schema supports the fields every forward-looking issue needs → downstream work is unblocked
-- Post-install flow uses existing data → builders know what to do next
-- The shared type contract is accurate → silent bugs stop
+After this cycle:
+- The explorer shows real maturity levels, not hardcoded 'stable'
+- Construct detail pages display identity, owner, rating, and descriptions
+- The golden-path script discovers installed constructs' golden paths
+- Workflow gates are readable from YAML manifests
+- The infrastructure is ready for constructs to adopt schema_version 4
 
-The Bridgebuilder philosophy applies here: **orient before acting, teach the pattern not just the fix, match disclosure to readiness.** But the audience for this cycle is the team, not the world.
+The Bridgebuilder principle applies: **orient before acting.** The explorer should orient builders about what a construct actually is (identity, expertise, maturity) before they install it. The CLI should orient them about where they are (construct journey bars) after they install it.
 
-> Source: ARCHETYPE.md §1 Thesis, STRATEGIC-GAP.md "The Compounding Effect"
+> Source: ARCHETYPE.md §2 Voice Principles, STRATEGIC-GAP.md "The Compounding Effect"
 
 ---
 
@@ -65,329 +67,249 @@ The Bridgebuilder philosophy applies here: **orient before acting, teach the pat
 
 | # | Goal | Measurable Outcome |
 |---|------|-------------------|
-| G1 | Constructs declare workflow gates | All 5 pack manifests include `workflow.gates` section. Loa runtime reads them. FE/UI changes no longer trigger full pipeline. |
-| G2 | Manifest schema extended | `domain`, `expertise`, `golden_path`, `workflow`, `methodology`, `tier` fields exist in TypeScript types + Zod validation. Non-breaking. |
-| G3 | Post-install shows "start here" | After `constructs install <pack>`, the install report includes the `quick_start` command and description from the manifest. |
-| G4 | TS/Zod types synchronized | TypeScript `PackManifest` interface matches Zod `packManifestSchema` — same fields, same types. |
-| G5 | Schema version bumped to 4 | New fields use `schema_version: 4`. Validation accepts both v3 and v4 manifests. |
+| G1 | Explorer shows correct maturity | Constructs display their actual maturity level (experimental/beta/stable/deprecated), not hardcoded 'stable'. |
+| G2 | Explorer shows identity + enrichment | Construct detail page renders owner, rating, long description, identity indicator, and repository/homepage/documentation links. |
+| G3 | Golden-path discovers construct journeys | `golden_format_journey()` renders construct-level journey bars alongside the framework bar when installed packs declare `golden_path`. |
+| G4 | Workflow reader handles YAML | `construct-workflow-read.sh` correctly parses `.yaml` manifests via `yq-safe.sh` bridge. |
 
 ### Success Criteria
 
-- `workflow.gates.implement: required` is the only required gate for Observer and Artisan packs
-- A FE/UI change in a construct-owning project skips PRD/SDD when the construct's manifest declares `gates.prd: skip`
-- `pnpm --filter shared test` passes with new schema fields
-- Running `constructs install observer` shows "Start here: /listen" (or equivalent) in the install report
-- CI topology validation (`scripts/validate-topology.sh --strict`) passes with updated manifests
+- Visiting `/constructs/observer` on the explorer shows maturity from the API, not 'stable'
+- Construct detail page renders rating, owner name, and long_description when the API provides them
+- `golden_detect_construct_journeys()` returns empty array when no packs have `golden_path` (graceful degradation)
+- `construct-workflow-read.sh construct.yaml` returns valid JSON when passed a YAML manifest with `workflow` section
+- `pnpm --filter explorer build` passes with all new interface fields
+- `bash -n` passes on all modified shell scripts
 
 ### Non-Goals (Explicit)
 
 | Item | Why Not Now |
 |------|------------|
-| Explorer frontend fixes (A1-A3) | Nobody uses the explorer. Pre-positioning, not user-facing. Defer to Cycle B. |
-| MoE intent routing | Needs manifests to declare `domain` first (this cycle enables it, Cycle C builds it) |
-| Human-centered metrics table | No traffic to measure. Meaningful after constructs are used more broadly. |
-| Methodology ingestion pipeline | Architecture gap, not a workflow friction. Defer to Cycle C. |
-| Construct distribution/sync flow | Cobweb that needs untangling, but it's a separate PRD. This cycle makes the schema ready; distribution is cycle-030.5 or cycle-031. |
-| Verification / Echelon integration | Zero third-party constructs exist. Schema supports `tier` field (G2), but verification is Cycle C+. |
+| MoE intent routing (#119 partial) | Needs constructs to actually declare `domain` + `expertise` first. Schema exists from Cycle A, adoption is Cycle C. |
+| State detection scripts per pack | Each pack needs to ship `detect-state.sh`. That's per-repo work in construct-* repos, not loa-constructs. |
+| `/loa` aggregates construct status | Depends on G3 + state detection scripts. The discovery function (G3) is the prerequisite. |
+| Human-centered metrics table | No traffic. Meaningful after constructs are used more broadly. |
+| Pack-level analytics endpoint | Useful but independent work — doesn't block any Cycle B goal. |
+| Progressive disclosure UI in explorer | The data pipeline (this cycle) must exist before the UI can progressively disclose it. |
 
 ---
 
 ## 4. User & Stakeholder Context
 
-### Primary Persona: The Maintainer-Builder
+### Primary Persona: The Maintainer-Builder (unchanged from Cycle A)
 
-**Who**: The team member who both maintains construct repos AND uses those constructs on product repos (midi-interface, hub-interface).
+**Who**: The team member who maintains construct repos AND uses those constructs on product repos.
 
-**Workflow today**:
-1. Installs construct on product repo (manual, pointing at mature version)
-2. Uses construct skills in daily development
-3. Hits pipeline friction when construct work touches app zone
-4. Discovers improvements or friction while using construct
-5. Has no natural path to push learnings upstream
+**What changes for them after this cycle**:
+- When they browse `constructs.network/constructs/observer`, they see actual maturity, owner, rating — not blank/default values
+- When they extend `golden-path.sh` in their project, they can wire construct journey bars
+- When they add `workflow` to a construct.yaml, `construct-workflow-read.sh` actually reads it
 
-**What they need from this cycle**:
-- Workflow gates: FE/UI work doesn't trigger full pipeline
-- Post-install guidance: "Start here" after every install
-- Schema that supports what they want to declare in manifests
+### Secondary Persona: The Explorer Visitor
 
-### Secondary Persona: The Internal User (Future)
+**Who**: Anyone browsing `constructs.network` to evaluate whether constructs are useful.
 
-**Who**: Other org functions who use constructs but don't maintain them.
+**What changes for them**: Construct detail pages become informative instead of skeletal. Identity, owner, maturity, and links give a complete picture of what a construct is and who maintains it.
 
-**Not served by this cycle** — this cycle makes the maintainer-builder workflow natural. The internal user benefits transitively (constructs work better = products work better).
-
-> Source: User grounding interviews, #129 comment 1 ("Constructs live outside the Loa pipeline but on top of the Loa runtime")
+> Source: ARCHETYPE.md §5.3 Explorer Marketplace
 
 ---
 
 ## 5. Functional Requirements
 
-### FR-1: Manifest Schema Extension (G2, G5)
+### FR-1: Fix maturity field mismatch (G1)
 
-**Priority**: P0 — everything else depends on this
+**Priority**: P0 — this is a live bug on constructs.network
 
-Add the following optional fields to `PackManifest` in `packages/shared/src/types.ts` and `packManifestSchema` in `packages/shared/src/validation.ts`:
+**Files**:
+- `apps/explorer/lib/data/fetch-constructs.ts` — `APIConstruct` interface (line 17), `transformToNode` (line 61)
 
+**Changes**:
+1. Rename `graduation_level?: string` → `maturity?: string` in `APIConstruct` interface
+2. Change `construct.graduation_level` → `construct.maturity` in `transformToNode`
+
+**Acceptance criteria**:
+- `parseGraduationLevel()` receives the API's actual `maturity` value
+- Constructs with `maturity: 'experimental'` display as experimental, not stable
+- No other files reference `graduation_level` (search and replace)
+
+> Source: `apps/api/src/routes/constructs.ts:73` — API sends `maturity: c.maturity`
+
+### FR-2: Extend explorer to consume enrichment data (G2)
+
+**Priority**: P0 — the API serves this data today, the frontend wastes it
+
+**Files**:
+- `apps/explorer/lib/data/fetch-constructs.ts` — `APIConstruct`, `transformToNode`, `transformToDetail`
+- `apps/explorer/lib/types/graph.ts` — `ConstructNode`, `ConstructDetail`
+
+**Changes to `APIConstruct`** (add optional fields matching API response shape):
 ```typescript
-// Domain declaration for routing (#119)
-domain?: string[];
-expertise?: string[];
-
-// Golden path porcelain (#119, #127)
-golden_path?: {
-  commands: Array<{
-    name: string;
-    description: string;
-    truename_map?: Record<string, string>;
-  }>;
-  detect_state?: string;
-};
-
-// Workflow depth declaration (#129)
-workflow?: {
-  depth: 'light' | 'standard' | 'deep';
-  gates: {
-    prd?: 'skip' | 'condense' | 'full';
-    sdd?: 'skip' | 'condense' | 'full';
-    sprint?: 'skip' | 'condense' | 'full';
-    implement?: 'required';
-    review?: 'visual' | 'textual' | 'both' | 'skip';
-    audit?: 'skip' | 'lightweight' | 'full';
-  };
-};
-
-// Methodology layer (#118)
-methodology?: {
-  references?: string[];
-  principles?: string[];
-  knowledge_base?: string;
-};
-
-// Capability tier (#128)
-tier?: 'L1' | 'L2' | 'L3';
+rating?: number | null;
+long_description?: string | null;
+owner?: {
+  name: string;
+  type: 'user' | 'team';
+  avatar_url: string | null;
+} | null;
+has_identity?: boolean;
+identity?: {
+  cognitive_frame: unknown;
+  expertise_domains: unknown;
+  voice_config: unknown;
+  model_preferences: unknown;
+} | null;
+repository_url?: string | null;
+homepage_url?: string | null;
+documentation_url?: string | null;
 ```
 
-**Acceptance criteria**:
-- All fields optional (zero barrier for existing manifests)
-- Zod schema and TypeScript types match exactly
-- `.passthrough()` preserved for forward-compat
-- `schema_version` accepts 1-4, defaults to 1 for existing manifests
-- Validation tests cover all new fields with valid and invalid inputs
-- JSON Schema (`construct.schema.json` if it exists) updated in sync
-
-> Source: ARCHETYPE.md §5.1, #119 proposal, #129 proposal, #118 proposal, #128 proposal
-
-### FR-2: TS/Zod Synchronization (G4)
-
-**Priority**: P0 — prerequisite for FR-1 being trustworthy
-
-Reconcile the TypeScript `PackManifest` interface with the Zod `packManifestSchema`:
-
-| Field | TypeScript (types.ts) | Zod (validation.ts) | Resolution |
-|-------|----------------------|---------------------|------------|
-| `dependencies.skills` | `string[]` | `z.record(z.string())` | **Adopt Zod** — `Record<string, string>` is richer (slug → version range) |
-| `dependencies.packs` | `string[]` | `z.record(z.string())` | **Adopt Zod** — same reason |
-| `dependencies.loa_version` | `string` | field named `loa` | **Align naming** — pick one |
-| `long_description` | Missing | `z.string().max(10000)` | **Add to TS** |
-| `repository` | Missing | `z.string().url()` | **Add to TS** |
-| `homepage` | Missing | `z.string().url()` | **Add to TS** |
-| `documentation` | Missing | `z.string().url()` | **Add to TS** |
-| `keywords` | Missing | `z.array(z.string())` | **Add to TS** |
-| `engines` | Missing | `z.object({ loa, node })` | **Add to TS** |
-| `author` | `{ name, email?, url? }` | `z.union([string, object])` | **Adopt Zod** — allow string shorthand |
-
-**Acceptance criteria**:
-- Every field in Zod has a corresponding field in TypeScript with matching types
-- Every field in TypeScript has a corresponding field in Zod
-- API route formatters and explorer types still compile
-- No runtime behavior changes for existing manifests
-
-> Source: Codebase audit, `types.ts:219-271` vs `validation.ts:216-271`
-
-### FR-3: Workflow Gates in Pack Manifests (G1)
-
-**Priority**: P0 — the daily friction reducer
-
-Add `workflow` section to all 5 pack manifests in their standalone repos (`construct-observer`, `construct-artisan`, `construct-crucible`, `construct-beacon`, `construct-gtm-collective`).
-
-**Proposed gates per domain**:
-
-| Pack | Domain | prd | sdd | sprint | implement | review | audit |
-|------|--------|-----|-----|--------|-----------|--------|-------|
-| Observer | Research/Analysis | skip | skip | condense | required | textual | lightweight |
-| Artisan | Design/UI | skip | skip | condense | required | visual | skip |
-| Crucible | Build/Test | condense | condense | full | required | both | full |
-| Beacon | Deploy/Ship | condense | skip | condense | required | textual | lightweight |
-| GTM-Collective | Marketing/Growth | skip | skip | skip | required | textual | skip |
-
-**Acceptance criteria**:
-- Each manifest includes `workflow.gates` section
-- Each manifest includes `workflow.depth` ('light' | 'standard' | 'deep')
-- Manifests pass updated schema validation
-- Loa runtime (cycle-029 constraint yielding) reads these gates and adjusts enforcement
-
-**Note**: This FR requires changes in 5 external repos. The schema (FR-1) ships in loa-constructs. The manifest declarations ship in each construct-* repo. The runtime reading (cycle-029) is already merged upstream.
-
-> Source: #129 domain examples table, #129 comment 2 ("composes the pipeline at chosen depth")
-
-### FR-4: Post-Install Quick Start (G3)
-
-**Priority**: P1 — improves every install
-
-Modify the `browsing-constructs` skill's post-install report (Phase 6) to include the `quick_start` field from the installed pack's manifest.
-
-**Current behavior** (`.claude/skills/browsing-constructs/SKILL.md`):
-```
-Observer installed. 6 skills ready.
-Commands: /observe, /daily-synthesis, /follow-up, /shape, /speak, /grow
+**Changes to `ConstructNode`** (add rating for catalog cards):
+```typescript
+rating?: number | null;
 ```
 
-**Target behavior**:
+**Changes to `ConstructDetail`** (add all enrichment fields):
+```typescript
+longDescription?: string | null;
+owner?: { name: string; type: 'user' | 'team'; avatarUrl: string | null } | null;
+hasIdentity?: boolean;
+identity?: {
+  cognitiveFrame: unknown;
+  expertiseDomains: unknown;
+  voiceConfig: unknown;
+  modelPreferences: unknown;
+} | null;
+repositoryUrl?: string | null;
+homepageUrl?: string | null;
+documentationUrl?: string | null;
 ```
-Observer installed. 6 skills ready.
 
-Start here: /listen
-  "Capture your first user insight. Everything else builds on this."
-
-Commands: /observe, /daily-synthesis, /follow-up, /shape, /speak, /grow
-```
+**Changes to transform functions**:
+- `transformToNode`: pass through `rating`
+- `transformToDetail`: map snake_case API fields → camelCase frontend fields
 
 **Acceptance criteria**:
-- If manifest has `quick_start`, show it prominently before command list
-- If manifest has `golden_path.commands`, show the first command as "Start here"
-- If neither exists, show current behavior (flat command list)
-- All 5 pack manifests have `quick_start` populated
+- All new fields are optional (null-safe)
+- `transformToDetail` correctly maps `long_description` → `longDescription`, `owner.avatar_url` → `owner.avatarUrl`, etc.
+- Types compile with `pnpm --filter explorer build`
 
-**Implementation note**: This requires updating a SKILL.md file in the Loa System Zone. This is a framework-level skill, so the change propagates to all projects on next `/update-loa`. Alternatively, could be a construct-level override — decision for SDD.
+> Source: `apps/api/src/routes/constructs.ts:80-117` — `formatConstructDetail` response shape
 
-> Source: #127 feedback, ARCHETYPE.md §5.4 CLI Onboarding, Hormozi: "< 2 minutes to first valuable output"
+### FR-3: Render enrichment data on construct detail page (G2)
 
-### FR-5: Schema Version Migration (G5)
+**Priority**: P1 — UI rendering of the wired data
 
-**Priority**: P1 — housekeeping that prevents future pain
+**File**: `apps/explorer/app/(marketing)/constructs/[slug]/page.tsx`
 
-- Bump manifest schema version to 4
-- Validation accepts v1, v2, v3, and v4 manifests
-- New fields are only validated when `schema_version >= 4`
-- Default for `schema_version` remains 1 (backward compat)
-- CI topology validation updated for v4
+**Changes** (following existing design patterns in the file):
+1. **Owner**: Show owner name near the header badges (after version + type). Use existing badge pattern: `<span className="border border-white/20 px-2 py-0.5 text-[10px] font-mono text-white/60">`
+2. **Rating**: Add to the 4-column info grid (line 79-96). Display as a number or star indicator alongside downloads.
+3. **Long description**: Render below the short description (after line 75) if present. Same `text-sm font-mono text-white/60` style.
+4. **Identity indicator**: If `hasIdentity` is true, show a small badge near the construct type (e.g., "Expert Identity" badge).
+5. **Repository/Homepage/Documentation links**: Add to the Links section (lines 156-179), following the existing "View Source on GitHub" pattern (lines 163-171). Conditional rendering when URL is present.
 
 **Acceptance criteria**:
-- Existing v3 manifests pass validation unchanged
-- v4 manifests with new fields pass validation
-- v4 manifests with invalid new field values fail validation
-- `validate-topology.sh` checks updated
+- All new sections gracefully handle null/undefined values (don't render if absent)
+- Visual style matches existing page (monospace font, white/60 secondary text, border border-white/10 cards)
+- Links open in new tab with `rel="noopener noreferrer"`
+- No layout breakage when all fields are null (existing behavior preserved)
 
-> Source: Memory — "All 5 pack manifests at schema_version 3"
+### FR-4: Fix construct-workflow-read.sh YAML parsing (G4)
+
+**Priority**: P0 — the script silently fails on all real manifests
+
+**File**: `.claude/scripts/construct-workflow-read.sh`
+
+**Changes**:
+1. Source `yq-safe.sh` at the top (after line 13)
+2. In `main()` (line 142-148): detect `.yaml`/`.yml` file extension. If YAML, use `safe_yq_to_json()` to convert to JSON, then pipe to existing `jq` logic.
+3. All downstream validation (`validate_workflow`, `query_gate`) stays `jq`-based — minimal change.
+
+**Acceptance criteria**:
+- `construct-workflow-read.sh manifest.yaml` returns valid JSON when manifest has `workflow` section
+- `construct-workflow-read.sh manifest.yaml --gate prd` returns gate value
+- `construct-workflow-read.sh manifest.json` still works (backward compat)
+- `bash -n construct-workflow-read.sh` passes
+
+> Source: `.claude/scripts/yq-safe.sh:221` — `safe_yq_to_json()` utility
+
+### FR-5: Add construct journey discovery to golden-path.sh (G3)
+
+**Priority**: P1 — enables construct-level "you are here" (next cycle wires it to `/loa`)
+
+**File**: `.claude/scripts/golden-path.sh`
+
+**Changes**:
+1. Source `yq-safe.sh` (after line 26, alongside `bootstrap.sh`)
+2. New function `golden_detect_construct_journeys()`:
+   - Scans `.claude/constructs/packs/*/construct.yaml` for `golden_path.commands`
+   - Uses `safe_yq_to_json()` to parse YAML
+   - Returns formatted journey bars: `"Observer: /listen ──── /see ──── /think ──── /shape"`
+   - Returns empty when no packs have `golden_path` (graceful no-op)
+3. Modify `golden_format_journey()` (line 267): after rendering the standard framework bar, append construct journey bars if any exist.
+4. Extend `golden_menu_options()` to include a construct commands entry when constructs with `golden_path` are installed.
+
+**Acceptance criteria**:
+- `golden_detect_construct_journeys` returns empty string when `.claude/constructs/packs/` doesn't exist
+- `golden_detect_construct_journeys` returns empty string when installed packs lack `golden_path`
+- `golden_detect_construct_journeys` returns formatted bar when a pack has `golden_path.commands`
+- `golden_format_journey` output includes construct bars below the framework bar (additive, not replacing)
+- `bash -n golden-path.sh` passes
 
 ---
 
-## 6. Technical & Non-Functional Requirements
+## 6. Scope & Prioritization
 
-### NF-1: Non-Breaking Extension
+### In Scope (This Cycle)
 
-All schema changes MUST be non-breaking. Existing manifests MUST continue to validate without modification. The `.passthrough()` on the Zod schema already enables this — new fields are validated when present but not required.
+| Sprint | Items | Effort |
+|--------|-------|--------|
+| Sprint 1 | FR-1 (maturity fix), FR-2 (APIConstruct + types), FR-3 (detail page UI) | Medium — frontend types + UI |
+| Sprint 2 | FR-4 (YAML parsing fix), FR-5 (golden-path construct discovery) | Medium — shell scripting |
 
-### NF-2: Three-Layer Sync
+### Out of Scope
 
-Changes touch three schema layers that must stay in sync:
-1. **TypeScript types** (`packages/shared/src/types.ts`)
-2. **Zod validation** (`packages/shared/src/validation.ts`)
-3. **JSON Schema** (`construct.schema.json` or equivalent, if it exists)
-
-CI MUST validate all three layers agree.
-
-### NF-3: Cross-Repo Coordination
-
-FR-3 (workflow gates in manifests) requires changes in 5 external repos. These changes depend on FR-1 (schema extension) being published first. The coordination sequence:
-1. Ship FR-1 + FR-2 in `loa-constructs` (shared package)
-2. Publish shared package (or reference via git)
-3. Update manifest in each `construct-*` repo
-4. Sync updated manifests to registry
-
-### NF-4: Runtime Compatibility
-
-The Loa upstream (cycle-029) already supports reading `workflow.gates` from manifests. FR-3 manifests MUST produce gate declarations that the runtime can consume without changes to the runtime itself. If the runtime expects a specific format, manifests MUST match it.
+| Item | Why | When |
+|------|-----|------|
+| State detection scripts per pack | Per-repo work in construct-* repos | After Cycle B, per-pack PRs |
+| `/loa` aggregates construct journeys | Depends on packs shipping golden_path + detect_state | Cycle C |
+| Construct-level "next suggested" | Needs state detection + journey aggregation | Cycle C |
+| Pack-level analytics endpoint | Independent work, not on critical path | Cycle C or standalone |
+| Observer friction points 1-2 | Network-level changes that need separate design | Cycle C |
+| MoE intent routing | Needs constructs to declare domain fields | Cycle C |
 
 ---
 
-## 7. Scope & Prioritization
+## 7. Risks & Dependencies
 
-### In Scope (Cycle A)
-
-| Priority | Item | FR |
-|----------|------|----|
-| P0 | Manifest schema extension (6 new field groups) | FR-1 |
-| P0 | TS/Zod synchronization | FR-2 |
-| P0 | Workflow gates in 5 pack manifests | FR-3 |
-| P1 | Post-install quick_start | FR-4 |
-| P1 | Schema version bump to v4 | FR-5 |
-
-### Out of Scope (Deferred)
-
-| Item | Deferred To | Why |
-|------|-------------|-----|
-| Explorer frontend fixes | Cycle B | Nobody uses the explorer |
-| Golden path per construct (journey bars) | Cycle B | Needs manifests with `golden_path` first (this cycle) |
-| `/loa` aggregating construct status | Cycle B | Needs state detection scripts |
-| MoE intent routing | Cycle C | Needs `domain` + `expertise` populated in manifests |
-| Human-centered metrics | Cycle C | No traffic to measure |
-| Construct distribution/sync UX | Cycle A.5 or B | Separate cobweb to untangle, separate PRD |
-| Envio construct | Cycle C | Proof-of-concept for third-party, needs schema first |
-| Verification / Echelon | Cycle C+ | Zero third-party constructs |
+| Risk | Impact | Mitigation |
+|------|--------|-----------|
+| No packs at schema_version 4 yet | FR-5 construct journey discovery will find zero matches until packs adopt | By design — code is ready, data arrives when construct-* repos bump to v4. VERSION-BUMP.md documents the process. |
+| API backward compatibility | Explorer changes consume more fields | All new fields are optional. API already serves them. No API changes needed. |
+| `yq` availability | FR-4 depends on yq being installed | `yq-safe.sh` already handles both mikefarah/yq and Python yq variants. It's a standard dependency (sourced by `constructs-loader.sh`). |
+| Pre-existing API DTS build error | `crypto` type missing in `api/app.ts:172` | Pre-existing issue, not caused by our changes. ESM build succeeds; only DTS generation fails. |
+| Explorer build instability | Next.js 15 build can be sensitive to type changes | Incremental changes with build verification after each sprint. |
 
 ---
 
-## 8. Risks & Dependencies
+## 8. Key Files
 
-### Risks
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Schema changes break existing manifests | Low | High | `.passthrough()` + all new fields optional + CI validation |
-| Cycle-029 runtime expects different gate format than we declare | Medium | Medium | Read cycle-029 implementation before writing FR-3 manifests |
-| Cross-repo coordination delays (5 repos need manifest updates) | Medium | Medium | FR-1/FR-2 can ship independently. FR-3 manifests ship in parallel across repos. |
-| `browsing-constructs` SKILL.md is System Zone | Low | Low | Either framework PR or construct-level override |
-
-### Dependencies
-
-| Dependency | Type | Status |
-|-----------|------|--------|
-| Loa cycle-029 (Constraint Yielding) | Runtime | **Merged** — just pulled via `/update-loa` this session |
-| `construct-template` repo | Template | **Created** — exists but may need schema v4 updates |
-| 5 `construct-*` repos | Manifest hosts | **Exist** — need manifest updates for FR-3 |
-| Shared package publishing | Coordination | Needed for cross-repo type sync |
-
-### Open Questions
-
-| # | Question | Decision Needed By |
-|---|----------|-------------------|
-| Q1 | Does cycle-029 runtime read `workflow.gates` from manifest JSON directly, or from a derived config? | Before FR-3 implementation |
-| Q2 | Should `browsing-constructs` changes go through Loa upstream PR, or as a construct-level override? | Before FR-4 implementation |
-| Q3 | How do construct-* repos reference the updated shared types? Git dependency? Published package? Copy? | Before FR-3 implementation |
+| File | Purpose | Changes |
+|------|---------|---------|
+| `apps/explorer/lib/data/fetch-constructs.ts` | Data pipeline: API → frontend | Fix maturity, add enrichment fields, update transforms |
+| `apps/explorer/lib/types/graph.ts` | TypeScript interfaces | Extend ConstructNode + ConstructDetail |
+| `apps/explorer/app/(marketing)/constructs/[slug]/page.tsx` | Detail page UI | Render owner, rating, long_description, identity, links |
+| `.claude/scripts/construct-workflow-read.sh` | Workflow gate reader | Add YAML→JSON bridge via yq-safe.sh |
+| `.claude/scripts/golden-path.sh` | Golden path state machine | Add construct journey discovery + rendering |
+| `.claude/scripts/yq-safe.sh` | YAML parsing utility | Reuse existing `safe_yq_to_json()` — no changes needed |
 
 ---
 
-## 9. Issue Disposition
+## 9. Verification Plan
 
-After Cycle A ships:
-
-| Issue | Status | What Changed |
-|-------|--------|-------------|
-| #119 | **Schema unblocked** | `domain`, `expertise`, `golden_path` fields exist in types + Zod |
-| #127 | **First step shipped** | `quick_start` used post-install. Golden path commands declarable in manifest. |
-| #128 | **Schema unblocked** | `tier` field exists. Verification deferred. |
-| #129 | **Fully addressed** | Manifest declares gates. Runtime yields. Pipeline friction eliminated for constructs. |
-| #118 | **Schema unblocked** | `methodology` field exists. Ingestion pipeline deferred. |
-| #116 | **Not addressed** | Network-level friction points deferred to Cycle B. Observer-specific fixes in construct-observer repo. |
-| #122 | **Schema ready** | Envio construct can now declare `domain` + `methodology`. Implementation deferred to Cycle C. |
-
-**Related issues advanced:**
-- #49 (WORKFLOW.md per pack) → Subsumed by `golden_path` + `workflow` in manifest
-- #89 (pack autosync/graduation) → Schema v4 supports graduation metadata
-- #103 (domain-specific DX) → `domain` field enables future MoE routing
-- #117 (schema migration tooling) → Non-breaking extension via `.passthrough()` avoids need for migration tooling
-
----
-
-*"The best bridge is the one that carries the weight of its builders before it carries the world."*
+1. **Explorer build**: `pnpm --filter explorer build` — type-checks all frontend changes
+2. **Script syntax**: `bash -n .claude/scripts/construct-workflow-read.sh` + `bash -n .claude/scripts/golden-path.sh`
+3. **Manual verification**: Visit construct detail page, confirm maturity/rating/owner render correctly
+4. **Regression**: Existing golden-path framework bar unchanged when no constructs have golden_path
+5. **YAML parsing**: Pass a sample `construct.yaml` with workflow section to `construct-workflow-read.sh`, verify JSON output

@@ -12,6 +12,10 @@
 #   2 — Validation error (invalid values, implement: skip)
 set -euo pipefail
 
+# Source yq-safe for YAML→JSON conversion
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/yq-safe.sh" 2>/dev/null || true
+
 # ── Constants ──────────────────────────────────────────
 
 # Valid gate values per SDD Section 3.1
@@ -143,9 +147,28 @@ main() {
   local manifest="${1:-}"
   [[ -z "$manifest" ]] && { echo "Usage: $0 <manifest_path> [--gate <name>]" >&2; exit 2; }
 
+  # If YAML, convert to JSON via yq-safe bridge
+  local json_source="$manifest"
+  local tmp_json=""
+  case "$manifest" in
+    *.yaml|*.yml)
+      if type safe_yq_to_json &>/dev/null; then
+        tmp_json=$(mktemp 2>/dev/null) || exit 1
+        trap 'rm -f "$tmp_json"' EXIT
+        if ! safe_yq_to_json "$manifest" > "$tmp_json" 2>/dev/null; then
+          rm -f "$tmp_json"
+          exit 1  # Fail-closed: YAML parse error → full pipeline
+        fi
+        json_source="$tmp_json"
+      else
+        exit 1  # Fail-closed: no yq available → full pipeline
+      fi
+      ;;
+  esac
+
   # Fail-closed: parse error → exit 1 (no workflow)
   local workflow
-  workflow=$(jq -e '.workflow // empty' "$manifest" 2>/dev/null) || exit 1
+  workflow=$(jq -e '.workflow // empty' "$json_source" 2>/dev/null) || exit 1
 
   # Check if workflow is empty/null
   if [[ -z "$workflow" || "$workflow" == "null" ]]; then

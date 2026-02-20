@@ -14,9 +14,27 @@ interface APIConstruct {
   downloads: number;
   tier_required: string;
   is_featured: boolean;
-  graduation_level?: string;
+  maturity?: string;
   source_type?: string | null;
   git_url?: string | null;
+  rating?: number | null;
+  long_description?: string | null;
+  owner?: {
+    name: string;
+    type: 'user' | 'team';
+    avatar_url: string | null;
+  } | null;
+  has_identity?: boolean;
+  identity?: {
+    cognitive_frame: unknown;
+    expertise_domains: unknown;
+    voice_config: unknown;
+    model_preferences: unknown;
+  } | null;
+  repository_url?: string | null;
+  homepage_url?: string | null;
+  documentation_url?: string | null;
+  icon?: string | null;
   manifest?: {
     commands?: Array<{ name: string; description: string; usage?: string }>;
     skills?: Array<{ slug: string; name?: string; path?: string; description?: string } | null>;
@@ -58,12 +76,13 @@ function transformToNode(construct: APIConstruct): ConstructNode {
     name: construct.name,
     type: construct.type,
     category,
-    graduationLevel: parseGraduationLevel(construct.graduation_level),
+    graduationLevel: parseGraduationLevel(construct.maturity),
     description: construct.description || 'No description available',
     shortDescription: shortDesc,
     commandCount: commands.length || (construct.type === 'skill' ? 1 : 0),
     downloads: construct.downloads,
     version: construct.version || '1.0.0',
+    rating: construct.rating ?? null,
   };
 }
 
@@ -95,6 +114,16 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
     installCommand: `/constructs install ${construct.slug}`,
     sourceType: construct.source_type,
     gitUrl: construct.git_url,
+    longDescription: construct.long_description ?? null,
+    owner: construct.owner ? {
+      name: construct.owner.name,
+      type: construct.owner.type,
+      avatarUrl: construct.owner.avatar_url ?? null,
+    } : null,
+    hasIdentity: construct.has_identity ?? false,
+    repositoryUrl: construct.repository_url ?? null,
+    homepageUrl: construct.homepage_url ?? null,
+    documentationUrl: construct.documentation_url ?? null,
   };
 }
 

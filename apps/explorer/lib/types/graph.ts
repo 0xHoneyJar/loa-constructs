@@ -29,6 +29,7 @@ export interface ConstructNode {
   commandCount: number;
   downloads: number;
   version: string;
+  rating?: number | null;
   position?: {
     x: number;
     y: number;
@@ -61,6 +62,12 @@ export interface ConstructDetail extends ConstructNode {
   installCommand: string;
   sourceType?: string | null;
   gitUrl?: string | null;
+  longDescription?: string | null;
+  owner?: { name: string; type: 'user' | 'team'; avatarUrl: string | null } | null;
+  hasIdentity?: boolean;
+  repositoryUrl?: string | null;
+  homepageUrl?: string | null;
+  documentationUrl?: string | null;
 }
 
 export interface CategoryStats {
