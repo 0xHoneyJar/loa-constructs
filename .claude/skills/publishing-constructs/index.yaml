@@ -1,0 +1,47 @@
+name: publishing-constructs
+version: "1.0.0"
+description: |
+  Publish constructs to the Loa Constructs Registry. Runs 10-point validation,
+  checks permissions, handles version bumping, and uploads with TLS enforcement.
+
+model: sonnet
+color: red
+
+triggers:
+  - pattern: "/construct-publish"
+    description: "Publish a construct to the registry"
+
+capabilities:
+  model_tier: sonnet
+  danger_level: high
+  effort_hint: medium
+  downgrade_allowed: false
+  execution_hint: sequential
+  requires:
+    native_runtime: false
+    tool_calling: true
+    thinking_traces: false
+    vision: false
+
+dependencies: []
+
+inputs:
+  - name: path
+    type: string
+    description: "Path to construct directory to publish"
+    required: false
+  - name: action
+    type: string
+    description: "Action: publish, validate, dry-run, fork"
+    required: false
+    default: "publish"
+
+outputs:
+  - name: result
+    type: object
+    description: "Publish result with version and status"
+
+zones:
+  system: read
+  state: write
+  app: none

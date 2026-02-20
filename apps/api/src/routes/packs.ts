@@ -1562,3 +1562,143 @@ packsRouter.patch(
   }
 );
 
+// ── Construct Lifecycle endpoints (cycle-032) ──────────────────
+
+/**
+ * GET /packs/:slug/hash — Content hash for divergence detection
+ * @see sdd.md §6.1 GET /v1/packs/:slug/hash
+ */
+packsRouter.get(
+  '/:slug/hash',
+  optionalAuth(),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const requestId = randomUUID();
+
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    const latestVersion = await getLatestPackVersion(pack.id);
+    if (!latestVersion) {
+      throw Errors.NotFound('No published version found');
+    }
+
+    // Compute content hash from version files
+    const files = await getPackVersionFiles(latestVersion.id);
+    const hashInput = files
+      .map((f: { path: string; content: string }) => `${f.path}:${createHash('sha256').update(f.content).digest('hex')}`)
+      .sort()
+      .join('\n');
+    const contentHash = `sha256:${createHash('sha256').update(hashInput).digest('hex')}`;
+
+    return c.json({
+      data: {
+        slug,
+        version: latestVersion.version,
+        hash: contentHash,
+      },
+      request_id: requestId,
+    });
+  }
+);
+
+/**
+ * GET /packs/:slug/permissions — Check user permissions for a pack
+ * @see sdd.md §6.2 GET /v1/packs/:slug/permissions
+ */
+packsRouter.get(
+  '/:slug/permissions',
+  requireAuth(),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const userId = c.get('userId' as never) as string;
+    const requestId = randomUUID();
+
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    const ownerCheck = await isPackOwner(pack.id, userId);
+
+    return c.json({
+      data: {
+        slug,
+        permissions: {
+          is_owner: ownerCheck,
+          can_publish: ownerCheck,
+          can_fork: true, // All authenticated users can fork
+        },
+      },
+      request_id: requestId,
+    });
+  }
+);
+
+/**
+ * POST /packs/fork — Fork a pack as a scoped variant
+ * @see sdd.md §6.3 POST /v1/packs/fork
+ */
+packsRouter.post(
+  '/fork',
+  requireAuth(),
+  zValidator(
+    'json',
+    z.object({
+      source_slug: z.string().min(1),
+      new_slug: z.string().min(3).max(100).regex(/^[a-z0-9-]+$/),
+      description: z.string().max(500).optional(),
+    })
+  ),
+  async (c) => {
+    const userId = c.get('userId' as never) as string;
+    const userEmail = c.get('userEmail' as never) as string;
+    const requestId = randomUUID();
+
+    // Require email verification
+    if (!userEmail) {
+      throw Errors.Forbidden('Email verification required to fork packs');
+    }
+
+    const { source_slug, new_slug, description } = c.req.valid('json' as never);
+
+    // Check source exists
+    const sourcePack = await getPackBySlug(source_slug);
+    if (!sourcePack) {
+      throw Errors.NotFound('Source pack not found');
+    }
+
+    // Check new slug is available
+    const slugAvailable = await isSlugAvailable(new_slug);
+    if (!slugAvailable) {
+      throw new AppError(409, 'SLUG_TAKEN', `Slug '${new_slug}' is already taken`);
+    }
+
+    // Create forked pack
+    const forkedPack = await createPack({
+      name: `${sourcePack.name} (fork)`,
+      slug: new_slug,
+      description: description || sourcePack.description || undefined,
+      owner_id: userId,
+      owner_type: 'user',
+    });
+
+    logger.info({ sourceSlug: source_slug, newSlug: new_slug, userId, requestId }, 'Pack forked');
+
+    return c.json(
+      {
+        data: {
+          slug: new_slug,
+          source_slug,
+          version: '0.1.0',
+          status: 'created',
+        },
+        request_id: requestId,
+      },
+      201
+    );
+  }
+);
+
