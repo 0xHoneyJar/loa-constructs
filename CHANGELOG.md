@@ -5,6 +5,20 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] — 2026-02-20 — Construct Lifecycle — construct-network-tools Pack
+
+
+Implements construct lifecycle management for the Constructs Network (cycle-032). Adds the `construct-network-tools` pack with skills for linking, syncing, publishing, creating, and upgrading constructs across standalone repositories.
+
+### What Changed
+
+### Added
+
+- **cycle-032**: Construct Lifecycle — construct-network-tools Pack (#133)
+
+_Source: PR #133_
+
+
 ## [1.5.0] - 2026-02-05
 
 ### Why This Release
