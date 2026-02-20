@@ -329,7 +329,7 @@ golden_detect_construct_journeys() {
     fi
 
     local manifest pack_name commands_json bar output=""
-    for manifest in "$packs_dir"/*/construct.yaml; do
+    for manifest in "$packs_dir"/*/construct.yaml "$packs_dir"/*/construct.yml; do
         [[ -f "$manifest" ]] || continue
 
         # Extract golden_path.commands via yq→jq pipeline

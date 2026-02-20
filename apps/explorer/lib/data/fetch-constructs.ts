@@ -25,16 +25,9 @@ interface APIConstruct {
     avatar_url: string | null;
   } | null;
   has_identity?: boolean;
-  identity?: {
-    cognitive_frame: unknown;
-    expertise_domains: unknown;
-    voice_config: unknown;
-    model_preferences: unknown;
-  } | null;
   repository_url?: string | null;
   homepage_url?: string | null;
   documentation_url?: string | null;
-  icon?: string | null;
   manifest?: {
     commands?: Array<{ name: string; description: string; usage?: string }>;
     skills?: Array<{ slug: string; name?: string; path?: string; description?: string } | null>;
@@ -51,6 +44,16 @@ interface APIResponse {
     total: number;
     total_pages: number;
   };
+}
+
+function isSafeUrl(url: string | null | undefined): url is string {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
 }
 
 function parseGraduationLevel(level: string | undefined): GraduationLevel {
@@ -121,9 +124,9 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
       avatarUrl: construct.owner.avatar_url ?? null,
     } : null,
     hasIdentity: construct.has_identity ?? false,
-    repositoryUrl: construct.repository_url ?? null,
-    homepageUrl: construct.homepage_url ?? null,
-    documentationUrl: construct.documentation_url ?? null,
+    repositoryUrl: isSafeUrl(construct.repository_url) ? construct.repository_url : null,
+    homepageUrl: isSafeUrl(construct.homepage_url) ? construct.homepage_url : null,
+    documentationUrl: isSafeUrl(construct.documentation_url) ? construct.documentation_url : null,
   };
 }
 
