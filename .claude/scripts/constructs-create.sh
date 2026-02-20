@@ -42,7 +42,7 @@ EXIT_VALIDATION=5
 # Constants
 # =============================================================================
 
-VALID_TYPES=("skill-pack" "tool-pack" "codex")
+VALID_TYPES=("skill-pack" "tool-pack" "codex" "template")
 
 # =============================================================================
 # Helpers
@@ -139,6 +139,14 @@ paths:
 access_layer:
   type: file
   entrypoint: "index.md"
+
+skills: []
+commands: []
+pack_dependencies: {}
+YAML
+            ;;
+        template)
+            cat >> "$dir/construct.yaml" << 'YAML'
 
 skills: []
 commands: []
@@ -360,6 +368,9 @@ cmd_new() {
         codex)
             generate_starter_codex "$target_dir"
             ;;
+        template)
+            # Template type — minimal scaffold, no type-specific files
+            ;;
     esac
 
     # Initialize git repo
@@ -443,6 +454,9 @@ cmd_init() {
             ;;
         codex)
             generate_starter_codex "."
+            ;;
+        template)
+            # Template type — minimal scaffold
             ;;
     esac
 

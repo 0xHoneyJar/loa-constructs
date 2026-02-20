@@ -630,7 +630,7 @@ webhooksRouter.post(
   zValidator(
     'json',
     z.object({
-      slug: z.string().min(1).max(100),
+      slug: z.string().min(3).max(100).regex(/^[a-z0-9-]+$/),
     })
   ),
   async (c) => {

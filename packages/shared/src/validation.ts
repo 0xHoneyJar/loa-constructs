@@ -295,10 +295,15 @@ export const identitySchema = z.object({
   expertise: z.string().max(500).optional(),
 });
 
-/** Lifecycle hooks */
+/**
+ * Lifecycle hooks — constrained to safe script paths to prevent supply-chain attacks.
+ * Only allows relative paths matching: scripts/<name>.sh or npm run <script>
+ * @see Bridgebuilder Review CRITICAL-1: arbitrary command execution via hooks
+ */
+const safeHookPattern = /^(scripts\/[a-z0-9_-]+\.sh|npm run [a-z0-9_-]+)$/;
 export const lifecycleHooksSchema = z.object({
-  post_install: z.string().max(500).optional(),
-  post_update: z.string().max(500).optional(),
+  post_install: z.string().max(500).regex(safeHookPattern, 'Hook must match: scripts/<name>.sh or npm run <script>').optional(),
+  post_update: z.string().max(500).regex(safeHookPattern, 'Hook must match: scripts/<name>.sh or npm run <script>').optional(),
 });
 
 /**

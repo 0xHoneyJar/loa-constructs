@@ -1585,13 +1585,16 @@ packsRouter.get(
       throw Errors.NotFound('No published version found');
     }
 
-    // Compute content hash from version files
-    const files = await getPackVersionFiles(latestVersion.id);
-    const hashInput = files
-      .map((f) => `${f.path}:${createHash('sha256').update(f.content || '').digest('hex')}`)
-      .sort()
-      .join('\n');
-    const contentHash = `sha256:${createHash('sha256').update(hashInput).digest('hex')}`;
+    // Use pre-computed hash if available, else compute on-the-fly
+    let contentHash = latestVersion.contentHash;
+    if (!contentHash) {
+      const files = await getPackVersionFiles(latestVersion.id);
+      const hashInput = files
+        .map((f) => `${f.path}:${createHash('sha256').update(f.content || '').digest('hex')}`)
+        .sort()
+        .join('\n');
+      contentHash = `sha256:${createHash('sha256').update(hashInput).digest('hex')}`;
+    }
 
     return c.json({
       data: {
@@ -1647,7 +1650,7 @@ packsRouter.post(
   zValidator(
     'json',
     z.object({
-      source_slug: z.string().min(1),
+      source_slug: z.string().min(3).max(100).regex(/^[a-z0-9-]+$/),
       new_slug: z.string().min(3).max(100).regex(/^[a-z0-9-]+$/),
       description: z.string().max(500).optional(),
     })

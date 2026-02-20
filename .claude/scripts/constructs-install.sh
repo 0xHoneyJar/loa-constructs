@@ -1502,7 +1502,7 @@ do_upgrade_pack() {
                     conflicts=$((conflicts + 1))
                 fi
             fi
-        done < <(find "$tmp_new/new" -print0 2>/dev/null)
+        done < <(find "$tmp_new/new" -type f -print0 2>/dev/null)
     else
         echo "  No shadow found — performing full replacement..."
         rm -rf "$pack_dir"

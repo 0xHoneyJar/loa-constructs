@@ -391,7 +391,7 @@ do_fork() {
         -X POST \
         -H "Authorization: Bearer $api_key" \
         -H "Content-Type: application/json" \
-        -d "{\"source_slug\":\"$source_slug\",\"new_slug\":\"$new_slug\"}" \
+        -d "$(jq -n --arg ss "$source_slug" --arg ns "$new_slug" '{source_slug: $ss, new_slug: $ns}')" \
         "${registry_url}/packs/fork")
 
     case "$http_code" in
