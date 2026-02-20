@@ -524,3 +524,239 @@ describe('Golden path description non-empty (I-6)', () => {
     expect(result.success).toBe(false);
   });
 });
+
+// ── Construct Lifecycle Tests (cycle-032) ──────────────────
+
+describe('Construct Lifecycle: type field', () => {
+  it('accepts valid construct types', () => {
+    for (const type of ['skill-pack', 'tool-pack', 'codex', 'template'] as const) {
+      const result = packManifestSchema.safeParse({ ...MINIMAL_MANIFEST, type });
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it('rejects invalid type value', () => {
+    const result = packManifestSchema.safeParse({ ...MINIMAL_MANIFEST, type: 'plugin' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('Construct Lifecycle: runtime_requirements', () => {
+  it('accepts valid runtime_requirements with all fields', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      runtime_requirements: {
+        runtime: 'node',
+        dependencies: { 'typescript': '>=5.0.0', '@anthropic-ai/sdk': '>=0.10.0' },
+        external_tools: ['docker', 'kubectl'],
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts empty runtime_requirements', () => {
+    const manifest = { ...MINIMAL_MANIFEST, runtime_requirements: {} };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('Construct Lifecycle: credentials', () => {
+  it('accepts valid credentials with UPPER_SNAKE_CASE name', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      credentials: [
+        { name: 'ANTHROPIC_API_KEY', description: 'API key for Claude', sensitive: true, optional: false },
+        { name: 'GITHUB_TOKEN', description: 'GitHub access token' },
+      ],
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects credentials with lowercase name', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      credentials: [
+        { name: 'api_key', description: 'Invalid lowercase name' },
+      ],
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects credentials with kebab-case name', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      credentials: [
+        { name: 'API-KEY', description: 'Hyphens not allowed' },
+      ],
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('Construct Lifecycle: access_layer', () => {
+  it('accepts all transport types', () => {
+    for (const transport of ['stdio', 'sse', 'http'] as const) {
+      const manifest = {
+        ...MINIMAL_MANIFEST,
+        access_layer: { type: 'mcp' as const, entrypoint: 'server.js', transport },
+      };
+      const result = packManifestSchema.safeParse(manifest);
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it('accepts all access layer types', () => {
+    for (const type of ['mcp', 'file', 'api'] as const) {
+      const manifest = {
+        ...MINIMAL_MANIFEST,
+        access_layer: { type },
+      };
+      const result = packManifestSchema.safeParse(manifest);
+      expect(result.success).toBe(true);
+    }
+  });
+
+  it('rejects invalid access layer type', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      access_layer: { type: 'grpc' },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('Construct Lifecycle: portability_score', () => {
+  it('accepts 0.0 (minimum)', () => {
+    const result = packManifestSchema.safeParse({ ...MINIMAL_MANIFEST, portability_score: 0 });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts 1.0 (maximum)', () => {
+    const result = packManifestSchema.safeParse({ ...MINIMAL_MANIFEST, portability_score: 1 });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts 0.75 (mid-range)', () => {
+    const result = packManifestSchema.safeParse({ ...MINIMAL_MANIFEST, portability_score: 0.75 });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects -0.1 (below minimum)', () => {
+    const result = packManifestSchema.safeParse({ ...MINIMAL_MANIFEST, portability_score: -0.1 });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects 1.1 (above maximum)', () => {
+    const result = packManifestSchema.safeParse({ ...MINIMAL_MANIFEST, portability_score: 1.1 });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('Construct Lifecycle: identity and hooks', () => {
+  it('accepts identity with persona and expertise paths', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      identity: { persona: 'identity/persona.yaml', expertise: 'identity/expertise.yaml' },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts hooks with post_install and post_update', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      hooks: { post_install: 'scripts/setup.sh', post_update: 'scripts/migrate.sh' },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts empty identity and hooks objects', () => {
+    const manifest = { ...MINIMAL_MANIFEST, identity: {}, hooks: {} };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('Construct Lifecycle: full manifest with all lifecycle fields', () => {
+  it('accepts a complete lifecycle-enabled manifest', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      schema_version: 3,
+      type: 'tool-pack' as const,
+      runtime_requirements: {
+        runtime: 'node',
+        dependencies: { '@anthropic-ai/sdk': '>=0.10.0' },
+        external_tools: ['docker'],
+      },
+      paths: { state: '.construct/state', cache: '.construct/cache' },
+      credentials: [
+        { name: 'ANTHROPIC_API_KEY', description: 'Claude API key', sensitive: true },
+      ],
+      access_layer: { type: 'mcp' as const, entrypoint: 'server.ts', transport: 'stdio' as const },
+      portability_score: 0.6,
+      identity: { persona: 'identity/persona.yaml' },
+      hooks: { post_install: 'scripts/setup.sh' },
+      tier: 'L2' as const,
+      domain: ['ai-tools'],
+      workflow: {
+        depth: 'standard' as const,
+        gates: { implement: 'required' as const, review: 'textual' as const },
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+
+  it('backward compat: existing manifests still pass with no lifecycle fields', () => {
+    const manifest = {
+      name: 'Observer',
+      slug: 'observer',
+      version: '1.0.0',
+      description: 'User research and feedback collection',
+      schema_version: 3,
+      skills: [
+        { slug: 'observing-users', path: 'skills/observing-users/' },
+        { slug: 'level-3-diagnostic', path: 'skills/level-3-diagnostic/' },
+      ],
+      domain: ['user-research'],
+      tier: 'L1' as const,
+      workflow: {
+        depth: 'light' as const,
+        gates: {
+          prd: 'skip' as const,
+          sdd: 'skip' as const,
+          sprint: 'full' as const,
+          implement: 'required' as const,
+          review: 'textual' as const,
+          audit: 'lightweight' as const,
+        },
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+});
+
+describe('Construct Lifecycle: meta_probe drift reconciliation', () => {
+  it('accepts meta_probe with all fields', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      meta_probe: { name: 'pulse', command: '/pulse', skill: 'health-check', scope: 'internal' as const },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts meta_probe with only name', () => {
+    const manifest = { ...MINIMAL_MANIFEST, meta_probe: { name: 'heartbeat' } };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+});

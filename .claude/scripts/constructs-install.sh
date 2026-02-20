@@ -531,6 +531,11 @@ do_install_pack() {
 
                 update_pack_meta "$pack_slug" "$pack_dir" "git" "$git_url" "$git_ref"
 
+                # Preserve shadow for divergence detection (cycle-032)
+                if [[ ! -L "$pack_dir" ]]; then
+                    preserve_shadow "$pack_slug" "$pack_dir" 2>/dev/null || true
+                fi
+
                 echo ""
                 print_success "Pack '$pack_slug' installed via git clone!"
 
@@ -715,6 +720,11 @@ PYEOF
 
     # Update registry meta
     update_pack_meta "$pack_slug" "$pack_dir"
+
+    # Preserve shadow for divergence detection (cycle-032)
+    if [[ ! -L "$pack_dir" ]]; then
+        preserve_shadow "$pack_slug" "$pack_dir" 2>/dev/null || true
+    fi
 
     echo ""
     print_success "Pack '$pack_slug' installed successfully!"

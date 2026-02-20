@@ -275,6 +275,75 @@
       "type": "string",
       "enum": ["L1", "L2", "L3"],
       "description": "Construct capability tier (#128)"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["skill-pack", "tool-pack", "codex", "template"],
+      "description": "Construct archetype — determines scaffold template and validation rules"
+    },
+    "runtime_requirements": {
+      "type": "object",
+      "properties": {
+        "runtime": { "type": "string", "maxLength": 50 },
+        "dependencies": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "external_tools": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 100 },
+          "maxItems": 20
+        }
+      },
+      "additionalProperties": false,
+      "description": "Runtime environment requirements for tool-pack and codex types"
+    },
+    "paths": {
+      "type": "object",
+      "properties": {
+        "state": { "type": "string", "maxLength": 500 },
+        "cache": { "type": "string", "maxLength": 500 },
+        "output": { "type": "string", "maxLength": 500 }
+      },
+      "additionalProperties": false,
+      "description": "Configurable state/cache/output directory paths"
+    },
+    "credentials": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "description": "Credential name in UPPER_SNAKE_CASE"
+          },
+          "description": { "type": "string", "maxLength": 500 },
+          "sensitive": { "type": "boolean", "default": true },
+          "optional": { "type": "boolean", "default": false }
+        },
+        "additionalProperties": false
+      },
+      "maxItems": 20,
+      "description": "Required credentials with metadata for setup guidance"
+    },
+    "access_layer": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["mcp", "file", "api"] },
+        "entrypoint": { "type": "string", "maxLength": 500 },
+        "transport": { "type": "string", "enum": ["stdio", "sse", "http"] }
+      },
+      "additionalProperties": false,
+      "description": "Access layer configuration for codex-type constructs"
+    },
+    "portability_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Portability score (0.0–1.0) indicating environment independence"
     }
   },
   "additionalProperties": false

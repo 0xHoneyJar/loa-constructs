@@ -326,6 +326,48 @@ export interface PackManifest {
   };
   /** Construct capability tier (#128) */
   tier?: 'L1' | 'L2' | 'L3';
+
+  // === Construct Lifecycle fields (FR-1, cycle-032) ===
+
+  /** Construct archetype — determines scaffold template and validation rules */
+  type?: 'skill-pack' | 'tool-pack' | 'codex' | 'template';
+  /** Runtime environment requirements for tool-pack and codex types */
+  runtime_requirements?: {
+    runtime?: string;
+    dependencies?: Record<string, string>;
+    external_tools?: string[];
+  };
+  /** Configurable state/cache/output directory paths */
+  paths?: {
+    state?: string;
+    cache?: string;
+    output?: string;
+  };
+  /** Required credentials with metadata for setup guidance */
+  credentials?: Array<{
+    name: string;
+    description: string;
+    sensitive?: boolean;
+    optional?: boolean;
+  }>;
+  /** Access layer configuration for codex-type constructs */
+  access_layer?: {
+    type: 'mcp' | 'file' | 'api';
+    entrypoint?: string;
+    transport?: 'stdio' | 'sse' | 'http';
+  };
+  /** Portability score (0.0–1.0) indicating environment independence */
+  portability_score?: number;
+  /** Expert identity layer — persona and expertise paths */
+  identity?: {
+    persona?: string;
+    expertise?: string;
+  };
+  /** Lifecycle hooks — scripts to run after install/update */
+  hooks?: {
+    post_install?: string;
+    post_update?: string;
+  };
 }
 
 export interface PackDownload {
