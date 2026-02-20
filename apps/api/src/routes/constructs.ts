@@ -290,25 +290,32 @@ constructsRouter.post(
         }
       } catch (err) {
         if (err instanceof AppError) throw err;
-        // Log but don't block on Redis errors
-        logger.error({ error: err }, 'Redis rate limit check failed');
+        // Log but don't block on Redis errors — graceful degradation
+        logger.error({ error: err, requestId, userId }, 'Redis rate limit check failed — bypassing');
       }
     }
 
-    // Check slug availability
+    // Fast-path check (advisory only — uniqueness enforced by DB constraint)
     const available = await isSlugAvailable(body.slug);
     if (!available) {
       throw new AppError('SLUG_TAKEN', `Slug '${body.slug}' is already taken`, 409);
     }
 
-    // Create the construct entry
-    await createPack({
-      name: body.name,
-      slug: body.slug,
-      description: body.type ? `A ${body.type} construct` : undefined,
-      ownerId: userId,
-      ownerType: 'user',
-    });
+    // Create the construct entry — DB unique constraint on slug prevents TOCTOU race
+    try {
+      await createPack({
+        name: body.name,
+        slug: body.slug,
+        description: body.type ? `A ${body.type} construct` : undefined,
+        ownerId: userId,
+        ownerType: 'user',
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message?.includes('unique')) {
+        throw new AppError('SLUG_TAKEN', `Slug '${body.slug}' is already taken`, 409);
+      }
+      throw err;
+    }
 
     logger.info({ slug: body.slug, name: body.name, type: body.type, userId, requestId }, 'Construct registered');
 

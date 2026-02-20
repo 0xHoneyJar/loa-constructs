@@ -1677,20 +1677,29 @@ packsRouter.post(
       throw Errors.NotFound('Source pack not found');
     }
 
-    // Check new slug is available
+    // Fast-path check (advisory only — uniqueness enforced by DB constraint)
     const slugAvailable = await isSlugAvailable(new_slug);
     if (!slugAvailable) {
       throw new AppError('SLUG_TAKEN', `Slug '${new_slug}' is already taken`, 409);
     }
 
-    // Create forked pack
-    await createPack({
-      name: `${sourcePack.name} (fork)`,
-      slug: new_slug,
-      description: description || sourcePack.description || undefined,
-      ownerId: userId,
-      ownerType: 'user',
-    });
+    // Reserve forked pack — DB unique constraint on slug prevents TOCTOU race
+    // Note: This creates a pack entry only. Files are not copied from the source.
+    // The fork owner publishes their own version via the publish flow.
+    try {
+      await createPack({
+        name: `${sourcePack.name} (fork)`,
+        slug: new_slug,
+        description: description || sourcePack.description || undefined,
+        ownerId: userId,
+        ownerType: 'user',
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message?.includes('unique')) {
+        throw new AppError('SLUG_TAKEN', `Slug '${new_slug}' is already taken`, 409);
+      }
+      throw err;
+    }
 
     logger.info({ sourceSlug: source_slug, newSlug: new_slug, userId, requestId }, 'Pack forked');
 
@@ -1699,8 +1708,7 @@ packsRouter.post(
         data: {
           slug: new_slug,
           source_slug,
-          version: '0.1.0',
-          status: 'created',
+          status: 'reserved',
         },
         request_id: requestId,
       },
