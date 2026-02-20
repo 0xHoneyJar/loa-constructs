@@ -221,24 +221,42 @@ export interface PackManifest {
   slug: string;
   version: string;
   description?: string;
-  author?: {
+  /** FR-2: Zod has this, TS was missing */
+  long_description?: string;
+  /** FR-2: Accept string shorthand or object (matches Zod union) */
+  author?: string | {
     name: string;
     email?: string;
     url?: string;
   };
+  /** FR-2: Zod has this, TS was missing */
+  repository?: string;
+  /** FR-2: Zod has this, TS was missing */
+  homepage?: string;
+  /** FR-2: Zod has this, TS was missing */
+  documentation?: string;
   skills?: Array<{ slug: string; path: string }>;
   commands?: Array<{ name: string; path: string }>;
   protocols?: Array<{ name: string; path: string }>;
   dependencies?: {
     loa_version?: string;
-    skills?: string[];
-    packs?: string[];
+    /** FR-2: Changed from string[] to Record<string, string> to match Zod */
+    skills?: Record<string, string>;
+    /** FR-2: Changed from string[] to Record<string, string> to match Zod */
+    packs?: Record<string, string>;
   };
   pricing?: {
     type: string;
     tier: string;
   };
   tags?: string[];
+  /** FR-2: Zod has this, TS was missing */
+  keywords?: string[];
+  /** FR-2: Zod has this, TS was missing */
+  engines?: {
+    loa?: string;
+    node?: string;
+  };
   license?: string;
   /**
    * Path to CLAUDE.md instruction fragment file.
@@ -268,6 +286,46 @@ export interface PackManifest {
     command: string;
     description: string;
   };
+
+  // === Bridgebuilder fields (FR-1, cycle-030) ===
+
+  /** Domain tags for MoE routing (#119) */
+  domain?: string[];
+  /** Expertise declarations for intent matching (#119) */
+  expertise?: string[];
+  /** Golden path porcelain commands (#119, #127) */
+  golden_path?: {
+    commands: Array<{
+      name: string;
+      description: string;
+      truename_map?: Record<string, string>;
+    }>;
+    detect_state?: string;
+  };
+  /** Workflow depth and gate declarations (#129) — consumed by construct-workflow-read.sh */
+  workflow?: {
+    depth: 'light' | 'standard' | 'deep' | 'full';
+    app_zone_access?: boolean;
+    gates: {
+      prd?: 'skip' | 'condense' | 'full';
+      sdd?: 'skip' | 'condense' | 'full';
+      sprint?: 'skip' | 'condense' | 'full';
+      implement?: 'required';
+      review?: 'skip' | 'visual' | 'textual' | 'both';
+      audit?: 'skip' | 'lightweight' | 'full';
+    };
+    verification?: {
+      method: 'visual' | 'tsc' | 'build' | 'test' | 'manual';
+    };
+  };
+  /** Methodology layer for knowledge separation (#118) */
+  methodology?: {
+    references?: string[];
+    principles?: string[];
+    knowledge_base?: string;
+  };
+  /** Construct capability tier (#128) */
+  tier?: 'L1' | 'L2' | 'L3';
 }
 
 export interface PackDownload {

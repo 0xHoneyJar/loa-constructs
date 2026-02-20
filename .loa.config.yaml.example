@@ -87,6 +87,51 @@ plan_and_analyze:
     skip_on_ride_error: false
 
 # -----------------------------------------------------------------------------
+# Interview Depth Configuration (v1.41.0)
+# -----------------------------------------------------------------------------
+# Controls question depth, input style, and pacing across planning skills.
+# Default: thorough mode with sequential plain-text discovery questions.
+#
+# Construct override: Schema supports future construct manifest interview
+# overrides gated by trust tier (RFC #379). Not wired yet.
+interview:
+  # Mode: thorough | minimal
+  #   thorough: 3-6 questions/phase, mandatory phase gates, no inference
+  #   minimal: 1-2 questions/phase, skip covered phases, faster throughput
+  mode: thorough
+
+  # Per-skill overrides (optional — mode applies to all if omitted)
+  # per_skill:
+  #   discovering-requirements: thorough
+  #   designing-architecture: minimal
+  #   planning-sprints: thorough
+
+  # Input style — per interaction type
+  input_style:
+    # routing_gates: AskUserQuestion for phase transitions (Continue/Adjust/Stop)
+    routing_gates: structured    # structured | plain
+    # discovery_questions: plain text for domain exploration
+    discovery_questions: plain   # structured | plain
+    # confirmation: AskUserQuestion for understanding checks
+    confirmation: structured     # structured | plain
+
+  # Question pacing
+  #   sequential: one question per turn, wait for response (default for thorough)
+  #   batch: 3-6 numbered questions per turn, user responds freely
+  pacing: sequential   # sequential | batch
+
+  # Phase transition gates
+  phase_gates:
+    between_phases: true       # Require confirmation between discovery phases
+    before_generation: true    # Require confirmation before generating output doc
+
+  # Backpressure controls (anti-rushing for capable models)
+  backpressure:
+    no_infer: true             # Prohibit inferring answers to unasked questions
+    show_work: true            # Cite known vs unknown before asking
+    min_confirmation_questions: 1  # Min questions even for "covered" phases
+
+# -----------------------------------------------------------------------------
 # Autonomous Agent (v1.11.0)
 # -----------------------------------------------------------------------------
 autonomous_agent:
@@ -390,6 +435,25 @@ feedback:
     enabled: true           # Enable smart routing
     auto_classify: true     # Auto-detect target repo
     require_confirmation: true  # Always confirm with user
+
+    # Construct routing (v1.40.0 / cycle-025)
+    # Routes feedback about installed construct packs/skills to their source repos.
+    # Requires constructs to declare source_repo in manifest.yaml.
+    construct_routing:
+      enabled: true               # Master toggle for construct feedback routing
+      attribution_threshold: 0.33 # Minimum confidence to suggest construct routing (0.0-1.0)
+      redaction:
+        strip_absolute_paths: true   # Redact /home/user/... paths
+        strip_secrets: true          # Redact AWS keys, tokens, JWTs
+        strip_env_vars: true         # Redact environment variable assignments
+        include_snippets: false      # Code blocks stripped for external repos (default: off)
+        include_file_refs: true      # File references kept but paths made relative
+        include_environment: false   # Environment/system info section stripped (default: off)
+      rate_limits:
+        per_repo_daily: 5           # Warn after N issues to same repo in 24h
+        per_repo_daily_hard: 20     # Block at N issues to same repo in 24h
+        dedup_window_hours: 24      # Fingerprint dedup window in hours
+
   labels:
     graceful_missing: true  # Don't fail on missing labels
 
@@ -559,11 +623,30 @@ beads:
 # only override values you want to change here.
 #
 # Architecture: SDD §4.1.2 (Config Schema), §4.2 (Routing), §4.5 (Metering)
-# Feature flag: hounfour.flatline_routing controls Sprint 2 routing path
+# Feature flags and metering — Hounfour Model-Heterogeneous Agent Routing
 hounfour:
-  # Feature flag — controls whether Flatline uses Hounfour routing (Sprint 2)
+  # Top-level flag — controls whether Flatline uses Hounfour routing
   # or the legacy direct-call path. Set to true when ready to migrate.
   flatline_routing: false
+
+  # Per-subsystem feature flags (all default true — opt-out, not opt-in)
+  feature_flags:
+    google_adapter: true     # Enable Google provider adapter
+    deep_research: true      # Enable Deep Research models (Interactions API)
+    flatline_routing: false   # Route Flatline through Hounfour
+    metering: true           # Enable BudgetEnforcer cost tracking
+    thinking_traces: true    # Include thinking config in request bodies
+    jam_geometry: false      # Enable Jam multi-model parallel review (opt-in)
+    context_filtering: false # Epistemic context filtering: false | "audit" | "enforce"
+
+  # Metering — cost tracking and budget enforcement (SDD §4.3)
+  metering:
+    enabled: true
+    ledger_path: .run/cost-ledger.jsonl      # JSONL append-only cost ledger
+    budget:
+      daily_micro_usd: 500000000             # $500/day (500M micro-USD)
+      warn_at_percent: 80                    # Warn when spending exceeds this %
+      on_exceeded: downgrade                 # block | downgrade | warn
 
   # Provider registry — override endpoints, auth, or add new providers
   # Providers not listed here use system defaults from model-config.yaml
@@ -586,6 +669,24 @@ hounfour:
             input_per_mtok: 15000000
             output_per_mtok: 60000000
 
+    google:
+      # type: google                    # Provider SDK type
+      # endpoint: "https://generativelanguage.googleapis.com/v1beta"
+      auth: "{env:GOOGLE_API_KEY}"      # Requires GOOGLE_API_KEY environment variable
+      models:
+        gemini-2.5-flash:
+          capabilities: [chat]
+          context_window: 1048576
+          pricing:
+            input_per_mtok: 150000      # $0.15/M tokens (integer micro-USD)
+            output_per_mtok: 600000     # $0.60/M tokens
+        gemini-2.5-pro:
+          capabilities: [chat, thinking_traces]
+          context_window: 1048576
+          pricing:
+            input_per_mtok: 1250000     # $1.25/M tokens
+            output_per_mtok: 10000000   # $10.00/M tokens
+
     anthropic:
       auth: "{env:ANTHROPIC_API_KEY}"
       models:
@@ -601,6 +702,10 @@ hounfour:
           pricing:
             input_per_mtok: 3000000
             output_per_mtok: 15000000
+
+  # Flatline tertiary model — enables 3-model triangular cross-scoring
+  # Requires GOOGLE_API_KEY to be set in environment
+  # flatline_tertiary_model: gemini-2.5-flash
 
   # Aliases — short names mapping to provider:model-id
   aliases:
@@ -1025,6 +1130,12 @@ flatline_protocol:
       notebook_id: ""          # Your NotebookLM notebook ID
       timeout_ms: 30000        # Query timeout
 
+  # Inquiry mode (FR-4): Collaborative multi-model architectural inquiry
+  # Runs 3 parallel queries (structural, historical, governance) and synthesizes
+  inquiry:
+    budget_cents: 500            # Cost budget per inquiry invocation
+    # Perspectives use primary/secondary/tertiary models with rotating assignment
+
   # Adversarial cross-model dissent for quality gates (#224)
   # A second model reviews code that Claude already reviewed
   code_review:
@@ -1321,6 +1432,12 @@ run_bridge:
   # Master toggle — must be true to use /run-bridge
   enabled: false
 
+  # ── Quick Start Profiles ──
+  # Minimal (convergence only): enabled: true — all sub-features default false
+  # Standard (+ cross-repo + lore): also set cross_repo_query.enabled: true
+  # Exploration (all features):  also set research_mode.enabled: true,
+  #   research_mode.inquiry_enabled: true, vision_registry.activation_enabled: true
+
   # Default parameters
   defaults:
     # Maximum bridge iterations (1-5)
@@ -1361,6 +1478,8 @@ run_bridge:
     enabled: true
     # Auto-capture VISION findings from Bridgebuilder reviews
     auto_capture: true
+    # FR-3: Activate relevant visions during bridge cycles (scan for tag overlap)
+    activation_enabled: false
 
   # RTFM documentation gate (runs after loop termination)
   rtfm:
@@ -1410,6 +1529,28 @@ run_bridge:
       enabled: true
       # Block posting if secrets remain after redaction
       post_redaction_safety: true
+
+  # Cross-Repository Pattern Query (FR-1, v1.40.0)
+  # Discovers structural parallels across sibling repos before each bridge review.
+  # Resolution: sibling directory → config override → REMOTE: GitHub API fallback.
+  cross_repo_query:
+    enabled: false                  # Enable cross-repo pattern matching
+    # ecosystem:                    # Override auto-discovery of sibling repos
+    #   - /path/to/sibling-repo
+    #   - REMOTE:0xHoneyJar/loa-hounfour
+    budget: 2000                    # Token budget per repo query
+    max_repos: 5                    # Maximum repos to query per iteration
+    per_repo_timeout: 5             # Per-repo timeout (seconds)
+    timeout: 15                     # Total timeout for all queries (seconds)
+
+  # Research Mode (FR-2, v1.40.0) — Divergent Exploration Iterations
+  # After convergence iterations, optionally run a divergent exploration that
+  # produces SPECULATION-only findings excluded from flatline scoring.
+  research_mode:
+    enabled: false                  # Enable research mode
+    trigger_after_iteration: 1      # Fire after N convergent iterations complete
+    max_research_iterations: 1      # Maximum research iterations per bridge run
+    inquiry_enabled: false          # Also trigger multi-model inquiry (FR-4)
 
 # =============================================================================
 # Agent Teams Compatibility (v1.39.0)
@@ -1557,3 +1698,67 @@ bridgebuilder:
   # Path to persona override (project-specific reviewer personality).
   # Falls back to built-in resources/BEAUVOIR.md if file not found.
   persona_path: "grimoires/bridgebuilder/BEAUVOIR.md"
+
+# =============================================================================
+# QMD Context Query — Unified context retrieval with three-tier fallback
+# =============================================================================
+# Controls the qmd-context-query.sh script that provides semantic search
+# across grimoires, skills, notes, and reality files.
+# Three-tier fallback: QMD (semantic) → CK (code knowledge) → grep (text)
+
+qmd_context:
+  # Master switch — set to false to disable all context injection
+  enabled: true
+
+  # Default token budget for context results (word_count × 1.3)
+  default_budget: 2000
+
+  # Timeout in seconds for each search tier
+  timeout_seconds: 5
+
+  # Scope definitions — map scope names to backend-specific paths
+  scopes:
+    grimoires:
+      qmd_collection: "loa-grimoire"
+      ck_path: ".ck/loa-grimoire/"
+      grep_paths:
+        - "grimoires/loa/"
+    skills:
+      qmd_collection: "loa-skills"
+      ck_path: ".ck/skills/"
+      grep_paths:
+        - ".claude/skills/"
+    notes:
+      qmd_collection: "loa-grimoire"
+      ck_path: ".ck/loa-grimoire/"
+      grep_paths:
+        - "grimoires/loa/NOTES.md"
+    reality:
+      qmd_collection: "loa-reality"
+      ck_path: ".ck/reality/"
+      grep_paths:
+        - "grimoires/loa/reality/"
+
+  # Per-skill budget and scope overrides
+  # Keys match the --skill argument passed by each SKILL.md integration:
+  #   implement      → /implement (implementing-tasks/SKILL.md)
+  #   review_sprint  → /review-sprint (reviewing-code/SKILL.md)
+  #   ride           → /ride (riding-codebase/SKILL.md)
+  #   run_bridge     → /run-bridge (bridge-orchestrator.sh)
+  #   gate0          → preflight.sh run_integrity_checks()
+  skill_overrides:
+    implement:
+      budget: 2000
+      scope: grimoires
+    review_sprint:
+      budget: 1500
+      scope: grimoires
+    ride:
+      budget: 2000
+      scope: reality
+    run_bridge:
+      budget: 2500
+      scope: grimoires
+    gate0:
+      budget: 1000
+      scope: notes

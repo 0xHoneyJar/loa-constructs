@@ -245,7 +245,7 @@ Capture output and track:
 
 #### Phase 6: Report Results
 
-Present installation summary:
+Present installation summary with quick start guidance:
 
 ```
 ╭───────────────────────────────────────────────────────────────╮
@@ -254,11 +254,34 @@ Present installation summary:
 
 ✅ Observer (6 skills installed)
    Commands: /interview, /persona, /journey, /pain-points, /user-story, /empathy-map
+   Start here: /observe — Run a user research session
 
 ✅ Crucible (5 skills installed)
    Commands: /test-plan, /quality-gate, /acceptance, /regression, /smoke-test
+   Start here: /test-plan — Create a test plan for your project
 
 Total: 2 packs, 11 skills
+```
+
+**Quick start resolution** (per installed pack):
+
+1. Read `quick_start` from the installed pack's `manifest.json` or `construct.yaml`
+2. If `quick_start` exists, display: `Start here: /{command} — {description}`
+3. If no `quick_start`, fall back to `golden_path.commands[0]`: `Start here: /{name} — {description}`
+4. If neither exists, omit the "Start here" line (current behavior)
+
+```bash
+# Read quick_start from manifest
+quick_start=$(jq -r '.quick_start // empty' "$manifest_path")
+if [[ -n "$quick_start" ]]; then
+  cmd=$(echo "$quick_start" | jq -r '.command')
+  desc=$(echo "$quick_start" | jq -r '.description')
+  echo "   Start here: /$cmd — $desc"
+elif golden_cmd=$(jq -r '.golden_path.commands[0] // empty' "$manifest_path") && [[ -n "$golden_cmd" ]]; then
+  cmd=$(echo "$golden_cmd" | jq -r '.name')
+  desc=$(echo "$golden_cmd" | jq -r '.description')
+  echo "   Start here: /$cmd — $desc"
+fi
 ```
 
 ### Action: install <pack>

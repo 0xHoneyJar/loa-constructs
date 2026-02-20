@@ -180,12 +180,101 @@
     },
     "quick_start": {
       "type": "object",
+      "required": ["command", "description"],
       "properties": {
-        "command": { "type": "string" },
-        "description": { "type": "string" }
+        "command": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 200 }
       },
       "additionalProperties": false,
       "description": "Quick start command suggestion"
+    },
+    "domain": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 50 },
+      "maxItems": 10,
+      "description": "Domain tags for MoE routing (#119)"
+    },
+    "expertise": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 100 },
+      "maxItems": 20,
+      "description": "Expertise declarations for intent matching (#119)"
+    },
+    "golden_path": {
+      "type": "object",
+      "required": ["commands"],
+      "properties": {
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "description"],
+            "properties": {
+              "name": { "type": "string", "maxLength": 100 },
+              "description": { "type": "string", "maxLength": 500 },
+              "truename_map": {
+                "type": "object",
+                "propertyNames": { "minLength": 1, "maxLength": 100 },
+                "additionalProperties": { "type": "string", "maxLength": 100 }
+              }
+            },
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "detect_state": { "type": "string", "maxLength": 500 }
+      },
+      "additionalProperties": false,
+      "description": "Golden path porcelain commands (#119, #127)"
+    },
+    "workflow": {
+      "type": "object",
+      "required": ["depth", "gates"],
+      "properties": {
+        "depth": {
+          "type": "string",
+          "enum": ["light", "standard", "deep", "full"]
+        },
+        "app_zone_access": {
+          "type": "boolean"
+        },
+        "gates": {
+          "type": "object",
+          "properties": {
+            "prd":       { "type": "string", "enum": ["skip", "condense", "full"] },
+            "sdd":       { "type": "string", "enum": ["skip", "condense", "full"] },
+            "sprint":    { "type": "string", "enum": ["skip", "condense", "full"] },
+            "implement": { "type": "string", "enum": ["required"] },
+            "review":    { "type": "string", "enum": ["skip", "visual", "textual", "both"] },
+            "audit":     { "type": "string", "enum": ["skip", "lightweight", "full"] }
+          },
+          "additionalProperties": false
+        },
+        "verification": {
+          "type": "object",
+          "properties": {
+            "method": { "type": "string", "enum": ["visual", "tsc", "build", "test", "manual"] }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "description": "Workflow depth and gate declarations (#129)"
+    },
+    "methodology": {
+      "type": "object",
+      "properties": {
+        "references": { "type": "array", "items": { "type": "string", "maxLength": 500 }, "maxItems": 20 },
+        "principles": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20 },
+        "knowledge_base": { "type": "string", "maxLength": 500 }
+      },
+      "additionalProperties": false,
+      "description": "Methodology layer for knowledge separation (#118)"
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["L1", "L2", "L3"],
+      "description": "Construct capability tier (#128)"
     }
   },
   "additionalProperties": false

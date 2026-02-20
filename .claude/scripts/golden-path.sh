@@ -24,6 +24,7 @@ set -euo pipefail
 # Source bootstrap for PROJECT_ROOT and path-lib
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/bootstrap.sh"
+source "${SCRIPT_DIR}/yq-safe.sh" 2>/dev/null || true
 
 # Resolve paths using path-lib getters
 _GP_GRIMOIRE_DIR=$(get_grimoire_dir)
@@ -307,6 +308,55 @@ golden_format_journey() {
     esac
 
     echo "/plan ${plan_seg}━━━━━ /build ${build_seg}━━━━━ /review ${review_seg}━━━━━ /ship ${ship_seg}"
+
+    # Append construct journey bars if any installed packs declare golden_path
+    local construct_bars
+    construct_bars=$(golden_detect_construct_journeys 2>/dev/null) || true
+    if [[ -n "$construct_bars" ]]; then
+        echo "$construct_bars"
+    fi
+}
+
+# Detect installed construct packs with golden_path declarations.
+# Returns formatted journey bars or empty string.
+golden_detect_construct_journeys() {
+    local packs_dir="${PROJECT_ROOT}/.claude/constructs/packs"
+    [[ -d "$packs_dir" ]] || return 0
+
+    # Check if yq is available for YAML parsing
+    if ! type safe_yq_to_json &>/dev/null; then
+        return 0
+    fi
+
+    local manifest pack_name commands_json bar output=""
+    for manifest in "$packs_dir"/*/construct.yaml "$packs_dir"/*/construct.yml; do
+        [[ -f "$manifest" ]] || continue
+
+        # Extract golden_path.commands via yq→jq pipeline
+        commands_json=$(safe_yq_to_json "$manifest" 2>/dev/null | jq -c '.golden_path.commands // empty' 2>/dev/null) || continue
+        [[ -z "$commands_json" || "$commands_json" == "null" ]] && continue
+
+        # Get pack name
+        pack_name=$(safe_yq '.name' "$manifest" 2>/dev/null) || continue
+        [[ -z "$pack_name" ]] && continue
+
+        # Build journey bar from command names
+        bar=""
+        local first=true
+        while IFS= read -r cmd_name; do
+            [[ -z "$cmd_name" ]] && continue
+            if $first; then
+                bar="/$cmd_name"
+                first=false
+            else
+                bar="$bar ━━━━━ /$cmd_name"
+            fi
+        done < <(echo "$commands_json" | jq -r '.[].name' 2>/dev/null)
+
+        [[ -n "$bar" ]] && output="${output}  ${pack_name}: ${bar}"$'\n'
+    done
+
+    [[ -n "$output" ]] && printf "%s" "$output"
 }
 
 # Map bug state to a bug lifecycle position.

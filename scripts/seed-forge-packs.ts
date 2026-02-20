@@ -1,8 +1,8 @@
 /**
  * Seed Forge Constructs
  *
- * Creates the initial packs from local sandbox manifests.
- * Now reads from apps/sandbox/packs/ instead of hardcoded data.
+ * Clones construct repos and seeds pack data into the database.
+ * Source of truth: individual construct-* repos on GitHub.
  *
  * Run with: DATABASE_URL="..." pnpm tsx scripts/seed-forge-packs.ts
  */
@@ -13,9 +13,11 @@ import bcrypt from 'bcrypt';
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
+import { execSync } from 'child_process';
+import { existsSync, mkdirSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SANDBOX_PATH = join(__dirname, '../apps/sandbox/packs');
+const CLONE_DIR = join(__dirname, '../.cache/construct-repos');
 
 interface PackFile {
   path: string;
@@ -108,31 +110,60 @@ async function collectFiles(dir: string, baseDir: string): Promise<PackFile[]> {
   return files;
 }
 
-async function discoverPacks(): Promise<DiscoveredPack[]> {
-  console.log(`📂 Discovering packs in ${SANDBOX_PATH}...\n`);
+/**
+ * Clone or update construct repos from GitHub
+ */
+function ensureCloneDir() {
+  if (!existsSync(CLONE_DIR)) {
+    mkdirSync(CLONE_DIR, { recursive: true });
+  }
+}
 
-  const entries = await readdir(SANDBOX_PATH, { withFileTypes: true });
+function cloneOrPull(slug: string, gitUrl: string, gitRef: string): string {
+  const repoDir = join(CLONE_DIR, `construct-${slug}`);
+  if (existsSync(join(repoDir, '.git'))) {
+    console.log(`   Updating construct-${slug}...`);
+    execSync(`git -C "${repoDir}" fetch origin && git -C "${repoDir}" reset --hard origin/${gitRef}`, { stdio: 'pipe' });
+  } else {
+    console.log(`   Cloning construct-${slug}...`);
+    execSync(`git clone --depth 1 --branch ${gitRef} "${gitUrl}" "${repoDir}"`, { stdio: 'pipe' });
+  }
+  return repoDir;
+}
+
+async function discoverPacks(): Promise<DiscoveredPack[]> {
+  console.log(`📂 Discovering packs from construct repos...\n`);
+  ensureCloneDir();
+
   const packs: DiscoveredPack[] = [];
 
-  for (const entry of entries) {
-    if (!entry.isDirectory()) continue;
-
-    const packPath = join(SANDBOX_PATH, entry.name);
-    const manifestPath = join(packPath, 'manifest.json');
+  for (const [slug, config] of Object.entries(GIT_CONFIGS)) {
     try {
-      const content = await readFile(manifestPath, 'utf-8');
-      const manifest = JSON.parse(content) as PackManifest;
+      const repoDir = cloneOrPull(slug, config.gitUrl, config.gitRef);
+
+      // Try manifest.json first (legacy), then construct.yaml
+      const manifestPath = join(repoDir, 'manifest.json');
+      let manifest: PackManifest;
+
+      if (existsSync(manifestPath)) {
+        const content = await readFile(manifestPath, 'utf-8');
+        manifest = JSON.parse(content) as PackManifest;
+      } else {
+        // No manifest.json — skip (construct.yaml repos need different parsing)
+        console.warn(`   Skipping ${slug}: no manifest.json found`);
+        continue;
+      }
 
       packs.push({
         ...manifest,
         icon: PACK_ICONS[manifest.slug] || '📦',
         skillSlugs: manifest.skills?.map((s) => s.slug) || [],
-        packPath,
+        packPath: repoDir,
       });
 
       console.log(`   Found: ${manifest.name} (${manifest.slug}) - ${manifest.skills?.length || 0} skills`);
     } catch (e) {
-      console.warn(`   Skipping ${entry.name}: ${e instanceof Error ? e.message : 'unknown error'}`);
+      console.warn(`   Skipping ${slug}: ${e instanceof Error ? e.message : 'unknown error'}`);
     }
   }
 
@@ -151,7 +182,7 @@ async function seedForgePacks() {
   const packs = await discoverPacks();
 
   if (packs.length === 0) {
-    console.error('ERROR: No packs found in apps/sandbox/packs/');
+    console.error('ERROR: No packs found in construct repos');
     process.exit(1);
   }
 
@@ -367,7 +398,7 @@ async function seedForgePacks() {
 
     const savedKey = (global as any).__apiKey;
     if (savedKey) {
-      console.log('\n📋 Add to apps/sandbox/.env:');
+      console.log('\n📋 API key for publishing:');
       console.log(`LOA_CONSTRUCTS_API_KEY=${savedKey}`);
       console.log('LOA_CONSTRUCTS_API_URL=https://api.constructs.network/v1');
     }

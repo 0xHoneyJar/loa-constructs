@@ -71,8 +71,21 @@ export default async function ConstructDetailPage({
             v{construct.version}
           </span>
           <span className="text-[10px] font-mono text-white/40 uppercase">{construct.type}</span>
+          {construct.owner && (
+            <span className="border border-white/20 px-2 py-0.5 text-[10px] font-mono text-white/60">
+              by {construct.owner.name}
+            </span>
+          )}
+          {construct.hasIdentity && (
+            <span className="border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono text-emerald-400">
+              Expert Identity
+            </span>
+          )}
         </div>
         <p className="text-sm font-mono text-white/60">{construct.description}</p>
+        {construct.longDescription && (
+          <p className="text-sm font-mono text-white/40 mt-2">{construct.longDescription}</p>
+        )}
       </div>
 
       {/* Info */}
@@ -93,6 +106,12 @@ export default async function ConstructDetailPage({
           <p className="text-white/40 mb-1">Level</p>
           <p className="text-white capitalize">{construct.graduationLevel}</p>
         </div>
+        {construct.rating != null && (
+          <div className="border border-white/10 p-3">
+            <p className="text-white/40 mb-1">Rating</p>
+            <p className="text-white">{construct.rating.toFixed(1)}</p>
+          </div>
+        )}
       </div>
 
       {/* Install */}
@@ -168,6 +187,36 @@ export default async function ConstructDetailPage({
             className="border border-white/20 px-4 py-2 text-white/60 hover:bg-white/10 transition-colors"
           >
             View Source on GitHub →
+          </a>
+        )}
+        {construct.repositoryUrl && (
+          <a
+            href={construct.repositoryUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border border-white/20 px-4 py-2 text-white/60 hover:bg-white/10 transition-colors"
+          >
+            Repository →
+          </a>
+        )}
+        {construct.homepageUrl && (
+          <a
+            href={construct.homepageUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border border-white/20 px-4 py-2 text-white/60 hover:bg-white/10 transition-colors"
+          >
+            Homepage →
+          </a>
+        )}
+        {construct.documentationUrl && (
+          <a
+            href={construct.documentationUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="border border-white/20 px-4 py-2 text-white/60 hover:bg-white/10 transition-colors"
+          >
+            Documentation →
           </a>
         )}
         <Link

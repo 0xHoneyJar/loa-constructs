@@ -14,9 +14,20 @@ interface APIConstruct {
   downloads: number;
   tier_required: string;
   is_featured: boolean;
-  graduation_level?: string;
+  maturity?: string;
   source_type?: string | null;
   git_url?: string | null;
+  rating?: number | null;
+  long_description?: string | null;
+  owner?: {
+    name: string;
+    type: 'user' | 'team';
+    avatar_url: string | null;
+  } | null;
+  has_identity?: boolean;
+  repository_url?: string | null;
+  homepage_url?: string | null;
+  documentation_url?: string | null;
   manifest?: {
     commands?: Array<{ name: string; description: string; usage?: string }>;
     skills?: Array<{ slug: string; name?: string; path?: string; description?: string } | null>;
@@ -33,6 +44,16 @@ interface APIResponse {
     total: number;
     total_pages: number;
   };
+}
+
+function isSafeUrl(url: string | null | undefined): url is string {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:';
+  } catch {
+    return false;
+  }
 }
 
 function parseGraduationLevel(level: string | undefined): GraduationLevel {
@@ -58,12 +79,13 @@ function transformToNode(construct: APIConstruct): ConstructNode {
     name: construct.name,
     type: construct.type,
     category,
-    graduationLevel: parseGraduationLevel(construct.graduation_level),
+    graduationLevel: parseGraduationLevel(construct.maturity),
     description: construct.description || 'No description available',
     shortDescription: shortDesc,
     commandCount: commands.length || (construct.type === 'skill' ? 1 : 0),
     downloads: construct.downloads,
     version: construct.version || '1.0.0',
+    rating: construct.rating ?? null,
   };
 }
 
@@ -95,6 +117,16 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
     installCommand: `/constructs install ${construct.slug}`,
     sourceType: construct.source_type,
     gitUrl: construct.git_url,
+    longDescription: construct.long_description ?? null,
+    owner: construct.owner ? {
+      name: construct.owner.name,
+      type: construct.owner.type,
+      avatarUrl: construct.owner.avatar_url ?? null,
+    } : null,
+    hasIdentity: construct.has_identity ?? false,
+    repositoryUrl: isSafeUrl(construct.repository_url) ? construct.repository_url : null,
+    homepageUrl: isSafeUrl(construct.homepage_url) ? construct.homepage_url : null,
+    documentationUrl: isSafeUrl(construct.documentation_url) ? construct.documentation_url : null,
   };
 }
 

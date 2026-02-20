@@ -1,4 +1,0 @@
-# Real overlay files contain project-specific topology (addresses, URLs)
-# Only .example files are tracked in git
-*.json
-!*.json.example

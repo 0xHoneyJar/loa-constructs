@@ -174,7 +174,7 @@ export const packProtocolRefSchema = z.object({
  * Pack manifest dependencies schema
  */
 export const packDependenciesSchema = z.object({
-  loa: z.string().optional(), // semver range, e.g., ">=0.9.0"
+  loa_version: z.string().optional(), // semver range, e.g., ">=0.9.0"
   skills: z.record(z.string()).optional(), // slug -> version range
   packs: z.record(z.string()).optional(), // slug -> version range
 });
@@ -208,6 +208,51 @@ export const quickStartSchema = z.object({
   command: z.string().max(100),
   description: z.string().max(200),
 });
+
+// ── Bridgebuilder schemas (cycle-030, FR-1) ──────────────────
+
+export const goldenPathCommandSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().min(1).max(500),
+  truename_map: z.record(z.string().min(1).max(100), z.string().max(100)).optional(),
+});
+
+export const goldenPathSchema = z.object({
+  commands: z.array(goldenPathCommandSchema).min(1),
+  detect_state: z.string().max(500).optional(),
+});
+
+const planGateSchema = z.enum(['skip', 'condense', 'full']);
+const reviewGateSchema = z.enum(['skip', 'visual', 'textual', 'both']);
+const auditGateSchema = z.enum(['skip', 'lightweight', 'full']);
+
+export const workflowGatesSchema = z.object({
+  prd: planGateSchema.optional(),
+  sdd: planGateSchema.optional(),
+  sprint: planGateSchema.optional(),
+  implement: z.literal('required').optional(),
+  review: reviewGateSchema.optional(),
+  audit: auditGateSchema.optional(),
+});
+
+export const workflowVerificationSchema = z.object({
+  method: z.enum(['visual', 'tsc', 'build', 'test', 'manual']),
+});
+
+export const workflowSchema = z.object({
+  depth: z.enum(['light', 'standard', 'deep', 'full']),
+  app_zone_access: z.boolean().optional(),
+  gates: workflowGatesSchema,
+  verification: workflowVerificationSchema.optional(),
+});
+
+export const methodologySchema = z.object({
+  references: z.array(z.string().max(500)).max(20).optional(),
+  principles: z.array(z.string().max(200)).max(20).optional(),
+  knowledge_base: z.string().max(500).optional(),
+});
+
+export const tierSchema = z.enum(['L1', 'L2', 'L3']);
 
 /**
  * Full pack manifest schema
@@ -268,6 +313,14 @@ export const packManifestSchema = z.object({
 
   // Quick start hint for install summary
   quick_start: quickStartSchema.optional(),
+
+  // Bridgebuilder fields (cycle-030, FR-1)
+  domain: z.array(z.string().max(50)).max(10).optional(),
+  expertise: z.array(z.string().max(100)).max(20).optional(),
+  golden_path: goldenPathSchema.optional(),
+  workflow: workflowSchema.optional(),
+  methodology: methodologySchema.optional(),
+  tier: tierSchema.optional(),
 }).passthrough();
 
 /**
@@ -368,3 +421,12 @@ export type CreatePackVersionInput = z.infer<typeof createPackVersionSchema>;
 export type McpToolDefinition = z.infer<typeof mcpToolDefinitionSchema>;
 export type McpDependencyDefinition = z.infer<typeof mcpDependencyDefinitionSchema>;
 export type QuickStart = z.infer<typeof quickStartSchema>;
+
+// Bridgebuilder types (cycle-030)
+export type GoldenPathCommand = z.infer<typeof goldenPathCommandSchema>;
+export type GoldenPath = z.infer<typeof goldenPathSchema>;
+export type WorkflowGates = z.infer<typeof workflowGatesSchema>;
+export type WorkflowVerification = z.infer<typeof workflowVerificationSchema>;
+export type Workflow = z.infer<typeof workflowSchema>;
+export type Methodology = z.infer<typeof methodologySchema>;
+export type Tier = z.infer<typeof tierSchema>;

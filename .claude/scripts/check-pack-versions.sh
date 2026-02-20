@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-PACKS_DIR="apps/sandbox/packs"
+PACKS_DIR=".claude/constructs/packs"
 BASE_REF="${1:-origin/main}"
 JSON_MODE=false
 

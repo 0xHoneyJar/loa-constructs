@@ -1,0 +1,14 @@
+{
+  "consensus_summary": {
+    "high_consensus_count": 4,
+    "disputed_count": 1,
+    "low_value_count": 0,
+    "blocker_count": 5,
+    "model_agreement_percent": 90,
+    "confidence": "full"
+  },
+  "phase": "sdd",
+  "document": "grimoires/loa/sdd.md",
+  "timestamp": "2026-02-20T00:08:56Z",
+  "cycle": "cycle-030"
+}
