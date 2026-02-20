@@ -145,8 +145,8 @@
       "type": "object",
       "required": ["command", "description"],
       "properties": {
-        "command": { "type": "string" },
-        "description": { "type": "string" }
+        "command": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 200 }
       },
       "additionalProperties": false,
       "description": "Quick start hint for post-install guidance"
@@ -173,11 +173,11 @@
             "type": "object",
             "required": ["name", "description"],
             "properties": {
-              "name": { "type": "string" },
-              "description": { "type": "string" },
+              "name": { "type": "string", "maxLength": 100 },
+              "description": { "type": "string", "maxLength": 500 },
               "truename_map": {
                 "type": "object",
-                "additionalProperties": { "type": "string" }
+                "additionalProperties": { "type": "string", "maxLength": 100 }
               }
             },
             "additionalProperties": false

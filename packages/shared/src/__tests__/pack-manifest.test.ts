@@ -372,3 +372,140 @@ describe('validatePackManifest helper', () => {
     expect(result.errors).toBeDefined();
   });
 });
+
+// ── Boundary and edge case tests (audit W-10, W-13, W-14) ──────────────────
+
+describe('Boundary validation', () => {
+  it('rejects domain array with >10 items', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      domain: Array.from({ length: 11 }, (_, i) => `tag-${i}`),
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects domain item exceeding 50 characters', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      domain: ['a'.repeat(51)],
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects expertise item exceeding 100 characters', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      expertise: ['a'.repeat(101)],
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects golden_path command name exceeding 100 characters', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      golden_path: {
+        commands: [{ name: 'a'.repeat(101), description: 'test' }],
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects methodology with >20 references', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      methodology: {
+        references: Array.from({ length: 21 }, (_, i) => `ref-${i}`),
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('Workflow required fields (fail-closed)', () => {
+  it('rejects workflow without depth', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      workflow: { gates: { prd: 'skip' } },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects workflow without gates', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      workflow: { depth: 'light' },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects workflow with empty object', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      workflow: {},
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('Dependencies loa_version rename (W-13)', () => {
+  it('accepts loa_version field name', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      dependencies: { loa_version: '>=1.0.0' },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+    expect(result.data?.dependencies?.loa_version).toBe('>=1.0.0');
+  });
+
+  it('ignores old loa field name (not validated)', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      dependencies: { loa: '>=1.0.0' },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    // Parses successfully but loa is not a recognized field
+    expect(result.success).toBe(true);
+    expect(result.data?.dependencies?.loa_version).toBeUndefined();
+  });
+});
+
+describe('truename_map key validation (W-1)', () => {
+  it('rejects truename_map with empty key', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      golden_path: {
+        commands: [{
+          name: 'test',
+          description: 'test',
+          truename_map: { '': 'target' },
+        }],
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects truename_map with key exceeding 100 characters', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      golden_path: {
+        commands: [{
+          name: 'test',
+          description: 'test',
+          truename_map: { ['a'.repeat(101)]: 'target' },
+        }],
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+});
