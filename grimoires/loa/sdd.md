@@ -1,1229 +1,832 @@
-# Software Design Document: Construct Extraction — 5 Expert Repos
+# SDD: Bridgebuilder Cycle A — Make the Workshop Work
 
-**Version:** 1.0
-**Date:** 2026-02-17
-**Author:** Architecture Designer Agent
-**Status:** Draft
-**PRD Reference:** grimoires/loa/prd.md
-**Cycle:** cycle-016
-
----
-
-## Table of Contents
-
-1. [Project Architecture](#1-project-architecture)
-2. [Software Stack](#2-software-stack)
-3. [Database Design](#3-database-design)
-4. [UI Design](#4-ui-design)
-5. [API Specifications](#5-api-specifications)
-6. [Error Handling Strategy](#6-error-handling-strategy)
-7. [Testing Strategy](#7-testing-strategy)
-8. [Development Phases](#8-development-phases)
-9. [Known Risks and Mitigation](#9-known-risks-and-mitigation)
-10. [Open Questions](#10-open-questions)
-11. [Appendix](#11-appendix)
+**Cycle**: cycle-030
+**Created**: 2026-02-19
+**Status**: Draft
+**PRD**: `grimoires/loa/prd.md`
+**Grounded in**: Codebase audit (types.ts, validation.ts, construct.schema.json, pack-manifest.schema.json, construct-workflow-read.sh, construct-workflow-activate.sh, constructs.ts, browsing-constructs SKILL.md)
 
 ---
 
-## 1. Project Architecture
+## 1. Executive Summary
 
-### 1.1 System Overview
+This cycle extends the pack manifest schema with 6 new field groups (`domain`, `expertise`, `golden_path`, `workflow`, `methodology`, `tier`), synchronizes the TypeScript types with the Zod validation layer, and wires existing data through to where it matters — workflow gates for pipeline friction reduction and quick_start for post-install guidance.
 
-This project extracts 5 construct packs from the monorepo's `apps/sandbox/packs/` into standalone GitHub repositories under `0xHoneyJar/construct-{slug}`. Each construct becomes a self-contained expert — with identity, skills, CLAUDE.md, and CI — distributed via the existing git-sync infrastructure (PR #121).
+The critical insight: **the runtime already supports workflow gates** (cycle-029). The constraint yielding scripts (`construct-workflow-read.sh`, `construct-workflow-activate.sh`) read `workflow.gates` from manifest JSON via `jq -e '.workflow // empty'` and enforce them through `skip_when` conditions in command pre-flight checks. The only missing piece is the manifest declaration and schema validation. This SDD connects that last wire.
 
-The project touches 3 layers:
-1. **External artifacts** — 6 new GitHub repos (5 constructs + 1 template)
-2. **API changes** — 2 prerequisite changes to `git-sync.ts:collectFiles()`
-3. **Install script changes** — New `inject_construct_claude_md()` function
-4. **Monorepo cleanup** — Seed script migration, sandbox deletion
-
-> From prd.md: "A construct is an expert, not a file bundle." (prd.md:L26)
-
-### 1.2 Architectural Pattern
-
-**Pattern:** Infrastructure Migration with Automated Extraction
-
-**Justification:** This is not a greenfield system design — the distribution infrastructure (git-sync, webhooks, API endpoints, install script) is already deployed. The architecture is a migration pattern: transform monorepo subfolders into standalone repos, fill identity gaps, wire up CLAUDE.md injection, and remove the source of truth from the monorepo.
-
-### 1.3 Component Diagram
-
-```mermaid
-graph TD
-    subgraph "New: Standalone Repos - GitHub"
-        T[construct-template]
-        R1[construct-gtm-collective]
-        R2[construct-artisan]
-        R3[construct-beacon]
-        R4[construct-observer]
-        R5[construct-crucible]
-    end
-
-    subgraph "Existing: Constructs API - Railway"
-        WH[Webhook Handler<br/>webhooks.ts:L376]
-        GS[Git Sync Service<br/>git-sync.ts]
-        REG[Register Repo<br/>packs.ts:L764]
-        SYNC[Sync Endpoint<br/>packs.ts:L879]
-        DL[Download Endpoint<br/>packs.ts]
-    end
-
-    subgraph "Existing: Database - Supabase"
-        DB[(packs + packVersions<br/>+ packFiles<br/>+ constructIdentities)]
-    end
-
-    subgraph "Modified: Install Script"
-        IS[constructs-install.sh]
-        INJ[inject_construct_claude_md<br/>NEW]
-    end
-
-    subgraph "New: Extraction Tooling"
-        EX[extract-construct.sh<br/>Automated extraction]
-    end
-
-    R1 & R2 & R3 & R4 & R5 -->|push event| WH
-    WH -->|trigger| GS
-    GS -->|clone + parse| R1 & R2 & R3 & R4 & R5
-    GS -->|upsert| DB
-    REG -->|register| DB
-    SYNC -->|manual trigger| GS
-    DL -->|read| DB
-    IS -->|GET /download| DL
-    IS -->|git clone| R1 & R2 & R3 & R4 & R5
-    IS -->|call| INJ
-    INJ -->|mutate| CM[Project CLAUDE.md]
-    EX -->|creates| R1 & R2 & R3 & R4 & R5
-    T -->|template for| R1 & R2 & R3 & R4 & R5
-```
-
-### 1.4 System Components
-
-#### 1.4.1 Extraction Script (`extract-construct.sh`)
-
-- **Purpose:** Automate the creation of standalone construct repos from monorepo pack data
-- **Responsibilities:**
-  - Transform `manifest.json` → `construct.yaml` using field mapping (prd.md §FR-2.2)
-  - Copy skills, commands, contexts, templates, scripts directories
-  - Generate skeleton `identity/persona.yaml` and `identity/expertise.yaml`
-  - Generate skeleton `CLAUDE.md`
-  - Copy `construct.schema.json` for local CI validation
-  - Create CI workflow (`validate.yml`)
-  - Initialize git repo, create GitHub repo via `gh`, push
-  - Register with API (`POST /v1/packs/{slug}/register-repo`)
-  - Trigger initial sync (`POST /v1/packs/{slug}/sync`)
-- **Interfaces:** CLI with `--slug`, `--dry-run`, `--skip-register` flags
-- **Dependencies:** `gh` CLI, `yq`, `jq`, API credentials
-
-#### 1.4.2 Template Repo (`construct-template`)
-
-- **Purpose:** Canonical reference for construct structure — GitHub template repo
-- **Responsibilities:**
-  - Provide scaffolded `construct.yaml` with inline documentation
-  - Include example skill directory structure
-  - Provide `identity/persona.yaml` and `identity/expertise.yaml` examples
-  - Include `CLAUDE.md` template
-  - Ship CI workflow, README, CONTRIBUTING guide
-- **Interfaces:** GitHub "Use this template" button
-- **Dependencies:** None
-
-#### 1.4.3 CLAUDE.md Injection (`inject_construct_claude_md()`)
-
-- **Purpose:** Auto-import construct's CLAUDE.md into project context on install
-- **Responsibilities:**
-  - Detect or create sentinel block (`<!-- constructs:begin -->` / `<!-- constructs:end -->`)
-  - Append `@` import line within sentinel block
-  - Handle missing root CLAUDE.md (create with Loa import if applicable)
-  - Idempotent (no duplicate imports)
-  - Removal on uninstall
-  - Atomic writes (temp file + `mv`)
-  - Concurrency safety (lockfile)
-  - Fallback to `.claude/constructs/CLAUDE.constructs.md` on failure
-- **Interfaces:** Called from `do_install_pack()` and `do_uninstall_pack()`
-- **Dependencies:** Root CLAUDE.md (optional), `.constructs-meta.json`
-
-#### 1.4.4 Git Sync Service (Modified)
-
-- **Purpose:** Clone, validate, and collect files from construct repos
-- **Modifications Required:**
-  1. Add `'templates'` to `ALLOWED_DIRS` array in `collectFiles()` (git-sync.ts)
-  2. Add `'CLAUDE.md'` to `ALLOWED_ROOT_FILES` array in `collectFiles()` (git-sync.ts)
-- **Interfaces:** `syncFromRepo(gitUrl, gitRef): Promise<SyncResult>` (unchanged)
-- **Dependencies:** GitHub HTTPS access
-
-### 1.5 Data Flow
-
-#### Extraction Flow (One-Time)
-
-```mermaid
-sequenceDiagram
-    participant M as Monorepo
-    participant EX as extract-construct.sh
-    participant GH as GitHub
-    participant API as Constructs API
-    participant DB as Supabase
-
-    EX->>M: Read manifest.json + skills/commands/contexts
-    EX->>EX: Transform manifest.json → construct.yaml
-    EX->>EX: Generate persona.yaml + expertise.yaml skeleton
-    EX->>EX: Generate CLAUDE.md skeleton
-    EX->>GH: gh repo create 0xHoneyJar/construct-slug
-    EX->>GH: git push all files
-    EX->>API: POST /v1/packs/slug/register-repo
-    API->>DB: UPDATE packs SET sourceType=git
-    EX->>API: POST /v1/packs/slug/sync
-    API->>GH: git clone --depth 1
-    API->>DB: INSERT packVersions + packFiles + constructIdentities
-```
-
-#### Ongoing Sync Flow (Post-Extraction)
-
-```mermaid
-sequenceDiagram
-    participant DEV as Developer
-    participant GH as GitHub Repo
-    participant WH as Webhook Handler
-    participant GS as Git Sync
-    participant DB as Supabase
-
-    DEV->>GH: git push edit SKILL.md
-    GH->>WH: POST /webhooks/github push event
-    WH->>WH: Verify HMAC-SHA256 signature
-    WH->>WH: Replay protection delivery ID
-    WH->>WH: Match pack by githubRepoId
-    WH->>GS: syncFromRepo gitUrl ref
-    GS->>GH: git clone --depth 1 DNS-pinned
-    GS->>GS: validateTree + collectFiles + parseIdentity
-    GS->>DB: Transaction version + files + identity
-```
-
-#### Install Flow (Post-Extraction)
-
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant IS as constructs-install.sh
-    participant API as Constructs API
-    participant GH as GitHub Repo
-    participant FS as Local Filesystem
-
-    U->>IS: install slug
-    IS->>API: GET /v1/packs/slug/download
-    API-->>IS: source_type git, git_url, git_ref
-    IS->>GH: git clone --depth 1
-    IS->>FS: Remove .git, validate tree
-    IS->>FS: symlink_pack_skills
-    IS->>FS: symlink_pack_commands
-    IS->>FS: inject_construct_claude_md
-    IS->>FS: Write .constructs-meta.json
-```
-
-### 1.6 External Integrations
-
-| Service | Purpose | API Type | Notes |
-|---------|---------|----------|-------|
-| GitHub API | Repo creation, webhook config | REST | Via `gh` CLI |
-| Constructs API | Register-repo, sync, download | REST | `api.constructs.network` |
-| Supabase | PostgreSQL database | SQL (Drizzle ORM) | Pooled connection |
-| Cloudflare R2 | File storage | S3-compatible | Fallback to DB content |
-
-### 1.7 Deployment Architecture
-
-No new deployment infrastructure. All changes target:
-- **Existing Railway deployment** — API code changes (2 lines in `git-sync.ts`)
-- **GitHub** — 6 new repos (5 constructs + 1 template)
-- **Local** — Install script changes, extraction script
-
-#### Cutover Coexistence Strategy
-
-During extraction (Sprints 1-3), both monorepo packs and standalone repos exist simultaneously. The system must handle this dual-source period cleanly:
-
-| State | Source of Truth | Install Behavior | Duration |
-|-------|----------------|-----------------|----------|
-| Pre-extraction | `apps/sandbox/packs/{slug}` via seed script | DB/base64 download | Until Sprint 1 starts |
-| During extraction | Standalone repo (post `register-repo`) | Git clone from new repo | Sprints 1-3 (~1-2 weeks) |
-| Post-extraction | Standalone repo only | Git clone (base64 fallback) | Permanent |
-
-**Transition atomicity:** Each construct transitions individually via `register-repo`, which atomically sets `sourceType=git` + `gitUrl` + `githubRepoId`. After this call, all new syncs and installs use the standalone repo. There is no partial state — the pack is either DB-sourced or git-sourced.
-
-**In-flight install behavior:** If a user starts an install during the `register-repo` call:
-- If install started before `register-repo`: Uses DB/base64 download (old source) — still valid
-- If install started after `register-repo`: Uses git clone (new source) — expected behavior
-- No race condition: `register-repo` is a single DB `UPDATE` in a transaction
-
-**Acceptance criteria for cutover:**
-1. After each `register-repo`, verify next sync uses git clone (not DB)
-2. Verify `GET /v1/packs/{slug}/download` returns `source_type: "git"` with `git_url`
-3. Verify existing cached installs continue working (no breaking change to installed files)
-
-### 1.8 Security Architecture
-
-All security measures are inherited from the existing git-sync infrastructure:
-
-| Protection | Implementation | Reference |
-|-----------|---------------|-----------|
-| HTTPS only | `validateGitUrl()` rejects non-HTTPS | git-sync.ts |
-| DNS pinning | Local CONNECT proxy pins resolved IP | git-sync.ts |
-| SSRF prevention | Private IP range blocking | git-sync.ts |
-| No symlinks | `lstat()` check on all files | git-sync.ts |
-| No path traversal | Rejects `..`, absolute paths, >255 chars | git-sync.ts |
-| Shallow clone | `--depth 1 --single-branch`, 30s timeout | git-sync.ts |
-| Webhook HMAC | SHA256 with `timingSafeEqual` | webhooks.ts |
-| Replay protection | Delivery ID tracking | webhooks.ts |
-| Rate limiting | 10 syncs per pack per hour | packs.ts |
-
-**Webhook + Registration Trust Boundary:**
-
-| Protection | Implementation |
-|-----------|---------------|
-| Admin-only registration | `POST /v1/packs/:slug/register-repo` requires admin API key (existing auth middleware) |
-| githubRepoId binding | Once `githubRepoId` is set via register-repo, webhook handler MUST verify `delivery.repository.id === pack.githubRepoId` before syncing. Prevents repo-swap attacks where a different repo pushes events matching a pack's URL |
-| URL immutability | `gitUrl` + `githubRepoId` are set once at registration. Changing requires a new register-repo call (admin-only), which re-validates the URL and fetches a fresh githubRepoId |
-| Extraction script auth | Extraction script uses admin API key for register-repo calls; webhook secret is configured via `gh api` with the shared `GITHUB_WEBHOOK_SECRET` |
-
-**New security for CLAUDE.md injection:**
-
-| Protection | Implementation |
-|-----------|---------------|
-| Atomic writes | Write to temp file + `mv` |
-| Concurrency lock | `mkdir`-based `.constructs-inject.lock/` with PID file + 10s timeout + stale lock detection (portable macOS/Linux) |
-| No symlink target | Reject if CLAUDE.md is a symlink |
-| Sentinel block isolation | Only mutate within `<!-- constructs:begin/end -->` |
-| Loa import protection | Never modify content outside sentinel block |
-| Import path validation | Validate `@` import paths match expected pattern |
+**Change surface**: 2 TypeScript/Zod files, 2 JSON schemas, 1 SKILL.md, 1 new test file. External: 5 construct-* repo manifest updates (documented here, shipped separately).
 
 ---
 
-## 2. Software Stack
+## 2. System Architecture
 
-### 2.1 Extraction Tooling
+### 2.1 Schema Layer Stack
 
-| Category | Technology | Version | Justification |
-|----------|------------|---------|---------------|
-| Script Language | Bash | 5.x | Consistent with existing install script (`constructs-install.sh`) |
-| YAML Processing | `yq` | 4.x | Already a project dependency (`.loa.config.yaml` processing) |
-| JSON Processing | `jq` | 1.7+ | Already used in CI scripts |
-| GitHub CLI | `gh` | 2.x | Repo creation, webhook config, API calls |
-| Git | `git` | 2.x | Repo initialization and push |
+Four files define the manifest contract. All four must stay in sync.
 
-### 2.2 Backend (Existing — Minimal Changes)
-
-| Category | Technology | Version | Justification |
-|----------|------------|---------|---------------|
-| Runtime | Node.js | 20.x LTS | Existing API runtime |
-| Framework | Hono | 4.x | Existing API framework |
-| ORM | Drizzle | 0.29+ | Existing DB layer |
-| Validation | Zod | 3.22+ | Existing schema validation |
-
-### 2.3 CI Per Construct Repo
-
-| Category | Technology | Purpose |
-|----------|------------|---------|
-| CI Platform | GitHub Actions | Schema validation, structure checks |
-| Schema Validation | `ajv-cli` 5.x | Validate `construct.yaml` against `construct.schema.json` |
-| YAML Lint | `yamllint` | Validate identity files |
-| Shell Lint | `shellcheck` | Lint scripts/ directory |
-
----
-
-## 3. Database Design
-
-### 3.1 Database Technology
-
-**Primary Database:** PostgreSQL 15.x (Supabase-managed)
-
-**No schema changes required.** All necessary tables exist:
-
-| Table | Purpose | Status |
-|-------|---------|--------|
-| `packs` | Pack metadata, git source info | Deployed (has `sourceType`, `gitUrl`, `gitRef`, `githubRepoId`) |
-| `packVersions` | Version history with manifest JSONB | Deployed |
-| `packFiles` | File storage (base64 + R2 keys) | Deployed |
-| `constructIdentities` | Identity data (persona, expertise) | Deployed |
-| `packSyncEvents` | Rate limiting for sync operations | Deployed |
-| `githubWebhookDeliveries` | Replay protection | Deployed |
-
-### 3.2 Existing Schema (Reference)
-
-#### `constructIdentities` Table
-
-```sql
-CREATE TABLE construct_identities (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    pack_id UUID NOT NULL UNIQUE REFERENCES packs(id),
-    persona_yaml TEXT,                    -- Raw identity/persona.yaml
-    expertise_yaml TEXT,                  -- Raw identity/expertise.yaml
-    cognitive_frame JSONB,               -- {archetype, disposition, thinking_style, decision_making}
-    expertise_domains JSONB,             -- Array of domain objects
-    voice_config JSONB,                  -- Voice preferences from persona
-    model_preferences JSONB,             -- Model tier preferences
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+```
+┌─────────────────────────────────────┐
+│  TypeScript Types                    │  packages/shared/src/types.ts:219-271
+│  PackManifest interface              │  → Used by API, Explorer, CLI
+└──────────────┬──────────────────────┘
+               │ must match
+┌──────────────▼──────────────────────┐
+│  Zod Validation                      │  packages/shared/src/validation.ts:216-271
+│  packManifestSchema                  │  → Runtime validation in API
+│  .passthrough() at end               │  → Type inference: ValidatedPackManifest
+└──────────────┬──────────────────────┘
+               │ must match
+┌──────────────▼──────────────────────┐
+│  JSON Schema: pack-manifest          │  .claude/schemas/pack-manifest.schema.json
+│  additionalProperties: false         │  → CI validation of installed pack manifest.json
+└──────────────┬──────────────────────┘
+               │ superset of
+┌──────────────▼──────────────────────┐
+│  JSON Schema: construct              │  .claude/schemas/construct.schema.json
+│  additionalProperties: false         │  → CI validation of construct.yaml in repos
+│  Has: identity, hooks, events,       │
+│       pack_dependencies, repository  │
+└─────────────────────────────────────┘
 ```
 
-### 3.3 Versioning Semantics During Extraction
+**Key constraint**: Both JSON schemas use `additionalProperties: false`. New fields MUST be explicitly added or validation will reject them. The Zod schema uses `.passthrough()` which is more lenient, but the JSON schemas are the hard gate in CI.
 
-When a pack transitions from DB-sourced to git-sourced (via `register-repo` + first sync), version history requires careful handling:
+### 2.2 Runtime Data Flow (Workflow Gates)
 
-| Concern | Rule | Rationale |
-|---------|------|-----------|
-| Existing `packVersions` rows | **Preserved.** No deletion or migration of pre-extraction versions | Users may have installed older versions; download links must remain valid |
-| `is_latest` flag | **Reset by sync.** First git-sync sets its new version as `is_latest = true` and clears the flag on the previous latest | Standard sync behavior — no special extraction logic needed |
-| Version string continuity | **Restart from `1.0.0`.** Extracted construct starts at version `1.0.0` in `construct.yaml` | Clean break — monorepo versions were seed-script artifacts, not meaningful semver |
-| `packFiles` for old versions | **Retained as base64 in DB.** Old versions' files remain accessible via DB content column | Ensures `GET /download?version=old` still works for users pinned to old versions |
-| `constructIdentities` | **Upserted on first sync.** `pack_id` is UNIQUE — first git-sync creates or replaces the identity row | Pre-extraction packs had no identity data (NULL columns), so this is always an insert |
-| `packs.sourceType` | **Set to `'git'` by `register-repo`.** Irreversible without another `register-repo` call | Clear signal to all consumers (download, install, Explorer UI) |
+```
+construct-* repo manifest.json
+  └── workflow.gates declaration (FR-3, this cycle adds)
+        │
+        ▼  (on install, synced to .claude/constructs/packs/<slug>/manifest.json)
+construct-workflow-read.sh          ← validates gates via jq
+  │ Exit 0: valid | Exit 1: no workflow | Exit 2: validation error
+  ▼  (on skill invocation)
+construct-workflow-activate.sh      ← writes .run/construct-workflow.json
+        │
+        ├── audit-sprint.md   → skip_when: construct_gate: "review"
+        ├── review-sprint.md  → skip_when: construct_gate: "sprint"
+        └── constraints.json  → C-PROC-001/003/004/008 construct_yield
+```
 
-**Acceptance criteria:**
-1. After first git-sync, `SELECT * FROM pack_versions WHERE pack_id = ? ORDER BY created_at DESC LIMIT 1` returns the new version with `is_latest = true`
-2. Old versions remain queryable: `SELECT * FROM pack_versions WHERE pack_id = ? AND version = '0.x.y'` returns rows
-3. `constructIdentities` row exists with non-null `cognitive_frame` after first sync
+**No runtime script changes needed.** All gate fields are optional in schema validation. When `workflow` is declared but a specific gate is omitted, the runtime applies full-pipeline defaults (Flatline IMP-004):
 
-### 3.4 Data Access Patterns
+| Omitted gate | Runtime behavior | Why |
+|--------------|-----------------|-----|
+| `prd` | Full PRD required | Fail-closed: missing gate = maximum friction |
+| `sdd` | Full SDD required | Same |
+| `sprint` | Full sprint required | Same |
+| `implement` | `required` (always) | Cannot be omitted or skipped — `construct-workflow-read.sh:82-84` |
+| `review` | `both` (visual + textual) | Fail-closed |
+| `audit` | `full` | Fail-closed |
 
-| Query | Frequency | Optimization |
-|-------|-----------|--------------|
-| `SELECT * FROM packs WHERE slug = ?` | High (every install/sync) | Unique index on `slug` |
-| `SELECT * FROM pack_versions WHERE pack_id = ? AND is_latest = true` | High | Partial index on `is_latest` |
-| `SELECT * FROM construct_identities WHERE pack_id = ?` | Medium (detail pages, sync) | Unique index on `pack_id` |
-| `SELECT COUNT(*) FROM pack_sync_events WHERE pack_id = ? AND created_at > ?` | Medium (rate limit) | Composite index on `(pack_id, created_at)` |
+This fail-closed default is enforced at `construct-workflow-read.sh:148` — any parse error or missing field cascades to exit 1, which the activation script treats as "no workflow override → run full pipeline." Tests must verify this behavior explicitly.
 
-### 3.4 Identity Data Flow
+The reader at `construct-workflow-read.sh:17-25` expects exactly these values:
+- depth: `light | standard | deep | full`
+- gates.prd/sdd/sprint: `skip | full` (see note on `condense` below)
+- gates.implement: `required` (rejects `skip` at line 82-84)
+- gates.review: `skip | visual | textual | both`
+- gates.audit: `skip | lightweight | full`
+- verification.method: `visual | tsc | build | test | manual`
 
-```mermaid
-erDiagram
-    CONSTRUCT_REPO {
-        file persona_yaml "identity/persona.yaml"
-        file expertise_yaml "identity/expertise.yaml"
-    }
+**`condense` gate value** (Flatline IMP-002): The runtime accepts `condense` but treats it as `full` with an advisory warning (`construct-workflow-read.sh:67`). To avoid a semantic footgun where manifest authors rely on behavior that doesn't exist:
+- **Schema**: Accept `skip | condense | full` (forward-compatible for when condense is implemented)
+- **Manifests this cycle**: Use only `skip` or `full` — no construct declares `condense`
+- **Documentation**: Each manifest's gate comment explains the available values and notes condense is reserved
+- **Test**: Add a test asserting `condense` is accepted by validation but triggers the runtime advisory
 
-    CONSTRUCT_IDENTITIES {
-        uuid id PK
-        uuid pack_id FK
-        text persona_yaml
-        text expertise_yaml
-        jsonb cognitive_frame
-        jsonb expertise_domains
-        jsonb voice_config
-        jsonb model_preferences
-    }
+### 2.3 Post-Install Data Flow (Quick Start)
 
-    PACKS {
-        uuid id PK
-        varchar slug
-        varchar source_type
-        text git_url
-        varchar git_ref
-    }
-
-    CONSTRUCT_REPO ||--|| CONSTRUCT_IDENTITIES : "parsed by git-sync"
-    PACKS ||--|| CONSTRUCT_IDENTITIES : "1:1 relationship"
+```
+constructs-install.sh pack <slug>
+  └── installs manifest to .claude/constructs/packs/<slug>/manifest.json
+        │
+        ▼  (browsing-constructs SKILL.md Phase 6)
+Read manifest.json → extract quick_start → display "Start here: /{command}"
 ```
 
 ---
 
-## 4. UI Design
+## 3. Component Design
 
-### 4.1 Explorer Changes (Minimal)
+### 3.1 FR-1 + FR-2: Schema Extension & TS/Zod Synchronization
 
-The only UI change is FR-4.6: display GitHub repo link on construct detail pages when `sourceType === 'git'`.
+Combined because they touch the same two files and should be done atomically.
 
-| Page | Route | Change |
-|------|-------|--------|
-| Construct Detail | `/constructs/[slug]` | Add "View Source" link to `gitUrl` when `sourceType === 'git'` |
+#### 3.1.1 TypeScript Types (`packages/shared/src/types.ts`)
 
-**Component change:** Conditional link in construct detail page:
+**Current state**: 20 fields in `PackManifest` (lines 219-271). Missing 6 new field groups + 6 fields Zod has but TS doesn't.
 
-```tsx
-{pack.sourceType === 'git' && pack.gitUrl && (
-  <a href={pack.gitUrl.replace('.git', '')} target="_blank" rel="noopener noreferrer">
-    View Source on GitHub
-  </a>
-)}
-```
-
-### 4.2 No Other UI Changes
-
-All other UI pages remain unchanged. The construct marketplace, install flow, and search are unaffected by the extraction.
-
----
-
-## 5. API Specifications
-
-### 5.1 Existing Endpoints (No Changes)
-
-All API endpoints are already deployed and functional:
-
-| Method | Endpoint | Purpose | Status |
-|--------|----------|---------|--------|
-| POST | `/v1/packs/:slug/register-repo` | Register git repo for a pack | Deployed |
-| POST | `/v1/packs/:slug/sync` | Manual sync from git repo | Deployed |
-| POST | `/v1/webhooks/github` | Auto-sync on push/tag events | Deployed |
-| GET | `/v1/packs/:slug/download` | Download pack files + license | Deployed |
-
-### 5.2 Prerequisite Code Changes (git-sync.ts)
-
-**Change 1: Add `templates` to allowed directories**
+**Full updated interface**:
 
 ```typescript
-// git-sync.ts:collectFiles()
-// Before:
-const ALLOWED_DIRS = ['skills', 'commands', 'contexts', 'identity', 'scripts'];
+export interface PackManifest {
+  // === Existing fields (some with type corrections from FR-2) ===
+  name: string;
+  slug: string;
+  version: string;
+  description?: string;
+  long_description?: string;                    // ADD: Zod has at validation.ts:222
+  author?: string | {                           // CHANGE: was object-only, Zod allows union
+    name: string;
+    email?: string;
+    url?: string;
+  };
+  license?: string;
+  repository?: string;                          // ADD: Zod has at validation.ts:225
+  homepage?: string;                            // ADD: Zod has at validation.ts:226
+  documentation?: string;                       // ADD: Zod has at validation.ts:227
+  skills?: Array<{ slug: string; path: string }>;
+  commands?: Array<{ name: string; path: string }>;
+  protocols?: Array<{ name: string; path: string }>;
+  dependencies?: {
+    loa_version?: string;                       // KEEP name (Zod's `loa` renamed to match)
+    skills?: Record<string, string>;            // CHANGE: from string[] to Record<string, string>
+    packs?: Record<string, string>;             // CHANGE: from string[] to Record<string, string>
+  };
+  pricing?: {
+    type: string;
+    tier: string;
+  };
+  tags?: string[];
+  keywords?: string[];                          // ADD: Zod has at validation.ts:245
+  engines?: {                                   // ADD: Zod has at validation.ts:248-253
+    loa?: string;
+    node?: string;
+  };
+  claude_instructions?: string;
+  schema_version?: number;
+  tools?: Record<string, {
+    install?: string;
+    required?: boolean;
+    purpose: string;
+    check: string;
+    docs_url?: string;
+  }>;
+  mcp_dependencies?: Record<string, {
+    required?: boolean;
+    required_scopes?: string[];
+    reason: string;
+    fallback?: string;
+  }>;
+  quick_start?: {
+    command: string;
+    description: string;
+  };
 
-// After:
-const ALLOWED_DIRS = ['skills', 'commands', 'contexts', 'identity', 'scripts', 'templates'];
+  // === NEW: Bridgebuilder fields (FR-1, cycle-030) ===
+
+  /** Domain tags for MoE routing (#119) */
+  domain?: string[];
+
+  /** Expertise declarations for intent matching (#119) */
+  expertise?: string[];
+
+  /** Golden path porcelain commands (#119, #127) */
+  golden_path?: {
+    commands: Array<{
+      name: string;
+      description: string;
+      truename_map?: Record<string, string>;
+    }>;
+    detect_state?: string;
+  };
+
+  /** Workflow depth and gate declarations (#129) — consumed by construct-workflow-read.sh */
+  workflow?: {
+    depth: 'light' | 'standard' | 'deep' | 'full';
+    app_zone_access?: boolean;
+    gates: {
+      prd?: 'skip' | 'condense' | 'full';
+      sdd?: 'skip' | 'condense' | 'full';
+      sprint?: 'skip' | 'condense' | 'full';
+      implement?: 'required';
+      review?: 'skip' | 'visual' | 'textual' | 'both';
+      audit?: 'skip' | 'lightweight' | 'full';
+    };
+    verification?: {
+      method: 'visual' | 'tsc' | 'build' | 'test' | 'manual';
+    };
+  };
+
+  /** Methodology layer for knowledge separation (#118) */
+  methodology?: {
+    references?: string[];
+    principles?: string[];
+    knowledge_base?: string;
+  };
+
+  /** Construct capability tier (#128) */
+  tier?: 'L1' | 'L2' | 'L3';
+}
 ```
 
-> From prd.md: "Observer and Crucible have `templates/` with canvas, journey, gap, and reality templates. Without this change, sync will silently drop template files" (prd.md:L299)
+**Design decisions**:
 
-**Change 2: Add `CLAUDE.md` to allowed root files**
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| `dependencies.loa_version` naming | Keep `loa_version`, rename Zod's `loa` | More explicit; matches pack-manifest.schema.json:118 |
+| `dependencies.skills` type | `Record<string, string>` | Adopt Zod's form (slug → version range). No existing manifests populate this field. |
+| `author` type | `string \| object` | Adopt Zod's union. Allows shorthand. |
+| `workflow.depth` values | 4 literal values | Match `construct-workflow-read.sh:18` |
+| `workflow.gates.implement` | Literal `'required'` only | Match runtime: `construct-workflow-read.sh:82-84` rejects `skip` |
+| All new fields optional | Yes | Zero barrier. PRD NF-1. |
+
+#### 3.1.2 Zod Validation (`packages/shared/src/validation.ts`)
+
+**New helper schemas** (insert before `packManifestSchema` at line 216):
 
 ```typescript
-// git-sync.ts:collectFiles()
+// ── Bridgebuilder schemas (cycle-030, FR-1) ──────────────────
+
+export const goldenPathCommandSchema = z.object({
+  name: z.string().min(1).max(100),
+  description: z.string().max(500),
+  truename_map: z.record(z.string().max(100)).optional(),
+});
+
+export const goldenPathSchema = z.object({
+  commands: z.array(goldenPathCommandSchema).min(1),
+  detect_state: z.string().max(500).optional(),
+});
+
+const planGateSchema = z.enum(['skip', 'condense', 'full']);
+const reviewGateSchema = z.enum(['skip', 'visual', 'textual', 'both']);
+const auditGateSchema = z.enum(['skip', 'lightweight', 'full']);
+
+export const workflowGatesSchema = z.object({
+  prd: planGateSchema.optional(),
+  sdd: planGateSchema.optional(),
+  sprint: planGateSchema.optional(),
+  implement: z.literal('required').optional(),
+  review: reviewGateSchema.optional(),
+  audit: auditGateSchema.optional(),
+});
+
+export const workflowVerificationSchema = z.object({
+  method: z.enum(['visual', 'tsc', 'build', 'test', 'manual']),
+});
+
+export const workflowSchema = z.object({
+  depth: z.enum(['light', 'standard', 'deep', 'full']),
+  app_zone_access: z.boolean().optional(),
+  gates: workflowGatesSchema,
+  verification: workflowVerificationSchema.optional(),
+});
+
+export const methodologySchema = z.object({
+  references: z.array(z.string().max(500)).max(20).optional(),
+  principles: z.array(z.string().max(200)).max(20).optional(),
+  knowledge_base: z.string().max(500).optional(),
+});
+
+export const tierSchema = z.enum(['L1', 'L2', 'L3']);
+```
+
+**Additions to `packManifestSchema`** (inside the z.object before `.passthrough()`):
+
+```typescript
+  // Bridgebuilder fields (cycle-030)
+  domain: z.array(z.string().max(50)).max(10).optional(),
+  expertise: z.array(z.string().max(100)).max(20).optional(),
+  golden_path: goldenPathSchema.optional(),
+  workflow: workflowSchema.optional(),
+  methodology: methodologySchema.optional(),
+  tier: tierSchema.optional(),
+```
+
+**FR-2 fix** — rename `loa` to `loa_version` in `packDependenciesSchema` (line 177):
+
+```typescript
 // Before:
-const ALLOWED_ROOT_FILES = ['construct.yaml', 'manifest.json', 'README.md', 'LICENSE'];
+export const packDependenciesSchema = z.object({
+  loa: z.string().optional(),
+  skills: z.record(z.string()).optional(),
+  packs: z.record(z.string()).optional(),
+});
 
 // After:
-const ALLOWED_ROOT_FILES = ['construct.yaml', 'manifest.json', 'README.md', 'LICENSE', 'CLAUDE.md'];
+export const packDependenciesSchema = z.object({
+  loa_version: z.string().optional(),
+  skills: z.record(z.string()).optional(),
+  packs: z.record(z.string()).optional(),
+});
 ```
 
-> From prd.md: "The entire FR-3 feature depends on CLAUDE.md being present in the synced construct directory" (prd.md:L303)
+**New type exports** (append at bottom of file):
 
-### 5.3 Verification
-
-After deploying both changes:
-
-```bash
-# Trigger sync for a construct with templates/ and CLAUDE.md
-curl -X POST "https://api.constructs.network/v1/packs/observer/sync" \
-  -H "Authorization: Bearer $API_KEY"
-
-# Response should include files from templates/ and CLAUDE.md at root
+```typescript
+export type GoldenPathCommand = z.infer<typeof goldenPathCommandSchema>;
+export type GoldenPath = z.infer<typeof goldenPathSchema>;
+export type WorkflowGates = z.infer<typeof workflowGatesSchema>;
+export type Workflow = z.infer<typeof workflowSchema>;
+export type Methodology = z.infer<typeof methodologySchema>;
+export type Tier = z.infer<typeof tierSchema>;
 ```
 
----
+#### 3.1.3 JSON Schema: pack-manifest (`pack-manifest.schema.json`)
 
-## 6. Error Handling Strategy
+**Current state**: `additionalProperties: false`, 283 lines. No workflow/domain/expertise.
 
-### 6.1 Extraction Script Errors
-
-| Error | Detection | Recovery |
-|-------|-----------|----------|
-| `gh repo create` fails | Non-zero exit code | Print error, skip construct, continue with others |
-| `manifest.json` missing/invalid | `jq` parse failure | Halt for that construct, report which fields are missing |
-| `yq` transform fails | Non-zero exit code | Print original JSON + error, manual fix needed |
-| Git push fails | Non-zero exit code | Retry once, then prompt for manual push |
-| Register-repo fails | HTTP non-200 | Print response body, skip (can be retried manually) |
-| Sync fails | HTTP non-200 | Print response body, skip (auto-retries on next push) |
-
-### 6.2 CLAUDE.md Injection Errors
-
-| Error | Detection | Recovery |
-|-------|-----------|----------|
-| Root CLAUDE.md is a symlink | `[ -L CLAUDE.md ]` | Fail with actionable message, no modification |
-| Root CLAUDE.md not writable | `[ ! -w CLAUDE.md ]` | Fail with actionable message |
-| Sentinel block malformed | Regex check for mismatched markers | Fail with message identifying the problem |
-| Lock held >10s | `mkdir`-lock timeout (stale PID detection) | Fail with retry message; remove stale lock if holding PID is dead |
-| Any injection failure | Catch-all | Fall back to `.claude/constructs/CLAUDE.constructs.md` |
-
-### 6.3 Error Response Format
-
-All API errors follow the existing format:
+**Add to `properties` object** (all optional — NOT added to `required`):
 
 ```json
-{
-  "error": {
-    "code": "SYNC_RATE_LIMITED",
-    "message": "Maximum 10 syncs per hour exceeded"
-  }
+"workflow": {
+  "type": "object",
+  "required": ["depth", "gates"],
+  "properties": {
+    "depth": {
+      "type": "string",
+      "enum": ["light", "standard", "deep", "full"]
+    },
+    "app_zone_access": {
+      "type": "boolean"
+    },
+    "gates": {
+      "type": "object",
+      "properties": {
+        "prd":       { "type": "string", "enum": ["skip", "condense", "full"] },
+        "sdd":       { "type": "string", "enum": ["skip", "condense", "full"] },
+        "sprint":    { "type": "string", "enum": ["skip", "condense", "full"] },
+        "implement": { "type": "string", "enum": ["required"] },
+        "review":    { "type": "string", "enum": ["skip", "visual", "textual", "both"] },
+        "audit":     { "type": "string", "enum": ["skip", "lightweight", "full"] }
+      },
+      "additionalProperties": false
+    },
+    "verification": {
+      "type": "object",
+      "properties": {
+        "method": { "type": "string", "enum": ["visual", "tsc", "build", "test", "manual"] }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+},
+"domain": {
+  "type": "array",
+  "items": { "type": "string", "maxLength": 50 },
+  "maxItems": 10
+},
+"expertise": {
+  "type": "array",
+  "items": { "type": "string", "maxLength": 100 },
+  "maxItems": 20
+},
+"golden_path": {
+  "type": "object",
+  "required": ["commands"],
+  "properties": {
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "truename_map": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        },
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "detect_state": { "type": "string" }
+  },
+  "additionalProperties": false
+},
+"methodology": {
+  "type": "object",
+  "properties": {
+    "references": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
+    "principles": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
+    "knowledge_base": { "type": "string" }
+  },
+  "additionalProperties": false
+},
+"tier": {
+  "type": "string",
+  "enum": ["L1", "L2", "L3"]
 }
+```
+
+**Also add `quick_start` to `pack-manifest.schema.json`** (Flatline IMP-005 — already in `construct.schema.json:181` but missing from pack-manifest):
+
+```json
+"quick_start": {
+  "type": "object",
+  "required": ["command", "description"],
+  "properties": {
+    "command": { "type": "string" },
+    "description": { "type": "string" }
+  },
+  "additionalProperties": false
+}
+```
+
+Without this, any manifest declaring `quick_start` fails CI because `pack-manifest.schema.json` uses `additionalProperties: false`.
+
+#### 3.1.4 JSON Schema: construct (`construct.schema.json`)
+
+Same new properties added to `construct.schema.json`. All optional. Schema_version minimum stays at 3.
+
+#### 3.1.5 Dependencies Schema Alignment (Flatline IMP-001)
+
+Three different `dependencies` representations exist. **This cycle resolves the divergence.**
+
+| Layer | skills (before) | skills (after) | loa field |
+|-------|----------------|----------------|-----------|
+| TS types | `string[]` | `Record<string, string>` | `loa_version` |
+| Zod | `z.record(z.string())` | `z.record(z.string())` (unchanged) | `loa_version` |
+| pack-manifest.schema.json | `array of string` | `oneOf: [array, object]` | `loa_version` |
+
+**JSON Schema update** — update `pack-manifest.schema.json` `dependencies.skills` to accept both forms during migration:
+
+```json
+"skills": {
+  "oneOf": [
+    { "type": "array", "items": { "type": "string" }, "description": "DEPRECATED: skill slugs as array" },
+    { "type": "object", "additionalProperties": { "type": "string" }, "description": "Skill slug → version range" }
+  ]
+}
+```
+
+This accepts both `["observer"]` (v3 form) and `{"observer": ">=1.0.0"}` (v4 form). Construct repos migrate to object form when bumping to `schema_version: 4`.
+
+**Sunset schedule** (Flatline SKP-001): The array form is deprecated as of this cycle. Removal timeline:
+- **Cycle A (this cycle)**: `oneOf` accepts both forms. Array form emits deprecation warning in validation output.
+- **Cycle B**: All construct-* repos migrated to object form. Array form removal PR prepared.
+- **Post-Cycle B**: `oneOf` replaced with object-only schema. Array form rejected by CI.
+
+---
+
+### 3.2 FR-3: Workflow Gates in Pack Manifests
+
+#### 3.2.1 Runtime Integration (Already Done — No Changes)
+
+Cycle-029 runtime reads `workflow.gates` via:
+1. `construct-workflow-read.sh` — `jq -e '.workflow // empty'` from manifest
+2. `construct-workflow-activate.sh` — writes `.run/construct-workflow.json`
+3. Command pre-flights — `skip_when.construct_gate` in `audit-sprint.md`, `review-sprint.md`
+4. `constraints.json` — `construct_yield` on C-PROC-001, C-PROC-003, C-PROC-004, C-PROC-008
+
+The format we declare matches exactly what the runtime validates.
+
+#### 3.2.2 Manifest Declarations (5 construct-* repos)
+
+Each repo adds `workflow` + `quick_start` to `manifest.json`. Gate values from PRD §FR-3, aligned with runtime constants at `construct-workflow-read.sh:17-25`.
+
+**Observer** (`construct-observer/manifest.json`):
+```json
+"workflow": {
+  "depth": "light",
+  "gates": {
+    "prd": "skip", "sdd": "skip", "sprint": "full",
+    "implement": "required", "review": "textual", "audit": "lightweight"
+  },
+  "verification": { "method": "manual" }
+},
+"quick_start": {
+  "command": "/observe",
+  "description": "Capture your first user insight. Everything else builds on this."
+}
+```
+
+**Artisan** (`construct-artisan/manifest.json`):
+```json
+"workflow": {
+  "depth": "light",
+  "app_zone_access": true,
+  "gates": {
+    "prd": "skip", "sdd": "skip", "sprint": "full",
+    "implement": "required", "review": "visual", "audit": "skip"
+  },
+  "verification": { "method": "visual" }
+},
+"quick_start": {
+  "command": "/taste",
+  "description": "Define the visual taste of your project. All design flows from here."
+}
+```
+
+**Crucible** (`construct-crucible/manifest.json`):
+```json
+"workflow": {
+  "depth": "deep",
+  "gates": {
+    "prd": "full", "sdd": "full", "sprint": "full",
+    "implement": "required", "review": "both", "audit": "full"
+  },
+  "verification": { "method": "test" }
+},
+"quick_start": {
+  "command": "/test-plan",
+  "description": "Map your first quality gate. Validation starts with knowing what to test."
+}
+```
+
+**Beacon** (`construct-beacon/manifest.json`):
+```json
+"workflow": {
+  "depth": "standard",
+  "gates": {
+    "prd": "full", "sdd": "skip", "sprint": "full",
+    "implement": "required", "review": "textual", "audit": "lightweight"
+  },
+  "verification": { "method": "build" }
+},
+"quick_start": {
+  "command": "/deploy-production",
+  "description": "Set up your production infrastructure. Ship with confidence."
+}
+```
+
+**GTM-Collective** (`construct-gtm-collective/manifest.json`):
+```json
+"workflow": {
+  "depth": "light",
+  "gates": {
+    "prd": "skip", "sdd": "skip", "sprint": "skip",
+    "implement": "required", "review": "textual", "audit": "skip"
+  },
+  "verification": { "method": "manual" }
+},
+"quick_start": {
+  "command": "/gtm-setup",
+  "description": "Initialize your go-to-market strategy. Position before you promote."
+}
+```
+
+**Gate rationale**:
+
+| Pack | Why these gates |
+|------|-----------------|
+| Observer | Research skills don't produce app code. PRD/SDD overkill. Textual review catches methodology errors. |
+| Artisan | Design needs visual review but not architecture docs. UI verified visually. `app_zone_access: true` because it writes styles/components. |
+| Crucible | Testing IS the quality gate — needs full pipeline depth. |
+| Beacon | Deploy scripts need review but SDD overhead unnecessary for operational changes. |
+| GTM-Collective | Marketing artifacts don't need architecture review. Lightest pipeline. |
+
+#### 3.2.3 Cross-Repo Coordination Sequence
+
+1. **loa-constructs**: Ship schema extension (FR-1 + FR-2) → merge to main
+2. **construct-* repos**: Each adds `workflow` + `quick_start` to `manifest.json` (independent PRs)
+3. **Registry sync**: Updated manifests flow via existing git-sync webhooks
+
+Construct-* repos do NOT import from `packages/shared`. Their manifests validate against JSON Schemas in `.claude/schemas/`. The TS/Zod layer serves API and explorer only.
+
+---
+
+### 3.3 FR-4: Post-Install Quick Start
+
+#### 3.3.1 Change Location
+
+File: `.claude/skills/browsing-constructs/SKILL.md` — Phase 6 (Report Results), around line 246.
+
+**Current output**:
+```
+✅ Observer (6 skills installed)
+   Commands: /interview, /persona, /journey, ...
+```
+
+**Target output**:
+```
+✅ Observer (6 skills installed)
+
+   ▸ Start here: /observe
+     "Capture your first user insight. Everything else builds on this."
+
+   Commands: /interview, /persona, /journey, ...
+```
+
+#### 3.3.2 Implementation
+
+Add to Phase 6 report instructions:
+
+```
+For each installed pack:
+  1. Read manifest at .claude/constructs/packs/<slug>/manifest.json
+  2. If manifest has quick_start:
+     Display: "▸ Start here: {quick_start.command}"
+     Display: "  \"{quick_start.description}\""
+  3. Else if manifest has golden_path.commands[0]:
+     Display: "▸ Start here: {golden_path.commands[0].name}"
+     Display: "  \"{golden_path.commands[0].description}\""
+  4. Else: current behavior (flat command list only)
+  5. Display command list as before
+```
+
+#### 3.3.3 System Zone Decision
+
+`browsing-constructs` is System Zone (`.claude/skills/`). We are the upstream maintainer of Loa. The change is small, additive, and correct. Edit SKILL.md directly — propagates to all projects via `/update-loa`.
+
+---
+
+### 3.4 FR-5: Schema Version Migration
+
+#### 3.4.1 Version Strategy
+
+| Schema Layer | Current | Change |
+|-------------|---------|--------|
+| Zod `schema_version` | `z.number().int().min(1).default(1)` | No change — already accepts 1-∞ |
+| construct.schema.json | `"minimum": 3` | No change — construct repos stay v3+ |
+| pack-manifest.schema.json | No `schema_version` field | No change |
+| TS types | `schema_version?: number` | No change |
+
+The version bump is in the **manifests themselves**, not the validation layer. Each construct-* repo bumps to `"schema_version": 4` when adding workflow gates. Existing v3 manifests without new fields remain valid.
+
+---
+
+## 4. Testing Strategy
+
+### 4.1 New Test File: `packages/shared/src/__tests__/pack-manifest.test.ts`
+
+No tests exist today for the shared package. This cycle creates the first test file using Vitest.
+
+#### Schema Extension Tests (FR-1)
+
+```
+✓ accepts manifest with all new fields
+✓ accepts manifest without any new fields (backward compat)
+✓ accepts manifest with only workflow
+✓ rejects invalid tier value ("L4")
+✓ rejects invalid workflow.depth ("extreme")
+✓ rejects invalid workflow.gates.prd ("partial")
+✓ rejects workflow.gates.implement as "skip"
+✓ accepts workflow.gates with partial gates (only prd + implement)
+✓ rejects golden_path with empty commands array
+✓ accepts golden_path with truename_map
+✓ accepts methodology with partial sub-fields
+```
+
+#### TS/Zod Sync Tests (FR-2)
+
+```
+✓ accepts dependencies with Record<string, string> skills
+✓ accepts author as string shorthand
+✓ accepts author as object
+✓ accepts long_description, repository, homepage, documentation
+✓ accepts keywords array
+✓ accepts engines object
+✓ dependencies.loa_version accepted
+```
+
+#### Backward Compatibility Tests
+
+```
+✓ existing v3 manifest (minimal fields) passes validation
+✓ existing v3 manifest (full fields) passes validation
+✓ schema_version defaults to 1 when absent
+✓ .passthrough() allows unknown fields
+```
+
+#### Fail-Closed Integration Tests (Flatline SKP-003)
+
+```
+✓ manifest with malformed workflow JSON → full pipeline (not crash)
+✓ manifest with workflow but missing gates object → full pipeline
+✓ manifest with unknown gate value → validation error, runtime falls back to full
+✓ manifest with no workflow key at all → full pipeline (exit 1 path)
+```
+
+These tests invoke `construct-workflow-read.sh` directly with crafted manifests and assert exit codes + fallback behavior, proving the fail-closed claim end-to-end.
+
+#### Workflow Gate Contract Tests (FR-3)
+
+```
+✓ Observer workflow gates are valid
+✓ Artisan workflow gates are valid
+✓ GTM-Collective light workflow is valid
+✓ Crucible deep workflow is valid
+```
+
+### 4.2 Integration Verification
+
+```
+✓ pnpm --filter shared build succeeds
+✓ pnpm --filter api build succeeds
+✓ pnpm --filter explorer build succeeds
+✓ scripts/validate-topology.sh --strict passes
+✓ construct-workflow-read.sh parses new manifest format
 ```
 
 ---
 
-## 7. Testing Strategy
+## 5. Data Architecture
 
-### 7.1 Per-Construct Verification Checklist
+No database changes. New manifest fields are stored in the existing `manifest` JSONB column in the `packs` table. JSONB accepts arbitrary JSON, so new fields store automatically on next sync.
 
-For each of the 5 constructs after extraction:
-
-| # | Check | Command/Method |
-|---|-------|----------------|
-| 1 | Repo exists | `gh repo view 0xHoneyJar/construct-{slug}` |
-| 2 | Schema valid | `ajv validate -s construct.schema.json -d construct.yaml` (CI) |
-| 3 | CI passes | GitHub Actions green |
-| 4 | Register succeeds | `POST /v1/packs/{slug}/register-repo` returns 200 |
-| 5 | Sync succeeds | `POST /v1/packs/{slug}/sync` returns 200 with files + identity |
-| 6 | Webhook fires | Push commit, verify sync event in DB |
-| 7 | Install works | `constructs-install.sh install {slug}` creates symlinks |
-| 8 | CLAUDE.md present | `.claude/constructs/packs/{slug}/CLAUDE.md` exists |
-| 9 | Identity parsed | Sync response contains `identity.cognitiveFrame.archetype` |
-
-### 7.2 CLAUDE.md Injection Tests
-
-| # | Scenario | Expected |
-|---|----------|----------|
-| 1 | No root CLAUDE.md + Loa installed | Create CLAUDE.md with Loa import + sentinel block + construct import |
-| 2 | No root CLAUDE.md + no Loa | Create CLAUDE.md with sentinel block + construct import only |
-| 3 | Existing CLAUDE.md, no sentinel | Add sentinel block below Loa import, add construct import |
-| 4 | Existing sentinel block | Append construct import within block |
-| 5 | Second construct install | Both imports present, no duplicates |
-| 6 | Re-install same construct | Idempotent, no duplicate lines |
-| 7 | Uninstall first construct | First import removed, second remains |
-| 8 | CLAUDE.md is symlink | Fail with error, no modification |
-| 9 | Concurrent installs | Second install waits for lock, both succeed |
-| 10 | Injection failure | Fallback to `.claude/constructs/CLAUDE.constructs.md` |
-
-### 7.3 Dependency Compatibility Matrix
-
-| Config | Test | Expected |
-|--------|------|----------|
-| Observer alone | Install, run skill | Works, events not delivered (no consumer) |
-| Crucible alone | Install, run skill | Works, no errors without Observer |
-| Observer + Crucible | Install both, trigger event | Bidirectional events fire |
-| All 5 constructs | Install all | No conflicts, all skills available |
-
-### 7.4 Rollback Verification
-
-| # | Check | When |
-|---|-------|------|
-| 1 | Archive branch exists | Before sandbox deletion |
-| 2 | Base64 fallback works | Block git clone, verify fallback download succeeds |
-| 3 | Health gate passes | All 5 repos sync + install successfully |
-| 4 | 48-hour soak clean | No sync errors, webhook delivery rate stable |
-
-### 7.5 Rollback Runbook
-
-Per-phase rollback steps for partial failure recovery:
-
-| Phase | Failure Scenario | Rollback Steps | Decision Point |
-|-------|-----------------|----------------|----------------|
-| Sprint 0 (API) | Deployed `ALLOWED_DIRS`/`ALLOWED_ROOT_FILES` breaks existing sync | Revert Railway deployment to previous commit | If any existing pack sync fails after deploy |
-| Sprint 1 (Extraction) | `extract-construct.sh` fails mid-way for a construct | Re-run script with same `--slug` (idempotent). If repo created but malformed: `gh repo delete 0xHoneyJar/construct-{slug} --yes`, re-run | If >2 retries fail, check manifest.json manually |
-| Sprint 1 (Registration) | `register-repo` succeeds but sync fails | Re-trigger sync via `POST /v1/packs/{slug}/sync`. If DB state is partial: manual `DELETE FROM pack_versions WHERE pack_id = ? AND version = ?` | If identity parse fails, fix persona.yaml first |
-| Sprint 1 (Injection) | `inject_construct_claude_md()` corrupts root CLAUDE.md | Restore from `.claude/constructs/CLAUDE.constructs.md` backup. Managed file is the source of truth — re-run injection or instruct user to add single `@` import | If sentinel block is corrupted, user must manually remove malformed markers |
-| Sprint 2-3 (Extractions) | Individual construct fails extraction | Same as Sprint 1 — each construct is independent. Other extracted constructs are unaffected | If circular dep issue (Observer/Crucible), extract both with `--skip-register`, fix, then register |
-| Sprint 4 (Cleanup) | Sandbox deletion breaks seed script | Restore from `archive/sandbox-packs-pre-extraction` branch: `git checkout archive/sandbox-packs-pre-extraction -- apps/sandbox/packs/` | If seed script still uses sandbox paths after migration |
-| Sprint 4 (Soak) | Webhook delivery rate drops or sync errors spike | Re-register webhooks via extraction script `--skip-register` flag inverted. Check GitHub webhook delivery logs at `Settings > Webhooks > Recent Deliveries` | If >5% failure rate after 48h soak |
-
-**Abort criteria:** If 3+ constructs fail extraction and cannot be re-run successfully, abort the cycle and fall back to monorepo packs (no sandbox deletion).
+The `construct_identities` table (`apps/api/src/db/schema.ts:1133-1152`) is unchanged.
 
 ---
 
-## 8. Development Phases
+## 6. Security Architecture
 
-### Sprint 0: Prerequisites
+### 6.1 Workflow Gate Security (Inherited from Cycle-029)
 
-**Focus:** API changes required before extraction begins
+| Invariant | Enforcement | Source |
+|-----------|-------------|--------|
+| Only installed packs activate | Manifest path must be within `.claude/constructs/packs/` | `construct-workflow-activate.sh` realpath check |
+| `implement: required` enforced | Reader rejects `skip` with exit 2 | `construct-workflow-read.sh:82-84` |
+| Fail-closed | Parse errors → exit 1 → full pipeline | `construct-workflow-read.sh:148` |
+| Observable | Every activation logged to `.run/audit.jsonl` | `construct-workflow-activate.sh` |
 
-| # | Task | Files | Acceptance |
-|---|------|-------|------------|
-| 0.1 | Add `templates` to `ALLOWED_DIRS` | `apps/api/src/services/git-sync.ts` | Sync response includes `templates/` files |
-| 0.2 | Add `CLAUDE.md` to `ALLOWED_ROOT_FILES` | `apps/api/src/services/git-sync.ts` | Sync response includes `CLAUDE.md` |
-| 0.3 | Deploy API changes | Railway | Verify via `POST /v1/packs/gtm-collective/sync` |
+### 6.2 Schema Validation Security
 
-### Sprint 1: Template + First Extraction + Minimal Injection
-
-**Focus:** FR-1 (template repo) + FR-2 for GTM Collective + FR-3 minimal injection
-
-| # | Task | Output |
-|---|------|--------|
-| 1.1 | Create `construct-template` repo | GitHub template repo with all scaffolding |
-| 1.2 | Write extraction script (`extract-construct.sh`) | Reusable automation script |
-| 1.3 | Define formal identity schemas | `persona.schema.yaml`, `expertise.schema.yaml` |
-| 1.4 | Implement minimal `inject_construct_claude_md()` (install + idempotent + sentinel + uninstall) | Injection works before first public extraction |
-| 1.5 | Extract GTM Collective | `construct-gtm-collective` repo (8 skills, 14 commands) |
-| 1.6 | Author GTM Collective identity (skeleton) | `persona.yaml`, `expertise.yaml` |
-| 1.7 | Author GTM Collective CLAUDE.md (skeleton) | Expert operating instructions |
-| 1.8 | Register + sync + webhook GTM Collective | API integration verified |
-
-> **Rationale**: Injection must ship before the first extraction is public so that installs of extracted constructs immediately activate the expert identity. Deferring injection to Sprint 4 would create a window where constructs ship CLAUDE.md but installs don't import it.
-
-### Sprint 2: Independent Constructs
-
-**Focus:** FR-2 for Artisan + Beacon
-
-| # | Task | Output |
-|---|------|--------|
-| 2.1 | Extract Artisan | `construct-artisan` repo (14 skills) |
-| 2.2 | Author Artisan identity + CLAUDE.md | Identity skeleton + expert instructions |
-| 2.3 | Register + sync + webhook Artisan | API integration verified |
-| 2.4 | Extract Beacon | `construct-beacon` repo (6 skills, contexts) |
-| 2.5 | Author Beacon identity + CLAUDE.md | Identity skeleton + expert instructions |
-| 2.6 | Register + sync + webhook Beacon | API integration verified |
-
-### Sprint 3: Dependent Constructs
-
-**Focus:** FR-2 for Observer + Crucible (circular dependency resolution)
-
-| # | Task | Output |
-|---|------|--------|
-| 3.1 | Extract Observer | `construct-observer` repo (6 skills, contexts, templates) |
-| 3.2 | Author Observer identity + CLAUDE.md | Identity skeleton + expert instructions |
-| 3.3 | Register + sync + webhook Observer | API integration verified |
-| 3.4 | Extract Crucible (change Observer dep to optional) | `construct-crucible` repo (5 skills, contexts) |
-| 3.5 | Author Crucible identity + CLAUDE.md | Identity skeleton + expert instructions |
-| 3.6 | Register + sync + webhook Crucible | API integration verified |
-| 3.7 | Test dependency compatibility matrix | 3 configs per construct pass |
-
-### Sprint 4: Injection Hardening + Cleanup
-
-**Focus:** FR-3 edge cases + FR-4 (monorepo cleanup)
-
-> Note: Minimal injection (install + uninstall + sentinel + managed file) was implemented in Sprint 1. Sprint 4 hardens edge cases and runs full test matrix.
-
-| # | Task | Output |
-|---|------|--------|
-| 4.1 | Harden injection: concurrent lock, symlink CLAUDE.md detection, malformed sentinel recovery | Edge case coverage |
-| 4.2 | Run all CLAUDE.md injection tests (10 scenarios) | Full test matrix pass |
-| 4.3 | Migrate seed script (all 5 in `GIT_CONFIGS`) | `scripts/seed-forge-packs.ts` updated |
-| 4.4 | Create archive branch | `archive/sandbox-packs-pre-extraction` |
-| 4.5 | Run health gate (all 5 sync + install) | 100% pass |
-| 4.6 | Verify base64 fallback (block git clone, confirm fallback succeeds) | Rollback path validated |
-| 4.7 | Delete sandbox packs | `apps/sandbox/packs/{5 dirs}` removed |
-| 4.8 | Update CI (remove sandbox scan paths) | `validate-topology.yml` updated |
-| 4.9 | Add GitHub repo link to Explorer | Construct detail page updated |
-| 4.10 | Final acceptance verification | All criteria from prd.md section 10 pass |
+| Risk | Mitigation |
+|------|-----------|
+| Manifest with `implement: "skip"` | Three-layer defense: Zod `z.literal('required')`, JSON Schema `"enum": ["required"]`, runtime script exit 2. |
+| Oversized arrays | Zod `max(10)`/`max(20)` + JSON Schema `maxItems`. |
+| String injection | Manifests consumed by CLI/API, not injected into HTML. Explorer doesn't render these fields this cycle. |
 
 ---
 
-## 9. Known Risks and Mitigation
+## 7. Deployment Architecture
 
-| Risk | Probability | Impact | Mitigation |
-|------|-------------|--------|------------|
-| Webhook secret not configured on new repo | Medium | Medium | Extraction script automates `gh api` for webhook creation with shared secret |
-| Identity skeleton is too sparse for parseIdentity() | Low | Medium | Formal schema ensures all required fields present; skeleton includes all IdentityData fields |
-| Artisan file count near 100-file limit | Low | Low | Artisan: ~14 skills x 3 files + contexts = ~50 files. Well within 100 limit |
-| Concurrent webhook fires during extraction | Low | Low | Rate limiter (10/hr) + idempotent sync protect against duplicates |
-| CLAUDE.md injection conflicts with user edits | Medium | Medium | Sentinel block isolates construct imports; content outside block is never touched |
-| Git clone failures during install | Low | Medium | Base64 fallback in install script; git-sync stores files in DB |
-| Extraction script fails mid-way | Medium | Low | Script is idempotent per construct; can re-run for individual slugs |
+### 7.1 Release Sequence
+
+```
+Phase 1: loa-constructs PR (this cycle)
+├── packages/shared/src/types.ts              — TS type changes
+├── packages/shared/src/validation.ts         — Zod schema + new helpers
+├── packages/shared/src/__tests__/
+│   └── pack-manifest.test.ts                 — New test file
+├── .claude/schemas/pack-manifest.schema.json — JSON Schema: new fields
+├── .claude/schemas/construct.schema.json     — JSON Schema: new fields
+└── .claude/skills/browsing-constructs/SKILL.md — Post-install quick_start
+
+Phase 2: construct-* repos (5 parallel PRs, after Phase 1 merges)
+├── construct-observer/manifest.json          — workflow + quick_start
+├── construct-artisan/manifest.json           — workflow + quick_start
+├── construct-crucible/manifest.json          — workflow + quick_start
+├── construct-beacon/manifest.json            — workflow + quick_start
+└── construct-gtm-collective/manifest.json    — workflow + quick_start
+```
+
+### 7.2 CI Impact
+
+- `pnpm --filter shared test` — new tests (must pass)
+- `pnpm --filter shared build` — TS compilation (must pass)
+- `scripts/validate-topology.sh --strict` — validates against updated schemas (must pass)
+- No infrastructure changes.
+
+### 7.3 Rollback Strategy (Flatline IMP-003)
+
+| Failure | Rollback |
+|---------|----------|
+| TS/Zod changes break API build | Revert `types.ts` + `validation.ts` commits. New fields are purely additive — removing them restores baseline. |
+| JSON Schema changes break CI for existing manifests | Revert `pack-manifest.schema.json` + `construct.schema.json`. Existing manifests never had new fields, so only new-field manifests break (which haven't shipped). |
+| `dependencies` `oneOf` causes unexpected validation behavior | Revert to array-only form. No existing manifest uses `Record` form yet. |
+| Construct-* manifest causes runtime error | Remove `workflow` key from that repo's `manifest.json`. Runtime gracefully falls back to full pipeline when `workflow` is absent (`construct-workflow-read.sh` exits 1 → full pipeline). |
+| browsing-constructs SKILL.md regression | Revert single file. Post-install gracefully ignores missing `quick_start` (conditional display). |
+
+**Critical invariant**: All changes are additive. No existing behavior changes for manifests that omit the new fields. Rollback is always "remove what was added."
 
 ---
 
-## 10. Open Questions
+## 8. Open Questions Resolution
 
-| Question | Owner | Status |
-|----------|-------|--------|
-| Webhook secret value — same secret for all repos or unique per repo? | @janitooor | **Resolved: Shared secret.** All 5 repos use same `GITHUB_WEBHOOK_SECRET` env var. Rationale: all repos under same org, webhook handler already uses single env var, per-repo lookup adds DB complexity for marginal security gain. Risk: one compromised repo can forge webhooks for others (mitigated — same org controls all repos). |
-| Should template repo include a `Makefile` or `justfile` for common tasks? | @janitooor | Open |
-| License audit (FR-2.0) — are all pack contents confirmed MIT-compatible? | @janitooor | Open |
+| # | Question | Resolution |
+|---|----------|------------|
+| Q1 | Does cycle-029 runtime read workflow.gates from manifest JSON directly? | **YES.** `construct-workflow-read.sh` uses `jq -e '.workflow // empty'` on manifest.json. Gate values validated against constants at lines 17-25. Format matches our declarations exactly. No runtime changes needed. |
+| Q2 | Should browsing-constructs changes go through Loa upstream PR? | **NO.** We are upstream. Edit SKILL.md directly. Propagates via `/update-loa`. |
+| Q3 | How do construct-* repos reference updated shared types? | **They don't.** Construct repos validate against JSON Schemas in `.claude/schemas/`, not TS/Zod. The shared package serves API/Explorer only. |
 
 ---
 
-## 11. Appendix
-
-### A. Construct Repo Structure
-
-Every standalone construct repo follows this structure:
-
-```
-construct-{slug}/
-├── construct.yaml              # Pack manifest (schema_version >=3)
-├── CLAUDE.md                   # Expert operating instructions
-├── README.md                   # Install instructions, quick start
-├── LICENSE                     # MIT
-├── CONTRIBUTING.md             # Authoring guide (template only)
-├── .github/
-│   └── workflows/
-│       └── validate.yml        # CI: schema, structure, lint
-├── schemas/
-│   └── construct.schema.json   # Local copy for CI validation
-├── identity/
-│   ├── persona.yaml            # Cognitive frame, voice, preferences
-│   └── expertise.yaml          # Domains, depth, boundaries
-├── skills/
-│   └── {skill-name}/
-│       ├── index.yaml          # Skill metadata + capabilities
-│       └── SKILL.md            # Skill instructions
-├── commands/                   # (if applicable)
-│   └── {command}.md
-├── contexts/                   # (if applicable)
-│   └── {domain-specific files}
-├── templates/                  # (if applicable)
-│   └── {document templates}
-└── scripts/                    # (if applicable)
-    └── {post-install hooks, etc.}
-```
-
-### B. Identity Schema: `persona.yaml`
-
-Formal schema matching `IdentityData` parsing in `git-sync.ts:parseIdentity()` (L707-773).
-
-**Field Path Mapping** (verified against `parseIdentity()` source):
-
-| YAML Path | Extracted To | DB Column | parseIdentity() Line |
-|-----------|-------------|-----------|---------------------|
-| `archetype` | `cognitiveFrame.archetype` | `cognitive_frame` JSONB | L743 |
-| `disposition` | `cognitiveFrame.disposition` | `cognitive_frame` JSONB | L744 |
-| `thinking_style` | `cognitiveFrame.thinking_style` | `cognitive_frame` JSONB | L745 |
-| `decision_making` | `cognitiveFrame.decision_making` | `cognitive_frame` JSONB | L746 |
-| `voice` | `voiceConfig` (whole object) | `voice_config` JSONB | L750-751 |
-| `model_preferences` | `modelPreferences` (whole object) | `model_preferences` JSONB | L754-755 |
-
-```yaml
-# identity/persona.yaml — Formal Schema
-# Fields map to constructIdentities table columns
-# Field paths verified against git-sync.ts:parseIdentity() L741-756
-
-# REQUIRED: cognitiveFrame fields (stored in cognitive_frame JSONB)
-archetype: string            # e.g., "Researcher", "Validator", "Craftsman"
-disposition: string          # e.g., "Hypothesis-first, empathetic"
-thinking_style: string       # e.g., "Abductive reasoning, pattern synthesis"
-decision_making: string      # e.g., "Evidence-weighted, user-centered"
-
-# REQUIRED: voice fields (stored in voice_config JSONB)
-voice:
-  tone: string               # e.g., "Direct but warm"
-  style: string              # e.g., "Concise, evidence-cited"
-  formality: string          # e.g., "Professional casual"
-  personality: string        # e.g., "Curious, methodical"
-
-# OPTIONAL: model preferences (stored in model_preferences JSONB)
-model_preferences:
-  default_tier: string       # sonnet | opus | haiku
-  thinking_required: boolean # Whether extended thinking is beneficial
-  vision_capable: boolean    # Whether skills use vision/image input
-```
-
-**Validation:** The extraction script MUST validate each generated persona.yaml by feeding it through a test that asserts all 4 cognitiveFrame fields are non-null after YAML parse. CI in each construct repo should also verify identity file structure.
-
-**Example (Observer):**
-
-```yaml
-archetype: Researcher
-disposition: Hypothesis-first, empathetic
-thinking_style: Abductive reasoning — forms hypotheses from observed patterns, tests against evidence
-decision_making: Evidence-weighted, user-centered — prioritizes user truth over developer assumptions
-
-voice:
-  tone: Direct but warm
-  style: Concise, evidence-cited
-  formality: Professional casual
-  personality: Curious, methodical, occasionally skeptical
-
-model_preferences:
-  default_tier: sonnet
-  thinking_required: false
-  vision_capable: false
-```
-
-### C. Identity Schema: `expertise.yaml`
-
-```yaml
-# identity/expertise.yaml — Formal Schema
-# Fields map to constructIdentities.expertise_domains JSONB
-
-# REQUIRED: domains array (stored in expertise_domains JSONB)
-domains:
-  - name: string             # Domain name, e.g., "User Research"
-    depth: integer           # 1-5 scale (1=awareness, 5=mastery)
-    specializations:         # Specific sub-areas
-      - string
-    boundaries:              # What this domain does NOT cover
-      - string
-
-# OPTIONAL: meta
-meta:
-  primary_domain: string     # Which domain is the core expertise
-  cross_domain_bridges:      # How domains connect
-    - from: string
-      to: string
-      relationship: string
-```
-
-**Example (Observer):**
-
-```yaml
-domains:
-  - name: User Research
-    depth: 5
-    specializations:
-      - Hypothesis-first observation
-      - Level 3 diagnostic (user goals, not just tasks)
-      - User truth canvases
-      - Journey shaping
-    boundaries:
-      - Does NOT conduct surveys or statistical analysis
-      - Does NOT build UI prototypes
-      - Does NOT make product decisions (informs them)
-
-  - name: Gap Analysis
-    depth: 4
-    specializations:
-      - Expectation vs reality comparison
-      - Issue filing with taxonomy labels
-    boundaries:
-      - Does NOT fix code gaps (reports them)
-      - Does NOT prioritize backlog (provides evidence)
-
-meta:
-  primary_domain: User Research
-  cross_domain_bridges:
-    - from: User Research
-      to: Gap Analysis
-      relationship: "Observations surface gaps between user expectations and code reality"
-```
-
-### D. CLAUDE.md Template
-
-```markdown
-# {Construct Name}
-
-> {One-line identity from persona.yaml archetype + disposition}
-
-## Who I Am
-
-{Synthesized from persona.yaml: archetype, thinking_style, decision_making}
-
-## What I Know
-
-{Synthesized from expertise.yaml: domains with depth levels}
-
-### Boundaries
-
-{From expertise.yaml: boundaries — what I do NOT know or do}
-
-## Available Skills
-
-| Skill | Purpose |
-|-------|---------|
-{Table generated from construct.yaml skills array + skill index.yaml descriptions}
-
-## Workflow
-
-{The construct's natural sequence of operations — synthesized from skill ordering}
-
-## Configuration
-
-- **Model Tier:** {from persona.yaml model_preferences.default_tier}
-- **Thinking:** {from persona.yaml model_preferences.thinking_required}
-```
-
-### E. Extraction Script Interface
-
-```bash
-# Usage
-./scripts/extract-construct.sh --slug <slug> [options]
-
-# Options
---slug <slug>        # Required: construct slug (observer, crucible, etc.)
---dry-run            # Generate files locally but don't create repo or push
---skip-register      # Skip API registration (repo already registered)
---skip-webhook       # Skip webhook configuration
---private            # Create as private repo (for license audit concerns)
---template-repo <r>  # Template repo to use (default: 0xHoneyJar/construct-template)
-
-# Examples
-./scripts/extract-construct.sh --slug gtm-collective
-./scripts/extract-construct.sh --slug artisan --dry-run
-./scripts/extract-construct.sh --slug crucible --skip-register
-
-# Batch (respects extraction order from PRD)
-for slug in gtm-collective artisan beacon observer crucible; do
-  ./scripts/extract-construct.sh --slug "$slug"
-done
-```
-
-### F. `inject_construct_claude_md()` — Function Design
-
-#### Architecture: Single Managed Import
-
-To minimize mutations to the user's root CLAUDE.md, the sentinel block contains a **single** `@` import pointing to a managed file. Individual construct imports are written to that managed file instead:
-
-```
-Root CLAUDE.md:
-  @.claude/loa/CLAUDE.loa.md           ← Loa framework (existing)
-  <!-- constructs:begin -->
-  @.claude/constructs/CLAUDE.constructs.md   ← Single managed import
-  <!-- constructs:end -->
-
-.claude/constructs/CLAUDE.constructs.md:    ← Managed by installer
-  @.claude/constructs/packs/observer/CLAUDE.md
-  @.claude/constructs/packs/artisan/CLAUDE.md
-```
-
-This means:
-- Root CLAUDE.md is mutated **once** (to add sentinel + managed import), then never again
-- All subsequent install/uninstall operations modify only `.claude/constructs/CLAUDE.constructs.md`
-- Fallback is seamless — if sentinel injection fails, the managed file still exists and the user adds one line
-
-#### Portable Locking
-
-The function uses `mkdir`-based locking (portable across macOS/Linux) instead of `flock`:
-
-```bash
-LOCKDIR=".constructs-inject.lock"
-LOCK_TIMEOUT=10
-
-acquire_lock() {
-    local start=$SECONDS
-    while ! mkdir "$LOCKDIR" 2>/dev/null; do
-        if [ $((SECONDS - start)) -ge $LOCK_TIMEOUT ]; then
-            # Check for stale lock (PID file inside lockdir)
-            if [ -f "$LOCKDIR/pid" ]; then
-                local lock_pid
-                lock_pid=$(cat "$LOCKDIR/pid")
-                if ! kill -0 "$lock_pid" 2>/dev/null; then
-                    rm -rf "$LOCKDIR"  # Stale lock, remove
-                    continue
-                fi
-            fi
-            echo "ERROR: Lock held >10s. Another install may be running." >&2
-            return 1
-        fi
-        sleep 0.5
-    done
-    echo $$ > "$LOCKDIR/pid"
-}
-
-release_lock() {
-    rm -rf "$LOCKDIR"
-}
-```
-
-#### Path Security
-
-```bash
-validate_inject_paths() {
-    local slug="$1"
-    # Validate slug format (same as construct.schema.json pattern)
-    if ! echo "$slug" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
-        echo "ERROR: Invalid slug format: $slug" >&2
-        return 1
-    fi
-    # Resolve and reject symlinks on all path components
-    local constructs_dir=".claude/constructs"
-    local packs_dir="${constructs_dir}/packs"
-    local slug_dir="${packs_dir}/${slug}"
-    for dir in ".claude" "$constructs_dir" "$packs_dir" "$slug_dir"; do
-        if [ -L "$dir" ]; then
-            echo "ERROR: Symlink detected at $dir — refusing to write" >&2
-            return 1
-        fi
-    done
-    # Verify resolved path is within project root
-    local resolved
-    resolved=$(cd "$slug_dir" 2>/dev/null && pwd -P)
-    local project_root
-    project_root=$(pwd -P)
-    if [ "${resolved#$project_root}" = "$resolved" ]; then
-        echo "ERROR: Path escapes project root: $resolved" >&2
-        return 1
-    fi
-}
-```
-
-#### Install Algorithm
-
-```bash
-inject_construct_claude_md() {
-    local slug="$1"
-    local claude_md="CLAUDE.md"
-    local managed_file=".claude/constructs/CLAUDE.constructs.md"
-    local construct_claude=".claude/constructs/packs/${slug}/CLAUDE.md"
-    local import_line="@.claude/constructs/packs/${slug}/CLAUDE.md"
-    local sentinel_begin="<!-- constructs:begin -->"
-    local sentinel_end="<!-- constructs:end -->"
-    local meta_file=".constructs-meta.json"
-}
-```
-
-1. Validate slug format + resolve/reject symlinks on all path components
-2. Verify construct has CLAUDE.md at expected path
-3. Acquire lock (mkdir-based, 10s timeout with stale PID detection)
-4. **Update managed file** (`.claude/constructs/CLAUDE.constructs.md`):
-   - Create if doesn't exist
-   - Check if import already present — skip if so (idempotent)
-   - Append `@.claude/constructs/packs/{slug}/CLAUDE.md`
-   - Atomic write (temp + `mv`, same filesystem)
-5. **Ensure sentinel block in root CLAUDE.md** (one-time):
-   - Check if root CLAUDE.md is symlink — fail if so
-   - If root CLAUDE.md doesn't exist: create with Loa import (if applicable)
-   - If sentinel block already present with managed import — done
-   - If no sentinel: add block with `@.claude/constructs/CLAUDE.constructs.md` below Loa import
-   - If partial/malformed markers: fail with actionable error
-   - Atomic write (temp + `mv`)
-6. Update `.constructs-meta.json`
-7. Release lock
-
-**On any failure at steps 4-5:** The managed file still contains all construct imports. Print instructions for the user to add `@.claude/constructs/CLAUDE.constructs.md` to their root CLAUDE.md.
-
-#### Uninstall Algorithm
-
-1. Validate slug + acquire lock
-2. Remove import line from managed file (`.claude/constructs/CLAUDE.constructs.md`)
-3. If managed file is empty (no imports), optionally remove sentinel block from root CLAUDE.md
-4. Atomic write
-5. Update `.constructs-meta.json`
-6. Release lock
-
-### G. CI Workflow (`validate.yml`)
-
-```yaml
-name: Validate Construct
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Validate construct.yaml exists
-        run: test -f construct.yaml
-
-      - name: Validate schema
-        run: |
-          npm install -g ajv-cli ajv-formats
-          ajv validate -s schemas/construct.schema.json -d construct.yaml --spec=draft2020 -c ajv-formats
-
-      - name: Check skill structure
-        run: |
-          for skill_dir in skills/*/; do
-            skill_name=$(basename "$skill_dir")
-            if [ ! -f "${skill_dir}index.yaml" ]; then
-              echo "ERROR: ${skill_dir}index.yaml missing" && exit 1
-            fi
-            if [ ! -f "${skill_dir}SKILL.md" ]; then
-              echo "ERROR: ${skill_dir}SKILL.md missing" && exit 1
-            fi
-          done
-
-      - name: Check capabilities stanza
-        run: |
-          for index in skills/*/index.yaml; do
-            if ! grep -q "capabilities:" "$index"; then
-              echo "ERROR: $index missing capabilities stanza" && exit 1
-            fi
-          done
-
-      - name: Validate identity files
-        run: |
-          if [ -d identity ]; then
-            pip install yamllint
-            yamllint -d relaxed identity/
-          fi
-
-      - name: Lint scripts
-        run: |
-          if [ -d scripts ] && ls scripts/*.sh 1>/dev/null 2>&1; then
-            apt-get update && apt-get install -y shellcheck
-            shellcheck scripts/*.sh
-          fi
-```
-
-### H. `manifest.json` to `construct.yaml` Field Mapping
-
-```bash
-# Transform using jq (JSON) + yq (YAML)
-# Input: apps/sandbox/packs/{slug}/manifest.json
-# Output: construct.yaml
-# IMPORTANT: slug comes from --slug argument, NOT from manifest.json
-
-transform_manifest() {
-    local slug="$1"  # Authoritative — from CLI --slug, not manifest
-    local manifest="apps/sandbox/packs/${slug}/manifest.json"
-
-    # Validate schema_version >= 3 (required by construct.schema.json)
-    local sv
-    sv=$(jq -r '.schema_version // 0' "$manifest")
-    if [ "$sv" -lt 3 ]; then
-        echo "ERROR: ${slug} manifest has schema_version=${sv}, requires >=3" >&2
-        return 1
-    fi
-
-    jq --arg slug "$slug" '{
-        schema_version: .schema_version,
-        name: .name,
-        slug: $slug,
-        version: .version,
-        description: .description,
-        author: .author,
-        license: .license,
-        skills: [.skills[] | {slug: .slug, path: .path}],
-        commands: (if .commands then [.commands[] | {name: .name, path: .path}] else null end),
-        events: .events,
-        pack_dependencies: (if .pack_dependencies then
-            [.pack_dependencies[] | {
-                slug: .pack,
-                version: .version
-            } | with_entries(select(.value != null))]
-        else null end),
-        hooks: .hooks,
-        quick_start: .quick_start,
-        repository: {url: ("https://github.com/0xHoneyJar/construct-" + $slug + ".git")},
-        identity: {persona: "identity/persona.yaml", expertise: "identity/expertise.yaml"}
-    } | with_entries(select(.value != null))' "$manifest" | yq -P
-}
-```
-
-**Dropped fields** (per PRD field mapping table):
-- `tools` — Tool dependencies documented in skill `index.yaml` capabilities
-- `mcp_dependencies` — MCP servers are network-level, not pack-level
-
-**Special handling:**
-- **Slug source**: Always from `--slug` CLI argument, never from `manifest.json` (prevents mismatches)
-- **schema_version**: Validated >= 3 before transform; fails fast if incompatible
-- **Crucible dependency rewrite**: Only Crucible's Observer entry has `required: true` in the manifest. The `required` field is intentionally NOT mapped to construct.yaml — the construct schema does not have a `required` field on pack_dependencies (omission = optional). This is specific to the Crucible/Observer edge, not a global drop
-- **`pack_dependencies[].pack` → `.slug`**: Field rename from legacy manifest key name to construct schema key name
-- **Mapping test fixtures**: Each of the 5 packs MUST have a test fixture asserting exact transform output (see Testing Strategy §7.1)
-
-### I. Glossary
-
-| Term | Definition |
-|------|------------|
-| Construct | A standalone expert — a pack with identity, skills, and CLAUDE.md |
-| Pack | Legacy term for a collection of skills/commands (used in API/DB) |
-| Slug | URL-safe identifier, e.g., `observer`, `gtm-collective` |
-| Sentinel Block | HTML comment markers that delimit managed imports in CLAUDE.md |
-| Identity | Persona + Expertise files that define the construct's cognitive character |
-| Skeleton | Minimal schema-valid draft file, marked `status: draft` for future refinement |
-
-### J. Canonical `construct.yaml` Schema Reference
-
-The `construct.yaml` schema is the core validation contract for CI, extraction, and sync correctness.
-
-**Canonical location:** `.claude/schemas/construct.schema.json` (JSON Schema Draft 2020-12)
-
-**Versioning rules:**
-- The schema file is the single source of truth — all validation references this file
-- Each construct repo receives a **copy** at `schemas/construct.schema.json` during extraction
-- Schema updates require: (1) update canonical file, (2) re-copy to all construct repos, (3) bump CI
-- Breaking changes require a `schema_version` increment in the schema itself
-
-**Key constraints enforced:**
-- `schema_version` >= 3 (integer, required)
-- `slug` matches `^[a-z0-9][a-z0-9-]*[a-z0-9]$` (required)
-- `skills[]` requires `slug` + `path` (required array)
-- `identity.persona` and `identity.expertise` are path strings (required object)
-- `capabilities` stanza required on each skill `index.yaml` (validated by CI, not schema)
-
-**Validation command:**
-```bash
-ajv validate -s schemas/construct.schema.json -d construct.yaml --spec=draft2020 -c ajv-formats
-```
-
-### K. References
-
-- PRD: `grimoires/loa/prd.md` (cycle-016)
-- Git Sync Service: `apps/api/src/services/git-sync.ts`
-- Pack Routes: `apps/api/src/routes/packs.ts`
-- Webhook Handler: `apps/api/src/routes/webhooks.ts`
-- Install Script: `.claude/scripts/constructs-install.sh`
-- Construct Schema: `.claude/schemas/construct.schema.json`
-- Seed Script: `scripts/seed-forge-packs.ts`
-- DB Schema: `apps/api/src/db/schema.ts`
-
-### L. Change Log
-
-| Version | Date | Changes | Author |
-|---------|------|---------|--------|
-| 1.0 | 2026-02-17 | Initial version | Architecture Designer |
-| 1.1 | 2026-02-17 | Flatline SDD integration: rollback runbook (§7.5), cutover coexistence (§1.7), schema reference (Appendix J), versioning semantics (§3.3) | Flatline Protocol (HIGH_CONSENSUS) |
+## 9. Technical Risks & Mitigations
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| JSON Schema `additionalProperties: false` rejects manifests with new fields before schema ships | Low | High | Schema changes ship before any manifest uses new fields. |
+| `dependencies` type change breaks API | Low | Medium | `.passthrough()` tolerates both forms. No existing manifest populates `dependencies.skills`. |
+| `condense` gates not functional at runtime | Known | Low | Runtime logs advisory: "condense treated as full" (`construct-workflow-read.sh:67`). Documented. |
+| No existing test infrastructure | Known | Medium | Create vitest config for shared package. One-time setup cost. |
+| Cross-repo coordination delay | Medium | Medium | FR-1/FR-2 ship independently. FR-3 manifests are parallel work in each repo. |
+| Cross-layer schema drift (Flatline SKP-002a/b) | Medium | Medium | No automated test validates all 4 layers declare identical fields. Today: `validate-topology.sh` checks JSON schemas, `pnpm build` checks TS/Zod. **Cycle B**: Add cross-layer consistency test that extracts field names from all 4 sources and asserts parity. |
 
 ---
 
-*Generated by Architecture Designer Agent*
+## 10. Sprint Breakdown
+
+**Sprint 1** (Schema Foundation — all P0):
+1. Set up vitest for `packages/shared` (one-time)
+2. FR-2: TS/Zod synchronization (clean baseline first)
+3. FR-1: Add Bridgebuilder fields to all 4 schema layers
+4. FR-5: Document version bump (manifests themselves bump on update)
+5. Write and run all tests
+6. Verify builds: `pnpm --filter shared build`, `pnpm --filter api build`
+
+**Sprint 2** (Wiring — P0/P1):
+1. FR-4: Update browsing-constructs SKILL.md Phase 6
+2. FR-3: Prepare exact manifest JSON for each construct-* repo
+3. Integration: `validate-topology.sh --strict`, `construct-workflow-read.sh` with new format
+4. PR creation and review
+
+---
+
+*"The runtime is waiting. The manifests just need to declare what they want."*

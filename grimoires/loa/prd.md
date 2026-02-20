@@ -1,33 +1,63 @@
-# PRD: Construct Extraction — 5 Expert Repos
+# PRD: Bridgebuilder Cycle A — Make the Workshop Work
 
-**Cycle**: cycle-016
-**Created**: 2026-02-16
+**Cycle**: cycle-030
+**Created**: 2026-02-19
 **Status**: Draft
+**Grounded in**: ARCHETYPE.md, STRATEGIC-GAP.md, 7 primary issues + 14 related, codebase audit (7 surfaces)
+**Archetype**: The Bridgebuilder (grimoires/bridgebuilder/ARCHETYPE.md)
 
 ---
 
 ## 1. Problem Statement
 
-The Constructs Network has 5 packs (39 skills, 14 commands) stored as subfolders inside `apps/sandbox/packs/` in the monorepo. The git-based distribution infrastructure is fully built (PR #121) — git-sync service, register-repo/sync endpoints, webhook auto-sync, install script with git fallback, identity schema, and DB columns — but all 5 packs still live in the monorepo as file bundles rather than standalone repositories.
+The Constructs Network has 5 packs (39 skills) distributed across standalone repos, with 2 active deployments: midi-interface (Observer) and hub-interface (Artisan). The team building these products IS the network's only user base.
 
-This creates concrete problems:
+Three categories of friction compound daily:
 
-1. **Coupled releases** — Pack updates require a monorepo commit. A typo fix in a single SKILL.md triggers the full CI pipeline and requires a repo-level version bump
-2. **No independent versioning** — All 5 packs share the monorepo's version history. Observer can't ship v1.2.0 independently of Artisan's v1.5.0
-3. **No identity** — The identity system (`persona.yaml` + `expertise.yaml`) exists in schema and code but is empty for all 5 packs. Constructs are file collections, not experts
-4. **No CLAUDE.md** — When a construct is installed, there's no automatic injection of the expert's operating instructions into the project's Claude Code context. The construct is passive — it adds skills/commands but doesn't teach Claude who the expert is
-5. **No template** — External authors have no canonical example of what a construct repo looks like. The only reference is 5 subfolders with `manifest.json` files
-6. **Dead infrastructure** — PR #121's git-sync, webhooks, and identity parsing are deployed but only exercised by a single test entry (`gtm-collective` in `GIT_CONFIGS`). The seed script still reads from `apps/sandbox/packs/` for 4 out of 5 packs
+**1. Pipeline friction (#129)**: Every change — including a 26-line UI tweak — is forced through the full PRD → SDD → Sprint → Implement → Review → Audit pipeline. Constructs already operate as self-contained expertise packages with their own workflows, but the framework doesn't formally recognize this. The Loa upstream (cycle-029) just merged "Construct-Aware Constraint Yielding" — the runtime can now yield to construct-declared gates. But no manifest declares gates yet. The infrastructure exists. The declaration doesn't.
 
-> Source: construct-as-repo-architecture.md, construct-extraction-plan.md, SYNC_ARCHITECTURE_PLAN.md
+> Evidence: #129 documents a FE/UI change where ~40% of session time was process overhead. Observer has 11 skills with its own workflow. Artisan has 14. Neither goes through PRD/SDD.
+> Source: `packages/shared/src/types.ts:219-271` — no `workflow` or `gates` field in PackManifest
+
+**2. Schema bottleneck (#119, #118, #128)**: The manifest has 20 fields but none of the ones the open issues need: `domain`, `expertise`, `golden_path`, `workflow`, `methodology`, `tier`. Every forward-looking feature — MoE routing, progressive leveling, workflow gates, third-party constructs — is blocked on these fields existing. The Zod schema uses `.passthrough()` (`validation.ts:271`), so extensions are non-breaking. But the TypeScript types and Zod validators don't include them, which means no type safety, no validation, and no documentation.
+
+> Evidence: 6 of 7 primary issues (#119, #127, #129, #118, #122, #128) are blocked on manifest fields that don't exist
+> Source: `packages/shared/src/validation.ts:216-271`, `packages/shared/src/types.ts:219-271`
+
+**3. Post-install dead end (#127)**: After installing a construct, the browsing-constructs skill shows a flat command list and ends. The `quick_start` field exists in the schema (`types.ts:267-270`, `validation.ts:269-270`) but the install flow doesn't reference it. There's no "start here," no workflow progression, no "you are here" indicator. Every time a construct is installed, the builder has to remember the workflow themselves.
+
+> Evidence: #127 feedback after 31 canvases and 8 journey definitions: "after running any command, there's no 'you are here' indicator or 'try this next' recommendation"
+> Source: `.claude/skills/browsing-constructs/SKILL.md` — Phase 6 (post-install report) ignores `quick_start`
+
+**Additionally (surfaced during grounding):**
+
+**4. TS/Zod schema drift**: TypeScript says `dependencies.skills: string[]` (`types.ts:234`), Zod says `dependencies.skills: z.record(z.string())` (`validation.ts:178`). TypeScript is missing fields that Zod has (`long_description`, `repository`, `homepage`, `documentation`, `keywords`, `engines`). These types are the shared contract between API, explorer, and CLI — drift means silent bugs.
+
+> Source: `packages/shared/src/types.ts:232-236` vs `packages/shared/src/validation.ts:176-180`
+
+**5. Construct distribution cobweb**: Installing constructs across repos requires manual pointing at the most mature version. Observer has been cloned and evolved on midi-interface but never synced back to construct-observer or the registry. Learnings don't flow upstream. Updates don't flow downstream. The construct-template repo just got created. The extraction infrastructure (PR #121 — git-sync, webhooks, register-repo) exists but isn't fully exercised.
+
+> Source: User testimony, cycle-016 PRD (archived), construct-template repo existence
+
+---
 
 ## 2. Product Vision
 
-**A construct is an expert, not a file bundle.** Each construct is a standalone GitHub repo that embodies a single domain expert — with the vocabulary, workflows, deep knowledge, and cognitive identity of that field. When someone installs a construct, they're hiring an expert. When they `@`-import its CLAUDE.md, the expert is on. Unix philosophy: one tool, one job, mastery.
+**Make the workshop work before opening the marketplace.**
 
-The template repo is how anyone creates a new construct — limitless potential.
+The Constructs Network's value isn't in its explorer page or its download counts. It's in what midi-interface and hub-interface accomplish with constructs installed. Today, the team building these products is the network's only user, maintainer, and quality signal. The workshop needs to be frictionless for this team before it can serve anyone else.
 
-> Source: construct-extraction-plan.md, user direction: "separate repos would give ability for limitless potential"
+This cycle lays the structural foundation that everything else builds on:
+- Constructs can declare their workflow depth → the framework respects it → pipeline friction drops
+- The manifest schema supports the fields every forward-looking issue needs → downstream work is unblocked
+- Post-install flow uses existing data → builders know what to do next
+- The shared type contract is accurate → silent bugs stop
+
+The Bridgebuilder philosophy applies here: **orient before acting, teach the pattern not just the fix, match disclosure to readiness.** But the audience for this cycle is the team, not the world.
+
+> Source: ARCHETYPE.md §1 Thesis, STRATEGIC-GAP.md "The Compounding Effect"
+
+---
 
 ## 3. Goals & Success Metrics
 
@@ -35,502 +65,329 @@ The template repo is how anyone creates a new construct — limitless potential.
 
 | # | Goal | Measurable Outcome |
 |---|------|-------------------|
-| G1 | All 5 constructs live in standalone repos | 5 repos at `0xHoneyJar/construct-{slug}` with valid `construct.yaml` |
-| G2 | Each construct has identity | `identity/persona.yaml` + `identity/expertise.yaml` authored for all 5 |
-| G3 | Each construct has CLAUDE.md | Expert operating instructions auto-injected on install |
-| G4 | Template repo exists | `0xHoneyJar/construct-template` as a GitHub template repo |
-| G5 | Sandbox packs deleted | `apps/sandbox/packs/{observer,crucible,artisan,beacon,gtm-collective}` removed after verified migration |
-| G6 | Webhooks active | Push to any construct repo triggers auto-sync to registry |
-| G7 | Seed script migrated | All 5 entries in `GIT_CONFIGS`, sandbox no longer source of truth |
+| G1 | Constructs declare workflow gates | All 5 pack manifests include `workflow.gates` section. Loa runtime reads them. FE/UI changes no longer trigger full pipeline. |
+| G2 | Manifest schema extended | `domain`, `expertise`, `golden_path`, `workflow`, `methodology`, `tier` fields exist in TypeScript types + Zod validation. Non-breaking. |
+| G3 | Post-install shows "start here" | After `constructs install <pack>`, the install report includes the `quick_start` command and description from the manifest. |
+| G4 | TS/Zod types synchronized | TypeScript `PackManifest` interface matches Zod `packManifestSchema` — same fields, same types. |
+| G5 | Schema version bumped to 4 | New fields use `schema_version: 4`. Validation accepts both v3 and v4 manifests. |
 
 ### Success Criteria
 
-- `gh repo view 0xHoneyJar/construct-{slug}` returns valid repo for all 5 constructs
-- `construct.yaml` passes schema validation against `construct.schema.json` for all 5
-- API `POST /v1/packs/{slug}/sync` succeeds and returns identity data for all 5
-- Install via `constructs-install.sh install {slug}` clones from git, creates symlinks, and injects CLAUDE.md
-- Push a commit to any construct repo → webhook fires → registry auto-updates
-- `pnpm --filter api build` succeeds after sandbox packs deleted
-- Validate-topology CI passes with updated paths
+- `workflow.gates.implement: required` is the only required gate for Observer and Artisan packs
+- A FE/UI change in a construct-owning project skips PRD/SDD when the construct's manifest declares `gates.prd: skip`
+- `pnpm --filter shared test` passes with new schema fields
+- Running `constructs install observer` shows "Start here: /listen" (or equivalent) in the install report
+- CI topology validation (`scripts/validate-topology.sh --strict`) passes with updated manifests
 
-### Non-Goals
+### Non-Goals (Explicit)
 
-- Marketplace features (reviews, ratings, enhanced discovery) — separate future cycle
-- Third-party publishing flow (self-service repo registration UI) — separate future cycle
-- Identity & reputation system (reputation scores, trust signals) — separate future cycle
-- Public launch preparation (API key rotation, security audit) — separate future cycle
-- On-chain integration (dNFT, Henlo token) — separate future cycle
-- Payment integration (NowPayments) — separate future cycle
+| Item | Why Not Now |
+|------|------------|
+| Explorer frontend fixes (A1-A3) | Nobody uses the explorer. Pre-positioning, not user-facing. Defer to Cycle B. |
+| MoE intent routing | Needs manifests to declare `domain` first (this cycle enables it, Cycle C builds it) |
+| Human-centered metrics table | No traffic to measure. Meaningful after constructs are used more broadly. |
+| Methodology ingestion pipeline | Architecture gap, not a workflow friction. Defer to Cycle C. |
+| Construct distribution/sync flow | Cobweb that needs untangling, but it's a separate PRD. This cycle makes the schema ready; distribution is cycle-030.5 or cycle-031. |
+| Verification / Echelon integration | Zero third-party constructs exist. Schema supports `tier` field (G2), but verification is Cycle C+. |
 
-## 4. User Personas
+---
 
-### P1: Maintainer (Primary)
+## 4. User & Stakeholder Context
 
-**Who**: Repository maintainer who manages the Constructs Network
-**Current state**: Edits pack files inside monorepo, runs seed script to sync to DB, manages version bumps across 5 packs simultaneously
-**After extraction**: Pushes to individual construct repos, webhook auto-syncs to registry, independent versioning per construct
-**Key workflow**: Edit SKILL.md → commit → push → webhook fires → registry updated
+### Primary Persona: The Maintainer-Builder
 
-### P2: Future Construct Author (Secondary — Template Consumer)
+**Who**: The team member who both maintains construct repos AND uses those constructs on product repos (midi-interface, hub-interface).
 
-**Who**: External developer who wants to create a new construct
-**Current state**: No reference implementation, no template, no guide
-**After extraction**: Forks `construct-template`, fills in identity + skills, registers with API
-**Key workflow**: Fork template → author persona.yaml + expertise.yaml + CLAUDE.md → add skills → register-repo → publish
+**Workflow today**:
+1. Installs construct on product repo (manual, pointing at mature version)
+2. Uses construct skills in daily development
+3. Hits pipeline friction when construct work touches app zone
+4. Discovers improvements or friction while using construct
+5. Has no natural path to push learnings upstream
 
-### P3: Construct Consumer (Unchanged)
+**What they need from this cycle**:
+- Workflow gates: FE/UI work doesn't trigger full pipeline
+- Post-install guidance: "Start here" after every install
+- Schema that supports what they want to declare in manifests
 
-**Who**: Developer who installs and uses constructs
-**Current state**: Installs via `constructs-install.sh`, gets skills + commands symlinked
-**After extraction**: Same install flow, but now also gets CLAUDE.md auto-injected into project context. The construct becomes an active expert, not a passive tool collection
-**Key workflow**: Install construct → `@`-import activates expert → use skills with full expert context
+### Secondary Persona: The Internal User (Future)
+
+**Who**: Other org functions who use constructs but don't maintain them.
+
+**Not served by this cycle** — this cycle makes the maintainer-builder workflow natural. The internal user benefits transitively (constructs work better = products work better).
+
+> Source: User grounding interviews, #129 comment 1 ("Constructs live outside the Loa pipeline but on top of the Loa runtime")
+
+---
 
 ## 5. Functional Requirements
 
-### FR-1: Template Repo (`construct-template`)
+### FR-1: Manifest Schema Extension (G2, G5)
 
-Create the canonical construct structure as a GitHub template repo.
+**Priority**: P0 — everything else depends on this
 
-| ID | Requirement | Detail |
-|----|------------|--------|
-| FR-1.1 | Scaffolded `construct.yaml` | All fields from `construct.schema.json` with inline comments explaining each. Required: `schema_version` (3+), `name`, `slug`, `version`. Optional: `description`, `author`, `license`, `skills`, `commands`, `identity`, `repository`, `events`, `pack_dependencies`, `hooks`, `quick_start` |
-| FR-1.2 | Example `identity/persona.yaml` | Documented fields: `archetype`, `disposition`, `thinking_style`, `decision_making`, `voice` (nested), `model_preferences` (nested) |
-| FR-1.3 | Example `identity/expertise.yaml` | Documented fields: `domains` array with `name`, `depth` (1-5), `boundaries` |
-| FR-1.4 | Example skill directory | `skills/example-skill/index.yaml` + `SKILL.md` with capabilities stanza and documented fields |
-| FR-1.5 | `CLAUDE.md` template | Structured template: Who I Am, What I Know, Available Skills, Workflow, Boundaries |
-| FR-1.6 | `.github/workflows/validate.yml` | CI: validate construct.yaml against schema, check skill structure (every skill has `index.yaml` + `SKILL.md`), check capabilities stanza present, shell lint for `scripts/` |
-| FR-1.7 | `CONTRIBUTING.md` | Construct authoring guide: how to write persona/expertise, how to structure skills, how to test locally |
-| FR-1.8 | `scripts/install.sh` | Example post-install hook |
-| FR-1.9 | `README.md` | What this construct does, install instructions (git + registry), quick start |
-| FR-1.10 | GitHub template flag | Repo created with `--template` flag so users can "Use this template" |
-
-**Schema reference**: `.claude/schemas/construct.schema.json` (schema_version >=3, slug pattern `^[a-z0-9][a-z0-9-]*[a-z0-9]$`, semver pattern, additionalProperties: false)
-
-### FR-2: Per-Construct Extraction
-
-For each of the 5 constructs, create a standalone GitHub repo. All steps repeat per construct.
-
-| ID | Requirement | Detail |
-|----|------------|--------|
-| FR-2.0 | License & provenance audit | Before making repo public: verify all copied files (skills, contexts, templates, scripts) are MIT-compatible. Check for third-party text, copied schemas, brand assets. Confirm `LICENSE` file and attributions are correct. If any construct cannot be public immediately, create as `--private` with a follow-up task to remediate |
-| FR-2.1 | Create GitHub repo | `gh repo create 0xHoneyJar/construct-{slug} --public --template 0xHoneyJar/construct-template` (or `--private` if FR-2.0 flags issues) |
-| FR-2.2 | Generate `construct.yaml` | Transform `manifest.json` → `construct.yaml` using the field mapping table below. Add `repository.url`, `identity.persona`, `identity.expertise`. Schema is `additionalProperties: false` — only mapped fields are allowed |
-| FR-2.3 | Copy skills directory | All skill directories with `index.yaml` + `SKILL.md` + supporting files |
-| FR-2.4 | Copy commands directory | `.md` command files (GTM Collective: 14 commands) |
-| FR-2.5 | Copy contexts directory | Domain knowledge files (Observer: `base/` + `overlays/`, Crucible: `schemas/` + `overlays/`, Beacon: `schemas/` + `overlays/`) |
-| FR-2.6 | Copy templates directory | Document templates (Observer: canvas + journey, Crucible: gap + reality) |
-| FR-2.7 | Copy scripts directory | Install hooks, context composition (Observer: `compose-context.sh`) |
-| FR-2.8 | Author `identity/persona.yaml` (skeleton) | Ship schema-valid skeleton with archetype, disposition, and placeholder voice. Mark as `status: draft` in file header. Full character refinement is a **separate follow-up task** — do NOT block extraction on identity quality |
-| FR-2.9 | Author `identity/expertise.yaml` (skeleton) | Ship schema-valid skeleton with domain names, depth levels (estimated), and placeholder boundaries. Mark as `status: draft`. Refinement is a separate follow-up |
-| FR-2.10 | Author `CLAUDE.md` (skeleton) | Ship functional CLAUDE.md with skill table, basic workflow, and boundaries. Identity sections (Who I Am, What I Know) use skeleton data. Mark as `status: draft`. Full expert voice refinement is a separate follow-up |
-| FR-2.11 | Set up CI | `validate.yml` from template (schema validation, skill structure checks) |
-| FR-2.12 | Register with API | `POST /v1/packs/{slug}/register-repo` with git URL + ref |
-| FR-2.13 | Trigger initial sync | `POST /v1/packs/{slug}/sync` — verifies files, identity, and manifest |
-| FR-2.14 | Configure webhook | GitHub webhook on repo → `api.constructs.network/v1/webhooks/github` (push + tag events, HMAC SHA256) |
-
-#### Construct Inventory
-
-| Construct | Slug | Skills | Commands | Contexts | Templates | Dependencies | Version |
-|-----------|------|--------|----------|----------|-----------|--------------|---------|
-| Observer | `observer` | 6 | 0 | `base/crypto-base.md`, `overlays/berachain-overlay.md`, `overlays/defi-overlay.md` | canvas, journey | Soft: crucible, artisan | 1.1.0 |
-| Crucible | `crucible` | 5 | 0 | `schemas/`, `overlays/` | gap, reality | **Required**: observer (change to optional) | 1.1.0 |
-| Artisan | `artisan` | 14 | 0 | `taste/` | None | Independent | 1.4.0 |
-| Beacon | `beacon` | 6 | 0 | `schemas/`, `overlays/` | None | Independent | 1.1.0 |
-| GTM Collective | `gtm-collective` | 8 | 14 | None | None | Independent | 1.1.0 |
-
-#### manifest.json → construct.yaml Field Mapping
-
-| manifest.json Field | construct.yaml Field | Action |
-|---------------------|---------------------|--------|
-| `schema_version` | `schema_version` | Direct map (keep value 3) |
-| `name` | `name` | Direct map |
-| `slug` | `slug` | Direct map |
-| `version` | `version` | Direct map |
-| `description` | `description` | Direct map |
-| `author` | `author` | Direct map (string or object) |
-| `license` | `license` | Direct map |
-| `skills[]` | `skills[]` | Direct map (array of `{slug, path}`) |
-| `commands[]` | `commands[]` | Direct map (array of `{name, path}`) |
-| `events.emits[]` | `events.emits[]` | Direct map |
-| `events.consumes[]` | `events.consumes[]` | Direct map |
-| `pack_dependencies[]` | `pack_dependencies[]` | Direct map; change Crucible's Observer from `required: true` → omit (defaults to optional) |
-| `hooks` | `hooks` | Direct map (`post_install`, `post_update` paths) |
-| `quick_start` | `quick_start` | Direct map (`command`, `description`) |
-| N/A | `repository` | **NEW**: Add `{url: "https://github.com/0xHoneyJar/construct-{slug}.git"}` |
-| N/A | `identity` | **NEW**: Add `{persona: "identity/persona.yaml", expertise: "identity/expertise.yaml"}` |
-| `tools` | — | **DROP**: Not in construct schema. Tool dependencies are documented in skill `index.yaml` capabilities |
-| `mcp_dependencies` | — | **DROP**: MCP servers are network-level, not pack-level (already removed from schema) |
-
-The construct schema enforces `additionalProperties: false` — any unmapped field will cause validation failure. All dropped fields (`tools`, `mcp_dependencies`) are either documented elsewhere (skill capabilities) or architecturally removed.
-
-#### Identity Archetypes (Skeleton — User Refines)
-
-| Construct | Archetype | Core Trait | 1-Line Identity |
-|-----------|-----------|------------|-----------------|
-| Observer | Researcher | Hypothesis-first, empathetic | "I hear what users mean, not what they say." |
-| Crucible | Validator | Rigorous, evidence-based | "I don't trust your journey until I've walked it myself." |
-| Artisan | Craftsman | Detail-obsessed, aesthetic | "I see the pixel you missed and the motion you haven't imagined." |
-| Beacon | Signal Engineer | Standards-focused, methodical | "I make your content discoverable by machines that pay for knowledge." |
-| GTM Collective | Strategist | Market-aware, decisive | "I turn products into positions and positions into launches." |
-
-#### Git Ref Strategy
-
-For this internal milestone cycle, all constructs are registered to the `main` branch (not tags):
-
-- **Register**: `POST /v1/packs/{slug}/register-repo` with `git_ref: "main"`
-- **Webhook behavior**: Pushes to `main` trigger auto-sync (default branch detection in webhook handler). Tag events also trigger sync for future semver releases
-- **Seed script**: `GIT_CONFIGS` entries use `gitRef: 'main'` during extraction. After stabilization, switch to immutable semver tags (e.g., `v1.2.0`) for production installs
-- **Verification**: After each push, confirm `POST /v1/packs/{slug}/sync` returns the new commit SHA and `constructs-install.sh install {slug}` pulls that SHA
-
-This means during extraction, every push to `main` auto-updates the registry. Future cycles can adopt tag-based releases with `gitRef` pointing to specific versions.
-
-#### Extraction Order
-
-1. **GTM Collective** (independent, most commands, good stress test)
-2. **Artisan** (independent, largest at 14 skills)
-3. **Beacon** (independent, has context schemas)
-4. **Observer** (soft dependencies, richest context layer)
-5. **Crucible** (requires Observer — change to optional, last to extract)
-
-#### Dependency Resolution
-
-**Install order**: Independent constructs first, then dependent. The extraction order (GTM→Artisan→Beacon→Observer→Crucible) respects this. The install script does NOT enforce install order — each construct must be functional standalone.
-
-**Degraded mode when dependencies are missing**:
-- If a construct declares `pack_dependencies` with `required: false` (or omitted), it MUST function without the dependency. Missing dependency means: events it consumes are never delivered, but no errors.
-- If a construct declares `pack_dependencies` with `required: true`, the install script warns but does NOT block installation. The construct's CLAUDE.md should document what features are unavailable without the dependency.
-
-**Runtime event wiring**: Events are declarations, not imports. Each repo declares what it emits/consumes in `construct.yaml`. The runtime (Claude Code) wires them if both constructs are installed in the same project. If a consumer is installed without its producer, consumed events simply never fire — no errors, no crashes, just reduced functionality.
-
-**Version constraints**: Not enforced for this internal milestone. All constructs are on `main` branch. Future cycles may add semver range constraints to `pack_dependencies`.
-
-**Compatibility testing**: Observer and Crucible must each be tested in 3 configurations:
-1. Installed alone (no counterpart) — verify no errors, degraded features documented
-2. Installed together — verify bidirectional events work
-3. Installed with all 5 constructs — verify no conflicts
-
-#### Circular Dependency Resolution
-
-Observer ↔ Crucible have bidirectional event coupling:
-- Observer emits `forge.observer.journey_shaped` → Crucible consumes
-- Crucible emits `forge.crucible.journey_validated` → Observer consumes
-- Crucible currently marks Observer as `required: true`
-
-**Resolution**: Events are declarations, not imports. Each repo declares what it emits/consumes. The runtime wires them if both constructs are installed. Change Crucible's Observer dependency to `required: false` — Crucible can operate standalone, it just won't receive auto-generated journeys from Observer.
-
-### FR-3: CLAUDE.md Auto-Inject
-
-When a construct is installed, its CLAUDE.md should be automatically imported into the project's Claude Code context.
-
-| ID | Requirement | Detail |
-|----|------------|--------|
-| FR-3.1 | `inject_construct_claude_md()` function | New function in `constructs-install.sh`. After symlink creation, checks if construct has `CLAUDE.md` at `.claude/constructs/packs/{slug}/CLAUDE.md` |
-| FR-3.2 | Handle missing root CLAUDE.md | If project's root `CLAUDE.md` does not exist: create it with the Loa import line (if Loa is installed, i.e. `.claude/loa/CLAUDE.loa.md` exists) followed by the construct imports block. If CLAUDE.md is a symlink or not writable: fail with actionable error message and do NOT partially modify |
-| FR-3.3 | Managed sentinel block | All construct imports live inside a clearly delimited block: `<!-- constructs:begin -->` / `<!-- constructs:end -->`. Only mutate within this block. Block is placed BELOW the Loa framework import (`@.claude/loa/CLAUDE.loa.md`). If the block doesn't exist, create it |
-| FR-3.4 | Append `@` import within block | Adds `@.claude/constructs/packs/{slug}/CLAUDE.md` inside the sentinel block |
-| FR-3.5 | Multiple constructs | Handle multiple `@` imports (one per installed construct). Each on its own line within the sentinel block |
-| FR-3.6 | Idempotent | Don't duplicate the import if already present within the block |
-| FR-3.7 | Uninstall removal | On construct uninstall, remove the corresponding `@` import line from within the sentinel block. Also record injected imports in `.constructs-meta.json` so uninstall is deterministic even if CLAUDE.md is manually edited |
-| FR-3.8 | Atomic writes | Write to temp file + `mv` to prevent partial writes on failure |
-| FR-3.9 | No conflict with Loa | Must not modify or remove the existing `@.claude/loa/CLAUDE.loa.md` import or any content outside the sentinel block |
-| FR-3.10 | Concurrency safety | If two construct installs run simultaneously, use a lockfile (`.constructs-inject.lock`) to serialize CLAUDE.md mutations. Fail with retry message if lock is held >10s |
-| FR-3.11 | Malformed sentinel recovery | If sentinel block markers are present but malformed (partial, duplicated, or nested), fail with actionable error identifying the problem. Do NOT attempt repair — prompt user to manually fix |
-| FR-3.12 | Line ending normalization | Normalize CLAUDE.md to LF before mutation. Preserve original line endings on write if file was CRLF |
-| FR-3.13 | Managed file fallback | If sentinel block injection fails for any reason (malformed block, unwritable file, symlink, concurrent lock timeout), fall back to generating `.claude/constructs/CLAUDE.constructs.md` containing all construct `@` imports. Print a message instructing the user to add `@.claude/constructs/CLAUDE.constructs.md` to their root CLAUDE.md. This ensures construct activation even when auto-injection cannot safely proceed |
-
-#### CLAUDE.md Structure Per Construct
-
-```markdown
-# {Construct Name}
-> {One-line identity from persona.yaml}
-
-## Who I Am
-{Archetype, thinking style, voice — synthesized from persona.yaml}
-
-## What I Know
-{Domains with depth levels — from expertise.yaml}
-{Explicit boundaries — what I do NOT know}
-
-## Available Skills
-| Command | Purpose |
-|---------|---------|
-{Table of all skills with trigger descriptions}
-
-## Workflow
-{The construct's natural sequence of operations}
-
-## Boundaries
-{What this expert does NOT do — prevents scope creep}
-```
-
-### FR-4: Monorepo Cleanup
-
-After all 5 constructs are verified working from standalone repos.
-
-| ID | Requirement | Detail |
-|----|------------|--------|
-| FR-4.1 | Update seed script | Add all 5 repos to `GIT_CONFIGS` in `scripts/seed-forge-packs.ts` (currently only `gtm-collective` at L36-44) |
-| FR-4.2 | Delete sandbox packs | Remove `apps/sandbox/packs/{observer,crucible,artisan,beacon,gtm-collective}` |
-| FR-4.3 | Update sandbox README | Point `apps/sandbox/packs/README.md` to standalone repos |
-| FR-4.4 | Update CI | Remove `apps/sandbox/packs/` from `validate-topology.yml` scan paths |
-| FR-4.5 | Clean SYNC_ARCHITECTURE_PLAN.md | Archive or update to reflect completed state |
-| FR-4.6 | Explorer frontend | Link to GitHub repo on construct detail pages when `sourceType === 'git'` |
-
-## 6. Technical Architecture
-
-### Infrastructure (Already Built — PR #121)
-
-| Component | File | Status |
-|-----------|------|--------|
-| Git-sync service | `apps/api/src/services/git-sync.ts` | Deployed |
-| Register-repo endpoint | `apps/api/src/routes/packs.ts:L764` | Deployed |
-| Sync endpoint | `apps/api/src/routes/packs.ts:L879` | Deployed |
-| GitHub webhook handler | `apps/api/src/routes/webhooks.ts:L376` | Deployed |
-| Install script (git path) | `.claude/scripts/constructs-install.sh:L745` | Deployed |
-| Construct schema | `.claude/schemas/construct.schema.json` | In repo |
-| Identity DB table | `constructIdentities` in `apps/api/src/db/schema.ts` | Migrated |
-
-### Prerequisite Code Changes
-
-Two changes to `apps/api/src/services/git-sync.ts:collectFiles()` are required **before** extraction begins:
-
-**1. Add `templates` to allowed directories**
-
-The git-sync service allows only: `skills`, `commands`, `contexts`, `identity`, `scripts`. The `templates/` directory is **not** in the allowlist, but Observer and Crucible have `templates/` with canvas, journey, gap, and reality templates. Without this change, sync will silently drop template files, producing incomplete installs.
-
-**2. Add `CLAUDE.md` to allowed root files**
-
-The allowed root files are: `construct.yaml`, `manifest.json`, `README.md`, `LICENSE`. `CLAUDE.md` is **not** in this list. The entire FR-3 feature depends on CLAUDE.md being present in the synced construct directory. The git clone install path gets all files, but the API sync endpoint (and base64 fallback) use `collectFiles()` which would skip CLAUDE.md — a silent failure that breaks the core "expert not file bundle" vision.
-
-**Verification**: After both changes, run `POST /v1/packs/{slug}/sync` and confirm the response includes files from `templates/` and the root `CLAUDE.md`.
-
-### Git-Sync Security Model
-
-| Protection | Implementation |
-|------------|---------------|
-| HTTPS only | `validateGitUrl()` rejects HTTP, SSH, `git://` |
-| DNS pinning (TOCTOU-safe) | Local CONNECT proxy pins resolved IP; prevents DNS rebinding between validation and clone |
-| SSRF prevention | Private IP ranges blocked (10.x, 172.16-31.x, 192.168.x, 127.x, etc.) |
-| No symlinks | `lstat()` check on every file in cloned tree |
-| No path traversal | Rejects `..` segments, absolute paths, paths >255 chars |
-| Shallow clone | `--depth 1 --single-branch`, 30s timeout |
-| No interactive prompts | `GIT_TERMINAL_PROMPT=0` |
-| Webhook signature | HMAC SHA256 with `timingSafeEqual`, replay protection via delivery ID tracking |
-| Rate limiting | 10 syncs per pack per hour |
-
-### File Collection Limits
-
-| Limit | Value |
-|-------|-------|
-| Max files per sync | 100 |
-| Max file size | 256 KB |
-| Max total payload | 5 MB |
-| Allowed directories | `skills`, `commands`, `contexts`, `identity`, `scripts`, `templates` (prerequisite change) |
-| Allowed root files | `construct.yaml`, `manifest.json`, `README.md`, `LICENSE`, `CLAUDE.md` (prerequisite change) |
-
-### Identity Parsing Flow
-
-```
-construct repo
-  └── identity/
-      ├── persona.yaml → parsed by git-sync.ts:parseIdentity()
-      └── expertise.yaml → parsed by git-sync.ts:parseIdentity()
-                │
-                ▼
-        IdentityData {
-          archetype, disposition, thinking_style, decision_making,
-          voice, model_preferences, expertise_domains
-        }
-                │
-                ▼
-        constructIdentities table (upserted on sync/webhook)
-                │
-                ▼
-        GET /v1/packs/:slug → identity data in response
-                │
-                ▼
-        Explorer construct detail page → identity card
-```
-
-### Install Flow (After Extraction)
-
-```
-constructs-install.sh install {slug}
-  │
-  ├─ GET /v1/packs/{slug}/download
-  │    → response includes source_type: "git", git_url, git_ref
-  │
-  ├─ git clone --depth 1 --branch {git_ref} {git_url}
-  │    → .claude/constructs/packs/{slug}/
-  │    → remove .git/ directory
-  │    → validate tree (no symlinks, no traversal)
-  │    → fallback to base64 download on clone failure
-  │
-  ├─ symlink_pack_skills()
-  │    → .claude/skills/{skill-name} → ../constructs/packs/{slug}/skills/{skill-name}
-  │
-  ├─ symlink_pack_commands()
-  │    → .claude/commands/{cmd}.md → ../constructs/packs/{slug}/commands/{cmd}.md
-  │
-  ├─ inject_construct_claude_md()      ← NEW
-  │    → append @.claude/constructs/packs/{slug}/CLAUDE.md to project CLAUDE.md
-  │
-  └─ update_pack_meta()
-       → .constructs-meta.json with source_type, git_url, git_commit
-```
-
-### Seed Script Migration
+Add the following optional fields to `PackManifest` in `packages/shared/src/types.ts` and `packManifestSchema` in `packages/shared/src/validation.ts`:
 
 ```typescript
-// scripts/seed-forge-packs.ts — current (L36-44)
-const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
-  'gtm-collective': {
-    gitUrl: 'https://github.com/0xHoneyJar/construct-gtm-collective.git',
-    gitRef: 'v1.1.0',
-  },
+// Domain declaration for routing (#119)
+domain?: string[];
+expertise?: string[];
+
+// Golden path porcelain (#119, #127)
+golden_path?: {
+  commands: Array<{
+    name: string;
+    description: string;
+    truename_map?: Record<string, string>;
+  }>;
+  detect_state?: string;
 };
 
-// After extraction — all 5 repos (main branch for internal milestone)
-const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
-  'gtm-collective': {
-    gitUrl: 'https://github.com/0xHoneyJar/construct-gtm-collective.git',
-    gitRef: 'main',
-  },
-  'artisan': {
-    gitUrl: 'https://github.com/0xHoneyJar/construct-artisan.git',
-    gitRef: 'main',
-  },
-  'beacon': {
-    gitUrl: 'https://github.com/0xHoneyJar/construct-beacon.git',
-    gitRef: 'main',
-  },
-  'observer': {
-    gitUrl: 'https://github.com/0xHoneyJar/construct-observer.git',
-    gitRef: 'main',
-  },
-  'crucible': {
-    gitUrl: 'https://github.com/0xHoneyJar/construct-crucible.git',
-    gitRef: 'main',
-  },
+// Workflow depth declaration (#129)
+workflow?: {
+  depth: 'light' | 'standard' | 'deep';
+  gates: {
+    prd?: 'skip' | 'condense' | 'full';
+    sdd?: 'skip' | 'condense' | 'full';
+    sprint?: 'skip' | 'condense' | 'full';
+    implement?: 'required';
+    review?: 'visual' | 'textual' | 'both' | 'skip';
+    audit?: 'skip' | 'lightweight' | 'full';
+  };
 };
-// NOTE: Switch to semver tags (e.g., 'v1.2.0') after stabilization
+
+// Methodology layer (#118)
+methodology?: {
+  references?: string[];
+  principles?: string[];
+  knowledge_base?: string;
+};
+
+// Capability tier (#128)
+tier?: 'L1' | 'L2' | 'L3';
 ```
+
+**Acceptance criteria**:
+- All fields optional (zero barrier for existing manifests)
+- Zod schema and TypeScript types match exactly
+- `.passthrough()` preserved for forward-compat
+- `schema_version` accepts 1-4, defaults to 1 for existing manifests
+- Validation tests cover all new fields with valid and invalid inputs
+- JSON Schema (`construct.schema.json` if it exists) updated in sync
+
+> Source: ARCHETYPE.md §5.1, #119 proposal, #129 proposal, #118 proposal, #128 proposal
+
+### FR-2: TS/Zod Synchronization (G4)
+
+**Priority**: P0 — prerequisite for FR-1 being trustworthy
+
+Reconcile the TypeScript `PackManifest` interface with the Zod `packManifestSchema`:
+
+| Field | TypeScript (types.ts) | Zod (validation.ts) | Resolution |
+|-------|----------------------|---------------------|------------|
+| `dependencies.skills` | `string[]` | `z.record(z.string())` | **Adopt Zod** — `Record<string, string>` is richer (slug → version range) |
+| `dependencies.packs` | `string[]` | `z.record(z.string())` | **Adopt Zod** — same reason |
+| `dependencies.loa_version` | `string` | field named `loa` | **Align naming** — pick one |
+| `long_description` | Missing | `z.string().max(10000)` | **Add to TS** |
+| `repository` | Missing | `z.string().url()` | **Add to TS** |
+| `homepage` | Missing | `z.string().url()` | **Add to TS** |
+| `documentation` | Missing | `z.string().url()` | **Add to TS** |
+| `keywords` | Missing | `z.array(z.string())` | **Add to TS** |
+| `engines` | Missing | `z.object({ loa, node })` | **Add to TS** |
+| `author` | `{ name, email?, url? }` | `z.union([string, object])` | **Adopt Zod** — allow string shorthand |
+
+**Acceptance criteria**:
+- Every field in Zod has a corresponding field in TypeScript with matching types
+- Every field in TypeScript has a corresponding field in Zod
+- API route formatters and explorer types still compile
+- No runtime behavior changes for existing manifests
+
+> Source: Codebase audit, `types.ts:219-271` vs `validation.ts:216-271`
+
+### FR-3: Workflow Gates in Pack Manifests (G1)
+
+**Priority**: P0 — the daily friction reducer
+
+Add `workflow` section to all 5 pack manifests in their standalone repos (`construct-observer`, `construct-artisan`, `construct-crucible`, `construct-beacon`, `construct-gtm-collective`).
+
+**Proposed gates per domain**:
+
+| Pack | Domain | prd | sdd | sprint | implement | review | audit |
+|------|--------|-----|-----|--------|-----------|--------|-------|
+| Observer | Research/Analysis | skip | skip | condense | required | textual | lightweight |
+| Artisan | Design/UI | skip | skip | condense | required | visual | skip |
+| Crucible | Build/Test | condense | condense | full | required | both | full |
+| Beacon | Deploy/Ship | condense | skip | condense | required | textual | lightweight |
+| GTM-Collective | Marketing/Growth | skip | skip | skip | required | textual | skip |
+
+**Acceptance criteria**:
+- Each manifest includes `workflow.gates` section
+- Each manifest includes `workflow.depth` ('light' | 'standard' | 'deep')
+- Manifests pass updated schema validation
+- Loa runtime (cycle-029 constraint yielding) reads these gates and adjusts enforcement
+
+**Note**: This FR requires changes in 5 external repos. The schema (FR-1) ships in loa-constructs. The manifest declarations ship in each construct-* repo. The runtime reading (cycle-029) is already merged upstream.
+
+> Source: #129 domain examples table, #129 comment 2 ("composes the pipeline at chosen depth")
+
+### FR-4: Post-Install Quick Start (G3)
+
+**Priority**: P1 — improves every install
+
+Modify the `browsing-constructs` skill's post-install report (Phase 6) to include the `quick_start` field from the installed pack's manifest.
+
+**Current behavior** (`.claude/skills/browsing-constructs/SKILL.md`):
+```
+Observer installed. 6 skills ready.
+Commands: /observe, /daily-synthesis, /follow-up, /shape, /speak, /grow
+```
+
+**Target behavior**:
+```
+Observer installed. 6 skills ready.
+
+Start here: /listen
+  "Capture your first user insight. Everything else builds on this."
+
+Commands: /observe, /daily-synthesis, /follow-up, /shape, /speak, /grow
+```
+
+**Acceptance criteria**:
+- If manifest has `quick_start`, show it prominently before command list
+- If manifest has `golden_path.commands`, show the first command as "Start here"
+- If neither exists, show current behavior (flat command list)
+- All 5 pack manifests have `quick_start` populated
+
+**Implementation note**: This requires updating a SKILL.md file in the Loa System Zone. This is a framework-level skill, so the change propagates to all projects on next `/update-loa`. Alternatively, could be a construct-level override — decision for SDD.
+
+> Source: #127 feedback, ARCHETYPE.md §5.4 CLI Onboarding, Hormozi: "< 2 minutes to first valuable output"
+
+### FR-5: Schema Version Migration (G5)
+
+**Priority**: P1 — housekeeping that prevents future pain
+
+- Bump manifest schema version to 4
+- Validation accepts v1, v2, v3, and v4 manifests
+- New fields are only validated when `schema_version >= 4`
+- Default for `schema_version` remains 1 (backward compat)
+- CI topology validation updated for v4
+
+**Acceptance criteria**:
+- Existing v3 manifests pass validation unchanged
+- v4 manifests with new fields pass validation
+- v4 manifests with invalid new field values fail validation
+- `validate-topology.sh` checks updated
+
+> Source: Memory — "All 5 pack manifests at schema_version 3"
+
+---
+
+## 6. Technical & Non-Functional Requirements
+
+### NF-1: Non-Breaking Extension
+
+All schema changes MUST be non-breaking. Existing manifests MUST continue to validate without modification. The `.passthrough()` on the Zod schema already enables this — new fields are validated when present but not required.
+
+### NF-2: Three-Layer Sync
+
+Changes touch three schema layers that must stay in sync:
+1. **TypeScript types** (`packages/shared/src/types.ts`)
+2. **Zod validation** (`packages/shared/src/validation.ts`)
+3. **JSON Schema** (`construct.schema.json` or equivalent, if it exists)
+
+CI MUST validate all three layers agree.
+
+### NF-3: Cross-Repo Coordination
+
+FR-3 (workflow gates in manifests) requires changes in 5 external repos. These changes depend on FR-1 (schema extension) being published first. The coordination sequence:
+1. Ship FR-1 + FR-2 in `loa-constructs` (shared package)
+2. Publish shared package (or reference via git)
+3. Update manifest in each `construct-*` repo
+4. Sync updated manifests to registry
+
+### NF-4: Runtime Compatibility
+
+The Loa upstream (cycle-029) already supports reading `workflow.gates` from manifests. FR-3 manifests MUST produce gate declarations that the runtime can consume without changes to the runtime itself. If the runtime expects a specific format, manifests MUST match it.
+
+---
 
 ## 7. Scope & Prioritization
 
-### Sprint Structure
+### In Scope (Cycle A)
 
-| Sprint | Focus | Tasks |
-|--------|-------|-------|
-| Sprint 1 | Template + First Extraction | FR-1 (template repo), FR-2 for GTM Collective |
-| Sprint 2 | Independent Constructs | FR-2 for Artisan + Beacon |
-| Sprint 3 | Dependent Constructs | FR-2 for Observer + Crucible (circular dep resolution) |
-| Sprint 4 | Integration | FR-3 (CLAUDE.md inject), FR-4 (monorepo cleanup), verification |
+| Priority | Item | FR |
+|----------|------|----|
+| P0 | Manifest schema extension (6 new field groups) | FR-1 |
+| P0 | TS/Zod synchronization | FR-2 |
+| P0 | Workflow gates in 5 pack manifests | FR-3 |
+| P1 | Post-install quick_start | FR-4 |
+| P1 | Schema version bump to v4 | FR-5 |
 
-### In Scope
+### Out of Scope (Deferred)
 
-- Template repo creation (`construct-template`)
-- 5 construct repos with `construct.yaml`, skills, commands, contexts, scripts
-- Identity authoring (persona.yaml + expertise.yaml) for all 5
-- CLAUDE.md authoring for all 5
-- CLAUDE.md auto-inject in install script
-- CI validation per repo
-- API registration + webhook setup per repo
-- Seed script migration to all-git
-- Sandbox pack deletion (verified clean migration)
+| Item | Deferred To | Why |
+|------|-------------|-----|
+| Explorer frontend fixes | Cycle B | Nobody uses the explorer |
+| Golden path per construct (journey bars) | Cycle B | Needs manifests with `golden_path` first (this cycle) |
+| `/loa` aggregating construct status | Cycle B | Needs state detection scripts |
+| MoE intent routing | Cycle C | Needs `domain` + `expertise` populated in manifests |
+| Human-centered metrics | Cycle C | No traffic to measure |
+| Construct distribution/sync UX | Cycle A.5 or B | Separate cobweb to untangle, separate PRD |
+| Envio construct | Cycle C | Proof-of-concept for third-party, needs schema first |
+| Verification / Echelon | Cycle C+ | Zero third-party constructs |
 
-### Out of Scope
-
-| Item | Why Deferred |
-|------|-------------|
-| Reviews & ratings UI | Marketplace features — separate cycle |
-| Author profiles | Marketplace features — separate cycle |
-| Enhanced discovery (sort, filter, badges) | Marketplace features — separate cycle |
-| Reputation system | Identity & reputation — separate cycle |
-| On-chain signals (dNFT, Henlo) | Requires Loa Fin infrastructure |
-| Self-service repo registration UI | Marketplace features — third-party publishing cycle |
-| Payment integration (NowPayments) | Not active, separate cycle |
-| API key rotation / security audit | Public launch preparation — separate cycle |
+---
 
 ## 8. Risks & Dependencies
 
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| Webhook signature secret must be configured on each new repo | Medium | Document in runbook; verify per-repo during FR-2.14 |
-| Identity authoring is collaborative and requires user iteration | Medium | Define archetype skeletons first; user refines asynchronously. Don't block extraction on identity perfection |
-| Crucible's `required: true` dependency on Observer may break existing installs | High | Change to `required: false` in construct.yaml. Test Crucible standalone install works without Observer |
-| Seed script still reads from sandbox for non-git packs | Low | Migration is atomic: add all 5 to GIT_CONFIGS, then delete sandbox packs |
-| CLAUDE.md injection could conflict with Loa framework imports | Medium | FR-3.7 explicitly protects Loa imports. Test with Loa installed |
-| 100-file limit in git-sync could be tight for Artisan (14 skills) | Low | Each skill is ~2-3 files. Artisan total: ~42 files + contexts + scripts ≈ 50 files. Well within 100 limit |
-| Construct repos are public — pack contents become fully visible | Low | Already MIT-licensed. No secrets in skill files. This is intentional for the open ecosystem |
+### Risks
 
-### Rollback Strategy
-
-If extraction causes production install failures, the following rollback procedure applies:
-
-1. **Pre-deletion archive**: Before FR-4.2 (sandbox pack deletion), create a tagged archive branch `archive/sandbox-packs-pre-extraction` containing the full `apps/sandbox/packs/` tree. This branch persists for 30 days minimum
-2. **Health gate before deletion**: FR-4.2 must NOT execute until all 5 construct repos pass a health check: `POST /v1/packs/{slug}/sync` returns 200 with correct file count AND `constructs-install.sh install {slug}` succeeds end-to-end for each
-3. **Soak period**: After all 5 repos are registered and synced, maintain a 48-hour soak period where both sandbox packs AND standalone repos are active. Monitor webhook delivery rates, sync error logs, and install success rates
-4. **Revert procedure**: If any construct repo becomes unavailable (GitHub outage, accidental deletion, webhook misconfiguration), revert by restoring sandbox packs from the archive branch and updating `GIT_CONFIGS` to remove the affected entry. The base64 fallback path still works as long as the API has synced data
-5. **Base64 fallback verification**: Before FR-4.2, explicitly test the base64 download fallback by temporarily blocking git clone for one construct and verifying the install script falls back successfully
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| Schema changes break existing manifests | Low | High | `.passthrough()` + all new fields optional + CI validation |
+| Cycle-029 runtime expects different gate format than we declare | Medium | Medium | Read cycle-029 implementation before writing FR-3 manifests |
+| Cross-repo coordination delays (5 repos need manifest updates) | Medium | Medium | FR-1/FR-2 can ship independently. FR-3 manifests ship in parallel across repos. |
+| `browsing-constructs` SKILL.md is System Zone | Low | Low | Either framework PR or construct-level override |
 
 ### Dependencies
 
-| Dependency | Status | Risk |
-|------------|--------|------|
-| Git-sync service (PR #121) | Deployed | None — fully operational |
-| Register-repo endpoint | Deployed | None |
-| Webhook handler | Deployed | None |
-| Install script git path | Deployed | None |
-| `construct.schema.json` | In repo | None |
-| GitHub org (`0xHoneyJar`) | Active | Need repo creation permissions |
-| Webhook secret | Configured on API | Must be added to each new repo's webhook settings |
+| Dependency | Type | Status |
+|-----------|------|--------|
+| Loa cycle-029 (Constraint Yielding) | Runtime | **Merged** — just pulled via `/update-loa` this session |
+| `construct-template` repo | Template | **Created** — exists but may need schema v4 updates |
+| 5 `construct-*` repos | Manifest hosts | **Exist** — need manifest updates for FR-3 |
+| Shared package publishing | Coordination | Needed for cross-repo type sync |
 
-## 9. Critical Files
+### Open Questions
 
-| File | Role | Action |
-|------|------|--------|
-| `apps/sandbox/packs/{slug}/manifest.json` | Source data for each pack | Transform to construct.yaml, then delete |
-| `.claude/schemas/construct.schema.json` | Validates construct.yaml | Copy to template repo for CI |
-| `apps/api/src/services/git-sync.ts` | Clone + parse + validate | No changes needed |
-| `apps/api/src/routes/packs.ts` (L764, L879) | register-repo + sync endpoints | No changes needed |
-| `apps/api/src/routes/webhooks.ts` (L376) | Webhook auto-sync handler | No changes needed |
-| `.claude/scripts/constructs-install.sh` (L745) | Install with git fallback | Add `inject_construct_claude_md()` (FR-3) |
-| `scripts/seed-forge-packs.ts` (L36-44) | GIT_CONFIGS map | Add all 5 repo entries (FR-4.1) |
-| `apps/sandbox/packs/crucible/manifest.json` | Crucible pack_dependencies | Change Observer `required: true` → `false` |
+| # | Question | Decision Needed By |
+|---|----------|-------------------|
+| Q1 | Does cycle-029 runtime read `workflow.gates` from manifest JSON directly, or from a derived config? | Before FR-3 implementation |
+| Q2 | Should `browsing-constructs` changes go through Loa upstream PR, or as a construct-level override? | Before FR-4 implementation |
+| Q3 | How do construct-* repos reference the updated shared types? Git dependency? Published package? Copy? | Before FR-3 implementation |
 
-## 10. Verification
+---
 
-### Per-Construct (After Each FR-2)
+## 9. Issue Disposition
 
-1. `gh repo view 0xHoneyJar/construct-{slug}` — repo exists with correct structure
-2. `construct.yaml` passes schema validation against `construct.schema.json`
-3. CI (`validate.yml`) passes on the repo
-4. API `POST /v1/packs/{slug}/register-repo` succeeds
-5. API `POST /v1/packs/{slug}/sync` succeeds — returns files, identity data
-6. Push a commit → webhook fires → auto-sync updates registry
-7. `constructs-install.sh install {slug}` clones from git, creates symlinks
+After Cycle A ships:
 
-### CLAUDE.md Injection (After FR-3)
+| Issue | Status | What Changed |
+|-------|--------|-------------|
+| #119 | **Schema unblocked** | `domain`, `expertise`, `golden_path` fields exist in types + Zod |
+| #127 | **First step shipped** | `quick_start` used post-install. Golden path commands declarable in manifest. |
+| #128 | **Schema unblocked** | `tier` field exists. Verification deferred. |
+| #129 | **Fully addressed** | Manifest declares gates. Runtime yields. Pipeline friction eliminated for constructs. |
+| #118 | **Schema unblocked** | `methodology` field exists. Ingestion pipeline deferred. |
+| #116 | **Not addressed** | Network-level friction points deferred to Cycle B. Observer-specific fixes in construct-observer repo. |
+| #122 | **Schema ready** | Envio construct can now declare `domain` + `methodology`. Implementation deferred to Cycle C. |
 
-1. **No CLAUDE.md exists**: Install a construct in a project with no root `CLAUDE.md` — verify file is created with Loa import (if Loa installed) + sentinel block + construct import
-2. **Existing CLAUDE.md**: Install a construct — verify `@.claude/constructs/packs/{slug}/CLAUDE.md` appears inside `<!-- constructs:begin -->` / `<!-- constructs:end -->` sentinel block
-3. **Import ordering**: Verify sentinel block is below Loa framework import
-4. **Multiple constructs**: Install a second construct — verify both imports present within sentinel block, no duplicates
-5. **Idempotent**: Re-install same construct — verify no duplicate import line
-6. **Uninstall**: Uninstall first construct — verify its import removed from sentinel block, second remains
-7. **Loa safety**: Verify Loa framework import and all content outside sentinel block untouched throughout
-8. **Metadata**: Verify `.constructs-meta.json` records injected CLAUDE.md imports
-9. **Symlink/unwritable**: Attempt install when CLAUDE.md is a symlink — verify actionable error, no partial modification
-10. **After push**: Push a commit to construct repo, confirm sync returns new SHA, re-install pulls updated content
+**Related issues advanced:**
+- #49 (WORKFLOW.md per pack) → Subsumed by `golden_path` + `workflow` in manifest
+- #89 (pack autosync/graduation) → Schema v4 supports graduation metadata
+- #103 (domain-specific DX) → `domain` field enables future MoE routing
+- #117 (schema migration tooling) → Non-breaking extension via `.passthrough()` avoids need for migration tooling
 
-### Final Acceptance (After FR-4)
+---
 
-1. All 5 construct repos exist and pass CI
-2. All 5 have identity files (persona.yaml + expertise.yaml)
-3. All 5 have CLAUDE.md with expert operating instructions
-4. Seed script uses `GIT_CONFIGS` for all 5 packs
-5. `apps/sandbox/packs/` contains only README.md (no pack subdirectories)
-6. `pnpm --filter api build` succeeds
-7. Validate-topology CI passes
-8. Explorer shows GitHub repo link on construct detail pages for `sourceType === 'git'`
+*"The best bridge is the one that carries the weight of its builders before it carries the world."*
