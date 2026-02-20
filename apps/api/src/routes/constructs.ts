@@ -8,7 +8,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import { optionalAuth } from '../middleware/auth.js';
+import { randomUUID } from 'crypto';
+import { optionalAuth, requireAuth } from '../middleware/auth.js';
 import { skillsRateLimiter } from '../middleware/rate-limiter.js';
 import {
   listConstructs,
@@ -18,8 +19,10 @@ import {
   type Construct,
   type ConstructManifest,
 } from '../services/constructs.js';
-import { Errors } from '../lib/errors.js';
+import { isSlugAvailable, createPack } from '../services/packs.js';
+import { Errors, AppError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
+import { getRedis, isRedisConfigured } from '../services/redis.js';
 
 // --- Route Instance ---
 
@@ -238,3 +241,93 @@ constructsRouter.get('/:slug', optionalAuth(), async (c) => {
     request_id: requestId,
   });
 });
+
+// ── Construct Lifecycle endpoints (cycle-032) ──────────────────
+
+/**
+ * POST /v1/constructs/register
+ * Reserve a construct slug for future publishing
+ * @see sdd.md §6.4 POST /v1/constructs/register
+ */
+constructsRouter.post(
+  '/register',
+  requireAuth(),
+  zValidator(
+    'json',
+    z.object({
+      slug: z
+        .string()
+        .min(3)
+        .max(100)
+        .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, 'Slug must be lowercase alphanumeric with hyphens'),
+      name: z.string().min(1).max(255),
+      type: z.enum(['skill-pack', 'tool-pack', 'codex', 'template']).optional(),
+    })
+  ),
+  async (c) => {
+    const userId = c.get('userId' as never) as string;
+    const userEmail = c.get('userEmail' as never) as string;
+    const requestId = randomUUID();
+
+    // Require email verification
+    if (!userEmail) {
+      throw Errors.Forbidden('Email verification required to register constructs');
+    }
+
+    const body = c.req.valid('json' as never) as { slug: string; name: string; type?: string };
+
+    // Rate limit: 5 registrations per 24h
+    if (isRedisConfigured()) {
+      try {
+        const redis = getRedis();
+        const key = `construct:register:${userId}`;
+        const count = await redis.incr(key);
+        if (count === 1) {
+          await redis.expire(key, 86400);
+        }
+        if (count > 5) {
+          throw new AppError('RATE_LIMITED', 'Maximum 5 registrations per 24 hours', 429);
+        }
+      } catch (err) {
+        if (err instanceof AppError) throw err;
+        // Log but don't block on Redis errors — graceful degradation
+        logger.error({ error: err, requestId, userId }, 'Redis rate limit check failed — bypassing');
+      }
+    }
+
+    // Fast-path check (advisory only — uniqueness enforced by DB constraint)
+    const available = await isSlugAvailable(body.slug);
+    if (!available) {
+      throw new AppError('SLUG_TAKEN', `Slug '${body.slug}' is already taken`, 409);
+    }
+
+    // Create the construct entry — DB unique constraint on slug prevents TOCTOU race
+    try {
+      await createPack({
+        name: body.name,
+        slug: body.slug,
+        description: body.type ? `A ${body.type} construct` : undefined,
+        ownerId: userId,
+        ownerType: 'user',
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message?.includes('unique')) {
+        throw new AppError('SLUG_TAKEN', `Slug '${body.slug}' is already taken`, 409);
+      }
+      throw err;
+    }
+
+    logger.info({ slug: body.slug, name: body.name, type: body.type, userId, requestId }, 'Construct registered');
+
+    return c.json(
+      {
+        data: {
+          slug: body.slug,
+          status: 'reserved',
+        },
+        request_id: requestId,
+      },
+      201
+    );
+  }
+);

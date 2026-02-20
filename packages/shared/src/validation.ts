@@ -189,6 +189,7 @@ export const mcpToolDefinitionSchema = z.object({
   purpose: z.string().max(200),
   check: z.string().max(200),
   docs_url: z.string().url().optional(),
+  version: z.string().max(50).optional(),
 });
 
 /**
@@ -253,6 +254,57 @@ export const methodologySchema = z.object({
 });
 
 export const tierSchema = z.enum(['L1', 'L2', 'L3']);
+
+// ── Construct Lifecycle schemas (cycle-032, FR-1) ──────────────────
+
+/** Construct archetype */
+export const constructTypeSchema = z.enum(['skill-pack', 'tool-pack', 'codex', 'template']);
+
+/** Runtime environment requirements */
+export const runtimeRequirementsSchema = z.object({
+  runtime: z.string().max(50).optional(),
+  dependencies: z.record(z.string()).optional(),
+  external_tools: z.array(z.string().max(100)).max(20).optional(),
+});
+
+/** Configurable directory paths */
+export const constructPathsSchema = z.object({
+  state: z.string().max(500).optional(),
+  cache: z.string().max(500).optional(),
+  output: z.string().max(500).optional(),
+});
+
+/** Credential requirement descriptor */
+export const credentialSchema = z.object({
+  name: z.string().regex(/^[A-Z][A-Z0-9_]*$/, 'Credential name must be UPPER_SNAKE_CASE'),
+  description: z.string().max(500),
+  sensitive: z.boolean().default(true),
+  optional: z.boolean().default(false),
+});
+
+/** Access layer configuration for codex-type constructs */
+export const accessLayerSchema = z.object({
+  type: z.enum(['mcp', 'file', 'api']),
+  entrypoint: z.string().max(500).optional(),
+  transport: z.enum(['stdio', 'sse', 'http']).optional(),
+});
+
+/** Expert identity layer */
+export const identitySchema = z.object({
+  persona: z.string().max(500).optional(),
+  expertise: z.string().max(500).optional(),
+});
+
+/**
+ * Lifecycle hooks — constrained to safe script paths to prevent supply-chain attacks.
+ * Only allows relative paths matching: scripts/<name>.sh or npm run <script>
+ * @see Bridgebuilder Review CRITICAL-1: arbitrary command execution via hooks
+ */
+const safeHookPattern = /^(scripts\/[a-z0-9_-]+\.sh|npm run [a-z0-9_-]+)$/;
+export const lifecycleHooksSchema = z.object({
+  post_install: z.string().max(500).regex(safeHookPattern, 'Hook must match: scripts/<name>.sh or npm run <script>').optional(),
+  post_update: z.string().max(500).regex(safeHookPattern, 'Hook must match: scripts/<name>.sh or npm run <script>').optional(),
+});
 
 /**
  * Full pack manifest schema
@@ -321,6 +373,24 @@ export const packManifestSchema = z.object({
   workflow: workflowSchema.optional(),
   methodology: methodologySchema.optional(),
   tier: tierSchema.optional(),
+
+  // Construct Lifecycle fields (cycle-032, FR-1)
+  type: constructTypeSchema.optional(),
+  runtime_requirements: runtimeRequirementsSchema.optional(),
+  paths: constructPathsSchema.optional(),
+  credentials: z.array(credentialSchema).max(20).optional(),
+  access_layer: accessLayerSchema.optional(),
+  portability_score: z.number().min(0).max(1).optional(),
+  identity: identitySchema.optional(),
+  hooks: lifecycleHooksSchema.optional(),
+
+  // Drift reconciliation (SDD §3.4): meta_probe exists in JSON Schema but not Zod
+  meta_probe: z.object({
+    name: z.string(),
+    command: z.string().optional(),
+    skill: z.string().optional(),
+    scope: z.enum(['internal', 'external']).default('internal'),
+  }).optional(),
 }).passthrough();
 
 /**
@@ -430,3 +500,12 @@ export type WorkflowVerification = z.infer<typeof workflowVerificationSchema>;
 export type Workflow = z.infer<typeof workflowSchema>;
 export type Methodology = z.infer<typeof methodologySchema>;
 export type Tier = z.infer<typeof tierSchema>;
+
+// Construct Lifecycle types (cycle-032)
+export type ConstructType = z.infer<typeof constructTypeSchema>;
+export type RuntimeRequirements = z.infer<typeof runtimeRequirementsSchema>;
+export type ConstructPaths = z.infer<typeof constructPathsSchema>;
+export type Credential = z.infer<typeof credentialSchema>;
+export type AccessLayer = z.infer<typeof accessLayerSchema>;
+export type Identity = z.infer<typeof identitySchema>;
+export type LifecycleHooks = z.infer<typeof lifecycleHooksSchema>;

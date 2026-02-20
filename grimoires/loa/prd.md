@@ -1,315 +1,436 @@
-# PRD: Bridgebuilder Cycle B — Wire the Workshop Through
+# PRD: Construct Lifecycle — construct-network-tools Pack
 
-**Cycle**: cycle-031
-**Created**: 2026-02-19
+**Cycle**: cycle-032
+**Created**: 2026-02-20
 **Status**: Draft
-**Grounded in**: ARCHETYPE.md, STRATEGIC-GAP.md (Cycle B), cycle-b-plan.md, codebase audit (5 surfaces)
-**Archetype**: The Bridgebuilder (grimoires/bridgebuilder/ARCHETYPE.md)
-**Depends on**: Cycle A (PR #130) — schema foundation complete
+**Source Issue**: [#131](https://github.com/0xHoneyJar/loa-constructs/issues/131) — Construct Lifecycle RFC
+**Grounded in**: Issue #131 (5-agent research), Gemini Deep Research, team feedback, Bridgebuilder archetype
+**Research artifacts**:
+- `grimoires/bridgebuilder/construct-lifecycle-design.md` — Synthesized 4-agent team research
+- `grimoires/bridgebuilder/gemini-construct-lifecycle-research.md` — Cross-platform DX patterns
+- `grimoires/bridgebuilder/ARCHETYPE.md` — Design philosophy
 
 ---
 
 ## 1. Problem Statement
 
-Cycle A (PR #130) added Bridgebuilder fields (`domain`, `expertise`, `golden_path`, `workflow`, `methodology`, `tier`) to the 4-layer schema stack. 41 tests pass, all schemas are in sync. The foundation is laid. But the data still doesn't flow.
+The construct lifecycle is one-directional today: author → seed/sync → DB → explorer → install. Once installed, constructs are frozen. There is no way to:
 
-Two categories of broken wiring compound into a dead-end experience:
+1. **Develop locally** with live-reload against a construct repo (no `npm link` equivalent)
+2. **Detect divergence** between installed constructs and registry versions
+3. **Push customizations** back upstream or publish as variants
+4. **Scaffold new constructs** from templates with proper structure
+5. **Upgrade safely** when local modifications exist (no 3-way merge)
 
-**1. Explorer frontend lies about construct state**
+This creates a dead end for construct authors and consumers alike. The canonical case: midi-interface evolved Observer from 6 skills (registry v1.0.2) to 23 skills locally. A registry update would destroy the 17 local additions. There is no mechanism to detect, diff, upstream, or merge.
 
-The explorer marketplace at `constructs.network` displays every construct as "stable" maturity regardless of actual state. The API sends `maturity` (line 73 of `constructs.ts`), but the frontend reads `graduation_level` (line 17 of `fetch-constructs.ts`) — a field the API doesn't send. The result: `parseGraduationLevel(undefined)` always returns `'stable'`.
+Additionally, the manifest schema only supports one construct archetype (code packs). Two other archetypes exist in the wild:
+- **Tool Packs** (The Mint, The Cartograph) — skills + Python tools + external API dependencies
+- **Knowledge Bases** (mibera-codex) — 10K+ markdown files with structured ontology
 
-Additionally, the API already serves identity data (`cognitiveFrame`, `expertiseDomains`, `voiceConfig`), owner information, rating, and long descriptions via `formatConstructDetail()` (lines 80-117 of `constructs.ts`). The explorer frontend consumes none of it. The `APIConstruct` interface (lines 6-26 of `fetch-constructs.ts`) has 20 fields — zero of the enrichment fields the API provides.
+Neither can be represented on the network today.
 
-> Evidence: `apps/explorer/lib/data/fetch-constructs.ts:17` — `graduation_level?: string` (wrong field name)
-> Evidence: `apps/explorer/lib/data/fetch-constructs.ts:61` — `parseGraduationLevel(construct.graduation_level)` → always undefined
-> Evidence: `apps/api/src/routes/constructs.ts:80-117` — `formatConstructDetail` returns identity, owner, rating, long_description
-> Evidence: `apps/explorer/lib/types/graph.ts:57-64` — `ConstructDetail` has no rating, owner, identity, or longDescription
-
-**2. Golden-path script has zero construct awareness**
-
-The golden-path.sh script (901 lines, 9-state machine) provides the `/loa`, `/plan`, `/build`, `/review`, `/ship` porcelain commands. It renders a visual journey bar. It detects workflow state. It is excellent infrastructure — but it operates exclusively at the framework level. No installed construct's `golden_path.commands` are ever read. No construct-level "you are here" exists.
-
-The `construct-workflow-read.sh` script that reads workflow gates uses `jq` (JSON parser) directly on manifest files (line 148). All installed construct manifests are `construct.yaml` — YAML format. The script silently fails, returning exit code 1 (no workflow), even if a manifest declares `workflow.gates`.
-
-> Evidence: `.claude/scripts/golden-path.sh` — 901 lines, zero references to construct manifests
-> Evidence: `.claude/scripts/construct-workflow-read.sh:148` — `jq -e '.workflow // empty' "$manifest"` on YAML files
-> Evidence: No installed pack currently has `golden_path` or `workflow` fields (schema_version 3 → 4 adoption pending)
-
-**The compounding effect**: The schema foundation from Cycle A is inert without wiring. Builders cannot see construct state in the explorer, cannot navigate construct-level journeys in the CLI, and the workflow gate enforcement pipeline silently breaks on YAML manifests. The bridge is half-built.
-
-> Source: STRATEGIC-GAP.md Cycle B ("Build The Span"), ARCHETYPE.md §5.0-5.2
+> Evidence: Issue #131 RFC with 4 research comments
+> Evidence: midi-interface Observer fork (6→23 skills, no manifest.json)
+> Evidence: hub-interface contains 3 unregistered constructs (The Easel, The Mint, The Cartograph)
+> Evidence: mibera-codex has 12,872 files with no construct type for knowledge bases
 
 ---
 
-## 2. Product Vision
+## 2. Vision
 
-**Wire the workshop through so the data flows.**
+**Every construct lifecycle operation happens through natural language.** "Link my local Observer" triggers a skill. The skill calls shell scripts. Scripts call the API. The user just talks.
 
-Cycle A built the schema. Cycle B connects the pipes. The API already serves rich data. The golden-path script already has the journey bar pattern. The workflow reader already has the validation logic. Every piece exists — they just aren't connected to each other.
+The construct-network-tools pack ships via the network itself — installable through the existing `/constructs` bootstrap. It transforms the Constructs Network from a download-only marketplace into a full bidirectional development platform.
 
-After this cycle:
-- The explorer shows real maturity levels, not hardcoded 'stable'
-- Construct detail pages display identity, owner, rating, and descriptions
-- The golden-path script discovers installed constructs' golden paths
-- Workflow gates are readable from YAML manifests
-- The infrastructure is ready for constructs to adopt schema_version 4
+### Design Principles (from Bridgebuilder archetype)
 
-The Bridgebuilder principle applies: **orient before acting.** The explorer should orient builders about what a construct actually is (identity, expertise, maturity) before they install it. The CLI should orient them about where they are (construct journey bars) after they install it.
-
-> Source: ARCHETYPE.md §2 Voice Principles, STRATEGIC-GAP.md "The Compounding Effect"
+| Principle | Application |
+|-----------|------------|
+| **Fun First, System Second** | First `construct create` produces a working construct in <2 minutes |
+| **Progressive Disclosure** | Start with link/sync, discover publish/create as you grow |
+| **Flow State is Sacred** | All operations inline in CLI — never leave the terminal |
+| **Open Beats Closed** | Multi-runtime, no gatekeepers, portable constructs |
+| **Zero-Friction Bar** | Install <10s, first use <2min, update = one command |
 
 ---
 
 ## 3. Goals & Success Metrics
 
-### Goals
+### Primary Goals
 
-| # | Goal | Measurable Outcome |
-|---|------|-------------------|
-| G1 | Explorer shows correct maturity | Constructs display their actual maturity level (experimental/beta/stable/deprecated), not hardcoded 'stable'. |
-| G2 | Explorer shows identity + enrichment | Construct detail page renders owner, rating, long description, identity indicator, and repository/homepage/documentation links. |
-| G3 | Golden-path discovers construct journeys | `golden_format_journey()` renders construct-level journey bars alongside the framework bar when installed packs declare `golden_path`. |
-| G4 | Workflow reader handles YAML | `construct-workflow-read.sh` correctly parses `.yaml` manifests via `yq-safe.sh` bridge. |
+| Goal | Metric | Target |
+|------|--------|--------|
+| G1: Enable local construct development | Time from "I want to edit Observer" to live-linked dev | < 30 seconds |
+| G2: Enable divergence detection | Can detect 17-skill fork drift in Observer | 100% accuracy |
+| G3: Enable publishing from CLI | Time from "publish my construct" to live on registry | < 2 minutes |
+| G4: Support all 3 archetypes | skill-pack, tool-pack, codex all representable | Schema + examples |
+| G5: Enable construct scaffolding | Time from "create a new construct" to git repo with manifest | < 1 minute |
+| G6: Enable safe upgrades | 3-way merge preserves local modifications | Zero data loss |
 
-### Success Criteria
+### Secondary Goals
 
-- Visiting `/constructs/observer` on the explorer shows maturity from the API, not 'stable'
-- Construct detail page renders rating, owner name, and long_description when the API provides them
-- `golden_detect_construct_journeys()` returns empty array when no packs have `golden_path` (graceful degradation)
-- `construct-workflow-read.sh construct.yaml` returns valid JSON when passed a YAML manifest with `workflow` section
-- `pnpm --filter explorer build` passes with all new interface fields
-- `bash -n` passes on all modified shell scripts
-
-### Non-Goals (Explicit)
-
-| Item | Why Not Now |
-|------|------------|
-| MoE intent routing (#119 partial) | Needs constructs to actually declare `domain` + `expertise` first. Schema exists from Cycle A, adoption is Cycle C. |
-| State detection scripts per pack | Each pack needs to ship `detect-state.sh`. That's per-repo work in construct-* repos, not loa-constructs. |
-| `/loa` aggregates construct status | Depends on G3 + state detection scripts. The discovery function (G3) is the prerequisite. |
-| Human-centered metrics table | No traffic. Meaningful after constructs are used more broadly. |
-| Pack-level analytics endpoint | Useful but independent work — doesn't block any Cycle B goal. |
-| Progressive disclosure UI in explorer | The data pipeline (this cycle) must exist before the UI can progressively disclose it. |
+| Goal | Metric | Target |
+|------|--------|--------|
+| G7: Onboard 4 unregistered constructs | Observer variant, The Easel, The Mint, mibera-codex | 4 on network |
+| G8: Reconcile schema drift | TypeScript, Zod, JSON Schema, live YAMLs all in sync | 0 drift |
+| G9: Stealth-mode .construct/ | Tooling state invisible by default | Always gitignored |
 
 ---
 
-## 4. User & Stakeholder Context
+## 4. User Stories
 
-### Primary Persona: The Maintainer-Builder (unchanged from Cycle A)
+### US-1: Local Development (Linking)
 
-**Who**: The team member who maintains construct repos AND uses those constructs on product repos.
+**As a** construct author,
+**I want to** link my local construct repo for live development,
+**So that** changes I make are immediately available without reinstalling.
 
-**What changes for them after this cycle**:
-- When they browse `constructs.network/constructs/observer`, they see actual maturity, owner, rating — not blank/default values
-- When they extend `golden-path.sh` in their project, they can wire construct journey bars
-- When they add `workflow` to a construct.yaml, `construct-workflow-read.sh` actually reads it
+**Acceptance Criteria**:
+- [ ] `constructs-link.sh <path>` creates symlink and preserves shadow copy
+- [ ] Registry version preserved in `.construct/shadow/<slug>/`
+- [ ] `constructs-link.sh --unlink <slug>` restores registry version
+- [ ] `.construct/state.json` tracks all link metadata
+- [ ] Linked construct skills are immediately discoverable by runtime
 
-### Secondary Persona: The Explorer Visitor
+### US-2: Divergence Detection (Syncing)
 
-**Who**: Anyone browsing `constructs.network` to evaluate whether constructs are useful.
+**As a** construct consumer who has customized an installed construct,
+**I want to** see what's different between my local version and the registry,
+**So that** I can decide whether to upstream, fork, or merge.
 
-**What changes for them**: Construct detail pages become informative instead of skeletal. Identity, owner, maturity, and links give a complete picture of what a construct is and who maintains it.
+**Acceptance Criteria**:
+- [ ] `constructs-diff.sh <slug>` compares local vs shadow via Merkle hashing
+- [ ] Root hash comparison is O(1) for unchanged constructs
+- [ ] File-level diff shows added/modified/deleted with skill-level summary
+- [ ] User presented with choices: upstream, maintain as variant, discard, ignore
+- [ ] JSON output mode (`--json`) for script consumption
 
-> Source: ARCHETYPE.md §5.3 Explorer Marketplace
+### US-3: Publishing
+
+**As a** construct author,
+**I want to** publish my construct to the registry,
+**So that** others can install and use it.
+
+**Acceptance Criteria**:
+- [ ] `constructs-publish.sh --validate` checks manifest, capabilities, event schemas
+- [ ] `constructs-publish.sh --push` packages and publishes to registry API
+- [ ] Permission check: maintainers can upstream directly, others offered fork
+- [ ] Fork publishing creates scoped variant (`@scope/name`)
+- [ ] Version bump prompt (patch/minor/major) with confirmation
+- [ ] `--dry-run` flag shows what would be published without pushing
+
+### US-4: Scaffolding (Creating)
+
+**As a** new construct author,
+**I want to** scaffold a construct from a template,
+**So that** I start with the correct structure and stealth-mode defaults.
+
+**Acceptance Criteria**:
+- [ ] `constructs-create.sh --name X --type Y` scaffolds complete construct
+- [ ] Supports 3 types: skill-pack, tool-pack, codex
+- [ ] Generates `construct.yaml` manifest with correct type-specific fields
+- [ ] `.gitignore` includes stealth-mode defaults (`.construct/`, `.ck/`, `.beads/`)
+- [ ] Optional starter skill with index.yaml + SKILL.md templates
+- [ ] Git repo initialized with initial commit
+- [ ] `--init` mode for adding construct to existing directory
+
+### US-5: Safe Upgrades
+
+**As a** construct consumer with local modifications,
+**I want to** upgrade to the latest registry version without losing my changes,
+**So that** I get improvements while keeping my customizations.
+
+**Acceptance Criteria**:
+- [ ] `constructs-install.sh upgrade <slug>` performs 3-way merge
+- [ ] Base = shadow (what was installed), Local = current, Remote = new version
+- [ ] Auto-merge for non-conflicting changes (only-local, only-remote, both-compatible)
+- [ ] Conflicts presented individually with keep-local/accept-remote/manual options
+- [ ] Shadow copy updated to new version after successful upgrade
+- [ ] `--check` flag shows available updates without installing
+
+### US-6: Multi-Archetype Schema
+
+**As a** construct author building a tool pack or knowledge base,
+**I want to** declare my construct's type, runtime requirements, and access layer,
+**So that** the registry and runtime handle my construct correctly.
+
+**Acceptance Criteria**:
+- [ ] `type` field: `'skill-pack' | 'tool-pack' | 'codex' | 'template'`
+- [ ] `runtime_requirements` field: runtime version, pip/npm deps, external tools
+- [ ] `credentials` field: declare required env vars without storing values
+- [ ] `access_layer` field: MCP server config for codex-type constructs
+- [ ] `paths` field: logical aliases (`@state/`, `@cache/`, `@output/`)
+- [ ] `portability_score` field: 0.0-1.0 reusability indicator
+- [ ] All new fields optional — existing manifests unchanged
 
 ---
 
 ## 5. Functional Requirements
 
-### FR-1: Fix maturity field mismatch (G1)
+### FR-1: Manifest v2 Schema Extension
 
-**Priority**: P0 — this is a live bug on constructs.network
+Add 7 new optional fields to PackManifest across 3 schema layers (TypeScript, Zod, JSON Schema):
 
-**Files**:
-- `apps/explorer/lib/data/fetch-constructs.ts` — `APIConstruct` interface (line 17), `transformToNode` (line 61)
+| Field | Type | Default | Purpose |
+|-------|------|---------|---------|
+| `type` | enum | `'skill-pack'` | Archetype declaration |
+| `runtime_requirements` | object | — | OS/system dependencies |
+| `paths` | object | — | Logical path aliases |
+| `credentials` | array | — | Declare-don't-store env vars |
+| `access_layer` | object | — | MCP/filesystem/API access for codex |
+| `portability_score` | number | — | 0.0-1.0 reusability |
+| `identity` / `hooks` / `pack_dependencies` | various | — | Reconcile existing drift |
 
-**Changes**:
-1. Rename `graduation_level?: string` → `maturity?: string` in `APIConstruct` interface
-2. Change `construct.graduation_level` → `construct.maturity` in `transformToNode`
+**Naming rationale**: `runtime_requirements` (not `capabilities`) avoids collision with per-skill capabilities stanza (model_tier, danger_level).
 
-**Acceptance criteria**:
-- `parseGraduationLevel()` receives the API's actual `maturity` value
-- Constructs with `maturity: 'experimental'` display as experimental, not stable
-- No other files reference `graduation_level` (search and replace)
+**Schema version strategy**: Do NOT bump `schema_version` to 4. All additions are optional and additive. Bump only for breaking changes.
 
-> Source: `apps/api/src/routes/constructs.ts:73` — API sends `maturity: c.maturity`
+> Source: schema-architect research, packages/shared/src/types.ts:219, packages/shared/src/validation.ts:261
 
-### FR-2: Extend explorer to consume enrichment data (G2)
+### FR-2: .construct/ Shadow Directory
 
-**Priority**: P0 — the API serves this data today, the frontend wastes it
+Every project using constructs gets a `.construct/` directory (always gitignored):
 
-**Files**:
-- `apps/explorer/lib/data/fetch-constructs.ts` — `APIConstruct`, `transformToNode`, `transformToDetail`
-- `apps/explorer/lib/types/graph.ts` — `ConstructNode`, `ConstructDetail`
-
-**Changes to `APIConstruct`** (add optional fields matching API response shape):
-```typescript
-rating?: number | null;
-long_description?: string | null;
-owner?: {
-  name: string;
-  type: 'user' | 'team';
-  avatar_url: string | null;
-} | null;
-has_identity?: boolean;
-identity?: {
-  cognitive_frame: unknown;
-  expertise_domains: unknown;
-  voice_config: unknown;
-  model_preferences: unknown;
-} | null;
-repository_url?: string | null;
-homepage_url?: string | null;
-documentation_url?: string | null;
+```
+.construct/
+├── state.json              # Links, shadow metadata, timestamps
+├── shadow/                 # Pristine registry copies for diffing
+│   └── <slug>/
+│       ├── .hash           # Merkle root hash
+│       └── skills/...      # Full extracted copy
+├── links/                  # Symlinks to local dev repos
+│   └── <slug> -> /abs/path/
+└── cache/                  # Computed data (safe to delete)
 ```
 
-**Changes to `ConstructNode`** (add rating for catalog cards):
-```typescript
-rating?: number | null;
+**state.json schema**:
+```json
+{
+  "schema_version": 1,
+  "links": {
+    "<slug>": { "path": "/abs/path", "linked_at": "...", "last_checked": "..." }
+  },
+  "shadow": {
+    "<slug>": { "version": "1.0.2", "root_hash": "sha256:...", "file_count": 42 }
+  },
+  "last_updated": "..."
+}
 ```
 
-**Changes to `ConstructDetail`** (add all enrichment fields):
-```typescript
-longDescription?: string | null;
-owner?: { name: string; type: 'user' | 'team'; avatarUrl: string | null } | null;
-hasIdentity?: boolean;
-identity?: {
-  cognitiveFrame: unknown;
-  expertiseDomains: unknown;
-  voiceConfig: unknown;
-  modelPreferences: unknown;
-} | null;
-repositoryUrl?: string | null;
-homepageUrl?: string | null;
-documentationUrl?: string | null;
+> Source: infra-planner research, Gemini research (Roblox PackageLink, Vercel .vercel/)
+
+### FR-3: Shell Scripts (4 new)
+
+| Script | Purpose | Exit Codes |
+|--------|---------|-----------|
+| `constructs-link.sh` | Link/unlink/list/status | 0=ok, 1=validation, 2=exists, 3=not-found |
+| `constructs-diff.sh` | Merkle hash divergence detection | 0=same, 1=diverged, 2=not-found, 3=no-shadow |
+| `constructs-publish.sh` | Validate/push/dry-run/fork | 0=ok, 1=validation, 2=auth, 3=permission, 4=network, 5=conflict |
+| `constructs-create.sh` | Scaffold from template | 0=ok, 1=validation, 2=template-fail, 3=dir-exists |
+
+All scripts source `constructs-lib.sh` for security (path traversal protection, input validation, TLS enforcement).
+
+> Source: infra-planner research, existing constructs-install.sh patterns
+
+### FR-4: API Endpoints (5 new)
+
+| Endpoint | Method | Purpose | Auth |
+|----------|--------|---------|------|
+| `/v1/packs/:slug/hash` | GET | Merkle root hash for O(1) divergence check | Optional |
+| `/v1/packs/fork` | POST | Create scoped fork | Required |
+| `/v1/constructs/register` | POST | Reserve construct slug | Required |
+| `/v1/webhooks/configure` | POST | Webhook setup instructions | Required |
+| `/v1/packs/:slug/permissions` | GET | Check maintainer status | Required |
+
+> Source: infra-planner research, apps/api/src/routes/packs.ts
+
+### FR-5: Lifecycle Skills (5 new)
+
+| Skill | Danger Level | Pattern |
+|-------|-------------|---------|
+| `linking-constructs` | moderate | Symlink + shadow preservation |
+| `syncing-constructs` | moderate | Merkle hash → upstream/variant/discard/ignore |
+| `publishing-constructs` | **high** | Validate → permission → version → confirm → push |
+| `creating-constructs` | safe | Template scaffold + type wizard |
+| `upgrading-constructs` | moderate | 3-way merge with conflict resolution |
+
+Each skill has SKILL.md (200-400 lines) + index.yaml with capabilities stanza. All follow the browsing-constructs pattern: AskUserQuestion interactions, error handling tables, Three-Zone compliance.
+
+> Source: skill-designer research, .claude/skills/browsing-constructs/
+
+### FR-6: Pack Structure
+
+```
+construct-network-tools/
+├── construct.yaml              # Pack manifest
+├── skills/
+│   ├── browsing-constructs/    # MOVE from Loa core
+│   ├── finding-constructs/     # EXISTS in loa-constructs
+│   ├── linking-constructs/     # NEW
+│   ├── syncing-constructs/     # NEW
+│   ├── publishing-constructs/  # NEW
+│   ├── creating-constructs/    # NEW
+│   └── upgrading-constructs/   # NEW
+├── commands/                   # Slash command routing
+└── scripts/                    # Shell scripts (existing + 4 new)
 ```
 
-**Changes to transform functions**:
-- `transformToNode`: pass through `rating`
-- `transformToDetail`: map snake_case API fields → camelCase frontend fields
-
-**Acceptance criteria**:
-- All new fields are optional (null-safe)
-- `transformToDetail` correctly maps `long_description` → `longDescription`, `owner.avatar_url` → `owner.avatarUrl`, etc.
-- Types compile with `pnpm --filter explorer build`
-
-> Source: `apps/api/src/routes/constructs.ts:80-117` — `formatConstructDetail` response shape
-
-### FR-3: Render enrichment data on construct detail page (G2)
-
-**Priority**: P1 — UI rendering of the wired data
-
-**File**: `apps/explorer/app/(marketing)/constructs/[slug]/page.tsx`
-
-**Changes** (following existing design patterns in the file):
-1. **Owner**: Show owner name near the header badges (after version + type). Use existing badge pattern: `<span className="border border-white/20 px-2 py-0.5 text-[10px] font-mono text-white/60">`
-2. **Rating**: Add to the 4-column info grid (line 79-96). Display as a number or star indicator alongside downloads.
-3. **Long description**: Render below the short description (after line 75) if present. Same `text-sm font-mono text-white/60` style.
-4. **Identity indicator**: If `hasIdentity` is true, show a small badge near the construct type (e.g., "Expert Identity" badge).
-5. **Repository/Homepage/Documentation links**: Add to the Links section (lines 156-179), following the existing "View Source on GitHub" pattern (lines 163-171). Conditional rendering when URL is present.
-
-**Acceptance criteria**:
-- All new sections gracefully handle null/undefined values (don't render if absent)
-- Visual style matches existing page (monospace font, white/60 secondary text, border border-white/10 cards)
-- Links open in new tab with `rel="noopener noreferrer"`
-- No layout breakage when all fields are null (existing behavior preserved)
-
-### FR-4: Fix construct-workflow-read.sh YAML parsing (G4)
-
-**Priority**: P0 — the script silently fails on all real manifests
-
-**File**: `.claude/scripts/construct-workflow-read.sh`
-
-**Changes**:
-1. Source `yq-safe.sh` at the top (after line 13)
-2. In `main()` (line 142-148): detect `.yaml`/`.yml` file extension. If YAML, use `safe_yq_to_json()` to convert to JSON, then pipe to existing `jq` logic.
-3. All downstream validation (`validate_workflow`, `query_gate`) stays `jq`-based — minimal change.
-
-**Acceptance criteria**:
-- `construct-workflow-read.sh manifest.yaml` returns valid JSON when manifest has `workflow` section
-- `construct-workflow-read.sh manifest.yaml --gate prd` returns gate value
-- `construct-workflow-read.sh manifest.json` still works (backward compat)
-- `bash -n construct-workflow-read.sh` passes
-
-> Source: `.claude/scripts/yq-safe.sh:221` — `safe_yq_to_json()` utility
-
-### FR-5: Add construct journey discovery to golden-path.sh (G3)
-
-**Priority**: P1 — enables construct-level "you are here" (next cycle wires it to `/loa`)
-
-**File**: `.claude/scripts/golden-path.sh`
-
-**Changes**:
-1. Source `yq-safe.sh` (after line 26, alongside `bootstrap.sh`)
-2. New function `golden_detect_construct_journeys()`:
-   - Scans `.claude/constructs/packs/*/construct.yaml` for `golden_path.commands`
-   - Uses `safe_yq_to_json()` to parse YAML
-   - Returns formatted journey bars: `"Observer: /listen ──── /see ──── /think ──── /shape"`
-   - Returns empty when no packs have `golden_path` (graceful no-op)
-3. Modify `golden_format_journey()` (line 267): after rendering the standard framework bar, append construct journey bars if any exist.
-4. Extend `golden_menu_options()` to include a construct commands entry when constructs with `golden_path` are installed.
-
-**Acceptance criteria**:
-- `golden_detect_construct_journeys` returns empty string when `.claude/constructs/packs/` doesn't exist
-- `golden_detect_construct_journeys` returns empty string when installed packs lack `golden_path`
-- `golden_detect_construct_journeys` returns formatted bar when a pack has `golden_path.commands`
-- `golden_format_journey` output includes construct bars below the framework bar (additive, not replacing)
-- `bash -n golden-path.sh` passes
+**Bootstrap strategy**: Core `browsing-constructs` stays in Loa as bootstrap seed. Full `construct-network-tools` pack is installable via `/constructs install construct-network-tools`.
 
 ---
 
-## 6. Scope & Prioritization
+## 6. Technical Requirements
 
-### In Scope (This Cycle)
+### TR-1: Schema Layers Must Stay In Sync
 
-| Sprint | Items | Effort |
-|--------|-------|--------|
-| Sprint 1 | FR-1 (maturity fix), FR-2 (APIConstruct + types), FR-3 (detail page UI) | Medium — frontend types + UI |
-| Sprint 2 | FR-4 (YAML parsing fix), FR-5 (golden-path construct discovery) | Medium — shell scripting |
+Three layers must be updated atomically:
+1. TypeScript interface (`packages/shared/src/types.ts`)
+2. Zod schema (`packages/shared/src/validation.ts`)
+3. JSON Schema (`schemas/pack-manifest.schema.json`, `schemas/construct.schema.json`)
 
-### Out of Scope
+CI validation (`scripts/validate-topology.sh`) must verify sync.
 
-| Item | Why | When |
-|------|-----|------|
-| State detection scripts per pack | Per-repo work in construct-* repos | After Cycle B, per-pack PRs |
-| `/loa` aggregates construct journeys | Depends on packs shipping golden_path + detect_state | Cycle C |
-| Construct-level "next suggested" | Needs state detection + journey aggregation | Cycle C |
-| Pack-level analytics endpoint | Independent work, not on critical path | Cycle C or standalone |
-| Observer friction points 1-2 | Network-level changes that need separate design | Cycle C |
-| MoE intent routing | Needs constructs to declare domain fields | Cycle C |
+### TR-2: Backward Compatibility
 
----
+- All new manifest fields optional
+- No `schema_version` bump
+- Existing manifests pass validation without modification
+- `.passthrough()` on Zod already handles unknown fields
 
-## 7. Risks & Dependencies
+### TR-3: Security
 
-| Risk | Impact | Mitigation |
-|------|--------|-----------|
-| No packs at schema_version 4 yet | FR-5 construct journey discovery will find zero matches until packs adopt | By design — code is ready, data arrives when construct-* repos bump to v4. VERSION-BUMP.md documents the process. |
-| API backward compatibility | Explorer changes consume more fields | All new fields are optional. API already serves them. No API changes needed. |
-| `yq` availability | FR-4 depends on yq being installed | `yq-safe.sh` already handles both mikefarah/yq and Python yq variants. It's a standard dependency (sourced by `constructs-loader.sh`). |
-| Pre-existing API DTS build error | `crypto` type missing in `api/app.ts:172` | Pre-existing issue, not caused by our changes. ESM build succeeds; only DTS generation fails. |
-| Explorer build instability | Next.js 15 build can be sensitive to type changes | Incremental changes with build verification after each sprint. |
+- All scripts source `constructs-lib.sh` (path traversal, TLS, input validation)
+- `.construct/` always gitignored (prevents credential/state leaks)
+- Publishing requires authentication (`requireAuth()` middleware)
+- Rate limiting: publish 10/hour, register 5/24h
+- Fork creation requires email verification
+- No post-install script execution (Deno-style consent model)
 
----
+### TR-4: Performance
 
-## 8. Key Files
-
-| File | Purpose | Changes |
-|------|---------|---------|
-| `apps/explorer/lib/data/fetch-constructs.ts` | Data pipeline: API → frontend | Fix maturity, add enrichment fields, update transforms |
-| `apps/explorer/lib/types/graph.ts` | TypeScript interfaces | Extend ConstructNode + ConstructDetail |
-| `apps/explorer/app/(marketing)/constructs/[slug]/page.tsx` | Detail page UI | Render owner, rating, long_description, identity, links |
-| `.claude/scripts/construct-workflow-read.sh` | Workflow gate reader | Add YAML→JSON bridge via yq-safe.sh |
-| `.claude/scripts/golden-path.sh` | Golden path state machine | Add construct journey discovery + rendering |
-| `.claude/scripts/yq-safe.sh` | YAML parsing utility | Reuse existing `safe_yq_to_json()` — no changes needed |
+- Merkle root hash comparison: O(1) for unchanged constructs
+- Full file diff: O(n) for changed constructs (n = file count)
+- Shadow copy enables offline diffing (no network needed for local comparison)
+- Scaffold creation: <5 seconds (local template, no network)
 
 ---
 
-## 9. Verification Plan
+## 7. Scope
 
-1. **Explorer build**: `pnpm --filter explorer build` — type-checks all frontend changes
-2. **Script syntax**: `bash -n .claude/scripts/construct-workflow-read.sh` + `bash -n .claude/scripts/golden-path.sh`
-3. **Manual verification**: Visit construct detail page, confirm maturity/rating/owner render correctly
-4. **Regression**: Existing golden-path framework bar unchanged when no constructs have golden_path
-5. **YAML parsing**: Pass a sample `construct.yaml` with workflow section to `construct-workflow-read.sh`, verify JSON output
+### In Scope (MVP)
+
+- Manifest v2 schema extension (7 new fields)
+- Schema drift reconciliation (identity, hooks, pack_dependencies)
+- `.construct/` directory structure + state.json
+- 4 new shell scripts (link, diff, publish, create)
+- 5 new API endpoints (hash, fork, register, webhooks/configure, permissions)
+- 5 new lifecycle skills (link, sync, publish, create, upgrade)
+- construct-network-tools pack structure
+- Migration plan for 4 unregistered constructs
+
+### Out of Scope (Future)
+
+- Explorer UI changes for multi-archetype display
+- MCP server implementation for mibera-codex (design only this cycle)
+- Automated portability score computation
+- Cross-construct event bus runtime
+- Webhook auto-configuration via GitHub API (provide instructions only)
+- Version pinning / lock files
+- Construct dependency resolution (beyond manifest declaration)
+- Vendoring mode (committed tarballs for offline use)
+
+---
+
+## 8. Risks & Mitigations
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|-----------|
+| Schema drift re-introduced by future cycles | Medium | High | CI validation check, 3-layer sync test |
+| Symlink behavior differs across OS (macOS vs Linux) | Low | Medium | Test on both, document OS-specific behavior |
+| 3-way merge produces incorrect results | Medium | High | Conservative: only auto-merge when safe, prompt user for all ambiguous cases |
+| Merkle hash nondeterminism (encoding, line endings) | Low | Medium | Normalize files before hashing, document encoding requirements |
+| Bootstrap chicken-and-egg (construct-network-tools installs itself) | Low | Low | `browsing-constructs` stays in Loa core as seed |
+| Fork name squatting | Medium | Low | Rate limiting (5 registrations/24h), email verification required |
+
+---
+
+## 9. Dependencies
+
+### Internal Dependencies
+
+| Dependency | Status | Impact |
+|-----------|--------|--------|
+| Cycle A/B schema foundation (PR #130) | Merged | Bridgebuilder fields already in schema |
+| `constructs-lib.sh` security helpers | Exists | Shared library for all new scripts |
+| `constructs-install.sh` existing patterns | Exists | Extend with `upgrade` subcommand |
+| `constructs-browse.sh` / `constructs-auth.sh` | Exists | Reused by new skills |
+| `validate-topology.sh` CI check | Exists | Must validate new schema fields |
+
+### External Dependencies
+
+| Dependency | Status | Impact |
+|-----------|--------|--------|
+| `construct-template` repo | Exists (GitHub) | Clone target for `constructs-create.sh` |
+| `yq` v4+ (YAML processing) | Required on dev machines | Used by publish validation |
+| `jq` (JSON processing) | Required on dev machines | Used by all new scripts |
+| `shasum` (hash computation) | Available on macOS/Linux | Used by Merkle hash computation |
+
+---
+
+## 10. Migration Plan (4 Constructs)
+
+### Phase 1: Immediate (no schema v2 blockers)
+
+| Construct | Archetype | Skills | Effort | Key Action |
+|-----------|-----------|--------|--------|-----------|
+| Observer (midi-interface) | skill-pack variant | 23 | Small | Register @thj/observer, add 7 missing index.yaml |
+| The Easel (hub-interface) | skill-pack | 4 | Small | Extract to construct-the-easel repo |
+
+### Phase 2: After schema v2 lands
+
+| Construct | Archetype | Skills | Effort | Key Action |
+|-----------|-----------|--------|--------|-----------|
+| The Mint (hub-interface) | tool-pack | 4 + Python | Medium | First tool-pack, declare runtime/credentials |
+| Observer upstream | skill-pack | 8 generic | Medium | PR 8 skills to construct-observer v1.1.0 |
+
+### Phase 3: After MCP patterns defined
+
+| Construct | Archetype | Files | Effort | Key Action |
+|-----------|-----------|-------|--------|-----------|
+| mibera-codex | codex | 12,872 | Large | Build MCP server (18 tools), first codex |
+
+### Deferred: The Cartograph
+4 skills (mostly stubs), requires Blender 4.x. Not ready for migration.
+
+> Source: migration-planner research across midi-interface, hub-interface, mibera-codex repos
+
+---
+
+## 11. Open Questions
+
+| # | Question | Options | Recommendation |
+|---|----------|---------|----------------|
+| OQ-1 | Scoped naming format? | `@scope/name` vs flat `scope-name` | Flat slugs (`thj-observer`) for MVP — avoids registry complexity. Scoped display in UI. |
+| OQ-2 | Webhook auto-configuration? | Direct GitHub API calls vs instructions-only | Instructions-only for MVP — provide URL + secret, user configures manually. |
+| OQ-3 | MCP server hosting model? | Local stdio vs remote sse | Local stdio for MVP — simplest, no infra needed. Remote sse as future option. |
+| OQ-4 | Portability score source? | Author-declared vs auto-computed | Author-declared with auto-computed suggestion. Override always wins. |
+| OQ-5 | Variant lifecycle tracking? | `variant_of` manifest field vs registry metadata | Registry metadata (DB-level) — manifest shouldn't reference other manifests. |
+
+---
+
+## 12. Proposed Sprint Sequence
+
+| Sprint | Label | Deliverables |
+|--------|-------|-------------|
+| Sprint 1 | Schema + .construct/ Foundation | Manifest v2 fields (TS + Zod + JSON Schema), schema drift reconciliation, .construct/ directory + state.json, constructs-link.sh, linking-constructs skill |
+| Sprint 2 | Divergence Detection + Publishing | constructs-diff.sh, constructs-publish.sh, 3 API endpoints (hash, fork, permissions), syncing-constructs + publishing-constructs skills |
+| Sprint 3 | Scaffold + Upgrade | constructs-create.sh, constructs-install.sh upgrade, 2 API endpoints (register, webhooks/configure), creating-constructs + upgrading-constructs skills |
+| Sprint 4 | Migration Wave 1 | @thj/observer variant registration, construct-the-easel extraction, construct-network-tools pack manifest |
+| Sprint 5 | Migration Wave 2 | construct-the-mint extraction (first tool-pack), Observer generic skill upstream, mibera-codex MCP server design |
+
+---
+
+## Next Step
+
+`/architect` — Software Design Document covering manifest schema v2, .construct/ directory, shell scripts, API endpoints, skill-to-script wiring, Merkle-tree divergence detection.

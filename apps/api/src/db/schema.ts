@@ -574,6 +574,9 @@ export const packVersions = pgTable(
     totalSizeBytes: integer('total_size_bytes').default(0),
     fileCount: integer('file_count').default(0),
 
+    // Divergence detection (cycle-032)
+    contentHash: text('content_hash'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({

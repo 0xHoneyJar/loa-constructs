@@ -59,7 +59,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "enum": ["free", "subscription", "one-time"],
+          "enum": ["free", "subscription", "one_time"],
           "description": "Pricing model"
         },
         "tier": {
@@ -238,6 +238,167 @@
       "type": "string",
       "enum": ["L1", "L2", "L3"],
       "description": "Construct capability tier (#128)"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["skill-pack", "tool-pack", "codex", "template"],
+      "description": "Construct archetype — determines scaffold template and validation rules"
+    },
+    "runtime_requirements": {
+      "type": "object",
+      "properties": {
+        "runtime": { "type": "string", "maxLength": 50 },
+        "dependencies": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "external_tools": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 100 },
+          "maxItems": 20
+        }
+      },
+      "additionalProperties": false,
+      "description": "Runtime environment requirements for tool-pack and codex types"
+    },
+    "paths": {
+      "type": "object",
+      "properties": {
+        "state": { "type": "string", "maxLength": 500 },
+        "cache": { "type": "string", "maxLength": 500 },
+        "output": { "type": "string", "maxLength": 500 }
+      },
+      "additionalProperties": false,
+      "description": "Configurable state/cache/output directory paths"
+    },
+    "credentials": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description"],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "description": "Credential name in UPPER_SNAKE_CASE"
+          },
+          "description": { "type": "string", "maxLength": 500 },
+          "sensitive": { "type": "boolean", "default": true },
+          "optional": { "type": "boolean", "default": false }
+        },
+        "additionalProperties": false
+      },
+      "maxItems": 20,
+      "description": "Required credentials with metadata for setup guidance"
+    },
+    "access_layer": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": { "type": "string", "enum": ["mcp", "file", "api"] },
+        "entrypoint": { "type": "string", "maxLength": 500 },
+        "transport": { "type": "string", "enum": ["stdio", "sse", "http"] }
+      },
+      "additionalProperties": false,
+      "description": "Access layer configuration for codex-type constructs"
+    },
+    "portability_score": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Portability score (0.0–1.0) indicating environment independence"
+    },
+    "identity": {
+      "type": "object",
+      "properties": {
+        "persona": { "type": "string", "description": "Path to persona file" },
+        "expertise": { "type": "string", "description": "Path to expertise file" }
+      },
+      "additionalProperties": false,
+      "description": "Expert identity layer — persona and expertise paths"
+    },
+    "hooks": {
+      "type": "object",
+      "properties": {
+        "post_install": { "type": "string", "description": "Script to run after installation" },
+        "post_update": { "type": "string", "description": "Script to run after update" }
+      },
+      "additionalProperties": false,
+      "description": "Lifecycle hooks"
+    },
+    "long_description": {
+      "type": "string",
+      "maxLength": 10000,
+      "description": "Extended pack description"
+    },
+    "repository": {
+      "type": "string",
+      "format": "uri",
+      "description": "Repository URL"
+    },
+    "homepage": {
+      "type": "string",
+      "format": "uri",
+      "description": "Homepage URL"
+    },
+    "documentation": {
+      "type": "string",
+      "format": "uri",
+      "description": "Documentation URL"
+    },
+    "keywords": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 50 },
+      "maxItems": 20,
+      "description": "Searchable keywords"
+    },
+    "engines": {
+      "type": "object",
+      "properties": {
+        "loa": { "type": "string" },
+        "node": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Engine compatibility constraints"
+    },
+    "claude_instructions": {
+      "type": "string",
+      "maxLength": 500,
+      "pattern": "\\.md$",
+      "description": "Path to CLAUDE.md instruction fragment"
+    },
+    "mcp_dependencies": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["reason"],
+        "properties": {
+          "required": { "type": "boolean", "default": false },
+          "required_scopes": { "type": "array", "items": { "type": "string" } },
+          "reason": { "type": "string", "maxLength": 200 },
+          "fallback": { "type": "string", "maxLength": 300 }
+        },
+        "additionalProperties": false
+      },
+      "description": "MCP servers this pack consumes"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Manifest schema version"
+    },
+    "protocols": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "path"],
+        "properties": {
+          "name": { "type": "string" },
+          "path": { "type": "string" }
+        },
+        "additionalProperties": false
+      },
+      "description": "Protocols provided by this pack"
     }
   },
   "additionalProperties": false,

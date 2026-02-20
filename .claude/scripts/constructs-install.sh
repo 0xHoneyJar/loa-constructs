@@ -531,6 +531,11 @@ do_install_pack() {
 
                 update_pack_meta "$pack_slug" "$pack_dir" "git" "$git_url" "$git_ref"
 
+                # Preserve shadow for divergence detection (cycle-032)
+                if [[ ! -L "$pack_dir" ]]; then
+                    preserve_shadow "$pack_slug" "$pack_dir" 2>/dev/null || true
+                fi
+
                 echo ""
                 print_success "Pack '$pack_slug' installed via git clone!"
 
@@ -715,6 +720,11 @@ PYEOF
 
     # Update registry meta
     update_pack_meta "$pack_slug" "$pack_dir"
+
+    # Preserve shadow for divergence detection (cycle-032)
+    if [[ ! -L "$pack_dir" ]]; then
+        preserve_shadow "$pack_slug" "$pack_dir" 2>/dev/null || true
+    fi
 
     echo ""
     print_success "Pack '$pack_slug' installed successfully!"
@@ -1328,6 +1338,200 @@ do_uninstall_skill() {
 }
 
 # =============================================================================
+# Upgrade
+# =============================================================================
+
+# Upgrade a pack to the latest version using 3-way merge
+# Base = shadow (pristine copy from last install)
+# Local = current installation (may have user modifications)
+# Remote = new version from registry
+# Args:
+#   $1 - Pack slug
+#   $2 - Optional flags (--check)
+do_upgrade_pack() {
+    local pack_slug="$1"
+    local check_only="${2:-}"
+    local pack_dir
+    pack_dir="$(get_packs_dir)/$pack_slug"
+
+    validate_safe_identifier "$pack_slug"
+
+    # Verify pack is installed
+    if [[ ! -d "$pack_dir" ]]; then
+        print_error "ERROR: Pack '$pack_slug' is not installed"
+        return $EXIT_NOT_FOUND
+    fi
+
+    # Skip linked constructs
+    if [[ -L "$pack_dir" ]]; then
+        print_warning "Pack '$pack_slug' is linked — use /construct-sync instead"
+        return $EXIT_ERROR
+    fi
+
+    print_status "$icon_valid" "Checking for updates: $pack_slug"
+
+    # Get current installed version from meta
+    local meta_path
+    meta_path=$(get_registry_meta_path)
+    local current_version="unknown"
+    if [[ -f "$meta_path" ]]; then
+        current_version=$(jq -r ".installed_packs[\"$pack_slug\"].version // \"unknown\"" "$meta_path" 2>/dev/null || echo "unknown")
+    fi
+
+    # Get latest version from registry
+    local api_key registry_url
+    api_key=$(get_api_key)
+    registry_url=$(get_registry_url)
+
+    if [[ -z "$api_key" ]]; then
+        print_error "ERROR: No API key found"
+        return $EXIT_AUTH_ERROR
+    fi
+
+    local latest_version=""
+    local version_info
+    version_info=$(curl -s --proto =https --tlsv1.2 --max-time 30 \
+        -H "Authorization: Bearer $api_key" \
+        "$registry_url/packs/$pack_slug" 2>/dev/null || echo "")
+
+    if [[ -n "$version_info" ]]; then
+        latest_version=$(echo "$version_info" | jq -r '.data.latest_version.version // ""' 2>/dev/null || echo "")
+    fi
+
+    if [[ -z "$latest_version" ]]; then
+        print_error "ERROR: Could not fetch latest version from registry"
+        return $EXIT_NETWORK_ERROR
+    fi
+
+    echo "  Installed: $current_version"
+    echo "  Latest:    $latest_version"
+
+    if [[ "$current_version" == "$latest_version" ]]; then
+        print_success "Already up to date"
+        return $EXIT_SUCCESS
+    fi
+
+    if [[ "$check_only" == "--check" ]]; then
+        echo ""
+        echo "Update available: $current_version → $latest_version"
+        return $EXIT_SUCCESS
+    fi
+
+    echo ""
+    echo "Upgrading $pack_slug: $current_version → $latest_version"
+
+    # Phase 1: Backup current installation
+    local backup_dir="${pack_dir}.upgrade-backup"
+    cp -r "$pack_dir" "$backup_dir"
+
+    # Phase 2: Get shadow (base version) for 3-way merge
+    local construct_dir
+    construct_dir=$(get_construct_dir)
+    local shadow_dir="$construct_dir/shadow/$pack_slug"
+
+    local has_shadow=false
+    if [[ -d "$shadow_dir" ]]; then
+        has_shadow=true
+    fi
+
+    # Phase 3: Download new version to temp
+    local tmp_new
+    tmp_new=$(mktemp -d) || { print_error "mktemp failed"; return 1; }
+
+    echo "  Downloading new version..."
+    if ! do_install_pack "$pack_slug" 2>/dev/null; then
+        # Restore backup on failure
+        rm -rf "$pack_dir"
+        mv "$backup_dir" "$pack_dir"
+        rm -rf "$tmp_new"
+        print_error "ERROR: Failed to download new version"
+        return $EXIT_NETWORK_ERROR
+    fi
+
+    # The install overwrote pack_dir — move it to tmp and restore backup
+    mv "$pack_dir" "$tmp_new/new"
+    mv "$backup_dir" "$pack_dir"
+
+    # Phase 4: 3-way merge
+    local merged=0
+    local conflicts=0
+    local auto_updated=0
+
+    if [[ "$has_shadow" == true ]]; then
+        echo "  Performing 3-way merge (shadow=base, current=local, new=remote)..."
+
+        # For each file in the new version
+        while IFS= read -r -d '' new_file; do
+            local rel_path="${new_file#$tmp_new/new/}"
+            local local_file="$pack_dir/$rel_path"
+            local base_file="$shadow_dir/$rel_path"
+
+            if [[ -d "$new_file" ]]; then
+                mkdir -p "$local_file"
+                continue
+            fi
+
+            if [[ ! -f "$local_file" ]]; then
+                # New file from upstream — add it
+                mkdir -p "$(dirname "$local_file")"
+                cp "$new_file" "$local_file"
+                auto_updated=$((auto_updated + 1))
+            elif [[ ! -f "$base_file" ]]; then
+                # No base — can't 3-way merge, keep local
+                conflicts=$((conflicts + 1))
+            else
+                # All three exist — check if local was modified
+                local base_hash local_hash new_hash
+                base_hash=$(compute_file_sha256 "$base_file")
+                local_hash=$(compute_file_sha256 "$local_file")
+                new_hash=$(compute_file_sha256 "$new_file")
+
+                if [[ "$local_hash" == "$base_hash" ]]; then
+                    # Local unchanged — accept remote
+                    cp "$new_file" "$local_file"
+                    auto_updated=$((auto_updated + 1))
+                elif [[ "$new_hash" == "$base_hash" ]]; then
+                    # Remote unchanged — keep local
+                    merged=$((merged + 1))
+                elif [[ "$local_hash" == "$new_hash" ]]; then
+                    # Same change both sides — no action needed
+                    merged=$((merged + 1))
+                else
+                    # True conflict — keep local, save remote as .upstream
+                    cp "$new_file" "${local_file}.upstream"
+                    conflicts=$((conflicts + 1))
+                fi
+            fi
+        done < <(find "$tmp_new/new" -type f -print0 2>/dev/null)
+    else
+        echo "  No shadow found — performing full replacement..."
+        rm -rf "$pack_dir"
+        mv "$tmp_new/new" "$pack_dir"
+        auto_updated=1
+    fi
+
+    # Phase 5: Update shadow to new version
+    preserve_shadow "$pack_slug" "${tmp_new}/new" 2>/dev/null || true
+
+    # Phase 6: Update metadata
+    update_pack_meta "$pack_slug" "$pack_dir"
+
+    # Cleanup
+    rm -rf "$tmp_new" "$backup_dir"
+
+    echo ""
+    echo "  Auto-updated: $auto_updated files"
+    echo "  Kept local:   $merged files"
+    if [[ $conflicts -gt 0 ]]; then
+        print_warning "  Conflicts:    $conflicts files (check .upstream files)"
+    fi
+    echo ""
+    print_success "Pack '$pack_slug' upgraded to $latest_version"
+
+    return $EXIT_SUCCESS
+}
+
+# =============================================================================
 # Re-link Commands (for manual fixing)
 # =============================================================================
 
@@ -1662,6 +1866,10 @@ main() {
                     exit $EXIT_ERROR
                     ;;
             esac
+            ;;
+        upgrade)
+            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug"; show_usage; exit $EXIT_ERROR; }
+            do_upgrade_pack "$2" "${3:-}"
             ;;
         link-commands)
             [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug (or 'all')"; exit $EXIT_ERROR; }

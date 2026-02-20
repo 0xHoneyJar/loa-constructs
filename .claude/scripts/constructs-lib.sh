@@ -1072,3 +1072,229 @@ secure_write_json() {
     formatted=$(echo "$content" | jq '.')
     secure_write_file "$file_path" "$formatted" "$mode"
 }
+
+# ── .construct/ Shadow Directory Helpers (cycle-032, FR-1) ──────────────────
+
+# Get the .construct directory path for the current project
+get_construct_dir() {
+    echo ".construct"
+}
+
+# Lazy-initialize the .construct directory structure
+# Creates: .construct/{shadow,links,cache/merkle,cache/tmp}
+# Creates: .construct/state.json with schema_version 1
+# Adds .construct/ to .gitignore if in a git repo
+ensure_construct_dir() {
+    local construct_dir
+    construct_dir="$(get_construct_dir)"
+
+    if [[ -d "$construct_dir" ]]; then
+        return 0
+    fi
+
+    mkdir -p "$construct_dir/shadow"
+    mkdir -p "$construct_dir/links"
+    mkdir -p "$construct_dir/cache/merkle"
+    mkdir -p "$construct_dir/cache/tmp"
+
+    # Initialize state.json
+    local state_json
+    state_json=$(cat <<'STATEEOF'
+{
+  "schema_version": 1,
+  "linked": {},
+  "shadow": {},
+  "last_updated": null
+}
+STATEEOF
+)
+    secure_write_json "$construct_dir/state.json" "$state_json" "600"
+
+    # Add to .gitignore if in a git repo
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        local gitignore
+        gitignore="$(git rev-parse --show-toplevel)/.gitignore"
+        if [[ -f "$gitignore" ]]; then
+            if ! grep -qxF '.construct/' "$gitignore" 2>/dev/null; then
+                echo '.construct/' >> "$gitignore"
+            fi
+        else
+            echo '.construct/' > "$gitignore"
+        fi
+    fi
+
+    print_status "Initialized .construct/ directory"
+}
+
+# Copy installed pack version to shadow for divergence detection
+# Usage: preserve_shadow <slug> <source_dir>
+preserve_shadow() {
+    local slug="$1"
+    local source_dir="$2"
+
+    validate_safe_identifier "$slug" || return 1
+
+    ensure_construct_dir
+
+    local construct_dir
+    construct_dir="$(get_construct_dir)"
+    local shadow_dir="$construct_dir/shadow/$slug"
+
+    # Remove existing shadow
+    rm -rf "$shadow_dir"
+    mkdir -p "$shadow_dir"
+
+    # Copy files (excluding .git)
+    if command -v rsync >/dev/null 2>&1; then
+        rsync -a --exclude='.git' "$source_dir/" "$shadow_dir/"
+    else
+        # Fallback: cp -R with manual .git exclusion
+        cp -R "$source_dir/." "$shadow_dir/"
+        rm -rf "$shadow_dir/.git"
+    fi
+
+    # Compute and cache Merkle root hash
+    local hash
+    hash=$(compute_merkle_hash "$shadow_dir")
+    echo "$hash" > "$construct_dir/cache/merkle/$slug.hash"
+
+    # Update shadow metadata in state.json
+    update_state_shadow "$slug" "$hash"
+
+    print_status "Shadow preserved for $slug (hash: ${hash:0:12}...)"
+}
+
+# Compute deterministic SHA-256 Merkle root hash for a directory
+# Produces identical hashes cross-platform (GNU/BSD)
+# Usage: compute_merkle_hash <directory>
+compute_merkle_hash() {
+    local dir="$1"
+
+    if [[ ! -d "$dir" ]]; then
+        print_error "Directory not found: $dir"
+        return 1
+    fi
+
+    # Collect all file hashes in deterministic order (LC_ALL=C sort)
+    local hash_input=""
+    while IFS= read -r -d '' file; do
+        local rel_path="${file#$dir/}"
+        local file_hash
+        file_hash=$(compute_file_sha256 "$file")
+        hash_input="${hash_input}${rel_path}:${file_hash}\n"
+    done < <(find "$dir" -type f -not -path '*/.git/*' -print0 | LC_ALL=C sort -z)
+
+    # Hash the concatenated file list
+    if [[ -z "$hash_input" ]]; then
+        echo "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        return 0
+    fi
+
+    local root_hash
+    root_hash=$(printf '%b' "$hash_input" | compute_sha256_stdin)
+    echo "sha256:$root_hash"
+}
+
+# Internal: compute SHA-256 of a file (cross-platform)
+compute_file_sha256() {
+    local file="$1"
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "$file" | cut -d' ' -f1
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 "$file" | cut -d' ' -f1
+    else
+        print_error "No SHA-256 tool available"
+        return 1
+    fi
+}
+
+# Internal: compute SHA-256 of stdin
+compute_sha256_stdin() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum | cut -d' ' -f1
+    elif command -v shasum >/dev/null 2>&1; then
+        shasum -a 256 | cut -d' ' -f1
+    else
+        print_error "No SHA-256 tool available"
+        return 1
+    fi
+}
+
+# Update state.json with link information
+# Usage: update_state_link <slug> <target_path>
+update_state_link() {
+    local slug="$1"
+    local target_path="$2"
+    local construct_dir
+    construct_dir="$(get_construct_dir)"
+    local state_file="$construct_dir/state.json"
+
+    if [[ ! -f "$state_file" ]]; then
+        ensure_construct_dir
+    fi
+
+    local now
+    now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    local updated
+    updated=$(jq \
+        --arg slug "$slug" \
+        --arg path "$target_path" \
+        --arg now "$now" \
+        '.linked[$slug] = {"path": $path, "linked_at": $now} | .last_updated = $now' \
+        "$state_file")
+
+    secure_write_json "$state_file" "$updated" "600"
+}
+
+# Remove a link from state.json
+# Usage: remove_state_link <slug>
+remove_state_link() {
+    local slug="$1"
+    local construct_dir
+    construct_dir="$(get_construct_dir)"
+    local state_file="$construct_dir/state.json"
+
+    if [[ ! -f "$state_file" ]]; then
+        return 0
+    fi
+
+    local now
+    now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    local updated
+    updated=$(jq \
+        --arg slug "$slug" \
+        --arg now "$now" \
+        'del(.linked[$slug]) | .last_updated = $now' \
+        "$state_file")
+
+    secure_write_json "$state_file" "$updated" "600"
+}
+
+# Update shadow metadata in state.json
+# Usage: update_state_shadow <slug> <hash>
+update_state_shadow() {
+    local slug="$1"
+    local hash="$2"
+    local construct_dir
+    construct_dir="$(get_construct_dir)"
+    local state_file="$construct_dir/state.json"
+
+    if [[ ! -f "$state_file" ]]; then
+        ensure_construct_dir
+    fi
+
+    local now
+    now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    local updated
+    updated=$(jq \
+        --arg slug "$slug" \
+        --arg hash "$hash" \
+        --arg now "$now" \
+        '.shadow[$slug] = {"hash": $hash, "preserved_at": $now} | .last_updated = $now' \
+        "$state_file")
+
+    secure_write_json "$state_file" "$updated" "600"
+}

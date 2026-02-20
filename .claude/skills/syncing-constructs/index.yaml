@@ -1,0 +1,43 @@
+name: syncing-constructs
+version: "1.0.0"
+description: |
+  Detect and resolve divergence between local constructs and their upstream
+  registry versions. Uses Merkle-tree shadow comparison for O(1) change detection.
+
+model: sonnet
+color: cyan
+
+triggers:
+  - pattern: "/construct-sync"
+    description: "Check for upstream changes and resolve drift"
+
+capabilities:
+  model_tier: sonnet
+  danger_level: moderate
+  effort_hint: medium
+  downgrade_allowed: true
+  execution_hint: sequential
+  requires:
+    native_runtime: false
+    tool_calling: true
+    thinking_traces: false
+    vision: false
+
+dependencies: []
+
+inputs:
+  - name: slug
+    type: string
+    description: "Construct slug to check (or 'all' for all installed)"
+    required: false
+    default: "all"
+
+outputs:
+  - name: result
+    type: object
+    description: "Sync check results with drift status"
+
+zones:
+  system: read
+  state: write
+  app: none

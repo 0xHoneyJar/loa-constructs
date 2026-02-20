@@ -1562,3 +1562,158 @@ packsRouter.patch(
   }
 );
 
+// ── Construct Lifecycle endpoints (cycle-032) ──────────────────
+
+/**
+ * GET /packs/:slug/hash — Content hash for divergence detection
+ * @see sdd.md §6.1 GET /v1/packs/:slug/hash
+ */
+packsRouter.get(
+  '/:slug/hash',
+  optionalAuth(),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const requestId = randomUUID();
+
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    const latestVersion = await getLatestPackVersion(pack.id);
+    if (!latestVersion) {
+      throw Errors.NotFound('No published version found');
+    }
+
+    // Use pre-computed hash if available, else compute on-the-fly
+    let contentHash = latestVersion.contentHash;
+    if (!contentHash) {
+      const files = await getPackVersionFiles(latestVersion.id);
+      const hashInput = files
+        .map((f) => `${f.path}:${createHash('sha256').update(f.content || '').digest('hex')}`)
+        .sort()
+        .join('\n');
+      contentHash = `sha256:${createHash('sha256').update(hashInput).digest('hex')}`;
+    }
+
+    return c.json({
+      data: {
+        slug,
+        version: latestVersion.version,
+        hash: contentHash,
+      },
+      request_id: requestId,
+    });
+  }
+);
+
+/**
+ * GET /packs/:slug/permissions — Check user permissions for a pack
+ * @see sdd.md §6.2 GET /v1/packs/:slug/permissions
+ */
+packsRouter.get(
+  '/:slug/permissions',
+  requireAuth(),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const userId = c.get('userId' as never) as string;
+    const requestId = randomUUID();
+
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    const ownerCheck = await isPackOwner(pack.id, userId);
+
+    return c.json({
+      data: {
+        slug,
+        permissions: {
+          is_owner: ownerCheck,
+          can_publish: ownerCheck,
+          can_fork: true, // All authenticated users can fork
+        },
+      },
+      request_id: requestId,
+    });
+  }
+);
+
+/**
+ * POST /packs/fork — Fork a pack as a scoped variant
+ * @see sdd.md §6.3 POST /v1/packs/fork
+ */
+packsRouter.post(
+  '/fork',
+  requireAuth(),
+  zValidator(
+    'json',
+    z.object({
+      source_slug: z.string().min(3).max(100).regex(/^[a-z0-9-]+$/),
+      new_slug: z.string().min(3).max(100).regex(/^[a-z0-9-]+$/),
+      description: z.string().max(500).optional(),
+    })
+  ),
+  async (c) => {
+    const userId = c.get('userId' as never) as string;
+    const userEmail = c.get('userEmail' as never) as string;
+    const requestId = randomUUID();
+
+    // Require email verification
+    if (!userEmail) {
+      throw Errors.Forbidden('Email verification required to fork packs');
+    }
+
+    const { source_slug, new_slug, description } = c.req.valid('json' as never) as {
+      source_slug: string;
+      new_slug: string;
+      description?: string;
+    };
+
+    // Check source exists
+    const sourcePack = await getPackBySlug(source_slug);
+    if (!sourcePack) {
+      throw Errors.NotFound('Source pack not found');
+    }
+
+    // Fast-path check (advisory only — uniqueness enforced by DB constraint)
+    const slugAvailable = await isSlugAvailable(new_slug);
+    if (!slugAvailable) {
+      throw new AppError('SLUG_TAKEN', `Slug '${new_slug}' is already taken`, 409);
+    }
+
+    // Reserve forked pack — DB unique constraint on slug prevents TOCTOU race
+    // Note: This creates a pack entry only. Files are not copied from the source.
+    // The fork owner publishes their own version via the publish flow.
+    try {
+      await createPack({
+        name: `${sourcePack.name} (fork)`,
+        slug: new_slug,
+        description: description || sourcePack.description || undefined,
+        ownerId: userId,
+        ownerType: 'user',
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message?.includes('unique')) {
+        throw new AppError('SLUG_TAKEN', `Slug '${new_slug}' is already taken`, 409);
+      }
+      throw err;
+    }
+
+    logger.info({ sourceSlug: source_slug, newSlug: new_slug, userId, requestId }, 'Pack forked');
+
+    return c.json(
+      {
+        data: {
+          slug: new_slug,
+          source_slug,
+          status: 'reserved',
+        },
+        request_id: requestId,
+      },
+      201
+    );
+  }
+);
+
