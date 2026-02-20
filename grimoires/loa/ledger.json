@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "active_cycle": "cycle-030",
-  "global_sprint_counter": 24,
+  "active_cycle": "cycle-032",
+  "global_sprint_counter": 27,
   "cycles": [
     {
       "id": "cycle-025",
@@ -257,11 +257,43 @@
     {
       "id": "cycle-030",
       "label": "Bridgebuilder Cycle A — Make the Workshop Work",
-      "status": "active",
+      "status": "archived",
       "created": "2026-02-19T23:30:00Z",
-      "prd": "grimoires/loa/prd.md",
+      "archived": "2026-02-20T18:40:00Z",
+      "prd": "grimoires/loa/prd.md.cycle-031-bak",
+      "sdd": "grimoires/loa/sdd.md.cycle-031-bak",
       "source_issues": [119, 127, 128, 129, 118, 116, 122],
+      "pr": 130,
       "sprints": []
+    },
+    {
+      "id": "cycle-032",
+      "label": "Construct Lifecycle — construct-network-tools Pack",
+      "status": "active",
+      "created": "2026-02-20T18:40:00Z",
+      "prd": "grimoires/loa/prd.md",
+      "sdd": "grimoires/loa/sdd.md",
+      "source_issues": [131],
+      "sprints": [
+        {
+          "local_id": "sprint-1",
+          "global_id": "sprint-25",
+          "label": "Schema Extension + .construct/ + Linking",
+          "status": "pending"
+        },
+        {
+          "local_id": "sprint-2",
+          "global_id": "sprint-26",
+          "label": "Diff + Publish + API Endpoints",
+          "status": "pending"
+        },
+        {
+          "local_id": "sprint-3",
+          "global_id": "sprint-27",
+          "label": "Create + Upgrade + construct-network-tools Pack",
+          "status": "pending"
+        }
+      ]
     }
   ]
 }
