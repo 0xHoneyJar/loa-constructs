@@ -5,6 +5,44 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] — 2026-02-20 — Bridgebuilder Schema Foundation + Workshop Wiring
+
+
+- **Cycle 030 — Bridgebuilder Cycle A**: Schema foundation for the Bridgebuilder review system — JSON Schema + Zod + TypeScript three-layer validation, BUTTERFREEZONE skill provenance segmentation, cross-repo research tooling, and lore lifecycle management
+- **Cycle 031 — Bridgebuilder Cycle B**: UX redesign with interview depth configuration, workshop wiring through the explorer, and Loa framework update
+- **Bridge review iterations**: Two rounds of Bridgebuilder adversarial review with fixes for URL validation, type tightening, key validation, and maxLength alignment
+
+### Added
+
+- **cycle-031**: Bridgebuilder Cycle B — Wire the Workshop Through
+- **cycle-030/031**: UX Redesign + Interview Depth Configuration (#391)
+- BUTTERFREEZONE Skill Provenance Segmentation (cycle-030) (#392)
+- **cycle-030**: implement Bridgebuilder schema foundation and wiring
+- **cycle-029**: Construct-Aware Constraint Yielding (#378)
+- **cycle-028**: Security Hardening — Bridgebuilder Cross-Repository Findings (#377)
+- **cycle-027**: Broader QMD Integration Across Core Skills (#373)
+- **bridgebuilder**: upgrade default model to claude-opus-4-6 (#366) (#372)
+- **cycle-026**: Hounfour Runtime Bridge — Model-Heterogeneous Agent Routing (#368)
+- **cycle-025**: Cross-Codebase Feedback Routing + BUG-359 fix (#360)
+- **cycle-025**: cross-codebase feedback routing (#357)
+- The Permission Amendment (cycle-023) (#352)
+- **cycle-021**: Gemini Integration Audit & Activation (#348)
+
+### Fixed
+
+- address Bridgebuilder review findings — URL validation, type tightening
+- bridge iteration 2 — tighten schema constraints from Bridgebuilder review
+- address audit findings — key validation, maxLength alignment, test gaps
+- align JSON Schema maxLength constraints with Zod validation layer
+- **bridgebuilder**: ESM require() crash + stale model default (#367) (#371)
+- **hounfour**: config-driven token param — fixes GPT-5.2+ model-invoke (#347)
+- **update**: preserve .claude/constructs/ during framework updates (BUG-361) (#362)
+- **scoring-engine**: remove apostrophe breaking bash -n syntax check (#354) (#356)
+- **cycle-024**: The Hygiene Sprint — adapter, scoring engine, cleanup hook (#353)
+
+_Source: PR #132_
+
+
 ## [1.5.0] - 2026-02-05
 
 ### Why This Release
