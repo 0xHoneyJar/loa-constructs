@@ -37,13 +37,18 @@
       "description": "Searchable tags for registry discovery"
     },
     "author": {
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "url": { "type": "string", "format": "uri" }
-      },
-      "description": "Pack author information"
+      "oneOf": [
+        { "type": "string", "maxLength": 255 },
+        {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "email": { "type": "string", "format": "email" },
+            "url": { "type": "string", "format": "uri" }
+          }
+        }
+      ],
+      "description": "Pack author (string shorthand or object with name/email/url)"
     },
     "license": {
       "type": "string",
@@ -127,12 +132,111 @@
           "description": "Required packs that must be installed"
         },
         "skills": {
-          "type": "array",
-          "items": { "type": "string" },
-          "description": "Required skills (by slug)"
+          "oneOf": [
+            { "type": "array", "items": { "type": "string" }, "description": "DEPRECATED: skill slugs as array" },
+            { "type": "object", "additionalProperties": { "type": "string" }, "description": "Skill slug → version range" }
+          ],
+          "description": "Required skills. Object form (slug → version) preferred; array form deprecated."
         }
       },
       "description": "Pack dependencies. Version constraints follow semver range syntax."
+    },
+    "quick_start": {
+      "type": "object",
+      "required": ["command", "description"],
+      "properties": {
+        "command": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Quick start hint for post-install guidance"
+    },
+    "domain": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 50 },
+      "maxItems": 10,
+      "description": "Domain tags for MoE routing (#119)"
+    },
+    "expertise": {
+      "type": "array",
+      "items": { "type": "string", "maxLength": 100 },
+      "maxItems": 20,
+      "description": "Expertise declarations for intent matching (#119)"
+    },
+    "golden_path": {
+      "type": "object",
+      "required": ["commands"],
+      "properties": {
+        "commands": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "description"],
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "truename_map": {
+                "type": "object",
+                "additionalProperties": { "type": "string" }
+              }
+            },
+            "additionalProperties": false
+          },
+          "minItems": 1
+        },
+        "detect_state": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Golden path porcelain commands (#119, #127)"
+    },
+    "workflow": {
+      "type": "object",
+      "required": ["depth", "gates"],
+      "properties": {
+        "depth": {
+          "type": "string",
+          "enum": ["light", "standard", "deep", "full"]
+        },
+        "app_zone_access": {
+          "type": "boolean"
+        },
+        "gates": {
+          "type": "object",
+          "properties": {
+            "prd":       { "type": "string", "enum": ["skip", "condense", "full"] },
+            "sdd":       { "type": "string", "enum": ["skip", "condense", "full"] },
+            "sprint":    { "type": "string", "enum": ["skip", "condense", "full"] },
+            "implement": { "type": "string", "enum": ["required"] },
+            "review":    { "type": "string", "enum": ["skip", "visual", "textual", "both"] },
+            "audit":     { "type": "string", "enum": ["skip", "lightweight", "full"] }
+          },
+          "additionalProperties": false
+        },
+        "verification": {
+          "type": "object",
+          "properties": {
+            "method": { "type": "string", "enum": ["visual", "tsc", "build", "test", "manual"] }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false,
+      "description": "Workflow depth and gate declarations (#129)"
+    },
+    "methodology": {
+      "type": "object",
+      "properties": {
+        "references": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
+        "principles": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
+        "knowledge_base": { "type": "string" }
+      },
+      "additionalProperties": false,
+      "description": "Methodology layer for knowledge separation (#118)"
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["L1", "L2", "L3"],
+      "description": "Construct capability tier (#128)"
     }
   },
   "additionalProperties": false,
