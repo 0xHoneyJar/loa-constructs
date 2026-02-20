@@ -177,6 +177,7 @@
               "description": { "type": "string", "maxLength": 500 },
               "truename_map": {
                 "type": "object",
+                "propertyNames": { "minLength": 1, "maxLength": 100 },
                 "additionalProperties": { "type": "string", "maxLength": 100 }
               }
             },

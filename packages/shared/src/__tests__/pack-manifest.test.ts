@@ -509,3 +509,18 @@ describe('truename_map key validation (W-1)', () => {
     expect(result.success).toBe(false);
   });
 });
+
+// ── Bridge iteration 2 findings (I-6) ──────────────────
+
+describe('Golden path description non-empty (I-6)', () => {
+  it('rejects golden_path command with empty description', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      golden_path: {
+        commands: [{ name: 'test', description: '' }],
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+});
