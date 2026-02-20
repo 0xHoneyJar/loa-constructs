@@ -5,6 +5,24 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] — 2026-02-20 — Bridgebuilder — Schema Foundation + Explorer Wiring
+
+
+Two-cycle Bridgebuilder implementation: Cycle A builds the 4-layer schema foundation, Cycle B wires the data through the explorer frontend and CLI tooling.
+
+### Cycle A — Make the Workshop Work (cycle-030)
+
+### Added
+
+- **cycle-030/031**: Bridgebuilder — Schema Foundation + Explorer Wiring (#130)
+
+### Fixed
+
+- **readme**: use <br/> instead of \n for Mermaid line breaks
+
+_Source: PR #130_
+
+
 ## [1.5.0] - 2026-02-05
 
 ### Why This Release
