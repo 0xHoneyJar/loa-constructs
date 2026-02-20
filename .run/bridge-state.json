@@ -1,30 +1,57 @@
 {
   "schema_version": 1,
-  "bridge_id": "bridge-20260220-8ab2ce",
-  "state": "JACK_IN",
+  "bridge_id": "bridge-20260220-c032lc",
+  "state": "JACKED_OUT",
   "config": {
-    "depth": 5,
+    "depth": 3,
     "mode": "full",
     "flatline_threshold": 0.05,
     "per_sprint": false,
-    "branch": "feat/cycle-030-butterfreezone-provenance",
-    "repo": ""
+    "branch": "feature/cycle-032-construct-lifecycle",
+    "repo": "0xHoneyJar/loa-constructs"
   },
-  "pr": 392,
+  "pr": 133,
   "timestamps": {
-    "started": "2026-02-20T13:00:00Z",
-    "last_activity": "2026-02-20T13:00:00Z"
+    "started": "2026-02-20T20:00:00Z",
+    "last_activity": "2026-02-20T21:45:00Z",
+    "completed": "2026-02-20T21:45:00Z"
   },
-  "iterations": [],
+  "iterations": [
+    {
+      "iteration": 1,
+      "sprints_executed": 3,
+      "findings": {
+        "critical": 2,
+        "high": 4,
+        "medium": 7,
+        "low": 5,
+        "praise": 6
+      },
+      "score": 1.0
+    },
+    {
+      "iteration": 2,
+      "sprints_executed": 1,
+      "findings": {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "praise": 0
+      },
+      "score": 0.0,
+      "flatline": true
+    }
+  ],
   "flatline": {
-    "initial_score": null,
-    "last_score": null,
-    "consecutive_below_threshold": 0
+    "initial_score": 1.0,
+    "last_score": 0.0,
+    "consecutive_below_threshold": 1
   },
   "metrics": {
-    "total_sprints_executed": 0,
-    "total_files_changed": 0,
-    "total_findings_addressed": 0,
+    "total_sprints_executed": 4,
+    "total_files_changed": 34,
+    "total_findings_addressed": 8,
     "total_visions_captured": 0
   }
 }
