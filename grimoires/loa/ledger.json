@@ -285,13 +285,13 @@
           "local_id": "sprint-2",
           "global_id": "sprint-26",
           "label": "Diff + Publish + API Endpoints",
-          "status": "pending"
+          "status": "completed"
         },
         {
           "local_id": "sprint-3",
           "global_id": "sprint-27",
           "label": "Create + Upgrade + construct-network-tools Pack",
-          "status": "pending"
+          "status": "completed"
         }
       ]
     }

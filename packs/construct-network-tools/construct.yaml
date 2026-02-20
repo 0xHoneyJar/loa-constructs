@@ -1,0 +1,86 @@
+schema_version: 3
+name: Construct Network Tools
+slug: construct-network-tools
+version: 0.1.0
+type: skill-pack
+description: Lifecycle management tools for the Loa Constructs Network — browse, link, sync, publish, create, and upgrade constructs.
+author: 0xHoneyJar
+license: MIT
+tier: L2
+
+skills:
+  - slug: browsing-constructs
+    path: skills/browsing-constructs
+  - slug: linking-constructs
+    path: skills/linking-constructs
+  - slug: syncing-constructs
+    path: skills/syncing-constructs
+  - slug: publishing-constructs
+    path: skills/publishing-constructs
+  - slug: creating-constructs
+    path: skills/creating-constructs
+  - slug: upgrading-constructs
+    path: skills/upgrading-constructs
+
+commands:
+  - name: construct-link
+    description: Link a local construct for development
+  - name: construct-sync
+    description: Check for upstream changes and resolve drift
+  - name: construct-publish
+    description: Publish a construct to the registry
+  - name: construct-create
+    description: Scaffold a new construct from template
+  - name: construct-upgrade
+    description: Upgrade installed constructs to latest version
+  - name: constructs
+    description: Browse and install constructs from the registry
+
+repository:
+  url: https://github.com/0xHoneyJar/loa-constructs.git
+  homepage: https://constructs.network
+
+pack_dependencies: {}
+
+capabilities:
+  model_tier: sonnet
+  danger_level: moderate
+  effort_hint: medium
+  execution_hint: sequential
+  requires:
+    native_runtime: false
+    tool_calling: true
+    thinking_traces: false
+    vision: false
+
+workflow:
+  gates:
+    review: skip
+    audit: skip
+    sprint: skip
+
+events:
+  emits:
+    - type: construct.published
+      description: Emitted when a construct is published to the registry
+      data_schema:
+        slug: string
+        version: string
+    - type: construct.linked
+      description: Emitted when a construct is linked for local development
+      data_schema:
+        slug: string
+        path: string
+    - type: construct.created
+      description: Emitted when a new construct is scaffolded
+      data_schema:
+        slug: string
+        type: string
+  consumes: []
+
+domain: construct-lifecycle
+expertise:
+  - construct management
+  - registry operations
+  - divergence detection
+  - version control

@@ -1588,7 +1588,7 @@ packsRouter.get(
     // Compute content hash from version files
     const files = await getPackVersionFiles(latestVersion.id);
     const hashInput = files
-      .map((f: { path: string; content: string }) => `${f.path}:${createHash('sha256').update(f.content).digest('hex')}`)
+      .map((f) => `${f.path}:${createHash('sha256').update(f.content || '').digest('hex')}`)
       .sort()
       .join('\n');
     const contentHash = `sha256:${createHash('sha256').update(hashInput).digest('hex')}`;
@@ -1662,7 +1662,11 @@ packsRouter.post(
       throw Errors.Forbidden('Email verification required to fork packs');
     }
 
-    const { source_slug, new_slug, description } = c.req.valid('json' as never);
+    const { source_slug, new_slug, description } = c.req.valid('json' as never) as {
+      source_slug: string;
+      new_slug: string;
+      description?: string;
+    };
 
     // Check source exists
     const sourcePack = await getPackBySlug(source_slug);
@@ -1673,16 +1677,16 @@ packsRouter.post(
     // Check new slug is available
     const slugAvailable = await isSlugAvailable(new_slug);
     if (!slugAvailable) {
-      throw new AppError(409, 'SLUG_TAKEN', `Slug '${new_slug}' is already taken`);
+      throw new AppError('SLUG_TAKEN', `Slug '${new_slug}' is already taken`, 409);
     }
 
     // Create forked pack
-    const forkedPack = await createPack({
+    await createPack({
       name: `${sourcePack.name} (fork)`,
       slug: new_slug,
       description: description || sourcePack.description || undefined,
-      owner_id: userId,
-      owner_type: 'user',
+      ownerId: userId,
+      ownerType: 'user',
     });
 
     logger.info({ sourceSlug: source_slug, newSlug: new_slug, userId, requestId }, 'Pack forked');

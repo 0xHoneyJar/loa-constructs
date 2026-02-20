@@ -6,7 +6,9 @@
  */
 
 import { Hono } from 'hono';
-import { createHmac, timingSafeEqual } from 'crypto';
+import { z } from 'zod';
+import { zValidator } from '@hono/zod-validator';
+import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
 import type Stripe from 'stripe';
 import { verifyWebhookSignatureDual, getStripe, getTierFromPriceId } from '../services/stripe.js';
 import {
@@ -20,6 +22,8 @@ import {
   updateConnectOnboardingStatus,
   isConnectAccountComplete,
 } from '../services/stripe-connect.js';
+import { requireAuth } from '../middleware/auth.js';
+import { getPackBySlug, isPackOwner } from '../services/packs.js';
 import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { getRedis, isRedisConfigured } from '../services/redis.js';
@@ -609,3 +613,66 @@ webhooksRouter.post('/github', async (c) => {
 
   return c.json({ received: true, results });
 });
+
+// ── Construct Lifecycle endpoints (cycle-032) ──────────────────
+
+/**
+ * POST /v1/webhooks/configure
+ * Get webhook configuration instructions for a pack
+ * @see sdd.md §6.5 POST /v1/webhooks/configure
+ *
+ * Returns webhook URL, a generated secret, and step-by-step setup instructions.
+ * Does NOT call GitHub API — instructions only.
+ */
+webhooksRouter.post(
+  '/configure',
+  requireAuth(),
+  zValidator(
+    'json',
+    z.object({
+      slug: z.string().min(1).max(100),
+    })
+  ),
+  async (c) => {
+    const userId = c.get('userId' as never) as string;
+    const requestId = randomUUID();
+
+    const { slug } = c.req.valid('json' as never) as { slug: string };
+
+    // Verify pack exists
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    // Owner-only check
+    const isOwner = await isPackOwner(pack.id, userId);
+    if (!isOwner) {
+      throw Errors.Forbidden('Only pack owners can configure webhooks');
+    }
+
+    // Generate a webhook secret (not persisted — user saves it)
+    const secret = randomUUID().replace(/-/g, '');
+    const webhookUrl = `${process.env.API_URL || 'https://api.constructs.network'}/v1/webhooks/github`;
+
+    logger.info({ slug, userId, requestId }, 'Webhook configuration requested');
+
+    return c.json({
+      data: {
+        slug,
+        webhook_url: webhookUrl,
+        secret,
+        instructions: [
+          `1. Go to your repository Settings → Webhooks → Add webhook`,
+          `2. Set Payload URL to: ${webhookUrl}`,
+          `3. Set Content type to: application/json`,
+          `4. Set Secret to: ${secret}`,
+          `5. Select events: "Just the push event" (or add "Create" for tag events)`,
+          `6. Set GITHUB_WEBHOOK_SECRET environment variable on the API server to: ${secret}`,
+          `7. Click "Add webhook"`,
+        ],
+      },
+      request_id: requestId,
+    });
+  }
+);
