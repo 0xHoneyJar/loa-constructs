@@ -221,7 +221,7 @@
           },
           "minItems": 1
         },
-        "detect_state": { "type": "string" }
+        "detect_state": { "type": "string", "maxLength": 500 }
       },
       "additionalProperties": false,
       "description": "Golden path porcelain commands (#119, #127)"
@@ -263,9 +263,9 @@
     "methodology": {
       "type": "object",
       "properties": {
-        "references": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
-        "principles": { "type": "array", "items": { "type": "string" }, "maxItems": 20 },
-        "knowledge_base": { "type": "string" }
+        "references": { "type": "array", "items": { "type": "string", "maxLength": 500 }, "maxItems": 20 },
+        "principles": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20 },
+        "knowledge_base": { "type": "string", "maxLength": 500 }
       },
       "additionalProperties": false,
       "description": "Methodology layer for knowledge separation (#118)"
