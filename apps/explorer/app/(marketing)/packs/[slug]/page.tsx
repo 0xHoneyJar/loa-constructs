@@ -1,13 +1,14 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { fetchConstruct, fetchAllConstructs } from '@/lib/data/fetch-constructs';
+import { fetchConstruct } from '@/lib/data/fetch-constructs';
 
 export const revalidate = 600;
 
+// Return empty — pages are ISR-generated on first request to avoid
+// build-time API dependency that causes Vercel timeout failures.
 export async function generateStaticParams() {
-  const all = await fetchAllConstructs();
-  return all.filter((c) => c.type === 'pack').map((c) => ({ slug: c.slug }));
+  return [];
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {

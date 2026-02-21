@@ -7,6 +7,7 @@
 import type { Category } from '@/lib/types/graph';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network/v1';
+const FETCH_TIMEOUT_MS = 15_000;
 
 /**
  * Default categories for fallback when API is unavailable
@@ -107,9 +108,13 @@ export function normalizeCategory(slug: string): string {
  */
 export async function fetchCategories(): Promise<Category[]> {
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
     const response = await fetch(`${API_BASE}/categories`, {
       next: { revalidate: 3600 }, // ISR: 1 hour
+      signal: controller.signal,
     });
+    clearTimeout(timer);
 
     if (!response.ok) {
       console.warn('Failed to fetch categories, using defaults');

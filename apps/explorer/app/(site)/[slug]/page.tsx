@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { fetchAllConstructs, fetchConstruct } from '@/lib/data/fetch-constructs';
+import { fetchConstruct } from '@/lib/data/fetch-constructs';
 import { BackButton } from '@/components/layout/back-button';
 import { ConstructCard } from '@/components/construct/construct-card';
 import { InstallCommand } from '@/components/construct/install-command';
@@ -11,9 +11,10 @@ interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
+// Return empty — pages are ISR-generated on first request to avoid
+// build-time API dependency that causes Vercel timeout failures.
 export async function generateStaticParams() {
-  const constructs = await fetchAllConstructs();
-  return constructs.map((c) => ({ slug: c.slug }));
+  return [];
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

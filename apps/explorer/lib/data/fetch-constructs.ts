@@ -3,6 +3,18 @@ import { fetchCategories } from './fetch-categories';
 import { transformToNode, type APIConstruct } from './transform-construct';
 
 const API_BASE = process.env.CONSTRUCTS_API_URL || 'https://api.constructs.network/v1';
+const FETCH_TIMEOUT_MS = 15_000;
+
+/** Fetch with an AbortController timeout to prevent hung requests during build */
+async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 interface APIResponse {
   data: APIConstruct[];
@@ -81,7 +93,7 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
  */
 async function fetchAllRaw(): Promise<{ nodes: ConstructNode[]; raw: APIConstruct[] }> {
   try {
-    const response = await fetch(`${API_BASE}/constructs?per_page=100`, {
+    const response = await fetchWithTimeout(`${API_BASE}/constructs?per_page=100`, {
       next: { revalidate: 3600 }, // ISR: 1 hour
     });
 
@@ -112,7 +124,7 @@ export async function fetchAllConstructs(): Promise<ConstructNode[]> {
 export async function searchConstructs(query: string): Promise<ConstructNode[]> {
   try {
     const url = `${API_BASE}/constructs?q=${encodeURIComponent(query)}&per_page=50`;
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
       next: { revalidate: 60 }, // Short cache for search results
     });
 
@@ -131,7 +143,7 @@ export async function searchConstructs(query: string): Promise<ConstructNode[]> 
 
 export async function fetchConstruct(slug: string): Promise<ConstructDetail | null> {
   try {
-    const response = await fetch(`${API_BASE}/constructs/${slug}`, {
+    const response = await fetchWithTimeout(`${API_BASE}/constructs/${slug}`, {
       next: { revalidate: 3600 },
     });
 
