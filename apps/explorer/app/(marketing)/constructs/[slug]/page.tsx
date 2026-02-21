@@ -76,11 +76,28 @@ export default async function ConstructDetailPage({
               by {construct.owner.name}
             </span>
           )}
-          {construct.hasIdentity && (
-            <span className="border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-mono text-emerald-400">
-              Expert Identity
-            </span>
-          )}
+          {(() => {
+            const tier = construct.verificationTier;
+            if (tier === 'PROVEN') {
+              return (
+                <span className="border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-[10px] font-mono text-green-400">
+                  Proven
+                </span>
+              );
+            }
+            if (tier === 'BACKTESTED') {
+              return (
+                <span className="border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 text-[10px] font-mono text-yellow-400">
+                  Backtested
+                </span>
+              );
+            }
+            return (
+              <span className="border border-white/20 px-2 py-0.5 text-[10px] font-mono text-white/40">
+                Unverified
+              </span>
+            );
+          })()}
         </div>
         <p className="text-sm font-mono text-white/60">{construct.description}</p>
         {construct.longDescription && (
@@ -113,6 +130,57 @@ export default async function ConstructDetailPage({
           </div>
         )}
       </div>
+
+      {/* Expert Identity */}
+      {construct.identity && (
+        <div>
+          <h2 className="text-sm font-mono font-bold text-white mb-3">Expert Identity</h2>
+          {Array.isArray(construct.identity.expertiseDomains) &&
+            construct.identity.expertiseDomains.length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs font-mono text-white/40 mb-2">Expertise Domains</p>
+              <div className="flex flex-wrap gap-2">
+                {construct.identity.expertiseDomains.map((domain: string) => (
+                  <span
+                    key={domain}
+                    className="border border-emerald-500/20 bg-emerald-500/5 px-2 py-1 text-xs font-mono text-emerald-400"
+                  >
+                    {domain}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          {construct.identity.cognitiveFrame && (
+            <div className="border border-white/10 p-3">
+              <p className="text-xs font-mono text-white/40 mb-1">Cognitive Frame</p>
+              <pre className="text-xs font-mono text-white/60 whitespace-pre-wrap">
+                {JSON.stringify(construct.identity.cognitiveFrame, null, 2)}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Verification Status */}
+      {construct.verificationTier && construct.verificationTier !== 'UNVERIFIED' && (
+        <div>
+          <h2 className="text-sm font-mono font-bold text-white mb-3">Verification</h2>
+          <div className="border border-white/10 p-4">
+            <div className="flex items-center gap-3 mb-2">
+              <span className="text-xs font-mono text-white/40">Tier</span>
+              <span className="text-xs font-mono text-white capitalize">
+                {construct.verificationTier.toLowerCase()}
+              </span>
+            </div>
+            {construct.verifiedAt && (
+              <p className="text-xs font-mono text-white/40">
+                Verified {new Date(construct.verifiedAt).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Install */}
       <div className="border border-white/10 p-4">

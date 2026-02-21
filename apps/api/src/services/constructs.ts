@@ -16,6 +16,7 @@ import {
   users,
   teams,
   constructIdentities,
+  constructVerifications,
 } from '../db/index.js';
 import { getRedis, isRedisConfigured, CACHE_KEYS, CACHE_TTL } from './redis.js';
 import { normalizeCategory } from './category.js';
@@ -64,6 +65,8 @@ export interface Construct {
     voiceConfig: unknown;
     modelPreferences: unknown;
   } | null;
+  verificationTier: string;
+  verifiedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   // Search metadata (populated when ?q= present)
@@ -311,6 +314,8 @@ function skillToConstruct(
     gitUrl: null,
     hasIdentity: false,
     identity: null,
+    verificationTier: 'UNVERIFIED',
+    verifiedAt: null,
     createdAt: skill.createdAt || new Date(),
     updatedAt: skill.updatedAt || new Date(),
     // Search metadata
@@ -395,6 +400,8 @@ function packToConstruct(
           modelPreferences: identityRow.modelPreferences,
         }
       : null,
+    verificationTier: 'UNVERIFIED',
+    verifiedAt: null,
     createdAt: pack.createdAt || new Date(),
     updatedAt: pack.updatedAt || new Date(),
     // Search metadata
@@ -945,7 +952,31 @@ async function fetchPackAsConstruct(slug: string): Promise<Construct | null> {
       // Identity table might not exist yet — fail gracefully
     }
 
-    return packToConstruct(pack, version, owner, undefined, identityRow);
+    // Fetch latest verification tier
+    let verificationTier: string = 'UNVERIFIED';
+    let verifiedAt: Date | null = null;
+    try {
+      const [latestVerification] = await db
+        .select({
+          verificationTier: constructVerifications.verificationTier,
+          createdAt: constructVerifications.createdAt,
+        })
+        .from(constructVerifications)
+        .where(eq(constructVerifications.packId, pack.id))
+        .orderBy(desc(constructVerifications.createdAt))
+        .limit(1);
+      if (latestVerification) {
+        verificationTier = latestVerification.verificationTier;
+        verifiedAt = latestVerification.createdAt;
+      }
+    } catch {
+      // construct_verifications table might not exist yet — fail gracefully
+    }
+
+    const construct = packToConstruct(pack, version, owner, undefined, identityRow);
+    construct.verificationTier = verificationTier;
+    construct.verifiedAt = verifiedAt;
+    return construct;
   } catch (error) {
     logger.error({ error, slug, context: 'fetchPackAsConstruct' }, 'Failed to fetch pack');
     return null;

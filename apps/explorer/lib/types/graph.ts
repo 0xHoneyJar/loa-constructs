@@ -65,6 +65,14 @@ export interface ConstructDetail extends ConstructNode {
   longDescription: string | null;
   owner: { name: string; type: 'user' | 'team'; avatarUrl: string | null } | null;
   hasIdentity: boolean;
+  identity?: {
+    cognitiveFrame?: Record<string, unknown>;
+    expertiseDomains?: string[];
+    voiceConfig?: Record<string, unknown>;
+    modelPreferences?: Record<string, unknown>;
+  } | null;
+  verificationTier: string;
+  verifiedAt: string | null;
   repositoryUrl: string | null;
   homepageUrl: string | null;
   documentationUrl: string | null;

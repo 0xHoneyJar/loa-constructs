@@ -105,6 +105,10 @@ function formatConstructDetail(c: Construct) {
           model_preferences: c.identity.modelPreferences,
         }
       : null,
+    verification_tier: c.verificationTier,
+    verified_at: c.verifiedAt instanceof Date
+      ? c.verifiedAt.toISOString()
+      : c.verifiedAt,
     latest_version: c.latestVersion
       ? {
           version: c.latestVersion.version,

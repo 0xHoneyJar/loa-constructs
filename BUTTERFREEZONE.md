@@ -1,10 +1,12 @@
 <!-- AGENT-CONTEXT
 name: loa-constructs
-type: monorepo
-purpose: Marketplace and registry for AI agent constructs — distributes expert packs via git-sourced repos with identity, licensing, and CLAUDE.md injection
-key_files: [CLAUDE.md, .claude/loa/CLAUDE.loa.md, .loa.config.yaml, apps/api/, apps/explorer/, apps/sandbox/, scripts/seed-forge-packs.ts, .claude/scripts/constructs-install.sh]
-interfaces: [/auditing-security, /bridgebuilder-review, /browsing-constructs, /implementing-tasks, /reviewing-code, /planning-sprints]
-dependencies: [git, jq, yq, node, pnpm, turbo]
+type: framework
+purpose: SaaS platform for distributing, licensing, and monetizing AI agent constructs
+key_files: [CLAUDE.md, .claude/loa/CLAUDE.loa.md, .loa.config.yaml, .claude/scripts/, .claude/skills/, package.json]
+interfaces:
+  core: [/auditing-security, /autonomous-agent, /bridgebuilder-review, /browsing-constructs, /bug-triaging]
+  project: [/creating-constructs, /finding-constructs, /linking-constructs, /publishing-constructs, /syncing-constructs]
+dependencies: [git, jq, yq, node]
 capability_requirements:
   - filesystem: read
   - filesystem: write (scope: state)
@@ -12,199 +14,180 @@ capability_requirements:
   - git: read_write
   - shell: execute
   - github_api: read_write (scope: external)
-version: v2.0.0
+version: v2.1.0
 trust_level: L2-verified
 -->
 
 # loa-constructs
 
 <!-- provenance: DERIVED -->
-Marketplace and registry for AI agent constructs (expert packs). Monorepo with Hono API, Next.js 15 explorer, and sandbox CLI. Constructs are distributed as standalone GitHub repos with identity schemas, CLAUDE.md injection, and licensing.
+SaaS platform for distributing, licensing, and monetizing AI agent constructs
+
+The framework provides 35 specialized skills, built with TypeScript/JavaScript, Python, Shell.
 
 ## Architecture
 <!-- provenance: DERIVED -->
-Turbo + pnpm monorepo with 3 apps and 2 packages. Constructs (formerly embedded in `apps/sandbox/packs/`) now live in standalone GitHub repos under `0xHoneyJar/construct-{slug}`. The API's git-sync service clones, validates, and snapshots construct repos into the database. The installer (`constructs-install.sh`) clones git-sourced packs at install time.
-
+The architecture follows a three-zone model: System (`.claude/`) contains framework-managed scripts and skills, State (`grimoires/`, `.beads/`) holds project-specific artifacts and memory, and App (`src/`, `lib/`) contains developer-owned application code. The framework orchestrates       35 specialized skills through slash commands.
 ```mermaid
 graph TD
-    API[apps/api — Hono REST]
-    Explorer[apps/explorer — Next.js 15]
-    Sandbox[apps/sandbox — Pack CLI]
-    DB[(Supabase PostgreSQL)]
-    Redis[(Upstash Redis)]
-    R2[(Cloudflare R2)]
-    GitRepos[construct-* repos]
-    API --> DB
-    API --> Redis
-    API --> R2
-    API -->|git-sync| GitRepos
-    Explorer --> API
-    Sandbox --> API
+    api[api]
+    apps[apps]
+    audits[audits]
+    docs[docs]
+    evals[evals]
+    grimoires[grimoires]
+    packages[packages]
+    packs[packs]
+    Root[Project Root]
+    Root --> api
+    Root --> apps
+    Root --> audits
+    Root --> docs
+    Root --> evals
+    Root --> grimoires
+    Root --> packages
+    Root --> packs
 ```
-
-### Apps
-| App | Stack | Purpose |
-|-----|-------|---------|
-| `apps/api` | Hono + Node.js (Railway) | REST API, git-sync, licensing |
-| `apps/explorer` | Next.js 15 (Vercel) | Marketplace at constructs.network |
-| `apps/sandbox` | CLI + Node.js | Pack development and publishing |
-
-### Construct Repos (v2.0.0 — Extracted)
-| Repo | Skills | URL |
-|------|--------|-----|
-| `construct-observer` | 6 | github.com/0xHoneyJar/construct-observer |
-| `construct-crucible` | 5 | github.com/0xHoneyJar/construct-crucible |
-| `construct-artisan` | 14 | github.com/0xHoneyJar/construct-artisan |
-| `construct-beacon` | 6 | github.com/0xHoneyJar/construct-beacon |
-| `construct-gtm-collective` | 8 | github.com/0xHoneyJar/construct-gtm-collective |
-| `construct-template` | 0 | github.com/0xHoneyJar/construct-template |
-
-Each construct repo contains: `construct.yaml`, `identity/` (persona + expertise), `skills/`, `commands/`, `CLAUDE.md`, `README.md`.
-
-### Directory Structure
+Directory structure:
 ```
-apps/api/          — Hono REST API (Railway)
-apps/explorer/     — Next.js marketplace (Vercel)
-apps/sandbox/      — Pack development CLI
-packages/          — Shared packages
-scripts/           — Seed, validate, extract utilities
-docs/              — Architecture, guides, schemas
-evals/             — Benchmarking and regression
-grimoires/         — Project state and documentation
+./api
+./api/checkout
+./api/subscription
+./api/webhook
+./apps
+./apps/api
+./apps/explorer
+./audits
+./docs
+./docs/architecture
+./docs/archive
+./docs/guides
+./docs/integration
+./docs/mockups
+./docs/schemas
+./docs/screenshots
+./docs/tutorials
+./evals
+./evals/baselines
+./evals/fixtures
+./evals/graders
+./evals/harness
+./evals/results
+./evals/suites
+./evals/tasks
+./evals/tests
+./grimoires
+./grimoires/artisan
+./grimoires/bridgebuilder
+./grimoires/loa
 ```
 
 ## Interfaces
 <!-- provenance: DERIVED -->
-### API Endpoints (apps/api)
-- `POST /v1/packs/:slug/sync` — Trigger git-sync for a construct repo
-- `GET /v1/packs/:slug/download` — Download pack (returns `source_type: "git"` + `git_url` for git-sourced packs)
-- `GET /v1/packs` — List all available packs
-- `GET /v1/health` — Health check
+### Skill Commands
 
-### Construct Installation
-- `constructs-install.sh` — Installer with git clone support (`source_type: "git"` branch)
-- `constructs-loader.sh` — Pack discovery, skill loading, license validation
-- `constructs-lib.sh` — Shared utilities (registry config, API key management)
+#### Loa Core
 
-### Loa Framework Skills (30 installed)
+- **/auditing-security** — Paranoid Cypherpunk Auditor
+- **/autonomous-agent** — Uautonomous agent
+- **/bridgebuilder-review** — Bridgebuilder — Autonomous PR Review
+- **/browsing-constructs** — Provide a multi-select UI for browsing and installing packs from the Loa Constructs Registry. Enables composable skill installation per-repo.
+- **/bug-triaging** — Bug Triage Skill
+- **/butterfreezone-gen** — BUTTERFREEZONE Generation Skill
+- **/continuous-learning** — Continuous Learning Skill
+- **/deploying-infrastructure** — Udeploying infrastructure
+- **/designing-architecture** — Architecture Designer
+- **/discovering-requirements** — Discovering Requirements
+- **/enhancing-prompts** — Uenhancing prompts
+- **/eval-running** — Ueval running
+- **/flatline-knowledge** — Provides optional NotebookLM integration for the Flatline Protocol, enabling external knowledge retrieval from curated AI-powered notebooks.
+- **/flatline-reviewer** — Uflatline reviewer
+- **/flatline-scorer** — Uflatline scorer
+- **/flatline-skeptic** — Uflatline skeptic
+- **/gpt-reviewer** — Ugpt reviewer
+- **/implementing-tasks** — Sprint Task Implementer
+- **/managing-credentials** — /loa-credentials — Credential Management
+- **/mounting-framework** — Create structure (preserve if exists)
+- **/planning-sprints** — Sprint Planner
+- **/red-teaming** — Use the Flatline Protocol's red team mode to generate creative attack scenarios against design documents. Produces structured attack scenarios with consensus classification and architectural counter-designs.
+- **/reviewing-code** — Senior Tech Lead Reviewer
+- **/riding-codebase** — Riding Through the Codebase
+- **/rtfm-testing** — RTFM Testing Skill
+- **/run-bridge** — Run Bridge — Autonomous Excellence Loop
+- **/run-mode** — Urun mode
+- **/simstim-workflow** — Check post-PR state
+- **/translating-for-executives** — Utranslating for executives
+#### Project-Specific
 
-- **/auditing-security** — Security audit gate (OWASP, secrets, auth)
-- **/bridgebuilder-review** — Autonomous PR review with enriched findings
-- **/browsing-constructs** — Multi-select UI for pack installation
-- **/bug-triaging** — Bug triage and root cause analysis
-- **/butterfreezone-gen** — Agent-grounded README generation
-- **/designing-architecture** — SDD creation from PRD
-- **/discovering-requirements** — PRD discovery with codebase grounding
-- **/implementing-tasks** — Sprint task implementation
-- **/planning-sprints** — Sprint plan generation
-- **/reviewing-code** — Senior tech lead code review
-- **/riding-codebase** — Codebase analysis and reality mapping
-- **/run-bridge** — Autonomous excellence loop
-- **/run-mode** — Autonomous sprint execution with circuit breaker
-- **/simstim-workflow** — HITL accelerated development workflow
-- **/flatline-reviewer** — Multi-model adversarial review (Opus + GPT)
-- **/red-teaming** — Attack scenario generation
-- **/managing-credentials** — Credential management
-- **/rtfm-testing** — Documentation drift detection
+- **/creating-constructs** — Scaffold new construct projects from templates. Supports three construct
+- **/finding-constructs** — Ufinding constructs
+- **/linking-constructs** — Link local construct repositories for live development. When a construct is linked,
+- **/publishing-constructs** — Publish constructs to the Loa Constructs Registry. Runs a 10-point validation
+- **/syncing-constructs** — Detect divergence between local constructs and their upstream registry versions.
+- **/upgrading-constructs** — Upgrade installed constructs to newer versions using 3-way merge. Uses the
 
 ## Module Map
 <!-- provenance: DERIVED -->
-| Module | Purpose | Key Files |
-|--------|---------|-----------|
-| `apps/api/` | Hono REST API — git-sync, licensing, pack CRUD | `src/services/git-sync.ts`, `src/routes/packs.ts` |
-| `apps/explorer/` | Next.js 15 marketplace — 38 routes | `app/(marketing)/`, `lib/data/` |
-| `apps/sandbox/` | Pack development CLI | `cli/`, `packs/` (source of truth) |
-| `packages/` | Shared config (ESLint, TypeScript) | `eslint-config/`, `typescript-config/` |
-| `scripts/` | Seed, validate, extract utilities | `seed-forge-packs.ts`, `validate-topology.sh` |
-| `docs/` | Architecture, guides, schemas | `architecture/`, `guides/`, `schemas/` |
-| `evals/` | Benchmarking and regression | `suites/`, `graders/`, `harness/` |
-| `grimoires/` | Project state and memory | `loa/`, `artisan/`, `bridgebuilder/` |
-| `tests/` | Unit and integration tests (bats + vitest) | `unit/`, `integration/` |
+| Module | Files | Purpose | Documentation |
+|--------|-------|---------|---------------|
+| `api/` | 3 | API endpoints | \u2014 |
+| `apps/` | 15813 | Uapps | \u2014 |
+| `audits/` | 1 | Uaudits | \u2014 |
+| `docs/` | 40 | Documentation | \u2014 |
+| `evals/` | 122 | Benchmarking and regression framework for the Loa agent development system. Ensures framework changes don't degrade agent behavior through | [evals/README.md](evals/README.md) |
+| `grimoires/` | 365 | Home to all grimoire directories for the Loa | [grimoires/README.md](grimoires/README.md) |
+| `packages/` | 90 | Upackages | \u2014 |
+| `packs/` | 1 | Upacks | \u2014 |
+| `scripts/` | 26 | Utility scripts | \u2014 |
+| `tests/` | 157 | Test suites | \u2014 |
 
 ## Verification
 <!-- provenance: CODE-FACTUAL -->
 - Trust Level: **L2 — CI Verified**
-- CI/CD: GitHub Actions (10 workflows) — schema validation, topology checks, skill audit
-- Tests: bats (shell), vitest (TypeScript)
-- Linting: ESLint + Prettier configured
-- Security: SECURITY.md present, OWASP audit gate, CLAUDE.md injection hardening
+- 157 test files across 1 suite
+- CI/CD: GitHub Actions (10 workflows)
+- Linting: ESLint configured
+- Security: SECURITY.md present
 
-## Construct Distribution Model
+## Agents
 <!-- provenance: DERIVED -->
-### v2.0.0 — Git-Sourced Constructs
+The project defines 1 specialized agent persona.
 
-Constructs are standalone GitHub repos (`0xHoneyJar/construct-{slug}`) with this structure:
-
-```
-construct.yaml          # Pack manifest (schema_version 3)
-identity/
-  persona.yaml          # Cognitive frame, voice, principles
-  expertise.yaml        # Domains with depth 1-5
-skills/                 # Skill directories with SKILL.md + index.yaml
-commands/               # Slash command markdown files
-CLAUDE.md               # Auto-injected into consumer projects
-README.md               # Human-readable documentation
-```
-
-**Installation flow**: API returns `source_type: "git"` + `git_url` → `constructs-install.sh` shallow-clones → validates (HTTPS-only, no symlinks, no traversal) → symlinks skills/commands → injects CLAUDE.md sentinel block → writes `.constructs-meta.json`.
-
-**Sync flow**: `POST /v1/packs/:slug/sync` → API's `git-sync.ts` clones repo → validates against ALLOWED_DIRS → snapshots to DB + R2.
-
-### 5 Packs = 39 Skills
-| Pack | Skills | Domain |
-|------|--------|--------|
-| Observer | 6 | User research, pattern surveying, journey validation |
-| Crucible | 5 | Design decomposition, physics, material styling |
-| Artisan | 14 | Taste synthesis, feedback analysis, content auditing |
-| Beacon | 6 | Developer education, narrative crafting, GTM review |
-| GTM-Collective | 8 | Market analysis, positioning, pricing, partnerships |
-
-## Infrastructure
-<!-- provenance: OPERATIONAL -->
-| Component | Provider | Notes |
-|-----------|----------|-------|
-| API | Railway | Dockerfile with git, node:20-alpine |
-| Database | Supabase | PostgreSQL, pooled connection (`prepare: false`) |
-| Cache | Upstash | Redis |
-| Storage | Cloudflare R2 | Pack snapshots |
-| Frontend | Vercel | Next.js 15 |
-| Auth | JWT RS256 + OAuth | API key + user tokens |
+| Agent | Identity | Voice |
+|-------|----------|-------|
+| Bridgebuilder | You are the Bridgebuilder — a senior engineering mentor who has spent decades building systems at scale. | Your voice is warm, precise, and rich with analogy. |
 
 ## Ecosystem
 <!-- provenance: OPERATIONAL -->
-### Runtime Dependencies
-- `hono` — API framework
-- `next` — Frontend framework
-- `postgres` — Database client
-- `@upstash/redis` — Cache client
-- `turbo` — Monorepo orchestration
-- `pnpm` — Package manager
-- `tsx` — TypeScript execution
-
-### Agents
-| Agent | Identity |
-|-------|----------|
-| Bridgebuilder | Senior engineering mentor — warm, precise, rich with analogy |
+### Dependencies
+- `@types/node`
+- `next`
+- `prettier`
+- `react`
+- `react-dom`
+- `tsx`
+- `turbo`
+- `typescript`
 
 ## Quick Start
 <!-- provenance: OPERATIONAL -->
-```bash
-pnpm install                    # Install dependencies
-pnpm --filter api dev           # Start API locally
-pnpm --filter explorer dev      # Start marketplace locally
-pnpm --filter sandbox dev       # Start sandbox CLI
+Available commands:
 
-# Seed packs to local DB
-npx tsx scripts/seed-forge-packs.ts
-
-# Install a construct
-.claude/scripts/constructs-install.sh artisan
-
-# Validate topology
-scripts/validate-topology.sh --strict --verbose
-```
+- `npm run dev` — turbo
+- `npm run build` — turbo
+- `npm run test` — turbo
+- `npm run test:coverage` — turbo
 <!-- ground-truth-meta
-head_sha: 30ffe624bb4205b9db117894a77aafee11d05f3f
-generated_at: 2026-02-17T08:02:34Z
-generator: butterfreezone-gen v1.0.0 + manual enrichment (construct extraction v2.0.0)
+head_sha: d4d5a0831768e9445cd9232f70f38a3d3c06ae51
+generated_at: 2026-02-21T03:57:38Z
+generator: butterfreezone-gen v1.0.0
+sections:
+  agent_context: 341806493125cc90a3b3227916ae6cf9001e01c81331205dd8067097b2a94805
+  architecture: ffdfd8f14e40bdad179aae5c8587b22dc82e36eee2f0d0d1448a561cc5978b35
+  interfaces: 96a525cab8e1628033128a8048f8fa8814ca169f193b38c9364b6d71c6ea3180
+  module_map: d157bf9e107b332950931de898ab225d2b6a69c429a5065f1f0ae1804abf4c5a
+  verification: 704327983ddbd615feb44ad631849b3cc278493d49baa515dcf6ae8b443abb06
+  agents: ca263d1e05fd123434a21ef574fc8d76b559d22060719640a1f060527ef6a0b6
+  ecosystem: 0d998700d4489ca2aec077a69004279a3c45c117b9fb5b37c9f85ad511187c7c
+  quick_start: 15f176d9343ca15a6b32f5134ba0eda33e96f69620f6495734a1f150548e337b
 -->
