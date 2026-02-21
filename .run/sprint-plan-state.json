@@ -1,19 +1,19 @@
 {
-  "plan_id": "plan-20260220-c032",
-  "branch": "feature/cycle-032-construct-lifecycle",
+  "plan_id": "plan-20260222-c035aa",
+  "branch": "feature/cycle-035-measurement-honesty",
   "state": "RUNNING",
   "timestamps": {
-    "started": "2026-02-20T20:00:00Z",
-    "last_activity": "2026-02-20T20:00:00Z"
+    "started": "2026-02-22T01:20:00Z",
+    "last_activity": "2026-02-22T01:20:00Z"
   },
   "sprints": {
     "total": 3,
     "completed": 0,
     "current": "sprint-1",
     "list": [
-      {"id": "sprint-1", "global_id": "sprint-25", "status": "pending", "cycles": 0},
-      {"id": "sprint-2", "global_id": "sprint-26", "status": "pending", "cycles": 0},
-      {"id": "sprint-3", "global_id": "sprint-27", "status": "pending", "cycles": 0}
+      {"id": "sprint-1", "global_id": "sprint-34", "status": "in_progress", "cycles": 0},
+      {"id": "sprint-2", "global_id": "sprint-35", "status": "pending", "cycles": 0},
+      {"id": "sprint-3", "global_id": "sprint-36", "status": "pending", "cycles": 0}
     ]
   },
   "options": {
@@ -26,5 +26,7 @@
     "total_cycles": 0,
     "total_files_changed": 0,
     "total_findings_fixed": 0
-  }
+  },
+  "cycle": "cycle-035",
+  "title": "R&D Synthesis — Measurement Honesty"
 }

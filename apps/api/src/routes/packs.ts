@@ -1715,6 +1715,7 @@ packsRouter.post(
         description: description || sourcePack.description || undefined,
         ownerId: userId,
         ownerType: 'user',
+        forkedFrom: sourcePack.id,
       });
     } catch (err: unknown) {
       if (err instanceof Error && err.message?.includes('unique')) {
