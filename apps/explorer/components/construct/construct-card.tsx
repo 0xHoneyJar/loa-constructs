@@ -38,6 +38,17 @@ export function ConstructCard({ construct }: ConstructCardProps) {
             {getCategoryLabel(construct.category)}
           </Badge>
           <GraduationBadge level={construct.graduationLevel} />
+          {construct.constructType && construct.constructType !== 'skill-pack' && (
+            <Badge
+              style={{
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                borderColor: 'rgba(139, 92, 246, 0.3)',
+                color: 'rgb(167, 139, 250)',
+              }}
+            >
+              {construct.constructType.replace(/-/g, ' ')}
+            </Badge>
+          )}
           {construct.skills && construct.skills.length > 0 && (
             <span className="font-mono text-xs text-white/40">
               {construct.skills.length} SKILLS

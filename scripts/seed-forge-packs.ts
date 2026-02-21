@@ -15,6 +15,7 @@ import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
+import yaml from 'js-yaml';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLONE_DIR = join(__dirname, '../.cache/construct-repos');
@@ -68,13 +69,21 @@ interface PackManifest {
   description: string;
   author?: string;
   license?: string;
+  type?: string;
   skills?: Array<{ slug: string; path?: string }>;
+}
+
+interface IdentityData {
+  persona?: Record<string, unknown>;
+  expertise?: Record<string, unknown>;
 }
 
 interface DiscoveredPack extends PackManifest {
   icon: string;
   skillSlugs: string[];
   packPath: string;
+  constructType: string;
+  identity?: IdentityData;
 }
 
 /**
@@ -142,23 +151,64 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
       const repoDir = cloneOrPull(slug, config.gitUrl, config.gitRef);
 
       // Try manifest.json first (legacy), then construct.yaml
-      const manifestPath = join(repoDir, 'manifest.json');
+      const manifestJsonPath = join(repoDir, 'manifest.json');
+      const constructYamlPath = join(repoDir, 'construct.yaml');
       let manifest: PackManifest;
 
-      if (existsSync(manifestPath)) {
-        const content = await readFile(manifestPath, 'utf-8');
+      if (existsSync(manifestJsonPath)) {
+        const content = await readFile(manifestJsonPath, 'utf-8');
         manifest = JSON.parse(content) as PackManifest;
+      } else if (existsSync(constructYamlPath)) {
+        const content = await readFile(constructYamlPath, 'utf-8');
+        const parsed = yaml.load(content, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>;
+        manifest = {
+          schema_version: (parsed.schema_version as number) || 1,
+          name: (parsed.name as string) || slug,
+          slug: (parsed.slug as string) || slug,
+          version: (parsed.version as string) || '1.0.0',
+          description: (parsed.description as string) || '',
+          author: parsed.author as string | undefined,
+          license: parsed.license as string | undefined,
+          type: parsed.type as string | undefined,
+          skills: Array.isArray(parsed.skills)
+            ? (parsed.skills as Array<Record<string, unknown>>).map((s) => ({
+                slug: (s.slug as string) || '',
+                path: s.path as string | undefined,
+              }))
+            : undefined,
+        };
+        console.log(`     → parsed construct.yaml for ${slug}`);
       } else {
-        // No manifest.json — skip (construct.yaml repos need different parsing)
-        console.warn(`   Skipping ${slug}: no manifest.json found`);
+        console.warn(`   Skipping ${slug}: no manifest.json or construct.yaml found`);
         continue;
       }
+
+      // Parse identity files if present
+      let identity: IdentityData | undefined;
+      const personaPath = join(repoDir, 'identity', 'persona.yaml');
+      const expertisePath = join(repoDir, 'identity', 'expertise.yaml');
+      if (existsSync(personaPath) || existsSync(expertisePath)) {
+        identity = {};
+        if (existsSync(personaPath)) {
+          const personaContent = await readFile(personaPath, 'utf-8');
+          identity.persona = yaml.load(personaContent, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>;
+        }
+        if (existsSync(expertisePath)) {
+          const expertiseContent = await readFile(expertisePath, 'utf-8');
+          identity.expertise = yaml.load(expertiseContent, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>;
+        }
+        console.log(`     → parsed identity files for ${slug}`);
+      }
+
+      const constructType = manifest.type || 'skill-pack';
 
       packs.push({
         ...manifest,
         icon: PACK_ICONS[manifest.slug] || '📦',
         skillSlugs: manifest.skills?.map((s) => s.slug) || [],
         packPath: repoDir,
+        constructType,
+        identity,
       });
 
       console.log(`   Found: ${manifest.name} (${manifest.slug}) - ${manifest.skills?.length || 0} skills`);
@@ -246,6 +296,7 @@ async function seedForgePacks() {
           INSERT INTO packs (
             id, name, slug, description, icon, owner_id, owner_type,
             status, tier_required, pricing_type, thj_bypass,
+            construct_type,
             created_at, updated_at
           ) VALUES (
             ${packId},
@@ -259,6 +310,7 @@ async function seedForgePacks() {
             'free',
             'free',
             true,
+            ${pack.constructType},
             NOW(),
             NOW()
           )
@@ -267,6 +319,7 @@ async function seedForgePacks() {
             description = EXCLUDED.description,
             icon = EXCLUDED.icon,
             status = 'published',
+            construct_type = EXCLUDED.construct_type,
             updated_at = NOW()
           RETURNING id
         `;

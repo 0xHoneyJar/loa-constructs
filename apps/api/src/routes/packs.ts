@@ -998,6 +998,17 @@ packsRouter.post(
         });
       }
 
+      // Extract construct type from manifest (construct.yaml `type` field)
+      // Parse, don't validate: guard against non-object manifest shapes
+      const manifest = syncResult.manifest;
+      const manifestType = (manifest && typeof manifest === 'object' && !Array.isArray(manifest))
+        ? (manifest as Record<string, unknown>).type
+        : undefined;
+      const validConstructTypes = ['skill-pack', 'tool-pack', 'codex', 'template'];
+      const syncedConstructType = typeof manifestType === 'string' && validConstructTypes.includes(manifestType)
+        ? manifestType
+        : undefined;
+
       // Update pack metadata
       await tx
         .update(packs)
@@ -1006,6 +1017,7 @@ packsRouter.post(
           lastSyncCommit: syncResult.commit,
           lastSyncedAt: new Date(),
           updatedAt: new Date(),
+          ...(syncedConstructType && { constructType: syncedConstructType }),
         })
         .where(eq(packs.id, pack.id));
 

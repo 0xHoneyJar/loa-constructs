@@ -71,6 +71,11 @@ export default async function ConstructDetailPage({
             v{construct.version}
           </span>
           <span className="text-[10px] font-mono text-white/40 uppercase">{construct.type}</span>
+          {construct.constructType && construct.constructType !== 'skill-pack' && (
+            <span className="border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-mono text-violet-400">
+              {construct.constructType.replace(/-/g, ' ')}
+            </span>
+          )}
           {construct.owner && (
             <span className="border border-white/20 px-2 py-0.5 text-[10px] font-mono text-white/60">
               by {construct.owner.name}

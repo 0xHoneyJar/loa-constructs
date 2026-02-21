@@ -1,48 +1,8 @@
-import type { ConstructDetail, ConstructNode, GraduationLevel, GraphData, CategoryStats, Category } from '@/lib/types/graph';
-import { fetchCategories, normalizeCategory } from './fetch-categories';
+import type { ConstructDetail, ConstructNode, GraphData, CategoryStats, Category } from '@/lib/types/graph';
+import { fetchCategories } from './fetch-categories';
+import { transformToNode, type APIConstruct } from './transform-construct';
 
 const API_BASE = process.env.CONSTRUCTS_API_URL || 'https://api.constructs.network/v1';
-
-interface APIConstruct {
-  id: string;
-  slug: string;
-  name: string;
-  type: 'skill' | 'pack' | 'bundle';
-  description: string | null;
-  category: string | null;
-  version: string | null;
-  downloads: number;
-  tier_required: string;
-  is_featured: boolean;
-  maturity?: string;
-  source_type?: string | null;
-  git_url?: string | null;
-  rating?: number | null;
-  long_description?: string | null;
-  owner?: {
-    name: string;
-    type: 'user' | 'team';
-    avatar_url: string | null;
-  } | null;
-  has_identity?: boolean;
-  repository_url?: string | null;
-  homepage_url?: string | null;
-  documentation_url?: string | null;
-  identity?: {
-    cognitive_frame?: Record<string, unknown>;
-    expertise_domains?: string[];
-    voice_config?: Record<string, unknown>;
-    model_preferences?: Record<string, unknown>;
-  } | null;
-  verification_tier?: string;
-  verified_at?: string | null;
-  manifest?: {
-    commands?: Array<{ name: string; description: string; usage?: string }>;
-    skills?: Array<{ slug: string; name?: string; path?: string; description?: string } | null>;
-    composes_with?: string[];
-    dependencies?: string[];
-  };
-}
 
 interface APIResponse {
   data: APIConstruct[];
@@ -62,39 +22,6 @@ function isSafeUrl(url: string | null | undefined): url is string {
   } catch {
     return false;
   }
-}
-
-function parseGraduationLevel(level: string | undefined): GraduationLevel {
-  const validLevels: GraduationLevel[] = ['experimental', 'beta', 'stable', 'deprecated'];
-  if (level && validLevels.includes(level as GraduationLevel)) {
-    return level as GraduationLevel;
-  }
-  return 'stable';
-}
-
-function transformToNode(construct: APIConstruct): ConstructNode {
-  const commands = construct.manifest?.commands || [];
-  const shortDesc = construct.description
-    ? construct.description.split('.')[0].slice(0, 60)
-    : 'No description';
-
-  // Normalize category (handles legacy slugs like gtm -> marketing)
-  const category = normalizeCategory(construct.category || 'development');
-
-  return {
-    id: construct.id,
-    slug: construct.slug,
-    name: construct.name,
-    type: construct.type,
-    category,
-    graduationLevel: parseGraduationLevel(construct.maturity),
-    description: construct.description || 'No description available',
-    shortDescription: shortDesc,
-    commandCount: commands.length || (construct.type === 'skill' ? 1 : 0),
-    downloads: construct.downloads,
-    version: construct.version || '1.0.0',
-    rating: construct.rating ?? null,
-  };
 }
 
 function transformToDetail(construct: APIConstruct): ConstructDetail {
@@ -148,7 +75,11 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
   };
 }
 
-export async function fetchAllConstructs(): Promise<ConstructNode[]> {
+/**
+ * Internal: fetch all constructs with raw API data for edge computation.
+ * Not exported — use fetchAllConstructs() for public consumers.
+ */
+async function fetchAllRaw(): Promise<{ nodes: ConstructNode[]; raw: APIConstruct[] }> {
   try {
     const response = await fetch(`${API_BASE}/constructs?per_page=100`, {
       next: { revalidate: 3600 }, // ISR: 1 hour
@@ -156,13 +87,44 @@ export async function fetchAllConstructs(): Promise<ConstructNode[]> {
 
     if (!response.ok) {
       console.error(`Failed to fetch constructs: ${response.statusText}`);
+      return { nodes: [], raw: [] };
+    }
+
+    const data: APIResponse = await response.json();
+    return { nodes: data.data.map(transformToNode), raw: data.data };
+  } catch (error) {
+    console.error('Error fetching constructs:', error);
+    return { nodes: [], raw: [] };
+  }
+}
+
+/**
+ * Fetch all constructs as typed ConstructNode[].
+ * @returns Array of construct nodes for catalog/sitemap/SSG use.
+ * @since cycle-034 — return type changed from raw array to { nodes } wrapper,
+ *        then simplified back to ConstructNode[] to avoid leaking internal types.
+ */
+export async function fetchAllConstructs(): Promise<ConstructNode[]> {
+  const { nodes } = await fetchAllRaw();
+  return nodes;
+}
+
+export async function searchConstructs(query: string): Promise<ConstructNode[]> {
+  try {
+    const url = `${API_BASE}/constructs?q=${encodeURIComponent(query)}&per_page=50`;
+    const response = await fetch(url, {
+      next: { revalidate: 60 }, // Short cache for search results
+    });
+
+    if (!response.ok) {
+      console.error(`Search failed: ${response.statusText}`);
       return [];
     }
 
     const data: APIResponse = await response.json();
     return data.data.map(transformToNode);
   } catch (error) {
-    console.error('Error fetching constructs:', error);
+    console.error('Error searching constructs:', error);
     return [];
   }
 }
@@ -192,8 +154,8 @@ export async function fetchConstruct(slug: string): Promise<ConstructDetail | nu
 
 export async function fetchGraphData(): Promise<{ graphData: GraphData; categories: Category[] }> {
   // Fetch constructs and categories in parallel
-  const [nodes, categories] = await Promise.all([
-    fetchAllConstructs(),
+  const [{ nodes, raw }, categories] = await Promise.all([
+    fetchAllRaw(),
     fetchCategories(),
   ]);
 
@@ -215,8 +177,8 @@ export async function fetchGraphData(): Promise<{ graphData: GraphData; categori
   // Compute total commands
   const totalCommands = nodes.reduce((sum, node) => sum + node.commandCount, 0);
 
-  // Compute edges (simplified - in production, this would come from API relationships)
-  const edges = computeEdges(nodes);
+  // Compute edges from real manifest pack_dependencies and composes_with
+  const edges = computeEdges(nodes, raw);
 
   return {
     graphData: {
@@ -233,22 +195,51 @@ export async function fetchGraphData(): Promise<{ graphData: GraphData; categori
   };
 }
 
-function computeEdges(nodes: ConstructNode[]) {
-  // Simplified edge computation - connects packs to skills in same category
+function computeEdges(nodes: ConstructNode[], apiConstructs?: APIConstruct[]) {
   const edges: Array<{ id: string; source: string; target: string; relationship: 'contains' | 'depends_on' | 'composes_with' }> = [];
 
-  const packs = nodes.filter((n) => n.type === 'pack');
-  const skills = nodes.filter((n) => n.type === 'skill');
+  if (!apiConstructs) return edges;
 
-  for (const pack of packs) {
-    const relatedSkills = skills.filter((s) => s.category === pack.category);
-    for (const skill of relatedSkills) {
-      edges.push({
-        id: `${pack.id}-${skill.id}`,
-        source: pack.id,
-        target: skill.id,
-        relationship: 'composes_with',
-      });
+  // Build slug→id lookup for edge resolution
+  const slugToId = new Map<string, string>();
+  for (const node of nodes) {
+    slugToId.set(node.slug, node.id);
+  }
+
+  for (const construct of apiConstructs) {
+    const sourceId = slugToId.get(construct.slug);
+    if (!sourceId || !construct.manifest) continue;
+
+    // Extract pack_dependencies
+    const deps = construct.manifest.pack_dependencies;
+    if (deps && typeof deps === 'object') {
+      for (const depSlug of Object.keys(deps)) {
+        const targetId = slugToId.get(depSlug);
+        if (targetId && targetId !== sourceId) {
+          edges.push({
+            id: `${sourceId}-dep-${targetId}`,
+            source: sourceId,
+            target: targetId,
+            relationship: 'depends_on',
+          });
+        }
+      }
+    }
+
+    // Extract composes_with
+    const composes = construct.manifest.composes_with;
+    if (Array.isArray(composes)) {
+      for (const composeSlug of composes) {
+        const targetId = slugToId.get(composeSlug);
+        if (targetId && targetId !== sourceId) {
+          edges.push({
+            id: `${sourceId}-comp-${targetId}`,
+            source: sourceId,
+            target: targetId,
+            relationship: 'composes_with',
+          });
+        }
+      }
     }
   }
 

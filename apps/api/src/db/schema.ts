@@ -528,6 +528,10 @@ export const packs = pgTable(
     searchKeywords: text('search_keywords').array().default(sql`'{}'::text[]`),
     searchUseCases: text('search_use_cases').array().default(sql`'{}'::text[]`),
 
+    // Construct archetype (skill-pack | tool-pack | codex | template)
+    // @see prd.md §FR-1 — issue #131, cycle-034
+    constructType: varchar('construct_type', { length: 20 }).default('skill-pack'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
@@ -540,6 +544,7 @@ export const packs = pgTable(
       .where(sql`is_featured = true`),
     maturityIdx: index('idx_packs_maturity').on(table.maturity),
     sourceTypeIdx: index('idx_packs_source_type').on(table.sourceType),
+    constructTypeIdx: index('idx_packs_construct_type').on(table.constructType),
     // GIN indexes for array search
     // @see sdd.md §3.1 Database Schema (cycle-007)
     searchKeywordsIdx: index('idx_packs_search_keywords').using('gin', table.searchKeywords),
