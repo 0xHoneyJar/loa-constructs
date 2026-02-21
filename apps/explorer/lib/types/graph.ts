@@ -79,6 +79,30 @@ export interface ConstructDetail extends ConstructNode {
   repositoryUrl: string | null;
   homepageUrl: string | null;
   documentationUrl: string | null;
+  // Fork provenance (cycle-035)
+  forkedFrom: { slug: string; name: string } | null;
+  forkCount: number;
+  // SKILL.md prose (cycle-035)
+  skillProse: string | null;
+  // Showcases (cycle-035)
+  showcases: Showcase[];
+  // Accuracy report (cycle-035)
+  accuracy: AccuracyReport | null;
+}
+
+export interface Showcase {
+  id: string;
+  title: string;
+  url: string;
+  description: string | null;
+}
+
+export interface AccuracyReport {
+  sufficientData: boolean;
+  sampleSize: number;
+  coverage: number;
+  weightedKappa: number;
+  warnings: string[];
 }
 
 export interface CategoryStats {

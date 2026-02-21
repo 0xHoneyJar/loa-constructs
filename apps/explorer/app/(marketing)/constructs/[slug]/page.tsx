@@ -111,7 +111,32 @@ export default async function ConstructDetailPage({
         {construct.longDescription && (
           <p className="text-sm font-mono text-white/40 mt-2">{construct.longDescription}</p>
         )}
+        {/* Fork provenance badge */}
+        {construct.forkedFrom && (
+          <div className="mt-2">
+            <Link
+              href={`/constructs/${construct.forkedFrom.slug}`}
+              className="inline-flex items-center gap-1 text-xs font-mono text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              Forked from {construct.forkedFrom.name}
+            </Link>
+          </div>
+        )}
+        {construct.forkCount > 0 && (
+          <p className="text-xs font-mono text-white/40 mt-1">
+            {construct.forkCount} variant{construct.forkCount !== 1 ? 's' : ''} exist{construct.forkCount === 1 ? 's' : ''}
+          </p>
+        )}
       </div>
+
+      {/* SKILL.md Prose */}
+      {construct.skillProse && (
+        <div className="border border-white/10 p-4">
+          <p className="text-sm font-mono text-white/60 whitespace-pre-wrap">
+            {construct.skillProse}
+          </p>
+        </div>
+      )}
 
       {/* Info */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
@@ -127,9 +152,21 @@ export default async function ConstructDetailPage({
           <p className="text-white/40 mb-1">Commands</p>
           <p className="text-white">{construct.commandCount}</p>
         </div>
-        <div className="border border-white/10 p-3">
-          <p className="text-white/40 mb-1">Level</p>
-          <p className="text-white capitalize">{construct.graduationLevel}</p>
+        <div className="border border-white/10 p-3 col-span-2 sm:col-span-1">
+          <p className="text-sm text-white/60">
+            {(() => {
+              switch (construct.graduationLevel) {
+                case 'stable':
+                  return 'Stable';
+                case 'beta':
+                  return 'Beta — needs CHANGELOG + no critical issues for stable';
+                case 'deprecated':
+                  return 'Deprecated';
+                default:
+                  return 'Experimental — needs README + 7 days for beta';
+              }
+            })()}
+          </p>
         </div>
         {construct.rating != null && (
           <div className="border border-white/10 p-3">
@@ -244,6 +281,58 @@ export default async function ConstructDetailPage({
               </span>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Built With — Showcases */}
+      {construct.showcases.length > 0 && (
+        <div>
+          <h2 className="text-sm font-mono font-bold text-white mb-3">Built With</h2>
+          <div className="space-y-2">
+            {construct.showcases.map((showcase) => (
+              <div key={showcase.id} className="border border-white/10 p-3">
+                <a
+                  href={showcase.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-mono text-blue-400 hover:text-blue-300 transition-colors"
+                >
+                  {showcase.title} →
+                </a>
+                {showcase.description && (
+                  <p className="text-xs font-mono text-white/50 mt-1">{showcase.description}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Signal Accuracy */}
+      {construct.accuracy && (
+        <div>
+          <h2 className="text-sm font-mono font-bold text-white mb-3">Signal Accuracy</h2>
+          <div className="grid grid-cols-3 gap-4 text-xs font-mono">
+            <div className="border border-white/10 p-3">
+              <p className="text-white/40 mb-1">Weighted Kappa</p>
+              <p className="text-white">{construct.accuracy.weightedKappa.toFixed(3)}</p>
+            </div>
+            <div className="border border-white/10 p-3">
+              <p className="text-white/40 mb-1">Coverage</p>
+              <p className="text-white">{(construct.accuracy.coverage * 100).toFixed(0)}%</p>
+            </div>
+            <div className="border border-white/10 p-3">
+              <p className="text-white/40 mb-1">Sample Size</p>
+              <p className="text-white">{construct.accuracy.sampleSize}</p>
+            </div>
+          </div>
+          {construct.accuracy.warnings.length > 0 && (
+            <div className="mt-2 space-y-1">
+              {construct.accuracy.warnings.map((warning, i) => (
+                <p key={i} className="text-xs font-mono text-amber-400">{warning}</p>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
