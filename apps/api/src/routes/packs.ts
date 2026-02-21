@@ -51,7 +51,7 @@ import { createHash, randomUUID } from 'crypto';
 import { skillsRateLimiter, submissionRateLimiter, uploadRateLimiter } from '../middleware/rate-limiter.js';
 import { validatePath, generatePackStorageKey } from '../lib/security.js';
 import { getEffectiveTier, canAccessTier, type SubscriptionTier } from '../services/subscription.js';
-import { db, packs, packVersions, packFiles } from '../db/index.js';
+import { db, packs, packVersions, packFiles, constructVerifications } from '../db/index.js';
 import { eq, and, desc, sql } from 'drizzle-orm';
 
 // --- Route Instance ---
@@ -949,6 +949,7 @@ packsRouter.post(
 
       // Compute Merkle-root content hash for divergence detection
       const hashInput = syncResult.files
+        .filter((f: { path: string; contentHash: string }) => f.path && f.contentHash)
         .map((f: { path: string; contentHash: string }) => `${f.path}:${f.contentHash}`)
         .sort()
         .join('\n');
@@ -1745,7 +1746,6 @@ packsRouter.get(
     }
 
     // Fetch latest verification (most recent created_at)
-    const { constructVerifications } = await import('../db/index.js');
     const [latest] = await db
       .select()
       .from(constructVerifications)
@@ -1773,10 +1773,14 @@ packsRouter.get(
       ? new Date(latest.expiresAt) < new Date()
       : false;
 
+    // If certificate is expired, effective tier is UNVERIFIED
+    const effectiveTier = expired ? 'UNVERIFIED' : latest.verificationTier;
+
     return c.json({
       data: {
         slug,
-        verification_tier: latest.verificationTier,
+        verification_tier: effectiveTier,
+        raw_tier: latest.verificationTier,
         certificate: latest.certificateJson,
         issued_by: latest.issuedBy,
         issued_at: latest.issuedAt,
@@ -1794,11 +1798,17 @@ packsRouter.get(
  * @see sdd.md §4.2 POST /v1/packs/:slug/verification
  */
 const verificationSchema = z.object({
-  verification_tier: z.enum(['UNVERIFIED', 'BACKTESTED', 'PROVEN']),
+  verification_tier: z.enum(['BACKTESTED', 'PROVEN']),
   certificate_json: z
     .record(z.unknown())
-    .refine((val) => JSON.stringify(val).length <= 1_000_000, {
-      message: 'Certificate JSON must be under 1MB',
+    .refine((val) => {
+      try {
+        return JSON.stringify(val).length <= 1_000_000;
+      } catch {
+        return false;
+      }
+    }, {
+      message: 'Certificate JSON must be under 1MB and serializable',
     }),
   issued_by: z.string().min(1).max(100),
   issued_at: z.string().datetime(),
@@ -1829,7 +1839,6 @@ packsRouter.post(
     }
 
     // Rate limit: 10 verifications per pack per day
-    const { constructVerifications } = await import('../db/index.js');
     const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const [recentCount] = await db
       .select({ count: sql<number>`count(*)::int` })
@@ -1883,6 +1892,7 @@ packsRouter.post(
           issued_by: verification.issuedBy,
           issued_at: verification.issuedAt,
           created_at: verification.createdAt,
+          self_attested: true, // MVP: only pack owners can submit — always self-attested
         },
         request_id: requestId,
       },
@@ -1907,21 +1917,19 @@ packsRouter.get(
       throw Errors.NotFound('Pack not found');
     }
 
-    // Read verification checks from manifest
-    const latestVersion = await getLatestPackVersion(pack.id);
+    // Parallel queries: manifest + latest certificate
+    const [latestVersion, [latestCert]] = await Promise.all([
+      getLatestPackVersion(pack.id),
+      db.select()
+        .from(constructVerifications)
+        .where(eq(constructVerifications.packId, pack.id))
+        .orderBy(desc(constructVerifications.createdAt))
+        .limit(1),
+    ]);
     const manifest = latestVersion?.manifest as Record<string, unknown> | null;
     const workflow = manifest?.workflow as Record<string, unknown> | undefined;
     const verification = workflow?.verification as Record<string, unknown> | undefined;
     const checks = verification?.checks as Record<string, string> | undefined;
-
-    // Read latest certificate for additional metadata
-    const { constructVerifications } = await import('../db/index.js');
-    const [latestCert] = await db
-      .select()
-      .from(constructVerifications)
-      .where(eq(constructVerifications.packId, pack.id))
-      .orderBy(desc(constructVerifications.createdAt))
-      .limit(1);
 
     return c.json({
       data: {

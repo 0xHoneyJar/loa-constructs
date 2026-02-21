@@ -140,7 +140,7 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
           modelPreferences: construct.identity.model_preferences,
         }
       : null,
-    verificationTier: construct.verification_tier || 'UNVERIFIED',
+    verificationTier: construct.verification_tier ?? 'UNVERIFIED',
     verifiedAt: construct.verified_at ?? null,
     repositoryUrl: isSafeUrl(construct.repository_url) ? construct.repository_url : null,
     homepageUrl: isSafeUrl(construct.homepage_url) ? construct.homepage_url : null,

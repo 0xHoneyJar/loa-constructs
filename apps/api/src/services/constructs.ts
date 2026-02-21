@@ -959,6 +959,7 @@ async function fetchPackAsConstruct(slug: string): Promise<Construct | null> {
       const [latestVerification] = await db
         .select({
           verificationTier: constructVerifications.verificationTier,
+          expiresAt: constructVerifications.expiresAt,
           createdAt: constructVerifications.createdAt,
         })
         .from(constructVerifications)
@@ -966,8 +967,11 @@ async function fetchPackAsConstruct(slug: string): Promise<Construct | null> {
         .orderBy(desc(constructVerifications.createdAt))
         .limit(1);
       if (latestVerification) {
-        verificationTier = latestVerification.verificationTier;
-        verifiedAt = latestVerification.createdAt;
+        const expired = latestVerification.expiresAt
+          ? new Date(latestVerification.expiresAt) < new Date()
+          : false;
+        verificationTier = expired ? 'UNVERIFIED' : latestVerification.verificationTier;
+        verifiedAt = expired ? null : latestVerification.createdAt;
       }
     } catch {
       // construct_verifications table might not exist yet — fail gracefully
