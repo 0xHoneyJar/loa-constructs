@@ -769,10 +769,15 @@ export const skillFilesRelations = relations(skillFiles, ({ one }) => ({
 
 // --- Pack Relations ---
 
-export const packsRelations = relations(packs, ({ many }) => ({
+export const packsRelations = relations(packs, ({ one, many }) => ({
   versions: many(packVersions),
   subscriptions: many(packSubscriptions),
   installations: many(packInstallations),
+  identity: one(constructIdentities, {
+    fields: [packs.id],
+    references: [constructIdentities.packId],
+  }),
+  verifications: many(constructVerifications),
 }));
 
 export const packVersionsRelations = relations(packVersions, ({ one, many }) => ({
@@ -1151,6 +1156,47 @@ export const constructIdentities = pgTable(
   },
   (table) => ({
     packIdx: uniqueIndex('idx_construct_identities_pack').on(table.packId),
+  })
+);
+
+// --- Construct Verifications ---
+
+/**
+ * Construct Verifications table
+ * Stores CalibrationCertificates from external verifiers (Echelon).
+ * Append-only audit trail — no UPDATE, latest determined by MAX(created_at).
+ * @see sdd.md §3.1 construct_verifications
+ */
+export const constructVerifications = pgTable(
+  'construct_verifications',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    verificationTier: varchar('verification_tier', { length: 20 }).notNull(),
+    certificateJson: jsonb('certificate_json').notNull(),
+    issuedBy: varchar('issued_by', { length: 100 }).notNull(),
+    issuedAt: timestamp('issued_at', { withTimezone: true }).notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => ({
+    packIdx: index('idx_construct_verifications_pack').on(table.packId),
+    latestIdx: index('idx_construct_verifications_latest').on(
+      table.packId,
+      table.createdAt
+    ),
+  })
+);
+
+export const constructVerificationsRelations = relations(
+  constructVerifications,
+  ({ one }) => ({
+    pack: one(packs, {
+      fields: [constructVerifications.packId],
+      references: [packs.id],
+    }),
   })
 );
 

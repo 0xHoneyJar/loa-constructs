@@ -28,6 +28,14 @@ interface APIConstruct {
   repository_url?: string | null;
   homepage_url?: string | null;
   documentation_url?: string | null;
+  identity?: {
+    cognitive_frame?: Record<string, unknown>;
+    expertise_domains?: string[];
+    voice_config?: Record<string, unknown>;
+    model_preferences?: Record<string, unknown>;
+  } | null;
+  verification_tier?: string;
+  verified_at?: string | null;
   manifest?: {
     commands?: Array<{ name: string; description: string; usage?: string }>;
     skills?: Array<{ slug: string; name?: string; path?: string; description?: string } | null>;
@@ -124,6 +132,16 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
       avatarUrl: construct.owner.avatar_url ?? null,
     } : null,
     hasIdentity: construct.has_identity ?? false,
+    identity: construct.identity
+      ? {
+          cognitiveFrame: construct.identity.cognitive_frame,
+          expertiseDomains: construct.identity.expertise_domains,
+          voiceConfig: construct.identity.voice_config,
+          modelPreferences: construct.identity.model_preferences,
+        }
+      : null,
+    verificationTier: construct.verification_tier ?? 'UNVERIFIED',
+    verifiedAt: construct.verified_at ?? null,
     repositoryUrl: isSafeUrl(construct.repository_url) ? construct.repository_url : null,
     homepageUrl: isSafeUrl(construct.homepage_url) ? construct.homepage_url : null,
     documentationUrl: isSafeUrl(construct.documentation_url) ? construct.documentation_url : null,

@@ -51,8 +51,8 @@ import { createHash, randomUUID } from 'crypto';
 import { skillsRateLimiter, submissionRateLimiter, uploadRateLimiter } from '../middleware/rate-limiter.js';
 import { validatePath, generatePackStorageKey } from '../lib/security.js';
 import { getEffectiveTier, canAccessTier, type SubscriptionTier } from '../services/subscription.js';
-import { db, packs, packVersions, packFiles } from '../db/index.js';
-import { eq, and } from 'drizzle-orm';
+import { db, packs, packVersions, packFiles, constructVerifications } from '../db/index.js';
+import { eq, and, desc, sql } from 'drizzle-orm';
 
 // --- Route Instance ---
 
@@ -947,6 +947,14 @@ packsRouter.post(
           )
         );
 
+      // Compute Merkle-root content hash for divergence detection
+      const hashInput = syncResult.files
+        .filter((f: { path: string; contentHash: string }) => f.path && f.contentHash)
+        .map((f: { path: string; contentHash: string }) => `${f.path}:${f.contentHash}`)
+        .sort()
+        .join('\n');
+      const computedHash = `sha256:${createHash('sha256').update(hashInput).digest('hex')}`;
+
       // Create or update pack version
       const [version] = await tx
         .insert(packVersions)
@@ -958,6 +966,7 @@ packsRouter.post(
           publishedAt: new Date(),
           totalSizeBytes: syncResult.totalSizeBytes,
           fileCount: syncResult.files.length,
+          contentHash: computedHash,
         })
         .onConflictDoUpdate({
           target: [packVersions.packId, packVersions.version],
@@ -967,6 +976,7 @@ packsRouter.post(
             publishedAt: new Date(),
             totalSizeBytes: syncResult.totalSizeBytes,
             fileCount: syncResult.files.length,
+            contentHash: computedHash,
           },
         })
         .returning();
@@ -1714,6 +1724,243 @@ packsRouter.post(
       },
       201
     );
+  }
+);
+
+// --- Verification Endpoints ---
+
+/**
+ * GET /packs/:slug/verification — Get latest verification status
+ * @see sdd.md §4.1 GET /v1/packs/:slug/verification
+ */
+packsRouter.get(
+  '/:slug/verification',
+  optionalAuth(),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const requestId = randomUUID();
+
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    // Fetch latest verification (most recent created_at)
+    const [latest] = await db
+      .select()
+      .from(constructVerifications)
+      .where(eq(constructVerifications.packId, pack.id))
+      .orderBy(desc(constructVerifications.createdAt))
+      .limit(1);
+
+    if (!latest) {
+      return c.json({
+        data: {
+          slug,
+          verification_tier: 'UNVERIFIED',
+          certificate: null,
+          issued_by: null,
+          issued_at: null,
+          expires_at: null,
+          verified_at: null,
+          expired: false,
+        },
+        request_id: requestId,
+      });
+    }
+
+    const expired = latest.expiresAt
+      ? new Date(latest.expiresAt) < new Date()
+      : false;
+
+    // If certificate is expired, effective tier is UNVERIFIED
+    const effectiveTier = expired ? 'UNVERIFIED' : latest.verificationTier;
+
+    return c.json({
+      data: {
+        slug,
+        verification_tier: effectiveTier,
+        raw_tier: latest.verificationTier,
+        certificate: latest.certificateJson,
+        issued_by: latest.issuedBy,
+        issued_at: latest.issuedAt,
+        expires_at: latest.expiresAt,
+        verified_at: latest.createdAt,
+        expired,
+      },
+      request_id: requestId,
+    });
+  }
+);
+
+/**
+ * POST /packs/:slug/verification — Submit a verification certificate
+ * @see sdd.md §4.2 POST /v1/packs/:slug/verification
+ */
+const verificationSchema = z.object({
+  verification_tier: z.enum(['BACKTESTED', 'PROVEN']),
+  certificate_json: z
+    .record(z.unknown())
+    .refine((val) => {
+      try {
+        return JSON.stringify(val).length <= 1_000_000;
+      } catch {
+        return false;
+      }
+    }, {
+      message: 'Certificate JSON must be under 1MB and serializable',
+    }),
+  issued_by: z.string().min(1).max(100),
+  issued_at: z.string().datetime(),
+  expires_at: z.string().datetime().optional(),
+});
+
+packsRouter.post(
+  '/:slug/verification',
+  requireAuth(),
+  zValidator('json', verificationSchema),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const userId = c.get('userId' as never) as string;
+    const requestId = randomUUID();
+    const body = c.req.valid('json' as never) as z.infer<typeof verificationSchema>;
+
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    // Authorization: pack owner only (MVP)
+    const isOwner = await isPackOwner(pack.id, userId);
+    if (!isOwner) {
+      throw Errors.Forbidden(
+        'Only pack owners can submit verifications. Verifier role support coming soon.'
+      );
+    }
+
+    // Rate limit: 10 verifications per pack per day
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [recentCount] = await db
+      .select({ count: sql<number>`count(*)::int` })
+      .from(constructVerifications)
+      .where(
+        and(
+          eq(constructVerifications.packId, pack.id),
+          sql`${constructVerifications.createdAt} > ${oneDayAgo}`
+        )
+      );
+
+    if ((recentCount?.count ?? 0) >= 10) {
+      throw new AppError(
+        'RATE_LIMITED',
+        'Maximum 10 verification submissions per pack per day.',
+        429
+      );
+    }
+
+    // Insert verification record (append-only)
+    const [verification] = await db
+      .insert(constructVerifications)
+      .values({
+        packId: pack.id,
+        verificationTier: body.verification_tier,
+        certificateJson: body.certificate_json,
+        issuedBy: body.issued_by,
+        issuedAt: new Date(body.issued_at),
+        expiresAt: body.expires_at ? new Date(body.expires_at) : null,
+      })
+      .returning();
+
+    logger.info(
+      {
+        packId: pack.id,
+        slug,
+        tier: body.verification_tier,
+        issuedBy: body.issued_by,
+        userId,
+        requestId,
+      },
+      'Verification certificate submitted'
+    );
+
+    return c.json(
+      {
+        data: {
+          id: verification.id,
+          slug,
+          verification_tier: verification.verificationTier,
+          issued_by: verification.issuedBy,
+          issued_at: verification.issuedAt,
+          created_at: verification.createdAt,
+          self_attested: true, // MVP: only pack owners can submit — always self-attested
+        },
+        request_id: requestId,
+      },
+      201
+    );
+  }
+);
+
+/**
+ * GET /packs/:slug/ground-truth — Get ground truth metadata
+ * @see sdd.md §4.3 GET /v1/packs/:slug/ground-truth
+ */
+packsRouter.get(
+  '/:slug/ground-truth',
+  optionalAuth(),
+  async (c) => {
+    const slug = c.req.param('slug');
+    const requestId = randomUUID();
+
+    const pack = await getPackBySlug(slug);
+    if (!pack) {
+      throw Errors.NotFound('Pack not found');
+    }
+
+    // Parallel queries: manifest + latest certificate
+    const [latestVersion, [latestCert]] = await Promise.all([
+      getLatestPackVersion(pack.id),
+      db.select()
+        .from(constructVerifications)
+        .where(eq(constructVerifications.packId, pack.id))
+        .orderBy(desc(constructVerifications.createdAt))
+        .limit(1),
+    ]);
+    const manifest = latestVersion?.manifest as Record<string, unknown> | null;
+    const workflow = manifest?.workflow as Record<string, unknown> | undefined;
+    const verification = workflow?.verification as Record<string, unknown> | undefined;
+    const checks = verification?.checks as Record<string, string> | undefined;
+
+    // Honor expiration across all read paths
+    const expired = latestCert?.expiresAt
+      ? new Date(latestCert.expiresAt) < new Date()
+      : false;
+    const effectiveTier = expired
+      ? 'UNVERIFIED'
+      : (latestCert?.verificationTier ?? 'UNVERIFIED');
+    const verifiedAt = expired ? null : (latestCert?.createdAt ?? null);
+
+    return c.json({
+      data: {
+        slug,
+        ground_truth: {
+          verification_checks: checks || null,
+          verification_tier: effectiveTier,
+          verified_at: verifiedAt,
+          expired,
+          certificate_metadata: latestCert
+            ? {
+                issued_by: latestCert.issuedBy,
+                issued_at: latestCert.issuedAt,
+                expires_at: latestCert.expiresAt,
+              }
+            : null,
+        },
+        manifest_version: latestVersion?.version || null,
+        content_hash: latestVersion?.contentHash || null,
+      },
+      request_id: requestId,
+    });
   }
 );
 
