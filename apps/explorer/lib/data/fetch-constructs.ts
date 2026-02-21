@@ -1,4 +1,4 @@
-import type { ConstructDetail, ConstructNode, GraphData, CategoryStats, Category } from '@/lib/types/graph';
+import type { ConstructDetail, ConstructNode, GraphData, CategoryStats, Category, Showcase, AccuracyReport } from '@/lib/types/graph';
 import { fetchCategories } from './fetch-categories';
 import { transformToNode, type APIConstruct } from './transform-construct';
 
@@ -89,6 +89,9 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
     forkCount: construct.fork_count ?? 0,
     // SKILL.md prose (cycle-035)
     skillProse: construct.skill_prose ?? null,
+    // Populated by fetchConstruct via parallel API calls
+    showcases: [],
+    accuracy: null,
   };
 }
 
@@ -162,9 +165,60 @@ export async function fetchConstruct(slug: string): Promise<ConstructDetail | nu
     const json = await response.json();
     // API returns { data: construct } for single construct endpoint
     const construct: APIConstruct = json.data || json;
-    return transformToDetail(construct);
+    const detail = transformToDetail(construct);
+
+    // Fetch showcases and accuracy in parallel (non-blocking — failures return defaults)
+    const [showcases, accuracy] = await Promise.all([
+      fetchShowcases(slug),
+      fetchAccuracy(slug),
+    ]);
+
+    detail.showcases = showcases;
+    detail.accuracy = accuracy;
+
+    return detail;
   } catch (error) {
     console.error(`Error fetching construct ${slug}:`, error);
+    return null;
+  }
+}
+
+async function fetchShowcases(slug: string): Promise<Showcase[]> {
+  try {
+    const response = await fetchWithTimeout(`${API_BASE}/packs/${slug}/showcases`, {
+      next: { revalidate: 3600 },
+    });
+    if (!response.ok) return [];
+    const json = await response.json();
+    const items = json.data || [];
+    return items.map((s: { id: string; title: string; url: string; description?: string | null }) => ({
+      id: s.id,
+      title: s.title,
+      url: s.url,
+      description: s.description ?? null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+async function fetchAccuracy(slug: string): Promise<AccuracyReport | null> {
+  try {
+    const response = await fetchWithTimeout(`${API_BASE}/packs/${slug}/signals/accuracy`, {
+      next: { revalidate: 600 }, // 10min cache matching backend TTL
+    });
+    if (!response.ok) return null;
+    const json = await response.json();
+    const data = json.data || json;
+    if (!data || !data.sufficient_data) return null;
+    return {
+      sufficientData: data.sufficient_data,
+      sampleSize: data.sample_size ?? 0,
+      coverage: data.coverage ?? 0,
+      weightedKappa: data.weighted_kappa ?? 0,
+      warnings: data.warnings ?? [],
+    };
+  } catch {
     return null;
   }
 }
