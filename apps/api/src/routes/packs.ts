@@ -1931,13 +1931,23 @@ packsRouter.get(
     const verification = workflow?.verification as Record<string, unknown> | undefined;
     const checks = verification?.checks as Record<string, string> | undefined;
 
+    // Honor expiration across all read paths
+    const expired = latestCert?.expiresAt
+      ? new Date(latestCert.expiresAt) < new Date()
+      : false;
+    const effectiveTier = expired
+      ? 'UNVERIFIED'
+      : (latestCert?.verificationTier ?? 'UNVERIFIED');
+    const verifiedAt = expired ? null : (latestCert?.createdAt ?? null);
+
     return c.json({
       data: {
         slug,
         ground_truth: {
           verification_checks: checks || null,
-          verification_tier: latestCert?.verificationTier || 'UNVERIFIED',
-          verified_at: latestCert?.createdAt || null,
+          verification_tier: effectiveTier,
+          verified_at: verifiedAt,
+          expired,
           certificate_metadata: latestCert
             ? {
                 issued_by: latestCert.issuedBy,
