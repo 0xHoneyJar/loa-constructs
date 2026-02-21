@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { fetchAllConstructs } from '@/lib/data/fetch-constructs';
 
-export const revalidate = 300;
+export const dynamic = 'force-dynamic';
 
 export const metadata = {
   title: 'Packs',
