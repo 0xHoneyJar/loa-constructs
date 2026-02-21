@@ -12,7 +12,7 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
-  const { nodes: constructs } = await fetchAllConstructs();
+  const constructs = await fetchAllConstructs();
   return constructs.map((c) => ({ slug: c.slug }));
 }
 

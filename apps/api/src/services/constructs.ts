@@ -34,6 +34,11 @@ export type ConstructType = 'skill' | 'pack' | 'bundle';
 
 export type MaturityLevel = 'experimental' | 'beta' | 'stable' | 'deprecated';
 
+export type ConstructArchetype = 'skill-pack' | 'tool-pack' | 'codex' | 'template';
+
+/** Canonical list of valid construct archetypes — single source of truth */
+export const CONSTRUCT_ARCHETYPES: readonly ConstructArchetype[] = ['skill-pack', 'tool-pack', 'codex', 'template'] as const;
+
 export interface Construct {
   id: string;
   type: ConstructType;
@@ -393,8 +398,8 @@ function packToConstruct(
       : null,
     maturity,
     graduatedAt: pack.graduatedAt || null,
-    sourceType: (pack as any).sourceType || null,
-    gitUrl: (pack as any).gitUrl || null,
+    sourceType: pack.sourceType || null,
+    gitUrl: pack.gitUrl || null,
     hasIdentity: !!identityRow,
     identity: identityRow
       ? {
@@ -404,7 +409,7 @@ function packToConstruct(
           modelPreferences: identityRow.modelPreferences,
         }
       : null,
-    constructType: (pack as any).constructType || 'skill-pack',
+    constructType: pack.constructType || 'skill-pack',
     verificationTier: 'UNVERIFIED',
     verifiedAt: null,
     createdAt: pack.createdAt || new Date(),
@@ -449,8 +454,7 @@ export async function listConstructs(
   }
 
   // Determine if this is an archetype filter (skill-pack, tool-pack, codex, template)
-  const archetypeTypes: string[] = ['skill-pack', 'tool-pack', 'codex', 'template'];
-  const isArchetypeFilter = type && archetypeTypes.includes(type);
+  const isArchetypeFilter = type && (CONSTRUCT_ARCHETYPES as readonly string[]).includes(type);
 
   // When type is specified, we can use direct pagination on that table
   // When type is NOT specified (mixed query), we must fetch enough from both

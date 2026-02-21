@@ -6,7 +6,7 @@ import { fetchConstruct, fetchAllConstructs } from '@/lib/data/fetch-constructs'
 export const revalidate = 600;
 
 export async function generateStaticParams() {
-  const { nodes: constructs } = await fetchAllConstructs();
+  const constructs = await fetchAllConstructs();
   return constructs.map((c) => ({ slug: c.slug }));
 }
 

@@ -10,7 +10,7 @@ type SitemapEntry = {
 };
 
 export default async function sitemap(): Promise<SitemapEntry[]> {
-  const { nodes: constructs } = await fetchAllConstructs();
+  const constructs = await fetchAllConstructs();
   const packs = constructs.filter((c) => c.type === 'pack');
 
   const staticPages: SitemapEntry[] = [

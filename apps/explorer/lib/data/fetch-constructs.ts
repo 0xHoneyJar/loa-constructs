@@ -159,7 +159,11 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
   };
 }
 
-export async function fetchAllConstructs(): Promise<{ nodes: ConstructNode[]; raw: APIConstruct[] }> {
+/**
+ * Internal: fetch all constructs with raw API data for edge computation.
+ * Not exported — use fetchAllConstructs() for public consumers.
+ */
+async function fetchAllRaw(): Promise<{ nodes: ConstructNode[]; raw: APIConstruct[] }> {
   try {
     const response = await fetch(`${API_BASE}/constructs?per_page=100`, {
       next: { revalidate: 3600 }, // ISR: 1 hour
@@ -176,6 +180,17 @@ export async function fetchAllConstructs(): Promise<{ nodes: ConstructNode[]; ra
     console.error('Error fetching constructs:', error);
     return { nodes: [], raw: [] };
   }
+}
+
+/**
+ * Fetch all constructs as typed ConstructNode[].
+ * @returns Array of construct nodes for catalog/sitemap/SSG use.
+ * @since cycle-034 — return type changed from raw array to { nodes } wrapper,
+ *        then simplified back to ConstructNode[] to avoid leaking internal types.
+ */
+export async function fetchAllConstructs(): Promise<ConstructNode[]> {
+  const { nodes } = await fetchAllRaw();
+  return nodes;
 }
 
 export async function searchConstructs(query: string): Promise<ConstructNode[]> {
@@ -224,7 +239,7 @@ export async function fetchConstruct(slug: string): Promise<ConstructDetail | nu
 export async function fetchGraphData(): Promise<{ graphData: GraphData; categories: Category[] }> {
   // Fetch constructs and categories in parallel
   const [{ nodes, raw }, categories] = await Promise.all([
-    fetchAllConstructs(),
+    fetchAllRaw(),
     fetchCategories(),
   ]);
 

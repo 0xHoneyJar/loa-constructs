@@ -9,7 +9,7 @@ export const metadata = {
 };
 
 export default async function PacksPage() {
-  const { nodes: all } = await fetchAllConstructs();
+  const all = await fetchAllConstructs();
   const packs = all.filter((c) => c.type === 'pack').sort((a, b) => b.downloads - a.downloads);
 
   return (

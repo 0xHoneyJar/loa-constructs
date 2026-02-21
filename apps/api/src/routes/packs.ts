@@ -999,7 +999,11 @@ packsRouter.post(
       }
 
       // Extract construct type from manifest (construct.yaml `type` field)
-      const manifestType = (syncResult.manifest as Record<string, unknown>)?.type;
+      // Parse, don't validate: guard against non-object manifest shapes
+      const manifest = syncResult.manifest;
+      const manifestType = (manifest && typeof manifest === 'object' && !Array.isArray(manifest))
+        ? (manifest as Record<string, unknown>).type
+        : undefined;
       const validConstructTypes = ['skill-pack', 'tool-pack', 'codex', 'template'];
       const syncedConstructType = typeof manifestType === 'string' && validConstructTypes.includes(manifestType)
         ? manifestType

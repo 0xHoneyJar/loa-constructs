@@ -14,7 +14,7 @@ export default async function ConstructsCatalogPage({
   searchParams: Promise<{ category?: string; sort?: string; q?: string }>;
 }) {
   const params = await searchParams;
-  const { nodes: allConstructs } = await fetchAllConstructs();
+  const allConstructs = await fetchAllConstructs();
 
   // Use API search when query is present (server-side relevance scoring)
   let filtered = params.q
