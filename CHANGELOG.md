@@ -5,6 +5,20 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.0] — 2026-02-21 — Construct Lifecycle — Type System, Dependency Graph, Operational Gaps
+
+
+- **Sprint 1 — Type System Foundation**: Add `construct_type` column to packs table, persist type at registration and git sync, update list filter to accept both legacy and archetype enums, include `construct_type` in API responses
+- **Sprint 2 — Explorer Reality**: Replace fake category-based dependency graph with real `pack_dependencies`/`composes_with` extraction, wire catalog search to API `?q=` endpoint, add archetype badge to construct cards
+- **Sprint 3 — Operational Closure**: Add `construct.yaml` fallback parsing and identity directory parsing in seed script, create webhook configuration script, document `GITHUB_WEBHOOK_SECRET`
+
+### Added
+
+- **cycle-034**: Construct Lifecycle — Type System, Dependency Graph, Operational Gaps (#135)
+
+_Source: PR #135_
+
+
 ## [1.5.0] - 2026-02-05
 
 ### Why This Release
