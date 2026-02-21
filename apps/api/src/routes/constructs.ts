@@ -35,7 +35,7 @@ constructsRouter.use('*', skillsRateLimiter());
 
 const listConstructsSchema = z.object({
   q: z.string().optional(),
-  type: z.enum(['skill', 'pack', 'bundle']).optional(),
+  type: z.enum(['skill', 'pack', 'bundle', 'skill-pack', 'tool-pack', 'codex', 'template']).optional(),
   tier: z.enum(['free', 'pro', 'team', 'enterprise']).optional(),
   category: z.string().optional(),
   featured: z.coerce.boolean().optional(),
@@ -74,6 +74,7 @@ function formatConstruct(c: Construct) {
         }
       : null,
     maturity: c.maturity,
+    construct_type: c.constructType,
     source_type: c.sourceType,
     created_at: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
     updated_at: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
@@ -311,6 +312,7 @@ constructsRouter.post(
         name: body.name,
         slug: body.slug,
         description: body.type ? `A ${body.type} construct` : undefined,
+        constructType: body.type || 'skill-pack',
         ownerId: userId,
         ownerType: 'user',
       });

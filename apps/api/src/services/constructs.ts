@@ -65,6 +65,7 @@ export interface Construct {
     voiceConfig: unknown;
     modelPreferences: unknown;
   } | null;
+  constructType: string;
   verificationTier: string;
   verifiedAt: Date | null;
   createdAt: Date;
@@ -85,9 +86,11 @@ export interface ConstructSummary {
   tier_required: string;
 }
 
+export type ConstructArchetype = 'skill-pack' | 'tool-pack' | 'codex' | 'template';
+
 export interface ListConstructsOptions {
   query?: string;
-  type?: ConstructType;
+  type?: ConstructType | ConstructArchetype;
   tier?: string;
   category?: string;
   featured?: boolean;
@@ -314,6 +317,7 @@ function skillToConstruct(
     gitUrl: null,
     hasIdentity: false,
     identity: null,
+    constructType: 'skill-pack',
     verificationTier: 'UNVERIFIED',
     verifiedAt: null,
     createdAt: skill.createdAt || new Date(),
@@ -400,6 +404,7 @@ function packToConstruct(
           modelPreferences: identityRow.modelPreferences,
         }
       : null,
+    constructType: (pack as any).constructType || 'skill-pack',
     verificationTier: 'UNVERIFIED',
     verifiedAt: null,
     createdAt: pack.createdAt || new Date(),
@@ -443,6 +448,10 @@ export async function listConstructs(
     }
   }
 
+  // Determine if this is an archetype filter (skill-pack, tool-pack, codex, template)
+  const archetypeTypes: string[] = ['skill-pack', 'tool-pack', 'codex', 'template'];
+  const isArchetypeFilter = type && archetypeTypes.includes(type);
+
   // When type is specified, we can use direct pagination on that table
   // When type is NOT specified (mixed query), we must fetch enough from both
   // sources to correctly paginate the merged, sorted result
@@ -454,19 +463,30 @@ export async function listConstructs(
   const fetchLimit = isMixedQuery ? Math.min(page * pageSize, MAX_MIXED_FETCH) : pageSize;
   const fetchOffset = isMixedQuery ? 0 : offset;
 
-  // Fetch skills (if type not specified or type === 'skill')
-  const skillsPromise =
-    !type || type === 'skill'
-      ? fetchSkillsAsConstructs({ query, tier, category, featured, maturity, limit: fetchLimit, offset: fetchOffset })
-      : Promise.resolve({ items: [], count: 0 });
+  let skillsResult: { items: Construct[]; count: number; queryTerms?: string[] };
+  let packsResult: { items: Construct[]; count: number; queryTerms?: string[] };
 
-  // Fetch packs (if type not specified or type === 'pack')
-  const packsPromise =
-    !type || type === 'pack'
-      ? fetchPacksAsConstructs({ query, tier, featured, maturity, limit: fetchLimit, offset: fetchOffset })
-      : Promise.resolve({ items: [], count: 0 });
+  if (isArchetypeFilter) {
+    // Archetype filter: only query packs with matching construct_type
+    skillsResult = { items: [], count: 0 };
+    packsResult = await fetchPacksAsConstructs({
+      query, tier, featured, maturity, constructType: type,
+      limit: fetchLimit, offset: fetchOffset,
+    });
+  } else {
+    // Legacy behavior: skill/pack/bundle routing
+    const skillsPromise =
+      !type || type === 'skill'
+        ? fetchSkillsAsConstructs({ query, tier, category, featured, maturity, limit: fetchLimit, offset: fetchOffset })
+        : Promise.resolve({ items: [], count: 0 });
 
-  const [skillsResult, packsResult] = await Promise.all([skillsPromise, packsPromise]);
+    const packsPromise =
+      !type || type === 'pack'
+        ? fetchPacksAsConstructs({ query, tier, featured, maturity, limit: fetchLimit, offset: fetchOffset })
+        : Promise.resolve({ items: [], count: 0 });
+
+    [skillsResult, packsResult] = await Promise.all([skillsPromise, packsPromise]);
+  }
 
   // Merge and sort
   // When query is present, sort by relevance score (desc), then downloads
@@ -839,10 +859,15 @@ async function fetchPacksAsConstructs(options: {
   tier?: string;
   featured?: boolean;
   maturity?: MaturityLevel[];
+  constructType?: string;
   limit: number;
   offset: number;
 }): Promise<{ items: Construct[]; count: number; queryTerms?: string[] }> {
   const conditions = [eq(packs.status, 'published')];
+
+  if (options.constructType) {
+    conditions.push(eq(packs.constructType, options.constructType));
+  }
 
   if (options.maturity && options.maturity.length > 0) {
     conditions.push(inArray(packs.maturity, options.maturity));

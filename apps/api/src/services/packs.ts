@@ -40,6 +40,7 @@ export interface CreatePackInput {
   repositoryUrl?: string;
   homepageUrl?: string;
   documentationUrl?: string;
+  constructType?: string;
 }
 
 export interface UpdatePackInput {
@@ -106,6 +107,7 @@ export async function createPack(input: CreatePackInput): Promise<Pack> {
       repositoryUrl: input.repositoryUrl,
       homepageUrl: input.homepageUrl,
       documentationUrl: input.documentationUrl,
+      constructType: input.constructType || 'skill-pack',
       status: 'draft',
     })
     .returning();

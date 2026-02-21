@@ -17,11 +17,14 @@ export interface Category {
   constructCount: number;
 }
 
+export type ConstructArchetype = 'skill-pack' | 'tool-pack' | 'codex' | 'template';
+
 export interface ConstructNode {
   id: string;
   slug: string;
   name: string;
   type: ConstructType;
+  constructType: ConstructArchetype;
   category: string; // Dynamic category slug from API
   graduationLevel: GraduationLevel;
   description: string;

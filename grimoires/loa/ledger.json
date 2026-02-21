@@ -300,29 +300,62 @@
     {
       "id": "cycle-033",
       "label": "Observer Verification Infrastructure & Echelon Access",
-      "status": "active",
+      "status": "archived",
       "created": "2026-02-21T03:30:00Z",
+      "archived": "2026-02-21T22:00:00Z",
+      "archive_path": "grimoires/loa/archive/cycle-033-verification-infrastructure",
       "prd": "grimoires/loa/prd.md",
       "sdd": "grimoires/loa/sdd.md",
       "source_issues": [131, 379],
+      "pr": 134,
+      "release": "v2.5.0",
       "sprints": [
         {
           "local_id": "sprint-1",
           "global_id": "sprint-28",
           "label": "Infrastructure Foundation",
-          "status": "pending"
+          "status": "completed"
         },
         {
           "local_id": "sprint-2",
           "global_id": "sprint-29",
           "label": "Verification API + Ground Truth",
-          "status": "pending"
+          "status": "completed"
         },
         {
           "local_id": "sprint-3",
           "global_id": "sprint-30",
           "label": "Explorer Verification Display",
-          "status": "pending"
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "id": "cycle-034",
+      "label": "Construct Lifecycle — Type System, Dependency Graph, and Operational Gaps",
+      "status": "active",
+      "created": "2026-02-21T22:00:00Z",
+      "prd": "grimoires/loa/prd.md",
+      "sdd": "grimoires/loa/sdd.md",
+      "source_issues": [131],
+      "sprints": [
+        {
+          "local_id": "sprint-1",
+          "global_id": "sprint-31",
+          "label": "Type System Foundation",
+          "status": "completed"
+        },
+        {
+          "local_id": "sprint-2",
+          "global_id": "sprint-32",
+          "label": "Explorer Reality",
+          "status": "completed"
+        },
+        {
+          "local_id": "sprint-3",
+          "global_id": "sprint-33",
+          "label": "Operational Closure",
+          "status": "completed"
         }
       ]
     }

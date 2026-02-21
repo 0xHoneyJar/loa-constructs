@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { fetchAllConstructs } from '@/lib/data/fetch-constructs';
+import { fetchAllConstructs, searchConstructs } from '@/lib/data/fetch-constructs';
 
 export const revalidate = 300;
 
@@ -14,27 +14,25 @@ export default async function ConstructsCatalogPage({
   searchParams: Promise<{ category?: string; sort?: string; q?: string }>;
 }) {
   const params = await searchParams;
-  const allConstructs = await fetchAllConstructs();
+  const { nodes: allConstructs } = await fetchAllConstructs();
 
-  let filtered = allConstructs;
-
-  if (params.q) {
-    const q = params.q.toLowerCase();
-    filtered = filtered.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.description.toLowerCase().includes(q)
-    );
-  }
+  // Use API search when query is present (server-side relevance scoring)
+  let filtered = params.q
+    ? await searchConstructs(params.q)
+    : allConstructs;
 
   if (params.category && params.category !== 'all') {
     filtered = filtered.filter((c) => c.category === params.category);
   }
 
-  if (params.sort === 'downloads') {
-    filtered = filtered.sort((a, b) => b.downloads - a.downloads);
-  } else if (params.sort === 'name') {
-    filtered = filtered.sort((a, b) => a.name.localeCompare(b.name));
-  } else {
-    filtered = filtered.sort((a, b) => b.downloads - a.downloads);
+  if (!params.q) {
+    if (params.sort === 'downloads') {
+      filtered = filtered.sort((a, b) => b.downloads - a.downloads);
+    } else if (params.sort === 'name') {
+      filtered = filtered.sort((a, b) => a.name.localeCompare(b.name));
+    } else {
+      filtered = filtered.sort((a, b) => b.downloads - a.downloads);
+    }
   }
 
   const categories = [...new Set(allConstructs.map((c) => c.category))].sort();

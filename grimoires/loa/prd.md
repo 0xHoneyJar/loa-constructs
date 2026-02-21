@@ -1,399 +1,232 @@
-# PRD: Observer Verification Infrastructure & Echelon Access
+# PRD: Construct Lifecycle — Type System, Dependency Graph, and Operational Gaps
 
-**Cycle**: cycle-033
+**Cycle**: cycle-034
 **Created**: 2026-02-21
 **Status**: Draft
-**Source Issues**: [#131](https://github.com/0xHoneyJar/loa-constructs/issues/131) (Construct Lifecycle), [loa#379](https://github.com/0xHoneyJar/loa/issues/379) (Verification Gradient)
+**Source Issue**: [#131](https://github.com/0xHoneyJar/loa-constructs/issues/131) (Construct Lifecycle)
+**Predecessor**: cycle-033 (v2.5.0) — Verification Infrastructure (archived)
 **Grounded in**:
-- `grimoires/bridgebuilder/observer-laboratory-success-case.md` — Laboratory mapping, success metrics, Marry/Kiss/Kill
-- `grimoires/bridgebuilder/observer-manifest-audit.md` — Current vs target manifest, 10 missing fields
-- `grimoires/bridgebuilder/echelon-integration-gaps.md` — 3 blockers, critical path
-- `grimoires/bridgebuilder/ARCHETYPE.md` — Bridgebuilder philosophy
-- Codebase scan: exact file:line references for all integration points
-- Echelon progress update (AITOBIAS04, loa#379 comment 2026-02-20): 384 tests, Theatre Template Engine shipped
+- Codebase scan: `schema.ts` (1200+ lines), `constructs.ts` (334 lines), `packs.ts` (1965 lines), `git-sync.ts` (776 lines), `fetch-constructs.ts` (256 lines), `seed-forge-packs.ts` (172 lines)
+- Issue #131 RFC body + 4 comments (lifecycle research, Gemini DX patterns, team feedback, v2.5.0 milestone)
+- `_journal.json` — Drizzle migration journal at idx 2 (3 migrations behind)
 
 ---
 
 ## 1. Problem Statement
 
-The Constructs Network has no verification infrastructure. A construct declaring `review: skip` in its manifest is trusted at face value — there is no mechanism to prove the construct deserves that trust, no place to store verification evidence, and no way to display verification status to marketplace users.
+The Constructs Network supports **three construct archetypes** (skill-pack, tool-pack, codex, template) at the manifest level, but the registry has no way to distinguish them. A construct registering as `type: 'codex'` has its type silently dropped into a description string (`constructs.ts:312`). The explorer's dependency graph shows fake edges based on category matching, not real declared dependencies. The seed script silently skips repos that use `construct.yaml` instead of `manifest.json`.
 
-Concurrently, the first external collaborator (Tobias/Echelon) has built a verification pipeline (Product Theatres, CalibrationCertificates, verification tiers) and needs to integrate with Observer — but Observer's ground truth data is locked inside the private midi-interface repo with no safe access path.
+**Four concrete problems:**
 
-**Three concrete problems:**
+1. **Type is accepted but discarded.** `POST /v1/constructs/register` accepts `type: z.enum(['skill-pack', 'tool-pack', 'codex', 'template'])` at `constructs.ts:268`, but `createPack()` at `constructs.ts:310` has no `constructType` parameter — the type value becomes `description: 'A ${body.type} construct'`. The `packs` table (`schema.ts:472-548`) has no `construct_type` column.
+   > Evidence: `constructs.ts:310-316` — `createPack({ name, slug, description: body.type ? 'A ${body.type} construct' : undefined, ... })`
 
-1. **No verification storage**: The DB has no table for verification certificates. The API has no endpoints. The Explorer has no display. Echelon's 384-test verification pipeline has nowhere to land its results.
-   > Evidence: Codebase scan — zero `isVerified`, `verifiedAt`, or verification-related columns anywhere in `schema.ts` (1182 lines). No `/verify` routes in `packs.ts` (1719 lines).
+2. **List filter uses wrong enum.** The `type` query parameter at `constructs.ts:38` accepts `['skill', 'pack', 'bundle']` — these are internal Construct interface types, not manifest archetypes. There's no way to filter by `skill-pack` vs `tool-pack` vs `codex` vs `template`.
+   > Evidence: `constructs.ts:38` — `z.enum(['skill', 'pack', 'bundle'])`
 
-2. **No safe construct sharing**: Observer's ground truth (163+ provenance records, 28 canvases, Score API data) lives in midi-interface. Giving Tobias full repo access exposes proprietary business logic, API keys, and user data unrelated to the construct.
-   > Evidence: midi-interface root has ~2,640 Loa-related tracked files. Observer skills are 23 of hundreds of files.
+3. **Explorer dependency graph is fabricated.** `computeEdges()` at `fetch-constructs.ts:236-256` matches packs to skills by `category`, not by declared `pack_dependencies` or `composes_with` from manifests. The comment at line 237 acknowledges this: `"Simplified edge computation - connects packs to skills in same category"`.
+   > Evidence: `fetch-constructs.ts:244` — `const relatedSkills = skills.filter((s) => s.category === pack.category)`
 
-3. **Identity data is served but invisible**: The API already returns `construct_identities` data (cognitive_frame, expertise_domains, voice_config, model_preferences) via `formatConstructDetail` (`constructs.ts:83-120`). The Explorer's `APIConstruct` interface (`fetch-constructs.ts:6-37`) only captures `has_identity: boolean` — all JSONB fields are silently dropped. The detail page (`page.tsx:79-83`) shows a boolean badge, not content.
-   > Evidence: `fetch-constructs.ts:126` — `hasIdentity: construct.has_identity ?? false`. No `identity` object transformation.
+4. **Seed script breaks on construct.yaml repos.** `seed-forge-packs.ts:148-154` reads `manifest.json` only. Repos using `construct.yaml` (the newer format read by git-sync at `git-sync.ts:622-660`) are silently skipped with a warning. As more repos migrate to `construct.yaml`, the seed script becomes unable to populate the registry.
+   > Evidence: `seed-forge-packs.ts:152-154` — `console.warn('Skipping ${slug}: no manifest.json found'); continue;`
 
 ---
 
 ## 2. Vision
 
-**The Constructs Network becomes the first marketplace where expertise is verified, not just declared.** Observer earns PROVEN status through Echelon's verification pipeline, setting the precedent for every construct that follows.
-
-The access pattern is construct-first: Tobias gets the construct (standalone repo with skills + manifest + ground truth data) and API access (verification endpoints). He never touches midi-interface. The construct is the shareable unit. The host project is private.
+**Every construct on the network has a type, real dependency relationships, and reliable ingestion regardless of manifest format.** The registry accurately reflects the construct ecosystem's diversity (skill packs, tool packs, knowledge bases, templates) and the explorer shows real architectural relationships, not fabricated ones.
 
 ### Design Principles
 
 | Principle | Application |
 |-----------|------------|
-| **Pashov Principle** | You earn the right to skip the audit by proving you don't need it. UNVERIFIED constructs declaring `review: skip` are treated as `review: full`. |
-| **Honest Status** | Verification checks report `verified`, `installed_but_unmeasured`, `architectural_guarantee`, or `partial` — not `pass`/`fail` binary. |
-| **Construct Export + Data API** | Ground truth travels through the registry API, not repo access. Tobias never sees midi-interface. |
-| **Human-Defined Metrics** | Each construct's maintainer defines what matters for their domain. No universal Brier score across all constructs. |
+| **Additive, not breaking** | New `construct_type` column defaults to `'skill-pack'`; existing data is valid without migration backfill |
+| **Single source of truth** | Type comes from manifest (via git-sync) or explicit registration — not inferred |
+| **Real over fake** | Replace category-based fake edges with actual `pack_dependencies` / `composes_with` from manifests |
+| **Format agnostic** | Seed script handles both `manifest.json` and `construct.yaml` — same pack, either format |
 
 ---
 
 ## 3. Goals & Success Metrics
 
-### Primary Goals
-
 | Goal | Metric | Target |
 |------|--------|--------|
-| G1: Verification storage exists | `construct_verifications` table + GET/POST endpoints | Deployed to production |
-| G2: Tobias can submit CalibrationCertificates | `POST /v1/packs/:slug/verification` accepts Echelon output | First certificate stored |
-| G3: Verification tier visible in Explorer | Badge on construct detail page | Observer shows UNVERIFIED badge |
-| G4: Identity content displayed in Explorer | Cognitive frame, expertise domains visible | Observer detail page shows identity |
-| G5: Observer manifest has verification stanza | `workflow.verification.checks` with 4 honest-status checks | Manifest updated on construct-observer |
-
-### Secondary Goals
-
-| Goal | Metric | Target |
-|------|--------|--------|
-| G6: Ground truth API serves Observer data | `GET /v1/packs/:slug/ground-truth` returns provenance metadata | Endpoint functional |
-| G7: DB migrations current | All schema.ts tables exist in production Supabase | Zero missing tables |
-| G8: `contentHash` populated on sync | `packVersions.contentHash` set during `/sync` flow | Pre-computed hashes for all git-sourced packs |
+| G1: Construct type persisted | `packs.construct_type` column populated | All 5 registered packs have correct type |
+| G2: Type-based filtering | `GET /v1/constructs?type=skill-pack` returns filtered results | Query returns only matching archetypes |
+| G3: Real dependency graph | Explorer edges from `pack_dependencies` | Zero category-based fake edges |
+| G4: API search used by explorer | Explorer `?q=` hits API relevance scoring | Client-side Fuse.js replaced |
+| G5: Seed script handles construct.yaml | `construct.yaml` repos parsed correctly | All 5 construct-* repos seed successfully |
+| G6: Drizzle journal synchronized | `_journal.json` matches production state | Zero out-of-band migrations |
 
 ---
 
-## 4. User & Stakeholder Context
+## 4. Functional Requirements
 
-### Primary User: Tobias (Echelon Developer)
+### FR-1: `construct_type` Column on Packs Table
 
-**Job-to-be-Done**: "Verify Observer's outputs against ground truth and produce a CalibrationCertificate that the network can consume."
+**File**: `apps/api/src/db/schema.ts:472-548`
 
-**Needs**:
-- Read access to Observer construct definition (skills, manifest, identity)
-- Access to Observer's ground truth metadata (provenance record count, canvas coverage, enrichment timestamps)
-- API endpoint to submit CalibrationCertificates
-- Feedback loop: certificate → verification tier → visible in marketplace
-
-**Does NOT need**: midi-interface source code, Score API keys, user data, business logic.
-
-### Secondary User: Construct Marketplace Browsers
-
-**Job-to-be-Done**: "Understand whether a construct's claimed expertise is verified or self-declared."
-
-**Needs**:
-- Verification tier badge (UNVERIFIED / BACKTESTED / PROVEN)
-- Identity content (what does this construct know?)
-- Honest status per verification check
-
-### Stakeholder: @janitooor (Primary Maintainer)
-
-**Needs**: DB migrations run safely, API changes reviewed, no breaking changes to existing flows.
-
-### Stakeholder: @zksoju (Construct Maintainer, Product Lead)
-
-**Needs**: Observer's verification stanza accurately reflects the midi-interface deployment. No false claims.
-
----
-
-## 5. Functional Requirements
-
-### FR-1: `construct_verifications` Table
-
-**File**: `apps/api/src/db/schema.ts`
-**Insert after**: `constructIdentities` table (line 1155)
+Add a varchar column to the `packs` table:
 
 ```typescript
-export const constructVerifications = pgTable('construct_verifications', {
-  id: uuid('id').defaultRandom().primaryKey(),
-  packId: uuid('pack_id').references(() => packs.id, { onDelete: 'cascade' }).notNull(),
-  verificationTier: varchar('verification_tier', { length: 20 }).notNull(),
-    // 'UNVERIFIED' | 'BACKTESTED' | 'PROVEN'
-  certificateJson: jsonb('certificate_json').notNull(),
-    // Full CalibrationCertificate from Echelon
-  issuedBy: varchar('issued_by', { length: 100 }).notNull(),
-    // 'echelon' | 'manual-audit' | other verifier identifiers
-  issuedAt: timestamp('issued_at', { withTimezone: true }).notNull(),
-  expiresAt: timestamp('expires_at', { withTimezone: true }),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+constructType: varchar('construct_type', { length: 20 }).default('skill-pack'),
 ```
 
-**Index**: `CREATE INDEX idx_cv_pack_id ON construct_verifications(pack_id)` — for quick lookup of latest verification per pack.
+**Why varchar, not enum**: The issue RFC + Gemini research (issue comment #2) suggest the type set is open — new types may emerge (e.g., `mcp-server`, `runtime-extension`). Using varchar with application-level Zod validation avoids `ALTER TYPE` migrations. This matches the `verificationTier` design decision from cycle-033 SDD §3.1.
 
-**Relationship to Echelon schema**: The `certificateJson` JSONB column accepts Echelon's `CalibrationCertificate` format directly (construct_slug, verification_tier, checks, issued_at, valid_until, issuer, notes). No transformation needed.
+Add index: `constructTypeIdx: index('idx_packs_construct_type').on(table.constructType)`
 
-### FR-2: Verification API Endpoints
+### FR-2: Persist Type at Registration and Sync
 
-**File**: `apps/api/src/routes/packs.ts`
-**Insert after**: permissions endpoint (line 1641)
+**File**: `apps/api/src/routes/constructs.ts:310-316`
 
-**`GET /v1/packs/:slug/verification`**
-- Auth: `optionalAuth()` — public read
-- Returns: Latest `construct_verifications` row for the pack, or `{ verification_tier: 'UNVERIFIED', certificate: null }` if none exists
-- Response includes `issued_at`, `expires_at`, `issued_by`, and full `certificate_json`
-- If certificate has expired (`expires_at < now`), return it with `expired: true` flag but still show the tier
+Registration: Pass `body.type` to `createPack()` as `constructType` instead of embedding it in the description string.
 
-**`POST /v1/packs/:slug/verification`**
-- Auth: `requireAuth()` — pack owner OR authorized verifier
-- Body: `{ verification_tier, certificate_json, issued_by, issued_at, expires_at }`
-- Validation: `verification_tier` must be one of `UNVERIFIED`, `BACKTESTED`, `PROVEN`
-- Rate limit: 10 submissions per pack per day (prevent spam)
-- On success: insert row into `construct_verifications`, return 201
-- **Authorization model**: For MVP, pack owner can submit. Future: verifier role with separate auth.
+**File**: `apps/api/src/routes/packs.ts` (sync transaction ~line 938-1030)
 
-### FR-3: Ground Truth Metadata Endpoint
+Sync: After parsing manifest, extract `type` field and write to `packs.constructType`. The manifest is already parsed by `readManifest()` in `git-sync.ts:622-660` — the `type` field is present in the JSONB but not extracted.
 
-**File**: `apps/api/src/routes/packs.ts`
+### FR-3: Update List Filter Enum
 
-**`GET /v1/packs/:slug/ground-truth`**
-- Auth: `optionalAuth()`
-- Returns metadata about the construct's ground truth data:
-  ```json
-  {
-    "slug": "observer",
-    "ground_truth": {
-      "provenance_record_count": 163,
-      "canvas_count": 28,
-      "canvas_enriched_count": 16,
-      "enrichment_coverage": 0.57,
-      "last_sync": "2026-02-20T00:00:00Z",
-      "verification_checks": {
-        "provenance_integrity": "verified",
-        "source_fidelity_gate": "installed_but_unmeasured",
-        "rlm_isolation": "architectural_guarantee",
-        "canvas_enrichment": "partial"
-      }
-    }
-  }
-  ```
-- Source: Reads from `construct_verifications.certificate_json` if available, otherwise from `pack_versions.manifest` JSONB (`workflow.verification.checks`)
-- This is a **read-only summary** — the actual provenance records live in the construct repo, not the registry DB
+**File**: `apps/api/src/routes/constructs.ts:36-44`
 
-### FR-4: Explorer Identity Wiring
+Change the `type` filter from `z.enum(['skill', 'pack', 'bundle'])` to `z.enum(['skill-pack', 'tool-pack', 'codex', 'template'])`. Update the query logic in the list handler to filter on `packs.constructType` instead of the internal Construct type mapping.
 
-**Files**:
-- `apps/explorer/lib/data/fetch-constructs.ts:6-37` — Extend `APIConstruct`
-- `apps/explorer/lib/data/graph.ts:58-71` — Extend `ConstructDetail`
-- `apps/explorer/app/(marketing)/constructs/[slug]/page.tsx:79-83` — Extend display
+Keep backward compatibility: also accept `'skill'`, `'pack'`, `'bundle'` as aliases that map to the old behavior (filtering by the internal type, or defaulting to `skill-pack`).
 
-**Changes**:
+### FR-4: Real Dependency Graph in Explorer
 
-1. Add `identity` object to `APIConstruct` interface:
-   ```typescript
-   identity?: {
-     cognitive_frame?: Record<string, unknown>;
-     expertise_domains?: string[];
-     voice_config?: Record<string, unknown>;
-     model_preferences?: Record<string, unknown>;
-   };
-   ```
+**File**: `apps/explorer/lib/data/fetch-constructs.ts:236-256`
 
-2. Add `identity` to `ConstructDetail` type and `transformToDetail`:
-   ```typescript
-   identity: construct.identity ?? null,
-   ```
+Replace `computeEdges()` with real dependency extraction:
 
-3. Render identity content on construct detail page:
-   - Expertise domains as tag badges
-   - Cognitive frame as expandable section
-   - Replace boolean "Expert Identity" badge with actual content
+1. Read `pack_dependencies` and `composes_with` from each construct's manifest (available in `APIConstruct.manifest`)
+2. Match dependency slugs to nodes in the graph
+3. Create edges with accurate `relationship` types: `'depends_on'` for `pack_dependencies`, `'composes_with'` for `composes_with`
+4. Fall back to empty edges (not fake category edges) when no dependencies are declared
 
-### FR-5: Explorer Verification Display
+### FR-5: Wire Explorer Search to API
 
-**File**: `apps/explorer/app/(marketing)/constructs/[slug]/page.tsx`
+**File**: `apps/explorer/lib/hooks/use-search.ts`
+**File**: `apps/explorer/app/(marketing)/constructs/page.tsx`
 
-1. Add `verification_tier` to API response (extend `formatConstructDetail` in `constructs.ts`):
-   - JOIN `construct_verifications` on `pack_id`, get latest row
-   - Add `verification_tier` and `verified_at` to response
+Replace client-side Fuse.js search with API `?q=` query parameter. The API already has full relevance scoring at `constructs.ts:150-241` (slug match, name match, keyword match, use-case match, TF-IDF scoring) that is currently unused by the frontend.
 
-2. Verification tier badge component:
-   ```
-   UNVERIFIED  → gray badge, no icon
-   BACKTESTED  → yellow badge, checkmark icon
-   PROVEN      → green badge, shield icon
-   ```
+For the graph view, maintain the current fetch-all approach (needed for visualization). For the list/catalog page, switch to API-driven search with debounced queries.
 
-3. Add verification section to detail page:
-   - Current tier + when last verified
-   - Verification checks summary (from ground-truth endpoint)
-   - Link to full CalibrationCertificate (expandable JSON)
+### FR-6: Seed Script `construct.yaml` Support
 
-4. Add verification tier filter to construct list page
+**File**: `scripts/seed-forge-packs.ts:148-154`
 
-### FR-6: DB Migration Execution
+When `manifest.json` is not found, try reading `construct.yaml` via `js-yaml` (add as dev dependency). Transform the YAML manifest to the expected `PackManifest` shape. Extract and use the `type` field for the `constructType` column.
 
-**Files**: `apps/api/src/db/schema.ts`, Drizzle migration files
+Also: add identity directory parsing (read `identity/persona.yaml` and `identity/expertise.yaml`) to populate `construct_identities` during seeding — matching the git-sync behavior.
 
-Run `drizzle-kit push` or `drizzle-kit generate` + `drizzle-kit migrate` to create all tables defined in schema.ts but not yet in production Supabase. This includes:
-- `construct_identities` (lines 1136-1155)
-- `construct_reviews` (lines 1082-1107)
-- `graduation_requests` (lines 1012-1060)
-- `github_webhook_deliveries` (lines 1158-1175)
-- `categories` (lines 1061-1079)
-- NEW: `construct_verifications` (from FR-1)
+### FR-7: Migration File + Journal Sync
 
-### FR-7: Content Hash Population
+**File**: `apps/api/drizzle/0006_construct_type.sql` (new)
 
-**File**: `apps/api/src/routes/packs.ts:938-972`
-
-The `contentHash` column on `packVersions` (`schema.ts:578`) is never populated during sync. The `/hash` endpoint (`packs.ts:1571-1608`) always falls back to on-the-fly SHA-256 computation.
-
-Fix: During the sync transaction (`packs.ts:938-1030`), compute and store `contentHash` alongside the version insert. This enables O(1) divergence detection for all git-sourced packs without hitting the fallback path.
-
-### FR-8: Drizzle Relations for Identity
-
-**File**: `apps/api/src/db/schema.ts:772-776`
-
-The `packsRelations` definition has no relation to `constructIdentities`. Add:
-```typescript
-identity: one(constructIdentities, {
-  fields: [packs.id],
-  references: [constructIdentities.packId],
-}),
+Create migration:
+```sql
+-- Add construct_type to packs table
+ALTER TABLE "packs" ADD COLUMN IF NOT EXISTS "construct_type" varchar(20) DEFAULT 'skill-pack';
+CREATE INDEX IF NOT EXISTS "idx_packs_construct_type" ON "packs" ("construct_type");
 ```
 
-This enables Drizzle `with: { identity: true }` joins, replacing the manual JOIN in `formatConstructDetail`.
+Also update `drizzle/meta/_journal.json` to add entries for migrations 0003-0005 that were applied out-of-band, plus the new 0006. This synchronizes the journal with production reality.
+
+### FR-8: Document Webhook Configuration
+
+**File**: `.env.example`
+
+Document `GITHUB_WEBHOOK_SECRET` variable. Create `scripts/configure-webhooks.sh` that uses `gh api` to register/verify webhooks on all 5 construct-* repos pointing to `https://api.constructs.network/v1/webhooks/github`.
 
 ---
 
-## 6. Technical Requirements
+## 5. Technical Requirements
 
-### TR-1: Security — Construct Export, Not Repo Access
+### TR-1: Backward Compatibility
 
-The access model is:
-- **construct-observer repo** (public or Tobias-invited): Contains skills, manifest, identity, ground truth metadata. NO midi-interface business logic, NO API keys, NO user data.
-- **Registry API** (authenticated): Verification endpoints, ground truth summary, CalibrationCertificate submission.
-- **midi-interface** (private, NO access granted): Tobias never sees this repo.
+- `construct_type` column defaults to `'skill-pack'` — all existing packs are valid
+- List filter accepts both old (`skill/pack/bundle`) and new (`skill-pack/tool-pack/codex/template`) values
+- Explorer handles missing `pack_dependencies` gracefully (empty edges, not errors)
+- Seed script tries `manifest.json` first, falls back to `construct.yaml`
 
-Observer's instance data (provenance records, canvas contents) travels through:
-1. Observer maintainer exports summary statistics to construct-observer manifest (`workflow.verification.checks`)
-2. On sync, the registry ingests the manifest and serves it via ground truth endpoint
-3. Full provenance records available in construct-observer repo's `verification/` directory (maintainer-curated subset)
+### TR-2: Performance
 
-### TR-2: Backward Compatibility
+- `construct_type` index enables O(1) type filtering
+- API search replaces O(n) client-side Fuse.js with indexed DB queries
+- Dependency graph computed from already-fetched manifest data (no new API calls)
 
-- All new fields optional on existing constructs
-- New API endpoints don't modify existing response shapes
-- Explorer changes are additive (new sections, not replacing existing ones)
-- `construct_verifications` table is independent — no foreign keys to tables that might not exist
+### TR-3: No New Dependencies
 
-### TR-3: CalibrationCertificate Schema Compatibility
-
-The `certificateJson` JSONB column must accept Echelon's schema without transformation. Key fields from Echelon's `CalibrationCertificate` schema v1.0.0:
-- `construct_slug` (string)
-- `verification_tier` (enum)
-- `checks` (Record<string, { status, details }>)
-- `issued_at`, `valid_until` (ISO 8601)
-- `issuer` (string)
-- `signature` (optional, for third-party auditability)
-
-Design the POST endpoint to accept this shape directly.
-
-### TR-4: Performance
-
-- Verification lookup: Single indexed query on `pack_id`, return latest row
-- Ground truth endpoint: Read from manifest JSONB or latest certificate — no expensive computation
-- Explorer: ISR revalidation at 1 hour (matching existing `fetch-constructs.ts` pattern)
-- Identity JOIN: Use Drizzle `with` clause once relation is defined (FR-8)
+- `js-yaml` added to seed script only (dev dependency, not production API)
+- No new npm packages for API or explorer changes
 
 ---
 
-## 7. Scope & Prioritization
+## 6. Scope & Prioritization
 
-### In Scope (MVP — This Cycle)
+### In Scope (This Cycle)
 
-- `construct_verifications` table + Drizzle migration
-- `GET/POST /v1/packs/:slug/verification` endpoints
-- `GET /v1/packs/:slug/ground-truth` endpoint
-- Explorer identity content display (cognitive frame, expertise domains)
-- Explorer verification tier badge + section
-- DB migration execution (all pending tables)
-- `contentHash` population during sync
-- Drizzle relations for identity
+- `construct_type` column + migration + journal sync
+- Type persistence at registration and sync
+- Updated list filter enum
+- Real dependency graph in explorer
+- Explorer search wired to API
+- Seed script `construct.yaml` + identity parsing
+- Webhook configuration script + env documentation
 
-### Out of Scope (Future Cycles)
+### Out of Scope (Future)
 
-- Observer skill extraction from midi-interface (separate construct-observer PR)
-- CalibrationCertificate viewer with evidence panel (Phase 4 UX)
-- Verification history timeline
-- Automated monthly certificate generation
-- Constraint yielding enforcement based on verification tier (loa framework change)
-- Scoped fork path (`@thj/observer` registration)
-- Cross-construct event bus
-- Verifier role with separate authorization (MVP uses pack owner auth)
+- Verifier role (non-owner POST verification) — Phase 2
+- `constructs upstream` bidirectional sync — Phase 3
+- mibera-codex MCP access layer — separate issue
+- Hub-interface construct extraction (Easel/Mint/Cartograph) — separate repos
+- Version pinning / lock files — Phase 3
+- Explorer search full UX redesign — Phase 4
+- `construct-network-tools` skill implementations — separate issue
 
 ---
 
-## 8. Risks & Mitigations
+## 7. Risks & Mitigations
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|-----------|
-| Drizzle migration breaks production | Low | Critical | Run `drizzle-kit push --dry-run` first. Verify against staging. Supabase has point-in-time recovery. |
-| CalibrationCertificate schema drifts from Echelon | Medium | Medium | Store as JSONB (flexible). Validate structure loosely. Design POST endpoint jointly with Tobias before implementation. |
-| Explorer ISR cache shows stale verification tier | Low | Low | 1-hour revalidation is acceptable for verification changes (rare events). Add manual revalidation trigger for urgent updates. |
-| Ground truth summary diverges from actual data | Medium | Medium | Summary is metadata only — counts and timestamps, not the data itself. Echelon's backtest runs against the actual construct repo, not the summary. |
-| Tobias submits certificate before migration is run | High | Medium | Phase 1 (migrations) must complete before Phase 2 (endpoints). Strict sprint dependency. |
+| Drizzle journal sync causes duplicate table creation | Medium | High | All statements use `IF NOT EXISTS`. Test with `drizzle-kit push --dry-run` first. |
+| Changing list filter breaks existing API consumers | Low | Medium | Accept both old and new enum values. Deprecate old values in response headers. |
+| Real dependency graph has broken edges (slug mismatches) | Medium | Low | Graceful fallback — skip unresolvable slugs, log warning. |
+| `construct.yaml` parsing misses fields that `manifest.json` had | Low | Low | Validate parsed output against same `PackManifest` shape. Log discrepancies. |
 
 ---
 
-## 9. Dependencies
+## 8. Proposed Sprint Sequence
 
-### Internal Dependencies
-
-| Dependency | Status | Impact |
-|-----------|--------|--------|
-| cycle-032 construct lifecycle tooling | Completed (archived) | Schema extensions, .construct/ shadow, lifecycle skills all exist |
-| `construct_identities` table in schema.ts | Defined, not migrated | Migration is FR-6 of this cycle |
-| `contentHash` column on `packVersions` | Defined, never populated | FR-7 of this cycle |
-| Explorer `hasIdentity` boolean badge | Exists (`page.tsx:79-83`) | Extend, not replace |
-
-### External Dependencies
-
-| Dependency | Status | Impact |
-|-----------|--------|--------|
-| Echelon CalibrationCertificate schema v1.0.0 | Published (AITOBIAS04/Echelon) | POST endpoint must match this shape |
-| Tobias access to construct-observer repo | Pending | Required for ground truth data access |
-| Supabase production access for migrations | Available to @janitooor | Required for FR-6 |
+| Sprint | Label | Deliverables | FR Coverage |
+|--------|-------|-------------|-------------|
+| Sprint 1 | Type System Foundation | `construct_type` column, migration 0006, journal sync, persist at register + sync | FR-1, FR-2, FR-3, FR-7 |
+| Sprint 2 | Explorer Reality | Real dependency graph, API search wiring, construct type display | FR-4, FR-5 |
+| Sprint 3 | Operational Closure | Seed script construct.yaml, webhook config script, env docs | FR-6, FR-8 |
 
 ---
 
-## 10. Proposed Sprint Sequence
+## 9. Acceptance Criteria
 
-| Sprint | Label | Deliverables | Blocks |
-|--------|-------|-------------|--------|
-| Sprint 1 | Infrastructure Foundation | FR-6 (DB migrations), FR-1 (`construct_verifications` table), FR-7 (`contentHash` population), FR-8 (Drizzle identity relation) | Blocks everything |
-| Sprint 2 | Verification API + Ground Truth | FR-2 (GET/POST verification), FR-3 (ground truth endpoint), extend `formatConstructDetail` with verification tier | Blocks Sprint 3 |
-| Sprint 3 | Explorer Verification Display | FR-4 (identity wiring), FR-5 (verification tier badge + section + filter) | Independent of API once Sprint 2 lands |
-
-**Estimated timeline**: 3 sprints. Sprint 1 is infrastructure-only (DB changes, no user-facing). Sprint 2 enables Tobias to submit certificates. Sprint 3 makes verification visible in the marketplace.
-
----
-
-## 11. Acceptance Criteria Summary
-
-| # | Criterion | Verification Method |
-|---|-----------|-------------------|
-| AC-1 | `construct_verifications` table exists in production Supabase | `SELECT * FROM construct_verifications LIMIT 1` succeeds |
-| AC-2 | `POST /v1/packs/observer/verification` accepts CalibrationCertificate JSON | curl test with Echelon schema returns 201 |
-| AC-3 | `GET /v1/packs/observer/verification` returns latest certificate + tier | curl test returns verification_tier + certificate_json |
-| AC-4 | `GET /v1/packs/observer/ground-truth` returns summary metadata | curl test returns provenance count, canvas coverage |
-| AC-5 | Explorer construct detail page shows expertise domains | Navigate to constructs.network/constructs/observer, see domain tags |
-| AC-6 | Explorer construct detail page shows verification tier badge | Navigate to constructs.network/constructs/observer, see UNVERIFIED badge |
-| AC-7 | `contentHash` populated on next sync | Trigger sync, verify `packVersions.contentHash IS NOT NULL` |
-| AC-8 | All pending DB tables exist in production | Query each table defined in schema.ts |
+| # | Criterion | Verification |
+|---|-----------|-------------|
+| AC-1 | `packs.construct_type` column exists | `SELECT construct_type FROM packs LIMIT 1` succeeds |
+| AC-2 | `POST /v1/constructs/register` with `type: 'codex'` persists the type | Query `packs.construct_type = 'codex'` for registered slug |
+| AC-3 | `POST /v1/packs/:slug/sync` extracts type from manifest | After sync, `packs.construct_type` matches manifest `type` field |
+| AC-4 | `GET /v1/constructs?type=skill-pack` filters correctly | Returns only packs with `construct_type = 'skill-pack'` |
+| AC-5 | Explorer dependency graph shows real edges | `computeEdges()` reads `pack_dependencies` from manifest |
+| AC-6 | Explorer search hits API `?q=` endpoint | Network tab shows `GET /v1/constructs?q=observer` on search |
+| AC-7 | Seed script handles construct.yaml repos | All 5 construct-* repos seed without "Skipping" warnings |
+| AC-8 | Drizzle journal has entries for 0000-0006 | `_journal.json` has 7 entries |
+| AC-9 | `pnpm turbo build` passes | API + explorer build clean |
+| AC-10 | Webhook config script reports success on all 5 repos | `scripts/configure-webhooks.sh` exits 0 |
 
 ---
 
 ## Next Step
 
-`/architect` — Software Design Document covering `construct_verifications` table design, API endpoint specs, Explorer component architecture, migration strategy, and Echelon CalibrationCertificate schema alignment.
+`/architect` — Software Design Document for type system column design, dependency graph extraction, API search integration, and migration strategy.

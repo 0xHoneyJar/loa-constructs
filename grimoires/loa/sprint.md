@@ -1,377 +1,116 @@
-# Sprint Plan: Observer Verification Infrastructure & Echelon Access
+# Sprint Plan: Construct Lifecycle — Type System, Dependency Graph, and Operational Gaps
 
-**Cycle**: cycle-033
+**Cycle**: cycle-034
 **Created**: 2026-02-21
 **PRD**: `grimoires/loa/prd.md`
 **SDD**: `grimoires/loa/sdd.md`
-**Global Sprint Range**: sprint-28 through sprint-30
-**Team**: Solo developer (1 agent)
-**Sprint Duration**: ~1 session each
+**Sprints**: 3 (global IDs: sprint-31, sprint-32, sprint-33)
 
 ---
 
-## Sprint 1: Infrastructure Foundation (global sprint-28)
+## Sprint 1: Type System Foundation (sprint-31)
 
-**Goal**: Establish all database infrastructure — tables, relations, migration, and content hash fix. After this sprint, `construct_verifications` exists in production and sync populates `contentHash`.
+**Goal**: Add `construct_type` column to packs table and wire it through registration, sync, and list filter.
 
-**Blocks**: Sprint 2 and Sprint 3 (nothing works without the tables)
+### Tasks
 
-### Task 1.1: Add `constructVerifications` table to schema
+| ID | Task | Files | AC |
+|----|------|-------|-----|
+| T1.1 | Add `constructType` column to packs schema | `schema.ts:529` | Column exists with default `'skill-pack'`, index created |
+| T1.2 | Create migration 0006 | `drizzle/0006_construct_type.sql` (new) | SQL file with `IF NOT EXISTS`, backfill UPDATE |
+| T1.3 | Sync Drizzle journal entries 0003-0006 | `drizzle/meta/_journal.json` | Journal has 7 entries (idx 0-6) |
+| T1.4 | Add `constructType` to CreatePackInput + createPack | `services/packs.ts:28-43, 91-109` | `constructType` included in insert values |
+| T1.5 | Persist type at registration | `routes/constructs.ts:310-316` | `createPack()` called with `constructType: body.type` |
+| T1.6 | Extract type during sync | `routes/packs.ts:1001-1010` | Manifest `type` field written to `packs.constructType` on sync |
+| T1.7 | Update list filter enum | `routes/constructs.ts:36-44` | Zod accepts both old and new type values |
+| T1.8 | Add archetype filter to listConstructs | `services/constructs.ts:422-518, 837-920` | `?type=skill-pack` filters by `constructType` column |
+| T1.9 | Add `constructType` to Construct interface + response | `services/constructs.ts:37-78, 333-413`, `routes/constructs.ts:48-74` | API response includes `construct_type` field |
+| T1.10 | Build verification | Run `pnpm turbo build` | API builds clean, no type errors |
 
-**File**: `apps/api/src/db/schema.ts`
-**Insert after**: `constructIdentities` table (line 1155)
+### Sprint 1 Acceptance Criteria
 
-**Work**:
-- Add `constructVerifications` pgTable with columns: `id`, `packId`, `verificationTier`, `certificateJson`, `issuedBy`, `issuedAt`, `expiresAt`, `createdAt`
-- Add two indexes: `idx_construct_verifications_pack` (packId) and `idx_construct_verifications_latest` (packId + createdAt)
-- Add `constructVerificationsRelations` with `one(packs)` back-reference
-
-**Acceptance Criteria**:
-- [ ] `constructVerifications` table defined in `schema.ts` with all 7 data columns + 1 PK
-- [ ] Two indexes defined in the table's third argument
-- [ ] `constructVerificationsRelations` defined with `pack: one(packs, ...)` relation
-- [ ] TypeScript compiles without errors (`pnpm --filter api build`)
-
-**Ref**: SDD §3.1, §3.2
-
----
-
-### Task 1.2: Update `packsRelations` to include identity and verifications
-
-**File**: `apps/api/src/db/schema.ts:772-776`
-
-**Work**:
-- Change `packsRelations` from `({ many })` to `({ one, many })`
-- Add `identity: one(constructIdentities, { fields: [packs.id], references: [constructIdentities.packId] })`
-- Add `verifications: many(constructVerifications)`
-
-**Acceptance Criteria**:
-- [ ] `packsRelations` destructures `({ one, many })` instead of `({ many })`
-- [ ] `identity` relation points to `constructIdentities` via `packs.id` → `constructIdentities.packId`
-- [ ] `verifications` relation points to `constructVerifications`
-- [ ] TypeScript compiles without errors
-
-**Ref**: SDD §3.2, PRD FR-8
+1. `pnpm turbo build` passes for `apps/api`
+2. `packs` table has `construct_type` column (verify in schema.ts)
+3. Migration 0006 SQL file exists and is syntactically valid
+4. `_journal.json` has entries for migrations 0000-0006
+5. `POST /v1/constructs/register` with `type: 'codex'` would persist to `constructType`
+6. Sync flow extracts `type` from manifest and writes to `packs.constructType`
+7. `GET /v1/constructs?type=skill-pack` routes to archetype filter
+8. API response includes `construct_type` field
 
 ---
 
-### Task 1.3: Create migration file `0005_construct_verifications.sql`
+## Sprint 2: Explorer Reality (sprint-32)
 
-**File**: `apps/api/drizzle/0005_construct_verifications.sql` (NEW)
+**Goal**: Replace fake dependency graph with real manifest-based edges and wire search to API.
 
-**Work**:
-- Write SQL for all 6 pending tables using `CREATE TABLE IF NOT EXISTS` for idempotency:
-  1. `construct_verifications` (new — this cycle)
-  2. `construct_identities` (defined in schema.ts, not yet migrated)
-  3. `construct_reviews` (defined in schema.ts, not yet migrated)
-  4. `graduation_requests` (defined in schema.ts, not yet migrated)
-  5. `github_webhook_deliveries` (defined in schema.ts, not yet migrated)
-  6. `categories` (defined in schema.ts, not yet migrated)
-- Include all indexes with `CREATE INDEX IF NOT EXISTS`
-- Add table comment on `construct_verifications`
+### Tasks
 
-**Acceptance Criteria**:
-- [ ] Migration file exists at `apps/api/drizzle/0005_construct_verifications.sql`
-- [ ] All 6 tables use `CREATE TABLE IF NOT EXISTS`
-- [ ] All indexes use `CREATE INDEX IF NOT EXISTS`
-- [ ] `construct_verifications` has `CASCADE` on `pack_id` FK
-- [ ] `construct_identities` has `UNIQUE INDEX` on `pack_id`
-- [ ] `graduation_requests` references `construct_maturity` and `graduation_request_status` enums
-- [ ] SQL is syntactically valid (no parse errors)
+| ID | Task | Files | AC |
+|----|------|-------|-----|
+| T2.1 | Replace computeEdges() with real deps | `fetch-constructs.ts:236-256` | Edges from `pack_dependencies` + `composes_with`, not category |
+| T2.2 | Add `construct_type` to APIConstruct | `fetch-constructs.ts:6-45` | `construct_type?: string` in interface |
+| T2.3 | Add `constructType` to graph types | `lib/types/graph.ts` | `constructType` on ConstructNode and ConstructDetail |
+| T2.4 | Transform construct_type in fetch layer | `fetch-constructs.ts` transform functions | `constructType` mapped from API response |
+| T2.5 | Create useAPISearch hook | `lib/hooks/use-api-search.ts` (new) | Debounced fetch to `/v1/constructs?q=` with loading state |
+| T2.6 | Wire catalog page to API search | `app/(marketing)/constructs/page.tsx` | Search input triggers API call, not client-side filter |
+| T2.7 | Show construct type on detail page | `app/(marketing)/constructs/[slug]/page.tsx` | Archetype label displayed (e.g., "Skill Pack", "Knowledge Base") |
+| T2.8 | Build verification | Run `pnpm turbo build` | Explorer builds clean |
 
-**Ref**: SDD §3.3
+### Sprint 2 Acceptance Criteria
 
----
-
-### Task 1.4: Populate `contentHash` during sync transaction
-
-**File**: `apps/api/src/routes/packs.ts` (sync transaction, lines 938-1030)
-
-**Work**:
-- After files are processed in the sync transaction, compute Merkle-root content hash:
-  ```
-  hashInput = files.map(f => `${f.path}:${f.contentHash}`).sort().join('\n')
-  computedHash = `sha256:${createHash('sha256').update(hashInput).digest('hex')}`
-  ```
-- Add `contentHash: computedHash` to the `packVersions` insert (line 951-972)
-- Add `contentHash: computedHash` to the `onConflictDoUpdate` set clause
-
-**Acceptance Criteria**:
-- [ ] `contentHash` field included in `packVersions` insert `.values({})`
-- [ ] `contentHash` field included in `.onConflictDoUpdate({ set: {} })`
-- [ ] Hash computed from sorted `path:contentHash` pairs using SHA-256
-- [ ] `createHash` import already exists (line 50) — no new imports needed
-- [ ] TypeScript compiles without errors
-
-**Ref**: SDD §3.4, PRD FR-7
+1. `pnpm turbo build` passes for `apps/explorer`
+2. `computeEdges()` reads `pack_dependencies` and `composes_with` from manifest data
+3. No category-based fake edges in dependency graph
+4. `useAPISearch` hook exists with debounced API calls
+5. Construct detail page shows archetype label
+6. No regressions in graph view (still uses existing Fuse.js for visualization search)
 
 ---
 
-### Sprint 1 Definition of Done
+## Sprint 3: Operational Closure (sprint-33)
 
-- All 4 tasks completed
-- `pnpm --filter api build` passes
-- Migration file reviewed for SQL correctness
-- No breaking changes to existing endpoints
+**Goal**: Fix seed script, configure webhooks, document env vars.
 
----
+### Tasks
 
-## Sprint 2: Verification API + Ground Truth (global sprint-29)
+| ID | Task | Files | AC |
+|----|------|-------|-----|
+| T3.1 | Add js-yaml dependency | `package.json` | `js-yaml` in devDependencies |
+| T3.2 | Implement construct.yaml parsing in seed | `scripts/seed-forge-packs.ts:148-154` | YAML parsed and transformed to PackManifest shape |
+| T3.3 | Add identity parsing to seed | `scripts/seed-forge-packs.ts` | `identity/persona.yaml` and `identity/expertise.yaml` read if present |
+| T3.4 | Add constructType to seed upsert | `scripts/seed-forge-packs.ts` | `construct_type` populated from manifest `type` field |
+| T3.5 | Create webhook config script | `scripts/configure-webhooks.sh` (new) | Script creates/updates webhooks on all 5 construct-* repos |
+| T3.6 | Document GITHUB_WEBHOOK_SECRET | `.env.example` | Variable documented with description |
+| T3.7 | Build + lint verification | Run `pnpm turbo build` | All apps build clean |
 
-**Goal**: Ship the 3 new API endpoints and extend the construct detail response with verification tier. After this sprint, Tobias can submit CalibrationCertificates and read verification status.
+### Sprint 3 Acceptance Criteria
 
-**Depends on**: Sprint 1 (tables must exist)
-**Blocks**: Sprint 3 (Explorer needs API data)
-
-### Task 2.1: GET /v1/packs/:slug/verification endpoint
-
-**File**: `apps/api/src/routes/packs.ts`
-**Insert after**: permissions endpoint (line 1641)
-
-**Work**:
-- Add route with `optionalAuth()` (public read)
-- Query `constructVerifications` for latest row by `pack_id` ordered by `created_at DESC LIMIT 1`
-- Return `UNVERIFIED` with null certificate when no verification exists (not 404)
-- Compute `expired` flag from `expires_at` vs `now()` at read time
-- Response shape: `{ data: { slug, verification_tier, certificate, issued_by, issued_at, expires_at, verified_at, expired }, request_id }`
-
-**Acceptance Criteria**:
-- [ ] Endpoint registered at `GET /:slug/verification` on `packsRouter`
-- [ ] Uses `optionalAuth()` — no authentication required
-- [ ] Returns `{ verification_tier: 'UNVERIFIED', certificate: null }` when no records exist
-- [ ] Returns latest certificate with all fields when records exist
-- [ ] `expired` boolean computed from `expires_at < now()`
-- [ ] Uses `desc(constructVerifications.createdAt)` ordering
-- [ ] TypeScript compiles
-
-**Ref**: SDD §4.1
+1. Seed script processes repos with only `construct.yaml` (no "Skipping" warnings)
+2. Seed script reads identity YAML files when present
+3. `scripts/configure-webhooks.sh` exists and is executable
+4. `.env.example` documents `GITHUB_WEBHOOK_SECRET`
+5. `pnpm turbo build` passes for all apps
 
 ---
 
-### Task 2.2: POST /v1/packs/:slug/verification endpoint
-
-**File**: `apps/api/src/routes/packs.ts`
-
-**Work**:
-- Add Zod schema: `verification_tier` (enum UNVERIFIED/BACKTESTED/PROVEN), `certificate_json` (record with 1MB size limit), `issued_by` (string 1-100), `issued_at` (datetime), `expires_at` (optional datetime)
-- Add route with `requireAuth()` + `zValidator('json', verificationSchema)`
-- Check pack ownership with `isPackOwner()` — 403 if not owner
-- Rate limit: count certificates created in last 24h for this pack, reject if >= 10
-- Insert append-only record into `constructVerifications`
-- Log submission with structured logger
-- Return 201 with created record summary
-
-**Acceptance Criteria**:
-- [ ] Zod schema validates all 5 fields with correct types
-- [ ] `certificate_json` validated with `.refine()` for 1MB max size
-- [ ] `requireAuth()` middleware applied
-- [ ] Pack ownership check via `isPackOwner()` — returns 403 with helpful message for non-owners
-- [ ] Rate limit: 10 per pack per day, enforced via DB count query
-- [ ] Insert uses `.returning()` to get created record
-- [ ] Returns HTTP 201 on success
-- [ ] Structured log includes `packId`, `slug`, `tier`, `issuedBy`, `userId`, `requestId`
-- [ ] TypeScript compiles
-
-**Ref**: SDD §4.2, §6.1-6.4
-
----
-
-### Task 2.3: GET /v1/packs/:slug/ground-truth endpoint
-
-**File**: `apps/api/src/routes/packs.ts`
-
-**Work**:
-- Add route with `optionalAuth()` (public read)
-- Read `workflow.verification.checks` from latest `pack_versions.manifest` JSONB
-- Read latest certificate from `constructVerifications` for metadata
-- Return combined response with `verification_checks`, `verification_tier`, `verified_at`, `certificate_metadata`, `manifest_version`, `content_hash`
-
-**Acceptance Criteria**:
-- [ ] Endpoint registered at `GET /:slug/ground-truth` on `packsRouter`
-- [ ] Uses `optionalAuth()` — no authentication required
-- [ ] Reads `workflow.verification.checks` from manifest JSONB (safe chain with optional access)
-- [ ] Reads latest certificate for metadata (issued_by, issued_at, expires_at)
-- [ ] Returns `verification_tier: 'UNVERIFIED'` when no certificate exists
-- [ ] Includes `manifest_version` and `content_hash` from `packVersions`
-- [ ] TypeScript compiles
-
-**Ref**: SDD §4.3
-
----
-
-### Task 2.4: Extend construct detail response with verification tier
-
-**Files**:
-- `apps/api/src/services/constructs.ts` — `Construct` interface, `fetchPackAsConstruct`, `packToConstruct`
-- `apps/api/src/routes/constructs.ts` — `formatConstructDetail`
-
-**Work**:
-- Add `verificationTier: string` and `verifiedAt: Date | null` to `Construct` interface (line 36-75)
-- In `fetchPackAsConstruct` (line 916-953), after identity query, add verification tier query with try/catch fallback
-- Add fields to `packToConstruct` return value
-- Extend `formatConstructDetail` (line 83-120) with `verification_tier` and `verified_at`
-
-**Acceptance Criteria**:
-- [ ] `Construct` interface has `verificationTier: string` and `verifiedAt: Date | null`
-- [ ] `fetchPackAsConstruct` queries `constructVerifications` for latest tier
-- [ ] Query wrapped in try/catch for graceful fallback (table may not exist yet)
-- [ ] Default is `'UNVERIFIED'` with `null` verifiedAt
-- [ ] `formatConstructDetail` includes `verification_tier` and `verified_at` in response
-- [ ] `verified_at` serialized as ISO string via `.toISOString()`
-- [ ] Existing `GET /v1/constructs/:slug` response unchanged except for 2 new fields
-- [ ] TypeScript compiles
-
-**Ref**: SDD §4.4
-
----
-
-### Sprint 2 Definition of Done
-
-- All 4 tasks completed
-- `pnpm --filter api build` passes
-- All 3 new endpoints respond correctly:
-  - `GET /v1/packs/:slug/verification` returns UNVERIFIED for packs without certificates
-  - `POST /v1/packs/:slug/verification` accepts CalibrationCertificate and returns 201
-  - `GET /v1/packs/:slug/ground-truth` returns metadata
-- `GET /v1/constructs/:slug` includes `verification_tier` in response
-- No breaking changes to existing API responses
-
----
-
-## Sprint 3: Explorer Verification Display (global sprint-30)
-
-**Goal**: Make verification visible in the marketplace. Identity content displayed, verification tier badge rendered, verification section added to detail page.
-
-**Depends on**: Sprint 2 (API must serve verification data)
-
-### Task 3.1: Extend Explorer types and fetch layer
-
-**Files**:
-- `apps/explorer/lib/types/graph.ts` — `ConstructDetail` interface
-- `apps/explorer/lib/data/fetch-constructs.ts` — `APIConstruct` interface, `transformToDetail`
-
-**Work**:
-- Add `identity` optional object to `ConstructDetail` with `cognitiveFrame`, `expertiseDomains`, `voiceConfig`, `modelPreferences`
-- Add `verificationTier: string` and `verifiedAt: string | null` to `ConstructDetail`
-- Add `identity`, `verification_tier`, `verified_at` to `APIConstruct` interface
-- Update `transformToDetail` to map snake_case API fields to camelCase:
-  - `identity: construct.identity ?? null`
-  - `verificationTier: construct.verification_tier || 'UNVERIFIED'`
-  - `verifiedAt: construct.verified_at ?? null`
-
-**Acceptance Criteria**:
-- [ ] `ConstructDetail` has `identity?: { cognitiveFrame?, expertiseDomains?, voiceConfig?, modelPreferences? } | null`
-- [ ] `ConstructDetail` has `verificationTier: string` and `verifiedAt: string | null`
-- [ ] `APIConstruct` has matching optional fields with snake_case naming
-- [ ] `transformToDetail` correctly maps all new fields
-- [ ] `pnpm --filter explorer build` passes
-
-**Ref**: SDD §5.1, §5.2
-
----
-
-### Task 3.2: Render identity content on detail page
-
-**File**: `apps/explorer/app/(marketing)/constructs/[slug]/page.tsx`
-
-**Work**:
-- Replace boolean "Expert Identity" badge (lines 79-83) with verification tier badge:
-  - PROVEN → green border + text
-  - BACKTESTED → yellow border + text
-  - UNVERIFIED → gray border + text
-- Add identity section after info grid (after line 115):
-  - Expertise domains as tag badges (emerald color scheme)
-  - Cognitive frame as expandable `<pre>` block
-- Keep existing page structure intact — additive changes only
-
-**Acceptance Criteria**:
-- [ ] Verification tier badge renders with 3 color variants (green/yellow/gray)
-- [ ] Badge text matches tier: "Proven" / "Backtested" / "Unverified"
-- [ ] Expertise domains render as individual tag badges when `identity.expertiseDomains` exists
-- [ ] Cognitive frame renders as formatted JSON in a `<pre>` element when `identity.cognitiveFrame` exists
-- [ ] Section hidden when `identity` is null/undefined (no empty containers)
-- [ ] Page layout unchanged for constructs without identity data
-- [ ] `pnpm --filter explorer build` passes
-
-**Ref**: SDD §5.3 (identity content + verification badge)
-
----
-
-### Task 3.3: Add verification section to detail page
-
-**File**: `apps/explorer/app/(marketing)/constructs/[slug]/page.tsx`
-
-**Work**:
-- Add "Verification" section after identity section
-- Show only when `verificationTier !== 'UNVERIFIED'` (no empty section for unverified constructs)
-- Display: tier name (capitalized), verified date (formatted)
-- Keep minimal — CalibrationCertificate viewer is out of scope (Phase 4)
-
-**Acceptance Criteria**:
-- [ ] Verification section renders when `verificationTier !== 'UNVERIFIED'`
-- [ ] Displays tier name as human-readable text (lowercase, capitalized)
-- [ ] Displays `verifiedAt` date formatted with `toLocaleDateString()`
-- [ ] Section hidden for UNVERIFIED constructs
-- [ ] Follows existing page typography and spacing patterns (font-mono, text-xs, border-white/10)
-- [ ] `pnpm --filter explorer build` passes
-
-**Ref**: SDD §5.3 (verification section)
-
----
-
-### Sprint 3 Definition of Done
-
-- All 3 tasks completed
-- `pnpm --filter explorer build` passes
-- Detail page renders identity content for constructs with identity data
-- Detail page renders verification tier badge for all constructs
-- Detail page renders verification section for verified constructs
-- No visual regression for existing constructs without identity/verification data
-
----
-
-## File Change Summary
-
-| Sprint | File | Change Type |
-|--------|------|-------------|
-| 1 | `apps/api/src/db/schema.ts` | MODIFY — add table, relations |
-| 1 | `apps/api/drizzle/0005_construct_verifications.sql` | CREATE — migration |
-| 1 | `apps/api/src/routes/packs.ts` | MODIFY — contentHash in sync |
-| 2 | `apps/api/src/routes/packs.ts` | MODIFY — 3 new endpoints |
-| 2 | `apps/api/src/services/constructs.ts` | MODIFY — interface + query |
-| 2 | `apps/api/src/routes/constructs.ts` | MODIFY — formatConstructDetail |
-| 3 | `apps/explorer/lib/types/graph.ts` | MODIFY — ConstructDetail type |
-| 3 | `apps/explorer/lib/data/fetch-constructs.ts` | MODIFY — APIConstruct + transform |
-| 3 | `apps/explorer/app/(marketing)/constructs/[slug]/page.tsx` | MODIFY — identity + verification UI |
-
-**Total**: 8 files modified, 1 file created. 3 sprints, 11 tasks.
-
----
-
-## Sprint Dependencies
+## Dependencies
 
 ```
-Sprint 1 (sprint-28) ──→ Sprint 2 (sprint-29) ──→ Sprint 3 (sprint-30)
-  schema.ts table           GET verification         types + fetch layer
-  packsRelations            POST verification        identity display
-  migration SQL             GET ground-truth         verification badge
-  contentHash fix           detail response ext.     verification section
+Sprint 1 ──blocks──→ Sprint 2 (explorer needs API construct_type field)
+Sprint 1 ──blocks──→ Sprint 3 (seed script needs constructType column)
+Sprint 2 ────────────── independent of ──→ Sprint 3
 ```
+
+Sprint 2 and Sprint 3 can run in parallel after Sprint 1 completes.
 
 ---
 
-## Risk Register
+## Risk Mitigations
 
 | Risk | Sprint | Mitigation |
 |------|--------|-----------|
-| Migration breaks production | 1 | `IF NOT EXISTS` on all statements, dry-run first |
-| Enum types missing for graduation_requests | 1 | `drizzle-kit push` creates enums from schema.ts |
-| Existing sync tests break with contentHash | 1 | contentHash is additive — test assertions check specific fields, not exact row shape |
-| Rate limit count query slow | 2 | < 10 rows per day per pack — trivially fast |
-| Explorer build fails on missing API fields | 3 | All new fields optional with fallback defaults |
-
----
-
-## Next Step
-
-`/implement sprint-1` — Infrastructure Foundation (DB schema + migration + contentHash)
+| Drizzle journal conflict | 1 | `IF NOT EXISTS` everywhere; dry-run before production |
+| Breaking existing API consumers | 1 | Accept both old and new enum values; backward compatible |
+| Empty dependency graph | 2 | Graceful: zero edges > fake edges; log unresolvable slugs |
+| Seed script YAML parsing errors | 3 | Safe YAML load; validate against PackManifest; skip malformed |
