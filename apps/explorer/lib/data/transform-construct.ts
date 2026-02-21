@@ -40,6 +40,11 @@ export interface APIConstruct {
   construct_type?: string;
   verification_tier?: string;
   verified_at?: string | null;
+  // Fork provenance (cycle-035)
+  forked_from?: { slug: string; name: string } | null;
+  fork_count?: number;
+  // SKILL.md prose (cycle-035)
+  skill_prose?: string | null;
   manifest?: {
     commands?: Array<{ name: string; description: string; usage?: string }>;
     skills?: Array<{ slug: string; name?: string; path?: string; description?: string } | null>;

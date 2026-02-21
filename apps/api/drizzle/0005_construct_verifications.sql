@@ -74,4 +74,4 @@ CREATE UNIQUE INDEX IF NOT EXISTS "idx_github_webhook_delivery"
   ON "github_webhook_deliveries" ("delivery_id");
 
 COMMENT ON TABLE "construct_verifications"
-  IS 'Stores CalibrationCertificates from external verifiers (Echelon). Append-only audit trail.';
+  IS 'Stores VerificationCertificates from external verifiers (Echelon). Append-only audit trail.';

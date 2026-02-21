@@ -84,6 +84,11 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
     repositoryUrl: isSafeUrl(construct.repository_url) ? construct.repository_url : null,
     homepageUrl: isSafeUrl(construct.homepage_url) ? construct.homepage_url : null,
     documentationUrl: isSafeUrl(construct.documentation_url) ? construct.documentation_url : null,
+    // Fork provenance (cycle-035)
+    forkedFrom: construct.forked_from ?? null,
+    forkCount: construct.fork_count ?? 0,
+    // SKILL.md prose (cycle-035)
+    skillProse: construct.skill_prose ?? null,
   };
 }
 

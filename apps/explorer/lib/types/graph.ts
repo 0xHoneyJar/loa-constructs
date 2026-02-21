@@ -79,6 +79,11 @@ export interface ConstructDetail extends ConstructNode {
   repositoryUrl: string | null;
   homepageUrl: string | null;
   documentationUrl: string | null;
+  // Fork provenance (cycle-035)
+  forkedFrom: { slug: string; name: string } | null;
+  forkCount: number;
+  // SKILL.md prose (cycle-035)
+  skillProse: string | null;
 }
 
 export interface CategoryStats {

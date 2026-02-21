@@ -1185,7 +1185,7 @@ export const constructIdentities = pgTable(
 
 /**
  * Construct Verifications table
- * Stores CalibrationCertificates from external verifiers (Echelon).
+ * Stores VerificationCertificates from external verifiers (Echelon).
  * Append-only audit trail — no UPDATE, latest determined by MAX(created_at).
  * @see sdd.md §3.1 construct_verifications
  */
