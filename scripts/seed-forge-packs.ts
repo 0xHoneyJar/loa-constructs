@@ -160,7 +160,7 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
         manifest = JSON.parse(content) as PackManifest;
       } else if (existsSync(constructYamlPath)) {
         const content = await readFile(constructYamlPath, 'utf-8');
-        const parsed = yaml.load(content) as Record<string, unknown>;
+        const parsed = yaml.load(content, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>;
         manifest = {
           schema_version: (parsed.schema_version as number) || 1,
           name: (parsed.name as string) || slug,
@@ -191,11 +191,11 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
         identity = {};
         if (existsSync(personaPath)) {
           const personaContent = await readFile(personaPath, 'utf-8');
-          identity.persona = yaml.load(personaContent) as Record<string, unknown>;
+          identity.persona = yaml.load(personaContent, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>;
         }
         if (existsSync(expertisePath)) {
           const expertiseContent = await readFile(expertisePath, 'utf-8');
-          identity.expertise = yaml.load(expertiseContent) as Record<string, unknown>;
+          identity.expertise = yaml.load(expertiseContent, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>;
         }
         console.log(`     → parsed identity files for ${slug}`);
       }

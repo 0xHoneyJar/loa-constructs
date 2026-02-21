@@ -29,6 +29,11 @@ if ! command -v gh &>/dev/null; then
   exit 1
 fi
 
+if ! command -v jq &>/dev/null; then
+  echo "ERROR: jq is required (https://jqlang.github.io/jq/)"
+  exit 1
+fi
+
 echo "Configuring webhooks for ${#REPOS[@]} repos..."
 echo "  URL: ${WEBHOOK_URL}"
 echo ""
@@ -43,10 +48,10 @@ for repo in "${REPOS[@]}"; do
   EXISTING=$(gh api "repos/${ORG}/${repo}/hooks" --jq "[.[] | select(.config.url == \"${WEBHOOK_URL}\")] | length" 2>&1 || echo "0")
 
   if [[ "$EXISTING" -gt 0 ]]; then
-    # Update existing webhook — pass body via stdin to avoid secret in process args
+    # Update existing webhook — build JSON via jq to safely handle special characters
     HOOK_ID=$(gh api "repos/${ORG}/${repo}/hooks" --jq "[.[] | select(.config.url == \"${WEBHOOK_URL}\")][0].id")
-    printf '{"config":{"url":"%s","content_type":"json","secret":"%s"},"events":["push"],"active":true}' \
-      "${WEBHOOK_URL}" "${GITHUB_WEBHOOK_SECRET}" \
+    jq -n --arg url "${WEBHOOK_URL}" --arg secret "${GITHUB_WEBHOOK_SECRET}" \
+      '{"config":{"url":$url,"content_type":"json","secret":$secret},"events":["push"],"active":true}' \
       | gh api --method PATCH "repos/${ORG}/${repo}/hooks/${HOOK_ID}" --input - --silent && {
         echo "    Updated (hook ${HOOK_ID})"
         ((SUCCESS++))
@@ -55,9 +60,9 @@ for repo in "${REPOS[@]}"; do
         ((FAILED++))
       }
   else
-    # Create new webhook — pass body via stdin to avoid secret in process args
-    printf '{"name":"web","config":{"url":"%s","content_type":"json","secret":"%s"},"events":["push"],"active":true}' \
-      "${WEBHOOK_URL}" "${GITHUB_WEBHOOK_SECRET}" \
+    # Create new webhook — build JSON via jq to safely handle special characters
+    jq -n --arg url "${WEBHOOK_URL}" --arg secret "${GITHUB_WEBHOOK_SECRET}" \
+      '{"name":"web","config":{"url":$url,"content_type":"json","secret":$secret},"events":["push"],"active":true}' \
       | gh api --method POST "repos/${ORG}/${repo}/hooks" --input - --silent && {
         echo "    Created"
         ((SUCCESS++))

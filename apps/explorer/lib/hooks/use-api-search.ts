@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { ConstructNode } from '@/lib/types/graph';
+import { transformToNode, type APIConstruct } from '@/lib/data/transform-construct';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network/v1';
 const DEBOUNCE_MS = 300;
@@ -46,21 +47,7 @@ export function useAPISearch(query: string): UseAPISearchResult {
       }
 
       const data = await response.json();
-      const nodes: ConstructNode[] = (data.data || []).map((c: Record<string, unknown>) => ({
-        id: c.id as string,
-        slug: c.slug as string,
-        name: c.name as string,
-        type: c.type as string,
-        constructType: (c.construct_type as string) || 'skill-pack',
-        category: (c.category as string) || 'development',
-        graduationLevel: (c.maturity as string) || 'stable',
-        description: (c.description as string) || '',
-        shortDescription: ((c.description as string) || '').split('.')[0].slice(0, 60),
-        commandCount: 0,
-        downloads: (c.downloads as number) || 0,
-        version: (c.version as string) || '1.0.0',
-        rating: (c.rating as number) ?? null,
-      }));
+      const nodes: ConstructNode[] = ((data.data || []) as APIConstruct[]).map(transformToNode);
 
       setResults(nodes);
     } catch (err) {

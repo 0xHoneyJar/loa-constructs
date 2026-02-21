@@ -91,8 +91,6 @@ export interface ConstructSummary {
   tier_required: string;
 }
 
-export type ConstructArchetype = 'skill-pack' | 'tool-pack' | 'codex' | 'template';
-
 export interface ListConstructsOptions {
   query?: string;
   type?: ConstructType | ConstructArchetype;

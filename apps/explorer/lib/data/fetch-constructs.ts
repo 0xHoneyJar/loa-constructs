@@ -1,50 +1,8 @@
-import type { ConstructArchetype, ConstructDetail, ConstructNode, GraduationLevel, GraphData, CategoryStats, Category } from '@/lib/types/graph';
-import { fetchCategories, normalizeCategory } from './fetch-categories';
+import type { ConstructDetail, ConstructNode, GraphData, CategoryStats, Category } from '@/lib/types/graph';
+import { fetchCategories } from './fetch-categories';
+import { transformToNode, type APIConstruct } from './transform-construct';
 
 const API_BASE = process.env.CONSTRUCTS_API_URL || 'https://api.constructs.network/v1';
-
-interface APIConstruct {
-  id: string;
-  slug: string;
-  name: string;
-  type: 'skill' | 'pack' | 'bundle';
-  description: string | null;
-  category: string | null;
-  version: string | null;
-  downloads: number;
-  tier_required: string;
-  is_featured: boolean;
-  maturity?: string;
-  source_type?: string | null;
-  git_url?: string | null;
-  rating?: number | null;
-  long_description?: string | null;
-  owner?: {
-    name: string;
-    type: 'user' | 'team';
-    avatar_url: string | null;
-  } | null;
-  has_identity?: boolean;
-  repository_url?: string | null;
-  homepage_url?: string | null;
-  documentation_url?: string | null;
-  identity?: {
-    cognitive_frame?: Record<string, unknown>;
-    expertise_domains?: string[];
-    voice_config?: Record<string, unknown>;
-    model_preferences?: Record<string, unknown>;
-  } | null;
-  construct_type?: string;
-  verification_tier?: string;
-  verified_at?: string | null;
-  manifest?: {
-    commands?: Array<{ name: string; description: string; usage?: string }>;
-    skills?: Array<{ slug: string; name?: string; path?: string; description?: string } | null>;
-    composes_with?: string[];
-    dependencies?: string[];
-    pack_dependencies?: Record<string, unknown>;
-  };
-}
 
 interface APIResponse {
   data: APIConstruct[];
@@ -64,48 +22,6 @@ function isSafeUrl(url: string | null | undefined): url is string {
   } catch {
     return false;
   }
-}
-
-function parseGraduationLevel(level: string | undefined): GraduationLevel {
-  const validLevels: GraduationLevel[] = ['experimental', 'beta', 'stable', 'deprecated'];
-  if (level && validLevels.includes(level as GraduationLevel)) {
-    return level as GraduationLevel;
-  }
-  return 'stable';
-}
-
-function parseConstructType(ct: string | undefined): ConstructArchetype {
-  const valid: ConstructArchetype[] = ['skill-pack', 'tool-pack', 'codex', 'template'];
-  if (ct && valid.includes(ct as ConstructArchetype)) {
-    return ct as ConstructArchetype;
-  }
-  return 'skill-pack';
-}
-
-function transformToNode(construct: APIConstruct): ConstructNode {
-  const commands = construct.manifest?.commands || [];
-  const shortDesc = construct.description
-    ? construct.description.split('.')[0].slice(0, 60)
-    : 'No description';
-
-  // Normalize category (handles legacy slugs like gtm -> marketing)
-  const category = normalizeCategory(construct.category || 'development');
-
-  return {
-    id: construct.id,
-    slug: construct.slug,
-    name: construct.name,
-    type: construct.type,
-    constructType: parseConstructType(construct.construct_type),
-    category,
-    graduationLevel: parseGraduationLevel(construct.maturity),
-    description: construct.description || 'No description available',
-    shortDescription: shortDesc,
-    commandCount: commands.length || (construct.type === 'skill' ? 1 : 0),
-    downloads: construct.downloads,
-    version: construct.version || '1.0.0',
-    rating: construct.rating ?? null,
-  };
 }
 
 function transformToDetail(construct: APIConstruct): ConstructDetail {
