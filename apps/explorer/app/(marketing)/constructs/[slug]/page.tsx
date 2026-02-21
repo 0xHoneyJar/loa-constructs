@@ -62,7 +62,9 @@ export default async function ConstructDetailPage({
     <div className="space-y-8 max-w-4xl">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c'),
+        }}
       />
       {/* Header */}
       <div>
