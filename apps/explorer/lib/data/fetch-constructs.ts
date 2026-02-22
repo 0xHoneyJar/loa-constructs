@@ -74,7 +74,9 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
     identity: construct.identity
       ? {
           cognitiveFrame: construct.identity.cognitive_frame,
-          expertiseDomains: construct.identity.expertise_domains,
+          expertiseDomains: construct.identity.expertise_domains?.map(
+            (d: string | { name: string }) => typeof d === 'string' ? d : d.name
+          ),
           voiceConfig: construct.identity.voice_config,
           modelPreferences: construct.identity.model_preferences,
         }

@@ -3,13 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { fetchConstruct } from '@/lib/data/fetch-constructs';
 
-export const revalidate = 600;
-
-// Return empty — pages are ISR-generated on first request to avoid
-// build-time API dependency that causes Vercel timeout failures.
-export async function generateStaticParams() {
-  return [];
-}
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;

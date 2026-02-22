@@ -33,7 +33,7 @@ export interface APIConstruct {
   documentation_url?: string | null;
   identity?: {
     cognitive_frame?: Record<string, unknown>;
-    expertise_domains?: string[];
+    expertise_domains?: Array<string | { name: string }>;
     voice_config?: Record<string, unknown>;
     model_preferences?: Record<string, unknown>;
   } | null;
