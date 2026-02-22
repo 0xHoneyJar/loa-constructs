@@ -44,6 +44,11 @@ function createDatabase(): Database {
     max: 10, // Connection pool size
     idle_timeout: 20, // Seconds before idle connection closed
     connect_timeout: 10, // Connection timeout in seconds
+    // Set statement_timeout to prevent infinite hangs when Supabase PgBouncer
+    // pool is exhausted — it accepts TCP connections but queues queries indefinitely.
+    connection: {
+      statement_timeout: '15000', // 15 seconds in ms — fail fast instead of hang forever
+    },
   });
 
   // Create Drizzle ORM instance with schema

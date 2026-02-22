@@ -3,6 +3,8 @@ import { getAppVersion, type HealthCheckResult } from '../lib/monitoring.js';
 import { getRedis, isRedisConfigured } from '../services/redis.js';
 import { logger } from '../lib/logger.js';
 import { env } from '../config/env.js';
+import { db } from '../db/index.js';
+import { sql } from 'drizzle-orm';
 
 /**
  * Health check routes
@@ -116,13 +118,12 @@ health.get('/metrics', (c) => {
 });
 
 /**
- * Check database connectivity
- * Note: Uses neon serverless driver which doesn't maintain persistent connections
+ * Check database connectivity with a real query
+ * Runs SELECT 1 to verify the full connection path through PgBouncer.
  */
 async function checkDatabase(): Promise<HealthCheckResult['checks'][0]> {
   const start = performance.now();
 
-  // Database URL check (actual connection happens on query)
   if (!env.DATABASE_URL) {
     return {
       name: 'database',
@@ -132,13 +133,26 @@ async function checkDatabase(): Promise<HealthCheckResult['checks'][0]> {
     };
   }
 
-  // Verify the database URL is configured
-  return {
-    name: 'database',
-    status: 'pass',
-    message: 'Database configured',
-    duration_ms: Math.round(performance.now() - start),
-  };
+  try {
+    await db.execute(sql`SELECT 1`);
+    return {
+      name: 'database',
+      status: 'pass',
+      message: 'Connected',
+      duration_ms: Math.round(performance.now() - start),
+    };
+  } catch (error) {
+    logger.warn({
+      msg: 'Database health check failed',
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return {
+      name: 'database',
+      status: 'fail',
+      message: `Connection failed: ${error instanceof Error ? error.message : 'unknown error'}`,
+      duration_ms: Math.round(performance.now() - start),
+    };
+  }
 }
 
 /**

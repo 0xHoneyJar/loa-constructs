@@ -73,6 +73,11 @@ export interface Construct {
   constructType: string;
   verificationTier: string;
   verifiedAt: Date | null;
+  // Fork provenance (cycle-035)
+  forkedFrom: { slug: string; name: string } | null;
+  forkCount: number;
+  // SKILL.md prose (cycle-035)
+  skillProse: string | null;
   createdAt: Date;
   updatedAt: Date;
   // Search metadata (populated when ?q= present)
@@ -139,7 +144,7 @@ const RELEVANCE_WEIGHTS = {
   keywords: 0.9,
   useCases: 0.7,
   description: 0.6,
-  downloads: 0.3,
+  downloads: 0.1, // Reduced from 0.3 — download counts are gameable (cycle-035)
   maturityStable: 0.2,
   maturityBeta: 0.15,
   maturityExperimental: 0.05,
@@ -323,6 +328,9 @@ function skillToConstruct(
     constructType: 'skill-pack',
     verificationTier: 'UNVERIFIED',
     verifiedAt: null,
+    forkedFrom: null,
+    forkCount: 0,
+    skillProse: null,
     createdAt: skill.createdAt || new Date(),
     updatedAt: skill.updatedAt || new Date(),
     // Search metadata
@@ -410,6 +418,11 @@ function packToConstruct(
     constructType: pack.constructType || 'skill-pack',
     verificationTier: 'UNVERIFIED',
     verifiedAt: null,
+    // Fork provenance — populated by detail query, defaults for list
+    forkedFrom: null,
+    forkCount: 0,
+    // SKILL.md prose
+    skillProse: pack.skillProse ?? null,
     createdAt: pack.createdAt || new Date(),
     updatedAt: pack.updatedAt || new Date(),
     // Search metadata
@@ -1007,6 +1020,32 @@ async function fetchPackAsConstruct(slug: string): Promise<Construct | null> {
     const construct = packToConstruct(pack, version, owner, undefined, identityRow);
     construct.verificationTier = verificationTier;
     construct.verifiedAt = verifiedAt;
+
+    // Fork provenance — detail query only
+    if (pack.forkedFrom) {
+      try {
+        const [parent] = await db
+          .select({ slug: packs.slug, name: packs.name })
+          .from(packs)
+          .where(eq(packs.id, pack.forkedFrom))
+          .limit(1);
+        if (parent) {
+          construct.forkedFrom = { slug: parent.slug, name: parent.name };
+        }
+      } catch {
+        // forked_from column might not exist yet
+      }
+    }
+    try {
+      const [forkResult] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(packs)
+        .where(eq(packs.forkedFrom, pack.id));
+      construct.forkCount = forkResult?.count ?? 0;
+    } catch {
+      // forked_from column might not exist yet
+    }
+
     return construct;
   } catch (error) {
     logger.error({ error, slug, context: 'fetchPackAsConstruct' }, 'Failed to fetch pack');

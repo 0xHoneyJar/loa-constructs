@@ -50,6 +50,13 @@
       "when": 1740200000000,
       "tag": "0006_construct_type",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1740300000000,
+      "tag": "0007_measurement_honesty",
+      "breakpoints": true
     }
   ]
 }

@@ -18,6 +18,7 @@ import { creatorsRouter } from './routes/creators.js';
 import { auditRouter } from './routes/audit.js';
 import { docsRouter } from './routes/docs.js';
 import { packsRouter } from './routes/packs.js';
+import { signalsRouter } from './routes/signals.js';
 import { constructsRouter } from './routes/constructs.js';
 import { categoriesRouter } from './routes/categories.js';
 import { adminRouter } from './routes/admin.js';
@@ -130,6 +131,9 @@ v1.route('/audit', auditRouter);
 
 // Pack routes
 v1.route('/packs', packsRouter);
+
+// Signal & Showcase routes (pack-scoped)
+v1.route('/packs', signalsRouter);
 
 // Constructs routes (unified discovery)
 v1.route('/constructs', constructsRouter);

@@ -19,11 +19,10 @@ Every construct progresses through maturity levels that signal reliability to us
 
 To graduate from experimental to beta, your construct must meet:
 
-- [ ] **10+ downloads** - Evidence of adoption
 - [ ] **7+ days published** - Time for initial feedback
+- [ ] **README.md with 200+ words** - Meaningful documentation (not just a template)
+- [ ] **At least 1 SKILL.md** - Prose description of capabilities
 - [ ] **Valid manifest.json** - Passes schema validation
-- [ ] **README.md exists** - Basic documentation
-- [ ] **CHANGELOG.md exists** - Version history tracked
 
 **Auto-graduation**: Constructs meeting all criteria for 14+ days are automatically promoted to beta.
 
@@ -31,11 +30,9 @@ To graduate from experimental to beta, your construct must meet:
 
 To graduate from beta to stable, your construct must meet:
 
-- [ ] **100+ downloads** - Proven adoption
 - [ ] **30+ days in beta** - Extended feedback period
-- [ ] **Documentation URL provided** - Link to full docs
-- [ ] **No breaking changes in 30 days** - No major version bumps
-- [ ] **Rating >= 3.5** (if rated) - Positive user feedback
+- [ ] **CHANGELOG.md present** - Version history tracked
+- [ ] **No `critical` or `breaking` issues in 30 days** - Stability demonstrated
 - [ ] **Admin review passed** - Manual quality check
 
 **Note**: Stable graduation always requires admin review.
@@ -46,7 +43,7 @@ To graduate from beta to stable, your construct must meet:
 
 ```bash
 # Check graduation status (coming soon)
-curl https://api.constructs.loa.dev/v1/constructs/my-pack/graduation-status
+curl https://api.constructs.network/v1/constructs/my-pack/graduation-status
 
 # Response shows current maturity and criteria progress
 {
@@ -54,7 +51,7 @@ curl https://api.constructs.loa.dev/v1/constructs/my-pack/graduation-status
   "next_level": "beta",
   "criteria": {
     "met": ["manifest_valid", "readme_exists"],
-    "missing": ["min_downloads (3/10)", "min_days_published (2/7)"]
+    "missing": ["min_days_published (2/7)", "readme_word_count (150/200)"]
   }
 }
 ```
@@ -64,7 +61,7 @@ curl https://api.constructs.loa.dev/v1/constructs/my-pack/graduation-status
 The `/v1/constructs` endpoint includes maturity in responses:
 
 ```bash
-curl "https://api.constructs.loa.dev/v1/constructs?maturity=stable"
+curl "https://api.constructs.network/v1/constructs?maturity=stable"
 ```
 
 Filter options: `experimental`, `beta`, `stable`, `deprecated`
@@ -77,7 +74,7 @@ Once all criteria are met, request graduation via API:
 
 ```bash
 # Request graduation (coming soon)
-curl -X POST https://api.constructs.loa.dev/v1/constructs/my-pack/request-graduation \
+curl -X POST https://api.constructs.network/v1/constructs/my-pack/request-graduation \
   -H "Authorization: Bearer $API_KEY" \
   -d '{"target_maturity": "beta", "request_notes": "Ready for beta users"}'
 ```
@@ -123,4 +120,4 @@ To deprecate a construct:
 ## Related Documentation
 
 - [Contributing Packs](./CONTRIBUTING-PACKS.md) - How to publish constructs
-- [API Reference](https://api.constructs.loa.dev/docs) - Full API documentation
+- [API Reference](https://api.constructs.network/docs) - Full API documentation

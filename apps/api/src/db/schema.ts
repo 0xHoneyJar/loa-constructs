@@ -12,6 +12,8 @@ import {
   inet,
   index,
   uniqueIndex,
+  unique,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 
@@ -532,6 +534,12 @@ export const packs = pgTable(
     // @see prd.md §FR-1 — issue #131, cycle-034
     constructType: varchar('construct_type', { length: 20 }).default('skill-pack'),
 
+    // Fork provenance — cycle-035
+    forkedFrom: uuid('forked_from').references((): AnyPgColumn => packs.id),
+
+    // SKILL.md prose extracted during sync — cycle-035
+    skillProse: text('skill_prose'),
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
@@ -545,6 +553,7 @@ export const packs = pgTable(
     maturityIdx: index('idx_packs_maturity').on(table.maturity),
     sourceTypeIdx: index('idx_packs_source_type').on(table.sourceType),
     constructTypeIdx: index('idx_packs_construct_type').on(table.constructType),
+    forkedFromIdx: index('idx_packs_forked_from').on(table.forkedFrom),
     // GIN indexes for array search
     // @see sdd.md §3.1 Database Schema (cycle-007)
     searchKeywordsIdx: index('idx_packs_search_keywords').using('gin', table.searchKeywords),
@@ -783,6 +792,14 @@ export const packsRelations = relations(packs, ({ one, many }) => ({
     references: [constructIdentities.packId],
   }),
   verifications: many(constructVerifications),
+  forkedFromPack: one(packs, {
+    fields: [packs.forkedFrom],
+    references: [packs.id],
+    relationName: 'forkParent',
+  }),
+  forks: many(packs, { relationName: 'forkParent' }),
+  signalOutcomes: many(signalOutcomes),
+  showcases: many(constructShowcases),
 }));
 
 export const packVersionsRelations = relations(packVersions, ({ one, many }) => ({
@@ -1168,7 +1185,7 @@ export const constructIdentities = pgTable(
 
 /**
  * Construct Verifications table
- * Stores CalibrationCertificates from external verifiers (Echelon).
+ * Stores VerificationCertificates from external verifiers (Echelon).
  * Append-only audit trail — no UPDATE, latest determined by MAX(created_at).
  * @see sdd.md §3.1 construct_verifications
  */
@@ -1200,6 +1217,91 @@ export const constructVerificationsRelations = relations(
   ({ one }) => ({
     pack: one(packs, {
       fields: [constructVerifications.packId],
+      references: [packs.id],
+    }),
+  })
+);
+
+// --- Signal Outcomes (cycle-035) ---
+
+/**
+ * Signal Outcomes table — retrospective accuracy measurement
+ * @see sdd.md §3.1.2 signal_outcomes Table (cycle-035)
+ */
+export const signalOutcomes = pgTable(
+  'signal_outcomes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    signalType: text('signal_type').notNull(),
+    signalSource: text('signal_source').notNull(),
+    signalSourceUrl: text('signal_source_url'),
+    predictedImpact: text('predicted_impact').notNull(),
+    actualImpact: text('actual_impact'),
+    outcomeSummary: text('outcome_summary'),
+    outcomeEvidence: text('outcome_evidence'),
+    recordedBy: uuid('recorded_by')
+      .notNull()
+      .references(() => users.id),
+    evaluatedBy: uuid('evaluated_by').references(() => users.id),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+    evaluatedAt: timestamp('evaluated_at', { withTimezone: true }),
+  },
+  (table) => ({
+    packIdx: index('idx_signal_outcomes_pack').on(table.packId),
+    evaluatedIdx: index('idx_signal_outcomes_evaluated').on(table.evaluatedAt),
+    uniqueSignal: unique('unique_signal_evaluation').on(
+      table.packId,
+      table.signalType,
+      table.signalSource
+    ),
+  })
+);
+
+export const signalOutcomesRelations = relations(signalOutcomes, ({ one }) => ({
+  pack: one(packs, {
+    fields: [signalOutcomes.packId],
+    references: [packs.id],
+  }),
+}));
+
+// --- Construct Showcases (cycle-035) ---
+
+/**
+ * Construct Showcases table — "Built With" community examples
+ * @see sdd.md §3.1.3 construct_showcases Table (cycle-035)
+ */
+export const constructShowcases = pgTable(
+  'construct_showcases',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    packId: uuid('pack_id')
+      .notNull()
+      .references(() => packs.id, { onDelete: 'cascade' }),
+    title: varchar('title', { length: 200 }).notNull(),
+    url: varchar('url', { length: 2000 }).notNull(),
+    description: varchar('description', { length: 500 }),
+    submittedBy: uuid('submitted_by')
+      .notNull()
+      .references(() => users.id),
+    approved: boolean('approved').default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  },
+  (table) => ({
+    packIdx: index('idx_construct_showcases_pack').on(table.packId),
+    approvedIdx: index('idx_construct_showcases_approved')
+      .on(table.packId, table.approved)
+      .where(sql`approved = true`),
+  })
+);
+
+export const constructShowcasesRelations = relations(
+  constructShowcases,
+  ({ one }) => ({
+    pack: one(packs, {
+      fields: [constructShowcases.packId],
       references: [packs.id],
     }),
   })

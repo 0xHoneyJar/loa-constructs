@@ -1009,6 +1009,11 @@ packsRouter.post(
         ? manifestType
         : undefined;
 
+      // Extract SKILL.md prose (SDD §4.3.2)
+      const { findSkillMd, extractSkillProse } = await import('../utils/extractSkillProse.js');
+      const skillFile = findSkillMd(syncResult.files);
+      const skillProse = skillFile ? extractSkillProse(skillFile.content) : null;
+
       // Update pack metadata
       await tx
         .update(packs)
@@ -1018,6 +1023,7 @@ packsRouter.post(
           lastSyncedAt: new Date(),
           updatedAt: new Date(),
           ...(syncedConstructType && { constructType: syncedConstructType }),
+          skillProse,
         })
         .where(eq(packs.id, pack.id));
 
@@ -1715,6 +1721,7 @@ packsRouter.post(
         description: description || sourcePack.description || undefined,
         ownerId: userId,
         ownerType: 'user',
+        forkedFrom: sourcePack.id,
       });
     } catch (err: unknown) {
       if (err instanceof Error && err.message?.includes('unique')) {

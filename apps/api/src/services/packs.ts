@@ -41,6 +41,7 @@ export interface CreatePackInput {
   homepageUrl?: string;
   documentationUrl?: string;
   constructType?: string;
+  forkedFrom?: string;
 }
 
 export interface UpdatePackInput {
@@ -108,6 +109,7 @@ export async function createPack(input: CreatePackInput): Promise<Pack> {
       homepageUrl: input.homepageUrl,
       documentationUrl: input.documentationUrl,
       constructType: input.constructType || 'skill-pack',
+      forkedFrom: input.forkedFrom,
       status: 'draft',
     })
     .returning();
