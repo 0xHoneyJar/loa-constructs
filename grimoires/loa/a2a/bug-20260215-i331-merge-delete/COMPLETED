@@ -1,0 +1,4 @@
+COMPLETED
+sprint-bug-331
+2026-02-22T09:00:00Z
+Fix: Phase 5.3 collateral deletion safeguard + --no-commit strategy (PR #330, commit cf67cd3)
