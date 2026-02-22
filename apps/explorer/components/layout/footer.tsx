@@ -40,12 +40,16 @@ function FooterStats() {
             )
           : 0;
 
+        const categories = Array.isArray(categoriesData?.data)
+          ? categoriesData.data
+          : Array.isArray(categoriesData)
+            ? categoriesData
+            : [];
+
         setStats({
           totalConstructs: summaryData.total ?? 0,
           totalCommands,
-          categoryCount: Array.isArray(categoriesData)
-            ? categoriesData.length
-            : 0,
+          categoryCount: categories.length,
         });
       } catch {
         // Silently fail — fallback text remains visible

@@ -209,13 +209,13 @@ async function fetchAccuracy(slug: string): Promise<AccuracyReport | null> {
     });
     if (!response.ok) return null;
     const json = await response.json();
-    const data = json.data || json;
-    if (!data || !data.sufficient_data) return null;
+    const data = json.data ?? json;
+    if (!data || !data.sufficientData) return null;
     return {
-      sufficientData: data.sufficient_data,
-      sampleSize: data.sample_size ?? 0,
+      sufficientData: data.sufficientData,
+      sampleSize: data.sampleSize ?? 0,
       coverage: data.coverage ?? 0,
-      weightedKappa: data.weighted_kappa ?? 0,
+      weightedKappa: data.weightedKappa ?? 0,
       warnings: data.warnings ?? [],
     };
   } catch {
