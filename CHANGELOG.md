@@ -5,6 +5,76 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.7.0] - 2026-02-26
+
+### Why This Release
+
+Ecosystem architecture grounded to reality. Four phantom constructs stripped, Protocol registered as the 6th construct, and 8 development cycles (034–042) shipped — spanning measurement honesty, memory sovereignty, multi-model adversarial review, and vision-aware planning.
+
+### Added
+
+#### Construct Registry
+
+- **construct-protocol** registered as the 6th construct (10 skills: contract-verify, tx-forensics, abi-audit, proxy-inspect, simulate-flow, dapp-lint, dapp-typecheck, dapp-test, dapp-e2e, gpt-contract-review)
+- Ecosystem architecture diagram now shows all 6 registered constructs with accurate skill counts (49 total)
+- Herald and Hardening moved to "Planned Constructs" section
+
+#### Cycles 034–042
+
+- **cycle-034**: Declarative Execution Router + Adaptive Multi-Pass (#404)
+- **cycle-035**: Measurement Honesty — signals API, fork provenance, graduation fix, DB resilience (#406)
+- **cycle-036**: Quick-Win UX Fixes (#407)
+- **cycle-038**: Organizational Memory Sovereignty — Three-Zone State Architecture (#410)
+- **cycle-039**: Two-Pass Bridge Review Pipeline (#411, #412)
+- **cycle-040**: Multi-Model Adversarial Review — GPT-5.3-Codex + Gemini Tertiary (#414)
+- **cycle-041**: Vision-Aware Planning — Creative Agency for AI Peers (#416)
+- **cycle-042**: Vision Activation — From Infrastructure to Living Memory (#417)
+
+#### Ecosystem Documentation
+
+- Full ecosystem architecture diagram with ELI5 explanations (#418)
+- Naming lineage: Vodou via Tallant/Deren → Gibson → Loa (#419)
+- Constructs Network distribution plane diagram (#420)
+
+### Changed
+
+- Topology validator reduced from 8 to 7 checks — legacy naming scan removed (no longer needed)
+- Default codex model upgraded to gpt-5.3-codex
+- Codex models routed to OpenAI Responses API instead of chat/completions
+- `MELANGE_DISCORD_WEBHOOK` → `DISCORD_WEBHOOK_URL` in post-merge workflow
+
+### Removed
+
+- **Melange** references stripped from ecosystem docs (archived Dune naming — never operationalized)
+- **Rune** references stripped (dissolved into Artisan construct)
+- Legacy naming scan (Check 7) removed from topology validator
+
+### Fixed
+
+- Explorer 500 on construct detail pages
+- API response parsing (caught by GPT cross-review)
+- Collateral deletion safeguard bug (#331)
+- Railway Docker build — DTS generation disabled
+- API statement_timeout + real DB health check to prevent infinite hangs
+- Next.js 15.1.0 → 15.1.9 security upgrade (CVE-2025-66478: react2shell)
+- JSON-LD XSS via `</script>` injection
+- Vercel build timeouts — ISR on-demand, API-independent builds, Suspense wrapping
+- Flatline scoring engine 3-model tertiary cross-scoring (#415)
+- gpt-5.2-codex backward-compat alias + Responses API token tracking
+
+### Constructs
+
+| Construct | Repo | Skills |
+|-----------|------|--------|
+| Observer | `construct-observer` | 6 |
+| Crucible | `construct-crucible` | 5 |
+| Artisan | `construct-artisan` | 14 |
+| Beacon | `construct-beacon` | 6 |
+| GTM Collective | `construct-gtm-collective` | 8 |
+| Protocol | `construct-protocol` | 10 |
+
+---
+
 ## [1.5.0] - 2026-02-05
 
 ### Why This Release
@@ -436,5 +506,7 @@ This is the initial production release of Loa Skills Registry, completing all 15
 
 ---
 
+[2.7.0]: https://github.com/0xHoneyJar/loa-constructs/releases/tag/v2.7.0
+[1.5.0]: https://github.com/0xHoneyJar/loa-constructs/releases/tag/v1.5.0
 [1.1.0]: https://github.com/0xHoneyJar/loa-constructs/releases/tag/v1.1.0
 [1.0.0]: https://github.com/0xHoneyJar/loa-constructs/releases/tag/v1.0.0
