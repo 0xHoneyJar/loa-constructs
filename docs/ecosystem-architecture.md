@@ -150,6 +150,7 @@ graph TB
         ART["🎨 construct-artisan<br/>Design Physics / Taste"]
         BCN["🔦 construct-beacon<br/>Developer Tools / Integration"]
         GTM["📢 construct-gtm-collective<br/>Go-To-Market"]
+        PRO["🔗 construct-protocol<br/>Smart Contract Verification"]
     end
 
     subgraph "Layer 5: Product"
@@ -178,12 +179,14 @@ graph TB
     API -->|"git-sync"| ART
     API -->|"git-sync"| BCN
     API -->|"git-sync"| GTM
+    API -->|"git-sync"| PRO
 
     OBS -->|"install into"| LOA
     CRU -->|"install into"| LOA
     ART -->|"install into"| LOA
     BCN -->|"install into"| LOA
     GTM -->|"install into"| LOA
+    PRO -->|"install into"| LOA
 
     OBS -->|"emits events via<br/>event envelope schema"| HOUNFOUR
     DIXIE -->|"consumes constructs<br/>as first customer"| LOA
@@ -211,6 +214,7 @@ graph TB
     style ART fill:#1abc9c,stroke:#16a085,color:#fff
     style BCN fill:#1abc9c,stroke:#16a085,color:#fff
     style GTM fill:#1abc9c,stroke:#16a085,color:#fff
+    style PRO fill:#1abc9c,stroke:#16a085,color:#fff
 ```
 
 ---
@@ -259,6 +263,7 @@ Agent gains new expertise (user research, gap analysis, etc.)
 | **Artisan** | `construct-artisan` | Design physics and taste — the aesthetic intelligence | 14: inscribing-taste, synthesizing-taste, surveying-patterns, crafting-physics, animating-motion, styling-material, distilling-components, applying-behavior, rams, next-best-practices, decomposing-feel, analyzing-feedback, iterating-visuals, envisioning-direction |
 | **Beacon** | `construct-beacon` | Developer tools and integration — the builder's toolkit | 6: accepting-payments, auditing-content, defining-actions, discovering-endpoints, generating-markdown, optimizing-chunks |
 | **GTM Collective** | `construct-gtm-collective` | Turns what engineers build into what markets buy | 8: positioning-product, pricing-strategist, educating-developers, building-partnerships, analyzing-market, crafting-narratives, reviewing-gtm, translating-for-stakeholders |
+| **Protocol** | `construct-protocol` | Smart contract verification, tx forensics, dApp QA | 10: contract-verify, tx-forensics, abi-audit, proxy-inspect, simulate-flow, dapp-lint, dapp-typecheck, dapp-test, dapp-e2e, gpt-contract-review |
 
 #### Planned Constructs
 

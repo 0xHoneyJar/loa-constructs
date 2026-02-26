@@ -2,7 +2,7 @@
 # validate-topology.sh — Topology contamination regression prevention
 # SDD Reference: §6.1 (Constructs Network Phase 2)
 #
-# 8-check validation script that prevents topology contamination in skill packs.
+# 7-check validation script that prevents topology contamination in skill packs.
 # Runs in --strict mode (CI, no allowlist) or --relaxed mode (local, with allowlist).
 #
 # Exit codes:
