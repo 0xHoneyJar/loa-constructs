@@ -383,15 +383,15 @@ check_context_slots() {
 }
 
 # ---------------------------------------------------------------------------
-# Check 7: Melange Scan
+# Check 7: Legacy Naming Scan
 # ---------------------------------------------------------------------------
 
-check_melange_references() {
-  log "Check 7: Melange scan..."
+check_legacy_naming() {
+  log "Check 7: Legacy naming scan..."
   local count=0
 
-  # Scan .claude/, grimoires/, .loa.config.yaml for melange references
-  # Allowed only in docs/archive/ and audits/
+  # Scan .claude/, grimoires/, .loa.config.yaml for legacy naming references
+  # Catches: melange (archived Dune naming), rune (dissolved into Artisan)
   local search_paths=()
   [[ -d "$ROOT_DIR/.claude" ]] && search_paths+=("$ROOT_DIR/.claude")
   [[ -d "$ROOT_DIR/grimoires" ]] && search_paths+=("$ROOT_DIR/grimoires")
@@ -403,20 +403,20 @@ check_melange_references() {
       local rel_path="${file#"$ROOT_DIR/"}"
 
       # Allow in archive, audit, and grimoire state directories
-      # Grimoires contain planning docs that reference Melange removal — not active code
+      # Grimoires contain planning docs that reference legacy naming — not active code
       [[ "$rel_path" == docs/archive/* ]] && continue
       [[ "$rel_path" == audits/* ]] && continue
       [[ "$rel_path" == grimoires/* ]] && continue
 
       is_allowed "$rel_path" && continue
 
-      add_violation "melange" "$rel_path" "Found Melange reference: $(echo "$line_content" | head -c 80)"
+      add_violation "legacy-naming" "$rel_path" "Found legacy naming reference: $(echo "$line_content" | head -c 80)"
       count=$((count + 1))
-    done < <(grep -rni "melange" "${search_paths[@]}" 2>/dev/null || true)
+    done < <(grep -rniE "(^|[^a-zA-Z])(melange|rune)([^a-zA-Z]|$)" "${search_paths[@]}" 2>/dev/null || true)
   fi
 
   [[ $count -gt 0 ]] && EXIT_CODE=1
-  log "  Found $count Melange reference violations"
+  log "  Found $count legacy naming violations"
 }
 
 # ---------------------------------------------------------------------------
@@ -467,7 +467,7 @@ main() {
   check_capability_metadata
   check_manifest_v3
   check_context_slots
-  check_melange_references
+  check_legacy_naming
   check_overlay_security
 
   # Output results
