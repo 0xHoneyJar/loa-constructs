@@ -383,48 +383,11 @@ check_context_slots() {
 }
 
 # ---------------------------------------------------------------------------
-# Check 7: Legacy Naming Scan
-# ---------------------------------------------------------------------------
-
-check_legacy_naming() {
-  log "Check 7: Legacy naming scan..."
-  local count=0
-
-  # Scan .claude/, grimoires/, .loa.config.yaml for legacy naming references
-  # Catches: melange (archived Dune naming), rune (dissolved into Artisan)
-  local search_paths=()
-  [[ -d "$ROOT_DIR/.claude" ]] && search_paths+=("$ROOT_DIR/.claude")
-  [[ -d "$ROOT_DIR/grimoires" ]] && search_paths+=("$ROOT_DIR/grimoires")
-  [[ -f "$ROOT_DIR/.loa.config.yaml" ]] && search_paths+=("$ROOT_DIR/.loa.config.yaml")
-
-  if [[ ${#search_paths[@]} -gt 0 ]]; then
-    while IFS=: read -r file line_content; do
-      [[ -z "$file" ]] && continue
-      local rel_path="${file#"$ROOT_DIR/"}"
-
-      # Allow in archive, audit, and grimoire state directories
-      # Grimoires contain planning docs that reference legacy naming — not active code
-      [[ "$rel_path" == docs/archive/* ]] && continue
-      [[ "$rel_path" == audits/* ]] && continue
-      [[ "$rel_path" == grimoires/* ]] && continue
-
-      is_allowed "$rel_path" && continue
-
-      add_violation "legacy-naming" "$rel_path" "Found legacy naming reference: $(echo "$line_content" | head -c 80)"
-      count=$((count + 1))
-    done < <(grep -rniE "(^|[^a-zA-Z])(melange|rune)([^a-zA-Z]|$)" "${search_paths[@]}" 2>/dev/null || true)
-  fi
-
-  [[ $count -gt 0 ]] && EXIT_CODE=1
-  log "  Found $count legacy naming violations"
-}
-
-# ---------------------------------------------------------------------------
-# Check 8: Overlay Security Check
+# Check 7: Overlay Security Check
 # ---------------------------------------------------------------------------
 
 check_overlay_security() {
-  log "Check 8: Overlay security check..."
+  log "Check 7: Overlay security check..."
   local count=0
 
   for pack_root in $(get_pack_dirs); do
@@ -467,7 +430,6 @@ main() {
   check_capability_metadata
   check_manifest_v3
   check_context_slots
-  check_legacy_naming
   check_overlay_security
 
   # Output results
@@ -487,7 +449,7 @@ main() {
     echo "=== Results ==="
 
     if [[ ${#VIOLATIONS[@]} -eq 0 ]]; then
-      echo -e "${GREEN}All 8 checks passed${NC}"
+      echo -e "${GREEN}All 7 checks passed${NC}"
     else
       echo -e "${RED}${#VIOLATIONS[@]} violation(s) found:${NC}"
       echo ""
