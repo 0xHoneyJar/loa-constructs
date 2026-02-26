@@ -34,6 +34,7 @@ const PACK_ICONS: Record<string, string> = {
   artisan: '🎨',
   beacon: '🔔',
   'gtm-collective': '🚀',
+  protocol: '🔗',
 };
 
 // Git source configurations for packs with registered repos
@@ -57,6 +58,10 @@ const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
   },
   crucible: {
     gitUrl: 'https://github.com/0xHoneyJar/construct-crucible.git',
+    gitRef: 'main',
+  },
+  protocol: {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-protocol.git',
     gitRef: 'main',
   },
 };

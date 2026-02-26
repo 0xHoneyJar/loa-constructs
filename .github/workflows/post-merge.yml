@@ -236,7 +236,7 @@ jobs:
           (needs.simple-release.result == 'failure' || needs.full-pipeline.result == 'failure') &&
           env.DISCORD_WEBHOOK_URL != ''
         env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.MELANGE_DISCORD_WEBHOOK }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           PAYLOAD=$(jq -n \
             --arg pr "${{ needs.classify.outputs.pr_number }}" \

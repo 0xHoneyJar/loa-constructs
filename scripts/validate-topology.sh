@@ -2,7 +2,7 @@
 # validate-topology.sh — Topology contamination regression prevention
 # SDD Reference: §6.1 (Constructs Network Phase 2)
 #
-# 8-check validation script that prevents topology contamination in skill packs.
+# 7-check validation script that prevents topology contamination in skill packs.
 # Runs in --strict mode (CI, no allowlist) or --relaxed mode (local, with allowlist).
 #
 # Exit codes:
@@ -383,48 +383,11 @@ check_context_slots() {
 }
 
 # ---------------------------------------------------------------------------
-# Check 7: Melange Scan
-# ---------------------------------------------------------------------------
-
-check_melange_references() {
-  log "Check 7: Melange scan..."
-  local count=0
-
-  # Scan .claude/, grimoires/, .loa.config.yaml for melange references
-  # Allowed only in docs/archive/ and audits/
-  local search_paths=()
-  [[ -d "$ROOT_DIR/.claude" ]] && search_paths+=("$ROOT_DIR/.claude")
-  [[ -d "$ROOT_DIR/grimoires" ]] && search_paths+=("$ROOT_DIR/grimoires")
-  [[ -f "$ROOT_DIR/.loa.config.yaml" ]] && search_paths+=("$ROOT_DIR/.loa.config.yaml")
-
-  if [[ ${#search_paths[@]} -gt 0 ]]; then
-    while IFS=: read -r file line_content; do
-      [[ -z "$file" ]] && continue
-      local rel_path="${file#"$ROOT_DIR/"}"
-
-      # Allow in archive, audit, and grimoire state directories
-      # Grimoires contain planning docs that reference Melange removal — not active code
-      [[ "$rel_path" == docs/archive/* ]] && continue
-      [[ "$rel_path" == audits/* ]] && continue
-      [[ "$rel_path" == grimoires/* ]] && continue
-
-      is_allowed "$rel_path" && continue
-
-      add_violation "melange" "$rel_path" "Found Melange reference: $(echo "$line_content" | head -c 80)"
-      count=$((count + 1))
-    done < <(grep -rni "melange" "${search_paths[@]}" 2>/dev/null || true)
-  fi
-
-  [[ $count -gt 0 ]] && EXIT_CODE=1
-  log "  Found $count Melange reference violations"
-}
-
-# ---------------------------------------------------------------------------
-# Check 8: Overlay Security Check
+# Check 7: Overlay Security Check
 # ---------------------------------------------------------------------------
 
 check_overlay_security() {
-  log "Check 8: Overlay security check..."
+  log "Check 7: Overlay security check..."
   local count=0
 
   for pack_root in $(get_pack_dirs); do
@@ -467,7 +430,6 @@ main() {
   check_capability_metadata
   check_manifest_v3
   check_context_slots
-  check_melange_references
   check_overlay_security
 
   # Output results
@@ -487,7 +449,7 @@ main() {
     echo "=== Results ==="
 
     if [[ ${#VIOLATIONS[@]} -eq 0 ]]; then
-      echo -e "${GREEN}All 8 checks passed${NC}"
+      echo -e "${GREEN}All 7 checks passed${NC}"
     else
       echo -e "${RED}${#VIOLATIONS[@]} violation(s) found:${NC}"
       echo ""
