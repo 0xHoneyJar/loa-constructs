@@ -341,7 +341,8 @@ constructsRouter.post(
       }
 
       // Shallow clone test — verify repo is accessible and has a manifest
-      const tmpDir = `/tmp/register-test-${randomUUID()}`;
+      const { tmpdir } = await import('node:os');
+      const tmpDir = `${tmpdir()}/register-test-${randomUUID()}`;
       try {
         await cloneRepo(body.git_url, body.git_ref, tmpDir);
         await readManifest(tmpDir);

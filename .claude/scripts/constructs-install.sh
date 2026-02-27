@@ -1939,6 +1939,8 @@ do_sync_pack() {
 # =============================================================================
 
 # Show sync status for installed constructs
+# Makes O(2n) HTTP calls where n = installed packs (registry + hash per pack).
+# Acceptable for typical install counts (1-10 packs).
 # Args:
 #   $1 - Pack slug (optional — if empty, show all installed packs)
 do_status_pack() {
@@ -2154,7 +2156,9 @@ main() {
             do_link_commands "$2"
             ;;
         register)
-            # Delegate to standalone register script
+            # Delegate to standalone register script.
+            # exec replaces the current process (no fork overhead, no cleanup needed
+            # since dispatch has no active traps at this point).
             local register_script="$SCRIPT_DIR/constructs-register.sh"
             if [[ ! -x "$register_script" ]]; then
                 print_error "ERROR: constructs-register.sh not found or not executable"
