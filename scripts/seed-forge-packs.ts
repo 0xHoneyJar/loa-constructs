@@ -16,6 +16,7 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
 import yaml from 'js-yaml';
+import { packManifestSchema, type ValidatedPackManifest } from '../packages/shared/src/validation';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLONE_DIR = join(__dirname, '../.cache/construct-repos');
@@ -89,6 +90,7 @@ interface DiscoveredPack extends PackManifest {
   packPath: string;
   constructType: string;
   identity?: IdentityData;
+  fullManifest: ValidatedPackManifest | null;
 }
 
 /**
@@ -145,6 +147,43 @@ function cloneOrPull(slug: string, gitUrl: string, gitRef: string): string {
   return repoDir;
 }
 
+/**
+ * Normalize manifest fields that commonly differ from Zod schema expectations.
+ * - repository: {url, homepage} object → url string
+ * - runtime_requirements.external_tools: [{name, check}] → [string]
+ */
+function normalizeForValidation(raw: Record<string, unknown>): Record<string, unknown> {
+  const normalized = { ...raw };
+
+  // repository: {url: "..."} → "..."
+  if (normalized.repository && typeof normalized.repository === 'object' && !Array.isArray(normalized.repository)) {
+    const repo = normalized.repository as Record<string, unknown>;
+    if (typeof repo.url === 'string') {
+      normalized.repository = repo.url;
+    }
+    // Preserve homepage as top-level field if present and not already set
+    if (typeof repo.homepage === 'string' && !normalized.homepage) {
+      normalized.homepage = repo.homepage;
+    }
+  }
+
+  // runtime_requirements.external_tools: [{name: "foundry", ...}] → ["foundry"]
+  if (normalized.runtime_requirements && typeof normalized.runtime_requirements === 'object') {
+    const rt = { ...(normalized.runtime_requirements as Record<string, unknown>) };
+    if (Array.isArray(rt.external_tools)) {
+      rt.external_tools = rt.external_tools.map((tool: unknown) => {
+        if (typeof tool === 'object' && tool !== null && 'name' in tool) {
+          return (tool as Record<string, unknown>).name as string;
+        }
+        return tool;
+      });
+      normalized.runtime_requirements = rt;
+    }
+  }
+
+  return normalized;
+}
+
 async function discoverPacks(): Promise<DiscoveredPack[]> {
   console.log(`📂 Discovering packs from construct repos...\n`);
   ensureCloneDir();
@@ -160,29 +199,69 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
       const constructYamlPath = join(repoDir, 'construct.yaml');
       let manifest: PackManifest;
 
+      let fullManifest: ValidatedPackManifest | null = null;
+
       if (existsSync(manifestJsonPath)) {
         const content = await readFile(manifestJsonPath, 'utf-8');
-        manifest = JSON.parse(content) as PackManifest;
+        const raw = JSON.parse(content);
+        const result = packManifestSchema.safeParse(normalizeForValidation(raw));
+        if (result.success) {
+          fullManifest = result.data;
+          manifest = {
+            schema_version: result.data.schema_version,
+            name: result.data.name,
+            slug: result.data.slug,
+            version: result.data.version,
+            description: result.data.description || '',
+            author: typeof result.data.author === 'string' ? result.data.author : result.data.author?.name,
+            license: result.data.license,
+            type: result.data.type,
+            skills: result.data.skills,
+          };
+          console.log(`     → validated manifest.json for ${slug} (full manifest captured)`);
+        } else {
+          console.warn(`     → manifest.json for ${slug} failed Zod validation, using raw fields`);
+          console.warn(`       Errors: ${result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`);
+          manifest = raw as PackManifest;
+        }
       } else if (existsSync(constructYamlPath)) {
         const content = await readFile(constructYamlPath, 'utf-8');
         const parsed = yaml.load(content, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>;
-        manifest = {
-          schema_version: (parsed.schema_version as number) || 1,
-          name: (parsed.name as string) || slug,
-          slug: (parsed.slug as string) || slug,
-          version: (parsed.version as string) || '1.0.0',
-          description: (parsed.description as string) || '',
-          author: parsed.author as string | undefined,
-          license: parsed.license as string | undefined,
-          type: parsed.type as string | undefined,
-          skills: Array.isArray(parsed.skills)
-            ? (parsed.skills as Array<Record<string, unknown>>).map((s) => ({
-                slug: (s.slug as string) || '',
-                path: s.path as string | undefined,
-              }))
-            : undefined,
-        };
-        console.log(`     → parsed construct.yaml for ${slug}`);
+        const result = packManifestSchema.safeParse(normalizeForValidation(parsed));
+        if (result.success) {
+          fullManifest = result.data;
+          manifest = {
+            schema_version: result.data.schema_version,
+            name: result.data.name,
+            slug: result.data.slug,
+            version: result.data.version,
+            description: result.data.description || '',
+            author: typeof result.data.author === 'string' ? result.data.author : result.data.author?.name,
+            license: result.data.license,
+            type: result.data.type,
+            skills: result.data.skills,
+          };
+          console.log(`     → validated construct.yaml for ${slug} (full manifest captured)`);
+        } else {
+          console.warn(`     → construct.yaml for ${slug} failed Zod validation, falling back to manual extraction`);
+          console.warn(`       Errors: ${result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`);
+          manifest = {
+            schema_version: (parsed.schema_version as number) || 1,
+            name: (parsed.name as string) || slug,
+            slug: (parsed.slug as string) || slug,
+            version: (parsed.version as string) || '1.0.0',
+            description: (parsed.description as string) || '',
+            author: parsed.author as string | undefined,
+            license: parsed.license as string | undefined,
+            type: parsed.type as string | undefined,
+            skills: Array.isArray(parsed.skills)
+              ? (parsed.skills as Array<Record<string, unknown>>).map((s) => ({
+                  slug: (s.slug as string) || '',
+                  path: s.path as string | undefined,
+                }))
+              : undefined,
+          };
+        }
       } else {
         console.warn(`   Skipping ${slug}: no manifest.json or construct.yaml found`);
         continue;
@@ -214,6 +293,7 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
         packPath: repoDir,
         constructType,
         identity,
+        fullManifest,
       });
 
       console.log(`   Found: ${manifest.name} (${manifest.slug}) - ${manifest.skills?.length || 0} skills`);
@@ -226,18 +306,47 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
   return packs;
 }
 
-async function seedForgePacks() {
-  const databaseUrl = process.env.DATABASE_URL;
-  if (!databaseUrl) {
-    console.error('ERROR: DATABASE_URL environment variable is required');
-    process.exit(1);
-  }
+const DRY_RUN = process.argv.includes('--dry-run');
 
+async function seedForgePacks() {
   // Discover packs from local manifests
   const packs = await discoverPacks();
 
   if (packs.length === 0) {
     console.error('ERROR: No packs found in construct repos');
+    process.exit(1);
+  }
+
+  // Dry-run mode: validate all manifests and report results
+  if (DRY_RUN) {
+    console.log('\n🔍 DRY RUN — Validating manifests without DB writes\n');
+    let passed = 0;
+    let failed = 0;
+    for (const pack of packs) {
+      const status = pack.fullManifest ? '✓ VALID' : '✗ FALLBACK';
+      const fields = pack.fullManifest ? Object.keys(pack.fullManifest).length : 0;
+      console.log(`  ${status}  ${pack.slug} (v${pack.version}) — ${pack.skillSlugs.length} skills, ${fields} manifest fields`);
+      if (pack.fullManifest) {
+        if (pack.fullManifest.golden_path) console.log(`          → golden_path: ${pack.fullManifest.golden_path.commands?.length || 0} commands`);
+        if (pack.fullManifest.workflow) console.log(`          → workflow: depth=${pack.fullManifest.workflow.depth}`);
+        if (pack.fullManifest.domain) console.log(`          → domain: ${pack.fullManifest.domain.join(', ')}`);
+        if (pack.fullManifest.hooks) console.log(`          → hooks: post_install=${!!pack.fullManifest.hooks.post_install}`);
+        passed++;
+      } else {
+        failed++;
+      }
+    }
+    console.log(`\n  Summary: ${passed} validated, ${failed} fallback, ${packs.length} total`);
+    if (failed > 0) {
+      console.log('  ⚠️  Fallback packs store only 7 core fields. Fix upstream manifests to capture full metadata.');
+    }
+    console.log('\n  No database writes performed.\n');
+    return;
+  }
+
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    console.error('ERROR: DATABASE_URL environment variable is required');
     process.exit(1);
   }
 
@@ -353,9 +462,10 @@ async function seedForgePacks() {
           WHERE pack_id = ${resolvedPackId}
         `;
 
-        // Step 4: Create pack version using UPSERT
+        // Step 4: Build manifest and collect files
+        // Use full validated manifest when available, fall back to minimal 7-field
         const versionId = randomUUID();
-        const manifest = {
+        const manifest = pack.fullManifest ?? {
           schema_version: pack.schema_version || 1,
           name: pack.name,
           slug: pack.slug,
@@ -365,6 +475,18 @@ async function seedForgePacks() {
           license: pack.license || 'MIT',
           skills: pack.skillSlugs.map((s) => ({ slug: s, path: `skills/${s}` })),
         };
+
+        // Collect files first (needed for content hash)
+        console.log(`     → collecting files from ${pack.packPath}...`);
+        const files = await collectFiles(pack.packPath, pack.packPath);
+
+        // Compute aggregate content hash: SHA-256 of (manifest JSON + sorted file hashes)
+        const sortedFileHashes = files
+          .map((f) => `${f.path}:${f.contentHash}`)
+          .sort()
+          .join('\n');
+        const contentHashInput = JSON.stringify(manifest) + '\n' + sortedFileHashes;
+        const contentHash = createHash('sha256').update(contentHashInput).digest('hex');
 
         // Get existing version ID if it exists (for file updates)
         const existingVersion = await tx`
@@ -376,9 +498,10 @@ async function seedForgePacks() {
           ? existingVersion[0].id as string
           : versionId;
 
+        // Step 5: Create pack version using UPSERT
         await tx`
           INSERT INTO pack_versions (
-            id, pack_id, version, changelog, is_latest, manifest,
+            id, pack_id, version, changelog, is_latest, manifest, content_hash,
             published_at, created_at
           ) VALUES (
             ${versionId},
@@ -387,20 +510,19 @@ async function seedForgePacks() {
             'Initial release',
             true,
             ${manifest},
+            ${contentHash},
             NOW(),
             NOW()
           )
           ON CONFLICT (pack_id, version) DO UPDATE SET
             changelog = EXCLUDED.changelog,
             is_latest = EXCLUDED.is_latest,
-            manifest = EXCLUDED.manifest
+            manifest = EXCLUDED.manifest,
+            content_hash = EXCLUDED.content_hash
         `;
-        console.log(`     → version ${pack.version} upserted`);
+        console.log(`     → version ${pack.version} upserted (hash: ${contentHash.slice(0, 12)}...)`);
 
-        // Step 5: Collect and upload pack files
-        console.log(`     → collecting files from ${pack.packPath}...`);
-        const files = await collectFiles(pack.packPath, pack.packPath);
-
+        // Step 6: Upload pack files
         // Delete existing files for this version (clean slate)
         await tx`DELETE FROM pack_files WHERE version_id = ${resolvedVersionId}`;
 
