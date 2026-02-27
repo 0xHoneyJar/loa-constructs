@@ -5,6 +5,73 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0] - 2026-02-27
+
+### Why This Release
+
+Constructs Network Distribution Layer — the first CLI tooling for installing, syncing, and managing constructs outside the marketplace UI. Three-phase delivery with bridge reviews, GPT 5.3-codex cross-model security audit, and kaironic flatline termination. Plus DNS infrastructure mapping for the upcoming Route 53 migration.
+
+### Added
+
+#### CLI Distribution Commands (cycle-036)
+
+- **`constructs install <slug>`** — registry-backed pack installation with HTTPS-only verification, post-install hooks, and Merkle SHA-256 content hashing
+- **`constructs sync <slug>`** — pull latest version from registry with curl config injection protection (SHELL-002 pattern)
+- **`constructs status [slug]`** — version + content-hash staleness reporting (SYNCED/DIVERGED/BEHIND/UNKNOWN indicators)
+- **`constructs register <slug>`** — reserve construct slugs with git repo preflight validation
+- **Shared library** (`constructs-lib.sh`) — Merkle SHA-256 content hashing, URL validation, safe identifier checks, registry URL resolution
+- **`--standalone` audit flag** for `validate-skills.sh` — scans pack skills for unguarded context slots and grimoire references
+
+#### Golden Path Integration
+
+- `/loa` status command now shows construct health alongside workflow state
+- `detect_state()` auto-discovers installed packs and skills with path traversal containment
+- Skill update notifications when registry has newer versions
+- Per-invocation Next Steps CTAs added to all 39 pack skills
+
+#### Research & Infrastructure
+
+- DNS infrastructure mapping for AWS Route 53 migration (`grimoires/bridgebuilder/dns-infrastructure-mapping.md`)
+- Agent-native CLI landscape research — Warp, Fig, Cursor, Cline patterns (`grimoires/bridgebuilder/agent-native-cli-landscape-research.md`)
+- CLI vs MCP architecture research — incur patterns (`grimoires/bridgebuilder/incur-cli-vs-mcp-research.md`)
+
+### Changed
+
+- GPT review models upgraded to `gpt-5.3-codex` (from 5.2-codex)
+- `browsing-constructs` skill updated with CLI command routing
+- `seed-forge-packs.ts` uses recursive `canonicalStringify()` for deterministic manifest hashing (fixes nested key loss with `JSON.stringify` array replacer)
+- Register API endpoint reordered: git URL validation runs before `createPack` to prevent orphaned DB registrations
+
+### Fixed
+
+#### Security (GPT 5.3-codex Cross-Model Review)
+
+- **Path traversal** — trailing slash comparison + `realpath` + `python3` fallback for macOS portability
+- **Curl config injection** — CR/LF/quote validation before writing API keys to curl config files in register + sync commands
+- **HTTPS enforcement** — `.refine()` validator on `git_url` field in register API
+- **userId guard** — explicit `Unauthorized` error when auth context missing in register endpoint
+- **Timeout portability** — `timeout` → `gtimeout` fallback chain, skip execution when unavailable (macOS)
+- **Hook sandboxing** — post-install hooks skip with warning instead of executing unbounded when no timeout binary available
+
+### Constructs
+
+| Construct | Repo | Skills |
+|-----------|------|--------|
+| Observer | `construct-observer` | 6 |
+| Crucible | `construct-crucible` | 5 |
+| Artisan | `construct-artisan` | 14 |
+| Beacon | `construct-beacon` | 6 |
+| GTM Collective | `construct-gtm-collective` | 8 |
+| Protocol | `construct-protocol` | 10 |
+
+### Quality Gates
+
+- **Bridge review**: 3 iterations to flatline across all 3 phases (kaironic termination at score 0.00)
+- **GPT 5.3-codex**: 2 iterations — 5 critical/major findings fixed, approved with 3 minor defense-in-depth suggestions
+- **Syntax validation**: All shell scripts pass `bash -n`, TypeScript 0 errors
+
+---
+
 ## [2.7.0] - 2026-02-26
 
 ### Why This Release
