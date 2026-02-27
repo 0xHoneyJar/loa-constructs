@@ -318,6 +318,7 @@ golden_format_journey() {
 }
 
 # Detect installed construct packs with golden_path declarations.
+# Executes detect_state scripts (5s timeout) and shows ● position markers.
 # Returns formatted journey bars or empty string.
 golden_detect_construct_journeys() {
     local packs_dir="${PROJECT_ROOT}/.claude/constructs/packs"
@@ -328,9 +329,10 @@ golden_detect_construct_journeys() {
         return 0
     fi
 
-    local manifest pack_name commands_json bar output=""
+    local manifest pack_dir pack_name commands_json bar output=""
     for manifest in "$packs_dir"/*/construct.yaml "$packs_dir"/*/construct.yml; do
         [[ -f "$manifest" ]] || continue
+        pack_dir="$(dirname "$manifest")"
 
         # Extract golden_path.commands via yq→jq pipeline
         commands_json=$(safe_yq_to_json "$manifest" 2>/dev/null | jq -c '.golden_path.commands // empty' 2>/dev/null) || continue
@@ -340,16 +342,42 @@ golden_detect_construct_journeys() {
         pack_name=$(safe_yq '.name' "$manifest" 2>/dev/null) || continue
         [[ -z "$pack_name" ]] && continue
 
-        # Build journey bar from command names
+        # Execute detect_state script if declared (5s timeout, silent fallback)
+        local current_state=""
+        local detect_script
+        detect_script=$(safe_yq '.golden_path.detect_state' "$manifest" 2>/dev/null) || true
+        if [[ -n "$detect_script" && "$detect_script" != "null" ]]; then
+            local script_path="${pack_dir}/${detect_script}"
+            if [[ -f "$script_path" && -x "$script_path" ]]; then
+                current_state=$(cd "$pack_dir" && timeout 5 "$script_path" 2>/dev/null) || true
+            fi
+        fi
+
+        # Build journey bar from command names with position detection
         bar=""
         local first=true
         while IFS= read -r cmd_name; do
             [[ -z "$cmd_name" ]] && continue
+
+            # Check truename_map for current state match
+            local is_current=false
+            if [[ -n "$current_state" ]]; then
+                local mapped
+                mapped=$(echo "$commands_json" | jq -r \
+                    --arg name "$cmd_name" --arg state "$current_state" \
+                    '.[] | select(.name == $name) | .truename_map[$state] // empty' \
+                    2>/dev/null) || true
+                [[ -n "$mapped" ]] && is_current=true
+            fi
+
+            local segment="/$cmd_name"
+            $is_current && segment="/$cmd_name ●"
+
             if $first; then
-                bar="/$cmd_name"
+                bar="$segment"
                 first=false
             else
-                bar="$bar ━━━━━ /$cmd_name"
+                bar="$bar ━━━ $segment"
             fi
         done < <(echo "$commands_json" | jq -r '.[].name' 2>/dev/null)
 

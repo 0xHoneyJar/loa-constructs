@@ -378,6 +378,45 @@ unlink_pack_skills() {
 }
 
 # =============================================================================
+# Post-Install Hooks
+# =============================================================================
+
+# Execute post-install hook if declared in manifest.
+# Security: path traversal prevention via realpath comparison.
+# Non-blocking: hook failure emits warning, does not fail installation.
+# Args:
+#   $1 - Pack directory path
+execute_post_install_hook() {
+    local pack_dir="$1"
+    local manifest="${pack_dir}/construct.yaml"
+    [[ -f "$manifest" ]] || return 0
+
+    if ! type safe_yq &>/dev/null 2>&1; then return 0; fi
+
+    local hook_script
+    hook_script=$(safe_yq '.hooks.post_install' "$manifest" 2>/dev/null) || return 0
+    [[ -z "$hook_script" || "$hook_script" == "null" ]] && return 0
+
+    local script_path="${pack_dir}/${hook_script}"
+
+    # Security: validate script is within pack directory (path traversal prevention)
+    local real_script real_pack
+    real_script=$(realpath "$script_path" 2>/dev/null) || return 0
+    real_pack=$(realpath "$pack_dir" 2>/dev/null) || return 0
+    if [[ "$real_script" != "$real_pack"* ]]; then
+        echo "  ⚠ Post-install hook path traversal blocked: $hook_script" >&2
+        return 0
+    fi
+
+    if [[ -f "$script_path" && -x "$script_path" ]]; then
+        echo "  Running post-install hook..."
+        if ! (cd "$pack_dir" && timeout 30 "$script_path" 2>&1); then
+            echo "  ⚠ Post-install hook failed (non-blocking)" >&2
+        fi
+    fi
+}
+
+# =============================================================================
 # Pack Installation
 # =============================================================================
 
@@ -514,6 +553,9 @@ do_install_pack() {
                 local skills_linked
                 skills_linked=$(symlink_pack_skills "$pack_slug")
                 echo "  Created $skills_linked skill symlinks"
+
+                # Execute post-install hook if declared
+                execute_post_install_hook "$pack_dir"
 
                 echo "  Validating license..."
                 local validator="$SCRIPT_DIR/constructs-loader.sh"
@@ -691,6 +733,9 @@ PYEOF
     local skills_linked
     skills_linked=$(symlink_pack_skills "$pack_slug")
     echo "  Created $skills_linked skill symlinks"
+
+    # Execute post-install hook if declared
+    execute_post_install_hook "$pack_dir"
 
     # Validate pack license
     echo "  Validating license..."
