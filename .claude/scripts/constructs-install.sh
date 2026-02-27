@@ -912,7 +912,7 @@ do_install_pack_git() {
 compute_pack_hash() {
     local pack_dir="$1"
 
-    if type compute_merkle_hash &>/dev/null; then
+    if command -v compute_merkle_hash &>/dev/null; then
         compute_merkle_hash "$pack_dir"
     else
         echo ""
@@ -970,8 +970,13 @@ except: print('unknown')
     fi
 
     # Compute content hash for staleness detection
-    local content_hash=""
-    content_hash=$(compute_pack_hash "$pack_dir")
+    # Convention: null = not computed, string = computed hash
+    local content_hash_raw=""
+    content_hash_raw=$(compute_pack_hash "$pack_dir")
+    local content_hash_json="null"
+    if [[ -n "$content_hash_raw" ]]; then
+        content_hash_json="\"$content_hash_raw\""
+    fi
 
     # Ensure meta file exists
     init_registry_meta
@@ -986,7 +991,7 @@ except: print('unknown')
            --arg source_type "$source_type" \
            --arg git_url "$git_url" \
            --arg git_commit "$git_commit" \
-           --arg content_hash "$content_hash" \
+           --argjson content_hash "$content_hash_json" \
            --argjson skills "$skills_json" \
            '.installed_packs[$slug] = {
                "version": $version,
@@ -1004,7 +1009,7 @@ except: print('unknown')
            --arg version "$version" \
            --arg installed_at "$now" \
            --arg license_expires "$license_expires" \
-           --arg content_hash "$content_hash" \
+           --argjson content_hash "$content_hash_json" \
            --argjson skills "$skills_json" \
            '.installed_packs[$slug] = {
                "version": $version,
