@@ -903,6 +903,22 @@ do_install_pack_git() {
     return 0
 }
 
+# Compute Merkle-root content hash for an installed pack directory.
+# Uses compute_merkle_hash from constructs-lib.sh (same algorithm as API).
+# Excludes license and meta files from hash computation.
+# Args:
+#   $1 - Pack directory
+# Returns: sha256:... hash string
+compute_pack_hash() {
+    local pack_dir="$1"
+
+    if type compute_merkle_hash &>/dev/null; then
+        compute_merkle_hash "$pack_dir"
+    else
+        echo ""
+    fi
+}
+
 # Update pack metadata in .constructs-meta.json
 # Args:
 #   $1 - Pack slug
@@ -953,6 +969,10 @@ except: print('unknown')
         skills_json=$(find "$pack_dir/skills" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | jq -R -s 'split("\n") | map(select(length > 0))')
     fi
 
+    # Compute content hash for staleness detection
+    local content_hash=""
+    content_hash=$(compute_pack_hash "$pack_dir")
+
     # Ensure meta file exists
     init_registry_meta
 
@@ -966,6 +986,7 @@ except: print('unknown')
            --arg source_type "$source_type" \
            --arg git_url "$git_url" \
            --arg git_commit "$git_commit" \
+           --arg content_hash "$content_hash" \
            --argjson skills "$skills_json" \
            '.installed_packs[$slug] = {
                "version": $version,
@@ -975,6 +996,7 @@ except: print('unknown')
                "source_type": $source_type,
                "git_url": $git_url,
                "git_commit": $git_commit,
+               "content_hash": $content_hash,
                "skills": $skills
            }' "$meta_path" > "$tmp_file" && mv "$tmp_file" "$meta_path"
     else
@@ -982,12 +1004,14 @@ except: print('unknown')
            --arg version "$version" \
            --arg installed_at "$now" \
            --arg license_expires "$license_expires" \
+           --arg content_hash "$content_hash" \
            --argjson skills "$skills_json" \
            '.installed_packs[$slug] = {
                "version": $version,
                "installed_at": $installed_at,
                "registry": "default",
                "license_expires": $license_expires,
+               "content_hash": $content_hash,
                "skills": $skills
            }' "$meta_path" > "$tmp_file" && mv "$tmp_file" "$meta_path"
     fi
@@ -1992,11 +2016,12 @@ show_pack_status() {
     local registry_url="$3"
 
     # Read local data
-    local local_version local_installed_at local_source_type local_git_url
+    local local_version local_installed_at local_source_type local_git_url local_content_hash
     local_version=$(jq -r ".installed_packs[\"$slug\"].version // \"unknown\"" "$meta_path" 2>/dev/null)
     local_installed_at=$(jq -r ".installed_packs[\"$slug\"].installed_at // \"unknown\"" "$meta_path" 2>/dev/null)
     local_source_type=$(jq -r ".installed_packs[\"$slug\"].source_type // \"registry\"" "$meta_path" 2>/dev/null)
     local_git_url=$(jq -r ".installed_packs[\"$slug\"].git_url // \"\"" "$meta_path" 2>/dev/null)
+    local_content_hash=$(jq -r ".installed_packs[\"$slug\"].content_hash // \"\"" "$meta_path" 2>/dev/null)
 
     echo "Pack: $slug"
     echo "  Installed: $local_version ($local_installed_at)"
@@ -2032,6 +2057,9 @@ show_pack_status() {
     fi
 
     # Fetch content hash for divergence detection
+    # NOTE: O(2n) HTTP calls per pack — registry metadata + hash endpoint.
+    # Acceptable for CLI status; optimize if used in CI or batch contexts.
+    local registry_hash_value=""
     local hash_file
     hash_file=$(mktemp)
     chmod 600 "$hash_file"
@@ -2043,23 +2071,38 @@ show_pack_status() {
         -o "$hash_file" 2>/dev/null) || hash_code="000"
 
     if [[ "$hash_code" == "200" ]]; then
-        local registry_hash_value
         registry_hash_value=$(jq -r '.data.hash // ""' "$hash_file" 2>/dev/null)
-        if [[ -n "$registry_hash_value" ]]; then
-            echo "  Hash:      ${registry_hash_value:0:20}..."
-        fi
     fi
     rm -f "$hash_file"
 
-    # Version comparison
-    if [[ "$registry_version" != "unknown" && "$local_version" != "unknown" ]]; then
-        if [[ "$local_version" == "$registry_version" ]]; then
-            echo "  Status:    [SYNCED]"
+    # Combined version + content-hash status
+    if [[ -z "$local_content_hash" ]]; then
+        # No local hash — installed before hash tracking was added
+        if [[ "$registry_version" != "unknown" && "$local_version" != "unknown" ]]; then
+            if [[ "$local_version" == "$registry_version" ]]; then
+                echo "  Status:    [UNKNOWN] — reinstall to compute hash"
+            else
+                echo "  Status:    [BEHIND] — registry has $registry_version"
+            fi
         else
-            echo "  Status:    [BEHIND] — run /constructs sync $slug"
+            echo "  Status:    [UNKNOWN]"
+        fi
+    elif [[ -n "$registry_hash_value" ]]; then
+        # Both hashes available — compare
+        if [[ "$local_content_hash" == "$registry_hash_value" ]]; then
+            echo "  Status:    [SYNCED]"
+        elif [[ "$local_version" != "$registry_version" && "$registry_version" != "unknown" ]]; then
+            echo "  Status:    [BEHIND] — registry has $registry_version"
+        else
+            echo "  Status:    [DIVERGED] — local files modified"
         fi
     else
-        echo "  Status:    [UNKNOWN]"
+        # No registry hash — can't compare
+        if [[ "$local_version" == "$registry_version" && "$registry_version" != "unknown" ]]; then
+            echo "  Status:    [SYNCED] (version match, hash unavailable)"
+        else
+            echo "  Status:    [UNKNOWN]"
+        fi
     fi
 }
 
