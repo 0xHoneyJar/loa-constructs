@@ -359,10 +359,12 @@ golden_detect_construct_journeys() {
         while IFS= read -r cmd_name; do
             [[ -z "$cmd_name" ]] && continue
 
-            # Check truename_map for current state match
+            # Check if this command's truename_map has an entry for the current state.
+            # If so, this command represents the user's current position in the journey.
             local is_current=false
             if [[ -n "$current_state" ]]; then
                 local mapped
+                # Look up truename for current state in this command's truename_map
                 mapped=$(echo "$commands_json" | jq -r \
                     --arg name "$cmd_name" --arg state "$current_state" \
                     '.[] | select(.name == $name) | .truename_map[$state] // empty' \

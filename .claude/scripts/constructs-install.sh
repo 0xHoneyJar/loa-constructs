@@ -391,7 +391,7 @@ execute_post_install_hook() {
     local manifest="${pack_dir}/construct.yaml"
     [[ -f "$manifest" ]] || return 0
 
-    if ! type safe_yq &>/dev/null 2>&1; then return 0; fi
+    if ! type safe_yq &>/dev/null; then return 0; fi
 
     local hook_script
     hook_script=$(safe_yq '.hooks.post_install' "$manifest" 2>/dev/null) || return 0

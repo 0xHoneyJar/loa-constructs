@@ -16,6 +16,8 @@ import { fileURLToPath } from 'url';
 import { execSync } from 'child_process';
 import { existsSync, mkdirSync } from 'fs';
 import yaml from 'js-yaml';
+// Relative import: @loa-constructs/shared isn't linked at root level by pnpm.
+// This script must be run with tsx from the repo root (e.g., pnpm tsx scripts/seed-forge-packs.ts).
 import { packManifestSchema, type ValidatedPackManifest } from '../packages/shared/src/validation';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -111,6 +113,25 @@ interface DiscoveredPack extends PackManifest {
   constructType: string;
   identity?: IdentityData;
   fullManifest: ValidatedPackManifest | null;
+}
+
+/**
+ * Extract the core PackManifest fields from a fully validated manifest.
+ * Centralizes the validated → PackManifest mapping to avoid duplication
+ * between manifest.json and construct.yaml parsing paths.
+ */
+function toPackManifest(validated: ValidatedPackManifest): PackManifest {
+  return {
+    schema_version: validated.schema_version,
+    name: validated.name,
+    slug: validated.slug,
+    version: validated.version,
+    description: validated.description || '',
+    author: typeof validated.author === 'string' ? validated.author : validated.author?.name,
+    license: validated.license,
+    type: validated.type,
+    skills: validated.skills,
+  };
 }
 
 /**
@@ -227,17 +248,7 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
         const result = packManifestSchema.safeParse(normalizeForValidation(raw));
         if (result.success) {
           fullManifest = result.data;
-          manifest = {
-            schema_version: result.data.schema_version,
-            name: result.data.name,
-            slug: result.data.slug,
-            version: result.data.version,
-            description: result.data.description || '',
-            author: typeof result.data.author === 'string' ? result.data.author : result.data.author?.name,
-            license: result.data.license,
-            type: result.data.type,
-            skills: result.data.skills,
-          };
+          manifest = toPackManifest(result.data);
           console.log(`     → validated manifest.json for ${slug} (full manifest captured)`);
         } else {
           console.warn(`     → manifest.json for ${slug} failed Zod validation, using raw fields`);
@@ -250,17 +261,7 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
         const result = packManifestSchema.safeParse(normalizeForValidation(parsed));
         if (result.success) {
           fullManifest = result.data;
-          manifest = {
-            schema_version: result.data.schema_version,
-            name: result.data.name,
-            slug: result.data.slug,
-            version: result.data.version,
-            description: result.data.description || '',
-            author: typeof result.data.author === 'string' ? result.data.author : result.data.author?.name,
-            license: result.data.license,
-            type: result.data.type,
-            skills: result.data.skills,
-          };
+          manifest = toPackManifest(result.data);
           console.log(`     → validated construct.yaml for ${slug} (full manifest captured)`);
         } else {
           console.warn(`     → construct.yaml for ${slug} failed Zod validation, falling back to manual extraction`);
@@ -500,12 +501,13 @@ async function seedForgePacks() {
         console.log(`     → collecting files from ${pack.packPath}...`);
         const files = await collectFiles(pack.packPath, pack.packPath);
 
-        // Compute aggregate content hash: SHA-256 of (manifest JSON + sorted file hashes)
+        // Compute aggregate content hash: SHA-256 of (canonical manifest JSON + sorted file hashes)
         const sortedFileHashes = files
           .map((f) => `${f.path}:${f.contentHash}`)
           .sort()
           .join('\n');
-        const contentHashInput = JSON.stringify(manifest) + '\n' + sortedFileHashes;
+        // Canonical JSON: sorted keys ensure deterministic hashing regardless of property insertion order
+        const contentHashInput = JSON.stringify(manifest, Object.keys(manifest).sort()) + '\n' + sortedFileHashes;
         const contentHash = createHash('sha256').update(contentHashInput).digest('hex');
 
         // Get existing version ID if it exists (for file updates)
