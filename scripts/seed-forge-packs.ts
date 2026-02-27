@@ -36,6 +36,10 @@ const PACK_ICONS: Record<string, string> = {
   beacon: '🔔',
   'gtm-collective': '🚀',
   protocol: '🔗',
+  herald: '📣',
+  hardening: '🛡️',
+  'dynamic-auth': '🔑',
+  'the-easel': '🖼️',
 };
 
 // Git source configurations for packs with registered repos
@@ -63,6 +67,22 @@ const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
   },
   protocol: {
     gitUrl: 'https://github.com/0xHoneyJar/construct-protocol.git',
+    gitRef: 'main',
+  },
+  herald: {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-herald.git',
+    gitRef: 'main',
+  },
+  hardening: {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-hardening.git',
+    gitRef: 'main',
+  },
+  'dynamic-auth': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-dynamic-auth.git',
+    gitRef: 'main',
+  },
+  'the-easel': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-the-easel.git',
     gitRef: 'main',
   },
 };
