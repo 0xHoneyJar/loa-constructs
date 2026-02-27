@@ -348,8 +348,29 @@ golden_detect_construct_journeys() {
         detect_script=$(safe_yq '.golden_path.detect_state' "$manifest" 2>/dev/null) || true
         if [[ -n "$detect_script" && "$detect_script" != "null" ]]; then
             local script_path="${pack_dir}/${detect_script}"
-            if [[ -f "$script_path" && -x "$script_path" ]]; then
-                current_state=$(cd "$pack_dir" && timeout 5 "$script_path" 2>/dev/null) || true
+
+            # Path traversal containment — resolve and enforce within pack_dir
+            local real_script="" real_pack_dir=""
+            if command -v realpath &>/dev/null; then
+                real_script=$(realpath "$script_path" 2>/dev/null) || real_script=""
+                real_pack_dir=$(realpath "$pack_dir" 2>/dev/null) || real_pack_dir=""
+            elif command -v python3 &>/dev/null; then
+                real_script=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$script_path" 2>/dev/null) || real_script=""
+                real_pack_dir=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$pack_dir" 2>/dev/null) || real_pack_dir=""
+            fi
+            real_pack_dir="${real_pack_dir%/}/"
+
+            if [[ -n "$real_script" && -n "$real_pack_dir" && "$real_script" == "$real_pack_dir"* && -f "$real_script" && -x "$real_script" ]]; then
+                local timeout_cmd=""
+                if command -v timeout &>/dev/null; then
+                    timeout_cmd="timeout"
+                elif command -v gtimeout &>/dev/null; then
+                    timeout_cmd="gtimeout"
+                fi
+                if [[ -n "$timeout_cmd" ]]; then
+                    current_state=$(cd "$pack_dir" && "$timeout_cmd" 5 "$real_script" 2>/dev/null) || true
+                fi
+                # No timeout utility → skip execution (untrusted scripts must be bounded)
             fi
         fi
 

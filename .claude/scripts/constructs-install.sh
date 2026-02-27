@@ -400,18 +400,40 @@ execute_post_install_hook() {
     local script_path="${pack_dir}/${hook_script}"
 
     # Security: validate script is within pack directory (path traversal prevention)
+    # Trailing slash prevents sibling-path bypass (e.g., /packs/foo matching /packs/foobar)
     local real_script real_pack
-    real_script=$(realpath "$script_path" 2>/dev/null) || return 0
-    real_pack=$(realpath "$pack_dir" 2>/dev/null) || return 0
+    if command -v realpath &>/dev/null; then
+        real_script=$(realpath "$script_path" 2>/dev/null) || return 0
+        real_pack=$(realpath "$pack_dir" 2>/dev/null) || return 0
+    elif command -v python3 &>/dev/null; then
+        real_script=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$script_path" 2>/dev/null) || return 0
+        real_pack=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$pack_dir" 2>/dev/null) || return 0
+    else
+        return 0
+    fi
+    real_pack="${real_pack%/}/"
     if [[ "$real_script" != "$real_pack"* ]]; then
         echo "  ⚠ Post-install hook path traversal blocked: $hook_script" >&2
         return 0
     fi
 
+    # Portable timeout: prefer timeout, fall back to gtimeout (macOS), then direct exec
+    local timeout_cmd=""
+    if command -v timeout &>/dev/null; then
+        timeout_cmd="timeout"
+    elif command -v gtimeout &>/dev/null; then
+        timeout_cmd="gtimeout"
+    fi
+
     if [[ -f "$script_path" && -x "$script_path" ]]; then
-        echo "  Running post-install hook..."
-        if ! (cd "$pack_dir" && timeout 30 "$script_path" 2>&1); then
-            echo "  ⚠ Post-install hook failed (non-blocking)" >&2
+        if [[ -n "$timeout_cmd" ]]; then
+            echo "  Running post-install hook..."
+            if ! (cd "$pack_dir" && "$timeout_cmd" 30 "$script_path" 2>&1); then
+                echo "  ⚠ Post-install hook failed (non-blocking)" >&2
+            fi
+        else
+            # No timeout utility → skip execution (untrusted hooks must be bounded)
+            echo "  ⚠ Post-install hook skipped: timeout utility not available (requires timeout or gtimeout)" >&2
         fi
     fi
 }
@@ -1888,7 +1910,14 @@ do_sync_pack() {
     local curl_config
     curl_config=$(mktemp)
     chmod 600 "$curl_config"
-    echo "header = \"Authorization: Bearer ${api_key}\"" > "$curl_config"
+
+    # Prevent curl config injection via CR/LF or quote characters in API key
+    if [[ "$api_key" == *$'\n'* || "$api_key" == *$'\r'* || "$api_key" == *'"'* ]]; then
+        print_error "Invalid API key format"
+        rm -f "$curl_config"
+        return $EXIT_AUTH_ERROR
+    fi
+    printf 'header = "Authorization: Bearer %s"\n' "$api_key" > "$curl_config"
 
     echo "  POST ${registry_url}/packs/${pack_slug}/sync"
 

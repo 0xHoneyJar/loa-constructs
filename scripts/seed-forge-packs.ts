@@ -30,6 +30,26 @@ interface PackFile {
   contentHash: string;
 }
 
+/** Recursively sorted canonical JSON — deterministic output for hashing */
+function canonicalStringify(value: unknown): string {
+  if (value === null || value === undefined) return 'null';
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) {
+    return `[${value.map((v) => canonicalStringify(v)).join(',')}]`;
+  }
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+    const keys = Object.keys(obj).sort();
+    const props = keys
+      .filter((k) => obj[k] !== undefined)
+      .map((k) => `${JSON.stringify(k)}:${canonicalStringify(obj[k])}`);
+    return `{${props.join(',')}}`;
+  }
+  return 'null';
+}
+
 // Pack icons (not stored in manifest to keep manifests simple)
 const PACK_ICONS: Record<string, string> = {
   observer: '👁️',
@@ -506,8 +526,8 @@ async function seedForgePacks() {
           .map((f) => `${f.path}:${f.contentHash}`)
           .sort()
           .join('\n');
-        // Canonical JSON: sorted keys ensure deterministic hashing regardless of property insertion order
-        const contentHashInput = JSON.stringify(manifest, Object.keys(manifest).sort()) + '\n' + sortedFileHashes;
+        // Canonical JSON: recursively sorted keys for deterministic hashing
+        const contentHashInput = canonicalStringify(manifest) + '\n' + sortedFileHashes;
         const contentHash = createHash('sha256').update(contentHashInput).digest('hex');
 
         // Get existing version ID if it exists (for file updates)

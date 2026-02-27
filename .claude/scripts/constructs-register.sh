@@ -172,7 +172,14 @@ register_construct() {
     local curl_config
     curl_config=$(mktemp)
     chmod 600 "$curl_config"
-    echo "header = \"Authorization: Bearer ${api_key}\"" > "$curl_config"
+
+    # Prevent curl config injection via CR/LF or quote characters in API key
+    if [[ "$api_key" == *$'\n'* || "$api_key" == *$'\r'* || "$api_key" == *'"'* ]]; then
+        print_error "Invalid API key format"
+        rm -f "$curl_config"
+        exit $EXIT_AUTH_ERROR
+    fi
+    printf 'header = "Authorization: Bearer %s"\n' "$api_key" > "$curl_config"
 
     echo "Registering construct: $slug"
     echo "  Repository: $git_url ($git_ref)"

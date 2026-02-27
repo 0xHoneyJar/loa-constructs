@@ -269,14 +269,22 @@ constructsRouter.post(
         .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, 'Slug must be lowercase alphanumeric with hyphens'),
       name: z.string().min(1).max(255),
       type: z.enum(['skill-pack', 'tool-pack', 'codex', 'template']).optional(),
-      git_url: z.string().url().optional(),
+      git_url: z
+        .string()
+        .url()
+        .refine((u) => u.startsWith('https://'), 'Git URL must be HTTPS')
+        .optional(),
       git_ref: z.string().max(100).optional().default('main'),
     })
   ),
   async (c) => {
-    const userId = c.get('userId');
     const user = c.get('user');
+    const userId = user?.id ?? c.get('userId');
     const requestId = randomUUID();
+
+    if (!userId) {
+      throw Errors.Unauthorized('Authentication required to register constructs');
+    }
 
     // Require email verification (fix: use AuthUser from context, not cast hack)
     if (!user?.emailVerified) {
@@ -310,24 +318,7 @@ constructsRouter.post(
       throw new AppError('SLUG_TAKEN', `Slug '${body.slug}' is already taken`, 409);
     }
 
-    // Create the construct entry — DB unique constraint on slug prevents TOCTOU race
-    try {
-      await createPack({
-        name: body.name,
-        slug: body.slug,
-        description: body.type ? `A ${body.type} construct` : undefined,
-        constructType: body.type || 'skill-pack',
-        ownerId: userId,
-        ownerType: 'user',
-      });
-    } catch (err: unknown) {
-      if (err instanceof Error && err.message?.includes('unique')) {
-        throw new AppError('SLUG_TAKEN', `Slug '${body.slug}' is already taken`, 409);
-      }
-      throw err;
-    }
-
-    // If git_url provided, validate and link the repo (same pattern as register-repo endpoint)
+    // Preflight git repo BEFORE reserving slug to avoid orphaned registrations on 422
     if (body.git_url) {
       const { validateGitUrl, cloneRepo, readManifest, GitSyncError } = await import('../services/git-sync.js');
 
@@ -355,8 +346,27 @@ constructsRouter.post(
         const fs = await import('node:fs/promises');
         await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
       }
+    }
 
-      // Fetch pack to get the DB-assigned ID
+    // Create the construct entry — DB unique constraint on slug prevents TOCTOU race
+    try {
+      await createPack({
+        name: body.name,
+        slug: body.slug,
+        description: body.type ? `A ${body.type} construct` : undefined,
+        constructType: body.type || 'skill-pack',
+        ownerId: userId,
+        ownerType: 'user',
+      });
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message?.includes('unique')) {
+        throw new AppError('SLUG_TAKEN', `Slug '${body.slug}' is already taken`, 409);
+      }
+      throw err;
+    }
+
+    // Link git source after successful pack creation
+    if (body.git_url) {
       const pack = await getPackBySlug(body.slug);
       if (!pack) {
         throw Errors.NotFound('Pack creation failed');
