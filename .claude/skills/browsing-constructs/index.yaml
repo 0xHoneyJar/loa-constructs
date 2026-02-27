@@ -14,13 +14,19 @@ triggers:
     description: "Browse available packs"
   - pattern: "/constructs install"
     description: "Install specific pack"
+  - pattern: "/constructs register"
+    description: "Register a new construct from a git repo"
+  - pattern: "/constructs sync"
+    description: "Sync a git-sourced construct from registry"
+  - pattern: "/constructs status"
+    description: "Show sync status for installed constructs"
 
 dependencies: []
 
 inputs:
   - name: action
     type: string
-    description: "Action to perform: browse, install, list, update, uninstall"
+    description: "Action to perform: browse, install, list, update, uninstall, register, sync, status"
     required: false
     default: "browse"
   - name: pack

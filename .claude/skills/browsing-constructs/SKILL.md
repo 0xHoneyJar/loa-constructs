@@ -15,6 +15,9 @@ Provide a multi-select UI for browsing and installing packs from the Loa Constru
 - `/constructs uninstall <pack>` - Remove a pack
 - `/constructs auth` - Check authentication status
 - `/constructs auth setup` - Set up API key for premium packs
+- `/constructs register <slug> --git-url <url>` - Register a new construct from a git repo
+- `/constructs sync <slug>` - Sync a git-sourced construct from registry
+- `/constructs status [slug]` - Show sync status for installed constructs
 
 ## Workflow
 
@@ -337,6 +340,42 @@ Remove installed pack:
 2. Run: `.claude/scripts/constructs-install.sh uninstall pack <pack>`
 3. Report result
 
+### Action: register <slug> --git-url <url>
+
+Register a new construct on the registry from a git repository.
+
+```bash
+.claude/scripts/constructs-install.sh register <slug> --git-url <url> [--name "Name"] [--git-ref <ref>]
+```
+
+Delegates to `constructs-register.sh`. Requires authentication.
+
+After registration, run `/constructs sync <slug>` to populate the initial version.
+
+### Action: sync <slug>
+
+Trigger a server-side sync for a git-sourced construct. Pulls latest from the linked git repository.
+
+```bash
+.claude/scripts/constructs-install.sh sync <slug>
+```
+
+Requires authentication (must be the construct owner).
+
+### Action: status [slug]
+
+Show sync status and version comparison for installed constructs.
+
+```bash
+# Single pack
+.claude/scripts/constructs-install.sh status <slug>
+
+# All installed packs
+.claude/scripts/constructs-install.sh status
+```
+
+Displays: installed version, registry version, source type, content hash, and sync status ([SYNCED], [BEHIND], [UNKNOWN]).
+
 ## Error Handling
 
 | Error | Handling |
@@ -405,7 +444,8 @@ Installation metadata tracked in `.constructs-meta.json`:
 
 - `.claude/scripts/constructs-auth.sh` - Authentication management
 - `.claude/scripts/constructs-browse.sh` - Pack discovery
-- `.claude/scripts/constructs-install.sh` - Installation
+- `.claude/scripts/constructs-install.sh` - Installation, sync, status dispatch
+- `.claude/scripts/constructs-register.sh` - Construct registration
 - `.claude/scripts/constructs-loader.sh` - Skill loading
 - `.claude/scripts/constructs-lib.sh` - Shared utilities
 

@@ -1833,6 +1833,235 @@ remove_construct_claude_md() {
 }
 
 # =============================================================================
+# Sync Subcommand
+# =============================================================================
+
+# Trigger server-side sync for a git-sourced construct
+# Args:
+#   $1 - Pack slug
+do_sync_pack() {
+    local pack_slug="$1"
+
+    print_status "$icon_valid" "Syncing construct: $pack_slug"
+
+    # Get authentication
+    local api_key
+    api_key=$(get_api_key)
+    if [[ -z "$api_key" ]]; then
+        print_error "ERROR: No API key found. Run /constructs auth setup"
+        return $EXIT_AUTH_ERROR
+    fi
+
+    local registry_url
+    registry_url=$(get_registry_url)
+
+    # SHELL-002: Use curl config file to avoid exposing API key in process list
+    local curl_config
+    curl_config=$(mktemp)
+    chmod 600 "$curl_config"
+    echo "header = \"Authorization: Bearer ${api_key}\"" > "$curl_config"
+
+    echo "  POST ${registry_url}/packs/${pack_slug}/sync"
+
+    local tmp_file
+    tmp_file=$(mktemp)
+    chmod 600 "$tmp_file"
+
+    local http_code
+    http_code=$(curl -s -w "%{http_code}" \
+        --config "$curl_config" \
+        --proto =https --tlsv1.2 --max-time 120 \
+        -X POST \
+        "${registry_url}/packs/${pack_slug}/sync" \
+        -o "$tmp_file" 2>/dev/null) || {
+        rm -f "$curl_config" "$tmp_file"
+        print_error "ERROR: Network error — could not reach registry"
+        return $EXIT_NETWORK_ERROR
+    }
+
+    rm -f "$curl_config"
+
+    case "$http_code" in
+        200)
+            local version commit files_synced
+            version=$(jq -r '.data.version // "unknown"' "$tmp_file" 2>/dev/null)
+            commit=$(jq -r '.data.commit // "unknown"' "$tmp_file" 2>/dev/null)
+            files_synced=$(jq -r '.data.files_synced // 0' "$tmp_file" 2>/dev/null)
+
+            echo ""
+            print_success "Sync complete: $pack_slug"
+            echo "  Version: $version"
+            echo "  Commit:  $commit"
+            echo "  Files:   $files_synced synced"
+
+            # Check if installed locally — suggest reinstall if version changed
+            local meta_path
+            meta_path=$(get_registry_meta_path)
+            if [[ -f "$meta_path" ]]; then
+                local local_version
+                local_version=$(jq -r ".installed_packs[\"$pack_slug\"].version // \"\"" "$meta_path" 2>/dev/null)
+                if [[ -n "$local_version" && "$local_version" != "$version" ]]; then
+                    echo ""
+                    echo "  Local install is at $local_version — run /constructs install $pack_slug to update"
+                fi
+            fi
+
+            rm -f "$tmp_file"
+            return $EXIT_SUCCESS
+            ;;
+        401|403)
+            print_error "ERROR: Authentication failed. Check your API key."
+            rm -f "$tmp_file"
+            return $EXIT_AUTH_ERROR
+            ;;
+        404)
+            print_error "ERROR: Pack '$pack_slug' not found or not git-sourced"
+            rm -f "$tmp_file"
+            return $EXIT_NOT_FOUND
+            ;;
+        429)
+            print_error "ERROR: Rate limited. Maximum 10 syncs per hour."
+            rm -f "$tmp_file"
+            return $EXIT_ERROR
+            ;;
+        *)
+            local error_msg
+            error_msg=$(jq -r '.error.message // "Unknown error"' "$tmp_file" 2>/dev/null)
+            print_error "ERROR: Sync failed (HTTP $http_code): $error_msg"
+            rm -f "$tmp_file"
+            return $EXIT_ERROR
+            ;;
+    esac
+}
+
+# =============================================================================
+# Status Subcommand
+# =============================================================================
+
+# Show sync status for installed constructs
+# Args:
+#   $1 - Pack slug (optional — if empty, show all installed packs)
+do_status_pack() {
+    local pack_slug="${1:-}"
+    local meta_path
+    meta_path=$(get_registry_meta_path)
+
+    if [[ ! -f "$meta_path" ]]; then
+        print_warning "No constructs installed. Run /constructs install <pack> first."
+        return $EXIT_SUCCESS
+    fi
+
+    local registry_url
+    registry_url=$(get_registry_url)
+
+    if [[ -n "$pack_slug" ]]; then
+        # Single pack status
+        show_pack_status "$pack_slug" "$meta_path" "$registry_url"
+    else
+        # All installed packs
+        local slugs
+        slugs=$(jq -r '.installed_packs | keys[]' "$meta_path" 2>/dev/null)
+        if [[ -z "$slugs" ]]; then
+            echo "No packs installed."
+            return $EXIT_SUCCESS
+        fi
+
+        echo "Construct Status"
+        echo "════════════════════════════════════════"
+        echo ""
+
+        while IFS= read -r slug; do
+            show_pack_status "$slug" "$meta_path" "$registry_url"
+            echo ""
+        done <<< "$slugs"
+    fi
+
+    return $EXIT_SUCCESS
+}
+
+# Show status for a single pack
+# Args:
+#   $1 - Pack slug
+#   $2 - Meta file path
+#   $3 - Registry URL
+show_pack_status() {
+    local slug="$1"
+    local meta_path="$2"
+    local registry_url="$3"
+
+    # Read local data
+    local local_version local_installed_at local_source_type local_git_url
+    local_version=$(jq -r ".installed_packs[\"$slug\"].version // \"unknown\"" "$meta_path" 2>/dev/null)
+    local_installed_at=$(jq -r ".installed_packs[\"$slug\"].installed_at // \"unknown\"" "$meta_path" 2>/dev/null)
+    local_source_type=$(jq -r ".installed_packs[\"$slug\"].source_type // \"registry\"" "$meta_path" 2>/dev/null)
+    local_git_url=$(jq -r ".installed_packs[\"$slug\"].git_url // \"\"" "$meta_path" 2>/dev/null)
+
+    echo "Pack: $slug"
+    echo "  Installed: $local_version ($local_installed_at)"
+
+    # Fetch registry data (non-blocking — graceful on failure)
+    local registry_version="unknown"
+    local registry_hash=""
+    local tmp_file
+    tmp_file=$(mktemp)
+    chmod 600 "$tmp_file"
+
+    local http_code
+    http_code=$(curl -s -w "%{http_code}" \
+        --proto =https --tlsv1.2 --max-time 10 \
+        "${registry_url}/constructs/${slug}" \
+        -o "$tmp_file" 2>/dev/null) || http_code="000"
+
+    if [[ "$http_code" == "200" ]]; then
+        registry_version=$(jq -r '.data.version // .data.latest_version.version // "unknown"' "$tmp_file" 2>/dev/null)
+        local registry_updated
+        registry_updated=$(jq -r '.data.updated_at // "unknown"' "$tmp_file" 2>/dev/null)
+        echo "  Registry:  $registry_version ($registry_updated)"
+    else
+        echo "  Registry:  [unavailable]"
+    fi
+    rm -f "$tmp_file"
+
+    # Source info
+    if [[ "$local_source_type" == "git" && -n "$local_git_url" ]]; then
+        echo "  Source:    git ($local_git_url)"
+    else
+        echo "  Source:    registry"
+    fi
+
+    # Fetch content hash for divergence detection
+    local hash_file
+    hash_file=$(mktemp)
+    chmod 600 "$hash_file"
+
+    local hash_code
+    hash_code=$(curl -s -w "%{http_code}" \
+        --proto =https --tlsv1.2 --max-time 10 \
+        "${registry_url}/packs/${slug}/hash" \
+        -o "$hash_file" 2>/dev/null) || hash_code="000"
+
+    if [[ "$hash_code" == "200" ]]; then
+        local registry_hash_value
+        registry_hash_value=$(jq -r '.data.hash // ""' "$hash_file" 2>/dev/null)
+        if [[ -n "$registry_hash_value" ]]; then
+            echo "  Hash:      ${registry_hash_value:0:20}..."
+        fi
+    fi
+    rm -f "$hash_file"
+
+    # Version comparison
+    if [[ "$registry_version" != "unknown" && "$local_version" != "unknown" ]]; then
+        if [[ "$local_version" == "$registry_version" ]]; then
+            echo "  Status:    [SYNCED]"
+        else
+            echo "  Status:    [BEHIND] — run /constructs sync $slug"
+        fi
+    else
+        echo "  Status:    [UNKNOWN]"
+    fi
+}
+
+# =============================================================================
 # Command Line Interface
 # =============================================================================
 
@@ -1845,7 +2074,11 @@ Commands:
     skill <vendor/slug>      Install a skill from the registry
     uninstall pack <slug>    Uninstall a pack
     uninstall skill <slug>   Uninstall a skill
+    upgrade <slug> [version] Upgrade a pack to latest or specified version
     link-commands <slug>     Re-link pack commands (use "all" for all packs)
+    register <slug> [opts]   Register a new construct (delegates to constructs-register.sh)
+    sync <slug>              Sync a git-sourced construct from registry
+    status [slug]            Show sync status for installed constructs
 
 Exit Codes:
     0 = success
@@ -1919,6 +2152,23 @@ main() {
         link-commands)
             [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug (or 'all')"; exit $EXIT_ERROR; }
             do_link_commands "$2"
+            ;;
+        register)
+            # Delegate to standalone register script
+            local register_script="$SCRIPT_DIR/constructs-register.sh"
+            if [[ ! -x "$register_script" ]]; then
+                print_error "ERROR: constructs-register.sh not found or not executable"
+                exit $EXIT_ERROR
+            fi
+            shift  # Remove 'register' from args
+            exec "$register_script" "$@"
+            ;;
+        sync)
+            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug"; exit $EXIT_ERROR; }
+            do_sync_pack "$2"
+            ;;
+        status)
+            do_status_pack "${2:-}"
             ;;
         -h|--help|help)
             show_usage
