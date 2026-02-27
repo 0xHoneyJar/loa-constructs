@@ -19,7 +19,9 @@ import {
   type Construct,
   type ConstructManifest,
 } from '../services/constructs.js';
-import { isSlugAvailable, createPack } from '../services/packs.js';
+import { isSlugAvailable, createPack, getPackBySlug } from '../services/packs.js';
+import { db, packs } from '../db/index.js';
+import { eq } from 'drizzle-orm';
 import { Errors, AppError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { getRedis, isRedisConfigured } from '../services/redis.js';
@@ -267,19 +269,29 @@ constructsRouter.post(
         .regex(/^[a-z0-9][a-z0-9-]*[a-z0-9]$/, 'Slug must be lowercase alphanumeric with hyphens'),
       name: z.string().min(1).max(255),
       type: z.enum(['skill-pack', 'tool-pack', 'codex', 'template']).optional(),
+      git_url: z
+        .string()
+        .url()
+        .refine((u) => u.startsWith('https://'), 'Git URL must be HTTPS')
+        .optional(),
+      git_ref: z.string().max(100).optional().default('main'),
     })
   ),
   async (c) => {
-    const userId = c.get('userId' as never) as string;
-    const userEmail = c.get('userEmail' as never) as string;
+    const user = c.get('user');
+    const userId = user?.id ?? c.get('userId');
     const requestId = randomUUID();
 
-    // Require email verification
-    if (!userEmail) {
+    if (!userId) {
+      throw Errors.Unauthorized('Authentication required to register constructs');
+    }
+
+    // Require email verification (fix: use AuthUser from context, not cast hack)
+    if (!user?.emailVerified) {
       throw Errors.Forbidden('Email verification required to register constructs');
     }
 
-    const body = c.req.valid('json' as never) as { slug: string; name: string; type?: string };
+    const body = c.req.valid('json');
 
     // Rate limit: 5 registrations per 24h
     if (isRedisConfigured()) {
@@ -306,6 +318,36 @@ constructsRouter.post(
       throw new AppError('SLUG_TAKEN', `Slug '${body.slug}' is already taken`, 409);
     }
 
+    // Preflight git repo BEFORE reserving slug to avoid orphaned registrations on 422
+    if (body.git_url) {
+      const { validateGitUrl, cloneRepo, readManifest, GitSyncError } = await import('../services/git-sync.js');
+
+      try {
+        await validateGitUrl(body.git_url);
+      } catch (err) {
+        if (err instanceof GitSyncError) {
+          throw Errors.BadRequest(`Invalid git URL: ${err.message}`);
+        }
+        throw err;
+      }
+
+      // Shallow clone test — verify repo is accessible and has a manifest
+      const { tmpdir } = await import('node:os');
+      const tmpDir = `${tmpdir()}/register-test-${randomUUID()}`;
+      try {
+        await cloneRepo(body.git_url, body.git_ref, tmpDir);
+        await readManifest(tmpDir);
+      } catch (err) {
+        if (err instanceof GitSyncError) {
+          throw new AppError('UNPROCESSABLE_ENTITY', err.message, 422);
+        }
+        throw new AppError('UNPROCESSABLE_ENTITY', 'Repository unreachable or missing manifest', 422);
+      } finally {
+        const fs = await import('node:fs/promises');
+        await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
+      }
+    }
+
     // Create the construct entry — DB unique constraint on slug prevents TOCTOU race
     try {
       await createPack({
@@ -323,13 +365,60 @@ constructsRouter.post(
       throw err;
     }
 
-    logger.info({ slug: body.slug, name: body.name, type: body.type, userId, requestId }, 'Construct registered');
+    // Link git source after successful pack creation
+    if (body.git_url) {
+      const pack = await getPackBySlug(body.slug);
+      if (!pack) {
+        throw Errors.NotFound('Pack creation failed');
+      }
+
+      // Fetch github_repo_id (non-fatal)
+      let githubRepoId: number | null = null;
+      try {
+        const urlParts = new URL(body.git_url);
+        const pathParts = urlParts.pathname.replace(/\.git$/, '').split('/').filter(Boolean);
+        if (pathParts.length >= 2) {
+          const resp = await fetch(`https://api.github.com/repos/${pathParts[0]}/${pathParts[1]}`, {
+            headers: {
+              'Accept': 'application/vnd.github.v3+json',
+              'User-Agent': 'constructs-network/1.0',
+            },
+          });
+          if (resp.ok) {
+            const data = await resp.json() as { id: number };
+            githubRepoId = data.id;
+          }
+        }
+      } catch {
+        logger.warn({ git_url: body.git_url }, 'Failed to fetch github_repo_id');
+      }
+
+      // Update pack with git source (user calls /constructs sync <slug> for initial data population)
+      await db
+        .update(packs)
+        .set({
+          sourceType: 'git',
+          gitUrl: body.git_url,
+          gitRef: body.git_ref,
+          githubRepoId,
+          updatedAt: new Date(),
+        })
+        .where(eq(packs.id, pack.id));
+    }
+
+    logger.info({ slug: body.slug, name: body.name, type: body.type, git_url: body.git_url, userId, requestId }, 'Construct registered');
 
     return c.json(
       {
         data: {
           slug: body.slug,
           status: 'reserved',
+          ...(body.git_url && {
+            source_type: 'git',
+            git_url: body.git_url,
+            git_ref: body.git_ref,
+            next_step: 'Run /constructs sync to populate the initial version',
+          }),
         },
         request_id: requestId,
       },

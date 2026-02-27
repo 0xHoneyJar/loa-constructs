@@ -318,6 +318,7 @@ golden_format_journey() {
 }
 
 # Detect installed construct packs with golden_path declarations.
+# Executes detect_state scripts (5s timeout) and shows ● position markers.
 # Returns formatted journey bars or empty string.
 golden_detect_construct_journeys() {
     local packs_dir="${PROJECT_ROOT}/.claude/constructs/packs"
@@ -328,9 +329,10 @@ golden_detect_construct_journeys() {
         return 0
     fi
 
-    local manifest pack_name commands_json bar output=""
+    local manifest pack_dir pack_name commands_json bar output=""
     for manifest in "$packs_dir"/*/construct.yaml "$packs_dir"/*/construct.yml; do
         [[ -f "$manifest" ]] || continue
+        pack_dir="$(dirname "$manifest")"
 
         # Extract golden_path.commands via yq→jq pipeline
         commands_json=$(safe_yq_to_json "$manifest" 2>/dev/null | jq -c '.golden_path.commands // empty' 2>/dev/null) || continue
@@ -340,16 +342,65 @@ golden_detect_construct_journeys() {
         pack_name=$(safe_yq '.name' "$manifest" 2>/dev/null) || continue
         [[ -z "$pack_name" ]] && continue
 
-        # Build journey bar from command names
+        # Execute detect_state script if declared (5s timeout, silent fallback)
+        local current_state=""
+        local detect_script
+        detect_script=$(safe_yq '.golden_path.detect_state' "$manifest" 2>/dev/null) || true
+        if [[ -n "$detect_script" && "$detect_script" != "null" ]]; then
+            local script_path="${pack_dir}/${detect_script}"
+
+            # Path traversal containment — resolve and enforce within pack_dir
+            local real_script="" real_pack_dir=""
+            if command -v realpath &>/dev/null; then
+                real_script=$(realpath "$script_path" 2>/dev/null) || real_script=""
+                real_pack_dir=$(realpath "$pack_dir" 2>/dev/null) || real_pack_dir=""
+            elif command -v python3 &>/dev/null; then
+                real_script=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$script_path" 2>/dev/null) || real_script=""
+                real_pack_dir=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$pack_dir" 2>/dev/null) || real_pack_dir=""
+            fi
+            real_pack_dir="${real_pack_dir%/}/"
+
+            if [[ -n "$real_script" && -n "$real_pack_dir" && "$real_script" == "$real_pack_dir"* && -f "$real_script" && -x "$real_script" ]]; then
+                local timeout_cmd=""
+                if command -v timeout &>/dev/null; then
+                    timeout_cmd="timeout"
+                elif command -v gtimeout &>/dev/null; then
+                    timeout_cmd="gtimeout"
+                fi
+                if [[ -n "$timeout_cmd" ]]; then
+                    current_state=$(cd "$pack_dir" && "$timeout_cmd" 5 "$real_script" 2>/dev/null) || true
+                fi
+                # No timeout utility → skip execution (untrusted scripts must be bounded)
+            fi
+        fi
+
+        # Build journey bar from command names with position detection
         bar=""
         local first=true
         while IFS= read -r cmd_name; do
             [[ -z "$cmd_name" ]] && continue
+
+            # Check if this command's truename_map has an entry for the current state.
+            # If so, this command represents the user's current position in the journey.
+            local is_current=false
+            if [[ -n "$current_state" ]]; then
+                local mapped
+                # Look up truename for current state in this command's truename_map
+                mapped=$(echo "$commands_json" | jq -r \
+                    --arg name "$cmd_name" --arg state "$current_state" \
+                    '.[] | select(.name == $name) | .truename_map[$state] // empty' \
+                    2>/dev/null) || true
+                [[ -n "$mapped" ]] && is_current=true
+            fi
+
+            local segment="/$cmd_name"
+            $is_current && segment="/$cmd_name ●"
+
             if $first; then
-                bar="/$cmd_name"
+                bar="$segment"
                 first=false
             else
-                bar="$bar ━━━━━ /$cmd_name"
+                bar="$bar ━━━ $segment"
             fi
         done < <(echo "$commands_json" | jq -r '.[].name' 2>/dev/null)
 

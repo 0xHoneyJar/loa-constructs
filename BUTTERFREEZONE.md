@@ -1,24 +1,12 @@
 <!-- AGENT-CONTEXT
-name: loa
+name: loa-constructs
 type: framework
-purpose: Loa is an agent-driven development framework for [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) (Anthropic's official CLI).
-key_files: [CLAUDE.md, .claude/loa/CLAUDE.loa.md, .loa.config.yaml, .claude/scripts/, .claude/skills/]
+purpose: SaaS platform for distributing, licensing, and monetizing AI agent constructs
+key_files: [CLAUDE.md, .claude/loa/CLAUDE.loa.md, .loa.config.yaml, .claude/scripts/, .claude/skills/, package.json]
 interfaces:
   core: [/auditing-security, /autonomous-agent, /bridgebuilder-review, /browsing-constructs, /bug-triaging]
-dependencies: [git, jq, yq]
-ecosystem:
-  - repo: 0xHoneyJar/loa-finn
-    role: runtime
-    interface: hounfour-router
-    protocol: loa-hounfour@5.0.0
-  - repo: 0xHoneyJar/loa-hounfour
-    role: protocol
-    interface: npm-package
-    protocol: loa-hounfour@7.0.0
-  - repo: 0xHoneyJar/arrakis
-    role: distribution
-    interface: jwt-auth
-    protocol: loa-hounfour@7.0.0
+  project: [/creating-constructs, /finding-constructs, /linking-constructs, /publishing-constructs, /syncing-constructs]
+dependencies: [git, jq, yq, node]
 capability_requirements:
   - filesystem: read
   - filesystem: write (scope: state)
@@ -26,65 +14,60 @@ capability_requirements:
   - git: read_write
   - shell: execute
   - github_api: read_write (scope: external)
-version: v1.49.0
+version: v2.7.1
 installation_mode: unknown
 trust_level: L2-verified
 -->
 
-# loa
+# loa-constructs
 
 <!-- provenance: DERIVED -->
-Loa is an agent-driven development framework for [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) (Anthropic's official CLI).
+SaaS platform for distributing, licensing, and monetizing AI agent constructs
 
-The framework provides 29 specialized skills, built with TypeScript/JavaScript, Python, Shell.
-
-## Key Capabilities
-<!-- provenance: DERIVED -->
-The project exposes 15 key entry points across its public API surface.
-
-### .claude/adapters
-
-- **_build_provider_config** — Build ProviderConfig from merged hounfour config. (`.claude/adapters/cheval.py:152`)
-- **_check_feature_flags** — Check feature flags. (`.claude/adapters/cheval.py:192`)
-- **_error_json** — Format error as JSON for stderr (SDD §4.2.2 Error Taxonomy). (`.claude/adapters/cheval.py:77`)
-- **_load_persona** — Load persona.md for the given agent with optional system merge (SDD §4.3.2). (`.claude/adapters/cheval.py:96`)
-- **cmd_cancel** — Cancel a Deep Research interaction. (`.claude/adapters/cheval.py:511`)
-- **cmd_invoke** — Main invocation: resolve agent → call provider → return response. (`.claude/adapters/cheval.py:211`)
-- **cmd_poll** — Poll a Deep Research interaction. (`.claude/adapters/cheval.py:467`)
-- **cmd_print_config** — Print effective merged config with source annotations. (`.claude/adapters/cheval.py:442`)
-- **cmd_validate_bindings** — Validate all agent bindings. (`.claude/adapters/cheval.py:453`)
-- **main** — CLI entry point. (`.claude/adapters/cheval.py:547`)
-
-### .claude/adapters/loa_cheval/config
-
-- **LazyValue** — Deferred interpolation token. (`.claude/adapters/loa_cheval/config/interpolation.py:41`)
-- **_check_env_allowed** — Check if env var name is in the allowlist. (`.claude/adapters/loa_cheval/config/interpolation.py:122`)
-- **_check_file_allowed** — Validate and resolve a file path for secret reading. (`.claude/adapters/loa_cheval/config/interpolation.py:133`)
-- **_get_credential_provider** — Get the credential provider chain (lazily initialized, thread-safe). (`.claude/adapters/loa_cheval/config/interpolation.py:192`)
-- **_matches_lazy_path** — Check if a dotted config key path matches any lazy path pattern. (`.claude/adapters/loa_cheval/config/interpolation.py:275`)
+The framework provides 35 specialized skills, built with TypeScript/JavaScript, Python, Shell.
 
 ## Architecture
 <!-- provenance: DERIVED -->
-The architecture follows a three-zone model: System (`.claude/`) contains framework-managed scripts and skills, State (`grimoires/`, `.beads/`) holds project-specific artifacts and memory, and App (`src/`, `lib/`) contains developer-owned application code. The framework orchestrates 29 specialized skills through slash commands.
+The architecture follows a three-zone model: System (`.claude/`) contains framework-managed scripts and skills, State (`grimoires/`, `.beads/`) holds project-specific artifacts and memory, and App (`src/`, `lib/`) contains developer-owned application code. The framework orchestrates       35 specialized skills through slash commands.
 ```mermaid
 graph TD
+    api[api]
+    apps[apps]
+    audits[audits]
     docs[docs]
     evals[evals]
     grimoires[grimoires]
-    skills[skills]
-    tests[tests]
+    packages[packages]
+    packs[packs]
     Root[Project Root]
+    Root --> api
+    Root --> apps
+    Root --> audits
     Root --> docs
     Root --> evals
     Root --> grimoires
-    Root --> skills
-    Root --> tests
+    Root --> packages
+    Root --> packs
 ```
 Directory structure:
 ```
+./api
+./api/checkout
+./api/subscription
+./api/webhook
+./apps
+./apps/api
+./apps/explorer
+./audits
 ./docs
 ./docs/architecture
+./docs/archive
+./docs/guides
 ./docs/integration
+./docs/mockups
+./docs/schemas
+./docs/screenshots
+./docs/tutorials
 ./evals
 ./evals/baselines
 ./evals/fixtures
@@ -95,19 +78,9 @@ Directory structure:
 ./evals/tasks
 ./evals/tests
 ./grimoires
+./grimoires/artisan
+./grimoires/bridgebuilder
 ./grimoires/loa
-./grimoires/pub
-./skills
-./skills/legba
-./tests
-./tests/__pycache__
-./tests/e2e
-./tests/edge-cases
-./tests/fixtures
-./tests/helpers
-./tests/integration
-./tests/performance
-./tests/unit
 ```
 
 ## Interfaces
@@ -117,22 +90,22 @@ Directory structure:
 #### Loa Core
 
 - **/auditing-security** — Paranoid Cypherpunk Auditor
-- **/autonomous-agent** — Autonomous agent
+- **/autonomous-agent** — Uautonomous agent
 - **/bridgebuilder-review** — Bridgebuilder — Autonomous PR Review
 - **/browsing-constructs** — Provide a multi-select UI for browsing and installing packs from the Loa Constructs Registry. Enables composable skill installation per-repo.
 - **/bug-triaging** — Bug Triage Skill
 - **/butterfreezone-gen** — BUTTERFREEZONE Generation Skill
 - **/continuous-learning** — Continuous Learning Skill
-- **/deploying-infrastructure** — Deploying infrastructure
+- **/deploying-infrastructure** — Udeploying infrastructure
 - **/designing-architecture** — Architecture Designer
 - **/discovering-requirements** — Discovering Requirements
-- **/enhancing-prompts** — Enhancing prompts
-- **/eval-running** — Eval running
+- **/enhancing-prompts** — Uenhancing prompts
+- **/eval-running** — Ueval running
 - **/flatline-knowledge** — Provides optional NotebookLM integration for the Flatline Protocol, enabling external knowledge retrieval from curated AI-powered notebooks.
-- **/flatline-reviewer** — Flatline reviewer
-- **/flatline-scorer** — Flatline scorer
-- **/flatline-skeptic** — Flatline skeptic
-- **/gpt-reviewer** — Gpt reviewer
+- **/flatline-reviewer** — Uflatline reviewer
+- **/flatline-scorer** — Uflatline scorer
+- **/flatline-skeptic** — Uflatline skeptic
+- **/gpt-reviewer** — Ugpt reviewer
 - **/implementing-tasks** — Sprint Task Implementer
 - **/managing-credentials** — /loa-credentials — Credential Management
 - **/mounting-framework** — Create structure (preserve if exists)
@@ -142,25 +115,39 @@ Directory structure:
 - **/riding-codebase** — Riding Through the Codebase
 - **/rtfm-testing** — RTFM Testing Skill
 - **/run-bridge** — Run Bridge — Autonomous Excellence Loop
-- **/run-mode** — Run mode
+- **/run-mode** — Urun mode
 - **/simstim-workflow** — Check post-PR state
-- **/translating-for-executives** — Translating for executives
+- **/translating-for-executives** — Utranslating for executives
+#### Project-Specific
+
+- **/creating-constructs** — Scaffold new construct projects from templates. Supports three construct
+- **/finding-constructs** — Ufinding constructs
+- **/linking-constructs** — Link local construct repositories for live development. When a construct is linked,
+- **/publishing-constructs** — Publish constructs to the Loa Constructs Registry. Runs a 10-point validation
+- **/syncing-constructs** — Detect divergence between local constructs and their upstream registry versions.
+- **/upgrading-constructs** — Upgrade installed constructs to newer versions using 3-way merge. Uses the
 
 ## Module Map
 <!-- provenance: DERIVED -->
 | Module | Files | Purpose | Documentation |
 |--------|-------|---------|---------------|
-| `docs/` | 6 | Documentation | \u2014 |
-| `evals/` | 5818 | Benchmarking and regression framework for the Loa agent development system. Ensures framework changes don't degrade agent behavior through | [evals/README.md](evals/README.md) |
-| `grimoires/` | 1264 | Home to all grimoire directories for the Loa | [grimoires/README.md](grimoires/README.md) |
-| `skills/` | 5112 | Specialized agent skills | \u2014 |
-| `tests/` | 184 | Test suites | \u2014 |
+| `api/` | 3 | API endpoints | \u2014 |
+| `apps/` | 15967 | Uapps | \u2014 |
+| `audits/` | 1 | Uaudits | \u2014 |
+| `docs/` | 41 | Documentation | \u2014 |
+| `evals/` | 122 | Benchmarking and regression framework for the Loa agent development system. Ensures framework changes don't degrade agent behavior through | [evals/README.md](evals/README.md) |
+| `grimoires/` | 509 | Home to all grimoire directories for the Loa | [grimoires/README.md](grimoires/README.md) |
+| `packages/` | 90 | Upackages | \u2014 |
+| `packs/` | 1 | Upacks | \u2014 |
+| `scripts/` | 27 | Utility scripts | \u2014 |
+| `tests/` | 196 | Test suites | \u2014 |
 
 ## Verification
 <!-- provenance: CODE-FACTUAL -->
 - Trust Level: **L2 — CI Verified**
-- 184 test files across 1 suite
-- CI/CD: GitHub Actions (11 workflows)
+- 196 test files across 1 suite
+- CI/CD: GitHub Actions (10 workflows)
+- Linting: ESLint configured
 - Security: SECURITY.md present
 
 ## Agents
@@ -171,53 +158,37 @@ The project defines 1 specialized agent persona.
 |-------|----------|-------|
 | Bridgebuilder | You are the Bridgebuilder — a senior engineering mentor who has spent decades building systems at scale. | Your voice is warm, precise, and rich with analogy. |
 
-## Culture
+## Ecosystem
 <!-- provenance: OPERATIONAL -->
-**Naming**: Vodou terminology via Gibson's Sprawl trilogy (Loa, Grimoire, Hounfour, Cheval, Beauvoir) and direct cyberpunk concepts (Simstim, ICE, Flatline, Freeside, Finn) as narrative architecture — coherent memetic frameworks that help humans and agents form consistent mental models. Gibson adapted Vodou from anthropological sources (Tallant 1946, likely Deren 1953).
-
-**Principles**: Think Before Coding — plan and analyze before implementing, Simplicity First — minimum complexity for the current task, Surgical Changes — minimal diff, maximum impact, Goal-Driven — every action traces to acceptance criteria.
-
-**Methodology**: Agent-driven development with iterative excellence loops (Simstim, Run Bridge, Flatline Protocol).
-**Creative Methodology**: Creative methodology drawing from cyberpunk fiction, free jazz improvisation, and temporary autonomous zones.
-
-**Influences**: Neuromancer (Gibson) — Simstim as shared consciousness metaphor, Flatline Protocol — adversarial multi-model review as creative tension, TAZ (Hakim Bey) — temporary spaces for autonomous agent exploration.
-
-**Knowledge Production**: Knowledge production through collective inquiry — Flatline as multi-model study group.
+### Dependencies
+- `@types/node`
+- `next`
+- `prettier`
+- `react`
+- `react-dom`
+- `tsx`
+- `turbo`
+- `typescript`
 
 ## Quick Start
 <!-- provenance: OPERATIONAL -->
+Available commands:
 
-**Prerequisites**: [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) (Anthropic's CLI for Claude), Git, jq, [yq v4+](https://github.com/mikefarah/yq). See **[INSTALLATION.md](INSTALLATION.md)** for full details.
-
-```bash
-# Install (one command, any existing repo — adds Loa as git submodule)
-curl -fsSL https://raw.githubusercontent.com/0xHoneyJar/loa/main/.claude/scripts/mount-loa.sh | bash
-
-# Or pin to a specific version
-curl -fsSL https://raw.githubusercontent.com/0xHoneyJar/loa/main/.claude/scripts/mount-loa.sh | bash -s -- --tag v1.39.0
-
-# Start Claude Code
-claude
-
-# These are slash commands typed inside Claude Code, not your terminal.
-# 5 commands. Full development cycle.
-/plan      # Requirements -> Architecture -> Sprints
-/build     # Implement the current sprint
-/review    # Code review + security audit
-/ship      # Deploy and archive
-```
+- `npm run dev` — turbo
+- `npm run build` — turbo
+- `npm run test` — turbo
+- `npm run test:coverage` — turbo
 <!-- ground-truth-meta
-head_sha: 63b3f9661f969b40cc0fc53769abf01633381d0a
-generated_at: 2026-02-26T03:15:02Z
+head_sha: c50b8fc9342c33b862c5f96c694e6023cc30a320
+generated_at: 2026-02-27T22:09:38Z
 generator: butterfreezone-gen v1.0.0
 sections:
-  agent_context: 2181e030ad7c26375787c2779116509418c11f8dd4cd51c7cbd38d655dbcdf96
-  capabilities: ab2576b1f2e7e8141f0e93e807d26ed2b7b155e21c96d787507a3ba933bb9795
-  architecture: 970c0549aa208f3f8e0063176776b3fd52798e8d19011897a6a22e6542c2e772
-  interfaces: 120e3b3a6d65d4939b251dd049f213e32254a91510d48457be2e4f1b3f7399d3
-  module_map: bbd9aa487c3d9bc25f0ea9be3edc8608bd8c6b8f8925986118a2466f7fcfa91d
-  verification: e8f0acae1d298517bc6fde815119665738f3a60699984a9fa922a01004a89fdf
+  agent_context: 216200d644d33e7b245db3474bafbe79b45d3e06bfd0265b7cc6cb3ea082b87b
+  architecture: ffdfd8f14e40bdad179aae5c8587b22dc82e36eee2f0d0d1448a561cc5978b35
+  interfaces: 96a525cab8e1628033128a8048f8fa8814ca169f193b38c9364b6d71c6ea3180
+  module_map: 5d2857ede090eab63b7fe34ec2d49af27315d81f6e65bc288efe1f3ba05d6af5
+  verification: 6badfc40824e9dffb00087fff8fab9498900bf799490353bf7df676dc813cc41
   agents: ca263d1e05fd123434a21ef574fc8d76b559d22060719640a1f060527ef6a0b6
-  culture: f73380f93bb4fadf36ccc10d60fc57555914363fc90e4f15b4dc4eb92bd1640f
-  quick_start: cfc39883247017c36dd2e9c3f44459a761d8b9e278b85a54584164db643a95ab
+  ecosystem: 0d998700d4489ca2aec077a69004279a3c45c117b9fb5b37c9f85ad511187c7c
+  quick_start: 15f176d9343ca15a6b32f5134ba0eda33e96f69620f6495734a1f150548e337b
 -->

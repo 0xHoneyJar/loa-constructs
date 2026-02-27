@@ -378,6 +378,67 @@ unlink_pack_skills() {
 }
 
 # =============================================================================
+# Post-Install Hooks
+# =============================================================================
+
+# Execute post-install hook if declared in manifest.
+# Security: path traversal prevention via realpath comparison.
+# Non-blocking: hook failure emits warning, does not fail installation.
+# Args:
+#   $1 - Pack directory path
+execute_post_install_hook() {
+    local pack_dir="$1"
+    local manifest="${pack_dir}/construct.yaml"
+    [[ -f "$manifest" ]] || return 0
+
+    if ! type safe_yq &>/dev/null; then return 0; fi
+
+    local hook_script
+    hook_script=$(safe_yq '.hooks.post_install' "$manifest" 2>/dev/null) || return 0
+    [[ -z "$hook_script" || "$hook_script" == "null" ]] && return 0
+
+    local script_path="${pack_dir}/${hook_script}"
+
+    # Security: validate script is within pack directory (path traversal prevention)
+    # Trailing slash prevents sibling-path bypass (e.g., /packs/foo matching /packs/foobar)
+    local real_script real_pack
+    if command -v realpath &>/dev/null; then
+        real_script=$(realpath "$script_path" 2>/dev/null) || return 0
+        real_pack=$(realpath "$pack_dir" 2>/dev/null) || return 0
+    elif command -v python3 &>/dev/null; then
+        real_script=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$script_path" 2>/dev/null) || return 0
+        real_pack=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$pack_dir" 2>/dev/null) || return 0
+    else
+        return 0
+    fi
+    real_pack="${real_pack%/}/"
+    if [[ "$real_script" != "$real_pack"* ]]; then
+        echo "  ⚠ Post-install hook path traversal blocked: $hook_script" >&2
+        return 0
+    fi
+
+    # Portable timeout: prefer timeout, fall back to gtimeout (macOS), then direct exec
+    local timeout_cmd=""
+    if command -v timeout &>/dev/null; then
+        timeout_cmd="timeout"
+    elif command -v gtimeout &>/dev/null; then
+        timeout_cmd="gtimeout"
+    fi
+
+    if [[ -f "$script_path" && -x "$script_path" ]]; then
+        if [[ -n "$timeout_cmd" ]]; then
+            echo "  Running post-install hook..."
+            if ! (cd "$pack_dir" && "$timeout_cmd" 30 "$script_path" 2>&1); then
+                echo "  ⚠ Post-install hook failed (non-blocking)" >&2
+            fi
+        else
+            # No timeout utility → skip execution (untrusted hooks must be bounded)
+            echo "  ⚠ Post-install hook skipped: timeout utility not available (requires timeout or gtimeout)" >&2
+        fi
+    fi
+}
+
+# =============================================================================
 # Pack Installation
 # =============================================================================
 
@@ -514,6 +575,9 @@ do_install_pack() {
                 local skills_linked
                 skills_linked=$(symlink_pack_skills "$pack_slug")
                 echo "  Created $skills_linked skill symlinks"
+
+                # Execute post-install hook if declared
+                execute_post_install_hook "$pack_dir"
 
                 echo "  Validating license..."
                 local validator="$SCRIPT_DIR/constructs-loader.sh"
@@ -692,6 +756,9 @@ PYEOF
     skills_linked=$(symlink_pack_skills "$pack_slug")
     echo "  Created $skills_linked skill symlinks"
 
+    # Execute post-install hook if declared
+    execute_post_install_hook "$pack_dir"
+
     # Validate pack license
     echo "  Validating license..."
     local validator="$SCRIPT_DIR/constructs-loader.sh"
@@ -858,6 +925,22 @@ do_install_pack_git() {
     return 0
 }
 
+# Compute Merkle-root content hash for an installed pack directory.
+# Uses compute_merkle_hash from constructs-lib.sh (same algorithm as API).
+# Excludes license and meta files from hash computation.
+# Args:
+#   $1 - Pack directory
+# Returns: sha256:... hash string
+compute_pack_hash() {
+    local pack_dir="$1"
+
+    if command -v compute_merkle_hash &>/dev/null; then
+        compute_merkle_hash "$pack_dir"
+    else
+        echo ""
+    fi
+}
+
 # Update pack metadata in .constructs-meta.json
 # Args:
 #   $1 - Pack slug
@@ -908,6 +991,15 @@ except: print('unknown')
         skills_json=$(find "$pack_dir/skills" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | jq -R -s 'split("\n") | map(select(length > 0))')
     fi
 
+    # Compute content hash for staleness detection
+    # Convention: null = not computed, string = computed hash
+    local content_hash_raw=""
+    content_hash_raw=$(compute_pack_hash "$pack_dir")
+    local content_hash_json="null"
+    if [[ -n "$content_hash_raw" ]]; then
+        content_hash_json="\"$content_hash_raw\""
+    fi
+
     # Ensure meta file exists
     init_registry_meta
 
@@ -921,6 +1013,7 @@ except: print('unknown')
            --arg source_type "$source_type" \
            --arg git_url "$git_url" \
            --arg git_commit "$git_commit" \
+           --argjson content_hash "$content_hash_json" \
            --argjson skills "$skills_json" \
            '.installed_packs[$slug] = {
                "version": $version,
@@ -930,6 +1023,7 @@ except: print('unknown')
                "source_type": $source_type,
                "git_url": $git_url,
                "git_commit": $git_commit,
+               "content_hash": $content_hash,
                "skills": $skills
            }' "$meta_path" > "$tmp_file" && mv "$tmp_file" "$meta_path"
     else
@@ -937,12 +1031,14 @@ except: print('unknown')
            --arg version "$version" \
            --arg installed_at "$now" \
            --arg license_expires "$license_expires" \
+           --argjson content_hash "$content_hash_json" \
            --argjson skills "$skills_json" \
            '.installed_packs[$slug] = {
                "version": $version,
                "installed_at": $installed_at,
                "registry": "default",
                "license_expires": $license_expires,
+               "content_hash": $content_hash,
                "skills": $skills
            }' "$meta_path" > "$tmp_file" && mv "$tmp_file" "$meta_path"
     fi
@@ -1788,6 +1884,263 @@ remove_construct_claude_md() {
 }
 
 # =============================================================================
+# Sync Subcommand
+# =============================================================================
+
+# Trigger server-side sync for a git-sourced construct
+# Args:
+#   $1 - Pack slug
+do_sync_pack() {
+    local pack_slug="$1"
+
+    print_status "$icon_valid" "Syncing construct: $pack_slug"
+
+    # Get authentication
+    local api_key
+    api_key=$(get_api_key)
+    if [[ -z "$api_key" ]]; then
+        print_error "ERROR: No API key found. Run /constructs auth setup"
+        return $EXIT_AUTH_ERROR
+    fi
+
+    local registry_url
+    registry_url=$(get_registry_url)
+
+    # SHELL-002: Use curl config file to avoid exposing API key in process list
+    local curl_config
+    curl_config=$(mktemp)
+    chmod 600 "$curl_config"
+
+    # Prevent curl config injection via CR/LF or quote characters in API key
+    if [[ "$api_key" == *$'\n'* || "$api_key" == *$'\r'* || "$api_key" == *'"'* ]]; then
+        print_error "Invalid API key format"
+        rm -f "$curl_config"
+        return $EXIT_AUTH_ERROR
+    fi
+    printf 'header = "Authorization: Bearer %s"\n' "$api_key" > "$curl_config"
+
+    echo "  POST ${registry_url}/packs/${pack_slug}/sync"
+
+    local tmp_file
+    tmp_file=$(mktemp)
+    chmod 600 "$tmp_file"
+
+    local http_code
+    http_code=$(curl -s -w "%{http_code}" \
+        --config "$curl_config" \
+        --proto =https --tlsv1.2 --max-time 120 \
+        -X POST \
+        "${registry_url}/packs/${pack_slug}/sync" \
+        -o "$tmp_file" 2>/dev/null) || {
+        rm -f "$curl_config" "$tmp_file"
+        print_error "ERROR: Network error — could not reach registry"
+        return $EXIT_NETWORK_ERROR
+    }
+
+    rm -f "$curl_config"
+
+    case "$http_code" in
+        200)
+            local version commit files_synced
+            version=$(jq -r '.data.version // "unknown"' "$tmp_file" 2>/dev/null)
+            commit=$(jq -r '.data.commit // "unknown"' "$tmp_file" 2>/dev/null)
+            files_synced=$(jq -r '.data.files_synced // 0' "$tmp_file" 2>/dev/null)
+
+            echo ""
+            print_success "Sync complete: $pack_slug"
+            echo "  Version: $version"
+            echo "  Commit:  $commit"
+            echo "  Files:   $files_synced synced"
+
+            # Check if installed locally — suggest reinstall if version changed
+            local meta_path
+            meta_path=$(get_registry_meta_path)
+            if [[ -f "$meta_path" ]]; then
+                local local_version
+                local_version=$(jq -r ".installed_packs[\"$pack_slug\"].version // \"\"" "$meta_path" 2>/dev/null)
+                if [[ -n "$local_version" && "$local_version" != "$version" ]]; then
+                    echo ""
+                    echo "  Local install is at $local_version — run /constructs install $pack_slug to update"
+                fi
+            fi
+
+            rm -f "$tmp_file"
+            return $EXIT_SUCCESS
+            ;;
+        401|403)
+            print_error "ERROR: Authentication failed. Check your API key."
+            rm -f "$tmp_file"
+            return $EXIT_AUTH_ERROR
+            ;;
+        404)
+            print_error "ERROR: Pack '$pack_slug' not found or not git-sourced"
+            rm -f "$tmp_file"
+            return $EXIT_NOT_FOUND
+            ;;
+        429)
+            print_error "ERROR: Rate limited. Maximum 10 syncs per hour."
+            rm -f "$tmp_file"
+            return $EXIT_ERROR
+            ;;
+        *)
+            local error_msg
+            error_msg=$(jq -r '.error.message // "Unknown error"' "$tmp_file" 2>/dev/null)
+            print_error "ERROR: Sync failed (HTTP $http_code): $error_msg"
+            rm -f "$tmp_file"
+            return $EXIT_ERROR
+            ;;
+    esac
+}
+
+# =============================================================================
+# Status Subcommand
+# =============================================================================
+
+# Show sync status for installed constructs
+# Makes O(2n) HTTP calls where n = installed packs (registry + hash per pack).
+# Acceptable for typical install counts (1-10 packs).
+# Args:
+#   $1 - Pack slug (optional — if empty, show all installed packs)
+do_status_pack() {
+    local pack_slug="${1:-}"
+    local meta_path
+    meta_path=$(get_registry_meta_path)
+
+    if [[ ! -f "$meta_path" ]]; then
+        print_warning "No constructs installed. Run /constructs install <pack> first."
+        return $EXIT_SUCCESS
+    fi
+
+    local registry_url
+    registry_url=$(get_registry_url)
+
+    if [[ -n "$pack_slug" ]]; then
+        # Single pack status
+        show_pack_status "$pack_slug" "$meta_path" "$registry_url"
+    else
+        # All installed packs
+        local slugs
+        slugs=$(jq -r '.installed_packs | keys[]' "$meta_path" 2>/dev/null)
+        if [[ -z "$slugs" ]]; then
+            echo "No packs installed."
+            return $EXIT_SUCCESS
+        fi
+
+        echo "Construct Status"
+        echo "════════════════════════════════════════"
+        echo ""
+
+        while IFS= read -r slug; do
+            show_pack_status "$slug" "$meta_path" "$registry_url"
+            echo ""
+        done <<< "$slugs"
+    fi
+
+    return $EXIT_SUCCESS
+}
+
+# Show status for a single pack
+# Args:
+#   $1 - Pack slug
+#   $2 - Meta file path
+#   $3 - Registry URL
+show_pack_status() {
+    local slug="$1"
+    local meta_path="$2"
+    local registry_url="$3"
+
+    # Read local data
+    local local_version local_installed_at local_source_type local_git_url local_content_hash
+    local_version=$(jq -r ".installed_packs[\"$slug\"].version // \"unknown\"" "$meta_path" 2>/dev/null)
+    local_installed_at=$(jq -r ".installed_packs[\"$slug\"].installed_at // \"unknown\"" "$meta_path" 2>/dev/null)
+    local_source_type=$(jq -r ".installed_packs[\"$slug\"].source_type // \"registry\"" "$meta_path" 2>/dev/null)
+    local_git_url=$(jq -r ".installed_packs[\"$slug\"].git_url // \"\"" "$meta_path" 2>/dev/null)
+    local_content_hash=$(jq -r ".installed_packs[\"$slug\"].content_hash // \"\"" "$meta_path" 2>/dev/null)
+
+    echo "Pack: $slug"
+    echo "  Installed: $local_version ($local_installed_at)"
+
+    # Fetch registry data (non-blocking — graceful on failure)
+    local registry_version="unknown"
+    local registry_hash=""
+    local tmp_file
+    tmp_file=$(mktemp)
+    chmod 600 "$tmp_file"
+
+    local http_code
+    http_code=$(curl -s -w "%{http_code}" \
+        --proto =https --tlsv1.2 --max-time 10 \
+        "${registry_url}/constructs/${slug}" \
+        -o "$tmp_file" 2>/dev/null) || http_code="000"
+
+    if [[ "$http_code" == "200" ]]; then
+        registry_version=$(jq -r '.data.version // .data.latest_version.version // "unknown"' "$tmp_file" 2>/dev/null)
+        local registry_updated
+        registry_updated=$(jq -r '.data.updated_at // "unknown"' "$tmp_file" 2>/dev/null)
+        echo "  Registry:  $registry_version ($registry_updated)"
+    else
+        echo "  Registry:  [unavailable]"
+    fi
+    rm -f "$tmp_file"
+
+    # Source info
+    if [[ "$local_source_type" == "git" && -n "$local_git_url" ]]; then
+        echo "  Source:    git ($local_git_url)"
+    else
+        echo "  Source:    registry"
+    fi
+
+    # Fetch content hash for divergence detection
+    # NOTE: O(2n) HTTP calls per pack — registry metadata + hash endpoint.
+    # Acceptable for CLI status; optimize if used in CI or batch contexts.
+    local registry_hash_value=""
+    local hash_file
+    hash_file=$(mktemp)
+    chmod 600 "$hash_file"
+
+    local hash_code
+    hash_code=$(curl -s -w "%{http_code}" \
+        --proto =https --tlsv1.2 --max-time 10 \
+        "${registry_url}/packs/${slug}/hash" \
+        -o "$hash_file" 2>/dev/null) || hash_code="000"
+
+    if [[ "$hash_code" == "200" ]]; then
+        registry_hash_value=$(jq -r '.data.hash // ""' "$hash_file" 2>/dev/null)
+    fi
+    rm -f "$hash_file"
+
+    # Combined version + content-hash status
+    if [[ -z "$local_content_hash" ]]; then
+        # No local hash — installed before hash tracking was added
+        if [[ "$registry_version" != "unknown" && "$local_version" != "unknown" ]]; then
+            if [[ "$local_version" == "$registry_version" ]]; then
+                echo "  Status:    [UNKNOWN] — reinstall to compute hash"
+            else
+                echo "  Status:    [BEHIND] — registry has $registry_version"
+            fi
+        else
+            echo "  Status:    [UNKNOWN]"
+        fi
+    elif [[ -n "$registry_hash_value" ]]; then
+        # Both hashes available — compare
+        if [[ "$local_content_hash" == "$registry_hash_value" ]]; then
+            echo "  Status:    [SYNCED]"
+        elif [[ "$local_version" != "$registry_version" && "$registry_version" != "unknown" ]]; then
+            echo "  Status:    [BEHIND] — registry has $registry_version"
+        else
+            echo "  Status:    [DIVERGED] — local files modified"
+        fi
+    else
+        # No registry hash — can't compare
+        if [[ "$local_version" == "$registry_version" && "$registry_version" != "unknown" ]]; then
+            echo "  Status:    [SYNCED] (version match, hash unavailable)"
+        else
+            echo "  Status:    [UNKNOWN]"
+        fi
+    fi
+}
+
+# =============================================================================
 # Command Line Interface
 # =============================================================================
 
@@ -1800,7 +2153,11 @@ Commands:
     skill <vendor/slug>      Install a skill from the registry
     uninstall pack <slug>    Uninstall a pack
     uninstall skill <slug>   Uninstall a skill
+    upgrade <slug> [version] Upgrade a pack to latest or specified version
     link-commands <slug>     Re-link pack commands (use "all" for all packs)
+    register <slug> [opts]   Register a new construct (delegates to constructs-register.sh)
+    sync <slug>              Sync a git-sourced construct from registry
+    status [slug]            Show sync status for installed constructs
 
 Exit Codes:
     0 = success
@@ -1874,6 +2231,25 @@ main() {
         link-commands)
             [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug (or 'all')"; exit $EXIT_ERROR; }
             do_link_commands "$2"
+            ;;
+        register)
+            # Delegate to standalone register script.
+            # exec replaces the current process (no fork overhead, no cleanup needed
+            # since dispatch has no active traps at this point).
+            local register_script="$SCRIPT_DIR/constructs-register.sh"
+            if [[ ! -x "$register_script" ]]; then
+                print_error "ERROR: constructs-register.sh not found or not executable"
+                exit $EXIT_ERROR
+            fi
+            shift  # Remove 'register' from args
+            exec "$register_script" "$@"
+            ;;
+        sync)
+            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug"; exit $EXIT_ERROR; }
+            do_sync_pack "$2"
+            ;;
+        status)
+            do_status_pack "${2:-}"
             ;;
         -h|--help|help)
             show_usage

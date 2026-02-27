@@ -806,10 +806,9 @@ gpt_review:
   # Model selection
   models:
     # Model for document reviews (PRD, SDD, Sprint)
-    documents: "gpt-5.2"
+    documents: "gpt-5.3-codex"
     # Model for code reviews (uses Responses API)
-    # gpt-5.3-codex registered in model-adapter but not yet available via API
-    code: "gpt-5.2-codex"
+    code: "gpt-5.3-codex"
   # Per-phase toggles (only used when enabled: true)
   phases:
     prd: true
