@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "active_cycle": null,
+  "active_cycle": "cycle-036",
   "global_sprint_counter": 36,
   "cycles": [
     {
@@ -408,6 +408,30 @@
       ],
       "triage": "grimoires/loa/a2a/bug-20260215-i331-merge-delete/triage.md",
       "sprint_plan": "grimoires/loa/a2a/bug-20260215-i331-merge-delete/sprint.md"
+    },
+    {
+      "id": "cycle-036",
+      "label": "Constructs Network Distribution Layer",
+      "status": "active",
+      "created": "2026-02-27T21:45:00Z",
+      "prd": "grimoires/loa/prd.md",
+      "source_issues": [131, 120, 89, 127, 122],
+      "sdd": "grimoires/loa/sdd.md",
+      "sprint_plan": "grimoires/loa/sprint.md",
+      "sprints": [
+        {
+          "local_id": "sprint-1",
+          "label": "Seed Script Foundation + Dry-Run Validation"
+        },
+        {
+          "local_id": "sprint-2",
+          "label": "Register 4 New Constructs + The Easel Extraction"
+        },
+        {
+          "local_id": "sprint-3",
+          "label": "CLI detect_state + Post-Install Hooks"
+        }
+      ]
     }
   ]
 }

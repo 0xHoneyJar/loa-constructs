@@ -1,1007 +1,576 @@
-# SDD: R&D Synthesis — Measurement Honesty
+# SDD: Constructs Network Distribution Layer — Phase 1 Foundation
 
-**Cycle**: cycle-035
-**Created**: 2026-02-22
+**Cycle**: cycle-036
+**Created**: 2026-02-27
 **Status**: Draft
-**PRD**: `grimoires/loa/prd.md`
-**Predecessor**: cycle-034 SDD (Type System, Dependency Graph — archived)
-**Grounded in**:
-- `schema.ts:472-553` (packs table), `schema.ts:1175-1206` (construct_verifications)
-- `packs.ts:1669-1740` (fork endpoint), `packs.ts:879-1048` (sync endpoint)
-- `constructs.ts:136-147` (RELEVANCE_WEIGHTS), `constructs.ts:340-422` (packToConstruct)
-- `page.tsx:128-130` (Level label), `page.tsx:139-168` (identity JSONB)
-- `fetch-constructs.ts:9-50` (APIConstruct), `transform-construct.ts:39-88` (transformToDetail)
+**PRD**: `grimoires/loa/prd.md` (Constructs Network Distribution Layer)
+**Scope**: Phase 1 only — F1.1, F1.2, F1.5, F1.3, F1.4
 
 ---
 
-## 1. Executive Summary
+## 1. Overview
 
-This SDD details the architecture for cycle-035: Measurement Honesty. The work spans 3 sprints across the API (`apps/api`) and Explorer (`apps/explorer`), adding:
+Phase 1 fixes the plumbing between construct repos and the registry database. Five changes, all in existing files:
 
-1. **Signal outcomes tracking** — new table, 4 endpoints, accuracy computation with statistical rigor
-2. **Fork provenance** — schema column, endpoint fix, API response enrichment
-3. **SKILL.md prose pipeline** — extraction during sync, sanitized storage, Explorer rendering
-4. **Diagnostic language** — replace theatrical "Level" framing with `git status` diagnostics
-5. **Graduation criteria overhaul** — kill download counts, replace with automatable criteria
-6. **Certificate rename** — CalibrationCertificate → VerificationCertificate (comments/docs only)
-7. **Built With showcases** — new table, 2 endpoints, Explorer section (Sprint 3)
+| ID | Change | Files | Lines |
+|----|--------|-------|-------|
+| F1.1 | Full manifest extraction | `scripts/seed-forge-packs.ts` | ~30 changed |
+| F1.2 | Register 3 constructs | `scripts/seed-forge-packs.ts` | ~20 added |
+| F1.5 | Extract The Easel | New repo `construct-the-easel` + seed entry | New repo + ~10 lines |
+| F1.3 | Activate detect_state | `.claude/scripts/golden-path.sh` | ~40 added |
+| F1.4 | Post-install hooks | `.claude/scripts/constructs-install.sh` | ~30 added |
 
-All database changes are additive (no column removals, no type changes). All API changes are backwards-compatible (new endpoints + new optional fields on existing responses).
-
----
-
-## 2. System Architecture
-
-### Affected Components
-
-```
-┌─────────────────────────────────────────────────────┐
-│ Explorer (Next.js 15, Vercel)                       │
-│  ├── constructs/[slug]/page.tsx  (FR3, FR4, FR5)    │
-│  ├── constructs browse cards     (FR5)              │
-│  └── lib/data/transform-construct.ts (new fields)   │
-├─────────────────────────────────────────────────────┤
-│ API (Hono, Railway)                                  │
-│  ├── routes/signals.ts           (FR1 — NEW FILE)   │
-│  ├── routes/packs.ts             (FR2, FR4, FR6)    │
-│  ├── services/constructs.ts      (FR7)              │
-│  ├── services/signals.ts         (FR1 — NEW FILE)   │
-│  └── services/showcases.ts       (FR6 — NEW FILE)   │
-├─────────────────────────────────────────────────────┤
-│ Database (Supabase PostgreSQL)                       │
-│  ├── schema.ts                   (FR1, FR2, FR4, FR6)│
-│  └── drizzle/0006_measurement_honesty.sql            │
-├─────────────────────────────────────────────────────┤
-│ Docs                                                 │
-│  ├── GRADUATION.md               (FR7)              │
-│  └── grimoires/bridgebuilder/*   (FR8)              │
-└─────────────────────────────────────────────────────┘
-```
-
-### Unchanged Components
-
-- Redis caching (Upstash) — existing `constructList` cache covers new pack fields. **New cache key**: `accuracy:{packId}` with 10-min TTL for accuracy computation (see §4.1.7)
-- Auth middleware (`requireAuth`, `optionalAuth`) — reused as-is
-- Stripe/NowPayments — untouched
-- MCP registry — untouched
+No new tables. No new API routes. No new packages. The downstream consumers (explorer, CLI browse, golden path, workflow gate reader) already know how to read these fields — they just need the data.
 
 ---
 
-## 3. Data Architecture
+## 2. Detailed Design
 
-### 3.1 Migration: `0006_measurement_honesty.sql`
+### 2.1 F1.1: Full Manifest Extraction in Seed Script
 
-Single migration file. All changes additive, safe for zero-downtime deployment.
+**File**: `scripts/seed-forge-packs.ts`
 
-#### 3.1.1 New columns on `packs` table
-
-```sql
--- Fork provenance (FR2)
-ALTER TABLE packs ADD COLUMN forked_from UUID REFERENCES packs(id);
-CREATE INDEX idx_packs_forked_from ON packs(forked_from) WHERE forked_from IS NOT NULL;
-
--- SKILL.md prose cache (FR4)
-ALTER TABLE packs ADD COLUMN skill_prose TEXT;
+**Current problem** (lines 358-367):
+```typescript
+const manifest = {
+  schema_version: pack.schema_version || 1,
+  name: pack.name,
+  slug: pack.slug,
+  version: pack.version,
+  description: pack.description,
+  author: pack.author || '0xHoneyJar',
+  license: pack.license || 'MIT',
+  skills: pack.skillSlugs.map((s) => ({ slug: s, path: `skills/${s}` })),
+};
 ```
 
-Both nullable, non-breaking. Existing rows get `NULL` values.
+This constructs a 7-field object and discards everything else from construct.yaml.
 
-**Fork backfill decision**: Historical forks will NOT be backfilled in this cycle. The ecosystem currently has 5 packs; the only known fork (Observer in midi-interface) was created outside the registry's fork endpoint. Backfilling would require manual identification of fork relationships with uncertain accuracy. All future forks via `POST /packs/fork` will correctly record provenance. This decision is explicitly documented — revisit if fork detection becomes automated.
+**Solution**: Parse the full YAML, validate with Zod, store the validated result.
 
-#### 3.1.2 New table: `signal_outcomes` (FR1)
+#### 2.1.1 Changes to `discoverPacks()` (lines 148-227)
 
-```sql
-CREATE TABLE signal_outcomes (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  pack_id UUID NOT NULL REFERENCES packs(id) ON DELETE CASCADE,
-  signal_type TEXT NOT NULL,
-  signal_source TEXT NOT NULL,
-  signal_source_url TEXT,
-  predicted_impact TEXT NOT NULL CHECK (predicted_impact IN ('high', 'medium', 'low')),
-  actual_impact TEXT CHECK (actual_impact IN ('high', 'medium', 'low', 'none')),
-  outcome_summary TEXT,
-  outcome_evidence TEXT,
-  recorded_by UUID NOT NULL REFERENCES users(id),
-  evaluated_by UUID REFERENCES users(id),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  evaluated_at TIMESTAMPTZ,
-  CONSTRAINT no_self_evaluation CHECK (recorded_by IS DISTINCT FROM evaluated_by),
-  CONSTRAINT unique_signal_evaluation UNIQUE (pack_id, signal_type, signal_source)
-);
-
-CREATE INDEX idx_signal_outcomes_pack ON signal_outcomes(pack_id);
-CREATE INDEX idx_signal_outcomes_evaluated ON signal_outcomes(pack_id) WHERE actual_impact IS NOT NULL;
-```
-
-#### 3.1.3 New table: `construct_showcases` (FR6)
-
-```sql
-CREATE TABLE construct_showcases (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  pack_id UUID NOT NULL REFERENCES packs(id) ON DELETE CASCADE,
-  title TEXT NOT NULL,
-  url TEXT NOT NULL,
-  description TEXT,
-  submitted_by UUID REFERENCES users(id),
-  approved BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-CREATE INDEX idx_construct_showcases_pack ON construct_showcases(pack_id);
-CREATE INDEX idx_construct_showcases_approved ON construct_showcases(pack_id) WHERE approved = true;
-```
-
-### 3.2 Drizzle Schema Updates (`schema.ts`)
-
-#### 3.2.1 `packs` table additions (after `constructType` column, ~line 548)
+Replace the manual field extraction at lines 168-184 with full YAML parsing + Zod validation:
 
 ```typescript
-// Fork provenance (cycle-035, FR2)
-forkedFrom: uuid('forked_from').references(() => packs.id),
+// In the construct.yaml branch (line 166):
+} else if (existsSync(constructYamlPath)) {
+  const content = await readFile(constructYamlPath, 'utf-8');
+  const parsed = yaml.load(content, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>;
 
-// SKILL.md prose cache (cycle-035, FR4)
-skillProse: text('skill_prose'),
-```
-
-#### 3.2.2 `packsRelations` update (~line 777)
-
-Add to existing relations:
-
-```typescript
-forkedFromPack: one(packs, {
-  fields: [packs.forkedFrom],
-  references: [packs.id],
-  relationName: 'forkParent',
-}),
-```
-
-#### 3.2.3 New table: `signalOutcomes`
-
-```typescript
-export const signalOutcomes = pgTable('signal_outcomes', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  packId: uuid('pack_id').notNull().references(() => packs.id, { onDelete: 'cascade' }),
-  signalType: text('signal_type').notNull(),
-  signalSource: text('signal_source').notNull(),
-  signalSourceUrl: text('signal_source_url'),
-  predictedImpact: text('predicted_impact').notNull(),
-  actualImpact: text('actual_impact'),
-  outcomeSummary: text('outcome_summary'),
-  outcomeEvidence: text('outcome_evidence'),
-  recordedBy: uuid('recorded_by').notNull().references(() => users.id),
-  evaluatedBy: uuid('evaluated_by').references(() => users.id),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  evaluatedAt: timestamp('evaluated_at', { withTimezone: true }),
-}, (table) => ({
-  packIdx: index('idx_signal_outcomes_pack').on(table.packId),
-  evaluatedIdx: index('idx_signal_outcomes_evaluated').on(table.packId),
-  uniqueSignal: unique('unique_signal_evaluation').on(table.packId, table.signalType, table.signalSource),
-}));
-```
-
-#### 3.2.4 New table: `constructShowcases`
-
-```typescript
-export const constructShowcases = pgTable('construct_showcases', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  packId: uuid('pack_id').notNull().references(() => packs.id, { onDelete: 'cascade' }),
-  title: text('title').notNull(),
-  url: text('url').notNull(),
-  description: text('description'),
-  submittedBy: uuid('submitted_by').references(() => users.id),
-  approved: boolean('approved').notNull().default(false),
-  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-}, (table) => ({
-  packIdx: index('idx_construct_showcases_pack').on(table.packId),
-  approvedIdx: index('idx_construct_showcases_approved').on(table.packId),
-}));
-```
-
----
-
-## 4. API Design
-
-### 4.1 Signal Outcomes API (FR1) — NEW: `routes/signals.ts`
-
-New Hono router mounted under `/v1/packs/:slug/signals` (pack-scoped, not construct-scoped — outcomes are keyed by `pack_id` FK, so endpoints must be pack-scoped to avoid slug/construct ambiguity). Follows existing patterns from `packs.ts`.
-
-#### 4.1.1 `POST /v1/packs/:slug/signals/outcomes`
-
-**Auth**: `requireAuth()` — pack owner verified via `isPackOwner()`
-**Rate limit**: 50 writes/hour per user (new rate limit function)
-
-**Request body** (Zod schema):
-
-```typescript
-const createOutcomeSchema = z.object({
-  pack_slug: z.string().min(3).max(100),
-  signal_type: z.enum(['gap_filed', 'signal_classified', 'journey_shaped']),
-  signal_source: z.string().min(1).max(500),       // namespaced: 'github:issue/123'
-  signal_source_url: z.string().url().max(2000).optional(),
-  predicted_impact: z.enum(['high', 'medium', 'low']),
-});
-```
-
-**Response** (201):
-
-```json
-{
-  "data": {
-    "id": "uuid",
-    "pack_slug": "observer",
-    "signal_type": "gap_filed",
-    "signal_source": "github:issue/123",
-    "predicted_impact": "high",
-    "actual_impact": null,
-    "created_at": "2026-02-22T..."
-  }
-}
-```
-
-**Logic**:
-1. Resolve `pack_slug` → `pack.id` via `getPackBySlug()`
-2. Verify `isPackOwner(pack.id, userId)` → 403
-3. Check rate limit (50/hr per user) → 429
-4. Insert with `recorded_by: userId`
-5. Return created outcome (sans `outcome_evidence`)
-
-#### 4.1.2 `PATCH /v1/packs/:slug/signals/outcomes/:id`
-
-**Auth**: `requireAuth()` — evaluator must be authorized AND must not be the recorder.
-
-**Evaluator authorization rules** (checked in order):
-1. `isPackOwner(pack.id, userId)` — pack owner can always evaluate (but not their own predictions)
-2. `isAdmin(userId)` — admins can evaluate any pack's outcomes
-3. All other users → 403 "Not authorized to evaluate outcomes for this pack"
-
-This prevents vandalism/brigading by restricting evaluation to trusted parties.
-
-**Request body**:
-
-```typescript
-const evaluateOutcomeSchema = z.object({
-  actual_impact: z.enum(['high', 'medium', 'low', 'none']),
-  outcome_summary: z.string().max(500).optional(),
-  outcome_evidence: z.string().max(2000).optional(),
-});
-```
-
-**Logic**:
-1. Resolve `:slug` → `pack.id` via `getPackBySlug()`
-2. Fetch outcome by ID → 404. Verify outcome belongs to this pack → 404
-3. Check evaluator authorization: `isPackOwner() || isAdmin()` → 403
-4. Check `userId !== outcome.recordedBy` → 403 "Cannot evaluate your own prediction"
-5. **Single-maintainer exception**: If pack has exactly 1 owner AND no admins have evaluated this pack's outcomes before, allow self-evaluation but flag it. Set `evaluated_by = recorded_by`. The accuracy service excludes self-evaluated outcomes from kappa computation entirely (weight = 0) and displays them separately.
-6. Sanitize `outcome_summary` (strip HTML)
-7. Update `actual_impact`, `outcome_summary`, `outcome_evidence`, `evaluated_by`, `evaluated_at`
-8. Invalidate accuracy cache for this pack (see §4.1.7)
-
-#### 4.1.3 `GET /v1/packs/:slug/signals/outcomes`
-
-**Auth**: `optionalAuth()`
-**Public response**: Returns `outcome_summary` but NOT `outcome_evidence`.
-
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "signal_type": "gap_filed",
-      "signal_source": "github:issue/123",
-      "predicted_impact": "high",
-      "actual_impact": "high",
-      "outcome_summary": "Gap led to PR #456 merged in 3 days",
-      "self_evaluated": false,
-      "created_at": "...",
-      "evaluated_at": "..."
+  // Validate with Zod — the shared schema is the single source of truth
+  const validation = packManifestSchema.safeParse(parsed);
+  if (!validation.success) {
+    console.warn(`   ⚠ ${slug}: manifest validation failed:`);
+    for (const issue of validation.error.issues) {
+      console.warn(`     - ${issue.path.join('.')}: ${issue.message}`);
     }
-  ],
-  "meta": { "total": 15, "evaluated": 8, "page": 1, "per_page": 50 }
-}
-```
-
-#### 4.1.4 `GET /v1/packs/:slug/signals/outcomes/detail`
-
-**Auth**: `requireAuth()` + `isPackOwner()` — owner-only, includes `outcome_evidence`.
-
-#### 4.1.5 `GET /v1/packs/:slug/signals/accuracy`
-
-**Auth**: `optionalAuth()` — public, aggregated stats only.
-
-**Response**:
-
-```json
-{
-  "data": {
-    "construct_slug": "observer",
-    "sample_size": 25,
-    "coverage": 0.62,
-    "sufficient_data": true,
-    "confusion_matrix": {
-      "high":   { "high": 5, "medium": 1, "low": 0, "none": 0 },
-      "medium": { "high": 1, "medium": 8, "low": 2, "none": 1 },
-      "low":    { "high": 0, "medium": 1, "low": 4, "none": 2 }
-    },
-    "per_class": {
-      "high":   { "precision": 0.83, "recall": 0.83 },
-      "medium": { "precision": 0.80, "recall": 0.67 },
-      "low":    { "precision": 0.67, "recall": 0.67 }
-    },
-    "weighted_kappa": 0.72,
-    "time_to_outcome_days": { "median": 8, "p25": 3, "p75": 18 },
-    "self_evaluated_fraction": 0.12,
-    "warnings": []
+    // Fall back to partial manifest for backwards compatibility
+    fullManifest = null;
+    manifest = {
+      schema_version: (parsed.schema_version as number) || 1,
+      name: (parsed.name as string) || slug,
+      slug: (parsed.slug as string) || slug,
+      version: (parsed.version as string) || '1.0.0',
+      description: (parsed.description as string) || '',
+      author: parsed.author as string | undefined,
+      license: parsed.license as string | undefined,
+    };
+  } else {
+    fullManifest = validation.data;
+    manifest = validation.data;
   }
 }
 ```
 
-**Guardrails** (implemented in `services/signals.ts`):
-- `sample_size < 20` → `sufficient_data: false`, `warnings: ["Insufficient data — 15 evaluations, need 20+"]`
-- `coverage < 0.5` → `warnings: ["Selection bias risk — only 40% of signals have outcomes"]`
-- `self_evaluated_fraction > 0.5` → `warnings: ["Majority self-evaluated — interpret with caution"]`
+**Import addition** (top of file):
+```typescript
+import { packManifestSchema } from '../packages/shared/src/validation.js';
+```
 
-#### 4.1.6 Accuracy Computation Service (`services/signals.ts`)
+#### 2.1.2 Changes to `DiscoveredPack` interface
+
+Replace the minimal `PackManifest` interface (lines 69-79) with:
 
 ```typescript
-export async function computeAccuracy(packId: string): Promise<AccuracyReport> {
-  // 1. Fetch all evaluated outcomes for pack
-  const outcomes = await db.select()
-    .from(signalOutcomes)
-    .where(and(
-      eq(signalOutcomes.packId, packId),
-      isNotNull(signalOutcomes.actualImpact)
-    ));
+import type { ValidatedPackManifest } from '../packages/shared/src/validation.js';
 
-  // 2. Fetch total signal count (including unevaluated)
-  const totalCount = await db.select({ count: count() })
-    .from(signalOutcomes)
-    .where(eq(signalOutcomes.packId, packId));
-
-  // 3. Build confusion matrix
-  const matrix = buildConfusionMatrix(outcomes);
-
-  // 4. Compute per-class precision/recall
-  const perClass = computePerClassMetrics(matrix);
-
-  // 5. Compute weighted kappa (ordinal: high > medium > low)
-  const kappa = computeWeightedKappa(outcomes);
-
-  // 6. Compute time-to-outcome distribution
-  const timeStats = computeTimeToOutcome(outcomes);
-
-  // 7. Compute self-evaluation fraction
-  const selfEvalFraction = outcomes.filter(o =>
-    o.recordedBy === o.evaluatedBy
-  ).length / outcomes.length;
-
-  // 8. Build warnings
-  const warnings = buildWarnings(outcomes.length, totalCount, selfEvalFraction);
-
-  return { ... };
+// DiscoveredPack now carries the full validated manifest when available
+interface DiscoveredPack {
+  // Core fields (always present)
+  name: string;
+  slug: string;
+  version: string;
+  description: string;
+  author?: string;
+  license?: string;
+  schema_version: number;
+  type?: string;
+  // Full validated manifest (null if Zod validation failed — legacy format)
+  fullManifest: ValidatedPackManifest | null;
+  // Derived fields
+  icon: string;
+  skillSlugs: string[];
+  packPath: string;
+  constructType: string;
+  identity?: IdentityData;
 }
 ```
 
-**Weighted kappa implementation**: Use linear weighting for ordinal scale:
-- Same category → weight 0 (perfect agreement)
-- Adjacent (high↔medium, medium↔low) → weight 1
-- Two apart (high↔low) → weight 2
-- `none` treated as equivalent to opposite end (high predicted, none actual = weight 3)
+#### 2.1.3 Changes to manifest storage (lines 358-367)
 
-Standard Cohen's weighted kappa formula: `κ_w = 1 - (Σ w_ij * o_ij) / (Σ w_ij * e_ij)` where `o` is observed and `e` is expected by chance.
-
-**Self-evaluated outcomes**: Excluded from kappa computation entirely (weight = 0). Displayed separately in the accuracy report as `self_evaluated_count` and `self_evaluated_fraction`. Warning threshold: 20% (not 50% — lowered per Flatline review to prevent majority self-evaluated data going unwarned).
-
-#### 4.1.7 Accuracy Caching
-
-Accuracy computation is expensive (multiple DB queries + statistical computation) and the endpoint is public (hit on every detail page). Cache with Redis:
+Replace the 7-field construction with:
 
 ```typescript
-const ACCURACY_CACHE_TTL = 600; // 10 minutes
-const accuracyCacheKey = (packId: string) => `accuracy:${packId}`;
-
-// In GET accuracy handler:
-const cached = await redis.get(accuracyCacheKey(packId));
-if (cached) return JSON.parse(cached);
-
-const report = await computeAccuracy(packId);
-await redis.set(accuracyCacheKey(packId), JSON.stringify(report), { ex: ACCURACY_CACHE_TTL });
+// Store full manifest if validation passed, otherwise build minimal
+const manifest = pack.fullManifest ?? {
+  schema_version: pack.schema_version || 1,
+  name: pack.name,
+  slug: pack.slug,
+  version: pack.version,
+  description: pack.description,
+  author: pack.author || '0xHoneyJar',
+  license: pack.license || 'MIT',
+  skills: pack.skillSlugs.map((s) => ({ slug: s, path: `skills/${s}` })),
+};
 ```
 
-**Invalidation**: On `PATCH /v1/packs/:slug/signals/outcomes/:id` (evaluation write), delete the cache key:
+The manifest stored in `pack_versions.manifest` JSONB becomes the full construct.yaml content when Zod-validated. All downstream consumers (`GET /v1/constructs/:slug`, explorer detail page, workflow gate reader) already destructure from this JSONB column.
+
+#### 2.1.4 Content Hash Computation
+
+Add after file collection (line 402):
+
 ```typescript
-await redis.del(accuracyCacheKey(outcome.packId));
+// Compute content hash: SHA-256 of manifest JSON + sorted file hashes
+const manifestJson = JSON.stringify(manifest, null, 0);
+const fileHashConcat = files.map(f => f.contentHash).sort().join('');
+const contentHash = createHash('sha256')
+  .update(manifestJson)
+  .update(fileHashConcat)
+  .digest('hex');
 ```
 
-#### 4.1.8 TypeScript Interfaces
+Store it in `pack_versions` (add to the INSERT at line 379):
+
+```sql
+content_hash = ${contentHash}
+```
+
+The `content_hash` column already exists in the schema (schema.ts line 592) — it's just never been populated.
+
+#### 2.1.5 Dry-Run Mode
+
+Add a `--dry-run` flag that validates all manifests against Zod without writing to the database:
 
 ```typescript
-/** Represents a single signal outcome record */
-export interface SignalOutcome {
-  id: string;
-  packId: string;
-  signalType: 'gap_filed' | 'signal_classified' | 'journey_shaped';
-  signalSource: string;
-  signalSourceUrl: string | null;
-  predictedImpact: 'high' | 'medium' | 'low';
-  actualImpact: 'high' | 'medium' | 'low' | 'none' | null;
-  outcomeSummary: string | null;
-  outcomeEvidence: string | null;
-  recordedBy: string;
-  evaluatedBy: string | null;
-  createdAt: Date;
-  evaluatedAt: Date | null;
+const DRY_RUN = process.argv.includes('--dry-run');
+```
+
+This allows testing manifest validation before switching to the full extraction. Critical for the migration — if any of the 6 existing manifests fail Zod validation, we need to fix them before deploying.
+
+---
+
+### 2.2 F1.2: Register 3 Ready Constructs
+
+**File**: `scripts/seed-forge-packs.ts`
+
+Add to `GIT_CONFIGS` (line 42):
+
+```typescript
+herald: {
+  gitUrl: 'https://github.com/0xHoneyJar/construct-herald.git',
+  gitRef: 'main',
+},
+hardening: {
+  gitUrl: 'https://github.com/0xHoneyJar/construct-hardening.git',
+  gitRef: 'main',
+},
+'dynamic-auth': {
+  gitUrl: 'https://github.com/0xHoneyJar/construct-dynamic-auth.git',
+  gitRef: 'main',
+},
+```
+
+Add to `PACK_ICONS` (line 31):
+
+```typescript
+herald: '📢',
+hardening: '🛡️',
+'dynamic-auth': '🔐',
+```
+
+No other changes needed. The `discoverPacks()` function already handles cloning and manifest parsing generically.
+
+**Pre-check**: Verify all 3 repos have `construct.yaml` at root level (confirmed by org-auditor). Verify manifests pass `packManifestSchema.safeParse()` via dry-run.
+
+---
+
+### 2.3 F1.5: Extract The Easel to Standalone Construct
+
+**New repo**: `0xHoneyJar/construct-the-easel`
+
+#### 2.3.1 Repo Structure
+
+```
+construct-the-easel/
+├── construct.yaml          # v3 manifest
+├── identity/
+│   ├── persona.yaml        # Creative studio voice (domain-agnostic)
+│   └── expertise.yaml      # Design vocabulary, visual direction, taste documentation
+├── skills/
+│   ├── grounding-creative/
+│   │   ├── SKILL.md        # Generalized: reviews vocabulary + TDRs for any design area
+│   │   └── index.yaml      # model_tier: sonnet, danger_level: safe
+│   ├── exploring-visuals/
+│   │   ├── SKILL.md        # Generalized: generates prompts grounded in project vocabulary
+│   │   └── index.yaml
+│   ├── capturing-results/
+│   │   ├── SKILL.md        # Generalized: annotates results with vocabulary + TDR criteria
+│   │   └── index.yaml
+│   └── recording-taste/
+│       ├── SKILL.md        # Generalized: TDR CRUD operations
+│       └── index.yaml
+├── contexts/
+│   ├── vocabulary-template.md   # Empty 8-domain structure (no terms)
+│   ├── tdr-template.md          # Blank Taste Decision Record template
+│   └── quality-gates.md         # Generic Ground → Visualize → Tokenize → Implement gates
+└── README.md
+```
+
+#### 2.3.2 construct.yaml
+
+```yaml
+schema_version: 3
+name: "The Easel"
+slug: "the-easel"
+version: "1.0.0"
+description: "Creative studio for aesthetic direction — vocabulary grounding, visual exploration, result capture, and taste decisions. Domain-agnostic: install and populate with your project's aesthetic vocabulary."
+author: "0xHoneyJar"
+license: "MIT"
+type: "skill-pack"
+
+skills:
+  - slug: grounding-creative
+    path: skills/grounding-creative
+  - slug: exploring-visuals
+    path: skills/exploring-visuals
+  - slug: capturing-results
+    path: skills/capturing-results
+  - slug: recording-taste
+    path: skills/recording-taste
+
+identity:
+  persona: identity/persona.yaml
+  expertise: identity/expertise.yaml
+
+domain:
+  - design
+  - aesthetics
+  - visual-direction
+
+expertise:
+  - vocabulary-driven design
+  - taste decision records
+  - visual exploration
+  - aesthetic direction
+
+golden_path:
+  commands:
+    - name: ground
+      description: "Review vocabulary and TDRs for a design area"
+      truename_map:
+        no_vocabulary: /grounding-creative
+        vocabulary_ready: /grounding-creative
+    - name: explore
+      description: "Generate visual prompts grounded in vocabulary"
+      truename_map:
+        grounded: /exploring-visuals
+    - name: capture
+      description: "Annotate generation results with vocabulary terms"
+      truename_map:
+        explored: /capturing-results
+    - name: record
+      description: "Create or update a Taste Decision Record"
+      truename_map:
+        captured: /recording-taste
+
+events:
+  emits:
+    - name: forge.easel.vocabulary_grounded
+      description: "Vocabulary atlas reviewed and gaps identified"
+    - name: forge.easel.taste_recorded
+      description: "New TDR created or updated"
+  consumes:
+    - name: forge.artisan.taste_inscribed
+      description: "Can ground visual exploration in Artisan taste tokens"
+
+pack_dependencies:
+  optional:
+    - slug: artisan
+      reason: "Taste token handoff — Easel TDRs can inform Artisan inscribed tokens"
+
+workflow:
+  depth: light
+  gates:
+    prd: skip
+    sdd: skip
+    sprint: skip
+    implement: required
+    review: visual
+    audit: skip
+```
+
+#### 2.3.3 Skill Generalization Principles
+
+Each SKILL.md must:
+
+1. **Use context slots** for project-specific paths:
+   - `{{grimoire_path}}` → defaults to `grimoires/the-easel/` if not set
+   - `{{vocabulary_path}}` → defaults to `{{grimoire_path}}/vocabulary/atlas.md`
+   - `{{tdr_path}}` → defaults to `{{grimoire_path}}/tdr/`
+   - `{{generation_tool}}` → defaults to "your preferred image generation tool"
+
+2. **Zero domain-specific references**: No cyberpunk, no FUI, no rektdrop, no Freeside Divergence. The skills describe the *process*, not any specific aesthetic.
+
+3. **Ship empty templates**: `vocabulary-template.md` has the 8-domain structure with no terms. `tdr-template.md` is a blank TDR scaffold. Projects fill these in through the skills.
+
+#### 2.3.4 Registry Wiring
+
+Add to `seed-forge-packs.ts`:
+
+```typescript
+// GIT_CONFIGS
+'the-easel': {
+  gitUrl: 'https://github.com/0xHoneyJar/construct-the-easel.git',
+  gitRef: 'main',
+},
+
+// PACK_ICONS
+'the-easel': '🖼️',
+```
+
+#### 2.3.5 rektdrop-interface Update
+
+After extraction:
+1. Install The Easel from registry: `/constructs install the-easel`
+2. Keep existing `grimoires/the-easel/` (16 TDRs, atlas, aesthetic-direction) — this is project state
+3. Remove the embedded `.claude/constructs/packs/the-easel/` directory
+4. Skills now load from the installed pack but read/write to the existing grimoire paths
+
+---
+
+### 2.4 F1.3: Activate detect_state in Golden Path
+
+**File**: `.claude/scripts/golden-path.sh`
+
+**Current** (lines 322-360): `golden_detect_construct_journeys()` builds journey bars from `golden_path.commands[].name` but ignores `detect_state`.
+
+**Change**: After extracting command names, check for `detect_state` script. If present, execute it and mark the current position.
+
+#### 2.4.1 Modified `golden_detect_construct_journeys()`
+
+```bash
+golden_detect_construct_journeys() {
+    local packs_dir="${PROJECT_ROOT}/.claude/constructs/packs"
+    [[ -d "$packs_dir" ]] || return 0
+
+    if ! type safe_yq_to_json &>/dev/null; then
+        return 0
+    fi
+
+    local manifest pack_name pack_dir commands_json detect_script current_state bar output=""
+    for manifest in "$packs_dir"/*/construct.yaml "$packs_dir"/*/construct.yml; do
+        [[ -f "$manifest" ]] || continue
+        pack_dir="$(dirname "$manifest")"
+
+        # Extract golden_path via yq→jq
+        commands_json=$(safe_yq_to_json "$manifest" 2>/dev/null \
+            | jq -c '.golden_path.commands // empty' 2>/dev/null) || continue
+        [[ -z "$commands_json" || "$commands_json" == "null" ]] && continue
+
+        pack_name=$(safe_yq '.name' "$manifest" 2>/dev/null) || continue
+        [[ -z "$pack_name" ]] && continue
+
+        # NEW: Execute detect_state script if declared
+        current_state=""
+        detect_script=$(safe_yq '.golden_path.detect_state' "$manifest" 2>/dev/null) || true
+        if [[ -n "$detect_script" && "$detect_script" != "null" ]]; then
+            local script_path="${pack_dir}/${detect_script}"
+            if [[ -f "$script_path" && -x "$script_path" ]]; then
+                current_state=$(cd "$pack_dir" && timeout 5 "$script_path" 2>/dev/null) || true
+            fi
+        fi
+
+        # Build journey bar — mark current position with ●
+        bar=""
+        local first=true
+        while IFS= read -r cmd_name; do
+            [[ -z "$cmd_name" ]] && continue
+            local is_current=false
+            if [[ -n "$current_state" ]]; then
+                local mapped
+                mapped=$(echo "$commands_json" | jq -r \
+                    --arg name "$cmd_name" --arg state "$current_state" \
+                    '.[] | select(.name == $name) | .truename_map[$state] // empty' \
+                    2>/dev/null) || true
+                [[ -n "$mapped" ]] && is_current=true
+            fi
+
+            local segment="/$cmd_name"
+            $is_current && segment="/$cmd_name ●"
+
+            if $first; then
+                bar="$segment"
+                first=false
+            else
+                bar="$bar ━━━ $segment"
+            fi
+        done < <(echo "$commands_json" | jq -r '.[].name' 2>/dev/null)
+
+        [[ -n "$bar" ]] && output="${output}  ${pack_name}: ${bar}"$'\n'
+    done
+
+    [[ -n "$output" ]] && printf "%s" "$output"
 }
-
-/** Public-facing outcome (no evidence) */
-export interface SignalOutcomePublic extends Omit<SignalOutcome, 'outcomeEvidence'> {
-  selfEvaluated: boolean;
-}
-
-/** Per-class precision/recall metrics */
-export interface ClassMetrics {
-  precision: number;
-  recall: number;
-}
-
-/** Structured accuracy report */
-export interface AccuracyReport {
-  packSlug: string;
-  sampleSize: number;
-  coverage: number;
-  sufficientData: boolean;
-  confusionMatrix: Record<'high' | 'medium' | 'low', Record<'high' | 'medium' | 'low' | 'none', number>>;
-  perClass: Record<'high' | 'medium' | 'low', ClassMetrics>;
-  weightedKappa: number;
-  timeToOutcomeDays: { median: number; p25: number; p75: number };
-  selfEvaluatedCount: number;
-  selfEvaluatedFraction: number;
-  warnings: string[];
-}
 ```
 
-### 4.2 Fork Provenance (FR2) — Modifications to `routes/packs.ts`
+#### 2.4.2 detect_state Script Contract
 
-#### 4.2.1 Fix `POST /packs/fork` (~line 1709)
+A `detect_state` script must:
+- Be executable (`chmod +x`)
+- Print a single state string to stdout (e.g., `canvases_ready`, `grounded`, `no_vocabulary`)
+- Exit 0 on success, non-zero to indicate "unknown state"
+- Complete within 5 seconds
+- Read from the project's grimoire/state files, never write
 
-Current code calls `createPack()` without `forkedFrom`. Fix:
+---
 
-```typescript
-// Before (current):
-const newPack = await createPack({
-  name: `${sourcePack.name} (fork)`,
-  slug: newSlug,
-  ownerId: userId,
-  ownerType: 'user',
-});
+### 2.5 F1.4: Post-Install Hook Execution
 
-// After:
-const newPack = await createPack({
-  name: `${sourcePack.name} (fork)`,
-  slug: newSlug,
-  ownerId: userId,
-  ownerType: 'user',
-  forkedFrom: sourcePack.id,  // NEW: record provenance
-});
-```
+**File**: `.claude/scripts/constructs-install.sh`
 
-#### 4.2.2 Enrich `GET /v1/constructs/:slug` response
+After pack file extraction completes (where symlinks are created for commands), add:
 
-In `packToConstruct()` at `constructs.ts`, add fork data to the `Construct` interface:
+```bash
+execute_post_install_hook() {
+    local pack_dir="$1"
+    local manifest="${pack_dir}/construct.yaml"
+    [[ -f "$manifest" ]] || return 0
 
-```typescript
-// Add to Construct interface:
-forkedFrom: { slug: string; name: string } | null;
-forkCount: number;
-```
+    if ! type safe_yq &>/dev/null 2>&1; then return 0; fi
 
-In the single-construct detail fetch path, join `forked_from` to get parent info:
+    local hook_script
+    hook_script=$(safe_yq '.hooks.post_install' "$manifest" 2>/dev/null) || return 0
+    [[ -z "$hook_script" || "$hook_script" == "null" ]] && return 0
 
-```typescript
-// In getConstructBySlug service:
-const parentPack = pack.forkedFrom
-  ? await db.select({ slug: packs.slug, name: packs.name })
-      .from(packs).where(eq(packs.id, pack.forkedFrom)).limit(1)
-  : null;
+    local script_path="${pack_dir}/${hook_script}"
 
-// Fork count:
-const forkCount = await db.select({ count: count() })
-  .from(packs).where(eq(packs.forkedFrom, pack.id));
-```
+    # Security: validate script is within pack directory
+    local real_script real_pack
+    real_script=$(realpath "$script_path" 2>/dev/null) || return 0
+    real_pack=$(realpath "$pack_dir" 2>/dev/null) || return 0
+    if [[ "$real_script" != "$real_pack"* ]]; then
+        echo "⚠ Post-install hook path traversal blocked: $hook_script" >&2
+        return 0
+    fi
 
-### 4.3 SKILL.md Prose Pipeline (FR4) — Modifications to sync endpoint
-
-#### 4.3.1 Extraction during `POST /packs/:slug/sync` (~line 950)
-
-After the existing sync logic extracts files, add prose extraction within the same transaction:
-
-```typescript
-// Inside the sync transaction, after packFiles insert:
-const skillProse = extractSkillProse(syncResult.files);
-
-// Update packs table:
-await tx.update(packs)
-  .set({
-    skillProse,           // NULL if no SKILL.md found
-    // ...existing fields
-  })
-  .where(eq(packs.id, pack.id));
-```
-
-#### 4.3.2 `extractSkillProse()` utility
-
-```typescript
-import createDOMPurify from 'isomorphic-dompurify';
-const DOMPurify = createDOMPurify();
-
-export function extractSkillProse(files: SyncFile[]): string | null {
-  // 1. Find primary SKILL.md (root-level preferred)
-  const skillFile = files
-    .filter(f => f.path.endsWith('/SKILL.md') || f.path === 'SKILL.md')
-    .sort((a, b) => a.path.split('/').length - b.path.split('/').length)[0];
-
-  if (!skillFile?.content) return null;
-
-  let content = skillFile.content;
-
-  // 2. Strip YAML frontmatter
-  if (content.startsWith('---')) {
-    const endIdx = content.indexOf('---', 3);
-    if (endIdx !== -1) {
-      content = content.slice(endIdx + 3).trim();
-    }
-  }
-
-  // 3. Truncate at sentence boundary within 2000 chars
-  if (content.length > 2000) {
-    const truncated = content.slice(0, 2000);
-    const lastSentence = Math.max(
-      truncated.lastIndexOf('. '),
-      truncated.lastIndexOf('.\n'),
-      truncated.lastIndexOf('.\r\n')
-    );
-    content = lastSentence > 0 ? truncated.slice(0, lastSentence + 1) : truncated;
-  }
-
-  // 4. Sanitize (strip HTML tags, prevent injection)
-  content = DOMPurify.sanitize(content, { ALLOWED_TAGS: [] });
-
-  return content || null;
+    if [[ -f "$script_path" && -x "$script_path" ]]; then
+        echo "  Running post-install hook..."
+        if ! (cd "$pack_dir" && timeout 30 "$script_path" 2>&1); then
+            echo "  ⚠ Post-install hook failed (non-blocking)" >&2
+        fi
+    fi
 }
 ```
 
-### 4.4 Showcases API (FR6) — NEW: `routes/showcases.ts` or in `packs.ts`
-
-Given the small surface area, add to existing `packs.ts` router.
-
-#### 4.4.1 `POST /v1/packs/:slug/showcases`
-
-**Auth**: `requireAuth()`
-
-```typescript
-const createShowcaseSchema = z.object({
-  title: z.string().min(1).max(200),
-  url: z.string().url().max(2000),
-  description: z.string().max(500).optional(),
-});
-```
-
-Sanitize `description` before storage. Set `approved: false`, `submitted_by: userId`.
-
-#### 4.4.2 `PATCH /v1/packs/:slug/showcases/:id/approve`
-
-**Auth**: `requireAuth()` + `isPackOwner() || isAdmin()` — pack owner or admin can approve.
-
-```typescript
-// Toggle approval
-await db.update(constructShowcases)
-  .set({ approved: true })
-  .where(eq(constructShowcases.id, showcaseId));
-```
-
-This gives pack owners control over what appears on their construct's page. Admins can moderate across all packs.
-
-#### 4.4.3 `GET /v1/packs/:slug/showcases`
-
-**Auth**: `optionalAuth()`
-Returns only `approved: true` showcases for public requests. Pack owners see all (including pending). Ordered by `created_at DESC`.
+**Security constraints**:
+- Path traversal prevention via `realpath` comparison
+- 30-second timeout
+- Executes in pack directory context
+- Non-blocking — failure is a warning, not an error
 
 ---
 
-## 5. Explorer Changes
+## 3. Data Flow
 
-### 5.1 Transport Layer — `APIConstruct` type update
+### Before (Current)
 
-Add to `APIConstruct` interface in `transform-construct.ts`:
-
-```typescript
-// New fields (all optional for backwards compat)
-forked_from?: { slug: string; name: string } | null;
-fork_count?: number;
-skill_prose?: string | null;
-showcases?: Array<{ id: string; title: string; url: string; description: string | null }>;
+```
+construct.yaml (30 fields)
+  → seed-forge-packs.ts (reads YAML)
+    → manual extraction (7 fields)
+      → pack_versions.manifest (7-field JSON)
+        → API response (7 fields)
 ```
 
-Add to `ConstructDetail` (camelCase):
+### After (Phase 1)
 
-```typescript
-forkedFrom: { slug: string; name: string } | null;
-forkCount: number;
-skillProse: string | null;
 ```
-
-### 5.2 Diagnostic Language (FR3) — `page.tsx:128-130`
-
-Replace the "Level" stat block:
-
-```tsx
-// BEFORE:
-<div className="border border-white/10 p-3">
-  <p className="text-white/40 mb-1">Level</p>
-  <p className="text-white capitalize">{construct.graduationLevel}</p>
-</div>
-
-// AFTER:
-<div className="border border-white/10 p-3">
-  <p className="text-white text-sm">
-    {diagnosticLabel(construct.graduationLevel)}
-  </p>
-</div>
+construct.yaml (30 fields)
+  → seed-forge-packs.ts (reads YAML)
+    → Zod validation (packManifestSchema)
+      → pack_versions.manifest (full JSON) + content_hash
+        → API response (full fields — no API changes needed)
+        → golden-path.sh reads detect_state, executes script
+        → construct-workflow-read.sh reads workflow.gates (already works)
 ```
-
-Helper function (in same file or extracted to utils):
-
-```typescript
-function diagnosticLabel(maturity: string): string {
-  switch (maturity) {
-    case 'experimental':
-      return 'Experimental — needs README + 7 days for beta';
-    case 'beta':
-      return 'Beta — needs CHANGELOG + no critical issues for stable';
-    case 'stable':
-      return 'Stable';
-    case 'deprecated':
-      return 'Deprecated';
-    default:
-      return 'Experimental — needs README + 7 days for beta';
-  }
-}
-```
-
-### 5.3 SKILL.md Prose Rendering (FR4) — `page.tsx`
-
-Above the existing identity section (line ~139), add:
-
-```tsx
-{construct.skillProse && (
-  <div className="mb-8">
-    <ReactMarkdown
-      remarkPlugins={[remarkGfm]}
-      rehypePlugins={[rehypeSanitize]}
-    >
-      {construct.skillProse}
-    </ReactMarkdown>
-  </div>
-)}
-```
-
-Dependencies: `react-markdown`, `remark-gfm`, `rehype-sanitize` (check if already in `explorer/package.json`).
-
-Falls back to existing `description` display when `skillProse` is null.
-
-### 5.4 Fork Celebration (FR5) — `page.tsx`
-
-Add near the maturity diagnostic:
-
-```tsx
-{construct.forkedFrom && (
-  <Link href={`/constructs/${construct.forkedFrom.slug}`}
-    className="text-sm text-amber-400/80 hover:text-amber-400">
-    Forked from {construct.forkedFrom.name}
-  </Link>
-)}
-
-{construct.forkCount > 0 && (
-  <p className="text-sm text-white/40">
-    {construct.forkCount} variant{construct.forkCount !== 1 ? 's' : ''} exist
-  </p>
-)}
-```
-
-On browse cards (construct list), show fork count as a small badge if > 0.
-
-### 5.5 Accuracy Display (Sprint 3) — `page.tsx`
-
-New section below showcases:
-
-```tsx
-{accuracy && accuracy.sufficient_data && (
-  <div className="border border-white/10 p-4">
-    <h3 className="text-white/60 text-sm mb-3">Signal Accuracy</h3>
-    <div className="grid grid-cols-3 gap-3">
-      <Stat label="Weighted κ" value={accuracy.weighted_kappa.toFixed(2)} />
-      <Stat label="Coverage" value={`${(accuracy.coverage * 100).toFixed(0)}%`} />
-      <Stat label="Sample" value={accuracy.sample_size} />
-    </div>
-    {accuracy.warnings.length > 0 && (
-      <div className="mt-2 text-amber-400/60 text-xs">
-        {accuracy.warnings.map(w => <p key={w}>{w}</p>)}
-      </div>
-    )}
-  </div>
-)}
-```
-
-Data fetched via `GET /v1/signals/accuracy/${slug}` in `fetchConstruct()`.
 
 ---
 
-## 6. Service Layer Detail
+## 4. Migration Strategy
 
-### 6.1 `services/signals.ts` (NEW)
+### Step 1: Dry-Run Validation
+Run `seed-forge-packs.ts --dry-run` against all 10 construct repos. Fix any manifests that fail Zod validation BEFORE deploying.
 
-```typescript
-export async function createSignalOutcome(params: {
-  packId: string;
-  signalType: string;
-  signalSource: string;
-  signalSourceUrl?: string;
-  predictedImpact: string;
-  recordedBy: string;
-}): Promise<SignalOutcome>;
+### Step 2: Deploy Seed Script
+Update script, add 4 new GIT_CONFIGS entries, run against production DB.
 
-export async function evaluateSignalOutcome(params: {
-  outcomeId: string;
-  actualImpact: string;
-  outcomeSummary?: string;
-  outcomeEvidence?: string;
-  evaluatedBy: string;
-}): Promise<SignalOutcome>;
+### Step 3: Deploy CLI Changes
+Update golden-path.sh and constructs-install.sh.
 
-export async function listOutcomes(
-  packId: string,
-  opts: { includeEvidence: boolean; page: number; perPage: number }
-): Promise<{ outcomes: SignalOutcome[]; total: number; evaluated: number }>;
-
-export async function computeAccuracy(packId: string): Promise<AccuracyReport>;
-```
-
-### 6.2 `services/constructs.ts` modifications
-
-#### 6.2.1 `RELEVANCE_WEIGHTS.downloads` change (FR7)
-
-```typescript
-// Before:
-downloads: 0.3,
-
-// After:
-downloads: 0.1,
-```
-
-No other changes to the scoring function. The log-scale formula at lines 219-222 remains the same, just with reduced weight.
-
-#### 6.2.2 `Construct` interface additions
-
-```typescript
-// Add to existing Construct interface:
-forkedFrom: { slug: string; name: string } | null;
-forkCount: number;
-skillProse: string | null;
-```
-
-#### 6.2.3 `packToConstruct` mapping additions (~line 411)
-
-Add fork and prose fields to the mapping function. The fork parent lookup is a separate query only for single-construct detail fetches (not list queries, to avoid N+1).
-
-For list queries: `forkedFrom: null, forkCount: 0, skillProse: null` (lightweight defaults).
-For detail queries: actual FK join + count subquery.
+### Step 4: Verify End-to-End
+- `/constructs browse` shows 10 packs
+- `/constructs install herald` succeeds
+- `/constructs install the-easel` succeeds
+- `/loa` shows construct journey bars with `●` position indicator
+- Explorer detail page shows golden_path, workflow, events, domain, expertise fields
 
 ---
 
-## 7. Documentation Changes
+## 5. Testing Strategy
 
-### 7.1 `docs/GRADUATION.md` (FR7)
-
-**Before** (lines 23, 34):
-```
-experimental → beta: 10+ downloads, README present, 7+ days
-beta → stable: 100+ downloads, test coverage, 30+ days
-```
-
-**After**:
-```
-experimental → beta: 7+ days since creation, README present (≥200 words), at least 1 SKILL.md file
-beta → stable: 30+ days at beta, CHANGELOG present, no open issues labeled `critical` or `breaking`
-```
-
-### 7.2 Certificate Rename (FR8)
-
-Comment-only changes (identifiers are already generic):
-
-| File | Line | Before | After |
-|------|------|--------|-------|
-| `schema.ts` | 1171 | `CalibrationCertificate` in JSDoc | `VerificationCertificate` |
-| `0005_construct_verifications.sql` | 77 | `CalibrationCertificate` in SQL COMMENT | `VerificationCertificate` |
-
-Documentation grep-and-replace across:
-- `grimoires/bridgebuilder/echelon-integration-gaps.md` (~14 occurrences)
-- `grimoires/bridgebuilder/observer-laboratory-success-case.md` (~9 occurrences)
-- `grimoires/bridgebuilder/rd-synthesis-behavioral-measurement.md` (~5 occurrences)
+| Test | Type | Validates |
+|------|------|-----------|
+| Zod validation of all 10 construct.yaml files | Unit | F1.1 — no manifest regressions |
+| Seed script dry-run against prod clone | Integration | F1.1 — full manifest stored |
+| Content hash determinism | Unit | F1.1 — same input = same hash |
+| `golden_detect_construct_journeys` with mock detect_state | Unit | F1.3 — position indicator |
+| detect_state timeout handling | Unit | F1.3 — slow scripts don't block |
+| Post-install hook path traversal rejection | Unit | F1.4 — security enforced |
+| Post-install hook timeout handling | Unit | F1.4 — slow hooks don't block |
+| The Easel skills have zero cyberpunk references | Audit | F1.5 — domain-agnostic |
+| The Easel context slots have sensible defaults | Audit | F1.5 — works without config |
+| Full install → `/loa` → journey bar flow | E2E | All features integrated |
 
 ---
 
-## 8. Security Architecture
+## 6. Files Modified
 
-### 8.1 Authentication & Authorization
+| File | Change Type | Description |
+|------|------------|-------------|
+| `scripts/seed-forge-packs.ts` | Modified | Full manifest extraction, 4 new GIT_CONFIGS entries, content hash, dry-run mode |
+| `.claude/scripts/golden-path.sh` | Modified | detect_state activation in `golden_detect_construct_journeys()` |
+| `.claude/scripts/constructs-install.sh` | Modified | Post-install hook execution after extraction |
+| `construct-the-easel/` (new repo) | Created | 4 generalized skills, construct.yaml v3, identity, empty templates |
 
-| Endpoint | Auth | Ownership Check |
-|----------|------|-----------------|
-| `POST /v1/packs/:slug/signals/outcomes` | `requireAuth()` | `isPackOwner(pack.id, userId)` |
-| `PATCH /v1/packs/:slug/signals/outcomes/:id` | `requireAuth()` | `(isPackOwner() OR isAdmin())` AND `userId !== outcome.recordedBy` |
-| `GET /v1/packs/:slug/signals/outcomes` | `optionalAuth()` | None (public summaries) |
-| `GET /v1/packs/:slug/signals/outcomes/detail` | `requireAuth()` | `isPackOwner()` |
-| `GET /v1/packs/:slug/signals/accuracy` | `optionalAuth()` | None (public aggregates, cached 10min) |
-| `POST /v1/packs/:slug/showcases` | `requireAuth()` | None (any authenticated user) |
-| `PATCH /v1/packs/:slug/showcases/:id/approve` | `requireAuth()` | `isPackOwner() OR isAdmin()` |
-| `GET /v1/packs/:slug/showcases` | `optionalAuth()` | None (approved only; owner sees all) |
-
-### 8.2 Input Sanitization
-
-All user-supplied text fields sanitized before DB storage:
-
-| Field | Sanitization | Library |
-|-------|-------------|---------|
-| `outcome_summary` | Strip HTML tags | `isomorphic-dompurify` |
-| `outcome_evidence` | URL validation (stored privately) | Zod `.url()` |
-| `skill_prose` | Strip HTML tags, strip frontmatter | `isomorphic-dompurify` |
-| `showcase.description` | Strip HTML tags | `isomorphic-dompurify` |
-| `showcase.url` | URL validation | Zod `.url()` |
-
-### 8.3 Rate Limiting
-
-| Endpoint | Limit | Per |
-|----------|-------|-----|
-| `POST /v1/packs/:slug/signals/outcomes` | 50/hour | User |
-| `POST /v1/packs/:slug/showcases` | 20/hour | User |
-
-Implementation: follows existing pattern from `checkSyncRateLimit()` in `packs.ts` — count recent records by user within time window via raw SQL.
-
-### 8.4 Data Privacy
-
-- `outcome_evidence` is NEVER returned in public endpoints
-- Public endpoints return `outcome_summary` only (free-text, sanitized)
-- Accuracy endpoint returns aggregated statistics, never individual outcomes
-- No PII in any new public response fields
+**No changes to**:
+- `packages/shared/src/types.ts` — types already declare all fields
+- `packages/shared/src/validation.ts` — Zod schema already validates all fields
+- `apps/api/src/routes/constructs.ts` — API already destructures from manifest JSONB
+- `apps/api/src/db/schema.ts` — `content_hash` column already exists
+- `apps/explorer/` — explorer already renders fields when present in API response
 
 ---
 
-## 9. Testing Strategy
-
-### 9.1 Unit Tests
-
-| Component | Tests |
-|-----------|-------|
-| `extractSkillProse()` | Frontmatter stripping, sentence boundary, XSS vector sanitization, null SKILL.md |
-| `computeAccuracy()` | Confusion matrix, kappa computation, guardrail thresholds, empty data |
-| `buildWarnings()` | Sample size < 20, coverage < 50%, self-eval > 50% |
-| `diagnosticLabel()` | All 4 maturity levels + unknown fallback |
-
-### 9.2 Integration Tests
-
-| Endpoint | Test Cases |
-|----------|------------|
-| `POST /v1/packs/:slug/signals/outcomes` | Happy path, non-owner 403, rate limit 429, duplicate signal 409 |
-| `PATCH /v1/packs/:slug/signals/outcomes/:id` | Happy path, self-evaluation blocked 403, single-maintainer self-eval allowed with flag |
-| `GET /v1/signals/accuracy/:slug` | Sufficient data, insufficient data, no data, warnings |
-| `POST /packs/fork` | Verify `forked_from` set on new pack |
-| `POST /packs/:slug/sync` | Verify `skill_prose` extracted and sanitized |
-| `GET /v1/constructs/:slug` | Verify `forked_from` and `fork_count` in response |
-
-### 9.3 Security Tests
-
-- Attempt XSS payload in `outcome_summary` → verify sanitized
-- Attempt HTML in `skill_prose` SKILL.md → verify stripped
-- Attempt to evaluate own prediction → verify 403
-- Attempt to read `outcome_evidence` via public endpoint → verify absent
-
----
-
-## 10. Deployment & Migration
-
-### 10.1 Migration Rollout
-
-1. Run `0006_measurement_honesty.sql` on staging Supabase
-2. Verify all existing queries still work (additive changes only)
-3. Deploy API with new schema code
-4. Run migration on production
-5. Deploy Explorer with new components
-
-### 10.2 Rollback
-
-All changes are additive. Rollback = revert code, columns remain unused. No data migration needed.
-
-### 10.3 Dependencies
-
-| Dependency | Status | Action |
-|-----------|--------|--------|
-| Migration 0005 (construct_verifications) | Verify in production | Check before running 0006 |
-| `isomorphic-dompurify` | Not in current deps | Add to `apps/api/package.json` |
-| `react-markdown` + `rehype-sanitize` | Check Explorer deps | Add if not present |
-| Drizzle migration tooling | Working | Generate migration from schema diff |
-
----
-
-## 11. Sprint Mapping
-
-### Sprint 1: Measurement Foundation (P0)
-
-| Task | Files Modified | New Files |
-|------|---------------|-----------|
-| Migration 0006 | `schema.ts` | `drizzle/0006_measurement_honesty.sql` |
-| Signal outcomes API | `packs.ts` (mount router) | `routes/signals.ts`, `services/signals.ts` |
-| Fork provenance | `packs.ts:1709`, `constructs.ts` (interface + mapping) | — |
-| Kill download graduation | `constructs.ts:142`, `docs/GRADUATION.md` | — |
-
-### Sprint 2: Explorer Reality (P1)
-
-| Task | Files Modified | New Files |
-|------|---------------|-----------|
-| Diagnostic language | `page.tsx:128-130` | — |
-| SKILL.md prose | `packs.ts` (sync), `page.tsx`, `transform-construct.ts` | Util: `extractSkillProse.ts` |
-| Fork celebration | `page.tsx`, `transform-construct.ts`, browse cards | — |
-| Certificate rename | `schema.ts:1171`, `0005_...sql:77`, 3 grimoire files | — |
-
-### Sprint 3: Visible Craft (P2)
-
-| Task | Files Modified | New Files |
-|------|---------------|-----------|
-| Showcases API | `packs.ts` (new routes) | — |
-| Explorer Built With | `page.tsx` | — |
-| Accuracy display | `page.tsx`, `fetch-constructs.ts` | — |
-
----
-
-## 12. Technical Risks & Mitigation
-
-| Risk | Severity | Mitigation |
-|------|----------|------------|
-| `isomorphic-dompurify` requires `jsdom` in Node.js | Low | Well-established pattern; alternative: `sanitize-html` |
-| Weighted kappa with sparse data produces unstable values | Medium | Only compute when n ≥ 20; show "insufficient data" otherwise |
-| Fork count N+1 on list queries | Low | Only compute fork count on detail page, not list. List shows boolean `is_fork` only |
-| `skill_prose` adds ~2KB per sync | Low | Only stored on `packs` table row; no separate file storage needed |
-| Migration 0006 lock on `packs` table during ALTER | Medium | Nullable ALTER TABLE is `ACCESS EXCLUSIVE` but instant on Postgres 11+; no data rewrite needed |
-
----
-
-## 13. Flatline Review Integration
-
-**Review ID**: flatline-sdd-20260222
-**Models**: Opus + GPT-5.2 | **Confidence**: FULL (90% agreement) | **Cost**: 62¢
-
-### HIGH_CONSENSUS Integrated (4)
-
-| ID | Finding | Integration |
-|----|---------|-------------|
-| IMP-001 | Missing TS interfaces for AccuracyReport/SignalOutcome | Added §4.1.8 with full interface definitions |
-| IMP-002 | Accuracy computation needs caching | Added §4.1.7 with Redis TTL 10min + invalidation on evaluation write |
-| IMP-003 | Evaluator authorization gap | Added explicit auth rules: isPackOwner OR isAdmin, not just "any user" |
-| IMP-006 | Showcase approval has no mechanism | Added PATCH approve endpoint with pack owner/admin auth |
-
-### DISPUTED Resolved (1)
-
-| ID | Finding | Resolution |
-|----|---------|-----------|
-| IMP-010 | Backfill historical fork provenance | Accepted as documented decision: NO backfill. Documented rationale in §3.1.1 |
-
-### BLOCKERS Addressed (5)
-
-| ID | Concern | Resolution |
-|----|---------|-----------|
-| SKP-001 (900) | constructSlug vs pack_slug path ambiguity | All signal endpoints now pack-scoped: `/v1/packs/:slug/signals/*` |
-| SKP-001 (850) | Self-evaluation bypass undermines premise | Self-evaluated outcomes excluded from kappa (weight=0), displayed separately, warning at 20% |
-| SKP-002 (750) | No caching for accuracy | Covered by IMP-002: Redis cache with 10min TTL |
-| SKP-002 (740) | Uniqueness constraint too coarse | Changed to `UNIQUE(pack_id, signal_type, signal_source)` |
-| SKP-003 (950) | Any auth user can evaluate | Covered by IMP-003: restricted to pack owner + admin |
-
----
-
-*"The architecture serves the measurement. The measurement serves the maker."*
+*"The data was always there. The pipe was just too narrow."*
