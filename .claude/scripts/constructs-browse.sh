@@ -292,10 +292,26 @@ cmd_list() {
     fi
 
     if [[ "$json_output" == true ]]; then
+        # Explicit --json flag always wins (backwards compat)
         format_packs_json "$packs_json"
     else
-        format_packs_human "$packs_json"
+        # Build flat tabular JSON for TOON/json modes
+        local toon_json
+        toon_json=$(echo "$packs_json" | jq '[
+            .data[]? | {
+                slug: .slug,
+                name: .name,
+                skills: (.skills_count // (.manifest.skills | length?) // 0),
+                version: (.latest_version.version // .version // "1.0.0"),
+                tier: (.tier_required // .tier // "free")
+            }
+        ]' 2>/dev/null)
+        # Route: toon→TOON encoder, json→raw JSON, md→format_packs_human
+        format_tabular_output "packs" "$toon_json" "$packs_json" "format_packs_human"
     fi
+
+    # Append CTAs if enabled
+    emit_cta "browse"
 }
 
 cmd_info() {

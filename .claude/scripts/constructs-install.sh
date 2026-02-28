@@ -809,6 +809,9 @@ PYEOF
         done
     fi
 
+    # Append CTAs if enabled (cycle-037)
+    emit_cta "install" "$pack_slug"
+
     return $EXIT_SUCCESS
 }
 
@@ -2015,7 +2018,7 @@ do_status_pack() {
     registry_url=$(get_registry_url)
 
     if [[ -n "$pack_slug" ]]; then
-        # Single pack status
+        # Single pack status — always use detailed format
         show_pack_status "$pack_slug" "$meta_path" "$registry_url"
     else
         # All installed packs
@@ -2026,17 +2029,85 @@ do_status_pack() {
             return $EXIT_SUCCESS
         fi
 
-        echo "Construct Status"
-        echo "════════════════════════════════════════"
-        echo ""
+        local fmt
+        fmt=$(get_output_format)
 
-        while IFS= read -r slug; do
-            show_pack_status "$slug" "$meta_path" "$registry_url"
+        if [[ "$fmt" == "toon" || "$fmt" == "json" ]]; then
+            # Collect all pack data into JSON array for TOON/json routing
+            local status_json="[]"
+            while IFS= read -r slug; do
+                local lv rv sl
+                lv=$(jq -r ".installed_packs[\"$slug\"].version // \"unknown\"" "$meta_path" 2>/dev/null)
+                local lh
+                lh=$(jq -r ".installed_packs[\"$slug\"].content_hash // \"\"" "$meta_path" 2>/dev/null)
+
+                # Fetch registry version (non-blocking)
+                rv="unknown"
+                local tmp_file
+                tmp_file=$(mktemp)
+                chmod 600 "$tmp_file"
+                local http_code
+                http_code=$(curl -s -w "%{http_code}" \
+                    --proto =https --tlsv1.2 --max-time 10 \
+                    "${registry_url}/constructs/${slug}" \
+                    -o "$tmp_file" 2>/dev/null) || http_code="000"
+                if [[ "$http_code" == "200" ]]; then
+                    rv=$(jq -r '.data.version // .data.latest_version.version // "unknown"' "$tmp_file" 2>/dev/null)
+                fi
+                rm -f "$tmp_file"
+
+                # Determine status label
+                sl="UNKNOWN"
+                if [[ -z "$lh" ]]; then
+                    if [[ "$lv" == "$rv" && "$rv" != "unknown" ]]; then sl="UNKNOWN"; else sl="BEHIND"; fi
+                else
+                    sl="SYNCED"
+                    if [[ "$lv" != "$rv" && "$rv" != "unknown" ]]; then sl="BEHIND"; fi
+                fi
+
+                status_json=$(echo "$status_json" | jq --arg s "$slug" \
+                    --arg v "$lv" --arg rv "$rv" --arg st "$sl" \
+                    '. += [{"slug":$s,"local":$v,"registry":$rv,"status":$st}]')
+            done <<< "$slugs"
+
+            format_tabular_output "status" "$status_json" "$status_json" "_show_all_packs_md"
+        else
+            # Default markdown: use existing per-pack output
+            echo "Construct Status"
+            echo "════════════════════════════════════════"
             echo ""
-        done <<< "$slugs"
+
+            while IFS= read -r slug; do
+                show_pack_status "$slug" "$meta_path" "$registry_url"
+                echo ""
+            done <<< "$slugs"
+        fi
     fi
 
+    # Append CTAs if enabled
+    emit_cta "status"
+
     return $EXIT_SUCCESS
+}
+
+# Markdown fallback for format_tabular_output when showing all pack status
+# Args: $1 = JSON array of status objects (unused — re-renders from meta)
+_show_all_packs_md() {
+    local meta_path
+    meta_path=$(get_registry_meta_path)
+    local registry_url
+    registry_url=$(get_registry_url)
+
+    echo "Construct Status"
+    echo "════════════════════════════════════════"
+    echo ""
+
+    local slugs
+    slugs=$(jq -r '.installed_packs | keys[]' "$meta_path" 2>/dev/null)
+    while IFS= read -r slug; do
+        show_pack_status "$slug" "$meta_path" "$registry_url"
+        echo ""
+    done <<< "$slugs"
 }
 
 # Show status for a single pack

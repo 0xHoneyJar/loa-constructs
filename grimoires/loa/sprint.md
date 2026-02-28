@@ -1,75 +1,121 @@
-# Sprint Plan: Distribution Layer Phase 3 — Cross-Platform & Navigation
+# Sprint Plan: Agent-Native Output Protocol — TOON, CTAs, Lazy-Loading Contract
 
-**Cycle**: cycle-036 (Phase 3)
-**SDD**: `grimoires/loa/sdd.md` (Phase 3 Cross-Platform & Navigation)
-**Branch**: `feat/cycle-036-distribution-layer`
-**Depends on**: Phase 1 (merged to feature branch), Phase 2 (merged to feature branch)
-
----
-
-## Sprint 1: Content-Hash Staleness Detection (3 tasks)
-
-### T1.1: Add compute_pack_hash() function
-**File**: `.claude/scripts/constructs-install.sh`
-**Change**: Add function that computes Merkle-root SHA-256 of all pack files (same algorithm as API)
-**AC**: Function returns consistent hash for same file set
-
-### T1.2: Store content_hash in .constructs-meta.json at install time
-**File**: `.claude/scripts/constructs-install.sh`
-**Change**: Call `compute_pack_hash()` in `update_pack_meta()`, write `content_hash` field
-**AC**: After `constructs-install.sh pack <slug>`, meta file has `content_hash` for installed pack
-
-### T1.3: Compare local vs registry hash in status command
-**File**: `.claude/scripts/constructs-install.sh`
-**Change**: In `show_pack_status()`, read local `content_hash` from meta and compare against registry hash (already fetched). Show SYNCED/DIVERGED/BEHIND/UNKNOWN indicators.
-**AC**: `constructs-install.sh status` shows hash comparison results
+**Cycle**: cycle-037
+**PRD**: `grimoires/loa/prd.md`
+**SDD**: `grimoires/loa/sdd.md`
+**Branch**: `feat/cycle-037-agent-native-output`
 
 ---
 
-## Sprint 2: Standalone Audit (2 tasks)
+## Sprint 1: TOON Encoder + Output Format Routing (5 tasks)
 
-### T2.1: Add --standalone flag to validate-skills.sh
-**File**: `.claude/scripts/validate-skills.sh`
-**Change**: Add audit that checks SKILL.md files for:
-1. `{context:...}` slots without documented defaults
-2. Hard reads from grimoires/ without guards
-3. Pack-level file references as runtime deps
-Report PASS/WARN/FAIL per skill with actionable details.
-**AC**: `validate-skills.sh --standalone` reports on all installed skills
+### T1.1: Create `toon-lib.sh` encoder library
+**File**: `.claude/scripts/lib/toon-lib.sh` (NEW)
+**Change**: Implement `toon_detect_uniform()` and `toon_encode_tabular()` per SDD §2.1. Handle empty arrays (`label[0]{}:`), non-uniform arrays (return 1), and standard tabular encoding.
+**AC**:
+- `toon_detect_uniform '[]'` returns 1 (empty handled in encoder)
+- `toon_detect_uniform '[{"a":1,"b":2},{"a":3,"b":4}]'` returns `a,b`
+- `toon_detect_uniform '[{"a":1},{"b":2}]'` returns 1
+- `toon_encode_tabular "packs" '[{"slug":"artisan","skills":14}]'` outputs `packs[1]{slug,skills}:\n  artisan,14`
+- `toon_encode_tabular "test" '[]'` outputs `test[0]{}:`
 
-### T2.2: Standardize Required Context headers in construct pack skills
-**Files**: `.claude/constructs/packs/*/skills/*/SKILL.md` (23 skills with context slots)
-**Change**: Ensure each skill using `{context:...}` has a standardized Required Context header documenting needed keys, purpose, and standalone degradation behavior.
-**AC**: All 23 context-slot skills have documented defaults; `validate-skills.sh --standalone` shows 0 WARN
+### T1.2: Add `get_output_format()` to `constructs-lib.sh`
+**File**: `.claude/scripts/constructs-lib.sh` (MODIFY)
+**Change**: Add `get_output_format()` function per SDD §2.2. Reads `output_format.tabular` from `.loa.config.yaml`, validates enum (`md|toon|json`), defaults to `md`.
+**AC**: Returns `md` when config missing, `md` when key missing, `toon` when set to `toon`, `md` when set to invalid value.
 
----
+### T1.3: Add `format_tabular_output()` to `constructs-lib.sh`
+**File**: `.claude/scripts/constructs-lib.sh` (MODIFY)
+**Change**: Add `format_tabular_output()` router per SDD §2.2. Takes label, tabular JSON, original payload, fallback function. Routes to TOON encoder / JSON / fallback based on config.
+**AC**:
+- With `output_format.tabular: md` → calls fallback with original payload
+- With `output_format.tabular: toon` → outputs TOON format
+- With `output_format.tabular: toon` + non-uniform data → falls back to fallback with original payload
+- With `output_format.tabular: json` → outputs formatted JSON
 
-## Sprint 3: Per-Invocation CTAs (2 tasks)
+### T1.4: Integrate TOON in `constructs-browse.sh`
+**File**: `.claude/scripts/constructs-browse.sh` (MODIFY)
+**Change**: In `cmd_list()`, build flat tabular JSON and route through `format_tabular_output()` per SDD §3.1. Preserve `--json` flag precedence.
+**AC**:
+- Default config (`md`): Output byte-identical to pre-change behavior
+- `output_format.tabular: toon`: Pack listing renders as TOON table
+- `--json` flag: Still works regardless of config
 
-### T3.1: Add ## Next Steps to skills that lack them
-**Files**: `.claude/constructs/packs/*/skills/*/SKILL.md`
-**Change**: Add `## Next Steps` output section to multi-pack skills that don't already have one. Each section lists 2-3 logical next commands from the same pack + `/loa` fallback.
-**AC**: All skills in multi-skill packs have Next Steps sections
-
-### T3.2: End-to-end validation
-**Validation steps**:
-1. Verify `validate-skills.sh --standalone` passes
-2. Verify `bash -n` on all modified scripts
-3. Verify content_hash field present in meta schema
-4. Verify existing install/browse/sync commands unaffected
-**AC**: All features work, no regressions
-
----
-
-## Task Summary
-
-| Sprint | Tasks | Files | Est. Lines |
-|--------|-------|-------|-----------:|
-| 1 | 3 | 1 modified (constructs-install.sh) | ~60 |
-| 2 | 2 | 1 modified + ~23 SKILL.md updates | ~80 + docs |
-| 3 | 2 | ~15 SKILL.md updates + validation | docs |
-| **Total** | **7** | **2 scripts + ~38 SKILL.md files** | **~140 + docs** |
+### T1.5: Integrate TOON in `constructs-install.sh` status
+**File**: `.claude/scripts/constructs-install.sh` (MODIFY)
+**Change**: Refactor status command to collect pack data into JSON array, route through `format_tabular_output()` per SDD §3.2. Create `_show_all_packs_md()` wrapper for markdown fallback.
+**AC**:
+- Default config (`md`): Output byte-identical to pre-change behavior
+- `output_format.tabular: toon`: Status renders as TOON table with slug, local, registry, status columns
 
 ---
 
-*"Cross-platform compatibility is not about the lowest common denominator. It's about graceful enrichment — each platform gets the best it can use."*
+## Sprint 2: CTA Protocol + Emission (4 tasks)
+
+### T2.1: Create `skill-cta.md` protocol file
+**File**: `.claude/protocols/skill-cta.md` (NEW)
+**Change**: Write the CTA protocol specification per SDD §2.4. Document format, rules (max 3, truenames only, command-context-based), and enabled commands.
+**AC**: Protocol file exists with Format, Rules, and Enabled Commands sections.
+
+### T2.2: Add `is_cta_enabled()` and `emit_cta()` to `constructs-lib.sh`
+**File**: `.claude/scripts/constructs-lib.sh` (MODIFY)
+**Change**: Implement `is_cta_enabled()` (reads `cta.enabled` from config) and `emit_cta()` (static CTA mapping per command context) per SDD §2.3.
+**AC**:
+- `cta.enabled: false` → `emit_cta` returns immediately (no output)
+- `cta.enabled: true` + context `browse` → outputs `Next:` block with 3 CTAs
+- `cta.enabled: true` + context `install` + pack slug → outputs quick_start CTA if available
+
+### T2.3: Integrate CTAs in browse, status, install
+**Files**: `constructs-browse.sh`, `constructs-install.sh` (MODIFY)
+**Change**: Call `emit_cta "browse"` at end of `cmd_list()`, `emit_cta "status"` at end of status command, `emit_cta "install" "$pack_slug"` at end of install command.
+**AC**:
+- Default config (`cta.enabled: false`): No `Next:` blocks in any output
+- `cta.enabled: true`: All 3 commands append `Next:` block
+
+### T2.4: Add config sections to `.loa.config.yaml`
+**File**: `.loa.config.yaml` (MODIFY)
+**Change**: Add `output_format.tabular: md` and `cta.enabled: false` sections per SDD §2.5.
+**AC**: Config file has both new sections with correct defaults. Existing config unchanged.
+
+---
+
+## Sprint 3: Contract, Types, Hash Refinement (5 tasks)
+
+### T3.1: Add Skill Loading Contract to `runtime-contract.md`
+**File**: `docs/integration/runtime-contract.md` (MODIFY)
+**Change**: Add `## Skill Loading Contract` section per SDD §2.6. Includes session-start behavior, on-demand trigger, token baseline table, output format contract, and defer_loading (marked non-normative).
+**AC**: Section exists with all 5 subsections. `defer_loading` is marked as non-normative future extension.
+
+### T3.2: Add `workflow_next` to `PackManifest` types
+**File**: `packages/shared/src/types.ts` (MODIFY)
+**Change**: Add `workflow_next` optional field to `PackManifest` interface per SDD §2.7.
+**AC**: Field accepts `Array<{construct: string, reason: string, trigger?: string}>`. Existing manifests compile without changes.
+
+### T3.3: Add `workflow_next` Zod schema
+**File**: `packages/shared/src/validation.ts` (MODIFY)
+**Change**: Add `workflowNextSchema` and include in pack manifest Zod schema per SDD §2.7.
+**AC**: Zod validation accepts manifests with and without `workflow_next`. Invalid shapes rejected.
+
+### T3.4: Hash divergence in `constructs-loader.sh` check-updates
+**File**: `.claude/scripts/constructs-loader.sh` (MODIFY)
+**Change**: In `check-updates`, after version comparison, add content hash fetch + comparison per SDD §2.8. Same version + different hash = `DIVERGED`.
+**AC**: `check-updates` reports `DIVERGED` when versions match but content hashes differ.
+
+### T3.5: Update SKILL.md schema documentation
+**File**: `.claude/skills/browsing-constructs/SKILL.md` (MODIFY)
+**Change**: Update `.constructs-meta.json` example to include `content_hash` field per SDD §2.8.
+**AC**: Documentation example shows `content_hash: "sha256:a3f2c1..."` in installed_packs entry.
+
+---
+
+## Verification Checklist
+
+- [ ] `output_format.tabular: md` → all commands produce byte-identical output (snapshot comparison)
+- [ ] `output_format.tabular: toon` → `constructs browse` and `constructs status` produce TOON output
+- [ ] `cta.enabled: false` → no `Next:` blocks anywhere
+- [ ] `cta.enabled: true` → browse, status, install all have `Next:` blocks
+- [ ] `workflow_next` in types.ts compiles
+- [ ] `workflow_next` in validation.ts validates
+- [ ] `runtime-contract.md` has Skill Loading Contract section
+- [ ] `check-updates` detects hash divergence
+- [ ] No `sed -i`, `readlink -f`, `grep -P`, or `timeout` in new code

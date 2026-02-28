@@ -1298,3 +1298,132 @@ update_state_shadow() {
 
     secure_write_json "$state_file" "$updated" "600"
 }
+
+# =============================================================================
+# Output Format Routing (cycle-037, SDD §2.2)
+# =============================================================================
+
+# Read output_format.tabular from config
+# Returns: "md" (default), "toon", or "json"
+get_output_format() {
+    local config_file=".loa.config.yaml"
+    local default="md"
+
+    if [[ ! -f "$config_file" ]] || ! command -v yq &>/dev/null; then
+        echo "$default"
+        return 0
+    fi
+
+    local value
+    value=$(yq eval '.output_format.tabular // "md"' "$config_file" 2>/dev/null) || {
+        echo "$default"
+        return 0
+    }
+
+    # Validate enum
+    case "$value" in
+        md|toon|json) echo "$value" ;;
+        *) echo "$default" ;;
+    esac
+}
+
+# Route tabular output through the configured format
+# Args:
+#   $1 = label (e.g., "packs")
+#   $2 = JSON array of uniform objects (TOON-shaped: flat keys, uniform)
+#   $3 = original payload (passed to fallback_fn unchanged — preserves input contract)
+#   $4 = fallback function name (called when format is "md" or TOON fails)
+# Stdout: formatted output
+format_tabular_output() {
+    local label="$1"
+    local tabular_json="$2"
+    local original_payload="$3"
+    local fallback_fn="$4"
+
+    local fmt
+    fmt=$(get_output_format)
+
+    case "$fmt" in
+        toon)
+            # Source toon-lib if not already loaded
+            local script_dir
+            script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+            if [[ -f "$script_dir/lib/toon-lib.sh" ]]; then
+                # shellcheck source=lib/toon-lib.sh
+                source "$script_dir/lib/toon-lib.sh"
+                toon_encode_tabular "$label" "$tabular_json" && return 0
+            fi
+            # Fallback: TOON failed or lib missing — use original payload
+            "$fallback_fn" "$original_payload"
+            ;;
+        json)
+            echo "$tabular_json" | jq '.'
+            ;;
+        md|*)
+            "$fallback_fn" "$original_payload"
+            ;;
+    esac
+}
+
+# =============================================================================
+# CTA Emission (cycle-037, SDD §2.3)
+# =============================================================================
+
+# Check if CTAs are enabled in config
+# Returns: 0 if enabled, 1 if disabled
+is_cta_enabled() {
+    local config_file=".loa.config.yaml"
+
+    if [[ ! -f "$config_file" ]] || ! command -v yq &>/dev/null; then
+        return 1
+    fi
+
+    local enabled
+    enabled=$(yq eval '.cta.enabled // false' "$config_file" 2>/dev/null) || return 1
+
+    [[ "$enabled" == "true" ]]
+}
+
+# Emit context-sensitive CTA block after command output
+# Args:
+#   $1 = current command context (e.g., "browse", "status", "install")
+#   $2 = pack slug (optional — for pack-specific CTAs)
+# Stdout: Next: block with up to 3 CTAs
+emit_cta() {
+    is_cta_enabled || return 0
+
+    local context="$1"
+    local pack_slug="${2:-}"
+
+    echo ""
+    echo "Next:"
+
+    case "$context" in
+        browse)
+            echo "/constructs install <slug> — Install a construct pack"
+            echo "/constructs status — Check installed pack versions"
+            echo "/loa — View workflow status"
+            ;;
+        status)
+            echo "/constructs browse — Browse available packs"
+            echo "/constructs install <slug> — Install or update a pack"
+            echo "/loa — View workflow status"
+            ;;
+        install)
+            # Post-install: suggest the pack's quick_start if available
+            if [[ -n "$pack_slug" ]]; then
+                local pack_dir
+                pack_dir="$(get_registry_install_dir)/$pack_slug"
+                local quick_cmd=""
+                if [[ -f "$pack_dir/construct.yaml" ]] && command -v yq &>/dev/null; then
+                    quick_cmd=$(yq eval '.quick_start.command // ""' "$pack_dir/construct.yaml" 2>/dev/null)
+                fi
+                if [[ -n "$quick_cmd" ]]; then
+                    echo "$quick_cmd — Get started with $pack_slug"
+                fi
+            fi
+            echo "/constructs status — Verify installation"
+            echo "/loa — View workflow status"
+            ;;
+    esac
+}
