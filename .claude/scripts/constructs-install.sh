@@ -2029,9 +2029,6 @@ do_status_pack() {
             return $EXIT_SUCCESS
         fi
 
-        local fmt
-        fmt=$(get_output_format)
-
         # Collect all pack data into JSON array (shared data collection)
         local status_json="[]"
         while IFS= read -r slug; do
