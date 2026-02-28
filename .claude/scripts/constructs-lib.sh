@@ -1345,12 +1345,15 @@ format_tabular_output() {
 
     case "$fmt" in
         toon)
-            # Source toon-lib if not already loaded
+            # Source toon-lib if not already loaded (guard prevents re-parsing)
             local script_dir
             script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
             if [[ -f "$script_dir/lib/toon-lib.sh" ]]; then
-                # shellcheck source=lib/toon-lib.sh
-                source "$script_dir/lib/toon-lib.sh"
+                if [[ -z "${_TOON_LIB_LOADED:-}" ]]; then
+                    # shellcheck source=lib/toon-lib.sh
+                    source "$script_dir/lib/toon-lib.sh"
+                    _TOON_LIB_LOADED=1
+                fi
                 toon_encode_tabular "$label" "$tabular_json" && return 0
             fi
             # Fallback: TOON failed or lib missing — use original payload
