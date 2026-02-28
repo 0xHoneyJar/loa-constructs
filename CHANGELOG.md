@@ -5,6 +5,41 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.9.0] - 2026-02-28
+
+### Why This Release
+
+Agent-Native Output Protocol — teaching the Constructs Network to speak a second language. TOON encoding for agent context windows, CTA protocol for pull-based command discovery, hash divergence detection, and lazy-loading contract documentation. Bridge reviewed with flatline convergence in 3 iterations.
+
+### Added
+
+#### TOON Encoder (cycle-037)
+
+- **TOON (Token-Oriented Object Notation)** — header+CSV tabular format achieving ~39.6% token reduction for agent consumers (`toon-lib.sh`)
+- **4-arg format router** — `format_tabular_output(label, tabular_json, original_payload, fallback_fn)` separates data shapes to prevent fallback mismatch
+- **Source guard** — `_TOON_LIB_LOADED` prevents re-parsing toon-lib.sh on every invocation
+
+#### CTA Protocol
+
+- **Per-invocation CTA** — `Next:` block with up to 3 context-sensitive command suggestions (`skill-cta.md`)
+- Context-aware: install, status, browse, list contexts emit different CTAs
+
+#### Hash Divergence Detection
+
+- `[DIVERGED]` status when version matches but content hash (Merkle SHA-256) differs
+- Shared status data collection — single fetch pass feeds both TOON and markdown rendering (Monarch pattern)
+
+#### Documentation
+
+- **Lazy-loading contract** (`runtime-contract.md`) — formal spec: skills auto-load on invocation, only index.yaml at session start
+- **`workflow_next` field** — cross-construct navigation hints in PackManifest schema
+
+### Changed
+
+- `do_status_pack()` refactored to shared data collection architecture (bridge review medium-1, medium-2)
+- `_show_all_packs_md()` now renders from pre-collected JSON instead of re-fetching (pure function)
+- PRD, SDD, sprint plan updated for cycle-037
+
 ## [2.8.0] - 2026-02-27
 
 ### Why This Release
