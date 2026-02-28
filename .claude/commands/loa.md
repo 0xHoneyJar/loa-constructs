@@ -359,6 +359,45 @@ options:
    fi
    ```
 
+6. **Feature Hints** (v2.9.0):
+
+   After the health summary and before the journey bar, check for available-but-disabled
+   features and surface them as a one-line hint. This helps users discover new capabilities
+   without requiring them to read changelogs.
+
+   ```bash
+   config_file=".loa.config.yaml"
+   hints=()
+
+   # Check TOON output (agent token optimization)
+   tabular_fmt=$(yq eval '.output_format.tabular // "md"' "$config_file" 2>/dev/null)
+   if [[ "$tabular_fmt" == "md" || -z "$tabular_fmt" ]]; then
+     hints+=("TOON output (output_format.tabular: toon) — ~40% fewer tokens for agent sessions")
+   fi
+
+   # Check CTA protocol
+   cta_enabled=$(yq eval '.cta.enabled // false' "$config_file" 2>/dev/null)
+   if [[ "$cta_enabled" != "true" ]]; then
+     hints+=("Next-step CTAs (cta.enabled: true) — suggested commands after CLI output")
+   fi
+   ```
+
+   **Display rules:**
+   - Show at most 2 hints per `/loa` invocation
+   - Format as a subtle "Available:" line below health, not as warnings
+   - Only show hints for features that exist in the installed version
+   - Once a feature is enabled, its hint disappears automatically
+
+   **Example output:**
+   ```
+   Health: ✓ All systems operational
+   Available: TOON output (~40% fewer tokens) · Next-step CTAs
+              Set in .loa.config.yaml — see .loa.config.yaml.example
+   ```
+
+   Config toggle: `guided_workflow.show_feature_hints: true` (default: true)
+   To disable: set `guided_workflow.show_feature_hints: false` in `.loa.config.yaml`
+
 ## Error Handling
 
 | Error | Resolution |
@@ -388,6 +427,8 @@ The `/loa` command integrates with:
   Loa — Agent-Driven Development
 
   Health: ✓ All systems operational
+  Available: TOON output (~40% fewer tokens) · Next-step CTAs
+             Set in .loa.config.yaml — see .loa.config.yaml.example
   State:  Ready to start
 
   ┌─────────────────────────────────────────────────────┐
@@ -484,6 +525,7 @@ guided_workflow:
   show_progress_bar: true    # Display visual progress
   show_alternatives: true    # Show alternative commands on 'n'
   golden_path: true          # Use golden command suggestions (default: true)
+  show_feature_hints: true   # Surface available-but-disabled features (v2.9.0)
 
 golden_path:
   show_trajectory: true      # Display trajectory narrative in /loa (v1.39.0)

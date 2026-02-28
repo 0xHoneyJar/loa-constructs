@@ -1868,6 +1868,24 @@ qmd_context:
       grep_paths:
         - "grimoires/loa/reality/"
 
+# -----------------------------------------------------------------------------
+# Agent-Native Output (v2.9.0 / cycle-037)
+# -----------------------------------------------------------------------------
+# Controls how CLI commands format tabular output (e.g., constructs status).
+# All options default to OFF — existing output is byte-identical without config.
+output_format:
+  # Tabular encoding: md (default), toon (Token-Oriented Object Notation), json
+  # - md:   Standard markdown tables (human-readable, ~100% token baseline)
+  # - toon: Header+CSV compact format (~39.6% fewer tokens for agent consumers)
+  # - json: Raw JSON array (for scripting/piping)
+  tabular: md
+
+# Call-to-Action protocol — appends "Next:" block with suggested commands
+# after CLI output (e.g., constructs install, constructs status).
+# See .claude/protocols/skill-cta.md for protocol spec.
+cta:
+  enabled: false  # Set to true to show context-sensitive next steps
+
   # Per-skill budget and scope overrides
   # Keys match the --skill argument passed by each SKILL.md integration:
   #   implement      → /implement (implementing-tasks/SKILL.md)
