@@ -327,6 +327,18 @@ export interface PackManifest {
   /** Construct capability tier (#128) */
   tier?: 'L1' | 'L2' | 'L3';
 
+  // === Agent-Native Output fields (cycle-037) ===
+
+  /** Cross-construct navigation hints for CTA protocol */
+  workflow_next?: Array<{
+    /** Slug of suggested next construct */
+    construct: string;
+    /** Why this construct complements the current one */
+    reason: string;
+    /** Workflow state that activates this suggestion (optional) */
+    trigger?: string;
+  }>;
+
   // === Construct Lifecycle fields (FR-1, cycle-032) ===
 
   /** Construct archetype — determines scaffold template and validation rules */

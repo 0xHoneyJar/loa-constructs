@@ -434,11 +434,15 @@ Installation metadata tracked in `.constructs-meta.json`:
   "installed_packs": {
     "observer": {
       "version": "1.0.0",
-      "installed_at": "2026-01-31T12:00:00Z"
+      "content_hash": "sha256:a3f2c1...",
+      "installed_at": "2026-01-31T12:00:00Z",
+      "source_type": "git"
     }
   }
 }
 ```
+
+The `content_hash` field (added in cycle-036) is a Merkle-root SHA-256 of all pack files, computed at install time by `compute_pack_hash()`. Used for staleness detection: `[SYNCED]` when hashes match, `[DIVERGED]` when local files differ from registry.
 
 ## Related Scripts
 

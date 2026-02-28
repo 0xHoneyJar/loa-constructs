@@ -1644,3 +1644,19 @@ run_bridge:
       - sprint
   defaults:
     timeout_hours: 24
+
+# =============================================================================
+# Output Format (cycle-037)
+# =============================================================================
+# Tabular CLI output encoding for agent consumption
+# Values: md (default — markdown tables), toon (Token-Oriented Object Notation), json
+output_format:
+  tabular: md
+
+# =============================================================================
+# Call-to-Action Navigation (cycle-037)
+# =============================================================================
+# When enabled, CLI commands append a "Next:" block with suggested next steps
+# See .claude/protocols/skill-cta.md for protocol spec
+cta:
+  enabled: false

@@ -451,6 +451,58 @@ When features are disabled (default), runtimes should:
 - **Context Editing**: Standard context management (no compaction signals)
 - **Memory**: Ignore memory directory (file operations are optional)
 
+## Skill Loading Contract
+
+> **Source**: cycle-037 PRD FR-3, SDD §2.6
+> **Status**: Normative
+
+### Session-Start Behavior
+
+At session start, the runtime loads ONLY lightweight metadata:
+
+1. `CLAUDE.loa.md` framework instructions (skill command table)
+2. Pack `index.yaml` files (name, description, capabilities per skill)
+
+Full `SKILL.md` files are NOT loaded at session start. This is the optimal pattern for token efficiency — loading all skill bodies eagerly wastes context window capacity on instructions the agent may never need.
+
+### On-Demand Loading Trigger
+
+When the agent decides to invoke a skill:
+
+1. Runtime reads the full `SKILL.md` for that skill
+2. Skill body is injected into the agent's context
+3. Skill executes with full instructions available
+4. Subsequent invocations of the same skill reuse the already-loaded body
+
+### Token Baseline
+
+| Component | Approximate Size | Notes |
+|-----------|-----------------|-------|
+| Skill entry in command table | ~40 tokens/skill | Name + description in CLAUDE.loa.md |
+| Full SKILL.md body | ~300-2000 tokens/skill | Varies by skill complexity |
+| index.yaml metadata | ~50 tokens/skill | Capabilities, model_tier, etc. |
+
+**Session-start cost** (49 skills): ~2,000 tokens (index only)
+**Eager loading cost** (49 skills): ~15,000-100,000 tokens (wasteful)
+
+### Output Format Contract
+
+When `output_format.tabular` is configured in `.loa.config.yaml`:
+
+| Value | Behavior |
+|-------|----------|
+| `md` (default) | Markdown tables and plain-text labels |
+| `toon` | TOON tabular encoding (header + CSV rows) |
+| `json` | Raw JSON array output |
+
+Runtimes SHOULD respect this config when rendering tabular data from CLI commands (`constructs browse`, `constructs status`).
+
+### Defer Loading (Non-Normative — Future Extension)
+
+> **Note**: This section documents a future capability. The `defer_loading` config key exists but is not implemented in any runtime as of cycle-037. Runtimes are not expected to implement this behavior yet.
+
+When `defer_loading: true` is set in `.loa.config.yaml`, the runtime MAY defer even `index.yaml` loading until a skill discovery command (`/constructs browse`, `/loa`) is invoked. This further reduces session-start token cost at the expense of requiring an explicit discovery step.
+
 ## Related Documents
 
 - [Separation of Concerns](../architecture/separation-of-concerns.md) - Layer model

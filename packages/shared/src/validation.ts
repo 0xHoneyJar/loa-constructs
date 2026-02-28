@@ -255,6 +255,15 @@ export const methodologySchema = z.object({
 
 export const tierSchema = z.enum(['L1', 'L2', 'L3']);
 
+// ── Agent-Native Output schemas (cycle-037) ────────────────────────
+
+/** Cross-construct navigation hint for CTA protocol */
+export const workflowNextSchema = z.array(z.object({
+  construct: z.string().min(1).max(100),
+  reason: z.string().min(1).max(500),
+  trigger: z.string().max(200).optional(),
+})).max(10).optional();
+
 // ── Construct Lifecycle schemas (cycle-032, FR-1) ──────────────────
 
 /** Construct archetype */
@@ -373,6 +382,9 @@ export const packManifestSchema = z.object({
   workflow: workflowSchema.optional(),
   methodology: methodologySchema.optional(),
   tier: tierSchema.optional(),
+
+  // Agent-Native Output fields (cycle-037)
+  workflow_next: workflowNextSchema,
 
   // Construct Lifecycle fields (cycle-032, FR-1)
   type: constructTypeSchema.optional(),
