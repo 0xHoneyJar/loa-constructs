@@ -49,13 +49,13 @@ graph TB
 
 ## The 5-Layer Stack
 
-| Layer | Repo | Role |
-|-------|------|------|
-| 5 — Product | `loa-dixie` | dNFT Oracle — first product customer |
-| 4 — Platform | `loa-freeside` | API, Discord/TG, token-gating, billing, IaC |
-| 3 — Runtime | `loa-finn` | Persistent sessions, tool sandbox, memory |
-| 2 — Protocol | `loa-hounfour` | Schemas, state machines, model routing contracts |
-| 1 — Framework | `loa` | Agent dev framework, skills, Bridgebuilder |
+| Layer | Repo | Role | Status |
+|-------|------|------|--------|
+| 5 — Product | `loa-dixie` | dNFT Oracle — first product customer | Designed |
+| 4 — Platform | `loa-freeside` | API, Discord/TG, token-gating, billing, IaC | Designed |
+| 3 — Runtime | `loa-finn` | Persistent sessions, tool sandbox, memory | Designed |
+| 2 — Protocol | `loa-hounfour` | Schemas, state machines, model routing contracts | **Shipping** (v8.3.1) |
+| 1 — Framework | `loa` | Agent dev framework, skills, Bridgebuilder | **Shipping** |
 
 Each layer depends only on layers below it. Protocol contracts flow upward: lower layers define contracts, upper layers consume them.
 
