@@ -216,4 +216,129 @@ The output should be a landscape map that an AI construct can reference when adv
 
 ---
 
+---
+
+## Prompt 5: Ecosystem-Aware Verification — Shared Toolkit Adoption Auditing
+
+```
+Research how mature engineering organizations enforce adoption of internal shared libraries
+and patterns across multiple codebases. The specific context: an ecosystem of 4+ production
+Web3 dApps that share wallet boundary utilities (chain guards, receipt handlers, error
+classifiers, gas estimators) via manual propagation (copy-paste, not npm package). The
+patterns are battle-tested but adoption is inconsistent — some features use them, others
+bypass them entirely.
+
+**Core problem statement:**
+The right patterns exist. They were forged in production debugging. But new features ship
+without wiring them in. The gap isn't "what pattern should I use?" — it's "which write paths
+forgot to use the pattern that already exists?"
+
+**Research questions:**
+
+1. **Internal consistency enforcement:**
+   - How do companies like Stripe, Airbnb, Uber enforce that all API call sites use their
+     internal error handling wrappers rather than raw try/catch?
+   - What tooling exists for "canonical utility adoption auditing" — verifying that declared
+     shared utilities are used at every applicable callsite?
+   - ESLint custom rules, Semgrep patterns, or architectural fitness functions — which
+     approach works best for "every write path must route through useChainGuard"?
+   - How does Google's monorepo tooling (Tricorder, Error Prone) enforce API usage patterns?
+
+2. **Manifest-driven verification:**
+   - Can a project declare a "shared toolkit manifest" (YAML/JSON) listing canonical
+     utilities and their required usage contexts?
+   - How would a static analysis tool consume such a manifest to produce coverage reports?
+   - Precedent: architectural decision records (ADRs) + automated conformance checking
+   - Compare: Nx enforce-module-boundaries, ArchUnit (Java), dependency-cruiser (JS)
+
+3. **Cross-repository pattern propagation:**
+   - When shared utilities live in multiple repos via copy-paste (not a shared package),
+     how do teams detect divergence?
+   - Git-based approaches: subtree, template repos, scaffolding tools
+   - Content-hash comparison for detecting when a shared utility has been modified in
+     one repo but not others
+   - How do microservice teams at Netflix/Spotify maintain consistency across 100+ repos?
+
+4. **The adoption gap problem:**
+   - Research on why developers bypass available abstractions (unfamiliarity, time pressure,
+     feature-local thinking, the abstraction not fitting the new use case)
+   - What organizational/tooling patterns close this gap? (PR checks, architecture reviews,
+     linting, automatic suggestions)
+   - How do teams measure "coverage" of internal utilities? (analogous to test coverage
+     but for pattern adoption)
+
+5. **Web3-specific considerations:**
+   - wagmi v2 hooks vs raw viem calls — how do teams enforce "use the codegen hooks, not
+     manual writeContract"?
+   - Chain guard enforcement: the hook exists but 50% of write paths bypass it — this is
+     the exact problem. What tooling catches this?
+   - EIP-5792 batch transactions changing the single-write assumption — how do manifests
+     evolve when the primitive changes?
+   - Account abstraction (ERC-4337) changing gas estimation and tx confirmation patterns —
+     how do shared utilities adapt?
+
+**Output format:**
+Structured as a tooling landscape:
+- Category (static analysis, CI enforcement, architectural fitness, organizational)
+- Specific tool or pattern
+- Maturity rating (experimental / growing / mature / standard)
+- Applicability to the "shared wallet utility adoption" problem specifically
+- Implementation complexity (trivial / moderate / significant)
+
+The goal is to identify the most practical approach for Protocol v2.0 to evolve from
+"generic best practice scanner" to "ecosystem-aware adoption verifier."
+```
+
+---
+
 *These prompts are designed for Gemini Deep Research sessions. Each should take 15-30 minutes of deep research. The outputs will be ingested into the Protocol construct as domain context files under `contexts/base/`.*
+
+Style of Music:
+Dark tribal ceremonial house at 118 BPM with ancient stone percussion and crystalline harmonics. [deep analog sub-bass], [inharmonic crystal resonance], [lithophone hits — stone struck with stone], [whispered icy female vocals as spectral texture]. Key of D minor. [clean mix, high fidelity, wide stereo, massive cavernous reverb 4-6s decay]. Ritualistic, underground, driving but heavy — every beat has the weight of carved rock. [dub delays flickering across stereo field], [dusty tape hiss riding the mix], [distorted feedback tails on crystal frequencies]. Melancholy underneath the intensity. Ancient machinery at full operation.
+
+Exclude:
+pop structure, major key, acoustic guitar, bright synths, neon, generic EDM drops, sidechained pumping, vocal chops, standard drum kit, snare rolls, orchestral, strings, brass, cheesy buildup risers, happy, uplifting, choir, spoken word, world music cliches
+
+Lyrics (Custom Mode):
+[Instrumental with whispered vocal textures only]
+[Production: Massive cave reverb, dub delays, tape warmth, vinyl dust, wide stereo, sub-bass in chest]
+[Vibe: Ancient underground ritual, tribal ceremonial house, D minor, 118 BPM, intense reverent weight]
+
+[Intro: 40 Hz sub-bass pulse emerges from deep silence — felt before heard. Dusty vinyl crackle and tape hiss establish the aged medium. A single devastating stone percussion hit — lithophone, the transient of rock on rock — rings out into 6-second cave reverb. The space itself is audible. 4 bars of weight and architecture.]
+
+[Build: Driving tribal percussion enters — not standard drums. Stone on stone, copper on copper, metallic and ceremonial. Swung groove at 118 BPM but every hit lands like a ritual strike on a carved altar. Deep sub-bass locks underneath. Crystalline harmonics begin breathing — inharmonic overtones, mineral resonance, not clean synth pads.]
+
+[Verse: Whispered female vocals — icy, spectral, intimate. Not words — ancient syllables breathed through stone channels. A keeper's echo reverberating through carved passages. Dub delays scatter the whispers across the stereo field into the distance. Tribal percussion drives underneath. The bass holds everything to earth. Sparse and intimate.]
+
+[Chorus: Full intensity — crystal harmonics surge upward, stone percussion doubles its weight, whispered vocals layer into haunted overlapping harmonies. Distorted feedback tails ring from the crystal frequencies and decay into the cave reverb. The underground space is ALIVE and PULSING. Not a drop — continuous ascending pressure. Darker pads swell underneath. The ritual at peak ceremony.]
+
+[Breakdown: Half the percussion vanishes. Just sub-bass, one stone hit per bar, whispered vocals alone in the massive reverb. Intimate. Dub delays flickering in the far distance like light in tunnels. The vault breathing. Then crystalline harmonics rebuild one overtone at a time — each new frequency a new channel of light activating.]
+
+[Final: Everything returns heavier. The groove intensifies. Whispers become three layered voices in the stone. Bass descends into sub-frequencies — pressure in the chest. Ancient machinery at full operational capacity. Then the groove begins to disintegrate — each percussion hit losing energy, reverb tails stretching longer, the rhythm half-speeding into melancholic analog echoes. The whispers fade last. The sub-bass sustains. Still pulsing. Never truly silent.]
+
+
+
+  Cinematic dark ambient in D Dorian at 65 BPM, built from crystalline modal resonance and
+  geological sub-bass drone, Cavernous stone reverb with 6-second decay tails, Wide stereo
+  field with sparse copper mechanism clicks panning slowly, Sub-bass sine at 40-60 Hz
+  pulses on a slow 4-second breathing cycle matching bioluminescent crystal, No percussion
+  no rhythm only geological patience, Verses are near-silence with a single mineral
+  harmonic at 150 Hz breathing in and out, distant water drip dissolving into massive
+  reverb, Mid-section introduces upper crystal overtones at 600 Hz and 940 Hz one by one
+  like channels of light activating in carved stone, inharmonic partials not clean
+  intervals, A faint warm amber-toned mid-range tone enters beneath the crystal harmonics
+  the only warmth in cold stone, Final section all harmonics sustain together in a single
+  resonant chord that slowly recedes leaving just the sub-bass hum and the breathing
+  crystal and the weight of the chamber above you, Ideal for ancient underground vault idle
+   state post-discovery, fully instrumental, seamless loop, evolving textures, drone, slow,
+   ambient, deep, reverent
+
+  The logic: your login prompt is E Phrygian (the b2 creates tension/dread — you're
+  approaching something unknown). Once inside, it shifts to D Dorian — the raised 6th
+  replaces dread with dim hope. The breakbeat drops away entirely. You already crossed the
+  threshold. Now you're standing still inside the machine and it's breathing around you.
+
+  The login has ritual tribal beat and oppressive verses. The interior has zero percussion
+  — only geological pulse. The contrast IS the vault door opening. You went from
+  approaching to arrived.
+

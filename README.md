@@ -42,15 +42,19 @@ Find constructs to install at [constructs.network](https://constructs.network).
 
 ```bash
 gh repo create my-org/construct-my-expertise \
-  --template 0xHoneyJar/construct-template --private
+  --template 0xHoneyJar/construct-template --private --clone
+cd construct-my-expertise
 ```
 
-1. Edit `construct.yaml` — name, version, description
-2. Define identity — persona, expertise domains, boundaries
-3. Add skills — the actions your construct performs
-4. Push to publish
+The template ships with a working example construct (Code Review Assistant) and graduated CI. Three files to edit, then push:
 
-Full template and docs: [construct-template](https://github.com/0xHoneyJar/construct-template)
+1. `construct.yaml` — name, slug, description, author
+2. `skills/example-simple/SKILL.md` — your skill's instructions
+3. `CLAUDE.md` — your construct's identity (what it sees, how it works, what it refuses)
+
+CI validates on push. Placeholder text is blocked — you can't accidentally ship "your-name" or TODO markers.
+
+Full template with Level 0/1/2 paths: [construct-template](https://github.com/0xHoneyJar/construct-template)
 
 ---
 
@@ -328,8 +332,7 @@ The structure is ready. The network is live. What happens next is up to the peop
 loa-constructs/
 ├── apps/
 │   ├── api/             # Hono REST API — git-sync, licensing, distribution
-│   ├── explorer/        # Next.js 15 marketplace — constructs.network
-│   └── sandbox/         # Pack development CLI + source of truth
+│   └── explorer/        # Next.js 15 marketplace — constructs.network
 ├── packages/            # Shared ESLint + TypeScript config
 ├── scripts/             # Seed, validate, extract utilities
 └── grimoires/           # Project state and documentation
