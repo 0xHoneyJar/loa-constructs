@@ -13,6 +13,12 @@ export function Header() {
           <SearchInput />
           <nav className="flex items-center gap-4">
             <Link
+              href="/constructs"
+              className="font-mono text-xs uppercase tracking-wider text-white/60 hover:text-white transition-colors"
+            >
+              Constructs
+            </Link>
+            <Link
               href="/install"
               className="font-mono text-xs uppercase tracking-wider text-white/60 hover:text-white transition-colors"
             >

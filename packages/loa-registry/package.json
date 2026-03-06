@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Standalone CLI for the Constructs Network",
   "bin": {
-    "constructs": "./dist/bin/constructs.js"
+    "constructs": "./dist/constructs.js"
   },
   "exports": {
     ".": {

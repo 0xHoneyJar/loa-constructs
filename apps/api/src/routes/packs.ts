@@ -1096,7 +1096,7 @@ packsRouter.post(
  * @see sprint-v2.md T14.3: Pack Download with Subscription Check
  * @see sprint-v2.md T14.4: Pack License Generation
  */
-packsRouter.get('/:slug/download', requireAuth(), async (c) => {
+packsRouter.get('/:slug/download', optionalAuth(), async (c) => {
   const slug = c.req.param('slug');
   const versionParam = c.req.query('version');
   const userId = c.get('userId'); // May be undefined for unauthenticated requests

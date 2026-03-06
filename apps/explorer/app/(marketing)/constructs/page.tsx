@@ -1,11 +1,12 @@
 import Link from 'next/link';
 import { fetchAllConstructs, searchConstructs } from '@/lib/data/fetch-constructs';
+import { CatalogSearch } from './catalog-search';
 
 export const revalidate = 3600; // ISR: revalidate every hour
 
 export const metadata = {
   title: 'Constructs',
-  description: 'Browse AI agent constructs — preserved expertise you jack into your agent.',
+  description: 'Browse AI agent constructs — named expertise you install into your coding agent.',
 };
 
 export default async function ConstructsCatalogPage({
@@ -39,11 +40,14 @@ export default async function ConstructsCatalogPage({
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-mono font-bold text-white">Constructs</h1>
-        <p className="text-sm font-mono text-white/60 mt-1">
-          {allConstructs.length} constructs available
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-mono font-bold text-white">Constructs</h1>
+          <p className="text-sm font-mono text-white/60 mt-1">
+            {allConstructs.length} constructs available
+          </p>
+        </div>
+        <CatalogSearch defaultValue={params.q} />
       </div>
 
       {/* Filters */}
@@ -88,10 +92,11 @@ export default async function ConstructsCatalogPage({
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-mono font-bold text-white group-hover:text-white/90">
+                  {construct.icon && <span className="mr-1.5">{construct.icon}</span>}
                   {construct.name}
                 </span>
-                <span className="text-[10px] font-mono text-white/40 uppercase">
-                  {construct.type}
+                <span className="text-[10px] font-mono text-white/40">
+                  {construct.skillsCount > 0 && `${construct.skillsCount} skills`}
                 </span>
               </div>
               <p className="text-xs font-mono text-white/50 line-clamp-2 mb-3">
@@ -99,7 +104,12 @@ export default async function ConstructsCatalogPage({
               </p>
               <div className="flex items-center justify-between text-[10px] font-mono text-white/30">
                 <span>{construct.category}</span>
-                <span>{construct.downloads.toLocaleString()} downloads</span>
+                <span>{construct.downloads.toLocaleString()} installs</span>
+              </div>
+              <div className="mt-3 pt-2 border-t border-white/5">
+                <code className="text-[10px] font-mono text-white/20 group-hover:text-white/40 transition-colors">
+                  constructs install {construct.slug}
+                </code>
               </div>
             </Link>
           ))}

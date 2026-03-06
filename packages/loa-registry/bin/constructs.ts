@@ -8,6 +8,7 @@
  *   npx constructs list                    # List all constructs
  *   npx constructs find <query>            # Search constructs
  *   npx constructs info <slug>             # Show construct details
+ *   npx constructs install <slug>          # Download and install a construct
  *   npx constructs summary                 # Agent-optimized listing
  *   npx constructs --help                  # Show help
  *   npx constructs --llms                  # Self-describing manifest for agents
@@ -241,6 +242,11 @@ Show full details for a construct: identity, skills, commands, links.
 \`constructs info observer\`
 \`constructs info protocol\`
 
+### install <slug>
+Download a construct and write files to .claude/constructs/packs/<slug>/.
+Free constructs require no auth. Set CONSTRUCTS_DIR to override install path.
+\`constructs install observer\`
+
 ### summary
 Agent-optimized listing in tabular format (minimal tokens).
 \`constructs summary\`
@@ -256,6 +262,123 @@ Base URL: ${API}
 `);
 }
 
+async function cmdInstall(slug: string) {
+  const fs = await import('fs');
+  const path = await import('path');
+
+  console.log(`\n  Downloading ${slug}...`);
+
+  const data = await api<{
+    data: {
+      pack: {
+        name: string;
+        slug: string;
+        version: string;
+        manifest: Record<string, unknown>;
+        files: Array<{ path: string; content: string }>;
+        source_type?: string;
+        git_url?: string;
+        git_ref?: string;
+      };
+      license: {
+        token: string;
+        expires_at: string;
+        watermark: string;
+      };
+    };
+  }>(`/packs/${encodeURIComponent(slug)}/download`);
+
+  const pack = data.data.pack;
+  const license = data.data.license;
+
+  if (!pack.files.length) {
+    console.error(`  No files found for ${slug}`);
+    process.exit(1);
+  }
+
+  // Write pack files to canonical storage
+  const packDir = path.resolve(
+    process.env.CONSTRUCTS_DIR || '.claude/constructs/packs',
+    pack.slug
+  );
+
+  let written = 0;
+  const skillDirs = new Set<string>();
+
+  for (const file of pack.files) {
+    const filePath = path.join(packDir, file.path);
+    const dir = path.dirname(filePath);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(filePath, Buffer.from(file.content, 'base64'));
+    written++;
+
+    // Track skill directories (files under skills/<name>/)
+    const parts = file.path.split('/');
+    if (parts[0] === 'skills' && parts.length >= 3) {
+      skillDirs.add(parts[1]);
+    }
+  }
+
+  // Write license + metadata
+  fs.writeFileSync(
+    path.join(packDir, '.license.json'),
+    JSON.stringify(license, null, 2)
+  );
+  fs.writeFileSync(
+    path.join(packDir, '.construct-meta.json'),
+    JSON.stringify({
+      slug: pack.slug,
+      name: pack.name,
+      version: pack.version,
+      source_type: pack.source_type || 'registry',
+      git_url: pack.git_url || null,
+      installed_at: new Date().toISOString(),
+    }, null, 2)
+  );
+
+  // Symlink skills into .claude/skills/ for native Claude Code discovery
+  const claudeSkillsDir = path.resolve('.claude/skills');
+  let linked = 0;
+  for (const skillName of skillDirs) {
+    const skillSource = path.join(packDir, 'skills', skillName);
+    const skillTarget = path.join(claudeSkillsDir, skillName);
+
+    // Skip if target already exists (don't overwrite user customizations)
+    if (fs.existsSync(skillTarget)) continue;
+
+    fs.mkdirSync(claudeSkillsDir, { recursive: true });
+    // Use relative symlink so it works if the repo moves
+    const rel = path.relative(claudeSkillsDir, skillSource);
+    fs.symlinkSync(rel, skillTarget);
+    linked++;
+  }
+
+  // Also symlink commands into .claude/commands/
+  const claudeCommandsDir = path.resolve('.claude/commands');
+  const commandsDir = path.join(packDir, 'commands');
+  if (fs.existsSync(commandsDir)) {
+    const commandFiles = fs.readdirSync(commandsDir).filter((f: string) => f.endsWith('.md'));
+    for (const cmdFile of commandFiles) {
+      const cmdSource = path.join(commandsDir, cmdFile);
+      const cmdTarget = path.join(claudeCommandsDir, cmdFile);
+      if (fs.existsSync(cmdTarget)) continue;
+      fs.mkdirSync(claudeCommandsDir, { recursive: true });
+      const rel = path.relative(claudeCommandsDir, cmdSource);
+      fs.symlinkSync(rel, cmdTarget);
+    }
+  }
+
+  console.log(`  ${pack.name} v${pack.version}`);
+  console.log(`  ${written} files → ${packDir}`);
+  if (linked > 0) {
+    console.log(`  ${linked} skills linked → .claude/skills/`);
+  }
+  if (pack.source_type === 'git' && pack.git_url) {
+    console.log(`  Source: ${pack.git_url.replace(/\.git$/, '')}`);
+  }
+  console.log('');
+}
+
 function cmdHelp() {
   console.log(`
   constructs — CLI for the Constructs Network
@@ -264,6 +387,7 @@ function cmdHelp() {
     constructs list                    List all constructs
     constructs find <query>            Search by keyword
     constructs info <slug>             Show construct details
+    constructs install <slug>          Download and install a construct
     constructs summary                 Agent-optimized listing
     constructs --llms                  Self-describing manifest
     constructs --help                  This help
@@ -271,7 +395,7 @@ function cmdHelp() {
   Examples:
     constructs find "design"
     constructs info observer
-    constructs info protocol
+    constructs install observer
     constructs list
 
   API: ${API}
@@ -287,6 +411,11 @@ async function main() {
 
   if (!cmd || cmd === '--help' || cmd === '-h') {
     cmdHelp();
+    return;
+  }
+
+  if (cmd === '--version' || cmd === '-v') {
+    console.log('constructs-cli/0.1.0');
     return;
   }
 
@@ -316,6 +445,14 @@ async function main() {
           process.exit(1);
         }
         await cmdInfo(args[1]);
+        break;
+      case 'install':
+      case 'add':
+        if (!args[1]) {
+          console.error('Usage: constructs install <slug>');
+          process.exit(1);
+        }
+        await cmdInstall(args[1]);
         break;
       case 'summary':
         await cmdSummary();

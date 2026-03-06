@@ -30,8 +30,10 @@ export interface ConstructNode {
   description: string;
   shortDescription: string;
   commandCount: number;
+  skillsCount: number;
   downloads: number;
   version: string;
+  icon?: string | null;
   rating?: number | null;
   position?: {
     x: number;

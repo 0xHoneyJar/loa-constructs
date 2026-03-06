@@ -17,6 +17,8 @@ export interface APIConstruct {
   downloads: number;
   tier_required: string;
   is_featured: boolean;
+  icon?: string | null;
+  skills_count?: number;
   maturity?: string;
   source_type?: string | null;
   git_url?: string | null;
@@ -90,8 +92,10 @@ export function transformToNode(construct: APIConstruct): ConstructNode {
     description: construct.description || 'No description available',
     shortDescription: shortDesc,
     commandCount: commands.length || (construct.type === 'skill' ? 1 : 0),
+    skillsCount: construct.skills_count ?? (construct.manifest?.skills?.length || 0),
     downloads: construct.downloads,
     version: construct.version || '1.0.0',
+    icon: construct.icon ?? null,
     rating: construct.rating ?? null,
   };
 }
