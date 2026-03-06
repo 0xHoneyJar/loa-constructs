@@ -1,125 +1,134 @@
 import Link from 'next/link';
-import { fetchGraphData, fetchAllConstructs } from '@/lib/data/fetch-constructs';
-import { GraphExplorer } from '@/components/graph/graph-explorer';
-import { CategoryInitializer } from '@/components/graph/category-initializer';
+import { fetchAllConstructs, searchConstructs } from '@/lib/data/fetch-constructs';
+import { LeaderboardSearch } from '@/components/search/leaderboard-search';
 
-// ISR — revalidate hourly, won't block builds (fetch has error fallback)
+// ISR — revalidate hourly
 export const revalidate = 3600;
 
-export default async function HomePage() {
-  const [{ graphData, categories }, allConstructs] = await Promise.all([
-    fetchGraphData(),
-    fetchAllConstructs(),
-  ]);
+function formatInstalls(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+  return n.toLocaleString();
+}
 
-  // Top constructs by downloads for the featured section
-  const featured = [...allConstructs]
-    .sort((a, b) => b.downloads - a.downloads)
-    .slice(0, 6);
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const params = await searchParams;
+  const allConstructs = await fetchAllConstructs();
+
+  const constructs = params.q
+    ? await searchConstructs(params.q)
+    : [...allConstructs].sort((a, b) => b.downloads - a.downloads);
 
   const totalSkills = allConstructs.reduce((sum, c) => sum + c.skillsCount, 0);
 
   return (
     <div>
-      {/* Hero — left-aligned, Basement Grotesque display */}
-      <section className="border-b border-void-border px-4 py-16 sm:py-20">
-        <div className="mx-auto max-w-6xl">
-          <div className="max-w-2xl">
-            <p className="font-mono text-[10px] uppercase tracking-whisper text-cyan-dim mb-4">
-              The Constructs Network
-            </p>
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl uppercase tracking-display text-bone-bright leading-[0.95]">
-              Named expertise
-              <br />
-              <span className="text-cyan-base">for AI agents</span>
-            </h1>
-            <p className="mt-6 font-mono text-sm text-bone-muted max-w-lg leading-relaxed">
-              Install a construct — your agent gets identity, skills, and boundaries.
-              Not just capabilities. A way of seeing.
-            </p>
-
-            {/* Install CTA */}
-            <div className="mt-8 flex flex-col sm:flex-row items-start gap-4">
-              <div className="border border-void-border bg-void-raised px-4 py-2.5 font-mono text-sm">
-                <span className="text-bone-ghost">$ </span>
-                <span className="text-cyan-base">npx constructs install</span>
-                <span className="text-bone-base"> observer</span>
-              </div>
-              <Link
-                href="/constructs"
-                className="border border-bone-ghost px-4 py-2.5 font-mono text-xs uppercase tracking-terminal text-bone-dim hover:text-bone-base hover:border-bone-muted transition-colors"
-              >
-                Browse All
-              </Link>
+      {/* Hero — left-aligned, compact */}
+      <section className="px-4 pt-16 pb-10 sm:pt-20 sm:pb-12">
+        <div className="mx-auto max-w-4xl">
+          <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 lg:gap-12 items-start">
+            <div>
+              <h1 className="font-display text-4xl sm:text-5xl uppercase tracking-display text-bone-bright leading-[0.95]">
+                Constructs
+              </h1>
+              <p className="mt-2 font-mono text-[10px] uppercase tracking-whisper text-cyan-dim">
+                The Open Agent Expertise Network
+              </p>
             </div>
+            <p className="font-mono text-sm sm:text-base text-bone-muted leading-relaxed lg:pt-1">
+              Constructs are named expertise for AI coding agents. Install one with a single command — your agent gets identity, skills, and a way of seeing.
+            </p>
+          </div>
 
-            {/* Stats */}
-            <div className="mt-10 flex items-center gap-6 font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
-              <span>{allConstructs.length} constructs</span>
-              <span className="w-px h-3 bg-void-border" />
-              <span>{totalSkills} skills</span>
-              <span className="w-px h-3 bg-void-border" />
-              <span>Open source</span>
+          {/* Install CTA */}
+          <div className="mt-10 flex flex-col sm:flex-row items-start gap-6">
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost mb-2">
+                Try it now
+              </p>
+              <div className="border border-void-border bg-void-raised px-4 py-2.5 font-mono text-sm inline-flex items-center gap-3">
+                <div>
+                  <span className="text-bone-ghost">$ </span>
+                  <span className="text-cyan-base">npx constructs install</span>
+                  <span className="text-bone-base"> observer</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Featured Constructs */}
-      {featured.length > 0 && (
-        <section className="border-b border-void-border px-4 py-12">
-          <div className="mx-auto max-w-6xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-mono text-[10px] uppercase tracking-whisper text-cyan-dim">
-                Popular Constructs
-              </h2>
-              <Link
-                href="/constructs"
-                className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost hover:text-bone-base transition-colors"
-              >
-                View all →
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-void-border">
-              {featured.map((construct) => (
-                <Link
-                  key={construct.id}
-                  href={`/constructs/${construct.slug}`}
-                  className="bg-void-base p-5 hover:bg-void-raised transition-colors group"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div>
-                      <span className="font-mono text-sm font-bold text-bone-base group-hover:text-bone-bright transition-colors">
-                        {construct.icon && <span className="mr-1.5">{construct.icon}</span>}
-                        {construct.name}
-                      </span>
-                    </div>
-                    <span className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost mt-0.5">
-                      {construct.skillsCount}s
-                    </span>
-                  </div>
-                  <p className="font-mono text-xs text-bone-muted line-clamp-2 mb-4 leading-relaxed">
-                    {construct.shortDescription}
-                  </p>
-                  <code className="font-mono text-[10px] text-bone-ghost group-hover:text-cyan-dim transition-colors">
-                    constructs install {construct.slug}
-                  </code>
-                </Link>
-              ))}
+      {/* Leaderboard */}
+      <section className="px-4 pb-16">
+        <div className="mx-auto max-w-4xl">
+          {/* Section header */}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="font-mono text-[10px] uppercase tracking-whisper text-cyan-dim">
+              Constructs Leaderboard
+            </h2>
+            <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
+              <span>{allConstructs.length} constructs</span>
+              <span className="w-px h-3 bg-void-border" />
+              <span>{totalSkills} skills</span>
             </div>
           </div>
-        </section>
-      )}
 
-      {/* Graph Explorer */}
-      <section className="px-4 py-8">
-        <div className="mx-auto max-w-6xl">
-          <h2 className="font-mono text-[10px] uppercase tracking-whisper text-cyan-dim mb-4">
-            Network Graph
-          </h2>
-          <div className="h-[60vh] border border-void-border">
-            <CategoryInitializer categories={categories} />
-            <GraphExplorer data={graphData} />
+          {/* Search */}
+          <LeaderboardSearch />
+
+          {/* Table */}
+          <div className="mt-6">
+            {/* Table header */}
+            <div className="flex items-center border-b border-void-border pb-2 font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
+              <span className="w-10 shrink-0">#</span>
+              <span className="flex-1">Construct</span>
+              <span className="w-20 text-right hidden sm:block">Skills</span>
+              <span className="w-24 text-right">Installs</span>
+            </div>
+
+            {/* Rows */}
+            {constructs.length === 0 ? (
+              <div className="py-12 text-center font-mono text-xs text-bone-ghost">
+                No constructs found.
+              </div>
+            ) : (
+              <div>
+                {constructs.map((construct, i) => (
+                  <Link
+                    key={construct.id}
+                    href={`/constructs/${construct.slug}`}
+                    className="flex items-center py-3 border-b border-void-border hover:bg-void-raised transition-colors group"
+                  >
+                    <span className="w-10 shrink-0 font-mono text-xs text-bone-ghost">
+                      {i + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-bold text-bone-base group-hover:text-bone-bright transition-colors">
+                          {construct.icon && <span className="mr-1">{construct.icon}</span>}
+                          {construct.name}
+                        </span>
+                        <span className="font-mono text-[10px] text-bone-ghost hidden sm:inline">
+                          {construct.slug}
+                        </span>
+                      </div>
+                      <p className="font-mono text-xs text-bone-muted truncate mt-0.5 max-w-md">
+                        {construct.shortDescription}
+                      </p>
+                    </div>
+                    <span className="w-20 text-right font-mono text-xs text-bone-dim hidden sm:block">
+                      {construct.skillsCount}
+                    </span>
+                    <span className="w-24 text-right font-mono text-sm text-bone-base">
+                      {formatInstalls(construct.downloads)}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>
