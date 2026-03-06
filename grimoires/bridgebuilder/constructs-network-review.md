@@ -21,11 +21,17 @@ The single most important finding: **the `construct-*` namespace convention alre
 
 <!-- bridge-findings-start -->
 
-### [CRITICAL-1] Namespace-as-Protocol Gap — 3 of 13 Constructs Are Invisible
+### [CRITICAL-1] Namespace-as-Protocol Gap — 3 of 13 Constructs Are Invisible [RESOLVED]
 
-**Severity**: CRITICAL
+**Severity**: CRITICAL | **Status**: RESOLVED
 **Category**: operational
 **File**: `scripts/seed-forge-packs.ts:69-110`
+**Resolution**: Four-layer fix shipped:
+1. `scripts/discover-constructs.ts` — diagnostic scanner finds all `construct-*` repos via `gh` CLI
+2. `--auto-discover` flag on seed script replaces hardcoded `GIT_CONFIGS` with live org scanning
+3. Schema tolerance fixes (Zod accepts slug/name, array deps, pack_dependencies variants) — 12/12 validate
+4. `pnpm discover` / `pnpm seed:auto` convenience commands
+
 **Description**: The seed script hardcodes 10 repos in `GIT_CONFIGS`. Three construct-* repos in the org (`construct-deep-research`, `construct-webgl-particles`, `construct-base`) are invisible to the network. Creating a construct informally — which should be the primary path — means it simply doesn't exist until someone manually adds it to GIT_CONFIGS or calls `POST /v1/constructs/register`.
 
 **FAANG Parallel**: This is the npm-before-npm-publish problem. npm's genius was: `npm publish` and you're done. No gatekeeper edits a config file. Docker Hub automated builds took this further — push to a repo, it appears. GitHub Packages went further still — the repo IS the package. The Constructs Network has the namespace convention (`construct-*`) but not the automation.
@@ -44,11 +50,12 @@ This inverts the flow: **constructs announce themselves by existing, not by bein
 
 ---
 
-### [CRITICAL-2] Triple API Surface — /constructs, /packs, /skills Serve the Same Data
+### [CRITICAL-2] Triple API Surface — /constructs, /packs, /skills Serve the Same Data [PARTIALLY RESOLVED]
 
-**Severity**: CRITICAL
+**Severity**: CRITICAL | **Status**: PARTIALLY RESOLVED
 **Category**: quality
-**File**: `apps/api/src/routes/constructs.ts`, `apps/api/src/routes/packs.ts`, `apps/api/src/routes/skills.ts`
+**File**: `apps/api/src/routes/constructs.ts`, `apps/api/src/routes/packs.ts`, `apps/api/src/routes/signals.ts`
+**Resolution**: Signals router dual-mounted at `/v1/constructs` — showcases and accuracy now available at `/v1/constructs/:slug/showcases` and `/v1/constructs/:slug/signals/accuracy`. Explorer updated to use unified paths. `/v1/packs` preserved for backward compat. Sync + download still only on `/packs` (needs separate router extraction).
 **Description**: Three route files serve construct data:
 - `/v1/constructs` — unified discovery (the intended future)
 - `/v1/packs` — full CRUD + download + sync + signals + showcases (the actual workhorse)
@@ -90,27 +97,25 @@ This is what wevm/incur represents: a CLI framework where both humans typing com
 
 ---
 
-### [HIGH-2] Manifest Shape Mismatch — Explorer Can't Render Edges
+### [HIGH-2] Manifest Shape Mismatch — Explorer Can't Render Edges [RESOLVED]
 
-**Severity**: HIGH
+**Severity**: HIGH | **Status**: RESOLVED
 **Category**: quality
-**File**: `apps/explorer/lib/data/fetch-constructs.ts:287-299`
-**Description**: The explorer's `computeEdges()` reads `manifest.pack_dependencies` (flat object) to draw dependency edges between constructs. But the manifest schema defines `dependencies.packs` (nested under `dependencies`). The `pack_dependencies` field name doesn't exist in `PackManifest`. This means the 3D graph shows zero dependency edges — the network visualization is disconnected even when constructs declare relationships.
+**File**: `apps/explorer/lib/data/fetch-constructs.ts:271-331`
+**Resolution**: `computeEdges()` rewritten to handle all three `pack_dependencies` formats found in the wild: flat array `[{slug}]`, categorized object `{required: [{slug}], optional: [{slug}]}`, and Record. `pack_dependencies` and `composes_with` added to both Zod schema and TypeScript types. Graph now renders real dependency and composition edges.
 
-**Suggestion**: Align on one field name. The Zod schema at `packages/shared/src/validation.ts` is the source of truth. The explorer should read `manifest.dependencies?.packs` or the schema should add `pack_dependencies` as an alias.
+**Description**: The explorer's `computeEdges()` reads `manifest.pack_dependencies` (flat object) to draw dependency edges between constructs. But the manifest schema defines `dependencies.packs` (nested under `dependencies`). The `pack_dependencies` field name doesn't exist in `PackManifest`. This means the 3D graph shows zero dependency edges — the network visualization is disconnected even when constructs declare relationships.
 
 ---
 
-### [HIGH-3] Identity Layer Half-Connected
+### [HIGH-3] Identity Layer Half-Connected [RESOLVED]
 
-**Severity**: HIGH
+**Severity**: HIGH | **Status**: RESOLVED
 **Category**: quality
-**File**: `apps/api/src/routes/constructs.ts:86-127`, `apps/explorer/lib/data/fetch-constructs.ts:74-83`
-**Description**: The API serves identity data (`cognitive_frame`, `expertise_domains`, `voice_config`, `model_preferences`) via `formatConstructDetail()`. The explorer's `transformToDetail()` consumes it. But the construct detail page in the explorer doesn't visually surface this data — `cognitiveFrame` and `expertiseDomains` are parsed but not rendered. The identity layer exists in DB → API → frontend transform → nowhere visible.
+**File**: `scripts/seed-forge-packs.ts`, `apps/explorer/app/(marketing)/constructs/[slug]/page.tsx:173-202`
+**Resolution**: Root cause was deeper than rendering — the seed script **parsed** identity files but **never wrote them to the database**. `construct_identities` table was always empty. Fixed: seed script now upserts persona_yaml, expertise_yaml, cognitive_frame, expertise_domains, voice_config for all 11 constructs with identity files (49 expertise domains total). The explorer already had the "Expert Identity" section (expertise domain tags + cognitive frame JSON) — it was just receiving null data.
 
-For a network where constructs are "named expertise," the expertise identity being invisible on the detail page is a significant gap. This is the construct's personality — the thing that differentiates Observer from Crucible from Protocol.
-
-**Suggestion**: Surface identity on construct detail pages: cognitive frame as a tagline, expertise domains as capability tags, voice config as a "personality" section. This data is already flowing through the stack — it just needs a view.
+**Description**: The API serves identity data (`cognitive_frame`, `expertise_domains`, `voice_config`, `model_preferences`) via `formatConstructDetail()`. The explorer's `transformToDetail()` consumes it. The construct detail page in the explorer HAS rendering code (lines 173-202: expertise domain tags, cognitive frame display) but it was always getting null because the seed script never populated the `construct_identities` table.
 
 ---
 
