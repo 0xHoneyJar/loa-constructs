@@ -62,6 +62,8 @@ const PACK_ICONS: Record<string, string> = {
   hardening: '🛡️',
   'dynamic-auth': '🔑',
   'the-easel': '🖼️',
+  'deep-research': '🔬',
+  'webgl-particles': '✨',
 };
 
 // Git source configurations for packs with registered repos
@@ -105,6 +107,14 @@ const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
   },
   'the-easel': {
     gitUrl: 'https://github.com/0xHoneyJar/construct-the-easel.git',
+    gitRef: 'main',
+  },
+  'deep-research': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-deep-research.git',
+    gitRef: 'main',
+  },
+  'webgl-particles': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-webgl-particles.git',
     gitRef: 'main',
   },
 };
@@ -329,7 +339,7 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
 
       packs.push({
         ...manifest,
-        icon: PACK_ICONS[manifest.slug] || '📦',
+        icon: (fullManifest as any)?.icon || PACK_ICONS[manifest.slug] || '📦',
         skillSlugs: manifest.skills?.map((s) => s.slug) || [],
         packPath: repoDir,
         constructType,

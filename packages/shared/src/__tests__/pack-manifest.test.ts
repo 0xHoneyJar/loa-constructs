@@ -463,7 +463,8 @@ describe('Dependencies loa_version rename (W-13)', () => {
     };
     const result = packManifestSchema.safeParse(manifest);
     expect(result.success).toBe(true);
-    expect(result.data?.dependencies?.loa_version).toBe('>=1.0.0');
+    const deps = result.data?.dependencies as { loa_version?: string } | undefined;
+    expect(deps?.loa_version).toBe('>=1.0.0');
   });
 
   it('ignores old loa field name (not validated)', () => {
@@ -474,7 +475,8 @@ describe('Dependencies loa_version rename (W-13)', () => {
     const result = packManifestSchema.safeParse(manifest);
     // Parses successfully but loa is not a recognized field
     expect(result.success).toBe(true);
-    expect(result.data?.dependencies?.loa_version).toBeUndefined();
+    const deps = result.data?.dependencies as { loa_version?: string } | undefined;
+    expect(deps?.loa_version).toBeUndefined();
   });
 });
 

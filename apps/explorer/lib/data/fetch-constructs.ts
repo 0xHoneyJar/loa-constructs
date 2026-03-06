@@ -283,10 +283,24 @@ function computeEdges(nodes: ConstructNode[], apiConstructs?: APIConstruct[]) {
     const sourceId = slugToId.get(construct.slug);
     if (!sourceId || !construct.manifest) continue;
 
-    // Extract pack_dependencies
+    // Extract pack_dependencies — handles all manifest variants:
+    // [{slug}], {optional: [{slug}], required: [{slug}]}, or Record<string, unknown>
     const deps = construct.manifest.pack_dependencies;
-    if (deps && typeof deps === 'object') {
-      for (const depSlug of Object.keys(deps)) {
+    if (deps) {
+      let depSlugs: string[];
+      if (Array.isArray(deps)) {
+        depSlugs = deps.map((d: { slug?: string }) => d.slug).filter((s): s is string => !!s);
+      } else if (typeof deps === 'object') {
+        const obj = deps as Record<string, unknown>;
+        const required = Array.isArray(obj.required) ? obj.required : [];
+        const optional = Array.isArray(obj.optional) ? obj.optional : [];
+        depSlugs = [...required, ...optional]
+          .map((d: { slug?: string }) => d?.slug)
+          .filter((s): s is string => !!s);
+      } else {
+        depSlugs = [];
+      }
+      for (const depSlug of depSlugs) {
         const targetId = slugToId.get(depSlug);
         if (targetId && targetId !== sourceId) {
           edges.push({

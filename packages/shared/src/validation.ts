@@ -158,16 +158,22 @@ export const packSkillRefSchema = z.object({
  * Pack manifest command reference schema
  */
 export const packCommandRefSchema = z.object({
-  name: z.string().min(1).max(100),
+  name: z.string().min(1).max(100).optional(),
+  slug: z.string().min(1).max(100).optional(),
   path: z.string().min(1).max(500),
+}).refine(data => data.name || data.slug, {
+  message: 'Command must have either name or slug',
 });
 
 /**
  * Pack manifest protocol reference schema
  */
 export const packProtocolRefSchema = z.object({
-  name: z.string().min(1).max(100),
+  name: z.string().min(1).max(100).optional(),
+  slug: z.string().min(1).max(100).optional(),
   path: z.string().min(1).max(500),
+}).refine(data => data.name || data.slug, {
+  message: 'Protocol must have either name or slug',
 });
 
 /**
@@ -343,8 +349,11 @@ export const packManifestSchema = z.object({
   commands: z.array(packCommandRefSchema).default([]),
   protocols: z.array(packProtocolRefSchema).default([]),
 
-  // Dependencies
-  dependencies: packDependenciesSchema.optional(),
+  // Dependencies — accept object or empty array (informal manifests often use `dependencies: []`)
+  dependencies: z.union([
+    packDependenciesSchema,
+    z.array(z.unknown()).transform(() => ({})),
+  ]).optional(),
 
   // Metadata
   tags: z.array(z.string().max(50)).max(20).default([]),
@@ -395,6 +404,20 @@ export const packManifestSchema = z.object({
   portability_score: z.number().min(0).max(1).optional(),
   identity: identitySchema.optional(),
   hooks: lifecycleHooksSchema.optional(),
+
+  // Inter-construct relationships (used in actual construct.yaml files)
+  // Accepts: [{slug}], {optional: [{slug}]}, or {required: [{slug}], optional: [{slug}]}
+  pack_dependencies: z.union([
+    z.array(z.object({ slug: z.string() }).passthrough()),
+    z.object({
+      required: z.array(z.object({ slug: z.string() }).passthrough()).optional(),
+      optional: z.array(z.object({ slug: z.string() }).passthrough()).optional(),
+    }),
+  ]).optional(),
+  composes_with: z.array(z.string()).optional(),
+
+  // Construct icon (author-controlled identity)
+  icon: z.string().max(10).optional(),
 
   // Drift reconciliation (SDD §3.4): meta_probe exists in JSON Schema but not Zod
   meta_probe: z.object({

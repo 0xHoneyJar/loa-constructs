@@ -380,6 +380,17 @@ export interface PackManifest {
     post_install?: string;
     post_update?: string;
   };
+
+  // Inter-construct relationships (used in actual construct.yaml files)
+  /** Pack-level dependencies — array or {required, optional} object */
+  pack_dependencies?: Array<{ slug: string }> | {
+    required?: Array<{ slug: string }>;
+    optional?: Array<{ slug: string }>;
+  };
+  /** Constructs this composes well with */
+  composes_with?: string[];
+  /** Construct icon (emoji or short string) — author-controlled */
+  icon?: string;
 }
 
 export interface PackDownload {
