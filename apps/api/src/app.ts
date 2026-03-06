@@ -132,8 +132,9 @@ v1.route('/audit', auditRouter);
 // Pack routes
 v1.route('/packs', packsRouter);
 
-// Signal & Showcase routes (pack-scoped)
+// Signal & Showcase routes (pack-scoped, also available via /constructs)
 v1.route('/packs', signalsRouter);
+v1.route('/constructs', signalsRouter);
 
 // Constructs routes (unified discovery)
 v1.route('/constructs', constructsRouter);

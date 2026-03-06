@@ -187,7 +187,7 @@ export async function fetchConstruct(slug: string): Promise<ConstructDetail | nu
 
 async function fetchShowcases(slug: string): Promise<Showcase[]> {
   try {
-    const response = await fetchWithTimeout(`${API_BASE}/packs/${slug}/showcases`, {
+    const response = await fetchWithTimeout(`${API_BASE}/constructs/${slug}/showcases`, {
       next: { revalidate: 3600 },
     });
     if (!response.ok) return [];
@@ -206,7 +206,7 @@ async function fetchShowcases(slug: string): Promise<Showcase[]> {
 
 async function fetchAccuracy(slug: string): Promise<AccuracyReport | null> {
   try {
-    const response = await fetchWithTimeout(`${API_BASE}/packs/${slug}/signals/accuracy`, {
+    const response = await fetchWithTimeout(`${API_BASE}/constructs/${slug}/signals/accuracy`, {
       next: { revalidate: 600 }, // 10min cache matching backend TTL
     });
     if (!response.ok) return null;
