@@ -55,6 +55,7 @@ const config: Config = {
       },
       fontFamily: {
         mono: ['var(--font-geist-mono)', 'monospace'],
+        display: ['var(--font-display)', 'Arial Black', 'sans-serif'],
       },
       letterSpacing: {
         whisper: 'var(--tracking-whisper)',

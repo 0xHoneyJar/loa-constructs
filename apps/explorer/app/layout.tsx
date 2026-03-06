@@ -1,7 +1,14 @@
 import type { Metadata } from 'next';
-import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
+import localFont from 'next/font/local';
 import './globals.css';
+
+const basementGrotesque = localFont({
+  src: './fonts/BasementGrotesque-Black.woff2',
+  variable: '--font-display',
+  weight: '800',
+  display: 'swap',
+});
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://constructs.network';
 
@@ -53,12 +60,6 @@ export const metadata: Metadata = {
   },
 };
 
-// Minimal root layout — no providers, no Header/Footer.
-// Route group layouts handle their own chrome:
-//   (marketing)/layout.tsx → Header + Footer
-//   (dashboard)/layout.tsx → QueryClientProvider + AuthInitializer + DashboardShell
-//   (auth)/layout.tsx → Centered minimal layout
-// Root pages (/, /[slug], /about, /install) inherit only this minimal shell.
 export default function RootLayout({
   children,
 }: {
@@ -67,7 +68,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} min-h-screen bg-background font-mono text-foreground antialiased`}
+        className={`${GeistMono.variable} ${basementGrotesque.variable} min-h-screen bg-background font-mono text-foreground antialiased`}
       >
         {children}
       </body>

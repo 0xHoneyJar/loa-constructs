@@ -27,9 +27,7 @@ export default async function ConstructsCatalogPage({
   }
 
   if (!params.q) {
-    if (params.sort === 'downloads') {
-      filtered = filtered.sort((a, b) => b.downloads - a.downloads);
-    } else if (params.sort === 'name') {
+    if (params.sort === 'name') {
       filtered = filtered.sort((a, b) => a.name.localeCompare(b.name));
     } else {
       filtered = filtered.sort((a, b) => b.downloads - a.downloads);
@@ -42,40 +40,42 @@ export default async function ConstructsCatalogPage({
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-mono font-boldtext-bone-base">Constructs</h1>
-          <p className="text-sm font-mono text-bone-dim mt-1">
+          <h1 className="font-display text-2xl uppercase tracking-display text-bone-bright">Constructs</h1>
+          <p className="text-xs font-mono text-bone-muted mt-1">
             {allConstructs.length} constructs available
           </p>
         </div>
         <CatalogSearch defaultValue={params.q} />
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 text-xs font-mono">
-        <Link
-          href="/constructs"
-          className={`border px-3 py-1 transition-colors ${
-            !params.category || params.category === 'all'
-              ? 'border-white text-bone-base'
-              : 'border-bone-ghost text-bone-dim hover:border-bone-muted'
-          }`}
-        >
-          All
-        </Link>
-        {categories.map((cat) => (
+      {/* Category Filters */}
+      {categories.length > 1 && (
+        <div className="flex flex-wrap gap-2 font-mono text-[10px] uppercase tracking-terminal">
           <Link
-            key={cat}
-            href={`/constructs?category=${cat}`}
+            href="/constructs"
             className={`border px-3 py-1 transition-colors ${
-              params.category === cat
-                ? 'border-white text-bone-base'
-                : 'border-bone-ghost text-bone-dim hover:border-bone-muted'
+              !params.category || params.category === 'all'
+                ? 'border-cyan-dim text-cyan-dim'
+                : 'border-void-border text-bone-ghost hover:border-bone-ghost hover:text-bone-muted'
             }`}
           >
-            {cat}
+            All
           </Link>
-        ))}
-      </div>
+          {categories.map((cat) => (
+            <Link
+              key={cat}
+              href={`/constructs?category=${cat}`}
+              className={`border px-3 py-1 transition-colors ${
+                params.category === cat
+                  ? 'border-cyan-dim text-cyan-dim'
+                  : 'border-void-border text-bone-ghost hover:border-bone-ghost hover:text-bone-muted'
+              }`}
+            >
+              {cat}
+            </Link>
+          ))}
+        </div>
+      )}
 
       {/* Grid */}
       {filtered.length === 0 ? (
@@ -83,33 +83,32 @@ export default async function ConstructsCatalogPage({
           No constructs found.
         </p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-void-border">
           {filtered.map((construct) => (
             <Link
               key={construct.id}
               href={`/constructs/${construct.slug}`}
-              className="border border-void-border p-4 hover:border-bone-ghost transition-colors group"
+              className="bg-void-base p-5 hover:bg-void-raised transition-colors group"
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-mono font-bold text-bone-base group-hover:text-bone-base">
+              <div className="flex items-start justify-between mb-3">
+                <span className="font-mono text-sm font-bold text-bone-base group-hover:text-bone-bright transition-colors">
                   {construct.icon && <span className="mr-1.5">{construct.icon}</span>}
                   {construct.name}
                 </span>
-                <span className="text-[10px] font-mono text-bone-ghost">
-                  {construct.skillsCount > 0 && `${construct.skillsCount} skills`}
+                <span className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost mt-0.5">
+                  {construct.skillsCount > 0 && `${construct.skillsCount}s`}
                 </span>
               </div>
-              <p className="text-xs font-mono text-bone-muted line-clamp-2 mb-3">
+              <p className="font-mono text-xs text-bone-muted line-clamp-2 mb-4 leading-relaxed">
                 {construct.shortDescription}
               </p>
-              <div className="flex items-center justify-between text-[10px] font-mono text-bone-ghost">
-                <span>{construct.category}</span>
-                <span>{construct.downloads.toLocaleString()} installs</span>
-              </div>
-              <div className="mt-3 pt-2 border-t border-void-border">
-                <code className="text-[10px] font-mono text-white/20 group-hover:text-bone-ghost transition-colors">
-                  constructs install {construct.slug}
-                </code>
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
+                  {construct.category}
+                </span>
+                <span className="font-mono text-[10px] text-bone-ghost">
+                  {construct.downloads.toLocaleString()} installs
+                </span>
               </div>
             </Link>
           ))}

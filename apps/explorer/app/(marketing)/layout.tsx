@@ -1,47 +1,6 @@
 import Link from 'next/link';
-import { cookies } from 'next/headers';
-
-async function MarketingHeader() {
-  const cookieStore = await cookies();
-  const hasToken = cookieStore.has('access_token');
-
-  return (
-    <header className="border-b border-void-border px-6 py-3">
-      <nav className="max-w-6xl mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <Link href="/" className="text-sm font-mono font-bold text-bone-base hover:text-bone-base">
-            constructs.network
-          </Link>
-          <div className="hidden sm:flex items-center gap-4 text-xs font-mono text-bone-dim">
-            <Link href="/constructs" className="hover:text-bone-bright transition-colors">Constructs</Link>
-            <Link href="/docs" className="hover:text-bone-bright transition-colors">Docs</Link>
-            <Link href="/pricing" className="hover:text-bone-bright transition-colors">Pricing</Link>
-            <Link href="/blog" className="hover:text-bone-bright transition-colors">Blog</Link>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 text-xs font-mono">
-          {hasToken ? (
-            <Link href="/dashboard" className="text-bone-dim hover:text-bone-bright transition-colors">
-              Dashboard →
-            </Link>
-          ) : (
-            <>
-              <Link href="/login" className="text-bone-dim hover:text-bone-bright transition-colors">
-                Login
-              </Link>
-              <Link
-                href="/register"
-                className="border border-bone-ghost px-3 py-1 text-bone-base hover:bg-void-surface transition-colors"
-              >
-                Sign Up
-              </Link>
-            </>
-          )}
-        </div>
-      </nav>
-    </header>
-  );
-}
+import { Header } from '@/components/layout/header';
+import { GlobalSearch } from '@/components/search/global-search';
 
 function MarketingFooter() {
   return (
@@ -91,11 +50,12 @@ function MarketingFooter() {
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col">
-      <MarketingHeader />
+      <Header />
       <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-8">
         {children}
       </main>
       <MarketingFooter />
+      <GlobalSearch />
     </div>
   );
 }

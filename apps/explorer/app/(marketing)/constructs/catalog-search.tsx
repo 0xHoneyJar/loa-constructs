@@ -41,7 +41,7 @@ export function CatalogSearch({ defaultValue }: { defaultValue?: string }) {
         value={value}
         onChange={handleChange}
         placeholder="Search constructs..."
-        className="h-8 w-48 sm:w-64 border border-void-border bg-white/[0.02] px-3 pr-8 font-mono text-xs text-bone-base placeholder:text-bone-ghost focus:border-bone-ghost focus:outline-none"
+        className="h-8 w-48 sm:w-64 border border-void-border bg-transparent px-3 pr-8 font-mono text-xs text-bone-base placeholder:text-bone-ghost focus:border-bone-ghost focus:outline-none"
       />
       {value ? (
         <button
@@ -55,7 +55,7 @@ export function CatalogSearch({ defaultValue }: { defaultValue?: string }) {
           </svg>
         </button>
       ) : (
-        <kbd className="absolute right-2 top-1/2 -translate-y-1/2 border border-void-border px-1.5 font-mono text-[10px] text-white/20">
+        <kbd className="absolute right-2 top-1/2 -translate-y-1/2 border border-void-border px-1.5 font-mono text-[10px] text-bone-ghost">
           /
         </kbd>
       )}
