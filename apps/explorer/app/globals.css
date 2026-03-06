@@ -44,6 +44,8 @@
   --tracking-whisper: 0.25em;
   --tracking-terminal: 0.1em;
   --tracking-emphasis: 0.05em;
+  --tracking-display: 0.02em;
+  --tracking-impact: 0em;
 }
 
 * {

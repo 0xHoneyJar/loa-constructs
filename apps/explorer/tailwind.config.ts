@@ -60,6 +60,8 @@ const config: Config = {
         whisper: 'var(--tracking-whisper)',
         terminal: 'var(--tracking-terminal)',
         emphasis: 'var(--tracking-emphasis)',
+        display: 'var(--tracking-display)',
+        impact: 'var(--tracking-impact)',
       },
       keyframes: {
         'fade-in': {
