@@ -17,15 +17,15 @@ export const FormCheckbox = React.forwardRef<HTMLInputElement, FormCheckboxProps
             type="checkbox"
             id={checkboxId}
             className={cn(
-              'h-4 w-4 rounded border bg-tui-bg accent-tui-accent',
-              error ? 'border-tui-red' : 'border-tui-border',
+              'h-4 w-4 border bg-white/[0.03] accent-white',
+              error ? 'border-red-500/40' : 'border-white/20',
               className,
             )}
             {...props}
           />
-          <span className="text-sm font-mono text-tui-fg">{label}</span>
+          <span className="text-xs font-mono text-white/60">{label}</span>
         </label>
-        {error && <p className="text-xs font-mono text-tui-red">{error}</p>}
+        {error && <p className="text-xs font-mono text-red-400">{error}</p>}
       </div>
     );
   },

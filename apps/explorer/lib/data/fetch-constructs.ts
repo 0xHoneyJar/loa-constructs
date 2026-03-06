@@ -104,7 +104,7 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
 async function fetchAllRaw(): Promise<{ nodes: ConstructNode[]; raw: APIConstruct[] }> {
   try {
     const response = await fetchWithTimeout(`${API_BASE}/constructs?per_page=100`, {
-      next: { revalidate: 3600 }, // ISR: 1 hour
+      next: { revalidate: 60 }, // Revalidate every minute while catalog is growing
     });
 
     if (!response.ok) {

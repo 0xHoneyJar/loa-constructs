@@ -18,8 +18,8 @@ export function Panel({
   return (
     <div
       className={cn(
-        'relative rounded border bg-tui-bg',
-        variant === 'danger' ? 'border-tui-red' : 'border-tui-border',
+        'relative border bg-background',
+        variant === 'danger' ? 'border-red-500/30' : 'border-white/10',
         scrollable && 'overflow-y-auto',
         className,
       )}
@@ -27,8 +27,8 @@ export function Panel({
       {title && (
         <span
           className={cn(
-            'absolute -top-2.5 left-3 bg-tui-bg px-1.5 text-xs font-mono',
-            variant === 'danger' ? 'text-tui-red' : 'text-tui-dim',
+            'absolute -top-2.5 left-3 bg-background px-1.5 text-xs font-mono',
+            variant === 'danger' ? 'text-red-400' : 'text-white/40',
           )}
         >
           {title}

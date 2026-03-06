@@ -69,22 +69,22 @@ export function RegisterForm() {
     <Panel title="Register">
       <div className="flex flex-col gap-4">
         <div className="text-center">
-          <h2 className="text-base font-mono text-tui-accent">Create an account</h2>
-          <p className="text-xs font-mono text-tui-dim">Enter your details to get started</p>
+          <h2 className="text-base font-mono text-white">Create an account</h2>
+          <p className="text-xs font-mono text-white/50">Enter your details to get started</p>
         </div>
 
         <OAuthButtons disabled={isLoading} />
 
         <div className="flex items-center gap-3">
-          <div className="flex-1 border-t border-tui-border" />
-          <span className="text-xs font-mono text-tui-dim whitespace-nowrap">or continue with</span>
-          <div className="flex-1 border-t border-tui-border" />
+          <div className="flex-1 border-t border-white/10" />
+          <span className="text-xs font-mono text-white/30 whitespace-nowrap">or continue with</span>
+          <div className="flex-1 border-t border-white/10" />
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-1">
           {error && (
-            <div className="mb-2 border border-tui-red bg-tui-red/10 px-3 py-2">
-              <p className="text-xs font-mono text-tui-red">{error}</p>
+            <div className="mb-2 border border-red-500/30 bg-red-500/10 px-3 py-2">
+              <p className="text-xs font-mono text-red-400">{error}</p>
             </div>
           )}
 
@@ -135,7 +135,7 @@ export function RegisterForm() {
               disabled={isLoading}
             />
             {errors.acceptTerms && (
-              <p className="text-xs font-mono text-tui-red mt-1">{errors.acceptTerms.message}</p>
+              <p className="text-xs font-mono text-red-400 mt-1">{errors.acceptTerms.message}</p>
             )}
           </div>
 
@@ -144,9 +144,9 @@ export function RegisterForm() {
           </Button>
         </form>
 
-        <p className="text-center text-xs font-mono text-tui-dim">
+        <p className="text-center text-xs font-mono text-white/40">
           Already have an account?{' '}
-          <Link href="/login" className="text-tui-cyan no-underline hover:underline">Sign in</Link>
+          <Link href="/login" className="text-white/60 no-underline hover:text-white transition-colors">Sign in</Link>
         </p>
       </div>
     </Panel>

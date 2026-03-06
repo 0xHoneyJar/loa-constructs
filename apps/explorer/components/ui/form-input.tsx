@@ -13,7 +13,7 @@ export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
     return (
       <div className="space-y-1">
         {label && (
-          <label htmlFor={inputId} className="block text-sm font-mono text-tui-fg">
+          <label htmlFor={inputId} className="block text-xs font-mono text-white/60">
             {label}
           </label>
         )}
@@ -21,17 +21,17 @@ export const FormInput = React.forwardRef<HTMLInputElement, FormInputProps>(
           ref={ref}
           id={inputId}
           className={cn(
-            'w-full rounded border bg-tui-bg px-3 py-2 text-sm font-mono text-tui-bright',
-            'placeholder:text-tui-dim',
-            'focus:outline-none focus:border-tui-accent focus:ring-1 focus:ring-tui-accent/30',
+            'w-full border bg-white/[0.03] px-3 py-2 text-sm font-mono text-white',
+            'placeholder:text-white/30',
+            'focus:outline-none focus:border-white/40 focus:ring-1 focus:ring-white/10',
             'transition-colors',
-            error ? 'border-tui-red' : 'border-tui-border',
+            error ? 'border-red-500/40' : 'border-white/10',
             className,
           )}
           {...props}
         />
-        {error && <p className="text-xs font-mono text-tui-red">{error}</p>}
-        {hint && !error && <p className="text-xs font-mono text-tui-dim">{hint}</p>}
+        {error && <p className="text-xs font-mono text-red-400">{error}</p>}
+        {hint && !error && <p className="text-xs font-mono text-white/40">{hint}</p>}
       </div>
     );
   },
