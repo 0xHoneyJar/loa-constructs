@@ -8,7 +8,7 @@ constructs-install.sh observer
 
 # Create your own
 gh repo create my-org/construct-my-expertise \
-  --template 0xHoneyJar/construct-template --private --clone
+  --template 0xHoneyJar/construct-base --private --clone
 ```
 
 Browse constructs at **[constructs.network](https://constructs.network)**
@@ -29,8 +29,21 @@ commands/             # Slash commands
 CLAUDE.md             # Instructions injected on install
 ```
 
-Without a construct, you prompt: *"help me with design."*
-With one, you invoke a Craftsman — depth-5 Design Systems, depth-5 Motion Design, refuses backend logic. Same problem, completely different expertise applied.
+```mermaid
+graph LR
+    You([You]) --> Agent([Your Agent])
+    Agent --> |without constructs| Generic["'Help me with design'<br/><i>Generic output</i>"]
+    Agent --> |with constructs| Craftsman["Craftsman — depth-5 Design Systems<br/><i>Decomposes into feel, motion, material</i>"]
+    Agent --> |with constructs| Researcher["Researcher — depth-5 User Research<br/><i>Synthesizes evidence into hypotheses</i>"]
+    Agent --> |with constructs| Strategist["Strategist — depth-5 Positioning<br/><i>Maps capabilities to market</i>"]
+
+    style Generic fill:#1c1c1c,stroke:#555,color:#888
+    style Craftsman fill:#1a1a2e,stroke:#8B5CF6,color:#e8e8ea
+    style Researcher fill:#1a1a2e,stroke:#8B5CF6,color:#e8e8ea
+    style Strategist fill:#1a1a2e,stroke:#8B5CF6,color:#e8e8ea
+```
+
+Same agent. Different expertise installed. Different way of seeing the problem.
 
 ---
 
@@ -44,7 +57,7 @@ Three files. Push. Done.
 
 CI validates on push. Placeholder text is blocked — you can't ship "your-name" or TODO markers.
 
-Template with graduated paths: **[construct-template](https://github.com/0xHoneyJar/construct-template)**
+Start here: **[construct-base](https://github.com/0xHoneyJar/construct-base)**
 
 ---
 
@@ -72,7 +85,7 @@ pnpm --filter explorer dev      # Marketplace on localhost:3001
 
 - [constructs.network](https://constructs.network) — Marketplace
 - [Loa](https://github.com/0xHoneyJar/loa) — Framework
-- [construct-template](https://github.com/0xHoneyJar/construct-template) — Start here
+- [construct-base](https://github.com/0xHoneyJar/construct-base) — Start here
 - [CHANGELOG.md](CHANGELOG.md)
 
 ---

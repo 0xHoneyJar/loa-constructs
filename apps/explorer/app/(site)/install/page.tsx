@@ -131,12 +131,12 @@ export default function InstallPage() {
           <p className="text-xs text-white/40">
             Get your API key from{' '}
             <a
-              href="https://loa-constructs.dev/account"
+              href="https://constructs.network/dashboard"
               target="_blank"
               rel="noopener noreferrer"
               className="text-domain-docs hover:text-white"
             >
-              loa-constructs.dev/account
+              constructs.network/dashboard
             </a>
           </p>
         </div>

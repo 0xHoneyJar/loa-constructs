@@ -148,7 +148,7 @@ The progression: `/taste` (observe) -> `/inscribe` (apply) -> `/iterate-visual` 
 The template needs a clear "Level 0" path:
 
 ```
-1. gh repo create my-construct --template 0xHoneyJar/construct-template
+1. gh repo create my-construct --template 0xHoneyJar/construct-base
 2. Edit construct.yaml (name, slug, description — 3 fields)
 3. Edit skills/my-skill/SKILL.md (write the actual instructions)
 4. Edit identity/persona.yaml (archetype + one sentence disposition)

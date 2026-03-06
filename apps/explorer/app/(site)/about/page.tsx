@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { BackButton } from '@/components/layout/back-button';
 
 export const metadata: Metadata = {
-  title: 'About | Constructs Explorer',
-  description: 'What are constructs? Preserved expertise you jack into your agent.',
+  title: 'About | Constructs Network',
+  description: 'Named expertise for AI coding agents. Install once, invoke anytime.',
 };
 
 export default function AboutPage() {
@@ -25,18 +25,20 @@ export default function AboutPage() {
 
           <div className="space-y-4 text-sm leading-relaxed text-white/70">
             <p>
-              In Neuromancer, a construct is preserved consciousness—the
-              expertise of a master, stored and invokable.
+              A construct is a named unit of expertise — identity, skills, and
+              boundaries — that you install into your AI coding agent.
             </p>
 
             <p>
-              Our constructs work the same way. Each one packages domain
-              expertise into your AI agent. Install once, invoke anytime.
+              Your agent doesn&apos;t just get new capabilities. It gets a new
+              way of seeing problems.
             </p>
 
             <p>
-              The network shows how they compose. Marketing feeds into launch
-              planning. Security audits gate deployment. Expertise that stacks.
+              Ask a generic agent for help with design. You get generic output.
+              Install a Craftsman construct — depth-5 design systems — and it
+              decomposes your request into feel, motion, and material.
+              Same agent. Different expertise installed.
             </p>
           </div>
         </section>
@@ -44,21 +46,53 @@ export default function AboutPage() {
         {/* Divider */}
         <div className="border-t border-border" />
 
-        {/* Shared Execution */}
+        {/* How They Compose */}
         <section className="space-y-4">
           <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-white">
-            Shared Execution
+            Composition
           </h2>
 
           <div className="space-y-4 text-sm leading-relaxed text-white/70">
-            <p>One construct, many agents.</p>
+            <p>Constructs aren&apos;t solo. They compose.</p>
 
             <p>
-              Your GTM workflow becomes your team&apos;s GTM workflow. Expertise
-              compounds across organizations.
+              Observer captures user feedback. Artisan turns it into design
+              tokens. Protocol audits the contracts. Bridgebuilder reviews
+              the code. Each one does its part.
             </p>
 
-            <p>This is the network effect of agent capabilities.</p>
+            <p>
+              The graph shows these relationships. Constructs that work
+              together appear connected.
+            </p>
+          </div>
+        </section>
+
+        {/* Divider */}
+        <div className="border-t border-border" />
+
+        {/* Create */}
+        <section className="space-y-4">
+          <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-white">
+            Create Your Own
+          </h2>
+
+          <div className="space-y-4 text-sm leading-relaxed text-white/70">
+            <p>
+              Edit three files. Push. CI validates automatically.
+            </p>
+
+            <p>
+              Your methodology becomes installable. Others
+              benefit from your expertise without you being in the room.
+            </p>
+          </div>
+
+          <div className="rounded-md border border-border bg-surface/50 p-4">
+            <code className="font-mono text-sm text-white">
+              gh repo create my-org/construct-my-expertise \<br />
+              {'  '}--template 0xHoneyJar/construct-base --private --clone
+            </code>
           </div>
         </section>
 
@@ -69,7 +103,7 @@ export default function AboutPage() {
             className="inline-flex items-center gap-2 font-mono text-xs uppercase tracking-wider text-domain-docs hover:text-white transition-colors"
           >
             <span>→</span>
-            <span>Explore Constructs</span>
+            <span>Explore the Network</span>
           </Link>
         </div>
       </div>

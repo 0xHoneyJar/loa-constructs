@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { fetchConstruct } from '@/lib/data/fetch-constructs';
 import { BackButton } from '@/components/layout/back-button';
 import { ConstructCard } from '@/components/construct/construct-card';
+import { IdentityPanel } from '@/components/construct/identity-panel';
 import { InstallCommand } from '@/components/construct/install-command';
 import { CommandList } from '@/components/construct/command-list';
 import { SkillGrid } from '@/components/construct/skill-grid';
@@ -52,6 +53,13 @@ export default async function ConstructPage({ params }: PageProps) {
       <div className="mb-8">
         <ConstructCard construct={construct} />
       </div>
+
+      {/* Identity — who this construct IS */}
+      {construct.hasIdentity && construct.identity && (
+        <div className="mb-8">
+          <IdentityPanel identity={construct.identity} />
+        </div>
+      )}
 
       {/* Install command */}
       <div className="mb-8">
