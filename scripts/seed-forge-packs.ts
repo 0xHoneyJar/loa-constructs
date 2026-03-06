@@ -5,6 +5,10 @@
  * Source of truth: individual construct-* repos on GitHub.
  *
  * Run with: DATABASE_URL="..." pnpm tsx scripts/seed-forge-packs.ts
+ *
+ * Flags:
+ *   --dry-run         Validate manifests without DB writes
+ *   --auto-discover   Scan org for construct-* repos instead of hardcoded list (requires gh CLI)
  */
 
 import postgres from 'postgres';
@@ -22,6 +26,8 @@ import { packManifestSchema, type ValidatedPackManifest } from '../packages/shar
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLONE_DIR = join(__dirname, '../.cache/construct-repos');
+const AUTO_DISCOVER = process.argv.includes('--auto-discover');
+const CONSTRUCTS_ORG = process.env.CONSTRUCTS_ORG || '0xHoneyJar';
 
 interface PackFile {
   path: string;
@@ -255,13 +261,49 @@ function normalizeForValidation(raw: Record<string, unknown>): Record<string, un
   return normalized;
 }
 
+/**
+ * Auto-discover construct-* repos from the GitHub org.
+ * Returns the same {slug → {gitUrl, gitRef}} shape as GIT_CONFIGS.
+ * Requires `gh` CLI authenticated with org access.
+ */
+function discoverFromOrg(): Record<string, { gitUrl: string; gitRef: string }> {
+  const raw = execSync(
+    `gh repo list ${CONSTRUCTS_ORG} --limit 100 --json name,defaultBranchRef,isArchived,url`,
+    { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
+  );
+
+  const repos = JSON.parse(raw) as Array<{
+    name: string;
+    defaultBranchRef: { name: string } | null;
+    isArchived: boolean;
+    url: string;
+  }>;
+
+  const configs: Record<string, { gitUrl: string; gitRef: string }> = {};
+
+  for (const repo of repos) {
+    if (!repo.name.startsWith('construct-')) continue;
+    const slug = repo.name.replace(/^construct-/, '');
+    if (slug === 'base' || slug === 'template' || repo.isArchived) continue;
+
+    configs[slug] = {
+      gitUrl: `${repo.url}.git`,
+      gitRef: repo.defaultBranchRef?.name || 'main',
+    };
+  }
+
+  return configs;
+}
+
 async function discoverPacks(): Promise<DiscoveredPack[]> {
-  console.log(`📂 Discovering packs from construct repos...\n`);
+  const configs = AUTO_DISCOVER ? discoverFromOrg() : GIT_CONFIGS;
+  const source = AUTO_DISCOVER ? `${CONSTRUCTS_ORG} org (auto-discover)` : 'GIT_CONFIGS (hardcoded)';
+  console.log(`📂 Discovering packs from ${source}...\n`);
   ensureCloneDir();
 
   const packs: DiscoveredPack[] = [];
 
-  for (const [slug, config] of Object.entries(GIT_CONFIGS)) {
+  for (const [slug, config] of Object.entries(configs)) {
     try {
       const repoDir = cloneOrPull(slug, config.gitUrl, config.gitRef);
 
