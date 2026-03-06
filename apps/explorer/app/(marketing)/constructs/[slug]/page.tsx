@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { fetchConstruct } from '@/lib/data/fetch-constructs';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // ISR: revalidate every hour
 
 export async function generateMetadata({
   params,

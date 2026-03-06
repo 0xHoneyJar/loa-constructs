@@ -1,8 +1,7 @@
 import { fetchAllConstructs } from '@/lib/data/fetch-constructs';
 
-// Force dynamic generation — sitemap fetches from API and must not block build
-export const dynamic = 'force-dynamic';
-export const revalidate = 3600; // re-generate hourly
+// ISR — regenerate hourly. Fetch has error fallback so won't block builds.
+export const revalidate = 3600;
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://constructs.network';
 

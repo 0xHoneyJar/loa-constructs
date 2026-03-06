@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { fetchAllConstructs, searchConstructs } from '@/lib/data/fetch-constructs';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // ISR: revalidate every hour
 
 export const metadata = {
   title: 'Constructs',

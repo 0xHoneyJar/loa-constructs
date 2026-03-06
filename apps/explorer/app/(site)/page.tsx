@@ -2,9 +2,8 @@ import { fetchGraphData } from '@/lib/data/fetch-constructs';
 import { GraphExplorer } from '@/components/graph/graph-explorer';
 import { CategoryInitializer } from '@/components/graph/category-initializer';
 
-// Force dynamic — homepage fetches live graph data from API,
-// must not block build on API availability.
-export const dynamic = 'force-dynamic';
+// ISR — revalidate hourly, won't block builds (fetch has error fallback)
+export const revalidate = 3600;
 
 export default async function HomePage() {
   const { graphData, categories } = await fetchGraphData();
