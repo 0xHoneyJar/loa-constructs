@@ -17,15 +17,15 @@ export default function Error({ error, reset }: ErrorProps) {
   return (
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <div className="mb-6">
-        <div className="mb-4 font-mono text-6xl text-domain-security">!</div>
-        <h1 className="mb-2 font-mono text-xl font-semibold uppercase tracking-wider text-white">
+        <div className="mb-4 font-mono text-6xl text-crimson-base">!</div>
+        <h1 className="mb-2 font-mono text-xl font-semibold uppercase tracking-widertext-bone-base">
           Something went wrong
         </h1>
-        <p className="mx-auto max-w-md text-sm text-white/60">
+        <p className="mx-auto max-w-md text-sm text-bone-dim">
           An unexpected error occurred. This has been logged and we&apos;ll look into it.
         </p>
         {error.digest && (
-          <p className="mt-2 font-mono text-xs text-white/30">
+          <p className="mt-2 font-mono text-xs text-bone-ghost">
             Error ID: {error.digest}
           </p>
         )}
@@ -35,13 +35,13 @@ export default function Error({ error, reset }: ErrorProps) {
         <button
           type="button"
           onClick={reset}
-          className="rounded-md border border-domain-docs bg-transparent px-4 py-2 font-mono text-xs uppercase tracking-wider text-domain-docs transition-colors hover:bg-domain-docs hover:text-background"
+          className="rounded-md border border-cyan-dim bg-transparent px-4 py-2 font-mono text-xs uppercase tracking-wider text-cyan-dim transition-colors hover:bg-cyan-dim hover:text-background"
         >
           Try Again
         </button>
         <Link
           href="/"
-          className="rounded-md border border-border bg-surface px-4 py-2 font-mono text-xs uppercase tracking-wider text-white/60 transition-colors hover:bg-surface hover:text-white"
+          className="rounded-md border border-border bg-surface px-4 py-2 font-mono text-xs uppercase tracking-wider text-bone-dim transition-colors hover:bg-surface hover:text-bone-bright"
         >
           Go Home
         </Link>

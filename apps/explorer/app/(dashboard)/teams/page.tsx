@@ -25,8 +25,8 @@ export default function TeamsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-mono text-tui-bright">Teams</h1>
-          <p className="text-xs font-mono text-tui-dim mt-1">Manage your team memberships.</p>
+          <h1 className="text-lg font-mono text-bone-bright">Teams</h1>
+          <p className="text-xs font-mono text-bone-muted mt-1">Manage your team memberships.</p>
         </div>
         <Button onClick={() => setShowCreate(!showCreate)}>
           {showCreate ? 'Cancel' : '+ New Team'}
@@ -49,7 +49,7 @@ export default function TeamsPage() {
             </Button>
           </form>
           {createTeam.isError && (
-            <p className="text-xs font-mono text-tui-red mt-2">
+            <p className="text-xs font-mono text-crimson-base mt-2">
               {createTeam.error?.message || 'Failed to create team.'}
             </p>
           )}
@@ -58,10 +58,10 @@ export default function TeamsPage() {
 
       <Panel title="Your Teams">
         {isLoading ? (
-          <p className="text-xs font-mono text-tui-dim">Loading teams...</p>
+          <p className="text-xs font-mono text-bone-muted">Loading teams...</p>
         ) : !teams?.length ? (
           <div className="py-8 text-center">
-            <p className="text-sm font-mono text-tui-dim mb-4">No teams yet.</p>
+            <p className="text-sm font-mono text-bone-muted mb-4">No teams yet.</p>
             <Button variant="secondary" onClick={() => setShowCreate(true)}>
               Create Your First Team
             </Button>
@@ -72,18 +72,18 @@ export default function TeamsPage() {
               <Link
                 key={team.id}
                 href={`/teams/${team.id}`}
-                className="flex items-center justify-between border border-tui-border px-3 py-2 hover:border-tui-accent transition-colors"
+                className="flex items-center justify-between border border-void-border px-3 py-2 hover:border-cyan-base transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <span className="h-8 w-8 border border-tui-border flex items-center justify-center text-sm font-mono text-tui-accent">
+                  <span className="h-8 w-8 border border-void-border flex items-center justify-center text-sm font-mono text-cyan-base">
                     {team.name[0].toUpperCase()}
                   </span>
                   <div>
-                    <p className="text-sm font-mono text-tui-fg">{team.name}</p>
-                    <p className="text-[10px] font-mono text-tui-dim">/{team.slug}</p>
+                    <p className="text-sm font-mono text-bone-base">{team.name}</p>
+                    <p className="text-[10px] font-mono text-bone-muted">/{team.slug}</p>
                   </div>
                 </div>
-                <span className="text-xs font-mono text-tui-dim">→</span>
+                <span className="text-xs font-mono text-bone-muted">→</span>
               </Link>
             ))}
           </div>

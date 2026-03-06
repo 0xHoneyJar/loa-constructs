@@ -63,18 +63,18 @@ export default async function ConstructDetailPage({
       {/* Header */}
       <div>
         <div className="flex items-center gap-3 mb-2">
-          <h1 className="text-2xl font-mono font-bold text-white">{construct.name}</h1>
-          <span className="border border-white/20 px-2 py-0.5 text-[10px] font-mono text-white/60">
+          <h1 className="text-2xl font-mono font-boldtext-bone-base">{construct.name}</h1>
+          <span className="border border-bone-ghost px-2 py-0.5 text-[10px] font-mono text-bone-dim">
             v{construct.version}
           </span>
-          <span className="text-[10px] font-mono text-white/40 uppercase">{construct.type}</span>
+          <span className="text-[10px] font-mono text-bone-ghost uppercase">{construct.type}</span>
           {construct.constructType && construct.constructType !== 'skill-pack' && (
             <span className="border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-mono text-violet-400">
               {construct.constructType.replace(/-/g, ' ')}
             </span>
           )}
           {construct.owner && (
-            <span className="border border-white/20 px-2 py-0.5 text-[10px] font-mono text-white/60">
+            <span className="border border-bone-ghost px-2 py-0.5 text-[10px] font-mono text-bone-dim">
               by {construct.owner.name}
             </span>
           )}
@@ -95,15 +95,15 @@ export default async function ConstructDetailPage({
               );
             }
             return (
-              <span className="border border-white/20 px-2 py-0.5 text-[10px] font-mono text-white/40">
+              <span className="border border-bone-ghost px-2 py-0.5 text-[10px] font-mono text-bone-ghost">
                 Unverified
               </span>
             );
           })()}
         </div>
-        <p className="text-sm font-mono text-white/60">{construct.description}</p>
+        <p className="text-sm font-mono text-bone-dim">{construct.description}</p>
         {construct.longDescription && (
-          <p className="text-sm font-mono text-white/40 mt-2">{construct.longDescription}</p>
+          <p className="text-sm font-mono text-bone-ghost mt-2">{construct.longDescription}</p>
         )}
         {/* Fork provenance badge */}
         {construct.forkedFrom && (
@@ -117,7 +117,7 @@ export default async function ConstructDetailPage({
           </div>
         )}
         {construct.forkCount > 0 && (
-          <p className="text-xs font-mono text-white/40 mt-1">
+          <p className="text-xs font-mono text-bone-ghost mt-1">
             {construct.forkCount} variant{construct.forkCount !== 1 ? 's' : ''} exist{construct.forkCount === 1 ? 's' : ''}
           </p>
         )}
@@ -125,8 +125,8 @@ export default async function ConstructDetailPage({
 
       {/* SKILL.md Prose */}
       {construct.skillProse && (
-        <div className="border border-white/10 p-4">
-          <p className="text-sm font-mono text-white/60 whitespace-pre-wrap">
+        <div className="border border-void-border p-4">
+          <p className="text-sm font-mono text-bone-dim whitespace-pre-wrap">
             {construct.skillProse}
           </p>
         </div>
@@ -134,20 +134,20 @@ export default async function ConstructDetailPage({
 
       {/* Info */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
-        <div className="border border-white/10 p-3">
-          <p className="text-white/40 mb-1">Category</p>
-          <p className="text-white">{construct.category}</p>
+        <div className="border border-void-border p-3">
+          <p className="text-bone-ghost mb-1">Category</p>
+          <p className="text-bone-base">{construct.category}</p>
         </div>
-        <div className="border border-white/10 p-3">
-          <p className="text-white/40 mb-1">Downloads</p>
-          <p className="text-white">{construct.downloads.toLocaleString()}</p>
+        <div className="border border-void-border p-3">
+          <p className="text-bone-ghost mb-1">Downloads</p>
+          <p className="text-bone-base">{construct.downloads.toLocaleString()}</p>
         </div>
-        <div className="border border-white/10 p-3">
-          <p className="text-white/40 mb-1">Commands</p>
-          <p className="text-white">{construct.commandCount}</p>
+        <div className="border border-void-border p-3">
+          <p className="text-bone-ghost mb-1">Commands</p>
+          <p className="text-bone-base">{construct.commandCount}</p>
         </div>
-        <div className="border border-white/10 p-3 col-span-2 sm:col-span-1">
-          <p className="text-sm text-white/60">
+        <div className="border border-void-border p-3 col-span-2 sm:col-span-1">
+          <p className="text-sm text-bone-dim">
             {(() => {
               switch (construct.graduationLevel) {
                 case 'stable':
@@ -163,9 +163,9 @@ export default async function ConstructDetailPage({
           </p>
         </div>
         {construct.rating != null && (
-          <div className="border border-white/10 p-3">
-            <p className="text-white/40 mb-1">Rating</p>
-            <p className="text-white">{construct.rating.toFixed(1)}</p>
+          <div className="border border-void-border p-3">
+            <p className="text-bone-ghost mb-1">Rating</p>
+            <p className="text-bone-base">{construct.rating.toFixed(1)}</p>
           </div>
         )}
       </div>
@@ -173,11 +173,11 @@ export default async function ConstructDetailPage({
       {/* Expert Identity */}
       {construct.identity && (
         <div>
-          <h2 className="text-sm font-mono font-bold text-white mb-3">Expert Identity</h2>
+          <h2 className="text-sm font-mono font-bold text-bone-base mb-3">Expert Identity</h2>
           {Array.isArray(construct.identity.expertiseDomains) &&
             construct.identity.expertiseDomains.length > 0 && (
             <div className="mb-3">
-              <p className="text-xs font-mono text-white/40 mb-2">Expertise Domains</p>
+              <p className="text-xs font-mono text-bone-ghost mb-2">Expertise Domains</p>
               <div className="flex flex-wrap gap-2">
                 {construct.identity.expertiseDomains.map((domain: string) => (
                   <span
@@ -191,9 +191,9 @@ export default async function ConstructDetailPage({
             </div>
           )}
           {construct.identity.cognitiveFrame && (
-            <div className="border border-white/10 p-3">
-              <p className="text-xs font-mono text-white/40 mb-1">Cognitive Frame</p>
-              <pre className="text-xs font-mono text-white/60 whitespace-pre-wrap">
+            <div className="border border-void-border p-3">
+              <p className="text-xs font-mono text-bone-ghost mb-1">Cognitive Frame</p>
+              <pre className="text-xs font-mono text-bone-dim whitespace-pre-wrap">
                 {JSON.stringify(construct.identity.cognitiveFrame, null, 2)}
               </pre>
             </div>
@@ -204,16 +204,16 @@ export default async function ConstructDetailPage({
       {/* Verification Status */}
       {construct.verificationTier && construct.verificationTier !== 'UNVERIFIED' && (
         <div>
-          <h2 className="text-sm font-mono font-bold text-white mb-3">Verification</h2>
-          <div className="border border-white/10 p-4">
+          <h2 className="text-sm font-mono font-bold text-bone-base mb-3">Verification</h2>
+          <div className="border border-void-border p-4">
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-xs font-mono text-white/40">Tier</span>
-              <span className="text-xs font-mono text-white capitalize">
+              <span className="text-xs font-mono text-bone-ghost">Tier</span>
+              <span className="text-xs font-mono text-bone-base capitalize">
                 {construct.verificationTier.toLowerCase()}
               </span>
             </div>
             {construct.verifiedAt && (
-              <p className="text-xs font-mono text-white/40">
+              <p className="text-xs font-mono text-bone-ghost">
                 Verified {new Date(construct.verifiedAt).toLocaleDateString()}
               </p>
             )}
@@ -222,8 +222,8 @@ export default async function ConstructDetailPage({
       )}
 
       {/* Install */}
-      <div className="border border-white/10 p-4">
-        <p className="text-xs font-mono text-white/40 mb-2">Install</p>
+      <div className="border border-void-border p-4">
+        <p className="text-xs font-mono text-bone-ghost mb-2">Install</p>
         <code className="block text-sm font-mono text-green-400">
           {construct.installCommand}
         </code>
@@ -232,14 +232,14 @@ export default async function ConstructDetailPage({
       {/* Commands */}
       {construct.commands.length > 0 && (
         <div>
-          <h2 className="text-sm font-mono font-bold text-white mb-3">Commands</h2>
+          <h2 className="text-sm font-mono font-bold text-bone-base mb-3">Commands</h2>
           <div className="space-y-2">
             {construct.commands.map((cmd) => (
-              <div key={cmd.name} className="border border-white/10 p-3">
+              <div key={cmd.name} className="border border-void-border p-3">
                 <code className="text-xs font-mono text-blue-400">{cmd.name}</code>
-                <p className="text-xs font-mono text-white/50 mt-1">{cmd.description}</p>
+                <p className="text-xs font-mono text-bone-muted mt-1">{cmd.description}</p>
                 {cmd.usage && (
-                  <code className="block text-[10px] font-mono text-white/30 mt-1">{cmd.usage}</code>
+                  <code className="block text-[10px] font-mono text-bone-ghost mt-1">{cmd.usage}</code>
                 )}
               </div>
             ))}
@@ -250,13 +250,13 @@ export default async function ConstructDetailPage({
       {/* Skills */}
       {(construct.skills?.length ?? 0) > 0 && (
         <div>
-          <h2 className="text-sm font-mono font-bold text-white mb-3">Skills</h2>
+          <h2 className="text-sm font-mono font-bold text-bone-base mb-3">Skills</h2>
           <div className="space-y-2">
             {construct.skills!.map((skill) => (
-              <div key={skill.slug} className="border border-white/10 p-3">
-                <p className="text-xs font-mono text-white">{skill.name}</p>
+              <div key={skill.slug} className="border border-void-border p-3">
+                <p className="text-xs font-monotext-bone-base">{skill.name}</p>
                 {skill.description && (
-                  <p className="text-xs font-mono text-white/50 mt-1">{skill.description}</p>
+                  <p className="text-xs font-mono text-bone-muted mt-1">{skill.description}</p>
                 )}
               </div>
             ))}
@@ -267,10 +267,10 @@ export default async function ConstructDetailPage({
       {/* Composes With */}
       {construct.composesWith.length > 0 && (
         <div>
-          <h2 className="text-sm font-mono font-bold text-white mb-3">Composes With</h2>
+          <h2 className="text-sm font-mono font-bold text-bone-base mb-3">Composes With</h2>
           <div className="flex flex-wrap gap-2">
             {construct.composesWith.map((dep) => (
-              <span key={dep} className="border border-white/20 px-2 py-1 text-xs font-mono text-white/60">
+              <span key={dep} className="border border-bone-ghost px-2 py-1 text-xs font-mono text-bone-dim">
                 {dep}
               </span>
             ))}
@@ -281,10 +281,10 @@ export default async function ConstructDetailPage({
       {/* Built With — Showcases */}
       {construct.showcases.length > 0 && (
         <div>
-          <h2 className="text-sm font-mono font-bold text-white mb-3">Built With</h2>
+          <h2 className="text-sm font-mono font-bold text-bone-base mb-3">Built With</h2>
           <div className="space-y-2">
             {construct.showcases.map((showcase) => (
-              <div key={showcase.id} className="border border-white/10 p-3">
+              <div key={showcase.id} className="border border-void-border p-3">
                 <a
                   href={showcase.url}
                   target="_blank"
@@ -294,7 +294,7 @@ export default async function ConstructDetailPage({
                   {showcase.title} →
                 </a>
                 {showcase.description && (
-                  <p className="text-xs font-mono text-white/50 mt-1">{showcase.description}</p>
+                  <p className="text-xs font-mono text-bone-muted mt-1">{showcase.description}</p>
                 )}
               </div>
             ))}
@@ -305,19 +305,19 @@ export default async function ConstructDetailPage({
       {/* Signal Accuracy */}
       {construct.accuracy && (
         <div>
-          <h2 className="text-sm font-mono font-bold text-white mb-3">Signal Accuracy</h2>
+          <h2 className="text-sm font-mono font-bold text-bone-base mb-3">Signal Accuracy</h2>
           <div className="grid grid-cols-3 gap-4 text-xs font-mono">
-            <div className="border border-white/10 p-3">
-              <p className="text-white/40 mb-1">Weighted Kappa</p>
-              <p className="text-white">{construct.accuracy.weightedKappa.toFixed(3)}</p>
+            <div className="border border-void-border p-3">
+              <p className="text-bone-ghost mb-1">Weighted Kappa</p>
+              <p className="text-bone-base">{construct.accuracy.weightedKappa.toFixed(3)}</p>
             </div>
-            <div className="border border-white/10 p-3">
-              <p className="text-white/40 mb-1">Coverage</p>
-              <p className="text-white">{(construct.accuracy.coverage * 100).toFixed(0)}%</p>
+            <div className="border border-void-border p-3">
+              <p className="text-bone-ghost mb-1">Coverage</p>
+              <p className="text-bone-base">{(construct.accuracy.coverage * 100).toFixed(0)}%</p>
             </div>
-            <div className="border border-white/10 p-3">
-              <p className="text-white/40 mb-1">Sample Size</p>
-              <p className="text-white">{construct.accuracy.sampleSize}</p>
+            <div className="border border-void-border p-3">
+              <p className="text-bone-ghost mb-1">Sample Size</p>
+              <p className="text-bone-base">{construct.accuracy.sampleSize}</p>
             </div>
           </div>
           {construct.accuracy.warnings.length > 0 && (
@@ -334,7 +334,7 @@ export default async function ConstructDetailPage({
       <div className="flex gap-3 text-xs font-mono">
         <Link
           href={`/${slug}`}
-          className="border border-white/20 px-4 py-2 text-white/60 hover:bg-white/10 transition-colors"
+          className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors"
         >
           View in graph →
         </Link>
@@ -343,7 +343,7 @@ export default async function ConstructDetailPage({
             href={construct.gitUrl.replace(/\.git$/, '')}
             target="_blank"
             rel="noopener noreferrer"
-            className="border border-white/20 px-4 py-2 text-white/60 hover:bg-white/10 transition-colors"
+            className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors"
           >
             View Source on GitHub →
           </a>
@@ -353,7 +353,7 @@ export default async function ConstructDetailPage({
             href={construct.repositoryUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="border border-white/20 px-4 py-2 text-white/60 hover:bg-white/10 transition-colors"
+            className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors"
           >
             Repository →
           </a>
@@ -363,7 +363,7 @@ export default async function ConstructDetailPage({
             href={construct.homepageUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="border border-white/20 px-4 py-2 text-white/60 hover:bg-white/10 transition-colors"
+            className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors"
           >
             Homepage →
           </a>
@@ -373,14 +373,14 @@ export default async function ConstructDetailPage({
             href={construct.documentationUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="border border-white/20 px-4 py-2 text-white/60 hover:bg-white/10 transition-colors"
+            className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors"
           >
             Documentation →
           </a>
         )}
         <Link
           href="/constructs"
-          className="text-white/40 hover:text-white/60 transition-colors flex items-center"
+          className="text-bone-ghost hover:text-bone-dim transition-colors flex items-center"
         >
           ← Back to catalog
         </Link>

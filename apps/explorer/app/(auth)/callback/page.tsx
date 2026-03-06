@@ -37,8 +37,8 @@ function CallbackHandler() {
     <>
       <meta name="referrer" content="no-referrer" />
       <div className="flex flex-col items-center gap-4 py-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-tui-accent" />
-        <p className="text-xs font-mono text-tui-dim">Signing you in...</p>
+        <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-cyan-base" />
+        <p className="text-xs font-mono text-bone-muted">Signing you in...</p>
       </div>
     </>
   );
@@ -46,7 +46,7 @@ function CallbackHandler() {
 
 export default function CallbackPage() {
   return (
-    <Suspense fallback={<div className="text-center text-tui-dim font-mono text-sm">Loading...</div>}>
+    <Suspense fallback={<div className="text-center text-bone-muted font-mono text-sm">Loading...</div>}>
       <CallbackHandler />
     </Suspense>
   );

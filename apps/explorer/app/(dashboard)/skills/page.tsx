@@ -36,8 +36,8 @@ export default function SkillsBrowserPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-mono text-tui-bright">Skills Browser</h1>
-        <p className="text-xs font-mono text-tui-dim mt-1">Browse and install constructs.</p>
+        <h1 className="text-lg font-mono text-bone-bright">Skills Browser</h1>
+        <p className="text-xs font-mono text-bone-muted mt-1">Browse and install constructs.</p>
       </div>
 
       {/* Filters */}
@@ -47,12 +47,12 @@ export default function SkillsBrowserPage() {
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           placeholder="Search..."
-          className="flex-1 min-w-[200px] bg-transparent border border-tui-border px-3 py-1.5 text-sm font-mono text-tui-fg placeholder:text-tui-dim/50 focus:outline-none focus:border-tui-accent"
+          className="flex-1 min-w-[200px] bg-transparent border border-void-border px-3 py-1.5 text-sm font-mono text-bone-base placeholder:text-bone-muted/50 focus:outline-none focus:border-cyan-base"
         />
         <select
           value={category}
           onChange={(e) => { setCategory(e.target.value); setPage(1); }}
-          className="bg-transparent border border-tui-border px-3 py-1.5 text-sm font-mono text-tui-fg focus:outline-none focus:border-tui-accent"
+          className="bg-transparent border border-void-border px-3 py-1.5 text-sm font-mono text-bone-base focus:outline-none focus:border-cyan-base"
         >
           {categories.map((c) => (
             <option key={c} value={c}>{c === 'all' ? 'All Categories' : c}</option>
@@ -61,7 +61,7 @@ export default function SkillsBrowserPage() {
         <select
           value={tier}
           onChange={(e) => { setTier(e.target.value); setPage(1); }}
-          className="bg-transparent border border-tui-border px-3 py-1.5 text-sm font-mono text-tui-fg focus:outline-none focus:border-tui-accent"
+          className="bg-transparent border border-void-border px-3 py-1.5 text-sm font-mono text-bone-base focus:outline-none focus:border-cyan-base"
         >
           {tierOptions.map((t) => (
             <option key={t} value={t}>{t === 'all' ? 'All Tiers' : t}</option>
@@ -72,9 +72,9 @@ export default function SkillsBrowserPage() {
       {/* Results */}
       <Panel title={`Results${data ? ` (${data.pagination.total})` : ''}`}>
         {isLoading ? (
-          <p className="text-xs font-mono text-tui-dim">Loading constructs...</p>
+          <p className="text-xs font-mono text-bone-muted">Loading constructs...</p>
         ) : !items.length ? (
-          <p className="text-xs font-mono text-tui-dim">No constructs found.</p>
+          <p className="text-xs font-mono text-bone-muted">No constructs found.</p>
         ) : (
           <div className="space-y-1">
             {items.map((item, index) => (
@@ -83,23 +83,23 @@ export default function SkillsBrowserPage() {
                 href={`/skills/${item.slug}`}
                 className={`block px-3 py-2 text-xs font-mono transition-colors ${
                   index === currentIndex
-                    ? 'bg-tui-accent/10 text-tui-accent'
-                    : 'text-tui-fg hover:bg-tui-dim/5'
+                    ? 'bg-cyan-dim/10 text-cyan-base'
+                    : 'text-bone-base hover:bg-bone-muted/5'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <span className="text-tui-dim">{index === currentIndex ? '▸' : ' '}</span>
-                    <span className="text-tui-bright">{item.name}</span>
+                    <span className="text-bone-muted">{index === currentIndex ? '▸' : ' '}</span>
+                    <span className="text-bone-bright">{item.name}</span>
                     {item.version && (
-                      <span className="text-tui-dim">v{item.version}</span>
+                      <span className="text-bone-muted">v{item.version}</span>
                     )}
-                    <span className="text-tui-dim uppercase text-[10px]">{item.tier_required}</span>
+                    <span className="text-bone-muted uppercase text-[10px]">{item.tier_required}</span>
                   </div>
-                  <span className="text-tui-dim">{item.downloads.toLocaleString()} ↓</span>
+                  <span className="text-bone-muted">{item.downloads.toLocaleString()} ↓</span>
                 </div>
                 {item.description && (
-                  <p className="text-tui-dim ml-6 mt-0.5 truncate">{item.description}</p>
+                  <p className="text-bone-muted ml-6 mt-0.5 truncate">{item.description}</p>
                 )}
               </Link>
             ))}
@@ -117,7 +117,7 @@ export default function SkillsBrowserPage() {
           >
             ← Prev
           </Button>
-          <span className="text-tui-dim">
+          <span className="text-bone-muted">
             Page {page} of {data.pagination.total_pages}
           </span>
           <Button
@@ -130,7 +130,7 @@ export default function SkillsBrowserPage() {
         </div>
       )}
 
-      <p className="text-[10px] font-mono text-tui-dim text-center">
+      <p className="text-[10px] font-mono text-bone-muted text-center">
         j/k navigate · Enter select · 1-9 jump
       </p>
     </div>

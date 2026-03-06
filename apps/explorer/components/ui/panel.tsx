@@ -19,7 +19,7 @@ export function Panel({
     <div
       className={cn(
         'relative border bg-background',
-        variant === 'danger' ? 'border-red-500/30' : 'border-white/10',
+        variant === 'danger' ? 'border-crimson-base/30' : 'border-void-border',
         scrollable && 'overflow-y-auto',
         className,
       )}
@@ -28,7 +28,7 @@ export function Panel({
         <span
           className={cn(
             'absolute -top-2.5 left-3 bg-background px-1.5 text-xs font-mono',
-            variant === 'danger' ? 'text-red-400' : 'text-white/40',
+            variant === 'danger' ? 'text-crimson-base' : 'text-bone-ghost',
           )}
         >
           {title}

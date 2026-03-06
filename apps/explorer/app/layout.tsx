@@ -67,7 +67,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${GeistSans.variable} ${GeistMono.variable} min-h-screen bg-background text-white antialiased`}
+        className={`${GeistSans.variable} ${GeistMono.variable} min-h-screen bg-background font-mono text-foreground antialiased`}
       >
         {children}
       </body>

@@ -69,22 +69,22 @@ export function RegisterForm() {
     <Panel title="Register">
       <div className="flex flex-col gap-4">
         <div className="text-center">
-          <h2 className="text-base font-mono text-white">Create an account</h2>
-          <p className="text-xs font-mono text-white/50">Enter your details to get started</p>
+          <h2 className="text-base font-mono text-bone-base">Create an account</h2>
+          <p className="text-xs font-mono text-bone-muted">Enter your details to get started</p>
         </div>
 
         <OAuthButtons disabled={isLoading} />
 
         <div className="flex items-center gap-3">
-          <div className="flex-1 border-t border-white/10" />
-          <span className="text-xs font-mono text-white/30 whitespace-nowrap">or continue with</span>
-          <div className="flex-1 border-t border-white/10" />
+          <div className="flex-1 border-t border-void-border" />
+          <span className="text-xs font-mono text-bone-ghost whitespace-nowrap">or continue with</span>
+          <div className="flex-1 border-t border-void-border" />
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-1">
           {error && (
-            <div className="mb-2 border border-red-500/30 bg-red-500/10 px-3 py-2">
-              <p className="text-xs font-mono text-red-400">{error}</p>
+            <div className="mb-2 border border-crimson-base/30 bg-crimson-dim/10 px-3 py-2">
+              <p className="text-xs font-mono text-crimson-base">{error}</p>
             </div>
           )}
 
@@ -135,7 +135,7 @@ export function RegisterForm() {
               disabled={isLoading}
             />
             {errors.acceptTerms && (
-              <p className="text-xs font-mono text-red-400 mt-1">{errors.acceptTerms.message}</p>
+              <p className="text-xs font-mono text-crimson-base mt-1">{errors.acceptTerms.message}</p>
             )}
           </div>
 
@@ -144,9 +144,9 @@ export function RegisterForm() {
           </Button>
         </form>
 
-        <p className="text-center text-xs font-mono text-white/40">
+        <p className="text-center text-xs font-mono text-bone-ghost">
           Already have an account?{' '}
-          <Link href="/login" className="text-white/60 no-underline hover:text-white transition-colors">Sign in</Link>
+          <Link href="/login" className="text-bone-dim no-underline hover:text-bone-base transition-colors">Sign in</Link>
         </p>
       </div>
     </Panel>

@@ -3,13 +3,13 @@ import { cn } from '@/lib/utils/cn';
 import { getCategoryColor } from '@/lib/utils/colors';
 
 const badgeVariants = cva(
-  'inline-flex items-center rounded-sm px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider',
+  'inline-flex items-center px-2 py-0.5 text-[10px] font-mono uppercase tracking-terminal',
   {
     variants: {
       variant: {
-        default: 'bg-surface text-white/80 border border-border',
-        pack: 'bg-white/10 text-white border border-white/20',
-        skill: 'bg-white/5 text-white/60 border border-white/10',
+        default: 'bg-void-raised text-bone-dim border border-void-border',
+        pack: 'bg-void-surface text-bone-base border border-bone-ghost',
+        skill: 'bg-void-raised text-bone-dim border border-void-border',
         // Category variants use dynamic styling via style prop
         category: '',
       },
@@ -34,7 +34,7 @@ export function Badge({ className, variant, style, ...props }: BadgeProps) {
     return (
       <span
         className={cn(
-          'inline-flex items-center rounded-sm px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider border',
+          'inline-flex items-center px-2 py-0.5 text-[10px] font-mono uppercase tracking-terminal border',
           className
         )}
         style={{

@@ -44,13 +44,13 @@ export function SearchInput() {
         value={searchQuery}
         onChange={handleChange}
         placeholder="Search constructs..."
-        className="h-8 w-48 rounded-md border border-border bg-surface/50 px-3 pr-8 font-mono text-xs text-white placeholder:text-white/30 focus:border-white/30 focus:outline-none focus:ring-0 sm:w-64"
+        className="h-8 w-48 border border-void-border bg-void-surface/50 px-3 pr-8 font-mono text-xs text-bone-base placeholder:text-bone-ghost focus:border-bone-ghost focus:outline-none focus:ring-0 sm:w-64"
       />
       {searchQuery ? (
         <button
           type="button"
           onClick={handleClear}
-          className="absolute right-2 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+          className="absolute right-2 top-1/2 -translate-y-1/2 text-bone-ghost hover:text-bone-base"
         >
           <span className="sr-only">Clear search</span>
           <svg
@@ -68,7 +68,7 @@ export function SearchInput() {
           </svg>
         </button>
       ) : (
-        <kbd className="absolute right-2 top-1/2 -translate-y-1/2 rounded border border-border bg-surface px-1.5 font-mono text-[10px] text-white/30">
+        <kbd className="absolute right-2 top-1/2 -translate-y-1/2 border border-void-border bg-void-raised px-1.5 font-mono text-[10px] text-bone-ghost">
           /
         </kbd>
       )}

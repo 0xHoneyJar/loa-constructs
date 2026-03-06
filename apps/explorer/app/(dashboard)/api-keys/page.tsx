@@ -49,8 +49,8 @@ export default function ApiKeysPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-mono text-tui-bright">API Keys</h1>
-          <p className="text-xs font-mono text-tui-dim mt-1">Manage your API keys for programmatic access.</p>
+          <h1 className="text-lg font-mono text-bone-bright">API Keys</h1>
+          <p className="text-xs font-mono text-bone-muted mt-1">Manage your API keys for programmatic access.</p>
         </div>
         <Button onClick={() => setShowCreate(!showCreate)}>
           {showCreate ? 'Cancel' : '+ New Key'}
@@ -61,10 +61,10 @@ export default function ApiKeysPage() {
       {newKey && (
         <Panel title="New Key Created" variant="danger">
           <div className="space-y-2">
-            <p className="text-xs font-mono text-tui-yellow">
+            <p className="text-xs font-mono text-graduation-beta">
               Copy this key now. It will not be shown again.
             </p>
-            <code className="block bg-black/50 border border-tui-border px-3 py-2 text-xs font-mono text-tui-green break-all">
+            <code className="block bg-black/50 border border-void-border px-3 py-2 text-xs font-mono text-cyan-base break-all">
               {newKey}
             </code>
             <Button variant="secondary" onClick={() => {
@@ -99,19 +99,19 @@ export default function ApiKeysPage() {
       {/* Key list */}
       <Panel title="Active Keys">
         {isLoading ? (
-          <p className="text-xs font-mono text-tui-dim">Loading keys...</p>
+          <p className="text-xs font-mono text-bone-muted">Loading keys...</p>
         ) : !keys?.length ? (
-          <p className="text-xs font-mono text-tui-dim">No API keys yet. Create one to get started.</p>
+          <p className="text-xs font-mono text-bone-muted">No API keys yet. Create one to get started.</p>
         ) : (
           <div className="space-y-2">
             {keys.map((key) => (
               <div
                 key={key.id}
-                className="flex items-center justify-between border border-tui-border px-3 py-2"
+                className="flex items-center justify-between border border-void-border px-3 py-2"
               >
                 <div>
-                  <p className="text-sm font-mono text-tui-fg">{key.name}</p>
-                  <p className="text-xs font-mono text-tui-dim">
+                  <p className="text-sm font-mono text-bone-base">{key.name}</p>
+                  <p className="text-xs font-mono text-bone-muted">
                     {key.prefix}... &middot; Created {new Date(key.createdAt).toLocaleDateString()}
                     {key.lastUsedAt && ` · Last used ${new Date(key.lastUsedAt).toLocaleDateString()}`}
                   </p>
@@ -120,7 +120,7 @@ export default function ApiKeysPage() {
                   variant="ghost"
                   onClick={() => handleRevoke(key.id)}
                   disabled={revokeKey.isPending}
-                  className="text-tui-red hover:bg-tui-red/10"
+                  className="text-crimson-base hover:bg-crimson-base/10"
                 >
                   Revoke
                 </Button>

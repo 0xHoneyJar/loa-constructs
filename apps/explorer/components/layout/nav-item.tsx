@@ -19,16 +19,16 @@ export function NavItem({ href, label, shortcut, active = false, onClick }: NavI
       className={cn(
         'flex items-center px-2 py-1 text-sm font-mono no-underline whitespace-nowrap transition-colors',
         active
-          ? 'bg-tui-accent/10 text-tui-accent'
-          : 'text-tui-fg hover:bg-tui-dim/10',
+          ? 'bg-cyan-dim/10 text-cyan-base'
+          : 'text-bone-base hover:bg-bone-muted/10',
       )}
     >
-      <span className={cn('w-5 inline-block', active ? 'text-tui-accent' : 'text-tui-dim')}>
+      <span className={cn('w-5 inline-block', active ? 'text-cyan-base' : 'text-bone-muted')}>
         {active ? '▸' : ' '}
       </span>
       {label}
       {shortcut && (
-        <span className={cn('ml-auto text-xs', active ? 'text-tui-accent' : 'text-tui-dim')}>
+        <span className={cn('ml-auto text-xs', active ? 'text-cyan-base' : 'text-bone-muted')}>
           [{shortcut}]
         </span>
       )}

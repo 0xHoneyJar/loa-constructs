@@ -39,7 +39,7 @@ export function HoverTooltip({ nodes }: HoverTooltipProps) {
 
   return (
     <div
-      className="pointer-events-none fixed max-w-xs rounded-lg border border-white/10 bg-surface/95 p-3 shadow-xl backdrop-blur-sm"
+      className="pointer-events-none fixed max-w-xs rounded-lg border border-void-border bg-surface/95 p-3 shadow-xl backdrop-blur-sm"
       style={{
         left: position.x,
         top: position.y,
@@ -58,18 +58,18 @@ export function HoverTooltip({ nodes }: HoverTooltipProps) {
           {node.type}
         </Badge>
         <GraduationBadge level={node.graduationLevel} />
-        <span className="font-mono text-xs text-white/40">v{node.version}</span>
+        <span className="font-mono text-xs text-bone-ghost">v{node.version}</span>
       </div>
 
-      <h3 className="mb-1 font-mono text-sm font-medium text-white">
+      <h3 className="mb-1 font-mono text-sm font-mediumtext-bone-base">
         {node.name}
       </h3>
 
-      <p className="mb-2 text-xs leading-relaxed text-white/60">
+      <p className="mb-2 text-xs leading-relaxed text-bone-dim">
         {node.shortDescription}
       </p>
 
-      <div className="flex items-center gap-3 font-mono text-xs text-white/40">
+      <div className="flex items-center gap-3 font-mono text-xs text-bone-ghost">
         <span>{node.commandCount} commands</span>
         <span>{node.downloads.toLocaleString()} downloads</span>
       </div>

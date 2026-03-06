@@ -25,43 +25,43 @@ export default async function PackDetailPage({ params }: { params: Promise<{ slu
     <div className="space-y-8 max-w-4xl">
       <div>
         <div className="flex items-center gap-3 mb-2">
-          <h1 className="text-2xl font-mono font-bold text-white">{pack.name}</h1>
-          <span className="border border-white/20 px-2 py-0.5 text-[10px] font-mono text-white/60">
+          <h1 className="text-2xl font-mono font-boldtext-bone-base">{pack.name}</h1>
+          <span className="border border-bone-ghost px-2 py-0.5 text-[10px] font-mono text-bone-dim">
             v{pack.version}
           </span>
         </div>
-        <p className="text-sm font-mono text-white/60">{pack.description}</p>
+        <p className="text-sm font-mono text-bone-dim">{pack.description}</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4 text-xs font-mono">
-        <div className="border border-white/10 p-3">
-          <p className="text-white/40 mb-1">Downloads</p>
-          <p className="text-white">{pack.downloads.toLocaleString()}</p>
+        <div className="border border-void-border p-3">
+          <p className="text-bone-ghost mb-1">Downloads</p>
+          <p className="text-bone-base">{pack.downloads.toLocaleString()}</p>
         </div>
-        <div className="border border-white/10 p-3">
-          <p className="text-white/40 mb-1">Skills</p>
-          <p className="text-white">{pack.skills?.length ?? 0}</p>
+        <div className="border border-void-border p-3">
+          <p className="text-bone-ghost mb-1">Skills</p>
+          <p className="text-bone-base">{pack.skills?.length ?? 0}</p>
         </div>
-        <div className="border border-white/10 p-3">
-          <p className="text-white/40 mb-1">Commands</p>
-          <p className="text-white">{pack.commands.length}</p>
+        <div className="border border-void-border p-3">
+          <p className="text-bone-ghost mb-1">Commands</p>
+          <p className="text-bone-base">{pack.commands.length}</p>
         </div>
       </div>
 
-      <div className="border border-white/10 p-4">
-        <p className="text-xs font-mono text-white/40 mb-2">Install</p>
+      <div className="border border-void-border p-4">
+        <p className="text-xs font-mono text-bone-ghost mb-2">Install</p>
         <code className="block text-sm font-mono text-green-400">{pack.installCommand}</code>
       </div>
 
       {(pack.skills?.length ?? 0) > 0 && (
         <div>
-          <h2 className="text-sm font-mono font-bold text-white mb-3">Skills ({pack.skills!.length})</h2>
+          <h2 className="text-sm font-mono font-bold text-bone-base mb-3">Skills ({pack.skills!.length})</h2>
           <div className="space-y-2">
             {pack.skills!.map((skill) => (
-              <div key={skill.slug} className="border border-white/10 p-3">
-                <p className="text-xs font-mono text-white">{skill.name}</p>
+              <div key={skill.slug} className="border border-void-border p-3">
+                <p className="text-xs font-monotext-bone-base">{skill.name}</p>
                 {skill.description && (
-                  <p className="text-xs font-mono text-white/50 mt-1">{skill.description}</p>
+                  <p className="text-xs font-mono text-bone-muted mt-1">{skill.description}</p>
                 )}
               </div>
             ))}
@@ -70,7 +70,7 @@ export default async function PackDetailPage({ params }: { params: Promise<{ slu
       )}
 
       <div className="flex gap-3 text-xs font-mono">
-        <Link href={`/${slug}`} className="border border-white/20 px-4 py-2 text-white/60 hover:bg-white/10 transition-colors">
+        <Link href={`/${slug}`} className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors">
           View in graph →
         </Link>
         {pack.sourceType === 'git' && pack.gitUrl && (
@@ -78,12 +78,12 @@ export default async function PackDetailPage({ params }: { params: Promise<{ slu
             href={pack.gitUrl.replace(/\.git$/, '')}
             target="_blank"
             rel="noopener noreferrer"
-            className="border border-white/20 px-4 py-2 text-white/60 hover:bg-white/10 transition-colors"
+            className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors"
           >
             View Source on GitHub →
           </a>
         )}
-        <Link href="/packs" className="text-white/40 hover:text-white/60 transition-colors flex items-center">
+        <Link href="/packs" className="text-bone-ghost hover:text-bone-dim transition-colors flex items-center">
           ← Back to packs
         </Link>
       </div>

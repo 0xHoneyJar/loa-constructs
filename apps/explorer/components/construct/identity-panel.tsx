@@ -34,49 +34,49 @@ export function IdentityPanel({ identity }: IdentityPanelProps) {
   if (!hasContent) return null;
 
   return (
-    <div className="border border-border bg-surface/50 p-4 space-y-4">
-      <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-white">
+    <div className="border border-void-border bg-void-raised/50 p-4 space-y-4">
+      <h2 className="font-mono text-xs font-semibold uppercase tracking-terminal text-bone-base">
         Identity
       </h2>
 
       <div className="grid gap-4 sm:grid-cols-2">
         {archetype && (
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-white/30">
+            <span className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
               Archetype
             </span>
-            <p className="mt-1 text-sm text-white/70">{archetype}</p>
+            <p className="mt-1 text-sm text-bone-dim">{archetype}</p>
           </div>
         )}
 
         {frame && (
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-white/30">
+            <span className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
               Cognitive Frame
             </span>
-            <p className="mt-1 text-sm text-white/70">{frame}</p>
+            <p className="mt-1 text-sm text-bone-dim">{frame}</p>
           </div>
         )}
 
         {tone && (
           <div>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-white/30">
+            <span className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
               Voice
             </span>
-            <p className="mt-1 text-sm text-white/70">{tone}</p>
+            <p className="mt-1 text-sm text-bone-dim">{tone}</p>
           </div>
         )}
 
         {domains && domains.length > 0 && (
           <div className={!archetype && !frame && !tone ? 'sm:col-span-2' : ''}>
-            <span className="font-mono text-[10px] uppercase tracking-wider text-white/30">
+            <span className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
               Expertise
             </span>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {domains.map((domain) => (
                 <span
                   key={domain}
-                  className="rounded border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-xs text-white/50"
+                  className="border border-void-border bg-void-surface px-2 py-0.5 font-mono text-xs text-bone-muted"
                 >
                   {domain}
                 </span>

@@ -15,10 +15,10 @@ const navigation = [
 ];
 
 const tierStyles: Record<string, { label: string; className: string }> = {
-  free: { label: 'FREE', className: 'text-tui-dim border-tui-dim' },
-  pro: { label: 'PRO', className: 'text-tui-accent border-tui-accent' },
-  team: { label: 'TEAM', className: 'text-tui-cyan border-tui-cyan' },
-  enterprise: { label: 'ENT', className: 'text-tui-yellow border-tui-yellow' },
+  free: { label: 'FREE', className: 'text-bone-muted border-bone-muted' },
+  pro: { label: 'PRO', className: 'text-cyan-base border-cyan-base' },
+  team: { label: 'TEAM', className: 'text-cyan-dim border-cyan-dim' },
+  enterprise: { label: 'ENT', className: 'text-graduation-beta border-graduation-beta' },
 };
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
@@ -50,11 +50,11 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         })}
       </nav>
 
-      <div className="border-t border-tui-border/50 my-2" />
+      <div className="border-t border-void-border/50 my-2" />
 
       <div className="px-2 pb-1">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-sm font-mono text-tui-fg truncate">
+          <span className="text-sm font-mono text-bone-base truncate">
             {user?.name || user?.email?.split('@')[0] || 'user'}
           </span>
           <span className={`text-[10px] font-mono border px-1 ${tier.className}`}>
@@ -64,7 +64,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-1.5 px-2 py-1 text-xs font-mono text-tui-dim hover:text-tui-red hover:bg-tui-red/10 transition-colors"
+          className="flex w-full items-center gap-1.5 px-2 py-1 text-xs font-mono text-bone-muted hover:text-crimson-base hover:bg-crimson-base/10 transition-colors"
         >
           <LogOut size={12} />
           Sign Out

@@ -11,7 +11,7 @@ export function GraphSkeleton() {
             />
           ))}
         </div>
-        <p className="font-mono text-xs uppercase tracking-wider text-white/40">
+        <p className="font-mono text-xs uppercase tracking-wider text-bone-ghost">
           Loading graph...
         </p>
       </div>

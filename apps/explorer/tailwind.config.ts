@@ -10,34 +10,56 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: '#0A0A0A',
-        surface: '#1A1A1A',
-        border: '#2A2A2A',
-        // Domain colors - bold and saturated
-        domain: {
-          gtm: '#FF44FF',
-          dev: '#44FF88',
-          security: '#FF8844',
-          analytics: '#FFDD44',
-          docs: '#44DDFF',
-          ops: '#4488FF',
+        // Semantic — mapped from OKLCH CSS vars in globals.css
+        background: 'var(--color-void-base)',
+        surface: 'var(--color-void-raised)',
+        border: 'var(--color-void-border)',
+        foreground: 'var(--color-bone-base)',
+
+        // Void — the abyss, backgrounds
+        void: {
+          base: 'var(--color-void-base)',
+          raised: 'var(--color-void-raised)',
+          surface: 'var(--color-void-surface)',
+          border: 'var(--color-void-border)',
         },
-        tui: {
-          bg: '#0a0a0a',
-          fg: '#c0c0c0',
-          bright: '#ffffff',
-          dim: '#606060',
-          accent: '#5fafff',
-          green: '#5fff87',
-          yellow: '#ffff5f',
-          red: '#ff5f5f',
-          cyan: '#5fffff',
-          border: '#5f5f5f',
+
+        // Bone — primary data, text, interface chrome
+        bone: {
+          bright: 'var(--color-bone-bright)',
+          base: 'var(--color-bone-base)',
+          dim: 'var(--color-bone-dim)',
+          muted: 'var(--color-bone-muted)',
+          ghost: 'var(--color-bone-ghost)',
+        },
+
+        // Cyan — structure, chrome, navigation
+        cyan: {
+          base: 'var(--color-cyan-base)',
+          dim: 'var(--color-cyan-dim)',
+        },
+
+        // Crimson — accent, danger, emphasis (the ONLY warm channel)
+        crimson: {
+          base: 'var(--color-crimson-base)',
+          dim: 'var(--color-crimson-dim)',
+        },
+
+        // Graduation levels
+        graduation: {
+          experimental: 'var(--graduation-experimental)',
+          beta: 'var(--graduation-beta)',
+          stable: 'var(--graduation-stable)',
+          deprecated: 'var(--graduation-deprecated)',
         },
       },
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
         mono: ['var(--font-geist-mono)', 'monospace'],
+      },
+      letterSpacing: {
+        whisper: 'var(--tracking-whisper)',
+        terminal: 'var(--tracking-terminal)',
+        emphasis: 'var(--tracking-emphasis)',
       },
       keyframes: {
         'fade-in': {

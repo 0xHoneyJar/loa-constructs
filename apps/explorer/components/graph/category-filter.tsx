@@ -16,7 +16,7 @@ export function CategoryFilter({ categories }: CategoryFilterProps) {
       <button
         type="button"
         onClick={() => setAllCategories(!allActive)}
-        className="rounded-md bg-surface/50 px-2 py-1 font-mono text-xs uppercase tracking-wider text-white/60 transition-colors hover:bg-surface hover:text-white"
+        className="rounded-md bg-surface/50 px-2 py-1 font-mono text-xs uppercase tracking-wider text-bone-dim transition-colors hover:bg-surface hover:text-bone-bright"
       >
         {allActive ? 'Clear' : 'All'}
       </button>
@@ -45,7 +45,7 @@ export function CategoryFilter({ categories }: CategoryFilterProps) {
               }}
             />
             <span className="whitespace-nowrap">{category.label}</span>
-            <span className="hidden text-white/40 sm:inline">({category.count})</span>
+            <span className="hidden text-bone-ghost sm:inline">({category.count})</span>
           </button>
         );
       })}

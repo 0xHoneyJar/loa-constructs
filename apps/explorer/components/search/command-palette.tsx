@@ -92,7 +92,7 @@ export function CommandPalette({ nodes }: CommandPaletteProps) {
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-void-base/80 backdrop-blur-sm"
         onClick={() => {
           setOpen(false);
           setQuery('');
@@ -100,9 +100,9 @@ export function CommandPalette({ nodes }: CommandPaletteProps) {
       />
 
       {/* Palette */}
-      <div className="relative w-full max-w-lg overflow-hidden rounded-lg border border-border bg-surface shadow-2xl">
+      <div className="relative w-full max-w-lg overflow-hidden border border-void-border bg-void-raised shadow-2xl">
         {/* Search input */}
-        <div className="border-b border-border p-4">
+        <div className="border-b border-void-border p-4">
           <input
             type="text"
             value={query}
@@ -110,7 +110,7 @@ export function CommandPalette({ nodes }: CommandPaletteProps) {
             onKeyDown={handlePaletteKeyDown}
             placeholder="Search constructs..."
             autoFocus
-            className="w-full bg-transparent font-mono text-sm text-white placeholder:text-white/30 focus:outline-none"
+            className="w-full bg-transparent font-mono text-sm text-bone-base placeholder:text-bone-ghost focus:outline-none"
           />
         </div>
 
@@ -118,7 +118,7 @@ export function CommandPalette({ nodes }: CommandPaletteProps) {
         <div className="max-h-80 overflow-y-auto p-2">
           {results.length === 0 ? (
             <div className="px-4 py-8 text-center">
-              <p className="font-mono text-xs text-white/40">No constructs found</p>
+              <p className="font-mono text-xs text-bone-ghost">No constructs found</p>
             </div>
           ) : (
             <ul>
@@ -128,15 +128,15 @@ export function CommandPalette({ nodes }: CommandPaletteProps) {
                     type="button"
                     onClick={() => handleSelect(node)}
                     onMouseEnter={() => setSelectedIndex(index)}
-                    className={`flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors ${
+                    className={`flex w-full items-center gap-3 px-3 py-2 text-left transition-colors ${
                       index === selectedIndex
-                        ? 'bg-white/10'
-                        : 'hover:bg-white/5'
+                        ? 'bg-void-surface'
+                        : 'hover:bg-void-surface/50'
                     }`}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-medium text-white">
+                        <span className="font-mono text-sm font-medium text-bone-base">
                           {node.name}
                         </span>
                         <Badge
@@ -150,12 +150,12 @@ export function CommandPalette({ nodes }: CommandPaletteProps) {
                           {node.type}
                         </Badge>
                       </div>
-                      <p className="truncate text-xs text-white/50">
+                      <p className="truncate text-xs text-bone-muted">
                         {node.shortDescription}
                       </p>
                     </div>
                     {index === selectedIndex && (
-                      <kbd className="rounded border border-border bg-background px-1.5 py-0.5 font-mono text-[10px] text-white/40">
+                      <kbd className="border border-void-border bg-void-base px-1.5 py-0.5 font-mono text-[10px] text-bone-ghost">
                         ↵
                       </kbd>
                     )}
@@ -167,19 +167,19 @@ export function CommandPalette({ nodes }: CommandPaletteProps) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-border px-4 py-2">
-          <div className="flex items-center gap-4 text-[10px] text-white/30">
+        <div className="flex items-center justify-between border-t border-void-border px-4 py-2">
+          <div className="flex items-center gap-4 text-[10px] text-bone-ghost">
             <span>
-              <kbd className="rounded border border-border bg-background px-1">↑↓</kbd> navigate
+              <kbd className="border border-void-border bg-void-base px-1">↑↓</kbd> navigate
             </span>
             <span>
-              <kbd className="rounded border border-border bg-background px-1">↵</kbd> select
+              <kbd className="border border-void-border bg-void-base px-1">↵</kbd> select
             </span>
             <span>
-              <kbd className="rounded border border-border bg-background px-1">esc</kbd> close
+              <kbd className="border border-void-border bg-void-base px-1">esc</kbd> close
             </span>
           </div>
-          <span className="font-mono text-[10px] text-white/30">
+          <span className="font-mono text-[10px] text-bone-ghost">
             {results.length} results
           </span>
         </div>

@@ -48,12 +48,12 @@ export default function ForgotPasswordPage() {
     return (
       <Panel title="Check your email">
         <div className="flex flex-col gap-4 text-center">
-          <h2 className="text-base font-mono text-tui-accent">Check your email</h2>
-          <p className="text-xs font-mono text-tui-dim">
+          <h2 className="text-base font-mono text-cyan-base">Check your email</h2>
+          <p className="text-xs font-mono text-bone-muted">
             We&apos;ve sent a password reset link to your email address.
             If you don&apos;t see it, check your spam folder. The link expires in 1 hour.
           </p>
-          <Link href="/login" className="text-xs font-mono text-tui-cyan no-underline hover:underline">
+          <Link href="/login" className="text-xs font-mono text-cyan-dim no-underline hover:underline">
             Back to sign in
           </Link>
         </div>
@@ -65,14 +65,14 @@ export default function ForgotPasswordPage() {
     <Panel title="Forgot Password">
       <div className="flex flex-col gap-4">
         <div className="text-center">
-          <h2 className="text-base font-mono text-tui-accent">Forgot password?</h2>
-          <p className="text-xs font-mono text-tui-dim">Enter your email and we&apos;ll send you a reset link</p>
+          <h2 className="text-base font-mono text-cyan-base">Forgot password?</h2>
+          <p className="text-xs font-mono text-bone-muted">Enter your email and we&apos;ll send you a reset link</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
           {error && (
-            <div className="border border-tui-red bg-tui-red/10 px-3 py-2">
-              <p className="text-xs font-mono text-tui-red">{error}</p>
+            <div className="border border-crimson-base bg-crimson-base/10 px-3 py-2">
+              <p className="text-xs font-mono text-crimson-base">{error}</p>
             </div>
           )}
 
@@ -91,9 +91,9 @@ export default function ForgotPasswordPage() {
           </Button>
         </form>
 
-        <p className="text-center text-xs font-mono text-tui-dim">
+        <p className="text-center text-xs font-mono text-bone-muted">
           Remember your password?{' '}
-          <Link href="/login" className="text-tui-cyan no-underline hover:underline">Sign in</Link>
+          <Link href="/login" className="text-cyan-dim no-underline hover:underline">Sign in</Link>
         </p>
       </div>
     </Panel>

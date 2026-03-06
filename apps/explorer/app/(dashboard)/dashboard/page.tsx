@@ -13,31 +13,31 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-mono text-tui-bright">
+        <h1 className="text-lg font-mono text-bone-bright">
           Welcome back, {user?.name || user?.email?.split('@')[0] || 'user'}
         </h1>
-        <p className="text-xs font-mono text-tui-dim mt-1">Here&apos;s an overview of your account.</p>
+        <p className="text-xs font-mono text-bone-muted mt-1">Here&apos;s an overview of your account.</p>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Panel title="Published">
-          <p className="text-2xl font-mono text-tui-green">
+          <p className="text-2xl font-mono text-cyan-base">
             {isLoading ? '—' : stats?.constructsPublished ?? 0}
           </p>
-          <p className="text-xs font-mono text-tui-dim">constructs</p>
+          <p className="text-xs font-mono text-bone-muted">constructs</p>
         </Panel>
         <Panel title="Downloads">
-          <p className="text-2xl font-mono text-tui-accent">
+          <p className="text-2xl font-mono text-cyan-dim">
             {isLoading ? '—' : stats?.totalDownloads ?? 0}
           </p>
-          <p className="text-xs font-mono text-tui-dim">total</p>
+          <p className="text-xs font-mono text-bone-muted">total</p>
         </Panel>
         <Panel title="Views">
-          <p className="text-2xl font-mono text-tui-cyan">
+          <p className="text-2xl font-mono text-bone-base">
             {isLoading ? '—' : stats?.totalViews ?? 0}
           </p>
-          <p className="text-xs font-mono text-tui-dim">total</p>
+          <p className="text-xs font-mono text-bone-muted">total</p>
         </Panel>
       </div>
 
@@ -59,18 +59,18 @@ export default function DashboardPage() {
       {/* Recent Activity */}
       <Panel title="Recent Activity">
         {isLoading ? (
-          <p className="text-xs font-mono text-tui-dim">Loading activity...</p>
+          <p className="text-xs font-mono text-bone-muted">Loading activity...</p>
         ) : stats?.recentActivity && stats.recentActivity.length > 0 ? (
           <ul className="space-y-2">
             {stats.recentActivity.map((item) => (
               <li key={item.id} className="flex justify-between text-xs font-mono">
-                <span className="text-tui-fg">{item.description}</span>
-                <span className="text-tui-dim">{new Date(item.timestamp).toLocaleDateString()}</span>
+                <span className="text-bone-base">{item.description}</span>
+                <span className="text-bone-muted">{new Date(item.timestamp).toLocaleDateString()}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="text-xs font-mono text-tui-dim">No recent activity. Start by creating a construct.</p>
+          <p className="text-xs font-mono text-bone-muted">No recent activity. Start by creating a construct.</p>
         )}
       </Panel>
     </div>

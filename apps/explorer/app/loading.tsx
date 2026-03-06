@@ -7,7 +7,7 @@ export default function Loading() {
           <div className="h-3 w-3 animate-pulse rounded-sm bg-surface" style={{ animationDelay: "150ms" }} />
           <div className="h-3 w-3 animate-pulse rounded-sm bg-surface" style={{ animationDelay: "300ms" }} />
         </div>
-        <p className="font-mono text-xs uppercase tracking-wider text-white/40">
+        <p className="font-mono text-xs uppercase tracking-wider text-bone-ghost">
           Loading...
         </p>
       </div>

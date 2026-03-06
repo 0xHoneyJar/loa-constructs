@@ -29,27 +29,27 @@ export default function BlogPage() {
   return (
     <div className="space-y-8 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-mono font-bold text-white">Blog</h1>
-        <p className="text-sm font-mono text-white/60 mt-1">News and updates from the Constructs Network.</p>
+        <h1 className="text-2xl font-mono font-boldtext-bone-base">Blog</h1>
+        <p className="text-sm font-mono text-bone-dim mt-1">News and updates from the Constructs Network.</p>
       </div>
 
       {posts.length === 0 ? (
-        <p className="text-sm font-mono text-white/40 py-12 text-center">No posts yet. Check back soon.</p>
+        <p className="text-sm font-mono text-bone-ghost py-12 text-center">No posts yet. Check back soon.</p>
       ) : (
         <div className="space-y-4">
           {posts.map((post) => (
             <Link
               key={post.slug}
               href={`/blog/${post.slug}`}
-              className="block border border-white/10 p-5 hover:border-white/30 transition-colors"
+              className="block border border-void-border p-5 hover:border-bone-ghost transition-colors"
             >
-              <div className="flex items-center gap-3 mb-2 text-[10px] font-mono text-white/40">
+              <div className="flex items-center gap-3 mb-2 text-[10px] font-mono text-bone-ghost">
                 <time>{new Date(post.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</time>
                 <span>·</span>
                 <span>{post.author}</span>
               </div>
-              <h2 className="text-sm font-mono font-bold text-white mb-1">{post.title}</h2>
-              <p className="text-xs font-mono text-white/50">{post.excerpt}</p>
+              <h2 className="text-sm font-mono font-bold text-bone-base mb-1">{post.title}</h2>
+              <p className="text-xs font-mono text-bone-muted">{post.excerpt}</p>
             </Link>
           ))}
         </div>

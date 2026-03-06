@@ -80,8 +80,8 @@ export default function PricingPage() {
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <h1 className="text-2xl font-mono font-bold text-white">Pricing</h1>
-        <p className="text-sm font-mono text-white/60 mt-1">
+        <h1 className="text-2xl font-mono font-bold text-bone-bright">Pricing</h1>
+        <p className="text-sm font-mono text-bone-dim mt-1">
           Choose the plan that fits your needs. Premium tiers launching soon.
         </p>
       </div>
@@ -91,24 +91,24 @@ export default function PricingPage() {
           <div
             key={tier.name}
             className={`border p-5 flex flex-col ${
-              tier.highlighted ? 'border-white/40' : 'border-white/10'
+              tier.highlighted ? 'border-bone-ghost' : 'border-void-border'
             }`}
           >
             <div className="mb-4">
-              <h2 className="text-sm font-mono font-bold text-white">{tier.name}</h2>
+              <h2 className="text-sm font-mono font-bold text-bone-base">{tier.name}</h2>
               <div className="mt-2">
-                <span className="text-2xl font-mono text-white">{tier.price}</span>
+                <span className="text-2xl font-mono text-bone-bright">{tier.price}</span>
                 {tier.period && (
-                  <span className="text-xs font-mono text-white/40">{tier.period}</span>
+                  <span className="text-xs font-mono text-bone-ghost">{tier.period}</span>
                 )}
               </div>
-              <p className="text-xs font-mono text-white/50 mt-1">{tier.description}</p>
+              <p className="text-xs font-mono text-bone-muted mt-1">{tier.description}</p>
             </div>
 
             <ul className="space-y-2 mb-6 flex-1">
               {tier.features.map((feature) => (
-                <li key={feature} className="text-xs font-mono text-white/60 flex items-start gap-2">
-                  <span className="text-white/30">·</span>
+                <li key={feature} className="text-xs font-mono text-bone-dim flex items-start gap-2">
+                  <span className="text-bone-ghost">·</span>
                   {feature}
                 </li>
               ))}
@@ -118,8 +118,8 @@ export default function PricingPage() {
               href={tier.href}
               className={`block text-center text-xs font-mono px-4 py-2 border transition-colors ${
                 tier.highlighted
-                  ? 'border-white text-white hover:bg-white/10'
-                  : 'border-white/20 text-white/60 hover:border-white/40'
+                  ? 'border-bone-base text-bone-base hover:bg-void-raised'
+                  : 'border-void-border text-bone-dim hover:border-bone-ghost'
               }`}
             >
               {tier.cta}
@@ -128,7 +128,7 @@ export default function PricingPage() {
         ))}
       </div>
 
-      <p className="text-xs font-mono text-white/30 text-center">
+      <p className="text-xs font-mono text-bone-ghost text-center">
         All plans include access to the public registry. Payments via NowPayments (coming soon).
       </p>
     </div>

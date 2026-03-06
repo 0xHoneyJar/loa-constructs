@@ -144,7 +144,7 @@ export function StackPreview({ nodes }: StackPreviewProps) {
   if (nodes.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-white/30">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-bone-ghost">
           Empty Stack
         </span>
       </div>

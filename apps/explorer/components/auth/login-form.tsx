@@ -59,22 +59,22 @@ export function LoginForm() {
     <Panel title="Login">
       <div className="flex flex-col gap-4">
         <div className="text-center">
-          <h2 className="text-base font-mono text-white">Welcome back</h2>
-          <p className="text-xs font-mono text-white/50">Sign in to your account to continue</p>
+          <h2 className="text-base font-mono text-bone-base">Welcome back</h2>
+          <p className="text-xs font-mono text-bone-muted">Sign in to your account to continue</p>
         </div>
 
         <OAuthButtons disabled={isLoading} />
 
         <div className="flex items-center gap-3">
-          <div className="flex-1 border-t border-white/10" />
-          <span className="text-xs font-mono text-white/30 whitespace-nowrap">or continue with</span>
-          <div className="flex-1 border-t border-white/10" />
+          <div className="flex-1 border-t border-void-border" />
+          <span className="text-xs font-mono text-bone-ghost whitespace-nowrap">or continue with</span>
+          <div className="flex-1 border-t border-void-border" />
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-1">
           {error && (
-            <div className="mb-2 border border-red-500/30 bg-red-500/10 px-3 py-2">
-              <p className="text-xs font-mono text-red-400">{error}</p>
+            <div className="mb-2 border border-crimson-base/30 bg-crimson-dim/10 px-3 py-2">
+              <p className="text-xs font-mono text-crimson-base">{error}</p>
             </div>
           )}
 
@@ -90,8 +90,8 @@ export function LoginForm() {
 
           <div>
             <div className="flex justify-between mb-1">
-              <span className="text-xs font-mono text-white/60">Password</span>
-              <Link href="/forgot-password" className="text-xs font-mono text-white/40 no-underline hover:text-white transition-colors">
+              <span className="text-xs font-mono text-bone-dim">Password</span>
+              <Link href="/forgot-password" className="text-xs font-mono text-bone-ghost no-underline hover:text-bone-base transition-colors">
                 Forgot password?
               </Link>
             </div>
@@ -118,9 +118,9 @@ export function LoginForm() {
           </Button>
         </form>
 
-        <p className="text-center text-xs font-mono text-white/40">
+        <p className="text-center text-xs font-mono text-bone-ghost">
           Don&apos;t have an account?{' '}
-          <Link href="/register" className="text-white/60 no-underline hover:text-white transition-colors">Sign up</Link>
+          <Link href="/register" className="text-bone-dim no-underline hover:text-bone-base transition-colors">Sign up</Link>
         </p>
       </div>
     </Panel>

@@ -84,10 +84,10 @@ export default async function ConstructPage({ params }: PageProps) {
       {construct.composesWith.length > 0 && (
         <div className="mb-8">
           <div className="border border-border bg-surface/50 p-4">
-            <h2 className="mb-3 font-mono text-xs font-semibold uppercase tracking-wider text-white">
+            <h2 className="mb-3 font-mono text-xs font-semibold uppercase tracking-widertext-bone-base">
               Composes With
             </h2>
-            <p className="font-mono text-xs text-white/40">
+            <p className="font-mono text-xs text-bone-ghost">
               {construct.composesWith.join(', ')}
             </p>
           </div>

@@ -20,7 +20,7 @@ export function ConstructCard({ construct }: ConstructCardProps) {
 
       {/* Name and badges */}
       <div className="space-y-2">
-        <h1 className="font-mono text-2xl font-semibold uppercase tracking-wider text-white">
+        <h1 className="font-mono text-2xl font-semibold uppercase tracking-terminal text-bone-bright">
           {construct.name}
         </h1>
 
@@ -50,18 +50,18 @@ export function ConstructCard({ construct }: ConstructCardProps) {
             </Badge>
           )}
           {construct.skills && construct.skills.length > 0 && (
-            <span className="font-mono text-xs text-white/40">
+            <span className="font-mono text-xs text-bone-ghost">
               {construct.skills.length} SKILLS
             </span>
           )}
-          <span className="font-mono text-xs text-white/40">
+          <span className="font-mono text-xs text-bone-ghost">
             {construct.commandCount} {construct.commandCount === 1 ? 'COMMAND' : 'COMMANDS'}
           </span>
         </div>
       </div>
 
       {/* Description */}
-      <p className="max-w-2xl text-sm leading-relaxed text-white/70">
+      <p className="max-w-2xl text-sm leading-relaxed text-bone-dim">
         {construct.description}
       </p>
     </div>

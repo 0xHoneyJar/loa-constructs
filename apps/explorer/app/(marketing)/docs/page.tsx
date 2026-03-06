@@ -46,8 +46,8 @@ export default function DocsPage() {
   return (
     <div className="space-y-8 max-w-4xl">
       <div>
-        <h1 className="text-2xl font-mono font-bold text-white">Documentation</h1>
-        <p className="text-sm font-mono text-white/60 mt-1">
+        <h1 className="text-2xl font-mono font-boldtext-bone-base">Documentation</h1>
+        <p className="text-sm font-mono text-bone-dim mt-1">
           Everything you need to build and publish AI agent constructs.
         </p>
       </div>
@@ -55,17 +55,17 @@ export default function DocsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         {sections.map((section) => (
           <div key={section.title}>
-            <h2 className="text-sm font-mono font-bold text-white mb-3">{section.title}</h2>
+            <h2 className="text-sm font-mono font-bold text-bone-base mb-3">{section.title}</h2>
             <div className="space-y-2">
               {section.items.map((item) => (
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="block border border-white/10 p-3 hover:border-white/30 transition-colors"
+                  className="block border border-void-border p-3 hover:border-bone-ghost transition-colors"
                   {...(item.href.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                 >
-                  <p className="text-xs font-mono text-white">{item.label}</p>
-                  <p className="text-xs font-mono text-white/40 mt-0.5">{item.description}</p>
+                  <p className="text-xs font-monotext-bone-base">{item.label}</p>
+                  <p className="text-xs font-mono text-bone-ghost mt-0.5">{item.description}</p>
                 </Link>
               ))}
             </div>

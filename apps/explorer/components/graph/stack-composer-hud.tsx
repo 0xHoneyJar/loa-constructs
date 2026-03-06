@@ -57,17 +57,17 @@ function StackItemPill({
         className="h-1.5 w-1.5 shrink-0 rounded-full"
         style={{ backgroundColor: categoryColor }}
       />
-      <span className="font-mono text-[10px] uppercase tracking-wider text-white/80">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-bone-base">
         {node.name}
       </span>
       <GraduationBadge level={node.graduationLevel} />
       <button
         type="button"
         onClick={onRemove}
-        className="shrink-0 rounded-full p-0.5 opacity-0 transition-opacity hover:bg-white/10 group-hover:opacity-100"
+        className="shrink-0 rounded-full p-0.5 opacity-0 transition-opacity hover:bg-void-surface group-hover:opacity-100"
         aria-label={`Remove ${node.name} from stack`}
       >
-        <X className="h-2.5 w-2.5 text-white/60" />
+        <X className="h-2.5 w-2.5 text-bone-dim" />
       </button>
     </motion.div>
   );
@@ -114,7 +114,7 @@ function CategoryLegend({
               {label}
             </span>
             {count > 0 && (
-              <span className="font-mono text-[9px] text-white/40">{count}</span>
+              <span className="font-mono text-[9px] text-bone-ghost">{count}</span>
             )}
           </div>
         );
@@ -139,15 +139,15 @@ function FloatingToggle({
       onClick={onExpand}
       className="fixed bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-xl backdrop-blur-md transition-colors hover:bg-surface"
     >
-      <ChevronUp className="h-4 w-4 text-white/60" />
-      <Layers className="h-4 w-4 text-white/60" />
-      <span className="font-mono text-xs uppercase tracking-wider text-white/80">
+      <ChevronUp className="h-4 w-4 text-bone-dim" />
+      <Layers className="h-4 w-4 text-bone-dim" />
+      <span className="font-mono text-xs uppercase tracking-wider text-bone-base">
         Stack
       </span>
-      <span className="rounded-full bg-surface px-2 py-0.5 font-mono text-[10px] text-white/60">
+      <span className="rounded-full bg-surface px-2 py-0.5 font-mono text-[10px] text-bone-dim">
         {count}
       </span>
-      <span className="font-mono text-[10px] uppercase tracking-wider text-white/40">
+      <span className="font-mono text-[10px] uppercase tracking-wider text-bone-ghost">
         Compose
       </span>
     </motion.button>
@@ -249,19 +249,19 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-2">
         <div className="flex items-center gap-3">
-          <Layers className="h-4 w-4 text-white/60" />
-          <span className="font-mono text-xs uppercase tracking-wider text-white/60">
+          <Layers className="h-4 w-4 text-bone-dim" />
+          <span className="font-mono text-xs uppercase tracking-wider text-bone-dim">
             Your Agent
           </span>
-          <span className="font-mono text-sm text-white/40">+</span>
-          <span className="font-mono text-xs uppercase tracking-wider text-white/80">
+          <span className="font-mono text-sm text-bone-ghost">+</span>
+          <span className="font-mono text-xs uppercase tracking-wider text-bone-base">
             Constructs Stack
           </span>
-          <span className="font-mono text-sm text-white/40">=</span>
+          <span className="font-mono text-sm text-bone-ghost">=</span>
           <span className="font-mono text-xs uppercase tracking-wider" style={{ color: getCategoryColor('development') }}>
             Capabilities
           </span>
-          <span className="rounded bg-surface px-2 py-0.5 font-mono text-[10px] text-white/60">
+          <span className="rounded bg-surface px-2 py-0.5 font-mono text-[10px] text-bone-dim">
             {stackNodeIds.size} {stackNodeIds.size === 1 ? 'construct' : 'constructs'}
           </span>
         </div>
@@ -269,7 +269,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
           <button
             type="button"
             onClick={toggleStackHud}
-            className="rounded p-1 text-white/40 transition-colors hover:bg-surface hover:text-white"
+            className="rounded p-1 text-bone-ghost transition-colors hover:bg-surface hover:text-bone-bright"
             aria-label="Collapse HUD"
           >
             <ChevronDown className="h-4 w-4" />
@@ -277,7 +277,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
           <button
             type="button"
             onClick={clearStack}
-            className="rounded p-1 text-white/40 transition-colors hover:bg-surface hover:text-red-400"
+            className="rounded p-1 text-bone-ghost transition-colors hover:bg-surface hover:text-red-400"
             aria-label="Clear stack"
           >
             <Trash2 className="h-4 w-4" />
@@ -289,7 +289,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
       <div className="grid grid-cols-[1fr_2fr_1fr] gap-4 p-4">
         {/* Left column - Category legend */}
         <div className="flex flex-col gap-3">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-white/40">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-bone-ghost">
             Categories
           </span>
           <CategoryLegend stackNodes={stackNodes} />
@@ -297,7 +297,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
 
         {/* Center column - Stack items and command */}
         <div className="flex flex-col gap-3">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-white/40">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-bone-ghost">
             Stack Composition
           </span>
 
@@ -332,14 +332,14 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
 
           {/* Install command */}
           <div className="flex items-center gap-2 rounded-md bg-surface px-3 py-2">
-            <Terminal className="h-4 w-4 shrink-0 text-white/40" />
-            <code className="flex-1 truncate font-mono text-xs text-white/70">
+            <Terminal className="h-4 w-4 shrink-0 text-bone-ghost" />
+            <code className="flex-1 truncate font-mono text-xs text-bone-dim">
               {installCommand}
             </code>
             <button
               type="button"
               onClick={handleCopy}
-              className="flex shrink-0 items-center gap-1.5 rounded px-2 py-1 transition-colors hover:bg-white/10"
+              className="flex shrink-0 items-center gap-1.5 rounded px-2 py-1 transition-colors hover:bg-void-surface"
               style={{ color: getCategoryColor('development') }}
               aria-label="Copy install command"
             >
@@ -360,7 +360,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
 
         {/* Right column - Stack preview */}
         <div className="flex flex-col gap-3">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-white/40">
+          <span className="font-mono text-[10px] uppercase tracking-wider text-bone-ghost">
             Preview
           </span>
           <div className="flex aspect-square items-center justify-center rounded border border-border bg-surface/50 p-2">
@@ -371,7 +371,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
 
       {/* Footer hint */}
       <div className="border-t border-border px-4 py-2">
-        <span className="font-mono text-[10px] text-white/30">
+        <span className="font-mono text-[10px] text-bone-ghost">
           Click nodes to add • <kbd className="rounded border border-border bg-surface px-1">Esc</kbd> collapse • <kbd className="rounded border border-border bg-surface px-1">⌘C</kbd> copy command
         </span>
       </div>

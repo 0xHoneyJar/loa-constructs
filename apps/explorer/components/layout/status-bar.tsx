@@ -22,7 +22,7 @@ const defaultKeyHints: KeyHint[] = [
 
 function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="border border-tui-border bg-transparent px-1 font-mono text-[11px]">
+    <kbd className="border border-void-border bg-transparent px-1 font-mono text-[11px]">
       {children}
     </kbd>
   );
@@ -32,7 +32,7 @@ export function StatusBar({ keyHints = defaultKeyHints, rightContent, className 
   return (
     <div
       className={cn(
-        'flex shrink-0 items-center justify-between border-t border-tui-border bg-tui-bg/75 px-3 py-1 text-xs font-mono text-tui-dim',
+        'flex shrink-0 items-center justify-between border-t border-void-border bg-void-base/75 px-3 py-1 text-xs font-mono text-bone-muted',
         className,
       )}
     >

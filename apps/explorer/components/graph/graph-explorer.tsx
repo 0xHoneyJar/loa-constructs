@@ -46,7 +46,7 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
         </div>
 
         {/* Stats */}
-        <div className="absolute right-4 top-4 z-10 hidden items-center gap-4 font-mono text-xs text-white/40 sm:flex">
+        <div className="absolute right-4 top-4 z-10 hidden items-center gap-4 font-mono text-xs text-bone-ghost sm:flex">
           <span>{data.meta.totalConstructs} constructs</span>
           <span>{data.meta.totalCommands} commands</span>
         </div>
@@ -57,7 +57,7 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
         </div>
 
         {/* Instructions */}
-        <div className="absolute bottom-4 left-4 z-10 font-mono text-xs text-white/30">
+        <div className="absolute bottom-4 left-4 z-10 font-mono text-xs text-bone-ghost">
           <span>Click to add to stack • <kbd className="rounded border border-border bg-surface px-1">⌘K</kbd> search</span>
         </div>
 
@@ -78,7 +78,7 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
       </div>
 
       {/* Stats */}
-      <div className="absolute right-4 top-4 z-10 flex items-center gap-4 font-mono text-xs text-white/40">
+      <div className="absolute right-4 top-4 z-10 flex items-center gap-4 font-mono text-xs text-bone-ghost">
         <span>{data.meta.totalConstructs} constructs</span>
         <span>{data.meta.totalCommands} commands</span>
       </div>
@@ -96,7 +96,7 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
       <HoverTooltip nodes={data.nodes} />
 
       {/* Instructions */}
-      <div className="absolute bottom-4 left-4 z-10 font-mono text-xs text-white/30">
+      <div className="absolute bottom-4 left-4 z-10 font-mono text-xs text-bone-ghost">
         <span>Scroll to zoom • Drag to pan • Click to add to stack • <kbd className="rounded border border-border bg-surface px-1">⌘K</kbd> search</span>
       </div>
 

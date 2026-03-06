@@ -15,7 +15,7 @@ export function DashboardShell({ children, contentTitle }: DashboardShellProps) 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-tui-bg">
+    <div className="flex h-screen flex-col overflow-hidden bg-void-base">
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop sidebar */}
         <div className="hidden md:flex flex-col shrink-0 py-3 pl-3" style={{ width: 220 }}>
@@ -35,7 +35,7 @@ export function DashboardShell({ children, contentTitle }: DashboardShellProps) 
               <Panel title="≡ Menu" className="flex-1 relative">
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="absolute top-2 right-2 p-1 text-tui-dim hover:text-tui-fg"
+                  className="absolute top-2 right-2 p-1 text-bone-muted hover:text-bone-base"
                 >
                   <X size={18} />
                 </button>
@@ -51,7 +51,7 @@ export function DashboardShell({ children, contentTitle }: DashboardShellProps) 
             <div className="md:hidden mb-4">
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className="flex items-center gap-2 border border-tui-border px-2 py-1 text-xs font-mono text-tui-dim hover:text-tui-fg"
+                className="flex items-center gap-2 border border-void-border px-2 py-1 text-xs font-mono text-bone-muted hover:text-bone-base"
               >
                 <Menu size={16} />
                 Menu
@@ -69,11 +69,11 @@ export function DashboardShell({ children, contentTitle }: DashboardShellProps) 
             <>
               <a
                 href="https://github.com/0xHoneyJar/loa-constructs"
-                className="text-tui-dim hover:text-tui-fg text-xs font-mono no-underline"
+                className="text-bone-muted hover:text-bone-base text-xs font-mono no-underline"
               >
                 GitHub
               </a>
-              <span className="text-tui-dim text-xs font-mono">v1.5.0</span>
+              <span className="text-bone-muted text-xs font-mono">v1.5.0</span>
             </>
           }
         />

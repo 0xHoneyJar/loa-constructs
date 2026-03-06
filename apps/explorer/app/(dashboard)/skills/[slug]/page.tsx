@@ -39,14 +39,14 @@ export default function SkillDetailPage({ params }: { params: Promise<{ slug: st
   });
 
   if (isLoading) {
-    return <p className="text-sm font-mono text-tui-dim">Loading skill...</p>;
+    return <p className="text-sm font-mono text-bone-muted">Loading skill...</p>;
   }
 
   if (!skill) {
     return (
       <Panel title="Not Found" variant="danger">
-        <p className="text-xs font-mono text-tui-red">Skill &quot;{slug}&quot; not found.</p>
-        <Link href="/skills" className="text-xs font-mono text-tui-accent hover:underline mt-2 block">
+        <p className="text-xs font-mono text-crimson-base">Skill &quot;{slug}&quot; not found.</p>
+        <Link href="/skills" className="text-xs font-mono text-cyan-base hover:underline mt-2 block">
           ← Back to browser
         </Link>
       </Panel>
@@ -58,21 +58,21 @@ export default function SkillDetailPage({ params }: { params: Promise<{ slug: st
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <Link href="/skills" className="text-xs font-mono text-tui-dim hover:text-tui-fg">
+        <Link href="/skills" className="text-xs font-mono text-bone-muted hover:text-bone-base">
           ← Back
         </Link>
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-mono text-tui-bright">{skill.name}</h1>
+            <h1 className="text-lg font-mono text-bone-bright">{skill.name}</h1>
             {skill.version && (
-              <span className="text-xs font-mono text-tui-dim">v{skill.version}</span>
+              <span className="text-xs font-mono text-bone-muted">v{skill.version}</span>
             )}
-            <span className="border border-tui-accent px-2 py-0.5 text-[10px] font-mono text-tui-accent uppercase">
+            <span className="border border-cyan-base px-2 py-0.5 text-[10px] font-mono text-cyan-base uppercase">
               {skill.tier_required}
             </span>
           </div>
           {skill.category && (
-            <p className="text-xs font-mono text-tui-dim mt-1">{skill.category}</p>
+            <p className="text-xs font-mono text-bone-muted mt-1">{skill.category}</p>
           )}
         </div>
       </div>
@@ -82,23 +82,23 @@ export default function SkillDetailPage({ params }: { params: Promise<{ slug: st
         <div className="space-y-2 text-xs font-mono">
           {skill.owner && (
             <div className="flex justify-between">
-              <span className="text-tui-dim">Author</span>
-              <span className="text-tui-fg">{skill.owner.name}</span>
+              <span className="text-bone-muted">Author</span>
+              <span className="text-bone-base">{skill.owner.name}</span>
             </div>
           )}
           <div className="flex justify-between">
-            <span className="text-tui-dim">Downloads</span>
-            <span className="text-tui-fg">{skill.downloads.toLocaleString()}</span>
+            <span className="text-bone-muted">Downloads</span>
+            <span className="text-bone-base">{skill.downloads.toLocaleString()}</span>
           </div>
           {skill.rating !== null && (
             <div className="flex justify-between">
-              <span className="text-tui-dim">Rating</span>
-              <span className="text-tui-fg">{skill.rating.toFixed(1)}/5</span>
+              <span className="text-bone-muted">Rating</span>
+              <span className="text-bone-base">{skill.rating.toFixed(1)}/5</span>
             </div>
           )}
           <div className="flex justify-between">
-            <span className="text-tui-dim">Updated</span>
-            <span className="text-tui-fg">{new Date(skill.updated_at).toLocaleDateString()}</span>
+            <span className="text-bone-muted">Updated</span>
+            <span className="text-bone-base">{new Date(skill.updated_at).toLocaleDateString()}</span>
           </div>
         </div>
       </Panel>
@@ -106,14 +106,14 @@ export default function SkillDetailPage({ params }: { params: Promise<{ slug: st
       {/* Description */}
       {skill.description && (
         <Panel title="Description">
-          <p className="text-xs font-mono text-tui-fg whitespace-pre-wrap">{skill.long_description || skill.description}</p>
+          <p className="text-xs font-mono text-bone-base whitespace-pre-wrap">{skill.long_description || skill.description}</p>
         </Panel>
       )}
 
       {/* Install */}
       <Panel title="Install">
         <div className="flex items-center gap-3">
-          <code className="flex-1 bg-black/50 border border-tui-border px-3 py-2 text-xs font-mono text-tui-green">
+          <code className="flex-1 bg-black/50 border border-void-border px-3 py-2 text-xs font-mono text-cyan-base">
             {installCmd}
           </code>
           <Button
@@ -130,7 +130,7 @@ export default function SkillDetailPage({ params }: { params: Promise<{ slug: st
         <Panel title="Tags">
           <div className="flex flex-wrap gap-2">
             {skill.tags.map((tag) => (
-              <span key={tag} className="border border-tui-border px-2 py-0.5 text-[10px] font-mono text-tui-dim">
+              <span key={tag} className="border border-void-border px-2 py-0.5 text-[10px] font-mono text-bone-muted">
                 {tag}
               </span>
             ))}
@@ -145,12 +145,12 @@ export default function SkillDetailPage({ params }: { params: Promise<{ slug: st
             {skill.versions.map((v) => (
               <div key={v.version} className="flex items-center justify-between text-xs font-mono">
                 <div className="flex items-center gap-2">
-                  <span className="text-tui-fg">{v.version}</span>
+                  <span className="text-bone-base">{v.version}</span>
                   {v.is_latest && (
-                    <span className="border border-tui-green px-1 text-[10px] text-tui-green">LATEST</span>
+                    <span className="border border-cyan-base px-1 text-[10px] text-cyan-base">LATEST</span>
                   )}
                 </div>
-                <span className="text-tui-dim">{new Date(v.published_at).toLocaleDateString()}</span>
+                <span className="text-bone-muted">{new Date(v.published_at).toLocaleDateString()}</span>
               </div>
             ))}
           </div>

@@ -59,26 +59,26 @@ export interface GraduationConfig {
 
 export const GRADUATION_COLORS: Record<GraduationLevel, GraduationConfig> = {
   experimental: {
-    badge: '#FF6B6B',
-    text: '#FF6B6B',
+    badge: 'var(--graduation-experimental)',
+    text: 'var(--graduation-experimental)',
     outline: 'dashed',
     opacity: 1,
   },
   beta: {
-    badge: '#FFD93D',
-    text: '#FFD93D',
+    badge: 'var(--graduation-beta)',
+    text: 'var(--graduation-beta)',
     outline: 'dotted',
     opacity: 1,
   },
   stable: {
-    badge: '#6BCB77',
-    text: '#6BCB77',
+    badge: 'var(--graduation-stable)',
+    text: 'var(--graduation-stable)',
     outline: 'solid',
     opacity: 1,
   },
   deprecated: {
-    badge: '#888888',
-    text: '#888888',
+    badge: 'var(--graduation-deprecated)',
+    text: 'var(--graduation-deprecated)',
     outline: 'solid',
     opacity: 0.5,
   },

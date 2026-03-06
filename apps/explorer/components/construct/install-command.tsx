@@ -23,14 +23,14 @@ export function InstallCommand({ command }: InstallCommandProps) {
   return (
     <Card>
       <CardContent className="flex items-center justify-between gap-4">
-        <code className="font-mono text-sm text-domain-dev">
-          <span className="text-white/40">$ </span>
+        <code className="font-mono text-sm text-cyan-base">
+          <span className="text-bone-ghost">$ </span>
           {command}
         </code>
 
         <button
           onClick={handleCopy}
-          className="shrink-0 font-mono text-xs uppercase tracking-wider text-white/40 hover:text-white transition-colors"
+          className="shrink-0 font-mono text-xs uppercase tracking-terminal text-bone-ghost hover:text-bone-base transition-colors"
         >
           {copied ? 'COPIED' : 'COPY'}
         </button>

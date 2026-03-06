@@ -65,14 +65,14 @@ function FooterStats() {
 
   if (!stats) {
     return (
-      <p className="font-mono text-xs uppercase tracking-wider text-white/40">
+      <p className="font-mono text-xs uppercase tracking-wider text-bone-ghost">
         CONSTRUCTS NETWORK
       </p>
     );
   }
 
   return (
-    <p className="font-mono text-xs uppercase tracking-wider text-white/40">
+    <p className="font-mono text-xs uppercase tracking-wider text-bone-ghost">
       {stats.totalConstructs} CONSTRUCTS · {stats.totalCommands} COMMANDS ·{' '}
       {stats.categoryCount} CATEGORIES
     </p>

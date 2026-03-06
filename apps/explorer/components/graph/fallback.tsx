@@ -127,7 +127,7 @@ export function GraphFallback({ data }: GraphFallbackProps) {
 
       {/* Legend */}
       <div className="absolute bottom-4 right-4 rounded-md border border-border bg-surface/80 p-3 backdrop-blur-sm">
-        <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-white/40">
+        <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-bone-ghost">
           Legend
         </div>
         <div className="flex flex-wrap gap-2">

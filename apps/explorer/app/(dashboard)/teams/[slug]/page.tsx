@@ -20,9 +20,9 @@ const inviteSchema = z.object({
 type InviteFormData = z.infer<typeof inviteSchema>;
 
 const roleBadge: Record<string, { label: string; color: string }> = {
-  owner: { label: 'OWNER', color: 'text-tui-yellow' },
-  admin: { label: 'ADMIN', color: 'text-tui-accent' },
-  member: { label: 'MEMBER', color: 'text-tui-dim' },
+  owner: { label: 'OWNER', color: 'text-graduation-beta' },
+  admin: { label: 'ADMIN', color: 'text-cyan-base' },
+  member: { label: 'MEMBER', color: 'text-bone-muted' },
 };
 
 export default function TeamDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -61,13 +61,13 @@ export default function TeamDetailPage({ params }: { params: Promise<{ slug: str
   };
 
   if (isLoading) {
-    return <p className="text-sm font-mono text-tui-dim">Loading team...</p>;
+    return <p className="text-sm font-mono text-bone-muted">Loading team...</p>;
   }
 
   if (!team) {
     return (
       <Panel title="Not Found" variant="danger">
-        <p className="text-xs font-mono text-tui-red">Team not found.</p>
+        <p className="text-xs font-mono text-crimson-base">Team not found.</p>
       </Panel>
     );
   }
@@ -76,12 +76,12 @@ export default function TeamDetailPage({ params }: { params: Promise<{ slug: str
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Link href="/teams" className="text-xs font-mono text-tui-dim hover:text-tui-fg">
+          <Link href="/teams" className="text-xs font-mono text-bone-muted hover:text-bone-base">
             ← Back
           </Link>
           <div>
-            <h1 className="text-lg font-mono text-tui-bright">{team.name}</h1>
-            <p className="text-xs font-mono text-tui-dim mt-1">/{team.slug}</p>
+            <h1 className="text-lg font-mono text-bone-bright">{team.name}</h1>
+            <p className="text-xs font-mono text-bone-muted mt-1">/{team.slug}</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -99,13 +99,13 @@ export default function TeamDetailPage({ params }: { params: Promise<{ slug: str
         <Panel title="Subscription">
           <div className="flex items-center justify-between text-xs font-mono">
             <div className="flex items-center gap-3">
-              <span className="text-tui-accent uppercase">{team.subscription.tier}</span>
-              <span className="text-tui-dim">·</span>
-              <span className="text-tui-fg">
+              <span className="text-cyan-base uppercase">{team.subscription.tier}</span>
+              <span className="text-bone-muted">·</span>
+              <span className="text-bone-base">
                 {team.subscription.usedSeats}/{team.subscription.seats} seats
               </span>
             </div>
-            <span className={team.subscription.status === 'active' ? 'text-tui-green' : 'text-tui-red'}>
+            <span className={team.subscription.status === 'active' ? 'text-cyan-base' : 'text-crimson-base'}>
               {team.subscription.status.toUpperCase()}
             </span>
           </div>
@@ -126,9 +126,9 @@ export default function TeamDetailPage({ params }: { params: Promise<{ slug: str
               />
             </div>
             <div>
-              <label className="block text-xs font-mono text-tui-dim mb-1">Role</label>
+              <label className="block text-xs font-mono text-bone-muted mb-1">Role</label>
               <select
-                className="bg-transparent border border-tui-border px-3 py-2 text-sm font-mono text-tui-fg focus:outline-none focus:border-tui-accent"
+                className="bg-transparent border border-void-border px-3 py-2 text-sm font-mono text-bone-base focus:outline-none focus:border-cyan-base"
                 {...register('role')}
               >
                 <option value="member">Member</option>
@@ -140,7 +140,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ slug: str
             </Button>
           </form>
           {inviteMember.isError && (
-            <p className="text-xs font-mono text-tui-red mt-2">
+            <p className="text-xs font-mono text-crimson-base mt-2">
               {inviteMember.error?.message || 'Failed to invite.'}
             </p>
           )}
@@ -156,16 +156,16 @@ export default function TeamDetailPage({ params }: { params: Promise<{ slug: str
               .map((inv) => (
                 <div
                   key={inv.id}
-                  className="flex items-center justify-between border border-tui-border px-3 py-2 text-xs font-mono"
+                  className="flex items-center justify-between border border-void-border px-3 py-2 text-xs font-mono"
                 >
                   <div>
-                    <span className="text-tui-fg">{inv.email}</span>
-                    <span className="text-tui-dim ml-2">({inv.role})</span>
+                    <span className="text-bone-base">{inv.email}</span>
+                    <span className="text-bone-muted ml-2">({inv.role})</span>
                   </div>
                   <Button
                     variant="ghost"
                     onClick={() => handleRevokeInvite(inv.id)}
-                    className="text-tui-red hover:bg-tui-red/10 text-[10px] px-2 py-1 h-auto"
+                    className="text-crimson-base hover:bg-crimson-base/10 text-[10px] px-2 py-1 h-auto"
                   >
                     Revoke
                   </Button>
@@ -178,7 +178,7 @@ export default function TeamDetailPage({ params }: { params: Promise<{ slug: str
       {/* Members */}
       <Panel title={`Members (${team.members?.length ?? 0})`}>
         {!team.members?.length ? (
-          <p className="text-xs font-mono text-tui-dim">No members.</p>
+          <p className="text-xs font-mono text-bone-muted">No members.</p>
         ) : (
           <div className="space-y-2">
             {team.members.map((member) => {
@@ -186,18 +186,18 @@ export default function TeamDetailPage({ params }: { params: Promise<{ slug: str
               return (
                 <div
                   key={member.id}
-                  className="flex items-center justify-between border border-tui-border px-3 py-2"
+                  className="flex items-center justify-between border border-void-border px-3 py-2"
                 >
                   <div className="text-xs font-mono">
-                    <span className="text-tui-fg">{member.name}</span>
-                    <span className="text-tui-dim ml-2">{member.email}</span>
+                    <span className="text-bone-base">{member.name}</span>
+                    <span className="text-bone-muted ml-2">{member.email}</span>
                     <span className={`ml-2 text-[10px] ${badge.color}`}>[{badge.label}]</span>
                   </div>
                   {member.role !== 'owner' && (
                     <Button
                       variant="ghost"
                       onClick={() => handleRemoveMember(member.id)}
-                      className="text-tui-red hover:bg-tui-red/10 text-[10px] px-2 py-1 h-auto"
+                      className="text-crimson-base hover:bg-crimson-base/10 text-[10px] px-2 py-1 h-auto"
                     >
                       Remove
                     </Button>

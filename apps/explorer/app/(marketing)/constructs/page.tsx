@@ -42,8 +42,8 @@ export default async function ConstructsCatalogPage({
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-mono font-bold text-white">Constructs</h1>
-          <p className="text-sm font-mono text-white/60 mt-1">
+          <h1 className="text-2xl font-mono font-boldtext-bone-base">Constructs</h1>
+          <p className="text-sm font-mono text-bone-dim mt-1">
             {allConstructs.length} constructs available
           </p>
         </div>
@@ -56,8 +56,8 @@ export default async function ConstructsCatalogPage({
           href="/constructs"
           className={`border px-3 py-1 transition-colors ${
             !params.category || params.category === 'all'
-              ? 'border-white text-white'
-              : 'border-white/20 text-white/60 hover:border-white/40'
+              ? 'border-white text-bone-base'
+              : 'border-bone-ghost text-bone-dim hover:border-bone-muted'
           }`}
         >
           All
@@ -68,8 +68,8 @@ export default async function ConstructsCatalogPage({
             href={`/constructs?category=${cat}`}
             className={`border px-3 py-1 transition-colors ${
               params.category === cat
-                ? 'border-white text-white'
-                : 'border-white/20 text-white/60 hover:border-white/40'
+                ? 'border-white text-bone-base'
+                : 'border-bone-ghost text-bone-dim hover:border-bone-muted'
             }`}
           >
             {cat}
@@ -79,7 +79,7 @@ export default async function ConstructsCatalogPage({
 
       {/* Grid */}
       {filtered.length === 0 ? (
-        <p className="text-sm font-mono text-white/40 py-12 text-center">
+        <p className="text-sm font-mono text-bone-ghost py-12 text-center">
           No constructs found.
         </p>
       ) : (
@@ -88,26 +88,26 @@ export default async function ConstructsCatalogPage({
             <Link
               key={construct.id}
               href={`/constructs/${construct.slug}`}
-              className="border border-white/10 p-4 hover:border-white/30 transition-colors group"
+              className="border border-void-border p-4 hover:border-bone-ghost transition-colors group"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-mono font-bold text-white group-hover:text-white/90">
+                <span className="text-sm font-mono font-bold text-bone-base group-hover:text-bone-base">
                   {construct.icon && <span className="mr-1.5">{construct.icon}</span>}
                   {construct.name}
                 </span>
-                <span className="text-[10px] font-mono text-white/40">
+                <span className="text-[10px] font-mono text-bone-ghost">
                   {construct.skillsCount > 0 && `${construct.skillsCount} skills`}
                 </span>
               </div>
-              <p className="text-xs font-mono text-white/50 line-clamp-2 mb-3">
+              <p className="text-xs font-mono text-bone-muted line-clamp-2 mb-3">
                 {construct.shortDescription}
               </p>
-              <div className="flex items-center justify-between text-[10px] font-mono text-white/30">
+              <div className="flex items-center justify-between text-[10px] font-mono text-bone-ghost">
                 <span>{construct.category}</span>
                 <span>{construct.downloads.toLocaleString()} installs</span>
               </div>
-              <div className="mt-3 pt-2 border-t border-white/5">
-                <code className="text-[10px] font-mono text-white/20 group-hover:text-white/40 transition-colors">
+              <div className="mt-3 pt-2 border-t border-void-border">
+                <code className="text-[10px] font-mono text-white/20 group-hover:text-bone-ghost transition-colors">
                   constructs install {construct.slug}
                 </code>
               </div>

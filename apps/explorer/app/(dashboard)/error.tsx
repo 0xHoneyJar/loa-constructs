@@ -15,8 +15,8 @@ export default function DashboardError({
     <div className="flex items-center justify-center py-12">
       <Panel title="Error" variant="danger" className="max-w-md">
         <div className="flex flex-col gap-4 text-center">
-          <h2 className="text-base font-mono text-tui-red">Something went wrong</h2>
-          <p className="text-xs font-mono text-tui-dim">{error.message || 'An unexpected error occurred.'}</p>
+          <h2 className="text-base font-mono text-crimson-base">Something went wrong</h2>
+          <p className="text-xs font-mono text-bone-muted">{error.message || 'An unexpected error occurred.'}</p>
           <div className="flex justify-center gap-3">
             <Button variant="secondary" onClick={reset}>
               Try again

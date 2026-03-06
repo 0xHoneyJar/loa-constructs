@@ -5,7 +5,7 @@ import { RegisterForm } from '@/components/auth/register-form';
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div className="text-center text-tui-dim font-mono text-sm">Loading...</div>}>
+    <Suspense fallback={<div className="text-center text-bone-muted font-mono text-sm">Loading...</div>}>
       <RegisterForm />
     </Suspense>
   );

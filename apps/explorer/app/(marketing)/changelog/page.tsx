@@ -43,23 +43,23 @@ export default function ChangelogPage() {
   return (
     <div className="space-y-8 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-mono font-bold text-white">Changelog</h1>
-        <p className="text-sm font-mono text-white/60 mt-1">What&apos;s new in the Constructs Network.</p>
+        <h1 className="text-2xl font-mono font-boldtext-bone-base">Changelog</h1>
+        <p className="text-sm font-mono text-bone-dim mt-1">What&apos;s new in the Constructs Network.</p>
       </div>
 
       <div className="space-y-6">
         {releases.map((release) => (
-          <div key={release.version} className="border-l-2 border-white/10 pl-4">
+          <div key={release.version} className="border-l-2 border-void-border pl-4">
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-sm font-mono font-bold text-white">{release.version}</span>
-              <span className="text-[10px] font-mono text-white/40">
+              <span className="text-sm font-mono font-boldtext-bone-base">{release.version}</span>
+              <span className="text-[10px] font-mono text-bone-ghost">
                 {new Date(release.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </span>
             </div>
-            <p className="text-xs font-mono text-white/60 mb-2">{release.title}</p>
+            <p className="text-xs font-mono text-bone-dim mb-2">{release.title}</p>
             <ul className="space-y-1">
               {release.changes.map((change, i) => (
-                <li key={i} className="text-xs font-mono text-white/40 flex items-start gap-2">
+                <li key={i} className="text-xs font-mono text-bone-ghost flex items-start gap-2">
                   <span className="text-white/20">·</span>
                   {change}
                 </li>

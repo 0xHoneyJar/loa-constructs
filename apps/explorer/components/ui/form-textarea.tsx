@@ -13,7 +13,7 @@ export const FormTextarea = React.forwardRef<HTMLTextAreaElement, FormTextareaPr
     return (
       <div className="space-y-1">
         {label && (
-          <label htmlFor={textareaId} className="block text-sm font-mono text-tui-fg">
+          <label htmlFor={textareaId} className="block text-sm font-mono text-bone-base">
             {label}
           </label>
         )}
@@ -21,17 +21,17 @@ export const FormTextarea = React.forwardRef<HTMLTextAreaElement, FormTextareaPr
           ref={ref}
           id={textareaId}
           className={cn(
-            'w-full rounded border bg-tui-bg px-3 py-2 text-sm font-mono text-tui-bright',
-            'placeholder:text-tui-dim resize-y min-h-[80px]',
-            'focus:outline-none focus:border-tui-accent focus:ring-1 focus:ring-tui-accent/30',
+            'w-full rounded border bg-void-base px-3 py-2 text-sm font-mono text-bone-bright',
+            'placeholder:text-bone-muted resize-y min-h-[80px]',
+            'focus:outline-none focus:border-cyan-base focus:ring-1 focus:ring-cyan-base/30',
             'transition-colors',
-            error ? 'border-tui-red' : 'border-tui-border',
+            error ? 'border-crimson-base' : 'border-void-border',
             className,
           )}
           {...props}
         />
-        {error && <p className="text-xs font-mono text-tui-red">{error}</p>}
-        {hint && !error && <p className="text-xs font-mono text-tui-dim">{hint}</p>}
+        {error && <p className="text-xs font-mono text-crimson-base">{error}</p>}
+        {hint && !error && <p className="text-xs font-mono text-bone-muted">{hint}</p>}
       </div>
     );
   },

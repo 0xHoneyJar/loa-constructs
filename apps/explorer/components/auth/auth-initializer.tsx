@@ -91,10 +91,10 @@ export function AuthInitializer({ children }: AuthInitializerProps) {
 
   if (status === 'loading') {
     return (
-      <div className="flex h-screen items-center justify-center bg-tui-bg">
+      <div className="flex h-screen items-center justify-center bg-void-base">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-tui-accent" />
-          <p className="text-sm font-mono text-tui-dim">Loading...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-cyan-base" />
+          <p className="text-sm font-mono text-bone-muted">Loading...</p>
         </div>
       </div>
     );
@@ -102,9 +102,9 @@ export function AuthInitializer({ children }: AuthInitializerProps) {
 
   if (status === 'error') {
     return (
-      <div className="flex h-screen items-center justify-center bg-tui-bg">
+      <div className="flex h-screen items-center justify-center bg-void-base">
         <div className="flex flex-col items-center gap-4 text-center">
-          <p className="text-sm font-mono text-tui-red">Network error. Could not reach the server.</p>
+          <p className="text-sm font-mono text-crimson-base">Network error. Could not reach the server.</p>
           <button
             onClick={() => {
               setStatus('loading');
@@ -115,7 +115,7 @@ export function AuthInitializer({ children }: AuthInitializerProps) {
                 else router.replace('/login');
               });
             }}
-            className="border border-tui-border px-4 py-2 text-sm font-mono text-tui-fg hover:bg-tui-dim/10"
+            className="border border-void-border px-4 py-2 text-sm font-mono text-bone-base hover:bg-bone-muted/10"
           >
             Retry
           </button>

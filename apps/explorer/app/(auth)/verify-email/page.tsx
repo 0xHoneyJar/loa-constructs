@@ -46,8 +46,8 @@ function VerifyEmailContent() {
     return (
       <Panel title="Verifying">
         <div className="flex flex-col items-center gap-4 py-8">
-          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-tui-accent" />
-          <p className="text-xs font-mono text-tui-dim">Verifying your email...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-cyan-base" />
+          <p className="text-xs font-mono text-bone-muted">Verifying your email...</p>
         </div>
       </Panel>
     );
@@ -57,8 +57,8 @@ function VerifyEmailContent() {
     return (
       <Panel title="Verified">
         <div className="flex flex-col gap-4 text-center">
-          <h2 className="text-base font-mono text-tui-green">Email verified!</h2>
-          <p className="text-xs font-mono text-tui-dim">Your email has been successfully verified.</p>
+          <h2 className="text-base font-mono text-cyan-base">Email verified!</h2>
+          <p className="text-xs font-mono text-bone-muted">Your email has been successfully verified.</p>
           <Link href="/login">
             <Button>Sign in</Button>
           </Link>
@@ -71,9 +71,9 @@ function VerifyEmailContent() {
     return (
       <Panel title="Failed" variant="danger">
         <div className="flex flex-col gap-4 text-center">
-          <h2 className="text-base font-mono text-tui-red">Verification failed</h2>
-          <p className="text-xs font-mono text-tui-dim">{error}</p>
-          <p className="text-xs font-mono text-tui-dim">The link may have expired or is invalid.</p>
+          <h2 className="text-base font-mono text-crimson-base">Verification failed</h2>
+          <p className="text-xs font-mono text-bone-muted">{error}</p>
+          <p className="text-xs font-mono text-bone-muted">The link may have expired or is invalid.</p>
           <div className="flex justify-center gap-3">
             <Link href="/login">
               <Button variant="secondary">Sign in</Button>
@@ -91,19 +91,19 @@ function VerifyEmailContent() {
   return (
     <Panel title="Verify Email">
       <div className="flex flex-col gap-4 text-center">
-        <h2 className="text-base font-mono text-tui-accent">Check your email</h2>
+        <h2 className="text-base font-mono text-cyan-base">Check your email</h2>
         {email && (
-          <p className="text-xs font-mono text-tui-dim">
-            Verification email sent to <strong className="text-tui-bright">{email}</strong>
+          <p className="text-xs font-mono text-bone-muted">
+            Verification email sent to <strong className="text-bone-bright">{email}</strong>
           </p>
         )}
-        <p className="text-xs font-mono text-tui-dim">
+        <p className="text-xs font-mono text-bone-muted">
           Click the link in the email to verify your account. Check your spam folder if you don&apos;t see it.
         </p>
 
         {error && (
-          <div className="border border-tui-red bg-tui-red/10 px-3 py-2">
-            <p className="text-xs font-mono text-tui-red">{error}</p>
+          <div className="border border-crimson-base bg-crimson-base/10 px-3 py-2">
+            <p className="text-xs font-mono text-crimson-base">{error}</p>
           </div>
         )}
 
@@ -113,9 +113,9 @@ function VerifyEmailContent() {
           </Button>
         )}
 
-        <p className="text-xs font-mono text-tui-dim">
+        <p className="text-xs font-mono text-bone-muted">
           Already verified?{' '}
-          <Link href="/login" className="text-tui-cyan no-underline hover:underline">Sign in</Link>
+          <Link href="/login" className="text-cyan-dim no-underline hover:underline">Sign in</Link>
         </p>
       </div>
     </Panel>
@@ -124,7 +124,7 @@ function VerifyEmailContent() {
 
 export default function VerifyEmailPage() {
   return (
-    <Suspense fallback={<div className="text-center text-tui-dim font-mono text-sm">Loading...</div>}>
+    <Suspense fallback={<div className="text-center text-bone-muted font-mono text-sm">Loading...</div>}>
       <VerifyEmailContent />
     </Suspense>
   );

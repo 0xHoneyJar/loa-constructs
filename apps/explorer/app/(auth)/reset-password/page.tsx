@@ -67,8 +67,8 @@ function ResetPasswordForm() {
     return (
       <Panel title="Invalid link">
         <div className="flex flex-col gap-4 text-center">
-          <h2 className="text-base font-mono text-tui-accent">Invalid link</h2>
-          <p className="text-xs font-mono text-tui-dim">This password reset link is invalid or has expired.</p>
+          <h2 className="text-base font-mono text-cyan-base">Invalid link</h2>
+          <p className="text-xs font-mono text-bone-muted">This password reset link is invalid or has expired.</p>
           <Link href="/forgot-password">
             <Button>Request new link</Button>
           </Link>
@@ -81,8 +81,8 @@ function ResetPasswordForm() {
     return (
       <Panel title="Success">
         <div className="flex flex-col gap-4 text-center">
-          <h2 className="text-base font-mono text-tui-green">Password reset successful</h2>
-          <p className="text-xs font-mono text-tui-dim">You can now sign in with your new password.</p>
+          <h2 className="text-base font-mono text-cyan-base">Password reset successful</h2>
+          <p className="text-xs font-mono text-bone-muted">You can now sign in with your new password.</p>
           <Link href="/login">
             <Button>Sign in</Button>
           </Link>
@@ -95,14 +95,14 @@ function ResetPasswordForm() {
     <Panel title="Reset Password">
       <div className="flex flex-col gap-4">
         <div className="text-center">
-          <h2 className="text-base font-mono text-tui-accent">Reset password</h2>
-          <p className="text-xs font-mono text-tui-dim">Enter your new password below</p>
+          <h2 className="text-base font-mono text-cyan-base">Reset password</h2>
+          <p className="text-xs font-mono text-bone-muted">Enter your new password below</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-3">
           {error && (
-            <div className="border border-tui-red bg-tui-red/10 px-3 py-2">
-              <p className="text-xs font-mono text-tui-red">{error}</p>
+            <div className="border border-crimson-base bg-crimson-base/10 px-3 py-2">
+              <p className="text-xs font-mono text-crimson-base">{error}</p>
             </div>
           )}
 
@@ -130,9 +130,9 @@ function ResetPasswordForm() {
           </Button>
         </form>
 
-        <p className="text-center text-xs font-mono text-tui-dim">
+        <p className="text-center text-xs font-mono text-bone-muted">
           Remember your password?{' '}
-          <Link href="/login" className="text-tui-cyan no-underline hover:underline">Sign in</Link>
+          <Link href="/login" className="text-cyan-dim no-underline hover:underline">Sign in</Link>
         </p>
       </div>
     </Panel>
@@ -141,7 +141,7 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={<div className="text-center text-tui-dim font-mono text-sm">Loading...</div>}>
+    <Suspense fallback={<div className="text-center text-bone-muted font-mono text-sm">Loading...</div>}>
       <ResetPasswordForm />
     </Suspense>
   );

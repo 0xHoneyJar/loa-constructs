@@ -90,19 +90,19 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   return (
     <article className="space-y-6 max-w-3xl">
       <div>
-        <div className="flex items-center gap-3 mb-3 text-[10px] font-mono text-white/40">
+        <div className="flex items-center gap-3 mb-3 text-[10px] font-mono text-bone-ghost">
           <time>{new Date(post.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</time>
           <span>·</span>
           <span>{post.author}</span>
         </div>
-        <h1 className="text-2xl font-mono font-bold text-white">{post.title}</h1>
+        <h1 className="text-2xl font-mono font-boldtext-bone-base">{post.title}</h1>
       </div>
 
-      <div className="prose prose-invert prose-sm max-w-none font-mono text-white/70 [&_h2]:text-white [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-3 [&_code]:text-green-400 [&_pre]:border [&_pre]:border-white/10 [&_pre]:bg-black/30 [&_p]:mb-4 [&_ul]:space-y-1 [&_li]:text-white/60 whitespace-pre-wrap">
+      <div className="prose prose-invert prose-sm max-w-none font-mono text-bone-dim [&_h2]:text-white [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-3 [&_code]:text-green-400 [&_pre]:border [&_pre]:border-void-border [&_pre]:bg-black/30 [&_p]:mb-4 [&_ul]:space-y-1 [&_li]:text-bone-dim whitespace-pre-wrap">
         {post.content}
       </div>
 
-      <Link href="/blog" className="text-xs font-mono text-white/40 hover:text-white/60 transition-colors block">
+      <Link href="/blog" className="text-xs font-mono text-bone-ghost hover:text-bone-dim transition-colors block">
         ← Back to blog
       </Link>
     </article>

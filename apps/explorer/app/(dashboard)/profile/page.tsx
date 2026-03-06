@@ -44,29 +44,29 @@ export default function ProfilePage() {
   };
 
   if (isLoading) {
-    return <p className="text-sm font-mono text-tui-dim">Loading profile...</p>;
+    return <p className="text-sm font-mono text-bone-muted">Loading profile...</p>;
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-lg font-mono text-tui-bright">Profile</h1>
-        <p className="text-xs font-mono text-tui-dim mt-1">Manage your account settings.</p>
+        <h1 className="text-lg font-mono text-bone-bright">Profile</h1>
+        <p className="text-xs font-mono text-bone-muted mt-1">Manage your account settings.</p>
       </div>
 
       <Panel title="Account Info">
         <div className="space-y-2 text-xs font-mono">
           <div className="flex justify-between">
-            <span className="text-tui-dim">Email</span>
-            <span className="text-tui-fg">{profile?.email}</span>
+            <span className="text-bone-muted">Email</span>
+            <span className="text-bone-base">{profile?.email}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-tui-dim">Role</span>
-            <span className="text-tui-accent uppercase">{profile?.role || 'free'}</span>
+            <span className="text-bone-muted">Role</span>
+            <span className="text-cyan-base uppercase">{profile?.role || 'free'}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-tui-dim">Member since</span>
-            <span className="text-tui-fg">
+            <span className="text-bone-muted">Member since</span>
+            <span className="text-bone-base">
               {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString() : '—'}
             </span>
           </div>
@@ -90,10 +90,10 @@ export default function ProfilePage() {
           />
 
           {updateProfile.isSuccess && (
-            <p className="text-xs font-mono text-tui-green">Profile updated successfully.</p>
+            <p className="text-xs font-mono text-cyan-base">Profile updated successfully.</p>
           )}
           {updateProfile.isError && (
-            <p className="text-xs font-mono text-tui-red">
+            <p className="text-xs font-mono text-crimson-base">
               {updateProfile.error?.message || 'Failed to update profile.'}
             </p>
           )}

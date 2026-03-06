@@ -16,7 +16,7 @@ export function SkillGrid({ skills, packSlug }: SkillGridProps) {
   return (
     <Card>
       <CardHeader>
-        <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-white">
+        <h2 className="font-mono text-xs font-semibold uppercase tracking-widertext-bone-base">
           Skills Included
         </h2>
       </CardHeader>
@@ -30,7 +30,7 @@ export function SkillGrid({ skills, packSlug }: SkillGridProps) {
             >
               <Badge
                 variant="skill"
-                className="transition-colors group-hover:border-white/30 group-hover:text-white"
+                className="transition-colors group-hover:border-bone-ghost group-hover:text-bone-bright"
               >
                 {skill.name}
               </Badge>

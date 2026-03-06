@@ -107,18 +107,18 @@ export default function CreateConstructPage() {
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-4">
-        <Link href="/creator" className="text-xs font-mono text-tui-dim hover:text-tui-fg">
+        <Link href="/creator" className="text-xs font-mono text-bone-muted hover:text-bone-base">
           ← Back
         </Link>
         <div>
-          <h1 className="text-lg font-mono text-tui-bright">Create Construct</h1>
-          <p className="text-xs font-mono text-tui-dim mt-1">Publish a new construct to the registry.</p>
+          <h1 className="text-lg font-mono text-bone-bright">Create Construct</h1>
+          <p className="text-xs font-mono text-bone-muted mt-1">Publish a new construct to the registry.</p>
         </div>
       </div>
 
       {createConstruct.isError && (
         <Panel title="Error" variant="danger">
-          <p className="text-xs font-mono text-tui-red">
+          <p className="text-xs font-mono text-crimson-base">
             {createConstruct.error?.message || 'Failed to create construct.'}
           </p>
         </Panel>
@@ -150,9 +150,9 @@ export default function CreateConstructPage() {
             />
 
             <div>
-              <label className="block text-xs font-mono text-tui-dim mb-1">Full Description</label>
+              <label className="block text-xs font-mono text-bone-muted mb-1">Full Description</label>
               <textarea
-                className="w-full bg-transparent border border-tui-border px-3 py-2 text-sm font-mono text-tui-fg placeholder:text-tui-dim/50 focus:outline-none focus:border-tui-accent"
+                className="w-full bg-transparent border border-void-border px-3 py-2 text-sm font-mono text-bone-base placeholder:text-bone-muted/50 focus:outline-none focus:border-cyan-base"
                 rows={4}
                 placeholder="Detailed description. Markdown supported."
                 {...register('longDescription')}
@@ -161,9 +161,9 @@ export default function CreateConstructPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-mono text-tui-dim mb-1">Category</label>
+                <label className="block text-xs font-mono text-bone-muted mb-1">Category</label>
                 <select
-                  className="w-full bg-transparent border border-tui-border px-3 py-2 text-sm font-mono text-tui-fg focus:outline-none focus:border-tui-accent"
+                  className="w-full bg-transparent border border-void-border px-3 py-2 text-sm font-mono text-bone-base focus:outline-none focus:border-cyan-base"
                   {...register('category')}
                 >
                   {categories.map((cat) => (
@@ -172,9 +172,9 @@ export default function CreateConstructPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-mono text-tui-dim mb-1">Tier Required</label>
+                <label className="block text-xs font-mono text-bone-muted mb-1">Tier Required</label>
                 <select
-                  className="w-full bg-transparent border border-tui-border px-3 py-2 text-sm font-mono text-tui-fg focus:outline-none focus:border-tui-accent"
+                  className="w-full bg-transparent border border-void-border px-3 py-2 text-sm font-mono text-bone-base focus:outline-none focus:border-cyan-base"
                   {...register('tierRequired')}
                 >
                   {tiers.map((tier) => (

@@ -237,12 +237,12 @@ export function GraphNode({
         <div
           className={`whitespace-nowrap font-mono text-[10px] uppercase tracking-wider transition-all ${
             isSelected
-              ? 'rounded-md px-2 py-1 text-white backdrop-blur-sm'
+              ? 'rounded-md px-2 py-1 text-bone-base backdrop-blur-sm'
               : localHover
-                ? 'rounded-md bg-surface/90 px-2 py-1 text-white backdrop-blur-sm'
+                ? 'rounded-md bg-surface/90 px-2 py-1 text-bone-base backdrop-blur-sm'
                 : isDimmed
-                  ? 'text-white/40'
-                  : 'text-white/70'
+                  ? 'text-bone-ghost'
+                  : 'text-bone-dim'
           }`}
           style={isSelected ? { backgroundColor: `${color}90` } : undefined}
         >
