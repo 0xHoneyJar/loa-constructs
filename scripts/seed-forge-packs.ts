@@ -424,6 +424,12 @@ async function seedForgePacks() {
         if (pack.fullManifest.workflow) console.log(`          → workflow: depth=${pack.fullManifest.workflow.depth}`);
         if (pack.fullManifest.domain) console.log(`          → domain: ${pack.fullManifest.domain.join(', ')}`);
         if (pack.fullManifest.hooks) console.log(`          → hooks: post_install=${!!pack.fullManifest.hooks.post_install}`);
+        if (pack.identity) {
+          const domains = Array.isArray((pack.identity.expertise as Record<string, unknown>)?.domains)
+            ? ((pack.identity.expertise as Record<string, unknown>).domains as Array<{ name: string }>).map(d => d.name)
+            : [];
+          console.log(`          → identity: ${domains.length} expertise domains`);
+        }
         passed++;
       } else {
         failed++;
@@ -648,6 +654,52 @@ async function seedForgePacks() {
         `;
 
         console.log(`     → uploaded ${files.length} files (${(totalBytes / 1024).toFixed(1)}KB)`);
+
+        // Step 7: Upsert identity data if present
+        if (pack.identity) {
+          const persona = pack.identity.persona as Record<string, unknown> | undefined;
+          const expertise = pack.identity.expertise as Record<string, unknown> | undefined;
+
+          // Read raw YAML for storage
+          const personaPath = join(pack.packPath, 'identity', 'persona.yaml');
+          const expertisePath = join(pack.packPath, 'identity', 'expertise.yaml');
+          const personaYaml = existsSync(personaPath) ? await readFile(personaPath, 'utf-8') : null;
+          const expertiseYaml = existsSync(expertisePath) ? await readFile(expertisePath, 'utf-8') : null;
+
+          // Extract structured fields
+          const cognitiveFrame = persona?.cognitiveFrame ?? null;
+          const voiceConfig = persona?.voice ?? null;
+          const expertiseDomains = Array.isArray((expertise as Record<string, unknown>)?.domains)
+            ? ((expertise as Record<string, unknown>).domains as Array<{ name: string }>).map(d => d.name)
+            : null;
+
+          await tx`
+            INSERT INTO construct_identities (
+              id, pack_id, persona_yaml, expertise_yaml,
+              cognitive_frame, expertise_domains, voice_config, model_preferences,
+              created_at, updated_at
+            ) VALUES (
+              ${randomUUID()},
+              ${resolvedPackId},
+              ${personaYaml},
+              ${expertiseYaml},
+              ${cognitiveFrame ? JSON.stringify(cognitiveFrame) : null}::jsonb,
+              ${expertiseDomains ? JSON.stringify(expertiseDomains) : null}::jsonb,
+              ${voiceConfig ? JSON.stringify(voiceConfig) : null}::jsonb,
+              ${null},
+              NOW(),
+              NOW()
+            )
+            ON CONFLICT ON CONSTRAINT idx_construct_identities_pack DO UPDATE SET
+              persona_yaml = EXCLUDED.persona_yaml,
+              expertise_yaml = EXCLUDED.expertise_yaml,
+              cognitive_frame = EXCLUDED.cognitive_frame,
+              expertise_domains = EXCLUDED.expertise_domains,
+              voice_config = EXCLUDED.voice_config,
+              updated_at = NOW()
+          `;
+          console.log(`     → identity upserted (${expertiseDomains?.length || 0} expertise domains)`);
+        }
       }
     });
 
