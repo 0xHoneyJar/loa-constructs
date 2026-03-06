@@ -216,7 +216,13 @@ function cloneOrPull(slug: string, gitUrl: string, gitRef: string): string {
   const repoDir = join(CLONE_DIR, `construct-${slug}`);
   if (existsSync(join(repoDir, '.git'))) {
     console.log(`   Updating construct-${slug}...`);
-    execSync(`git -C "${repoDir}" fetch origin && git -C "${repoDir}" reset --hard origin/${gitRef}`, { stdio: 'pipe' });
+    try {
+      execSync(`git -C "${repoDir}" fetch origin && git -C "${repoDir}" pull --ff-only origin ${gitRef}`, { stdio: 'pipe' });
+    } catch {
+      // ff-only failed (diverged local state) — nuke and reclone
+      execSync(`rm -rf "${repoDir}"`);
+      execSync(`git clone --depth 1 --branch ${gitRef} "${gitUrl}" "${repoDir}"`, { stdio: 'pipe' });
+    }
   } else {
     console.log(`   Cloning construct-${slug}...`);
     execSync(`git clone --depth 1 --branch ${gitRef} "${gitUrl}" "${repoDir}"`, { stdio: 'pipe' });
@@ -690,7 +696,7 @@ async function seedForgePacks() {
               NOW(),
               NOW()
             )
-            ON CONFLICT ON CONSTRAINT idx_construct_identities_pack DO UPDATE SET
+            ON CONFLICT (pack_id) DO UPDATE SET
               persona_yaml = EXCLUDED.persona_yaml,
               expertise_yaml = EXCLUDED.expertise_yaml,
               cognitive_frame = EXCLUDED.cognitive_frame,

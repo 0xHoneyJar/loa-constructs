@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "CLI plugin for Loa Constructs",
+  "description": "Standalone CLI for the Constructs Network",
+  "bin": {
+    "constructs": "./dist/bin/constructs.js"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

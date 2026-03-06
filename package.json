@@ -18,7 +18,8 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "discover": "tsx scripts/discover-constructs.ts",
     "seed": "tsx scripts/seed-forge-packs.ts",
-    "seed:auto": "tsx scripts/seed-forge-packs.ts --auto-discover"
+    "seed:auto": "tsx scripts/seed-forge-packs.ts --auto-discover",
+    "constructs": "tsx packages/loa-registry/bin/constructs.ts"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
