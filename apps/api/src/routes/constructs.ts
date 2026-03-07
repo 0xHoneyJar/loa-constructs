@@ -131,9 +131,15 @@ function formatConstructDetail(c: Construct) {
 function formatManifestSummary(m: ConstructManifest) {
   return {
     // Skills may have 'name' or 'slug' depending on manifest format
-    skills: m.skills?.map((s: { name?: string; slug?: string }) => s.name || s.slug).filter(Boolean) || [],
-    commands: m.commands?.map((c: { name: string }) => c.name) || [],
+    skills: m.skills?.map((s: { name?: string; slug?: string; description?: string; path?: string }) => ({
+      slug: s.slug || s.name,
+      name: s.name || s.slug,
+      description: s.description,
+    })).filter(Boolean) || [],
+    commands: m.commands || [],
     dependencies: m.dependencies || {},
+    composes_with: m.composes_with || [],
+    pack_dependencies: m.pack_dependencies || undefined,
   };
 }
 

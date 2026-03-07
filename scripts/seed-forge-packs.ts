@@ -697,6 +697,9 @@ async function seedForgePacks() {
           // Extract structured fields
           const cognitiveFrame = persona?.cognitiveFrame ?? null;
           const voiceConfig = persona?.voice ?? null;
+          const modelPreferences = persona?.model_preferences
+            ? (persona.model_preferences as Record<string, unknown>)
+            : null;
           const expertiseDomains = Array.isArray((expertise as Record<string, unknown>)?.domains)
             ? ((expertise as Record<string, unknown>).domains as Array<{ name: string }>).map(d => d.name)
             : null;
@@ -714,7 +717,7 @@ async function seedForgePacks() {
               ${cognitiveFrame ? JSON.stringify(cognitiveFrame) : null}::jsonb,
               ${expertiseDomains ? JSON.stringify(expertiseDomains) : null}::jsonb,
               ${voiceConfig ? JSON.stringify(voiceConfig) : null}::jsonb,
-              ${null},
+              ${modelPreferences ? JSON.stringify(modelPreferences) : null}::jsonb,
               NOW(),
               NOW()
             )
@@ -724,6 +727,7 @@ async function seedForgePacks() {
               cognitive_frame = EXCLUDED.cognitive_frame,
               expertise_domains = EXCLUDED.expertise_domains,
               voice_config = EXCLUDED.voice_config,
+              model_preferences = EXCLUDED.model_preferences,
               updated_at = NOW()
           `;
           console.log(`     → identity upserted (${expertiseDomains?.length || 0} expertise domains)`);

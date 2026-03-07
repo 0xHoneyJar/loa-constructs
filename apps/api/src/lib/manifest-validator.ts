@@ -42,19 +42,26 @@ export interface ConstructManifest {
   author?: string;
   license?: 'MIT' | 'Apache-2.0' | 'proprietary' | 'UNLICENSED';
   skills?: Array<{
-    name: string;
+    name?: string;
+    slug?: string;
     version?: string;
     required?: boolean;
+    description?: string;
+    path?: string;
   }>;
   commands?: Array<{
     name: string;
     skill?: string;
     description?: string;
+    usage?: string;
   }>;
   dependencies?: {
     skills?: string[];
     tools?: string[];
   };
+  // Schema v3: top-level composition fields
+  composes_with?: string[];
+  pack_dependencies?: Record<string, unknown>;
   cultural_contexts?: {
     required?: string[];
     optional?: string[];

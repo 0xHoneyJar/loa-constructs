@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import { fetchConstruct } from '@/lib/data/fetch-constructs';
 import { BackButton } from '@/components/layout/back-button';
@@ -80,16 +81,24 @@ export default async function ConstructPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* Composes with (future) */}
+      {/* Composes with */}
       {construct.composesWith.length > 0 && (
         <div className="mb-8">
           <div className="border border-border bg-surface/50 p-4">
             <h2 className="mb-3 font-mono text-xs font-semibold uppercase tracking-wider text-bone-base">
               Composes With
             </h2>
-            <p className="font-mono text-xs text-bone-ghost">
-              {construct.composesWith.join(', ')}
-            </p>
+            <div className="flex flex-wrap gap-2">
+              {construct.composesWith.map((dep) => (
+                <Link
+                  key={dep}
+                  href={`/constructs/${dep}`}
+                  className="border border-bone-ghost px-2 py-1 text-xs font-mono text-bone-dim hover:bg-surface hover:text-bone-base transition-colors"
+                >
+                  {dep}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       )}
