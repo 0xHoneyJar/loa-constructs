@@ -67,7 +67,7 @@ export default async function CreatorProfilePage({ params }: { params: Promise<{
           {creator.name[0].toUpperCase()}
         </div>
         <div>
-          <h1 className="text-2xl font-mono font-boldtext-bone-base">{creator.name}</h1>
+          <h1 className="text-2xl font-mono font-bold text-bone-base">{creator.name}</h1>
           <p className="text-xs font-mono text-bone-ghost">@{creator.username}</p>
           {creator.bio && <p className="text-sm font-mono text-bone-dim mt-1">{creator.bio}</p>}
         </div>

@@ -15,7 +15,7 @@ export default async function PacksPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-mono font-boldtext-bone-base">Packs</h1>
+        <h1 className="text-2xl font-mono font-bold text-bone-base">Packs</h1>
         <p className="text-sm font-mono text-bone-dim mt-1">
           {packs.length} packs available
         </p>
@@ -28,7 +28,7 @@ export default async function PacksPage() {
           {packs.map((pack) => (
             <Link
               key={pack.id}
-              href={`/packs/${pack.slug}`}
+              href={`/constructs/${pack.slug}`}
               className="border border-void-border p-4 hover:border-bone-ghost transition-colors group"
             >
               <div className="flex items-center justify-between mb-2">

@@ -39,7 +39,7 @@ export default function InstallPage() {
         ← Back
       </Link>
 
-      <h1 className="mb-2 font-mono text-2xl font-boldtext-bone-base">
+      <h1 className="mb-2 font-mono text-2xl font-bold text-bone-base">
         Install a Construct
       </h1>
       <p className="mb-10 font-mono text-sm text-bone-muted">

@@ -29,7 +29,7 @@ export default function BlogPage() {
   return (
     <div className="space-y-8 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-mono font-boldtext-bone-base">Blog</h1>
+        <h1 className="text-2xl font-mono font-bold text-bone-base">Blog</h1>
         <p className="text-sm font-mono text-bone-dim mt-1">News and updates from the Constructs Network.</p>
       </div>
 

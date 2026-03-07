@@ -43,7 +43,7 @@ export default function ChangelogPage() {
   return (
     <div className="space-y-8 max-w-3xl">
       <div>
-        <h1 className="text-2xl font-mono font-boldtext-bone-base">Changelog</h1>
+        <h1 className="text-2xl font-mono font-bold text-bone-base">Changelog</h1>
         <p className="text-sm font-mono text-bone-dim mt-1">What&apos;s new in the Constructs Network.</p>
       </div>
 
@@ -51,7 +51,7 @@ export default function ChangelogPage() {
         {releases.map((release) => (
           <div key={release.version} className="border-l-2 border-void-border pl-4">
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-sm font-mono font-boldtext-bone-base">{release.version}</span>
+              <span className="text-sm font-mono font-bold text-bone-base">{release.version}</span>
               <span className="text-[10px] font-mono text-bone-ghost">
                 {new Date(release.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
               </span>

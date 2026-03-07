@@ -69,7 +69,7 @@ export function CommandPalette({ nodes }: CommandPaletteProps) {
         setSelectedIndex((prev) => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter' && results[selectedIndex]) {
         e.preventDefault();
-        router.push(`/${results[selectedIndex].slug}`);
+        router.push(`/constructs/${results[selectedIndex].slug}`);
         setOpen(false);
         setQuery('');
       }
@@ -79,7 +79,7 @@ export function CommandPalette({ nodes }: CommandPaletteProps) {
 
   const handleSelect = useCallback(
     (node: ConstructNode) => {
-      router.push(`/${node.slug}`);
+      router.push(`/constructs/${node.slug}`);
       setOpen(false);
       setQuery('');
     },

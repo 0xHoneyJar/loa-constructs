@@ -95,7 +95,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           <span>·</span>
           <span>{post.author}</span>
         </div>
-        <h1 className="text-2xl font-mono font-boldtext-bone-base">{post.title}</h1>
+        <h1 className="text-2xl font-mono font-bold text-bone-base">{post.title}</h1>
       </div>
 
       <div className="prose prose-invert prose-sm max-w-none font-mono text-bone-dim [&_h2]:text-white [&_h2]:text-sm [&_h2]:font-bold [&_h2]:mt-8 [&_h2]:mb-3 [&_code]:text-green-400 [&_pre]:border [&_pre]:border-void-border [&_pre]:bg-black/30 [&_p]:mb-4 [&_ul]:space-y-1 [&_li]:text-bone-dim whitespace-pre-wrap">

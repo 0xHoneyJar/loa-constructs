@@ -46,7 +46,7 @@ export default function DocsPage() {
   return (
     <div className="space-y-8 max-w-4xl">
       <div>
-        <h1 className="text-2xl font-mono font-boldtext-bone-base">Documentation</h1>
+        <h1 className="text-2xl font-mono font-bold text-bone-base">Documentation</h1>
         <p className="text-sm font-mono text-bone-dim mt-1">
           Everything you need to build and publish AI agent constructs.
         </p>
