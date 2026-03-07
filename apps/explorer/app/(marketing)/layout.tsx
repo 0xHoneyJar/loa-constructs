@@ -11,7 +11,6 @@ function MarketingFooter() {
             <p className="text-bone-ghost mb-2">Product</p>
             <div className="space-y-1">
               <Link href="/constructs" className="block text-bone-dim hover:text-bone-bright">Constructs</Link>
-              <Link href="/pricing" className="block text-bone-dim hover:text-bone-bright">Pricing</Link>
               <Link href="/docs" className="block text-bone-dim hover:text-bone-bright">Docs</Link>
               <Link href="/changelog" className="block text-bone-dim hover:text-bone-bright">Changelog</Link>
             </div>
