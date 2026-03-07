@@ -605,9 +605,10 @@ webhooksRouter.post('/github', async (c) => {
 
       results.push({ slug: pack.slug, status: 'synced' });
     } catch (err) {
-      const message = err instanceof GitSyncError ? err.message : 'Unknown error';
-      logger.error({ packId: pack.id, slug: pack.slug, error: message, requestId }, 'Webhook sync failed');
-      results.push({ slug: pack.slug, status: 'error' });
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      const code = err instanceof GitSyncError ? err.code : 'UNKNOWN';
+      logger.error({ packId: pack.id, slug: pack.slug, error: message, code, requestId }, 'Webhook sync failed');
+      results.push({ slug: pack.slug, status: 'error', error: message, code });
     }
   }
 
