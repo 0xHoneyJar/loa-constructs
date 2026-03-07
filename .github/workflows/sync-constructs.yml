@@ -14,13 +14,13 @@ on:
   workflow_dispatch:
     inputs:
       auto_discover:
-        description: 'Scan org for new repos (vs hardcoded list)'
+        description: 'Scan org for new repos (requires PAT with org:read)'
         required: false
-        default: 'true'
+        default: 'false'
         type: choice
         options:
-          - 'true'
           - 'false'
+          - 'true'
   repository_dispatch:
     types: [construct-updated]
 
@@ -56,7 +56,7 @@ jobs:
           CONSTRUCTS_ORG: '0xHoneyJar'
         run: |
           FLAGS=""
-          if [ "${{ github.event.inputs.auto_discover || 'true' }}" = "true" ]; then
+          if [ "${{ github.event.inputs.auto_discover }}" = "true" ]; then
             FLAGS="--auto-discover"
           fi
           pnpm seed $FLAGS
