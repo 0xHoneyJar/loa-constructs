@@ -19,7 +19,7 @@ export default function AboutPage() {
       <div className="space-y-12">
         {/* What are Constructs */}
         <section className="space-y-4">
-          <h1 className="font-mono text-sm font-semibold uppercase tracking-widertext-bone-base">
+          <h1 className="font-mono text-sm font-semibold uppercase tracking-wider text-bone-base">
             What are Constructs?
           </h1>
 
@@ -48,7 +48,7 @@ export default function AboutPage() {
 
         {/* How They Compose */}
         <section className="space-y-4">
-          <h2 className="font-mono text-sm font-semibold uppercase tracking-widertext-bone-base">
+          <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-bone-base">
             Composition
           </h2>
 
@@ -73,7 +73,7 @@ export default function AboutPage() {
 
         {/* Create */}
         <section className="space-y-4">
-          <h2 className="font-mono text-sm font-semibold uppercase tracking-widertext-bone-base">
+          <h2 className="font-mono text-sm font-semibold uppercase tracking-wider text-bone-base">
             Create Your Own
           </h2>
 
@@ -89,7 +89,7 @@ export default function AboutPage() {
           </div>
 
           <div className="rounded-md border border-border bg-surface/50 p-4">
-            <code className="font-mono text-smtext-bone-base">
+            <code className="font-mono text-sm text-bone-base">
               gh repo create my-org/construct-my-expertise \<br />
               {'  '}--template 0xHoneyJar/construct-base --private --clone
             </code>

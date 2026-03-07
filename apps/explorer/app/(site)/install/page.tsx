@@ -9,7 +9,7 @@ function CodeBlock({ children }: { children: string }) {
   return (
     <div className="group relative">
       <pre className="overflow-x-auto border border-void-border bg-white/[0.02] p-4">
-        <code className="font-mono text-smtext-bone-base">{children}</code>
+        <code className="font-mono text-sm text-bone-base">{children}</code>
       </pre>
     </div>
   );
@@ -22,7 +22,7 @@ function Step({ number, title, children }: { number: number; title: string; chil
         <span className="flex h-6 w-6 items-center justify-center border border-bone-ghost font-mono text-xs text-bone-dim">
           {number}
         </span>
-        <h3 className="font-mono text-sm font-mediumtext-bone-base">{title}</h3>
+        <h3 className="font-mono text-sm font-medium text-bone-base">{title}</h3>
       </div>
       {children}
     </div>

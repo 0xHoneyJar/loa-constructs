@@ -61,7 +61,7 @@ export function HoverTooltip({ nodes }: HoverTooltipProps) {
         <span className="font-mono text-xs text-bone-ghost">v{node.version}</span>
       </div>
 
-      <h3 className="mb-1 font-mono text-sm font-mediumtext-bone-base">
+      <h3 className="mb-1 font-mono text-sm font-medium text-bone-base">
         {node.name}
       </h3>
 

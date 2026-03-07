@@ -16,7 +16,7 @@ export function SkillGrid({ skills, packSlug }: SkillGridProps) {
   return (
     <Card>
       <CardHeader>
-        <h2 className="font-mono text-xs font-semibold uppercase tracking-widertext-bone-base">
+        <h2 className="font-mono text-xs font-semibold uppercase tracking-wider text-bone-base">
           Skills Included
         </h2>
       </CardHeader>

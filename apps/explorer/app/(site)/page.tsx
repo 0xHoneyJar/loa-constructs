@@ -111,9 +111,21 @@ export default async function HomePage({
                           {construct.icon && <span className="mr-1">{construct.icon}</span>}
                           {construct.name}
                         </span>
-                        <span className="font-mono text-[10px] text-bone-ghost hidden sm:inline">
-                          {construct.slug}
-                        </span>
+                        {construct.constructType !== 'skill-pack' && (
+                          <span className="border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-mono text-violet-400 hidden sm:inline">
+                            {construct.constructType.replace(/-/g, ' ')}
+                          </span>
+                        )}
+                        {construct.verificationTier === 'PROVEN' && (
+                          <span className="border border-green-500/30 bg-green-500/10 px-1.5 py-0.5 text-[9px] font-mono text-green-400 hidden sm:inline">
+                            proven
+                          </span>
+                        )}
+                        {construct.verificationTier === 'BACKTESTED' && (
+                          <span className="border border-yellow-500/30 bg-yellow-500/10 px-1.5 py-0.5 text-[9px] font-mono text-yellow-400 hidden sm:inline">
+                            backtested
+                          </span>
+                        )}
                       </div>
                       <p className="font-mono text-xs text-bone-muted truncate mt-0.5 max-w-md">
                         {construct.shortDescription}

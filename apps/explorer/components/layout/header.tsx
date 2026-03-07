@@ -10,11 +10,20 @@ export function Header() {
 
         <nav className="flex items-center gap-5">
           <Link
+            href="/constructs"
+            className="font-mono text-[11px] text-bone-muted hover:text-bone-base transition-colors"
+          >
+            Catalog
+          </Link>
+          <Link
             href="/about"
             className="font-mono text-[11px] text-bone-muted hover:text-bone-base transition-colors"
           >
             About
           </Link>
+          <span className="hidden sm:inline font-mono text-[10px] text-bone-ghost border border-void-border px-1.5 py-0.5">
+            &#8984;K
+          </span>
         </nav>
       </div>
     </header>

@@ -91,10 +91,22 @@ export default async function ConstructsCatalogPage({
               className="bg-void-base p-5 hover:bg-void-raised transition-colors group"
             >
               <div className="flex items-start justify-between mb-3">
-                <span className="font-mono text-sm font-bold text-bone-base group-hover:text-bone-bright transition-colors">
-                  {construct.icon && <span className="mr-1.5">{construct.icon}</span>}
-                  {construct.name}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold text-bone-base group-hover:text-bone-bright transition-colors">
+                    {construct.icon && <span className="mr-1.5">{construct.icon}</span>}
+                    {construct.name}
+                  </span>
+                  {construct.constructType !== 'skill-pack' && (
+                    <span className="border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-mono text-violet-400">
+                      {construct.constructType.replace(/-/g, ' ')}
+                    </span>
+                  )}
+                  {construct.verificationTier === 'PROVEN' && (
+                    <span className="border border-green-500/30 bg-green-500/10 px-1.5 py-0.5 text-[9px] font-mono text-green-400">
+                      proven
+                    </span>
+                  )}
+                </div>
                 <span className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost mt-0.5">
                   {construct.skillsCount > 0 && `${construct.skillsCount}s`}
                 </span>
