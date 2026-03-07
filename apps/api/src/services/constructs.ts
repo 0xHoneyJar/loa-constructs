@@ -940,12 +940,36 @@ async function fetchPacksAsConstructs(options: {
     // No deduplication needed - query returns unique packs without version JOIN
     // Get owner info and correct latest version for each pack
     // Use semver-based getLatestPackVersion for consistent version resolution
+    // Batch-fetch identity rows for all packs in result set
+    const packIds = packsResult.map(p => p.id);
+    let identityMap = new Map<string, { cognitiveFrame: unknown; expertiseDomains: unknown; voiceConfig: unknown; modelPreferences: unknown }>();
+    if (packIds.length > 0) {
+      try {
+        const identityRows = await db
+          .select({
+            packId: constructIdentities.packId,
+            cognitiveFrame: constructIdentities.cognitiveFrame,
+            expertiseDomains: constructIdentities.expertiseDomains,
+            voiceConfig: constructIdentities.voiceConfig,
+            modelPreferences: constructIdentities.modelPreferences,
+          })
+          .from(constructIdentities)
+          .where(inArray(constructIdentities.packId, packIds));
+        for (const row of identityRows) {
+          identityMap.set(row.packId, row);
+        }
+      } catch {
+        // construct_identities table might not exist yet — fail gracefully
+      }
+    }
+
     const items: Construct[] = [];
     for (const pack of packsResult) {
       // Get the correct latest version using semver comparison
       const version = await getLatestPackVersion(pack.id);
       const owner = await getOwnerInfo(pack.ownerId, pack.ownerType as 'user' | 'team');
-      items.push(packToConstruct(pack, version, owner, queryTerms.length > 0 ? queryTerms : undefined));
+      const identityRow = identityMap.get(pack.id) ?? null;
+      items.push(packToConstruct(pack, version, owner, queryTerms.length > 0 ? queryTerms : undefined, identityRow));
     }
 
     return {

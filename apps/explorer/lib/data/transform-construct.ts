@@ -97,5 +97,7 @@ export function transformToNode(construct: APIConstruct): ConstructNode {
     version: construct.version || '1.0.0',
     icon: construct.icon ?? null,
     rating: construct.rating ?? null,
+    hasIdentity: construct.has_identity ?? false,
+    verificationTier: construct.verification_tier ?? 'UNVERIFIED',
   };
 }

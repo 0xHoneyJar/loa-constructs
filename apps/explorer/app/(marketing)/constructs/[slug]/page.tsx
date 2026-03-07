@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { fetchConstruct } from '@/lib/data/fetch-constructs';
+import { IdentityPanel } from '@/components/construct/identity-panel';
 
 export const revalidate = 3600; // ISR: revalidate every hour
 
@@ -63,7 +64,7 @@ export default async function ConstructDetailPage({
       {/* Header */}
       <div>
         <div className="flex items-center gap-3 mb-2">
-          <h1 className="text-2xl font-mono font-boldtext-bone-base">{construct.name}</h1>
+          <h1 className="text-2xl font-mono font-bold text-bone-base">{construct.name}</h1>
           <span className="border border-bone-ghost px-2 py-0.5 text-[10px] font-mono text-bone-dim">
             v{construct.version}
           </span>
@@ -172,33 +173,7 @@ export default async function ConstructDetailPage({
 
       {/* Expert Identity */}
       {construct.identity && (
-        <div>
-          <h2 className="text-sm font-mono font-bold text-bone-base mb-3">Expert Identity</h2>
-          {Array.isArray(construct.identity.expertiseDomains) &&
-            construct.identity.expertiseDomains.length > 0 && (
-            <div className="mb-3">
-              <p className="text-xs font-mono text-bone-ghost mb-2">Expertise Domains</p>
-              <div className="flex flex-wrap gap-2">
-                {construct.identity.expertiseDomains.map((domain: string) => (
-                  <span
-                    key={domain}
-                    className="border border-emerald-500/20 bg-emerald-500/5 px-2 py-1 text-xs font-mono text-emerald-400"
-                  >
-                    {domain}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-          {construct.identity.cognitiveFrame && (
-            <div className="border border-void-border p-3">
-              <p className="text-xs font-mono text-bone-ghost mb-1">Cognitive Frame</p>
-              <pre className="text-xs font-mono text-bone-dim whitespace-pre-wrap">
-                {JSON.stringify(construct.identity.cognitiveFrame, null, 2)}
-              </pre>
-            </div>
-          )}
-        </div>
+        <IdentityPanel identity={construct.identity} />
       )}
 
       {/* Verification Status */}
@@ -254,7 +229,7 @@ export default async function ConstructDetailPage({
           <div className="space-y-2">
             {construct.skills!.map((skill) => (
               <div key={skill.slug} className="border border-void-border p-3">
-                <p className="text-xs font-monotext-bone-base">{skill.name}</p>
+                <p className="text-xs font-mono text-bone-base">{skill.name}</p>
                 {skill.description && (
                   <p className="text-xs font-mono text-bone-muted mt-1">{skill.description}</p>
                 )}
@@ -270,9 +245,13 @@ export default async function ConstructDetailPage({
           <h2 className="text-sm font-mono font-bold text-bone-base mb-3">Composes With</h2>
           <div className="flex flex-wrap gap-2">
             {construct.composesWith.map((dep) => (
-              <span key={dep} className="border border-bone-ghost px-2 py-1 text-xs font-mono text-bone-dim">
+              <Link
+                key={dep}
+                href={`/constructs/${dep}`}
+                className="border border-bone-ghost px-2 py-1 text-xs font-mono text-bone-dim hover:bg-void-surface hover:text-bone-base transition-colors"
+              >
                 {dep}
-              </span>
+              </Link>
             ))}
           </div>
         </div>

@@ -35,6 +35,8 @@ export interface ConstructNode {
   version: string;
   icon?: string | null;
   rating?: number | null;
+  hasIdentity?: boolean;
+  verificationTier?: string;
   position?: {
     x: number;
     y: number;

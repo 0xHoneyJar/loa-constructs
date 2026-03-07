@@ -59,7 +59,7 @@ export default async function PackDetailPage({ params }: { params: Promise<{ slu
           <div className="space-y-2">
             {pack.skills!.map((skill) => (
               <div key={skill.slug} className="border border-void-border p-3">
-                <p className="text-xs font-monotext-bone-base">{skill.name}</p>
+                <p className="text-xs font-mono text-bone-base">{skill.name}</p>
                 {skill.description && (
                   <p className="text-xs font-mono text-bone-muted mt-1">{skill.description}</p>
                 )}

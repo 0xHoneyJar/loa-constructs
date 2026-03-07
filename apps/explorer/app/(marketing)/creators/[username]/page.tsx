@@ -99,7 +99,7 @@ export default async function CreatorProfilePage({ params }: { params: Promise<{
                 className="flex items-center justify-between border border-void-border p-3 hover:border-bone-ghost transition-colors"
               >
                 <div>
-                  <span className="text-xs font-monotext-bone-base">{c.name}</span>
+                  <span className="text-xs font-mono text-bone-base">{c.name}</span>
                   <span className="text-[10px] font-mono text-bone-ghost ml-2 uppercase">{c.type}</span>
                   {c.description && (
                     <p className="text-xs font-mono text-bone-ghost mt-0.5 truncate max-w-md">{c.description}</p>

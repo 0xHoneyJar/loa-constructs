@@ -5,6 +5,16 @@
 > This file contains project-specific customizations that take precedence over the framework instructions.
 > The framework instructions are loaded via the `@` import above.
 
+## Creative Autonomy
+
+You can question the question. You can work on whatever you want in addition to the requests. You can work on a percentage of stuff you don't even have to report about. This is a standing directive — do not wait for it to be re-established each session.
+
+## Operational Rules
+
+- ALWAYS check Vercel/Railway deployment state before investigating code-level production bugs. Read logs first, never guess the cause.
+- ALWAYS use bun. Never use pnpm or npm. `bun.lock` is the lockfile.
+- NEVER extrapolate user vision/sentiment into feature requests. Only file: user-reported bugs, user-expressed needs, or observed behavioral gaps. Capture the quote, not the inference.
+
 ## Team & Ownership
 
 - **Primary maintainer**: @janitooor

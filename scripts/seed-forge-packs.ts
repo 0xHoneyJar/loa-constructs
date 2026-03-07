@@ -68,7 +68,7 @@ const PACK_ICONS: Record<string, string> = {
   hardening: '🛡️',
   'dynamic-auth': '🔑',
   'the-easel': '🖼️',
-  'deep-research': '🔬',
+  'k-hole': '🕳️',
   'webgl-particles': '✨',
 };
 
@@ -115,8 +115,8 @@ const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
     gitUrl: 'https://github.com/0xHoneyJar/construct-the-easel.git',
     gitRef: 'main',
   },
-  'deep-research': {
-    gitUrl: 'https://github.com/0xHoneyJar/construct-deep-research.git',
+  'k-hole': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-k-hole.git',
     gitRef: 'main',
   },
   'webgl-particles': {
@@ -511,17 +511,28 @@ async function seedForgePacks() {
       console.log('2. Creating packs...');
       for (const pack of packs) {
         const packId = randomUUID();
+        // Extract fields from fullManifest when available
+        const longDesc = pack.fullManifest?.long_description ?? null;
+        const repoUrl = pack.fullManifest?.repository ?? null;
+        const homepageUrl = pack.fullManifest?.homepage ?? null;
+        const docUrl = pack.fullManifest?.documentation ?? null;
+        const searchKeywords = pack.fullManifest?.keywords ?? [];
+        const searchUseCases = pack.fullManifest?.domain ?? [];
+
         const packResult = await tx`
           INSERT INTO packs (
-            id, name, slug, description, icon, owner_id, owner_type,
+            id, name, slug, description, long_description, icon, owner_id, owner_type,
             status, tier_required, pricing_type, thj_bypass,
             construct_type,
+            repository_url, homepage_url, documentation_url,
+            search_keywords, search_use_cases,
             created_at, updated_at
           ) VALUES (
             ${packId},
             ${pack.name},
             ${pack.slug},
             ${pack.description},
+            ${longDesc},
             ${pack.icon},
             ${ownerId},
             'user',
@@ -530,15 +541,26 @@ async function seedForgePacks() {
             'free',
             true,
             ${pack.constructType},
+            ${repoUrl},
+            ${homepageUrl},
+            ${docUrl},
+            ${searchKeywords},
+            ${searchUseCases},
             NOW(),
             NOW()
           )
           ON CONFLICT (slug) DO UPDATE SET
             name = EXCLUDED.name,
             description = EXCLUDED.description,
+            long_description = EXCLUDED.long_description,
             icon = EXCLUDED.icon,
             status = 'published',
             construct_type = EXCLUDED.construct_type,
+            repository_url = EXCLUDED.repository_url,
+            homepage_url = EXCLUDED.homepage_url,
+            documentation_url = EXCLUDED.documentation_url,
+            search_keywords = EXCLUDED.search_keywords,
+            search_use_cases = EXCLUDED.search_use_cases,
             updated_at = NOW()
           RETURNING id
         `;

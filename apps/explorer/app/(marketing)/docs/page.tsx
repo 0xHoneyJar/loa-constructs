@@ -64,7 +64,7 @@ export default function DocsPage() {
                   className="block border border-void-border p-3 hover:border-bone-ghost transition-colors"
                   {...(item.href.startsWith('http') ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
                 >
-                  <p className="text-xs font-monotext-bone-base">{item.label}</p>
+                  <p className="text-xs font-mono text-bone-base">{item.label}</p>
                   <p className="text-xs font-mono text-bone-ghost mt-0.5">{item.description}</p>
                 </Link>
               ))}

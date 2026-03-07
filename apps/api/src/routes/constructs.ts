@@ -78,6 +78,8 @@ function formatConstruct(c: Construct) {
     maturity: c.maturity,
     construct_type: c.constructType,
     source_type: c.sourceType,
+    has_identity: c.hasIdentity,
+    verification_tier: c.verificationTier,
     created_at: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
     updated_at: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
   };

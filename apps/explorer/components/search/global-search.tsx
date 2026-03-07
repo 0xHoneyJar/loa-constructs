@@ -36,7 +36,7 @@ export function GlobalSearch() {
             slug: c.slug as string,
             name: c.name as string,
             icon: c.icon as string | undefined,
-            shortDescription: c.short_description as string,
+            shortDescription: (c.description || '') as string,
             category: c.category as string,
             type: c.type as string,
           }));
