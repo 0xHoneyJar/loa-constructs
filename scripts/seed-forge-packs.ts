@@ -123,6 +123,10 @@ const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
     gitUrl: 'https://github.com/0xHoneyJar/construct-webgl-particles.git',
     gitRef: 'main',
   },
+  'mibera-codex': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-mibera-codex.git',
+    gitRef: 'main',
+  },
 };
 
 interface PackManifest {
@@ -172,31 +176,69 @@ function toPackManifest(validated: ValidatedPackManifest): PackManifest {
 }
 
 /**
- * Recursively collect all files from a directory
+ * Collect files from allowed directories only (matches git-sync.ts allowlist).
+ * Prevents walking massive data directories (e.g. 10K mibera entries).
  */
-async function collectFiles(dir: string, baseDir: string): Promise<PackFile[]> {
+const ALLOWED_DIRS = ['skills', 'commands', 'contexts', 'identity', 'scripts', 'templates'];
+const ALLOWED_ROOT_FILES = [
+  'construct.yaml', 'manifest.json', 'manifest.yaml',
+  'README.md', 'LICENSE', 'CHANGELOG.md',
+];
+const MAX_FILES = 500;
+const MAX_FILE_SIZE = 256 * 1024; // 256KB per file
+
+async function collectFiles(rootDir: string, _baseDir: string): Promise<PackFile[]> {
+  const files: PackFile[] = [];
+
+  // Collect allowed root files
+  for (const fileName of ALLOWED_ROOT_FILES) {
+    const fullPath = join(rootDir, fileName);
+    if (!existsSync(fullPath)) continue;
+    const content = await readFile(fullPath);
+    if (content.length > MAX_FILE_SIZE) continue;
+    files.push({
+      path: fileName,
+      content: content.toString('base64'),
+      sizeBytes: content.length,
+      contentHash: createHash('sha256').update(content).digest('hex'),
+    });
+  }
+
+  // Collect from allowed directories
+  for (const dir of ALLOWED_DIRS) {
+    const dirPath = join(rootDir, dir);
+    if (!existsSync(dirPath)) continue;
+    const subFiles = await collectDirRecursive(dirPath, rootDir);
+    files.push(...subFiles);
+    if (files.length >= MAX_FILES) {
+      console.warn(`     ⚠ Hit ${MAX_FILES} file limit, truncating`);
+      break;
+    }
+  }
+
+  return files.slice(0, MAX_FILES);
+}
+
+async function collectDirRecursive(dir: string, baseDir: string): Promise<PackFile[]> {
   const files: PackFile[] = [];
   const entries = await readdir(dir, { withFileTypes: true });
 
   for (const entry of entries) {
     const fullPath = join(dir, entry.name);
+    if (entry.name.startsWith('.')) continue;
 
     if (entry.isDirectory()) {
-      const subFiles = await collectFiles(fullPath, baseDir);
+      const subFiles = await collectDirRecursive(fullPath, baseDir);
       files.push(...subFiles);
     } else if (entry.isFile()) {
-      // Skip hidden files and non-essential files
-      if (entry.name.startsWith('.')) continue;
-
       const content = await readFile(fullPath);
+      if (content.length > MAX_FILE_SIZE) continue;
       const relativePath = relative(baseDir, fullPath);
-      const contentHash = createHash('sha256').update(content).digest('hex');
-
       files.push({
         path: relativePath,
         content: content.toString('base64'),
         sizeBytes: content.length,
-        contentHash,
+        contentHash: createHash('sha256').update(content).digest('hex'),
       });
     }
   }
@@ -316,27 +358,14 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
     try {
       const repoDir = cloneOrPull(slug, config.gitUrl, config.gitRef);
 
-      // Try manifest.json first (legacy), then construct.yaml
+      // Prefer construct.yaml (schema v3), fall back to manifest.json (legacy)
       const manifestJsonPath = join(repoDir, 'manifest.json');
       const constructYamlPath = join(repoDir, 'construct.yaml');
       let manifest: PackManifest;
 
       let fullManifest: ValidatedPackManifest | null = null;
 
-      if (existsSync(manifestJsonPath)) {
-        const content = await readFile(manifestJsonPath, 'utf-8');
-        const raw = JSON.parse(content);
-        const result = packManifestSchema.safeParse(normalizeForValidation(raw));
-        if (result.success) {
-          fullManifest = result.data;
-          manifest = toPackManifest(result.data);
-          console.log(`     → validated manifest.json for ${slug} (full manifest captured)`);
-        } else {
-          console.warn(`     → manifest.json for ${slug} failed Zod validation, using raw fields`);
-          console.warn(`       Errors: ${result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`);
-          manifest = raw as PackManifest;
-        }
-      } else if (existsSync(constructYamlPath)) {
+      if (existsSync(constructYamlPath)) {
         const content = await readFile(constructYamlPath, 'utf-8');
         const parsed = yaml.load(content, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>;
         const result = packManifestSchema.safeParse(normalizeForValidation(parsed));
@@ -364,8 +393,21 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
               : undefined,
           };
         }
+      } else if (existsSync(manifestJsonPath)) {
+        const content = await readFile(manifestJsonPath, 'utf-8');
+        const raw = JSON.parse(content);
+        const result = packManifestSchema.safeParse(normalizeForValidation(raw));
+        if (result.success) {
+          fullManifest = result.data;
+          manifest = toPackManifest(result.data);
+          console.log(`     → validated manifest.json for ${slug} (full manifest captured)`);
+        } else {
+          console.warn(`     → manifest.json for ${slug} failed Zod validation, using raw fields`);
+          console.warn(`       Errors: ${result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`);
+          manifest = raw as PackManifest;
+        }
       } else {
-        console.warn(`   Skipping ${slug}: no manifest.json or construct.yaml found`);
+        console.warn(`   Skipping ${slug}: no construct.yaml or manifest.json found`);
         continue;
       }
 
