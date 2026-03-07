@@ -149,6 +149,7 @@ interface DiscoveredPack extends PackManifest {
   constructType: string;
   identity?: IdentityData;
   fullManifest: ValidatedPackManifest | null;
+  gitConfig?: { gitUrl: string; gitRef: string; githubRepoId?: number };
 }
 
 /**
@@ -272,9 +273,9 @@ function normalizeForValidation(raw: Record<string, unknown>): Record<string, un
  * Returns the same {slug → {gitUrl, gitRef}} shape as GIT_CONFIGS.
  * Requires `gh` CLI authenticated with org access.
  */
-function discoverFromOrg(): Record<string, { gitUrl: string; gitRef: string }> {
+function discoverFromOrg(): Record<string, { gitUrl: string; gitRef: string; githubRepoId?: number }> {
   const raw = execSync(
-    `gh repo list ${CONSTRUCTS_ORG} --limit 100 --json name,defaultBranchRef,isArchived,url`,
+    `gh repo list ${CONSTRUCTS_ORG} --limit 100 --json name,defaultBranchRef,isArchived,url,databaseId`,
     { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] }
   );
 
@@ -283,9 +284,10 @@ function discoverFromOrg(): Record<string, { gitUrl: string; gitRef: string }> {
     defaultBranchRef: { name: string } | null;
     isArchived: boolean;
     url: string;
+    databaseId: number;
   }>;
 
-  const configs: Record<string, { gitUrl: string; gitRef: string }> = {};
+  const configs: Record<string, { gitUrl: string; gitRef: string; githubRepoId?: number }> = {};
 
   for (const repo of repos) {
     if (!repo.name.startsWith('construct-')) continue;
@@ -295,6 +297,7 @@ function discoverFromOrg(): Record<string, { gitUrl: string; gitRef: string }> {
     configs[slug] = {
       gitUrl: `${repo.url}.git`,
       gitRef: repo.defaultBranchRef?.name || 'main',
+      githubRepoId: repo.databaseId,
     };
   }
 
@@ -393,6 +396,7 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
         constructType,
         identity,
         fullManifest,
+        gitConfig: config,
       });
 
       console.log(`   Found: ${manifest.name} (${manifest.slug}) - ${manifest.skills?.length || 0} skills`);
@@ -568,18 +572,18 @@ async function seedForgePacks() {
         const resolvedPackId = packResult[0].id as string;
         console.log(`   ✓ ${pack.slug}: upserted (${resolvedPackId})`);
 
-        // Set git source fields if pack has a registered repo
-        const gitConfig = GIT_CONFIGS[pack.slug];
-        if (gitConfig) {
+        // Set git source fields from the config that discovered this pack
+        if (pack.gitConfig) {
           await tx`
             UPDATE packs
             SET source_type = 'git',
-                git_url = ${gitConfig.gitUrl},
-                git_ref = ${gitConfig.gitRef},
+                git_url = ${pack.gitConfig.gitUrl},
+                git_ref = ${pack.gitConfig.gitRef},
+                github_repo_id = ${pack.gitConfig.githubRepoId ?? null},
                 updated_at = NOW()
             WHERE id = ${resolvedPackId}
           `;
-          console.log(`     → git source set: ${gitConfig.gitUrl} (${gitConfig.gitRef})`);
+          console.log(`     → git source set: ${pack.gitConfig.gitUrl} (${pack.gitConfig.gitRef})`);
         }
 
         // Step 3: Unset isLatest on existing versions (required by partial unique constraint)

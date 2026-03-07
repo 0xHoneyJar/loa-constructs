@@ -1,0 +1,69 @@
+name: Sync Constructs
+
+# Keeps production DB in sync with construct-* repos.
+# Runs daily after discovery, on manual trigger, and on repository_dispatch
+# from construct repos (if configured).
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    # Daily at 06:30 UTC (30 min after discover-constructs)
+    - cron: '30 6 * * *'
+  workflow_dispatch:
+    inputs:
+      auto_discover:
+        description: 'Scan org for new repos (vs hardcoded list)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+  repository_dispatch:
+    types: [construct-updated]
+
+jobs:
+  sync:
+    name: Seed Production DB
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Run seed script
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CONSTRUCTS_ORG: '0xHoneyJar'
+        run: |
+          FLAGS=""
+          if [ "${{ github.event.inputs.auto_discover || 'true' }}" = "true" ]; then
+            FLAGS="--auto-discover"
+          fi
+          bun run scripts/seed-forge-packs.ts $FLAGS
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Construct Sync Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auto-discover**: ${{ github.event.inputs.auto_discover || 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time**: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
