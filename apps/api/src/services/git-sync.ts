@@ -348,6 +348,18 @@ export async function cloneRepo(
   }
 
   try {
+    // Inject GitHub token for private repo access if available
+    const gitAuthEnv: Record<string, string> = {};
+    const githubToken = process.env.GITHUB_SYNC_TOKEN || process.env.GITHUB_TOKEN;
+    if (githubToken) {
+      // Use GIT_CONFIG to set a credential helper that returns the token.
+      // This avoids embedding tokens in URLs (which leak into logs).
+      const configCount = Number(proxyEnv.GIT_CONFIG_COUNT || '0');
+      gitAuthEnv[`GIT_CONFIG_KEY_${configCount}`] = 'credential.helper';
+      gitAuthEnv[`GIT_CONFIG_VALUE_${configCount}`] = `!f() { echo "username=x-access-token"; echo "password=${githubToken}"; }; f`;
+      gitAuthEnv.GIT_CONFIG_COUNT = String(configCount + 1);
+    }
+
     await execFileAsync(
       'git',
       [
@@ -366,6 +378,7 @@ export async function cloneRepo(
           GIT_TERMINAL_PROMPT: '0',
           GIT_LFS_SKIP_SMUDGE: '1',
           ...proxyEnv,
+          ...gitAuthEnv,
         },
         timeout: CLONE_TIMEOUT_MS,
       }
