@@ -344,6 +344,12 @@
       "minimum": 0,
       "maximum": 1,
       "description": "Portability score (0.0–1.0) indicating environment independence"
+    },
+    "visibility": {
+      "type": "string",
+      "enum": ["public", "internal", "unlisted"],
+      "default": "internal",
+      "description": "Network visibility — public (listed + anonymous), internal (org-only), unlisted (slug-access only). Cycle-038."
     }
   },
   "additionalProperties": false

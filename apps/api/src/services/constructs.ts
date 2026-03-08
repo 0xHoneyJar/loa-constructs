@@ -1017,8 +1017,17 @@ async function fetchPacksAsConstructs(options: {
       queryTerms: queryTerms.length > 0 ? queryTerms : undefined,
     };
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    // Re-throw structural DB errors (missing columns/tables) — these indicate
+    // a schema migration gap, not a transient failure. Silent swallowing here
+    // caused the registry to appear empty instead of surfacing the real error.
+    if (errMsg.includes('column') || errMsg.includes('does not exist') || errMsg.includes('relation')) {
+      logger.error({ error, context: 'fetchPacksAsConstructs' }, 'Schema error — missing migration?');
+      // Re-throw as a generic error to avoid leaking schema details to the client
+      throw new Error('Internal database configuration error');
+    }
     logger.error({ error, context: 'fetchPacksAsConstructs' }, 'Failed to fetch packs');
-    // Return empty result on error instead of throwing
+    // Return empty result on transient errors (timeouts, connection issues)
     return { items: [], count: 0 };
   }
 }

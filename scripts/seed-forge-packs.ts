@@ -565,11 +565,17 @@ async function seedForgePacks() {
         const searchKeywords = pack.fullManifest?.keywords ?? [];
         const searchUseCases = pack.fullManifest?.domain ?? [];
 
+        // Org-synced packs are public by default; visibility can be overridden in construct.yaml
+        const VALID_VISIBILITY = ['public', 'internal', 'unlisted'] as const;
+        const rawVis = (pack.fullManifest as any)?.visibility;
+        const packVisibility = VALID_VISIBILITY.includes(rawVis) ? rawVis : 'public';
+
         const packResult = await tx`
           INSERT INTO packs (
             id, name, slug, description, long_description, icon, owner_id, owner_type,
             status, tier_required, pricing_type, thj_bypass,
             construct_type,
+            visibility, submission_source,
             repository_url, homepage_url, documentation_url,
             search_keywords, search_use_cases,
             created_at, updated_at
@@ -587,6 +593,8 @@ async function seedForgePacks() {
             'free',
             true,
             ${pack.constructType},
+            ${packVisibility},
+            'org_sync',
             ${repoUrl},
             ${homepageUrl},
             ${docUrl},
@@ -602,6 +610,7 @@ async function seedForgePacks() {
             icon = EXCLUDED.icon,
             status = 'published',
             construct_type = EXCLUDED.construct_type,
+            visibility = EXCLUDED.visibility,
             repository_url = EXCLUDED.repository_url,
             homepage_url = EXCLUDED.homepage_url,
             documentation_url = EXCLUDED.documentation_url,

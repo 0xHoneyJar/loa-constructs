@@ -25,6 +25,7 @@ import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email
 import { logAuthEvent, logUserAccountEvent } from '../services/audit.js';
 import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
+import { env } from '../config/env.js';
 import { requireAuth } from '../middleware/auth.js';
 import { authRateLimiter } from '../middleware/rate-limiter.js';
 
@@ -156,6 +157,7 @@ auth.post('/login', zValidator('json', loginSchema), async (c) => {
       name: users.name,
       passwordHash: users.passwordHash,
       emailVerified: users.emailVerified,
+      githubOrgMember: users.githubOrgMember,
     })
     .from(users)
     .where(eq(users.email, email.toLowerCase()))
@@ -171,8 +173,8 @@ auth.post('/login', zValidator('json', loginSchema), async (c) => {
     throw Errors.Unauthorized('Invalid email or password');
   }
 
-  // Generate tokens
-  const tokens = await generateTokens(user.id, user.email);
+  // Generate tokens — pass org membership for visibility (cycle-038)
+  const tokens = await generateTokens(user.id, user.email, user.githubOrgMember ?? false);
 
   // Audit log
   await logAuthEvent('user.login', user.id, {
@@ -215,6 +217,9 @@ auth.post('/refresh', zValidator('json', refreshSchema), async (c) => {
         email: users.email,
         name: users.name,
         emailVerified: users.emailVerified,
+        githubOrgMember: users.githubOrgMember,
+        githubUserId: users.githubUserId,
+        githubOrgCheckedAt: users.githubOrgCheckedAt,
       })
       .from(users)
       .where(eq(users.id, payload.sub))
@@ -224,8 +229,38 @@ auth.post('/refresh', zValidator('json', refreshSchema), async (c) => {
       throw Errors.InvalidToken();
     }
 
-    // Generate new tokens
-    const tokens = await generateTokens(user.id, user.email);
+    // Recheck org membership if stale (>24h) and user has a GitHub link (cycle-038)
+    let orgMember = user.githubOrgMember ?? false;
+    const ORG_STALE_MS = 24 * 60 * 60 * 1000; // 24 hours
+    const githubToken = process.env.GITHUB_SYNC_TOKEN || process.env.GITHUB_TOKEN;
+    if (user.githubUserId && githubToken && (!user.githubOrgCheckedAt || Date.now() - user.githubOrgCheckedAt.getTime() > ORG_STALE_MS)) {
+      try {
+        // Resolve stable GitHub user ID → current username
+        const userRes = await fetch(`https://api.github.com/user/${user.githubUserId}`, {
+          headers: { Authorization: `Bearer ${githubToken}`, Accept: 'application/json' },
+        });
+        if (userRes.ok) {
+          const ghUser = await userRes.json() as { login: string };
+          // Check org membership
+          const orgRes = await fetch(`https://api.github.com/orgs/${env.CONSTRUCTS_ORG}/members/${ghUser.login}`, {
+            headers: { Authorization: `Bearer ${githubToken}`, Accept: 'application/json' },
+          });
+          orgMember = orgRes.status === 204;
+          // Update DB with fresh check
+          await db.update(users).set({
+            githubOrgMember: orgMember,
+            githubOrgCheckedAt: new Date(),
+          }).where(eq(users.id, user.id));
+          logger.info({ userId: user.id, orgMember, requestId }, 'Org membership rechecked on token refresh');
+        }
+      } catch (recheckErr) {
+        // Preserve existing value on failure (returning-user policy)
+        logger.warn({ error: recheckErr, userId: user.id, requestId }, 'Org membership recheck failed, preserving existing value');
+      }
+    }
+
+    // Generate new tokens — pass org membership for visibility (cycle-038)
+    const tokens = await generateTokens(user.id, user.email, orgMember);
 
     logger.info({ userId: user.id, requestId }, 'Token refreshed');
 
