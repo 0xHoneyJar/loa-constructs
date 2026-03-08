@@ -7,6 +7,19 @@ interfaces:
   core: [/auditing-security, /autonomous-agent, /bridgebuilder-review, /browsing-constructs, /bug-triaging]
   project: [/creating-constructs, /finding-constructs, /linking-constructs, /publishing-constructs, /syncing-constructs]
 dependencies: [git, jq, yq, node]
+ecosystem:
+  - repo: 0xHoneyJar/loa-finn
+    role: runtime
+    interface: hounfour-router
+    protocol: loa-hounfour@8.3.1
+  - repo: 0xHoneyJar/loa-hounfour
+    role: protocol
+    interface: npm-package
+    protocol: loa-hounfour@8.3.1
+  - repo: 0xHoneyJar/arrakis
+    role: distribution
+    interface: jwt-auth
+    protocol: loa-hounfour@8.3.1
 capability_requirements:
   - filesystem: read
   - filesystem: write (scope: state)
@@ -14,7 +27,7 @@ capability_requirements:
   - git: read_write
   - shell: execute
   - github_api: read_write (scope: external)
-version: v2.7.1
+version: v2.9.0
 installation_mode: unknown
 trust_level: L2-verified
 -->
@@ -25,6 +38,37 @@ trust_level: L2-verified
 SaaS platform for distributing, licensing, and monetizing AI agent constructs
 
 The framework provides 35 specialized skills, built with TypeScript/JavaScript, Python, Shell.
+
+## Key Capabilities
+<!-- provenance: DERIVED -->
+The project exposes 15 key entry points across its public API surface.
+
+### .cache/construct-repos/construct-beacon/scripts
+
+- **fail** — Ufail (`./.cache/construct-repos/construct-beacon/scripts/validate.sh:27`)
+- **pass** — Upass (`./.cache/construct-repos/construct-beacon/scripts/validate.sh:26`)
+- **warn** — Uwarn (`./.cache/construct-repos/construct-beacon/scripts/validate.sh:28`)
+
+### .cache/construct-repos/construct-k-hole/scripts/templates
+
+- **DISCOVERY_QUERIES:DiscoveryQuery[]=[** — Udiscovery queries:discovery query[]=[ (`./.cache/construct-repos/construct-k-hole/scripts/templates/research-config.template.ts:28`)
+- **SYNTHESIS_CONTEXT=`Theresearcherwantstobuilddeepexpertisein[** — Usynthesis context=`theresearcherwantstobuilddeepexpertisein[ (`./.cache/construct-repos/construct-k-hole/scripts/templates/research-config.template.ts:75`)
+- **TOPICS:Topic[]=[** — Utopics:topic[]=[ (`./.cache/construct-repos/construct-k-hole/scripts/templates/research-config.template.ts:53`)
+
+### .cache/construct-repos/construct-mibera-codex/.claude/adapters
+
+- **_build_provider_config** — U build provider config (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:149`)
+- **_error_json** — U error json (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:74`)
+- **_load_persona** — U load persona (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:93`)
+- **cmd_invoke** — Ucmd invoke (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:177`)
+- **cmd_print_config** — Ucmd print config (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:326`)
+- **cmd_validate_bindings** — Ucmd validate bindings (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:337`)
+- **main** — Umain (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:351`)
+
+### .cache/construct-repos/construct-mibera-codex/.claude/adapters/loa_cheval/config
+
+- **LazyValue** — Ulazy value (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/loa_cheval/config/interpolation.py:41`)
+- **_check_env_allowed** — U check env allowed (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/loa_cheval/config/interpolation.py:122`)
 
 ## Architecture
 <!-- provenance: DERIVED -->
@@ -85,6 +129,10 @@ Directory structure:
 
 ## Interfaces
 <!-- provenance: DERIVED -->
+### HTTP Routes
+
+- **GET** `/` (`./apps/api/src/app.ts:159`)
+
 ### Skill Commands
 
 #### Loa Core
@@ -116,7 +164,7 @@ Directory structure:
 - **/rtfm-testing** — RTFM Testing Skill
 - **/run-bridge** — Run Bridge — Autonomous Excellence Loop
 - **/run-mode** — Urun mode
-- **/simstim-workflow** — Check post-PR state
+- **/simstim-workflow** — .loa.config.yaml
 - **/translating-for-executives** — Utranslating for executives
 #### Project-Specific
 
@@ -132,21 +180,21 @@ Directory structure:
 | Module | Files | Purpose | Documentation |
 |--------|-------|---------|---------------|
 | `api/` | 3 | API endpoints | \u2014 |
-| `apps/` | 15967 | Uapps | \u2014 |
+| `apps/` | 15747 | Uapps | \u2014 |
 | `audits/` | 1 | Uaudits | \u2014 |
 | `docs/` | 41 | Documentation | \u2014 |
 | `evals/` | 122 | Benchmarking and regression framework for the Loa agent development system. Ensures framework changes don't degrade agent behavior through | [evals/README.md](evals/README.md) |
-| `grimoires/` | 509 | Home to all grimoire directories for the Loa | [grimoires/README.md](grimoires/README.md) |
-| `packages/` | 90 | Upackages | \u2014 |
+| `grimoires/` | 553 | Home to all grimoire directories for the Loa | [grimoires/README.md](grimoires/README.md) |
+| `packages/` | 93 | Upackages | \u2014 |
 | `packs/` | 1 | Upacks | \u2014 |
-| `scripts/` | 27 | Utility scripts | \u2014 |
-| `tests/` | 196 | Test suites | \u2014 |
+| `scripts/` | 30 | Utility scripts | \u2014 |
+| `tests/` | 202 | Test suites | \u2014 |
 
 ## Verification
 <!-- provenance: CODE-FACTUAL -->
 - Trust Level: **L2 — CI Verified**
-- 196 test files across 1 suite
-- CI/CD: GitHub Actions (10 workflows)
+- 202 test files across 1 suite
+- CI/CD: GitHub Actions (12 workflows)
 - Linting: ESLint configured
 - Security: SECURITY.md present
 
@@ -170,6 +218,19 @@ The project defines 1 specialized agent persona.
 - `turbo`
 - `typescript`
 
+## Culture
+<!-- provenance: OPERATIONAL -->
+**Naming**: Vodou terminology (Loa, Grimoire, Hounfour, Simstim) as cognitive hooks for agent framework concepts.
+
+**Principles**: Think Before Coding — plan and analyze before implementing, Simplicity First — minimum complexity for the current task, Surgical Changes — minimal diff, maximum impact, Goal-Driven — every action traces to acceptance criteria.
+
+**Methodology**: Agent-driven development with iterative excellence loops (Simstim, Run Bridge, Flatline Protocol).
+**Creative Methodology**: Creative methodology drawing from cyberpunk fiction, free jazz improvisation, and temporary autonomous zones.
+
+**Influences**: Neuromancer (Gibson) — Simstim as shared consciousness metaphor, Flatline Protocol — adversarial multi-model review as creative tension, TAZ (Hakim Bey) — temporary spaces for autonomous agent exploration.
+
+**Knowledge Production**: Knowledge production through collective inquiry — Flatline as multi-model study group.
+
 ## Quick Start
 <!-- provenance: OPERATIONAL -->
 Available commands:
@@ -179,16 +240,18 @@ Available commands:
 - `npm run test` — turbo
 - `npm run test:coverage` — turbo
 <!-- ground-truth-meta
-head_sha: c50b8fc9342c33b862c5f96c694e6023cc30a320
-generated_at: 2026-02-27T22:09:38Z
+head_sha: d8886d4eeba0bb78cacf9fd2387b4cdee35acd6e
+generated_at: 2026-03-08T02:22:59Z
 generator: butterfreezone-gen v1.0.0
 sections:
-  agent_context: 216200d644d33e7b245db3474bafbe79b45d3e06bfd0265b7cc6cb3ea082b87b
+  agent_context: 641bcdc90a9f0c26d60baa6663d108c59173e891175d85542ca4ee7b8154629b
+  capabilities: adf373939ce9b10506f6a776ef7ac3f6b1662864c0adb1f9181d9e0f4f8d4bb7
   architecture: ffdfd8f14e40bdad179aae5c8587b22dc82e36eee2f0d0d1448a561cc5978b35
-  interfaces: 96a525cab8e1628033128a8048f8fa8814ca169f193b38c9364b6d71c6ea3180
-  module_map: 5d2857ede090eab63b7fe34ec2d49af27315d81f6e65bc288efe1f3ba05d6af5
-  verification: 6badfc40824e9dffb00087fff8fab9498900bf799490353bf7df676dc813cc41
+  interfaces: b6aca6dcb25d75731ce5b1ef817757e785907ca6e7c00503440bd40d50a1fed4
+  module_map: f416e9e23e480bfcd2c8c8fa8994034cfb93a237e119621332209afbc07be0a0
+  verification: 59ac6fde298eae65daf5282a330aa55a3eb3615c47aff6f1d324c2ab6b7f1947
   agents: ca263d1e05fd123434a21ef574fc8d76b559d22060719640a1f060527ef6a0b6
   ecosystem: 0d998700d4489ca2aec077a69004279a3c45c117b9fb5b37c9f85ad511187c7c
+  culture: f73380f93bb4fadf36ccc10d60fc57555914363fc90e4f15b4dc4eb92bd1640f
   quick_start: 15f176d9343ca15a6b32f5134ba0eda33e96f69620f6495734a1f150548e337b
 -->

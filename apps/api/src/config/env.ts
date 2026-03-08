@@ -65,6 +65,9 @@ const envSchema = z
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
 
+    // GitHub org for visibility checks — cycle-038
+    CONSTRUCTS_ORG: z.string().default('0xHoneyJar'),
+
     // Email
     RESEND_API_KEY: z.string().optional(),
 

@@ -20,6 +20,7 @@ export interface AuthUser {
   emailVerified: boolean;
   tier: 'free' | 'pro' | 'team' | 'enterprise';
   role?: 'user' | 'admin' | 'super_admin';
+  isOrgMember: boolean; // cycle-038: GitHub org membership
 }
 
 // Type augmentation for Hono context
@@ -29,6 +30,7 @@ declare module 'hono' {
     user: AuthUser;
     userId: string;
     authMethod: 'jwt' | 'api_key';
+    isOrgMember: boolean; // cycle-038: convenience accessor
   }
 }
 
@@ -65,6 +67,7 @@ async function getUserById(userId: string): Promise<AuthUser | null> {
       name: users.name,
       emailVerified: users.emailVerified,
       isAdmin: users.isAdmin,
+      githubOrgMember: users.githubOrgMember, // cycle-038
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -84,6 +87,7 @@ async function getUserById(userId: string): Promise<AuthUser | null> {
     emailVerified: user.emailVerified ?? false,
     tier: effectiveTier.tier,
     role: user.isAdmin ? 'admin' : 'user',
+    isOrgMember: user.githubOrgMember ?? false, // cycle-038
   };
 }
 
@@ -158,6 +162,10 @@ export const requireAuth = (): MiddlewareHandler => {
         const payload = await verifyAccessToken(token);
         user = await getUserById(payload.sub);
         authMethod = 'jwt';
+        // cycle-038: set org membership from JWT claim
+        if (user) {
+          user.isOrgMember = (payload as any).org ?? false;
+        }
       } catch {
         throw Errors.InvalidToken();
       }
@@ -171,6 +179,7 @@ export const requireAuth = (): MiddlewareHandler => {
     c.set('user', user);
     c.set('userId', user.id);
     c.set('authMethod', authMethod);
+    c.set('isOrgMember', user.isOrgMember); // cycle-038
 
     await next();
   };
@@ -198,6 +207,10 @@ export const optionalAuth = (): MiddlewareHandler => {
           const payload = await verifyAccessToken(token);
           user = await getUserById(payload.sub);
           authMethod = 'jwt';
+          // cycle-038: set org membership from JWT claim
+          if (user) {
+            user.isOrgMember = (payload as any).org ?? false;
+          }
         } catch {
           // Invalid token, continue without auth
         }
@@ -207,6 +220,7 @@ export const optionalAuth = (): MiddlewareHandler => {
         c.set('user', user);
         c.set('userId', user.id);
         c.set('authMethod', authMethod);
+        c.set('isOrgMember', user.isOrgMember); // cycle-038
       }
     }
 
@@ -249,6 +263,27 @@ export const requireTier = (requiredTier: SubscriptionTier): MiddlewareHandler =
 
     if (!canAccessTier(user.tier, requiredTier)) {
       throw Errors.TierUpgradeRequired(requiredTier, user.tier);
+    }
+
+    await next();
+  };
+};
+
+/**
+ * Require GitHub org membership — cycle-038
+ * Must be used after requireAuth
+ * @see sdd.md §4.4 requireOrgMember() middleware
+ */
+export const requireOrgMember = (): MiddlewareHandler => {
+  return async (c, next) => {
+    const user = c.get('user');
+
+    if (!user) {
+      throw Errors.Unauthorized('Authentication required');
+    }
+
+    if (!user.isOrgMember) {
+      throw Errors.Forbidden('Organization membership required');
     }
 
     await next();

@@ -439,6 +439,7 @@ auth.get('/me', requireAuth(), async (c) => {
       email: user.email,
       name: user.name,
       email_verified: user.emailVerified,
+      is_org_member: user.isOrgMember,
       tier: user.tier,
     },
   });

@@ -30,6 +30,7 @@ export interface AccessTokenPayload extends JWTPayload {
   sub: string; // user ID
   email: string;
   type: 'access';
+  org: boolean; // cycle-038: GitHub org membership
 }
 
 export interface RefreshTokenPayload extends JWTPayload {
@@ -94,7 +95,11 @@ function getSecretKey(): Uint8Array {
  * Generate access and refresh token pair
  * @see sprint.md: "JWT expires in 15 minutes", "Refresh token works for 30 days"
  */
-export async function generateTokens(userId: string, email: string): Promise<TokenPair> {
+export async function generateTokens(
+  userId: string,
+  email: string,
+  org: boolean = false // cycle-038: GitHub org membership
+): Promise<TokenPair> {
   const secretKey = getSecretKey();
   const now = Math.floor(Date.now() / 1000);
   const refreshTokenId = crypto.randomUUID();
@@ -104,6 +109,7 @@ export async function generateTokens(userId: string, email: string): Promise<Tok
     sub: userId,
     email,
     type: 'access',
+    org,
   } satisfies Omit<AccessTokenPayload, 'iat' | 'exp' | 'iss'>)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt(now)

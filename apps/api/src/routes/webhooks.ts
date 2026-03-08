@@ -23,7 +23,7 @@ import {
   isConnectAccountComplete,
 } from '../services/stripe-connect.js';
 import { requireAuth } from '../middleware/auth.js';
-import { getPackBySlug, isPackOwner } from '../services/packs.js';
+import { getPackBySlug, getAccessContext, isPackOwner } from '../services/packs.js';
 import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { getRedis, isRedisConfigured } from '../services/redis.js';
@@ -468,7 +468,7 @@ webhooksRouter.post('/github', async (c) => {
 
   // Match pack by github_repo_id (primary) or normalized git_url (fallback)
   const matchedPacks = await db
-    .select({ id: packs.id, slug: packs.slug, gitUrl: packs.gitUrl })
+    .select({ id: packs.id, slug: packs.slug, gitUrl: packs.gitUrl, submissionSource: packs.submissionSource, status: packs.status })
     .from(packs)
     .where(
       or(
@@ -488,7 +488,7 @@ webhooksRouter.post('/github', async (c) => {
   const { packVersions, packFiles } = await import('../db/index.js');
   const { and } = await import('drizzle-orm');
 
-  const results: Array<{ slug: string; status: string }> = [];
+  const results: Array<{ slug: string; status: string; error?: string; code?: string }> = [];
 
   for (const pack of matchedPacks) {
     // Rate limit check
@@ -500,6 +500,12 @@ webhooksRouter.post('/github', async (c) => {
 
     if (!pack.gitUrl) {
       results.push({ slug: pack.slug, status: 'no_git_url' });
+      continue;
+    }
+
+    // cycle-038: Block webhook sync for pending_review external packs (GPT review FINDING-4)
+    if (pack.submissionSource === 'external' && pack.status === 'pending_review') {
+      results.push({ slug: pack.slug, status: 'pending_review_blocked' });
       continue;
     }
 
@@ -564,6 +570,8 @@ webhooksRouter.post('/github', async (c) => {
             lastSyncCommit: syncResult.commit,
             lastSyncedAt: new Date(),
             updatedAt: new Date(),
+            // cycle-038: always write visibility from manifest (defaults to 'internal')
+            visibility: syncResult.visibility,
           })
           .where(eq(packs.id, pack.id));
 
@@ -641,7 +649,7 @@ webhooksRouter.post(
     const { slug } = c.req.valid('json' as never) as { slug: string };
 
     // Verify pack exists
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }

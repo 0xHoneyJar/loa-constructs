@@ -1,279 +1,433 @@
-# PRD: Agent-Native Output Protocol — TOON, CTAs, Lazy-Loading Contract
+# PRD: Public/Private Network Separation
 
-**Cycle**: cycle-037
-**Created**: 2026-02-28
-**Status**: Draft
-**Source**: incur research synthesis (`grimoires/bridgebuilder/incur-cli-vs-mcp-research.md`)
-**Linked Issues**: [#131](https://github.com/0xHoneyJar/loa-constructs/issues/131) (Construct Lifecycle RFC)
-**Research artifacts**:
-- `grimoires/bridgebuilder/incur-cli-vs-mcp-research.md` (incur architecture, TOON, CLI-vs-MCP thesis)
-- `grimoires/bridgebuilder/agent-native-cli-landscape-research.md` (MCP, Skills.sh, market positioning)
-**Upstream**: [loa#427](https://github.com/0xHoneyJar/loa/issues/427) (bug+protocol consolidated report)
+**Cycle**: cycle-038
+**Created**: 2026-03-07
+**Status**: Reviewed (Flatline PRD passed — 12 findings integrated)
+**Context**: `grimoires/loa/context/public-private-network-separation.md`
 **Grounded in**:
-- `.claude/scripts/constructs-install.sh` (compute_pack_hash, show_pack_status)
-- `.claude/scripts/golden-path.sh` (golden_detect_construct_journeys, golden_menu_options)
-- `.claude/skills/browsing-constructs/SKILL.md` (pack table rendering, install report)
-- `docs/integration/runtime-contract.md` (no lazy-loading section exists)
-- `packages/shared/src/types.ts` (PackManifest, golden_path, quick_start)
-- `.loa.config.yaml` (defer_loading: false, no output_format, no cta config)
+- `apps/api/src/db/schema.ts:474-562` (packs table — no visibility column)
+- `apps/api/src/services/constructs.ts` (listConstructs — no visibility filter)
+- `apps/api/src/routes/oauth.ts` (GitHub OAuth — no org membership check)
+- `apps/api/src/services/auth.ts` (JWT HS256 — no org claim)
+- `apps/api/src/middleware/auth.ts` (requireAuth, optionalAuth — no requireOrgMember)
+- `scripts/seed-forge-packs.ts` (auto-sync — all constructs become published/public)
+- `apps/api/src/services/git-sync.ts` (syncFromRepo — no visibility extraction)
+- `apps/explorer/lib/stores/auth-store.ts` (Zustand — no org membership state)
 
 ---
 
 ## 1. Problem Statement
 
-The Constructs Network already implements the optimal agent-tool integration pattern (frontmatter index + on-demand SKILL.md loading), but doesn't capitalize on it. Three measurable inefficiencies exist:
+The Construct Network has zero visibility control. Every construct in the `0xHoneyJar` GitHub org that follows the `construct-*` naming convention auto-syncs and appears publicly on `constructs.network`. This creates three problems that are now blocking distribution:
 
-### P1: Tabular Output Wastes Tokens
+**P1: Internal constructs leak to external users.** Team-only tools (hardening, dynamic-auth, gtm-collective, webgl-particles) appear alongside public offerings on the marketplace. As we begin sharing constructs.network externally, users see internal development tooling mixed with polished, public-ready constructs.
 
-Every `constructs browse`, `/loa` status, and `beads-health` invocation emits markdown tables. The incur research quantifies the cost: **TOON format achieves 39.6% fewer tokens than JSON and 26% fewer than YAML for uniform array output** — the exact shape of pack listings, skill inventories, and sprint task tables.
+**P2: No opt-in to public.** There is no mechanism for a construct author to say "this is ready for public consumption." The auto-sync pipeline treats all `construct-*` repos identically — synced and published. The only gating is the `status` field (draft/published), which controls lifecycle state, not audience.
 
-Current state: All CLI output paths use plain-text `echo` or markdown tables. No `output_format` config exists. No TOON encoder exists in the codebase.
+**P3: No external submission path.** Non-org members have no way to publish constructs to the network. `POST /v1/constructs/register` exists but only reserves a slug — it does not clone, validate, or create a reviewable submission.
 
-> **Impact**: At 20+ tool invocations per session, tabular output overhead compounds. The incur benchmark shows total session cost of $0.0131 with TOON vs $0.0325 with MCP JSON — a 60% savings. Even partial adoption (just pack listings and status output) would reduce per-session token cost measurably.
-
-### P2: No Per-Invocation Navigation
-
-When a skill finishes executing, the agent has no structured guidance on what to do next. The existing `quick_start` and `golden_path.commands` fields in pack manifests are static, install-time suggestions. incur's CTA (Call-to-Action) pattern returns **context-sensitive next steps after every command execution**, creating pull-based discovery where each command output declares valid next steps.
-
-Current state: 39 pack skills now have `## Next Steps` sections (added in v2.8.0), but these are static markdown — not dynamic, not typed, not machine-readable. The `truename_map` in `golden_path.commands` already contains the state-machine edge data needed for CTAs but it is never surfaced as output.
-
-> **Impact**: Agents must independently reason about workflow order. Users unfamiliar with the skill tree invoke skills in wrong order or miss complementary skills entirely.
-
-### P3: Lazy-Loading Contract Is Undocumented
-
-The CLAUDE.loa.md framework instructions state "Skills auto-load their SKILL.md when invoked" — this is the correct behavior and matches incur's optimal pattern. But `runtime-contract.md` has **zero documentation** on skill loading semantics. The `defer_loading: false` config key exists in `.loa.config.yaml` with a comment "Phase 2, not yet implemented."
-
-Without a formal contract, runtime implementors (Cursor, Windsurf, custom runtimes) cannot replicate the lazy-loading behavior, and the token efficiency advantage is lost outside Claude Code.
-
-> **Impact**: Multi-runtime portability — the core value proposition of the construct/runtime separation — is undermined when the most important performance behavior is undocumented folklore.
+> **Source**: Direct observation — session codebase research confirming `packs` table has no `visibility` column, `listConstructs()` filters only on `status='published'`, and GitHub OAuth stores no org membership.
 
 ---
 
-## 2. Goals & Success Metrics
+## 2. Vision & Design Principles
 
-### G1: Token Efficiency
-- **Metric**: Measure token count of `constructs browse` output before and after TOON adoption
-- **Target**: ≥30% reduction in tokens for tabular CLI output paths
-- **Measurement**: Compare byte count and estimated token count of identical pack listings in markdown vs TOON format
+**Vision**: The Construct Network serves two audiences through one infrastructure — an internal registry for the team and a public marketplace for external developers. The boundary between them is a single field in `construct.yaml`.
 
-### G2: Agent Navigation
-- **Metric**: When `cta.enabled: true`, targeted CLI output paths emit a structured `Next:` block
-- **Target**: 100% of the following commands emit CTAs when enabled: `constructs browse`, `constructs status`, `constructs install`
-- **Measurement**: Run each command with `cta.enabled: true` and verify `Next:` block appears in output
+**Design Principles:**
 
-### G3: Runtime Contract Completeness
-- **Metric**: `runtime-contract.md` has a Skill Loading Contract section with formal specification
-- **Target**: Covers session-start behavior, on-demand loading trigger, token baseline, and output format contract
-- **Measurement**: Section exists and is referenced from CLAUDE.loa.md
+1. **Internal by default, public by intent** — org-synced constructs start `internal`. Authors opt into `public` explicitly via `construct.yaml`. Omitting the field = safe default.
 
-### G4: Config Surface
-- **Metric**: All new behaviors are gated behind `.loa.config.yaml` flags
-- **Target**: `output_format`, `cta`, and lazy-loading config sections exist with sensible defaults
-- **Measurement**: Config validation passes, features disabled by default, zero breaking changes
+2. **GitHub org = trust boundary** — org membership determines internal access. No separate ACL system, no custom invitation flow. GitHub already manages who's on the team.
+
+3. **External = explicit submission** — third-party constructs enter through registration and review, not auto-discovery. The org namespace is not the only path.
+
+4. **Visibility is orthogonal to status** — a construct can be `published` (lifecycle-approved) and `internal` (team-only). These are independent dimensions.
 
 ---
 
-## 3. User & Stakeholder Context
+## 3. Goals & Success Metrics
 
-### Primary Persona: Construct Author
-A developer building or maintaining a construct (pack of skills). They want their construct's output to be token-efficient and their workflow to guide users to the right next step. They author `SKILL.md` files and `construct.yaml` manifests.
+### Business Goals
 
-### Secondary Persona: Construct Consumer
-A developer who installs constructs and uses skills in their projects. They benefit from reduced token costs (cheaper sessions) and CTA navigation (fewer wasted invocations). They don't author constructs — they consume them.
+| Goal | Measure | Target |
+|------|---------|--------|
+| External users see only public constructs | Internal construct count in public API responses | 0 |
+| Internal team retains full access | Org members can discover+download internal constructs | 100% |
+| External authors can submit | At least one external construct published | Within 30 days of launch |
+| No accidental exposure | New constructs default to `internal` | 100% of auto-synced |
 
-### Tertiary Persona: Runtime Implementor
-An engineer building a runtime (Cursor extension, Windsurf plugin, custom agent) that hosts Loa constructs. They need the lazy-loading contract to replicate Claude Code's performance behavior.
+### Non-Goals (Explicit)
 
----
-
-## 4. Functional Requirements
-
-### FR-1: TOON Output Format
-
-#### FR-1.1: TOON Encoder Library
-Create a bash TOON encoder function that converts JSON arrays of uniform objects to TOON tabular format. This cycle implements **tabular arrays only** — the high-value case for agent output. Simple arrays and nested structures remain in their current format.
-
-Tabular format: Header declares fields once, then CSV-style value rows:
-```
-packs[5]{slug,name,skills,version,status}:
-  artisan,Artisan,14,1.2.0,Free
-  observer,Observer,6,1.0.2,Installed
-```
-
-Input: JSON array of uniform objects (piped from `jq`).
-Output: TOON tabular string.
-
-#### FR-1.2: Output Format Config
-Add `output_format.tabular` to `.loa.config.yaml` with values: `md` (default), `toon`, `json`.
-
-#### FR-1.3: MVP Integration Targets (This Cycle)
-Apply TOON output to exactly these 2 paths:
-
-| Target | Script | Current Format |
-|--------|--------|----------------|
-| Pack listing | `constructs-browse.sh` | Markdown table |
-| Pack status | `constructs-install.sh show_pack_status` | Plain-text labels |
-
-**Future targets** (not this cycle): `constructs-loader.sh list`, `beads-health.sh`, `golden-path.sh golden_menu_options`.
-
-#### FR-1.4: Fallback
-When TOON format is configured but the target data is non-uniform (deeply nested, semi-structured), fall back to the current format with no error. TOON is advisory, not mandatory.
-
-### FR-2: CTA Protocol
-
-#### FR-2.1: Protocol Specification
-Create `.claude/protocols/skill-cta.md` defining the CTA output format:
-
-```
-Next:
-<command-1> — <description>
-<command-2> — <description>
-```
-
-The protocol specifies:
-- CTAs appear after main output, before any grimoire writes
-- Maximum 3 CTAs per invocation (avoid choice paralysis)
-- CTAs are context-sensitive: derived from current workflow state + pack's `golden_path.commands`
-- CTAs use truenames (e.g., `/implement`) not golden path aliases (e.g., `/build`)
-
-#### FR-2.2: CTA Emission in CLI Scripts
-Add a `emit_cta()` helper function to `constructs-lib.sh` that:
-1. Reads current workflow state from golden-path state detection
-2. Looks up the active pack's `golden_path.commands` + `truename_map`
-3. Emits a `Next:` block with up to 3 contextually relevant commands
-
-#### FR-2.3: CTA Config
-Add `cta.enabled` to `.loa.config.yaml` (default: `false`). When disabled, no `Next:` blocks are emitted. When enabled, the following CLI commands append CTAs: `constructs browse`, `constructs status`, `constructs install`. Broader rollout to additional commands is deferred to a follow-up cycle.
-
-#### FR-2.4: Manifest Extension
-Add `workflow_next` field to `PackManifest` in `packages/shared/src/types.ts`:
-
-```typescript
-workflow_next?: Array<{
-  construct: string;  // slug of suggested next construct
-  reason: string;     // why this construct complements the current one
-  trigger?: string;   // workflow state that activates this suggestion
-}>;
-```
-
-This enables registry-level cross-construct CTAs (e.g., "After installing Observer, consider Protocol for contract verification").
-
-### FR-3: Lazy-Loading Contract
-
-#### FR-3.1: Runtime Contract Section
-Add `## Skill Loading Contract` to `docs/integration/runtime-contract.md` specifying:
-
-1. **Session-start**: Only `index.yaml` metadata loads (name, description, capabilities). Full `SKILL.md` body is NOT read.
-2. **On-demand trigger**: When agent decides to invoke a skill, runtime reads the full `SKILL.md` for that skill.
-3. **Token baseline**: Reference incur benchmarks — frontmatter index ~40 tokens/skill vs full schema ~300+ tokens/skill.
-4. **Output format**: When `output_format.tabular: toon` is configured, skill tabular output uses TOON encoding.
-5. **Defer loading**: When `defer_loading: true` is set, runtime may defer even `index.yaml` loading until a skill discovery command is invoked.
-
-#### FR-3.2: Token Baseline Measurement
-Measure and document the current session-start token cost:
-- Size of `CLAUDE.loa.md` skill command table
-- Size of all pack `index.yaml` files combined
-- Compare against incur's published benchmarks
-
-### FR-4: Hash Staleness Refinement
-
-#### FR-4.1: SKILL.md Schema Update
-Update the `.constructs-meta.json` example in `browsing-constructs/SKILL.md` to include the `content_hash` field that already exists in the runtime implementation.
-
-#### FR-4.2: Check-Updates Hash Path
-Ensure `constructs-loader.sh check-updates` uses content hash comparison in addition to version string comparison. If the version matches but the hash diverges, report `[DIVERGED]` (fork-drift case from RFC #131).
-
-### ~FR-5: Bridge Format~ (DEFERRED — not a cycle-037 deliverable)
-
-> Moved to Future Work. The bridge format for converting incur-generated SKILL.md into Loa construct definitions is a design exploration, not a cycle-037 acceptance criterion. See Section 6 (Future Scope) for details.
+- **Dynamic Labs / wallet auth bridge** — deferred, no concrete use case yet
+- **Per-skill visibility within a construct** — adds complexity, recommend NO for v1
+- **SAML/SSO enterprise auth** — deferred to enterprise tier
+- **Real-time GitHub API checks on every request** — cached org membership is sufficient
 
 ---
 
-## 5. Technical & Non-Functional Requirements
+## 4. User & Stakeholder Context
 
-### NFR-1: Zero Breaking Changes
-All new features are additive and gated behind config flags. Default behavior is unchanged. Existing scripts produce identical output unless the user opts in.
+### Persona 1: Internal Team Member
 
-### NFR-2: Bash-Only Implementation
-TOON encoder and CTA emission must be implemented in bash (matching the existing script architecture). No TypeScript runtime dependency for CLI output paths.
+**Who**: Developer on the `0xHoneyJar` GitHub org.
+**Has**: GitHub account, org membership, existing constructs.network account (or can create via GitHub OAuth).
+**Needs**: See all constructs (internal + public), develop and test constructs without exposing them externally.
+**Current pain**: No distinction — their WIP constructs are visible to the world.
 
-### NFR-3: Cross-Platform
-All new bash code follows the cross-platform shell protocol (`.claude/protocols/cross-platform-shell.md`). Use compat-lib.sh wrappers. No bare `sed -i`, `readlink -f`, `grep -P`, or `timeout`.
+### Persona 2: External Developer
 
-### NFR-4: Config Validation
-New config sections must pass schema validation. The canonical config schema for this cycle:
+**Who**: Developer outside the org who wants to use or contribute constructs.
+**Has**: GitHub account (or email). May or may not have a constructs.network account.
+**Needs**: Browse public constructs, install them, optionally submit their own.
+**Current pain**: Sees internal tooling mixed with public offerings. Has no submission path.
+
+### Persona 3: THJ Product User (Deferred)
+
+**Who**: Berachain wallet holder who uses THJ dApps (rektdrop, midi, mcv).
+**Has**: Wallet via Dynamic Labs. No constructs.network account.
+**Interaction**: Consumes construct outputs through dApps, not through constructs.network directly.
+**When relevant**: If/when product users need direct construct access. Not v1.
+
+### Stakeholders
+
+- **@janitooor** — primary maintainer, PR reviewer, admin
+- **0xHoneyJar team** — internal construct authors
+- **External developers** — early adopters via constructs.network
+
+---
+
+## 5. Functional Requirements
+
+### FR-1: Visibility Enum
+
+**Add `visibility` column to `packs` table with three values:**
+
+| Value | Discovery | Download | Use Case |
+|-------|-----------|----------|----------|
+| `public` | Anyone | Anyone (respecting tier) | Production-ready external constructs |
+| `internal` | Authenticated org members only | Authenticated org members only | Team tools, WIP, sensitive |
+| `unlisted` | Nobody (direct slug access only) | Anyone with the slug | Beta sharing, specific audiences |
+
+**Default**: `internal` (safe — nothing leaks without explicit intent).
+
+**Acceptance criteria:**
+- [ ] `construct_visibility` enum created in DB
+- [ ] `visibility` column added to `packs` with default `'internal'`
+- [ ] Composite index `(visibility, status)` created
+- [ ] Backfill: 9 public slugs (observer, artisan, crucible, beacon, protocol, herald, k-hole, the-easel, mibera-codex), 4 internal slugs (hardening, dynamic-auth, gtm-collective, webgl-particles) — **canonical list, no heuristics**
+- [ ] `constructVisibilityEnum` added to Drizzle schema
+
+### FR-2: Visibility in Construct.yaml
+
+**Authors declare visibility in their manifest:**
 
 ```yaml
-# Canonical Config Schema (cycle-037)
-output_format:
-  tabular: md          # enum: md | toon | json — default: md
-cta:
-  enabled: false       # boolean — default: false
+visibility: public  # or 'internal' or 'unlisted'
 ```
 
-No new config key is needed for hash staleness — it is already implemented in `constructs-install.sh` and controlled by `compute_merkle_hash` availability.
+**construct.yaml is the sole source of truth for visibility.** There is no DB override endpoint — visibility changes only via repo push + sync. This eliminates drift between manifest and DB state (FINDING-003).
 
-### NFR-5: Default Output Regression
-When config flags are at their defaults (`output_format.tabular: md`, `cta.enabled: false`), all CLI commands must produce byte-identical output to their pre-cycle-037 behavior. Verify with snapshot comparison on `constructs browse` and `constructs status`.
+**Acceptance criteria:**
+- [ ] `visibility` field added to Zod `packManifestSchema` (optional, defaults to `'internal'`)
+- [ ] `visibility` field added to JSON Schema in `git-sync.ts` manifest validator (four-layer sync: DB enum ↔ Zod ↔ TS types ↔ JSON Schema)
+- [ ] Seed script reads `visibility` from construct.yaml during sync
+- [ ] `git-sync.ts` reads `visibility` from manifest and writes to DB
+- [ ] Omitted field defaults to `'internal'` in both sync paths
+- [ ] TypeScript types updated in `packages/shared`
+- [ ] `PackManifest` type in `packages/shared/src/types.ts` includes `visibility?: 'public' | 'internal' | 'unlisted'`
+
+### FR-3: GitHub Org Membership Check
+
+**On GitHub OAuth login, check `0xHoneyJar` org membership and cache the result.**
+
+**GitHub API contract:** Use `GET /user/memberships/orgs/{org}` (authenticated user's own membership) which returns `{ state: 'active' | 'pending', role: 'member' | 'admin' }`. Only `state: 'active'` grants org membership. API failure = treat as non-member (fail secure). Requires `read:org` scope on the user's OAuth token. (FINDING-012)
+
+**Acceptance criteria:**
+- [ ] GitHub OAuth scope updated: `user:email` → `user:email read:org`
+- [ ] `github_username`, `github_org_member`, `github_org_checked_at` columns added to `users`
+- [ ] Org membership checked via `GET /user/memberships/orgs/{org}` during OAuth callback; only `state: 'active'` = member
+- [ ] Result cached in DB; rechecked on login if stale (>24 hours)
+- [ ] `org: boolean` claim added to JWT access token payload
+- [ ] `GET /v1/auth/me` includes `isOrgMember` field
+- [ ] **Refresh token org recheck** (FINDING-004): On token refresh (`POST /v1/auth/refresh`), if `github_org_checked_at` is stale (>24h), recheck org membership before minting new access token. If user is no longer a member, mint token with `org: false`
+- [ ] **Existing user rollout** (FINDING-009): Existing GitHub-linked users get `github_org_member` backfilled to `false`. On next login, the new `read:org` scope triggers GitHub re-consent; org check runs and populates correctly. Users who don't re-login continue with `org: false` (safe default — they see only public constructs until re-auth)
+- [ ] **Org status is account-level** (FINDING-007): Once a user links GitHub OAuth and passes the org check, `github_org_member = true` persists on the account. Subsequent password or Google sessions on the same account inherit org access. This is intentional — the user proved org membership once, and the 24h recheck cycle handles revocation
+
+### FR-4: Visibility-Aware API Filtering — All Read Paths
+
+**Every endpoint that reads pack/construct data must enforce visibility, not just `/v1/constructs*`.**
+
+The following endpoint families must ALL check visibility (FINDING-001):
+
+| Route Family | Endpoints Affected |
+|---|---|
+| `/v1/constructs` | list, detail, summary, HEAD |
+| `/v1/packs/:slug` | detail, versions, download, verification, ground-truth |
+| `/v1/packs/:slug/fork` | fork source lookup (FINDING-006) |
+| Shared service | `getPackBySlug()` in `services/packs.ts` — add visibility check at service layer |
+
+**Visibility rules:**
+
+```
+No auth         → WHERE visibility = 'public'
+Auth + org      → WHERE visibility IN ('public', 'internal')
+Auth + owner    → sees own constructs regardless of visibility
+Auth + admin    → sees all
+```
+
+**Acceptance criteria:**
+- [ ] `getPackBySlug()` in `services/packs.ts` enforces visibility check (single guard for all pack routes)
+- [ ] `listConstructs()` in `constructs.ts` adds visibility WHERE clause
+- [ ] `getConstruct()` returns 404 for `internal` constructs when viewer is not org member
+- [ ] `unlisted` constructs accessible by slug but excluded from listings
+- [ ] `/v1/constructs/summary` applies same visibility filter
+- [ ] `?visibility=internal` explicit filter param works (requires auth + org)
+- [ ] All `/v1/packs/:slug/*` sub-routes (download, versions, verification, HEAD) inherit visibility from the pack
+- [ ] Fork endpoint rejects forking internal/unlisted constructs by non-org members; fork provenance from non-public parents is redacted in public responses (FINDING-006)
+- [ ] Redis cache keys vary by visibility context (viewer auth hash) across ALL cache families: list, detail, summary, existence (FINDING-002)
+- [ ] Visibility changes (sync, toggle, status change) invalidate all affected cache key variants
+
+### FR-5: Org Membership Middleware
+
+**New `requireOrgMember()` middleware for internal-only endpoints.**
+
+**Acceptance criteria:**
+- [ ] `requireOrgMember()` chains after `requireAuth()`
+- [ ] Reads `org` claim from JWT; returns 403 if false
+- [ ] `optionalAuth()` sets `c.set('isOrgMember', payload.org ?? false)` when token present
+- [ ] Construct listing endpoints use `optionalAuth()` + read org flag for filtering
+
+### ~~FR-6: Visibility Toggle Endpoint~~ — REMOVED
+
+**Removed per Flatline review FINDING-003.** construct.yaml is the sole source of truth for visibility. A DB toggle would create drift — the next webhook sync would revert it. To change visibility: update `construct.yaml` → push → webhook sync updates DB.
+
+**Admin override path (emergency only):** Admins can still change `packs.visibility` directly via the admin API or DB console. This is intentionally NOT a first-class endpoint to prevent routine use.
+
+### FR-7: Explorer Visibility UI
+
+**Explorer shows/hides constructs based on auth state and org membership.**
+
+**Acceptance criteria:**
+- [ ] Unauthenticated visitors see only public constructs
+- [ ] Authenticated org members see public + internal with `INTERNAL` badge (amber pill)
+- [ ] Filter toggle: "Public / Internal / All" (only shown to org members)
+- [ ] Internal construct detail pages return 404 for unauthenticated visitors
+- [ ] Auth store (`auth-store.ts`) tracks `isOrgMember` from `/auth/me`
+- [ ] Search results respect visibility (auth token passed on API calls)
+
+### FR-8: External Construct Registration + Publish Lockdown
+
+**Complete the `POST /v1/constructs/register` endpoint for external submissions AND lock down existing publish paths that bypass review (FINDING-005).**
+
+**Acceptance criteria:**
+- [ ] Accepts `{ slug, gitUrl }` from authenticated user
+- [ ] Clones repo, validates `construct.yaml`, runs Zod schema validation
+- [ ] Creates construct with `status: 'pending_review'`, `visibility: 'public'`
+- [ ] Returns webhook setup instructions for ongoing sync
+- [ ] `PATCH /v1/admin/constructs/:slug/review` endpoint for admin approve/reject
+- [ ] Approved constructs become `status: 'published'`
+- [ ] **Publish gate hardening** (FINDING-005): All paths that can transition a pack to `status: 'published'` or create a downloadable version MUST check: if the pack was created via external registration (not org auto-sync), `status` must be `'published'` (admin-approved) before version upload or download is permitted. Specifically:
+  - `POST /v1/packs/:slug/versions` — reject if `status = 'pending_review'`
+  - `PATCH /v1/packs/:slug` status changes — admin-only for non-org packs
+  - `POST /v1/packs/:slug/sync` — reject if `status = 'pending_review'`
 
 ---
 
-## 6. Scope & Prioritization
+## 6. Technical & Non-Functional Requirements
 
-### MVP (This Cycle)
+### NFR-1: Performance
 
-| Priority | Feature | Effort |
-|----------|---------|--------|
-| P1 | TOON tabular encoder library (`toon-lib.sh`) | Medium |
-| P1 | Output format config + integration in `constructs-browse.sh` and `show_pack_status` (2 targets only) | Medium |
-| P1 | Lazy-loading contract in `runtime-contract.md` | Small |
-| P1 | Config surface (`output_format`, `cta`) | Small |
-| P2 | CTA protocol file (`.claude/protocols/skill-cta.md`) | Small |
-| P2 | `emit_cta()` helper + integration in golden-path and constructs CLI | Medium |
-| P2 | `workflow_next` field in `PackManifest` types | Small |
-| P2 | SKILL.md schema update for `content_hash` | Small |
+- Visibility filtering adds at most 1 index-assisted WHERE clause — no measurable query impact
+- Org membership cached in JWT (no per-request DB lookup)
+- Redis cache keys must include auth context hash to prevent serving internal constructs to public visitors
 
-### Future Scope
+### NFR-2: Security
 
-| Feature | Cycle | Notes |
-|---------|-------|-------|
-| Bridge format spec (incur → Loa conversion) | cycle-038+ | Convert incur SKILL.md → Loa construct definitions (add capabilities, context slots, workflow phases). Relevant to Tool Pack archetype from RFC #131. NOT auto-generation — hand-authored SKILL.md remains primary. |
-| `defer_loading: true` runtime implementation | Upstream Loa Phase 2 | Config key exists, runtime doesn't honor it yet |
-| TOON for beads-health, golden_menu_options, constructs-loader | Follow-up | Additional integration targets beyond the MVP 2 |
-| Token baseline measurement tool | Follow-up | Measure session-start token cost of CLAUDE.loa.md + index.yaml files |
-| CTA rollout to additional commands | Follow-up | Extend beyond browse/status/install to all skill output paths |
-| TOON escaping rules + fixture tests | Follow-up | Handle commas, newlines in field values |
+- **Org membership cache staleness**: Max 24h via DB cache. Refresh endpoint also rechecks if stale. Removed org members lose access within one refresh cycle (max 24h, typically faster). JWT `org` claim ensures no per-request DB lookup (FINDING-004)
+- **Unlisted ≠ secret**: Unlisted constructs are accessible by slug. They are "not advertised" not "access controlled." Do not store secrets in unlisted constructs
+- **Visibility downgrade**: Changing `public` → `internal` takes effect on next sync. ISR cache may show stale data (60s for list, 3600s for detail). Redis caches invalidated on sync
+- **External submissions**: Admin review required. No auto-approve for external repos. SSRF protections in `git-sync.ts` already cover the clone path. All publish paths locked down (FINDING-005)
+- **OAuth scope expansion**: `read:org` is a read-only scope — does not grant write access to the org
+- **Fork provenance**: Internal construct slugs are NOT exposed in fork provenance for public responses (FINDING-006)
 
-### Out of Scope (Explicit)
+### NFR-3: Backwards Compatibility
 
-- Auto-generating SKILL.md from code definitions — hand-authored expertise documents are a core differentiator
-- Global skill installation — per-repo is correct
-- Serving constructs via MCP — skills are primary channel, MCP is for external integrations
-- Zod schema validation for skill I/O — requires TypeScript runtime layer that doesn't exist
-- Replacing exit codes with incur's sentinel pattern — same purpose, exit codes already implemented
+- Existing API consumers continue to work — unauthenticated requests see `public` constructs (previously all were effectively public)
+- No breaking change to `/v1/constructs` response shape — `visibility` is a new optional field
+- `construct.yaml` files without `visibility` field continue to validate (defaults to `internal`)
+
+### NFR-4: Data Integrity
+
+- **Four-layer** schema sync must be maintained (FINDING-011): DB enum ↔ Zod (`packManifestSchema`) ↔ TypeScript types (`PackManifest`) ↔ JSON Schema/AJV in `git-sync.ts`
+- Migration must be idempotent (safe to re-run)
+- Backfill must use explicit slug list (see §9 canonical table), not heuristics
+
+### NFR-5: Team Ownership (FINDING-010)
+
+- `isPackOwner()` in `services/packs.ts` currently returns `false` for team-owned packs. The "owner sees own constructs" rule in FR-4 must work for both user-owned and team-owned constructs
+- Team admin/owner of a construct's owning team should have the same visibility permissions as individual owners
 
 ---
 
-## 7. Risks & Dependencies
+## 7. Scope & Prioritization
 
-### R1: TOON Parsing by LLMs
-**Risk**: LLMs may not parse TOON as reliably as markdown tables.
-**Mitigation**: incur's benchmarks show 73.9% accuracy vs JSON's 69.7%. Gate behind config flag so users can revert to markdown if issues arise.
+### MVP (Sprints 1-2)
 
-### R2: CTA Noise
-**Risk**: Per-invocation CTAs could add unwanted output to every command.
-**Mitigation**: Default to `cta.enabled: false`. Limit to 3 CTAs. Use truenames only (no aliases that could confuse agents).
+| # | Feature | Priority |
+|---|---------|----------|
+| FR-1 | Visibility enum + schema | P0 |
+| FR-2 | Visibility in construct.yaml | P0 |
+| FR-3 | GitHub org membership check | P0 |
+| FR-4 | Visibility-aware API filtering | P0 |
+| FR-5 | Org membership middleware | P0 |
+| ~~FR-6~~ | ~~Visibility toggle endpoint~~ — REMOVED | — |
+| FR-7 | Explorer visibility UI | P1 |
 
-### R3: Bash TOON Encoder Complexity
-**Risk**: Implementing a full TOON encoder in bash could be fragile.
-**Mitigation**: Implement only tabular array format (the high-value case). Simple arrays and nested structures stay in their current format. The encoder takes JSON input (from jq) and produces TOON output — jq does the heavy lifting.
+### Post-MVP (Sprint 3+)
 
-### R4: Runtime Contract Adoption
-**Risk**: Documenting the lazy-loading contract doesn't guarantee other runtimes implement it.
-**Mitigation**: The contract is informational and normative. Claude Code already implements it. The documentation makes the behavior discoverable for other runtime authors.
+| # | Feature | Priority |
+|---|---------|----------|
+| FR-8 | External construct registration | P2 |
+| — | CLI publish (`npx constructs publish`) | P3 |
+| — | Dynamic Labs / SIWE auth bridge | P4 |
+| — | Admin review dashboard UI | P3 |
 
-### D1: Upstream Loa
-**Dependency**: loa#427 reports the `gpt-review-api.sh` verdict parsing bug and cross-platform gaps. These are framework issues, not blockers for this cycle.
+### Explicit Out of Scope
 
-### D2: Construct Lifecycle RFC
-**Dependency**: Issue #131. The `workflow_next` field and hash staleness refinements extend the RFC's proposed features. Not blocked by RFC completion.
+- Per-skill visibility within a construct
+- SAML/SSO enterprise auth
+- Wallet-based authentication
+- Private visibility (owner-only) — `draft` status covers this case
+- Real-time GitHub org membership checks (cached is sufficient)
+
+---
+
+## 8. Risks & Dependencies
+
+### Technical Risks
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| GitHub org API rate limits | Low | Medium | Cache for 24h; recheck on refresh only when stale |
+| OAuth scope change requires re-consent | Medium | Low | Users re-auth once; non-re-authed users default to `org: false` (safe) |
+| Cache poisoning (internal constructs served to public) | Low | High | Cache keys vary by auth context hash across all 4 cache families |
+| ISR stale data after visibility change | Medium | Low | 60s list TTL, 3600s detail TTL; Redis invalidated on sync |
+| `/v1/packs/*` bypass routes | Medium | High | Single visibility guard in `getPackBySlug()` service layer |
+| Publish path bypass for external submissions | Medium | High | All version/publish paths check `status != 'pending_review'` |
+| Refresh token extends org access beyond removal | Medium | Medium | Org recheck on refresh when stale >24h |
+
+### Dependencies
+
+| Dependency | Type | Status |
+|------------|------|--------|
+| Supabase Postgres | Infrastructure | Available — migration path is standard Drizzle |
+| GitHub OAuth (existing) | Integration | Working — scope expansion needed |
+| Redis (Upstash) | Infrastructure | Available — cache key format change needed |
+| 12 construct repos | External | PRs needed to add `visibility` field to construct.yaml |
+
+### Decisions to Validate
+
+1. **Public construct list at launch**: observer, artisan, crucible, beacon, protocol, herald, k-hole, the-easel, mibera-codex = public. hardening, dynamic-auth, gtm-collective, webgl-particles = internal. `construct-base` = **recommend public** (template for external authors).
+
+2. **External submission review model**: Admin-only review for v1. No auto-approve. This can be relaxed later with verified publisher tiers.
+
+---
+
+## 9. Construct.yaml Backfill Plan
+
+Across the 12 seeded construct repos, add `visibility` field:
+
+| Construct | Visibility | Rationale |
+|-----------|-----------|-----------|
+| observer | `public` | Core offering — user research automation |
+| artisan | `public` | Design system — broad appeal |
+| crucible | `public` | Testing — broad appeal |
+| beacon | `public` | Analytics — broad appeal |
+| protocol | `public` | Web3 protocol integration — broad appeal |
+| herald | `public` | Release management — broad appeal |
+| k-hole | `public` | Deep research — flagship construct |
+| the-easel | `public` | Design engineering — broad appeal |
+| mibera-codex | `public` | Knowledge base — community value |
+| hardening | `internal` | Security tooling — team-only |
+| dynamic-auth | `internal` | Auth patterns — team-specific |
+| gtm-collective | `internal` | GTM workflow — team-specific |
+| webgl-particles | `internal` | Experimental — not production-ready |
+
+---
+
+## 10. Implementation Sequence
+
+### Sprint 1: Schema + Auth + API (Backend Foundation)
+
+**DB migrations** (FR-1, FR-3):
+1. `construct_visibility` enum + `visibility` column on `packs`
+2. `github_username`, `github_org_member`, `github_org_checked_at` on `users`
+3. Indexes + canonical backfill (9 public, 4 internal)
+
+**Auth changes** (FR-3, FR-5):
+4. GitHub OAuth scope → `user:email read:org`
+5. Org membership check in OAuth callback via `/user/memberships/orgs/{org}`
+6. `org` claim in JWT access token
+7. Org recheck on token refresh if stale >24h
+8. `requireOrgMember()` middleware
+9. `/auth/me` includes `isOrgMember`
+
+**API changes** (FR-4):
+10. Visibility guard in `getPackBySlug()` service layer (single guard for all pack routes)
+11. Visibility filtering in `listConstructs()` and `getConstruct()`
+12. `/v1/constructs/summary` visibility gate
+13. Fork provenance redaction for non-public parents
+14. Cache key variation by auth context across all cache families
+15. Fix `isPackOwner()` for team-owned packs (NFR-5)
+
+**Sync changes** (FR-2):
+16. Four-layer schema update (DB + Zod + TS + JSON Schema)
+17. Seed script + git-sync visibility extraction
+
+### Sprint 2: Explorer UI + Construct Repo PRs
+
+**Explorer** (FR-7):
+18. Auth store org membership from `/auth/me`
+19. Visibility badges + filter toggle
+20. Detail page access control (404 for internal when unauthenticated)
+21. Search visibility awareness
+
+**Construct repos** (FR-2):
+22. PRs to add `visibility` field across 13 repos (12 seeded + construct-base as public template)
+
+### Sprint 3: External Submission + Publish Lockdown (FR-8)
+
+23. Complete registration endpoint with clone + validate
+24. Admin review endpoint (approve/reject)
+25. Webhook setup instructions in registration response
+26. Publish gate hardening — lock version upload and sync for `pending_review` packs
+
+---
+
+*"The network is two networks — one that we share, one that we ship. The gate between them is a single word in a YAML file."*
+
+---
+
+## Appendix: Flatline PRD Review Log
+
+**Reviewer**: Codex (GPT-based, read-only sandbox)
+**Date**: 2026-03-07
+**Findings**: 12 total (5 BLOCKER, 4 HIGH, 2 MEDIUM, 1 LOW)
+
+| ID | Severity | Summary | Resolution |
+|----|----------|---------|------------|
+| FINDING-001 | BLOCKER | `/v1/packs/*` routes bypass visibility | Fixed: FR-4 expanded to cover all pack read paths via `getPackBySlug()` guard |
+| FINDING-002 | BLOCKER | Cache poisoning across all cache families | Fixed: FR-4 acceptance criteria requires auth-context-varied cache keys for all 4 families |
+| FINDING-003 | BLOCKER | Source-of-truth contradiction (YAML vs DB toggle) | Fixed: FR-6 REMOVED. construct.yaml is sole source of truth |
+| FINDING-004 | BLOCKER | Refresh token bypasses org staleness check | Fixed: FR-3 adds org recheck on token refresh when stale >24h |
+| FINDING-005 | BLOCKER | Existing publish paths bypass review gate | Fixed: FR-8 adds publish gate hardening for all version/status paths |
+| FINDING-006 | HIGH | Fork rules missing for internal constructs | Fixed: FR-4 adds fork provenance redaction for non-public parents |
+| FINDING-007 | HIGH | Org status account-level vs session-level ambiguity | Fixed: FR-3 explicitly declares account-level org status |
+| FINDING-008 | HIGH | Migration slug list inconsistent | Fixed: FR-1 backfill uses canonical 9+4 slug list |
+| FINDING-009 | HIGH | Existing user rollout plan missing | Fixed: FR-3 defines backfill + re-consent behavior |
+| FINDING-010 | MEDIUM | `isPackOwner()` false for team-owned packs | Fixed: NFR-5 added |
+| FINDING-011 | MEDIUM | Four-layer schema sync, not three | Fixed: NFR-4 updated to four layers |
+| FINDING-012 | LOW | GitHub API endpoint semantics underspecified | Fixed: FR-3 specifies `/user/memberships/orgs/{org}` with `state: 'active'` check |
+
+> **Sources**: `grimoires/loa/context/public-private-network-separation.md`, session codebase research (auth stack, DB schema, API surface, auto-sync pipeline), `grimoires/loa/context/ecosystem-brand-origins.md` (wallet identity context)

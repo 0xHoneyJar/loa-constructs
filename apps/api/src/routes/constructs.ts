@@ -19,7 +19,7 @@ import {
   type Construct,
   type ConstructManifest,
 } from '../services/constructs.js';
-import { isSlugAvailable, createPack, getPackBySlug } from '../services/packs.js';
+import { isSlugAvailable, createPack, getPackBySlug, getAccessContext } from '../services/packs.js';
 import { db, packs } from '../db/index.js';
 import { eq } from 'drizzle-orm';
 import { Errors, AppError } from '../lib/errors.js';
@@ -80,6 +80,7 @@ function formatConstruct(c: Construct) {
     source_type: c.sourceType,
     has_identity: c.hasIdentity,
     verification_tier: c.verificationTier,
+    visibility: c.visibility,
     created_at: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
     updated_at: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
   };
@@ -166,7 +167,7 @@ constructsRouter.get(
       featured: query.featured,
       page: query.page,
       limit: query.per_page,
-    });
+    }, getAccessContext(c));
 
     logger.info(
       {
@@ -197,10 +198,10 @@ constructsRouter.get(
  * Agent-optimized construct listing (minimal tokens)
  * @see prd-constructs-api.md FR-5.1
  */
-constructsRouter.get('/summary', async (c) => {
+constructsRouter.get('/summary', optionalAuth(), async (c) => {
   const requestId = c.get('requestId');
 
-  const result = await getConstructsSummary();
+  const result = await getConstructsSummary(getAccessContext(c));
 
   logger.info(
     { request_id: requestId, total: result.total },
@@ -219,10 +220,10 @@ constructsRouter.get('/summary', async (c) => {
  * Check if construct exists
  * @see prd-constructs-api.md FR-5.2
  */
-constructsRouter.on('HEAD', '/:slug', async (c) => {
+constructsRouter.on('HEAD', '/:slug', optionalAuth(), async (c) => {
   const slug = c.req.param('slug');
 
-  const exists = await constructExists(slug);
+  const exists = await constructExists(slug, getAccessContext(c));
 
   if (!exists) {
     return c.body(null, 404);
@@ -240,7 +241,7 @@ constructsRouter.get('/:slug', optionalAuth(), async (c) => {
   const slug = c.req.param('slug');
   const requestId = c.get('requestId');
 
-  const construct = await getConstructBySlug(slug);
+  const construct = await getConstructBySlug(slug, getAccessContext(c));
 
   if (!construct) {
     throw Errors.NotFound('Construct');
@@ -356,6 +357,10 @@ constructsRouter.post(
       }
     }
 
+    // cycle-038: External submissions start as pending_review with public visibility
+    const isOrgMember = c.get('isOrgMember') ?? false;
+    const isExternal = !isOrgMember;
+
     // Create the construct entry — DB unique constraint on slug prevents TOCTOU race
     try {
       await createPack({
@@ -365,6 +370,12 @@ constructsRouter.post(
         constructType: body.type || 'skill-pack',
         ownerId: userId,
         ownerType: 'user',
+        // cycle-038: external submissions need admin review
+        ...(isExternal && {
+          status: 'pending_review',
+          visibility: 'public',
+          submissionSource: 'external',
+        }),
       });
     } catch (err: unknown) {
       if (err instanceof Error && err.message?.includes('unique')) {
@@ -375,7 +386,7 @@ constructsRouter.post(
 
     // Link git source after successful pack creation
     if (body.git_url) {
-      const pack = await getPackBySlug(body.slug);
+      const pack = await getPackBySlug(body.slug, getAccessContext(c));
       if (!pack) {
         throw Errors.NotFound('Pack creation failed');
       }
@@ -414,18 +425,24 @@ constructsRouter.post(
         .where(eq(packs.id, pack.id));
     }
 
-    logger.info({ slug: body.slug, name: body.name, type: body.type, git_url: body.git_url, userId, requestId }, 'Construct registered');
+    logger.info({ slug: body.slug, name: body.name, type: body.type, git_url: body.git_url, userId, requestId, isExternal }, 'Construct registered');
 
     return c.json(
       {
         data: {
           slug: body.slug,
-          status: 'reserved',
+          status: isExternal ? 'pending_review' : 'reserved',
+          submission_source: isExternal ? 'external' : 'org_sync',
+          ...(isExternal && {
+            message: 'Your construct has been submitted for review. An admin will review it shortly.',
+          }),
           ...(body.git_url && {
             source_type: 'git',
             git_url: body.git_url,
             git_ref: body.git_ref,
-            next_step: 'Run /constructs sync to populate the initial version',
+            next_step: isExternal
+              ? 'Your construct will be synced after admin approval'
+              : 'Run /constructs sync to populate the initial version',
           }),
         },
         request_id: requestId,

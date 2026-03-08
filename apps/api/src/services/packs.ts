@@ -12,9 +12,12 @@ import {
   packVersions,
   packFiles,
   packInstallations,
+  teamMembers,
 } from '../db/index.js';
 import { logger } from '../lib/logger.js';
 import type { InferSelectModel } from 'drizzle-orm';
+import type { Context } from 'hono';
+import type { AuthUser } from '../middleware/auth.js';
 
 // --- Types ---
 
@@ -24,6 +27,75 @@ export type PackFile = InferSelectModel<typeof packFiles>;
 export type PackStatus = Pack['status'];
 export type PackPricingType = Pack['pricingType'];
 export type OwnerType = Pack['ownerType'];
+
+// --- Visibility Access Control (cycle-038) ---
+
+export interface PackAccessContext {
+  userId?: string;
+  isOrgMember: boolean;
+  isAdmin: boolean;
+}
+
+export function getAccessContext(c: Context): PackAccessContext {
+  const user = c.get('user') as AuthUser | undefined;
+  return {
+    userId: user?.id,
+    isOrgMember: c.get('isOrgMember') ?? false,
+    isAdmin: user?.role === 'admin' || user?.role === 'super_admin',
+  };
+}
+
+/**
+ * Synchronous visibility check — used inline for fast access decisions.
+ * For user-owned packs, checks direct ownership.
+ * For team-owned packs, returns 'maybe' (needs async team membership check).
+ * @returns true (allowed), false (denied), or 'team_check_needed' for team ownership
+ */
+export function canAccessPack(
+  pack: { visibility: string | null; ownerId: string; ownerType: string; status: string },
+  access?: PackAccessContext
+): boolean {
+  const visibility = pack.visibility ?? 'internal';
+
+  // Public: anyone
+  if (visibility === 'public') return true;
+
+  // Unlisted: anyone with the slug (accessible but not listed)
+  if (visibility === 'unlisted') return true;
+
+  // Internal: requires org membership, ownership, or admin
+  if (visibility === 'internal') {
+    if (!access) return false;
+    if (access.isAdmin) return true;
+    if (access.isOrgMember) return true;
+    // Direct user ownership
+    if (access.userId && pack.ownerType === 'user' && pack.ownerId === access.userId) return true;
+    // Team ownership is checked async in getPackBySlug() via isPackOwnerAsync()
+    // — canAccessPack returns false here, but getPackBySlug has an additional
+    // team ownership check before the final denial (GPT review FINDING-5)
+    return false;
+  }
+
+  return false;
+}
+
+async function isPackOwnerAsync(
+  pack: { ownerId: string; ownerType: string },
+  userId?: string
+): Promise<boolean> {
+  if (!userId) return false;
+  if (pack.ownerType === 'user') return pack.ownerId === userId;
+  if (pack.ownerType === 'team') {
+    const membership = await db
+      .select({ role: teamMembers.role })
+      .from(teamMembers)
+      .where(and(eq(teamMembers.teamId, pack.ownerId), eq(teamMembers.userId, userId)))
+      .limit(1)
+      .then((rows) => rows[0]);
+    return membership?.role === 'owner' || membership?.role === 'admin';
+  }
+  return false;
+}
 
 export interface CreatePackInput {
   name: string;
@@ -42,6 +114,10 @@ export interface CreatePackInput {
   documentationUrl?: string;
   constructType?: string;
   forkedFrom?: string;
+  // cycle-038: visibility + submission source
+  visibility?: 'public' | 'internal' | 'unlisted';
+  submissionSource?: 'org_sync' | 'external';
+  status?: PackStatus;
 }
 
 export interface UpdatePackInput {
@@ -110,7 +186,10 @@ export async function createPack(input: CreatePackInput): Promise<Pack> {
       documentationUrl: input.documentationUrl,
       constructType: input.constructType || 'skill-pack',
       forkedFrom: input.forkedFrom,
-      status: 'draft',
+      status: input.status || 'draft',
+      // cycle-038: visibility + submission source
+      ...(input.visibility && { visibility: input.visibility }),
+      ...(input.submissionSource && { submissionSource: input.submissionSource }),
     })
     .returning();
 
@@ -119,20 +198,45 @@ export async function createPack(input: CreatePackInput): Promise<Pack> {
 }
 
 /**
- * Get pack by slug
+ * Get pack by slug — central visibility + status guard (cycle-038)
+ * @see sdd.md §6.1
  */
-export async function getPackBySlug(slug: string): Promise<Pack | null> {
+export async function getPackBySlug(
+  slug: string,
+  access?: PackAccessContext
+): Promise<Pack | null> {
   const [pack] = await db
     .select()
     .from(packs)
     .where(eq(packs.slug, slug.toLowerCase()))
     .limit(1);
 
-  return pack || null;
+  if (!pack) return null;
+
+  // Status enforcement — draft/pending_review visible only to owner + admin
+  if (pack.status !== 'published') {
+    if (!access) return null;
+    if (!access.isAdmin && !(await isPackOwnerAsync(pack, access.userId))) return null;
+  }
+
+  // Visibility enforcement (sync check — handles user ownership + org + admin)
+  if (!canAccessPack(pack, access)) {
+    // Fallback: async team ownership check for internal team-owned packs (GPT review FINDING-5)
+    // canAccessPack is sync so can't check team membership — do it here
+    if (pack.ownerType === 'team' && access?.userId) {
+      const isTeamOwner = await isPackOwnerAsync(pack, access.userId);
+      if (isTeamOwner) return pack;
+    }
+    return null;
+  }
+
+  return pack;
 }
 
 /**
- * Get pack by ID
+ * Get pack by ID — @internal admin/system use only.
+ * Bypasses visibility and status checks intentionally.
+ * Do NOT call from user-facing routes without additional access checks.
  */
 export async function getPackById(id: string): Promise<Pack | null> {
   const [pack] = await db.select().from(packs).where(eq(packs.id, id)).limit(1);
@@ -185,7 +289,8 @@ export async function updatePack(
 }
 
 /**
- * List packs with filtering and pagination
+ * List packs with filtering and pagination — @internal admin/system use only.
+ * Bypasses visibility checks. User-facing listing goes through listConstructs().
  */
 export async function listPacks(options: ListPacksOptions = {}): Promise<{
   packs: Pack[];
@@ -265,8 +370,17 @@ export async function isPackOwner(
     return pack.ownerId === userId;
   }
 
-  // For team-owned packs, check team membership (to be implemented)
-  // For now, return false for team-owned packs
+  // For team-owned packs, check team membership (cycle-038 fix)
+  if (pack.ownerType === 'team') {
+    const membership = await db
+      .select({ role: teamMembers.role })
+      .from(teamMembers)
+      .where(and(eq(teamMembers.teamId, pack.ownerId), eq(teamMembers.userId, userId)))
+      .limit(1)
+      .then((rows) => rows[0]);
+    return membership?.role === 'owner' || membership?.role === 'admin';
+  }
+
   return false;
 }
 

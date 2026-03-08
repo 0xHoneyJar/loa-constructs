@@ -258,6 +258,8 @@ export interface PackManifest {
     node?: string;
   };
   license?: string;
+  /** Visibility control — cycle-038 */
+  visibility?: 'public' | 'internal' | 'unlisted';
   /**
    * Path to CLAUDE.md instruction fragment file.
    * Must end with .md. Max file size: 4KB.
