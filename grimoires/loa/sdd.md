@@ -1,710 +1,1133 @@
-# SDD: Agent-Native Output Protocol — TOON, CTAs, Lazy-Loading Contract
+# SDD: Public/Private Network Separation
 
-**Cycle**: cycle-037
-**Created**: 2026-02-28
-**Status**: Draft
-**PRD**: `grimoires/loa/prd.md` (Agent-Native Output Protocol)
-**Grounded in**:
-- `.claude/scripts/constructs-browse.sh` (`format_packs_human`, `format_packs_json`)
-- `.claude/scripts/constructs-install.sh` (`show_pack_status`, `compute_pack_hash`, `update_pack_meta`)
-- `.claude/scripts/constructs-lib.sh` (`compute_merkle_hash`, `get_registry_config`, print helpers)
-- `.claude/scripts/golden-path.sh` (`golden_detect_construct_journeys`, `golden_menu_options`)
-- `docs/integration/runtime-contract.md` (exit codes, checkpoint schema — no loading contract)
-- `packages/shared/src/types.ts` (`PackManifest`, `golden_path`, `workflow`)
-- `packages/shared/src/validation.ts` (Zod schemas)
-- `.loa.config.yaml` (existing config surface)
+**Cycle**: cycle-038
+**Created**: 2026-03-07
+**Status**: Draft (Flatline SDD: 12 findings integrated)
+**PRD**: `grimoires/loa/prd.md`
+**Grounded in**: Session codebase research — exact function signatures, query patterns, and type definitions from all affected files.
 
 ---
 
 ## 1. Architecture Overview
 
+This feature adds a **visibility dimension** to the existing construct/pack data model. The change is vertical — it touches every layer from DB schema through API service through frontend — but each layer's change is small and isolated.
+
 ```
-┌─────────────────────────────────────────────────────────┐
-│                   Config Layer                          │
-│  .loa.config.yaml                                       │
-│    output_format.tabular: md|toon|json                  │
-│    cta.enabled: false                                   │
-└────────┬────────────────────────┬───────────────────────┘
-         │                        │
-         ▼                        ▼
-┌─────────────────┐    ┌────────────────────┐
-│  toon-lib.sh    │    │  constructs-lib.sh │
-│  (NEW)          │    │  (MODIFIED)        │
-│                 │    │                    │
-│ toon_encode_    │    │ emit_cta()         │
-│   tabular()     │    │ get_output_format()│
-│ toon_detect_    │    │ format_tabular_    │
-│   uniform()     │    │   output()         │
-└────────┬────────┘    └───────┬────────────┘
-         │                     │
-         ▼                     ▼
-┌─────────────────────────────────────────────────────────┐
-│              Integration Points                         │
-│                                                         │
-│  constructs-browse.sh    format_packs_human() + TOON    │
-│  constructs-install.sh   show_pack_status() + TOON/CTA  │
-│  constructs-install.sh   install completion + CTA       │
-└─────────────────────────────────────────────────────────┘
-         │
-         ▼
-┌─────────────────────────────────────────────────────────┐
-│              Type & Contract Layer                       │
-│                                                         │
-│  types.ts          workflow_next field on PackManifest   │
-│  validation.ts     Zod schema update                    │
-│  runtime-contract  Skill Loading Contract section        │
-│  skill-cta.md      CTA protocol specification           │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Design Principles
-
-1. **Config-gated**: All new behaviors default to OFF. Existing output is byte-identical.
-2. **jq does the heavy lifting**: TOON encoder receives JSON from `jq`, never parses raw text.
-3. **Additive only**: No functions removed, no signatures changed, no exit codes altered.
-4. **Cross-platform**: All bash follows `.claude/protocols/cross-platform-shell.md`.
-
----
-
-## 2. Component Design
-
-### 2.1 TOON Encoder Library (`toon-lib.sh`)
-
-**File**: `.claude/scripts/lib/toon-lib.sh` (NEW)
-
-The encoder converts JSON arrays of uniform objects to TOON tabular format. "Uniform" means every object has the same set of keys.
-
-#### Core Functions
-
-```bash
-# Detect if a JSON array is uniform (all objects have same keys)
-# Args: $1 = JSON array string
-# Returns: 0 if uniform, 1 if not
-# Stdout: comma-separated key list if uniform
-toon_detect_uniform() {
-    local json="$1"
-
-    # Extract keys from first object, compare against all objects
-    local first_keys
-    first_keys=$(echo "$json" | jq -r '
-        if (type == "array" and length > 0 and (.[0] | type) == "object")
-        then [.[0] | keys[]] | join(",")
-        else empty
-        end
-    ' 2>/dev/null) || return 1
-
-    [[ -z "$first_keys" ]] && return 1
-
-    # Verify all objects have identical keys
-    local all_same
-    all_same=$(echo "$json" | jq -r --arg fk "$first_keys" '
-        [.[] | [keys[]] | join(",")] | all(. == $fk)
-    ' 2>/dev/null) || return 1
-
-    [[ "$all_same" == "true" ]] || return 1
-    echo "$first_keys"
-    return 0
-}
-
-# Encode a JSON array to TOON tabular format
-# Args:
-#   $1 = label (e.g., "packs")
-#   $2 = JSON array string (uniform objects)
-# Stdout: TOON tabular output
-# Returns: 0 on success, 1 on non-uniform/non-array input
-toon_encode_tabular() {
-    local label="$1"
-    local json="$2"
-
-    # Handle empty array as valid case — emit header-only
-    local count
-    count=$(echo "$json" | jq 'if type == "array" then length else -1 end' 2>/dev/null) || return 1
-    [[ "$count" == "-1" ]] && return 1
-
-    if [[ "$count" == "0" ]]; then
-        echo "${label}[0]{}:"
-        return 0
-    fi
-
-    # Detect uniformity and get keys
-    local keys
-    keys=$(toon_detect_uniform "$json") || {
-        # Non-uniform: return empty (caller handles fallback)
-        return 1
-    }
-
-    # Header: label[count]{field1,field2,...}:
-    echo "${label}[${count}]{${keys}}:"
-
-    # Value rows: CSV-style, 2-space indent
-    echo "$json" | jq -r --arg keys "$keys" '
-        ($keys | split(",")) as $fields |
-        .[] | [.[$fields[]]] | map(tostring) | "  " + join(",")
-    '
-}
-```
-
-#### Design Decisions
-
-- **jq dependency**: Required. Already used by every constructs script. No new dependency.
-- **No escaping in MVP**: Field values containing commas are not escaped. PRD defers escaping rules to a follow-up cycle. MVP data (pack slugs, names, versions, status) contains no commas.
-- **Return code convention**: `toon_encode_tabular` returns 1 on non-uniform data. Callers fall back to their current format.
-- **Label convention**: The label describes the collection (e.g., `packs`, `skills`, `tasks`).
-
----
-
-### 2.2 Output Format Routing (`constructs-lib.sh`)
-
-**File**: `.claude/scripts/constructs-lib.sh` (MODIFIED — add 3 functions)
-
-```bash
-# Read output_format.tabular from config
-# Returns: "md" (default), "toon", or "json"
-get_output_format() {
-    local config_file=".loa.config.yaml"
-    local default="md"
-
-    if [[ ! -f "$config_file" ]] || ! command -v yq &>/dev/null; then
-        echo "$default"
-        return 0
-    fi
-
-    local value
-    value=$(yq eval '.output_format.tabular // "md"' "$config_file" 2>/dev/null) || {
-        echo "$default"
-        return 0
-    }
-
-    # Validate enum
-    case "$value" in
-        md|toon|json) echo "$value" ;;
-        *) echo "$default" ;;
-    esac
-}
-
-# Route tabular output through the configured format
-# Args:
-#   $1 = label (e.g., "packs")
-#   $2 = JSON array of uniform objects (TOON-shaped: flat keys, uniform)
-#   $3 = original payload (passed to fallback_fn unchanged — preserves input contract)
-#   $4 = fallback function name (called when format is "md" or TOON fails)
-# Stdin: not used
-# Stdout: formatted output
-#
-# IMPORTANT: The $2 (tabular JSON) and $3 (original payload) are distinct.
-# TOON encodes from $2 (flat, uniform). Fallback calls $4 with $3 (original shape).
-# This ensures TOON failure never passes incompatible data to markdown formatters.
-format_tabular_output() {
-    local label="$1"
-    local tabular_json="$2"
-    local original_payload="$3"
-    local fallback_fn="$4"
-
-    local fmt
-    fmt=$(get_output_format)
-
-    case "$fmt" in
-        toon)
-            # Source toon-lib if not already loaded
-            local script_dir
-            script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-            if [[ -f "$script_dir/lib/toon-lib.sh" ]]; then
-                # shellcheck source=lib/toon-lib.sh
-                source "$script_dir/lib/toon-lib.sh"
-                toon_encode_tabular "$label" "$tabular_json" && return 0
-            fi
-            # Fallback: TOON failed or lib missing — use original payload
-            "$fallback_fn" "$original_payload"
-            ;;
-        json)
-            echo "$tabular_json" | jq '.'
-            ;;
-        md|*)
-            "$fallback_fn" "$original_payload"
-            ;;
-    esac
-}
+construct.yaml (visibility: public|internal|unlisted)
+       │
+       ▼
+┌─────────────────────────────────────────────────┐
+│ Sync Layer (git-sync.ts / seed-forge-packs.ts)  │
+│ Extract visibility from manifest → DB upsert    │
+└─────────────┬───────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────┐
+│ DB Layer (schema.ts)                             │
+│ packs.visibility enum column                     │
+│ users.github_org_member cached boolean           │
+└─────────────┬───────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────┐
+│ Auth Layer (auth.ts / oauth.ts / middleware)      │
+│ org claim in JWT, requireOrgMember() middleware   │
+│ Org recheck on refresh when stale                │
+└─────────────┬───────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────┐
+│ Service Layer (packs.ts / constructs.ts)          │
+│ getPackBySlug() visibility guard                 │
+│ listConstructs() visibility WHERE clause         │
+│ Cache key variation by auth context              │
+└─────────────┬───────────────────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────────────────┐
+│ Explorer (auth-store.ts / pages / components)    │
+│ isOrgMember state, filter toggle, badges         │
+└─────────────────────────────────────────────────┘
 ```
 
 ---
 
-### 2.3 CTA Emission (`constructs-lib.sh`)
+## 2. Database Schema Changes
 
-**File**: `.claude/scripts/constructs-lib.sh` (MODIFIED — add 2 functions)
+### 2.1 New Enum: `construct_visibility`
 
-```bash
-# Check if CTAs are enabled in config
-# Returns: 0 if enabled, 1 if disabled
-is_cta_enabled() {
-    local config_file=".loa.config.yaml"
-
-    if [[ ! -f "$config_file" ]] || ! command -v yq &>/dev/null; then
-        return 1
-    fi
-
-    local enabled
-    enabled=$(yq eval '.cta.enabled // false' "$config_file" 2>/dev/null) || return 1
-
-    [[ "$enabled" == "true" ]]
-}
-
-# Emit context-sensitive CTA block after command output
-# Args:
-#   $1 = current command context (e.g., "browse", "status", "install")
-#   $2 = pack slug (optional — for pack-specific CTAs)
-# Stdout: Next: block with up to 3 CTAs
-emit_cta() {
-    is_cta_enabled || return 0
-
-    local context="$1"
-    local pack_slug="${2:-}"
-
-    echo ""
-    echo "Next:"
-
-    case "$context" in
-        browse)
-            echo "/constructs install <slug> — Install a construct pack"
-            echo "/constructs status — Check installed pack versions"
-            echo "/loa — View workflow status"
-            ;;
-        status)
-            echo "/constructs browse — Browse available packs"
-            echo "/constructs install <slug> — Install or update a pack"
-            echo "/loa — View workflow status"
-            ;;
-        install)
-            # Post-install: suggest the pack's quick_start if available
-            if [[ -n "$pack_slug" ]]; then
-                local pack_dir
-                pack_dir="$(get_registry_install_dir)/$pack_slug"
-                local quick_cmd=""
-                if [[ -f "$pack_dir/construct.yaml" ]] && command -v yq &>/dev/null; then
-                    quick_cmd=$(yq eval '.quick_start.command // ""' "$pack_dir/construct.yaml" 2>/dev/null)
-                fi
-                if [[ -n "$quick_cmd" ]]; then
-                    echo "$quick_cmd — Get started with $pack_slug"
-                fi
-            fi
-            echo "/constructs status — Verify installation"
-            echo "/loa — View workflow status"
-            ;;
-    esac
-}
-```
-
-#### CTA Design Decisions
-
-- **Static mapping in MVP**: CTAs are hardcoded per command context. Dynamic lookup from `golden_path.commands` + `truename_map` is deferred — the existing `detect_state` infrastructure would need to be extended to support per-invocation state, which is out of scope.
-- **Truenames only**: CTAs use `/constructs install`, not `/build` or golden path aliases.
-- **Max 3**: Each case emits exactly 2-3 CTAs.
-- **No-op when disabled**: `emit_cta` returns immediately when `cta.enabled: false`.
-
----
-
-### 2.4 CTA Protocol Specification
-
-**File**: `.claude/protocols/skill-cta.md` (NEW)
-
-Content defines the output protocol:
-
-```markdown
-# Skill CTA Protocol
-
-## Format
-
-After primary command output, CTA-enabled commands append:
-
-    Next:
-    <command-1> — <description>
-    <command-2> — <description>
-
-## Rules
-
-1. Maximum 3 CTAs per invocation
-2. CTAs appear after main output, before any grimoire writes
-3. Use truenames (e.g., `/implement`) not golden path aliases (e.g., `/build`)
-4. Command-context-based: each CTA-enabled command has a static mapping of
-   relevant next steps (cycle-037 MVP). Dynamic workflow-state-derived CTAs
-   using `golden_path.commands` + `truename_map` are future scope.
-5. Gated by `cta.enabled: true` in `.loa.config.yaml`
-
-## Enabled Commands (cycle-037 MVP)
-
-- `constructs browse`
-- `constructs status`
-- `constructs install`
-```
-
----
-
-### 2.5 Config Surface
-
-**File**: `.loa.config.yaml` (MODIFIED)
-
-Add two new top-level sections after existing config:
-
-```yaml
-# Output format for tabular CLI data (cycle-037)
-# Values: md (default), toon, json
-output_format:
-  tabular: md
-
-# Per-invocation call-to-action navigation (cycle-037)
-# When enabled, CLI commands append a "Next:" block with suggested next steps
-cta:
-  enabled: false
-```
-
-**Config validation**: Enum validation for `output_format.tabular` happens in `get_output_format()` (returns default on invalid value). Boolean validation for `cta.enabled` happens in `is_cta_enabled()`.
-
----
-
-### 2.6 Lazy-Loading Contract
-
-**File**: `docs/integration/runtime-contract.md` (MODIFIED)
-
-Add new section `## Skill Loading Contract` after the existing Checkpoint Schema section:
-
-```markdown
-## Skill Loading Contract
-
-### Session-Start Behavior
-
-At session start, the runtime loads ONLY lightweight metadata:
-1. `CLAUDE.loa.md` framework instructions (skill command table)
-2. Pack `index.yaml` files (name, description, capabilities per skill)
-
-Full `SKILL.md` files are NOT loaded at session start.
-
-### On-Demand Loading Trigger
-
-When the agent decides to invoke a skill:
-1. Runtime reads the full `SKILL.md` for that skill
-2. Skill body is injected into the agent's context
-3. Skill executes with full instructions available
-
-### Token Baseline
-
-| Component | Approximate Size |
-|-----------|-----------------|
-| Skill entry in command table | ~40 tokens/skill |
-| Full SKILL.md body | ~300-2000 tokens/skill |
-| index.yaml metadata | ~50 tokens/skill |
-
-Loading 49 skills at session start: ~2,000 tokens (index only)
-Loading 49 skills eagerly: ~15,000-100,000 tokens (wasteful)
-
-### Output Format Contract
-
-When `output_format.tabular` is configured in `.loa.config.yaml`:
-- `md` (default): Markdown tables and plain-text labels
-- `toon`: TOON tabular encoding (header + CSV rows)
-- `json`: Raw JSON array output
-
-Runtimes SHOULD respect this config when rendering tabular data.
-
-### Defer Loading (Non-Normative — Future Extension)
-
-> **Note**: This section documents a future capability. The `defer_loading`
-> config key exists but is not implemented in any runtime as of cycle-037.
-> Runtimes are not expected to implement this behavior yet.
-
-When `defer_loading: true` is set in `.loa.config.yaml`, the runtime MAY
-defer even `index.yaml` loading until a skill discovery command
-(`/constructs browse`, `/loa`) is invoked. This further reduces session-start
-token cost at the expense of requiring an explicit discovery step.
-```
-
----
-
-### 2.7 Type System Extension
-
-**File**: `packages/shared/src/types.ts` (MODIFIED)
-
-Add `workflow_next` field to `PackManifest` after the existing `methodology` field:
+**File**: `apps/api/src/db/schema.ts`
+**Location**: After `constructMaturityEnum` (line 96)
 
 ```typescript
-  /** Cross-construct navigation hints (cycle-037, FR-2.4) */
-  workflow_next?: Array<{
-    /** Slug of suggested next construct */
-    construct: string;
-    /** Why this construct complements the current one */
-    reason: string;
-    /** Workflow state that activates this suggestion (optional) */
-    trigger?: string;
-  }>;
+export const constructVisibilityEnum = pgEnum('construct_visibility', [
+  'public',
+  'internal',
+  'unlisted',
+]);
 ```
 
-**File**: `packages/shared/src/validation.ts` (MODIFIED)
+### 2.2 New Enum: `pack_submission_source` (FINDING-003)
 
-Add corresponding Zod schema alongside existing pack manifest validation:
+**File**: `apps/api/src/db/schema.ts`
+**Location**: After `constructVisibilityEnum`
 
 ```typescript
-const workflowNextSchema = z.array(z.object({
-  construct: z.string(),
-  reason: z.string(),
-  trigger: z.string().optional(),
-})).optional();
+export const packSubmissionSourceEnum = pgEnum('pack_submission_source', [
+  'org_sync',     // Auto-synced from org namespace (construct-* repos)
+  'external',     // Submitted by external developer via API/explorer
+]);
 ```
 
-Add `workflow_next: workflowNextSchema` to the pack manifest Zod schema.
+This field is immutable after creation — it records HOW a pack entered the network. Used by FR-8 publish hardening: `external` packs require admin approval before `status` can move to `published`.
+
+### 2.3 Packs Table: Add `visibility` + `submission_source` Columns
+
+**File**: `apps/api/src/db/schema.ts`
+**Location**: Inside `packs` table definition, after `thjBypass` (line 514)
+
+```typescript
+// Visibility control — who can discover and download this construct
+// Source of truth: construct.yaml. Synced via git-sync/seed.
+visibility: constructVisibilityEnum('visibility').default('internal'),
+
+// How this pack entered the network — immutable after creation (FINDING-003)
+// org_sync: auto-synced from 0xHoneyJar namespace
+// external: submitted by external developer
+submissionSource: packSubmissionSourceEnum('submission_source').default('org_sync'),
+```
+
+**Index**: Add to packs table indexes (after `forkedFromIdx`, line 556):
+
+```typescript
+visibilityIdx: index('idx_packs_visibility').on(table.visibility, table.status),
+```
+
+### 2.4 Users Table: Add Org Membership Columns
+
+**File**: `apps/api/src/db/schema.ts`
+**Location**: Inside `users` table definition, after `isAdmin` (line 133)
+
+```typescript
+// GitHub org membership (cached, rechecked on login + refresh if stale >24h)
+githubUsername: varchar('github_username', { length: 100 }),
+githubOrgMember: boolean('github_org_member').default(false),
+githubOrgCheckedAt: timestamp('github_org_checked_at', { withTimezone: true }),
+```
+
+**Index**: Add to users table indexes:
+
+```typescript
+githubOrgIdx: index('idx_users_github_org').on(table.githubOrgMember),
+```
+
+### 2.5 Migration SQL
+
+```sql
+-- Idempotent migration
+DO $$ BEGIN
+  CREATE TYPE construct_visibility AS ENUM ('public', 'internal', 'unlisted');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE pack_submission_source AS ENUM ('org_sync', 'external');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+ALTER TABLE packs ADD COLUMN IF NOT EXISTS visibility construct_visibility DEFAULT 'internal';
+ALTER TABLE packs ADD COLUMN IF NOT EXISTS submission_source pack_submission_source DEFAULT 'org_sync';
+CREATE INDEX IF NOT EXISTS idx_packs_visibility ON packs (visibility, status);
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS github_username VARCHAR(100);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS github_org_member BOOLEAN DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS github_org_checked_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_users_github_org ON users (github_org_member);
+
+-- GitHub user ID for stable org recheck (FINDING-010)
+ALTER TABLE users ADD COLUMN IF NOT EXISTS github_user_id BIGINT;
+
+-- Canonical backfill (PRD §9)
+UPDATE packs SET visibility = 'public'
+WHERE slug IN ('observer', 'artisan', 'crucible', 'beacon', 'protocol',
+               'herald', 'k-hole', 'the-easel', 'mibera-codex');
+-- All other packs remain 'internal' (the default)
+
+-- All existing packs are org-synced (FINDING-003)
+UPDATE packs SET submission_source = 'org_sync' WHERE submission_source IS NULL;
+```
 
 ---
 
-### 2.8 Hash Staleness Refinement
+## 3. Four-Layer Schema Sync
 
-#### End-to-End Data Flow
+Visibility must be added to all four validation/type layers:
 
-The hash staleness feature requires content hashes at two points: **local** (computed at install time) and **registry** (fetched from API). Both paths already exist in the codebase — this section documents the full contract and adds the missing `check-updates` comparison.
+### 3.1 Layer 1: DB Enum (§2.1 above)
 
-```
-INSTALL TIME:
-  compute_pack_hash() → compute_merkle_hash() → sha256:...
-      ↓
-  update_pack_meta() → .constructs-meta.json { content_hash: "sha256:..." }
+### 3.2 Layer 2: Zod Schema
 
-STATUS/CHECK-UPDATES TIME:
-  LOCAL:    jq '.installed_packs["slug"].content_hash' .constructs-meta.json
-  REGISTRY: curl ${registry_url}/packs/${slug}/hash → .data.hash
+**File**: `packages/shared/src/validation.ts`
+**Location**: Inside `packManifestSchema` (after `icon`, ~line 500)
 
-  COMPARE:
-    both present + match     → SYNCED
-    both present + mismatch  → DIVERGED
-    local missing            → UNKNOWN (reinstall to compute)
-    registry missing         → UNKNOWN (API unavailable)
+```typescript
+visibility: z.enum(['public', 'internal', 'unlisted']).optional().default('internal'),
 ```
 
-**Already implemented** (cycle-036):
-- `compute_pack_hash()` in `constructs-install.sh:934` — calls `compute_merkle_hash()`
-- `update_pack_meta()` in `constructs-install.sh:951` — persists `content_hash` in `.constructs-meta.json`
-- `show_pack_status()` in `constructs-install.sh:2047` — reads both hashes, displays SYNCED/DIVERGED/BEHIND/UNKNOWN
-- `GET /packs/:slug/hash` API endpoint (API side)
+The schema uses `.passthrough()`, so unknown fields are already preserved. Adding this makes it validated and typed.
 
-**New in this cycle**:
+### 3.3 Layer 3: TypeScript Types
 
-**File**: `.claude/skills/browsing-constructs/SKILL.md` (MODIFIED)
+**File**: `packages/shared/src/types.ts`
+**Location**: Inside `PackManifest` interface (~line 219)
 
-Update the `.constructs-meta.json` documentation example to include the `content_hash` field:
+```typescript
+visibility?: 'public' | 'internal' | 'unlisted';
+```
+
+### 3.4 Layer 4: JSON Schema / AJV (git-sync) — FINDING-008
+
+**File**: `.claude/schemas/construct.schema.json` (if exists) or inline AJV schema in `validateManifest()`
+
+The `readManifest()` returns `Record<string, unknown>`. `validateManifest()` runs AJV against `.claude/schemas/construct.schema.json` if it exists, then enforces required fields.
+
+**Change required**: Add `visibility` to the JSON Schema with enum validation to prevent invalid values from silently degrading to `internal`:
 
 ```json
 {
-  "installed_packs": {
-    "artisan": {
-      "version": "1.2.0",
-      "content_hash": "sha256:a3f2c1...",
-      "installed_at": "2026-02-28T00:00:00Z",
-      "source_type": "git"
-    }
+  "visibility": {
+    "type": "string",
+    "enum": ["public", "internal", "unlisted"],
+    "default": "internal",
+    "description": "Who can discover and download this construct"
   }
 }
 ```
 
-**File**: `.claude/scripts/constructs-loader.sh` (MODIFIED)
+If the JSON Schema file does not exist or is not used by all sync paths, add inline validation in `syncFromRepo()` (§5.1) — the `VALID_VISIBILITY` check already covers this. The AJV layer provides defense-in-depth for repos that bypass `syncFromRepo()`.
 
-In the `check-updates` subcommand, add content hash comparison after version comparison. The `check-updates` path currently only compares version strings. Add hash retrieval and comparison:
-
-```bash
-# After existing version comparison:
-# 1. Read local hash from meta (already persisted by update_pack_meta)
-local local_hash
-local_hash=$(jq -r ".installed_packs[\"$slug\"].content_hash // \"\"" "$meta_path" 2>/dev/null)
-
-# 2. Fetch registry hash (same endpoint used by show_pack_status)
-local registry_hash=""
-local hash_file
-hash_file=$(mktemp)
-chmod 600 "$hash_file"
-local hash_code
-hash_code=$(curl -s -w "%{http_code}" \
-    --proto =https --tlsv1.2 --max-time 10 \
-    "${registry_url}/packs/${slug}/hash" \
-    -o "$hash_file" 2>/dev/null) || hash_code="000"
-if [[ "$hash_code" == "200" ]]; then
-    registry_hash=$(jq -r '.data.hash // ""' "$hash_file" 2>/dev/null)
-fi
-rm -f "$hash_file"
-
-# 3. Compare: version match + hash divergence = DIVERGED
-if [[ "$local_version" == "$registry_version" ]]; then
-    if [[ -n "$local_hash" && -n "$registry_hash" && "$local_hash" != "$registry_hash" ]]; then
-        status="DIVERGED"
-    fi
-fi
-```
-
-This surfaces fork-drift (same version, different content) which is the case study from RFC #131 (Observer in midi-interface: 23 skills forked from 6).
+**Note**: Without this, a typo like `visibility: pubic` would silently degrade to `internal`. With enum validation, AJV rejects it and sync reports a manifest error.
 
 ---
 
-## 3. Integration Points
+## 4. Auth Layer Changes
 
-### 3.1 `constructs-browse.sh` — Pack Listing
+### 4.1 JWT Claims: Add `org` Field
 
-**Current**: `format_packs_human()` outputs icon + name + description in plain text.
+**File**: `apps/api/src/services/auth.ts`
 
-**Change**: ALL tabular output routes through `format_tabular_output()`. The existing `--json` flag takes precedence (explicit user request), otherwise the config-driven router handles `md|toon|json`:
+Modify `AccessTokenPayload`:
 
-```bash
-# In cmd_list(), replace the direct format call:
-if [[ "$json_output" == true ]]; then
-    # Explicit --json flag always wins (backwards compat)
-    format_packs_json "$packs_json"
-else
-    # Build flat tabular JSON for TOON/json modes
-    local toon_json
-    toon_json=$(echo "$packs_json" | jq '[
-        .data[]? | {
-            slug: .slug,
-            name: .name,
-            skills: (.skills_count // (.manifest.skills | length?) // 0),
-            version: (.latest_version.version // .version // "1.0.0"),
-            tier: (.tier_required // .tier // "free")
-        }
-    ]')
-    # Route: toon→TOON encoder, json→raw JSON, md→format_packs_human
-    # Note: $toon_json is the flat shape for TOON/json, $packs_json is the
-    # original API envelope passed to format_packs_human on fallback
-    format_tabular_output "packs" "$toon_json" "$packs_json" "format_packs_human"
-fi
-
-# Append CTAs
-emit_cta "browse"
+```typescript
+export interface AccessTokenPayload extends JWTPayload {
+  sub: string;
+  email: string;
+  type: 'access';
+  org: boolean;  // NEW — GitHub org membership
+}
 ```
 
-**TOON output example**:
-```
-packs[6]{slug,name,skills,version,tier}:
-  artisan,Artisan,14,1.2.0,free
-  observer,Observer,6,1.0.2,free
-  crucible,Crucible,5,1.0.0,free
-  beacon,Beacon,6,1.0.0,free
-  gtm-collective,GTM Collective,8,1.0.0,free
-  protocol,Protocol,10,1.0.0,free
-```
+Modify `generateTokens()` to accept and include `org`:
 
-### 3.2 `constructs-install.sh` — Pack Status
-
-**Current**: `show_pack_status()` outputs label-value pairs as plain text per pack.
-
-**Change**: Collect all pack status data into a JSON array first, then route through `format_tabular_output()`. The existing `show_pack_status()` function is preserved as the markdown fallback:
-
-```bash
-# In the status command handler:
-# Step 1: Collect status data for ALL packs into a JSON array
-local status_json="[]"
-for slug in "${installed_slugs[@]}"; do
-    local local_version registry_version status_label local_hash registry_hash
-    # ... existing fetch logic for local + registry data ...
-    # ... existing hash comparison logic (SYNCED/DIVERGED/BEHIND/UNKNOWN) ...
-    status_json=$(echo "$status_json" | jq --arg s "$slug" \
-        --arg v "$local_version" --arg rv "$registry_version" \
-        --arg st "$status_label" \
-        '. += [{"slug":$s,"local":$v,"registry":$rv,"status":$st}]')
-done
-
-# Step 2: Route through format_tabular_output
-# _show_all_packs_md() iterates status_json and calls show_pack_status() per pack
-# This is a new wrapper that preserves the existing per-pack output format
-format_tabular_output "status" "$status_json" "$status_json" "_show_all_packs_md"
-
-# Step 3: Append CTAs
-emit_cta "status"
+```typescript
+export async function generateTokens(
+  userId: string,
+  email: string,
+  org: boolean = false  // NEW parameter
+): Promise<TokenPair> {
+  const accessToken = await new SignJWT({ email, type: 'access', org })
+    .setSubject(userId)
+    .setIssuedAt()
+    .setIssuer(issuer)
+    .setExpirationTime(ACCESS_TOKEN_EXPIRY)
+    .sign(secret);
+  // ... refresh token unchanged (no org claim in refresh)
+}
 ```
 
-The `_show_all_packs_md()` wrapper iterates the JSON array and calls the existing `show_pack_status()` for each entry, preserving byte-identical markdown output when `output_format.tabular: md`.
+### 4.2 GitHub OAuth: Scope + Org Check
 
-### 3.3 `constructs-install.sh` — Install Completion
+**File**: `apps/api/src/routes/oauth.ts`
 
-**Current**: `execute_post_install_hook()` displays quick_start suggestion.
+**Scope change** (line ~65, GitHub authorize redirect):
 
-**Change**: After existing post-install output, append CTA:
+```typescript
+// Before:
+const scope = 'user:email';
+// After:
+const scope = 'user:email read:org';
+```
 
-```bash
-# At end of install command:
-emit_cta "install" "$pack_slug"
+**Org membership check** — add after `findOrCreateOAuthUser()` in the GitHub callback handler:
+
+```typescript
+// After findOrCreateOAuthUser() returns user with id:
+const orgMembership = await checkGitHubOrgMembership(accessToken, env.CONSTRUCTS_ORG);
+
+// Update user record — store both username AND stable user ID (FINDING-010)
+await db.update(users)
+  .set({
+    githubUsername: githubUser.login,
+    githubUserId: githubUser.id,  // stable numeric ID, survives username changes
+    githubOrgMember: orgMembership,
+    githubOrgCheckedAt: new Date(),
+  })
+  .where(eq(users.id, user.id));
+
+// Generate tokens WITH org claim
+const tokens = await generateTokens(user.id, user.email, orgMembership);
+```
+
+**New helper function** (add to `oauth.ts` or a shared `services/github.ts`):
+
+```typescript
+async function checkGitHubOrgMembership(
+  userAccessToken: string,
+  org: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(
+      `https://api.github.com/user/memberships/orgs/${org}`,
+      {
+        headers: {
+          Authorization: `Bearer ${userAccessToken}`,
+          Accept: 'application/vnd.github+json',
+        },
+      }
+    );
+    if (res.status === 200) {
+      const data = await res.json();
+      return data.state === 'active';
+    }
+    return false; // 404 = not member, 403 = org blocks, any error = fail secure
+  } catch {
+    return false; // network error = fail secure
+  }
+}
+```
+
+**New env var**: `CONSTRUCTS_ORG` (default: `'0xHoneyJar'`). Add to `apps/api/src/config/env.ts`.
+
+### 4.3 Canonical Org Membership Source (FINDING-009)
+
+**The `githubOrgMember` column on `users` is the single canonical source** for org membership, regardless of which auth method the user logged in with. All token-minting paths read from this field:
+
+| Auth Path | Org Behavior |
+|-----------|-------------|
+| GitHub OAuth login | Check via user's token, update `githubOrgMember`, mint `org: true/false` |
+| Google OAuth login | Read existing `githubOrgMember` from DB, mint `org: value` |
+| Password login | Read existing `githubOrgMember` from DB, mint `org: value` |
+| Token refresh | Recheck if stale (§4.4), mint `org: value` |
+
+**Implication**: A user who first logs in via Google gets `org: false`. If they later link GitHub (via GitHub OAuth login), their `githubOrgMember` is updated. Subsequent Google/password logins read the updated value. There is no per-provider gating — the user record is the source of truth.
+
+**File changes**:
+- `apps/api/src/routes/auth.ts` — `POST /v1/auth/login` (password): add `org: user.githubOrgMember ?? false` to `generateTokens()` call
+- `apps/api/src/routes/oauth.ts` — Google callback: add `org: user.githubOrgMember ?? false` to `generateTokens()` call
+
+### 4.4 Token Refresh: Org Recheck (FINDING-010)
+
+**File**: `apps/api/src/routes/auth.ts`
+**Location**: `POST /v1/auth/refresh` handler
+
+After verifying the refresh token and fetching the user, add org recheck:
+
+```typescript
+// After: const user = await db.select(...).from(users).where(eq(users.id, payload.sub))
+let orgMember = user.githubOrgMember ?? false;
+
+// Recheck if stale (>24h) — uses stable GitHub user ID, NOT mutable username
+if (user.githubUserId && user.githubOrgCheckedAt) {
+  const staleMs = Date.now() - new Date(user.githubOrgCheckedAt).getTime();
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+
+  if (staleMs > TWENTY_FOUR_HOURS) {
+    orgMember = await checkGitHubOrgMembershipById(
+      user.githubUserId,
+      env.CONSTRUCTS_ORG
+    );
+    await db.update(users)
+      .set({ githubOrgMember: orgMember, githubOrgCheckedAt: new Date() })
+      .where(eq(users.id, user.id));
+  }
+}
+
+const tokens = await generateTokens(user.id, user.email, orgMember);
+```
+
+**Failure policy (single, consistent across all paths)**: On any GitHub API error, **preserve the existing `githubOrgMember` value** and log a warning. Do NOT flip to `false` on transient errors. This is fail-stale, not fail-open or fail-secure — the 24h TTL bounds the staleness window.
+
+**Server-side org check helper** — uses GitHub user ID (stable) not username (mutable):
+
+```typescript
+async function checkGitHubOrgMembershipById(
+  githubUserId: number,
+  org: string
+): Promise<boolean> {
+  const token = process.env.GITHUB_TOKEN || process.env.GITHUB_SYNC_TOKEN;
+  if (!token) return false; // no server token = can't check = preserve existing
+
+  // First resolve user ID to current username via /user/:id
+  // Then check org membership via /orgs/:org/members/:username
+  // Required PAT scope: read:org
+  try {
+    const userRes = await fetch(`https://api.github.com/user/${githubUserId}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+      },
+    });
+    if (userRes.status !== 200) return false;
+    const userData = await userRes.json();
+    const currentUsername = userData.login;
+
+    const memberRes = await fetch(
+      `https://api.github.com/orgs/${org}/members/${currentUsername}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          Accept: 'application/vnd.github+json',
+        },
+      }
+    );
+    return memberRes.status === 204; // 204 = member, 404 = not
+  } catch {
+    return false; // network error = preserve existing value at call site
+  }
+}
+```
+
+**Required PAT permissions**: `read:org` on the GITHUB_TOKEN / GITHUB_SYNC_TOKEN. This is the same token used for git-sync and already has repo access.
+
+### 4.4 Auth Middleware: `requireOrgMember()` + Updated `optionalAuth()`
+
+**File**: `apps/api/src/middleware/auth.ts`
+
+**Update `AuthUser` interface:**
+
+```typescript
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string;
+  emailVerified: boolean;
+  tier: 'free' | 'pro' | 'team' | 'enterprise';
+  role?: 'user' | 'admin' | 'super_admin';
+  isOrgMember: boolean;  // NEW
+}
+```
+
+**Update `getUserById()`**: Fetch `githubOrgMember` from DB, include in returned `AuthUser`.
+
+**Update JWT verification in `requireAuth()` and `optionalAuth()`**: After verifying the access token, set `isOrgMember` from the `org` claim:
+
+```typescript
+// In requireAuth(), after verifyAccessToken():
+const user = await getUserById(payload.sub);
+user.isOrgMember = payload.org ?? false;
+c.set('user', user);
+c.set('isOrgMember', payload.org ?? false);  // convenience accessor
+```
+
+**New middleware — `requireOrgMember()`:**
+
+```typescript
+export function requireOrgMember(): MiddlewareHandler {
+  return async (c, next) => {
+    const user = c.get('user');
+    if (!user) {
+      throw Errors.Unauthorized('Authentication required');
+    }
+    if (!user.isOrgMember) {
+      throw Errors.Forbidden('Organization membership required');
+    }
+    await next();
+  };
+}
+```
+
+**Update `GET /v1/auth/me`** (`routes/auth.ts`):
+
+```typescript
+// Add to response object:
+is_org_member: user.isOrgMember,
 ```
 
 ---
 
-## 4. Files Manifest
+## 5. Sync Layer Changes
 
-| File | Action | Description |
+### 5.1 git-sync.ts: Extract Visibility from Manifest
+
+**File**: `apps/api/src/services/git-sync.ts`
+
+Update `SyncResult` interface:
+
+```typescript
+export interface SyncResult {
+  version: string;
+  commit: string;
+  manifest: Record<string, unknown>;
+  files: CollectedFile[];
+  identity: IdentityData | null;
+  totalSizeBytes: number;
+  visibility: 'public' | 'internal' | 'unlisted';  // NEW
+}
+```
+
+In `syncFromRepo()`, after `readManifest()`:
+
+```typescript
+const VALID_VISIBILITY = ['public', 'internal', 'unlisted'] as const;
+const rawVisibility = manifest.visibility as string | undefined;
+const visibility = rawVisibility && VALID_VISIBILITY.includes(rawVisibility as any)
+  ? (rawVisibility as typeof VALID_VISIBILITY[number])
+  : 'internal'; // default: safe
+```
+
+Include in returned `SyncResult`.
+
+### 5.2 Webhook Sync Handler: Write Visibility to DB
+
+**File**: `apps/api/src/routes/webhooks.ts`
+**Location**: Inside the sync transaction (~line 560)
+
+Add `visibility` to the `packs` update:
+
+```typescript
+// In the transaction, after updating packs:
+await tx.update(packs).set({
+  // ... existing fields (construct_type, skill_prose, last_sync_commit, etc.)
+  visibility: syncResult.visibility,  // NEW
+}).where(eq(packs.id, pack.id));
+```
+
+### 5.3 Manual Sync Handler: Same
+
+**File**: `apps/api/src/routes/packs.ts`
+**Location**: `POST /:slug/sync` handler
+
+Same pattern — add `visibility: syncResult.visibility` to the packs update within the transaction.
+
+### 5.4 Seed Script: Read + Write Visibility
+
+**File**: `scripts/seed-forge-packs.ts`
+
+After manifest parsing:
+
+```typescript
+const VALID_VISIBILITY = ['public', 'internal', 'unlisted'] as const;
+const visibility = VALID_VISIBILITY.includes(manifest.visibility as any)
+  ? (manifest.visibility as string)
+  : 'internal';
+```
+
+Add to the packs upsert INSERT and ON CONFLICT UPDATE:
+
+```typescript
+// In INSERT VALUES:
+visibility,
+// In ON CONFLICT DO UPDATE SET:
+visibility: sql`EXCLUDED.visibility`,
+```
+
+---
+
+## 6. Service Layer: Visibility Guards
+
+### 6.1 `getPackBySlug()` — Central Visibility + Status Guard
+
+**File**: `apps/api/src/services/packs.ts`
+
+This is the **single point of enforcement** for all pack read paths (FR-4). It checks **both** visibility AND publication status (FINDING-002).
+
+```typescript
+export interface PackAccessContext {
+  userId?: string;       // authenticated user ID, if any
+  isOrgMember: boolean;  // from JWT org claim
+  isAdmin: boolean;      // from user role
+}
+
+export async function getPackBySlug(
+  slug: string,
+  access?: PackAccessContext
+): Promise<Pack | null> {
+  const normalizedSlug = slug.toLowerCase();
+  const pack = await db.select().from(packs)
+    .where(eq(packs.slug, normalizedSlug))
+    .limit(1)
+    .then(rows => rows[0] ?? null);
+
+  if (!pack) return null;
+
+  // Status enforcement (FINDING-002)
+  // Draft/pending_review packs are only visible to owners and admins
+  if (pack.status !== 'published') {
+    if (!access) return null;
+    if (!access.isAdmin && !(await isPackOwnerAsync(pack, access.userId))) return null;
+    // Owner/admin can see draft packs — fall through to visibility check
+  }
+
+  // Visibility enforcement
+  if (!canAccessPack(pack, access)) return null;
+
+  return pack;
+}
+
+export function canAccessPack(
+  pack: { visibility: string | null; ownerId: string; ownerType: string },
+  access?: PackAccessContext
+): boolean {
+  const visibility = pack.visibility ?? 'internal';
+
+  // Public: anyone
+  if (visibility === 'public') return true;
+
+  // Unlisted: anyone with the slug (accessible but not listed)
+  if (visibility === 'unlisted') return true;
+
+  // Internal: requires org membership, ownership, or admin
+  if (visibility === 'internal') {
+    if (!access) return false;
+    if (access.isAdmin) return true;
+    if (access.isOrgMember) return true;
+    // Team-aware ownership check (FINDING-006)
+    // Synchronous fast path: direct user ownership
+    if (access.userId && pack.ownerType === 'user' && pack.ownerId === access.userId) return true;
+    // Note: team ownership requires async check — handled in getPackBySlug() caller
+    // or via isPackOwnerAsync() for detail endpoints
+    return false;
+  }
+
+  return false;
+}
+
+// Async ownership check that handles both user and team ownership (FINDING-006)
+async function isPackOwnerAsync(
+  pack: { ownerId: string; ownerType: string },
+  userId?: string
+): Promise<boolean> {
+  if (!userId) return false;
+  if (pack.ownerType === 'user') return pack.ownerId === userId;
+  if (pack.ownerType === 'team') {
+    const membership = await db.select({ role: teamMembers.role })
+      .from(teamMembers)
+      .where(and(eq(teamMembers.teamId, pack.ownerId), eq(teamMembers.userId, userId)))
+      .limit(1)
+      .then(rows => rows[0]);
+    return membership?.role === 'owner' || membership?.role === 'admin';
+  }
+  return false;
+}
+
+// Helper to build access context from Hono context
+export function getAccessContext(c: Context): PackAccessContext {
+  const user = c.get('user') as AuthUser | undefined;
+  return {
+    userId: user?.id,
+    isOrgMember: c.get('isOrgMember') ?? false,
+    isAdmin: user?.role === 'admin' || user?.role === 'super_admin',
+  };
+}
+```
+
+### 6.1.1 Publish Gate Hardening (FINDING-003)
+
+External submissions (`submission_source = 'external'`) have additional restrictions:
+
+```typescript
+// In version upload / status change endpoints:
+if (pack.submissionSource === 'external' && pack.status === 'pending_review') {
+  // Only admins can change status from pending_review → published
+  if (!access?.isAdmin) {
+    return c.json({ error: 'ADMIN_APPROVAL_REQUIRED' }, 403);
+  }
+}
+```
+
+All version/status endpoints check `submission_source` before allowing publish transitions. The `submission_source` field is set once at pack creation and never changed.
+
+### 6.2 `isPackOwner()` — Fix for Team Ownership (NFR-5)
+
+**File**: `apps/api/src/services/packs.ts`
+
+Current `isPackOwner()` returns `false` for team-owned packs. Fix:
+
+```typescript
+export async function isPackOwner(packId: string, userId: string): Promise<boolean> {
+  const pack = await db.select({ ownerId: packs.ownerId, ownerType: packs.ownerType })
+    .from(packs)
+    .where(eq(packs.id, packId))
+    .limit(1)
+    .then(rows => rows[0]);
+
+  if (!pack) return false;
+
+  if (pack.ownerType === 'user') {
+    return pack.ownerId === userId;
+  }
+
+  if (pack.ownerType === 'team') {
+    const membership = await db.select({ role: teamMembers.role })
+      .from(teamMembers)
+      .where(and(
+        eq(teamMembers.teamId, pack.ownerId),
+        eq(teamMembers.userId, userId)
+      ))
+      .limit(1)
+      .then(rows => rows[0]);
+
+    return membership?.role === 'owner' || membership?.role === 'admin';
+  }
+
+  return false;
+}
+```
+
+### 6.3 `listConstructs()` — Visibility Filtering (FINDING-007)
+
+**File**: `apps/api/src/services/constructs.ts`
+
+Update `ListConstructsOptions`:
+
+```typescript
+export interface ListConstructsOptions {
+  // ... existing fields
+  visibility?: 'public' | 'internal' | 'all';  // NEW — explicit filter
+  accessContext?: PackAccessContext;             // NEW — auth context
+}
+```
+
+**Filter semantics** (explicit per mode):
+
+| `?visibility=` | Auth Required | Returns |
+|----------------|--------------|---------|
+| (omitted) | No | Auto: public for anon, public+internal for org, all for admin |
+| `public` | No | Public only |
+| `internal` | Org or admin | Internal only (403 for non-org) |
+| `all` | Org or admin | Public + internal + unlisted (403 for non-org) |
+
+**Note**: `unlisted` is never returned in list responses regardless of filter — unlisted constructs are accessible by slug only, not discoverable in listings. This is the semantic difference between `internal` and `unlisted`.
+
+**In `fetchPacksAsConstructs()`** (~line 880), add visibility WHERE clause:
+
+```typescript
+const visibilityConditions = getVisibilityConditions(
+  options.visibility,
+  options.accessContext
+);
+
+const conditions = [
+  eq(packs.status, 'published'),
+  ...visibilityConditions,  // NEW
+  // ... existing archetype, maturity, tier, featured, query filters
+];
+```
+
+**Helper function:**
+
+```typescript
+function getVisibilityConditions(
+  filter: 'public' | 'internal' | 'all' | undefined,
+  access?: PackAccessContext
+): SQL[] {
+  // Explicit filter takes precedence
+  if (filter === 'internal') {
+    // Must be org or admin to request internal-only
+    if (!access?.isOrgMember && !access?.isAdmin) {
+      throw Errors.Forbidden('Organization membership required to filter by internal');
+    }
+    return [eq(packs.visibility, 'internal')];
+  }
+  if (filter === 'all') {
+    if (!access?.isOrgMember && !access?.isAdmin) {
+      throw Errors.Forbidden('Organization membership required to view all');
+    }
+    // Return public + internal (NOT unlisted — unlisted is slug-access only)
+    return [inArray(packs.visibility, ['public', 'internal'])];
+  }
+  if (filter === 'public') {
+    return [eq(packs.visibility, 'public')];
+  }
+
+  // Auto mode (no explicit filter)
+  if (!access) {
+    return [eq(packs.visibility, 'public')];
+  }
+  if (access.isAdmin) {
+    // Admin sees public + internal (NOT unlisted in listings)
+    return [inArray(packs.visibility, ['public', 'internal'])];
+  }
+  if (access.isOrgMember) {
+    return [inArray(packs.visibility, ['public', 'internal'])];
+  }
+  return [eq(packs.visibility, 'public')];
+}
+```
+
+### 6.4 Cache Key Strategy (FINDING-004, FINDING-005)
+
+**File**: `apps/api/src/services/redis.ts`
+
+Vary cache keys by **visibility tier** (not individual user):
+
+```typescript
+type CacheVisibilityTier = 'public' | 'org' | 'admin';
+
+export function getCacheVisibilityTier(access?: PackAccessContext): CacheVisibilityTier {
+  if (!access) return 'public';
+  if (access.isAdmin) return 'admin';
+  if (access.isOrgMember) return 'org';
+  return 'public';
+}
+
+// Updated CACHE_KEYS:
+export const CACHE_KEYS = {
+  // ... existing unchanged keys ...
+  constructList:    (params: string, tier: CacheVisibilityTier) =>
+                      `constructs:list:${tier}:${params}`,
+  constructDetail:  (slug: string, tier: CacheVisibilityTier) =>
+                      `constructs:detail:${tier}:${slug}`,
+  constructSummary: (tier: CacheVisibilityTier) =>
+                      `constructs:summary:${tier}`,
+  constructExists:  (slug: string, tier: CacheVisibilityTier) =>
+                      `constructs:exists:${tier}:${slug}`,
+} as const;
+```
+
+**Owner cache bypass (FINDING-004)**: When an authenticated user requests their own pack, **skip the shared cache entirely** and query DB directly. This avoids the problem where a non-org owner shares the `public` cache bucket with anonymous users and gets cached 404s for their own internal constructs.
+
+```typescript
+// In getConstructBySlug() / getPackBySlug():
+const isOwnerRequest = access?.userId && (
+  pack.ownerType === 'user' && pack.ownerId === access.userId
+);
+// If owner, bypass cache — query DB directly
+// If not owner, use tier-based cache
+```
+
+**Cache invalidation matrix (FINDING-005)**:
+
+| Event | Keys Invalidated |
+|-------|-----------------|
+| Webhook sync (visibility change) | detail(slug,*), exists(slug,*), summary(*), **list(*,*)** |
+| Manual sync | Same as webhook sync |
+| Admin status change | detail(slug,*), exists(slug,*), summary(*), list(*,*) |
+| Fork created | detail(parent_slug,*) — fork count changes |
+| Pack deleted | detail(slug,*), exists(slug,*), summary(*), list(*,*) |
+
+```typescript
+export async function invalidateConstructCaches(slug: string): Promise<void> {
+  if (!isRedisConfigured()) return;
+  const redis = getRedis();
+  const tiers: CacheVisibilityTier[] = ['public', 'org', 'admin'];
+
+  // Delete known keys
+  await Promise.all([
+    ...tiers.map(t => redis.del(CACHE_KEYS.constructDetail(slug, t))),
+    ...tiers.map(t => redis.del(CACHE_KEYS.constructExists(slug, t))),
+    ...tiers.map(t => redis.del(CACHE_KEYS.constructSummary(t))),
+  ]);
+
+  // Pattern-delete list keys (FINDING-005)
+  // List keys include pagination/filter params, so we must scan
+  for (const tier of tiers) {
+    const pattern = `constructs:list:${tier}:*`;
+    let cursor = '0';
+    do {
+      const [next, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+      cursor = next;
+      if (keys.length > 0) await redis.del(...keys);
+    } while (cursor !== '0');
+  }
+}
+
+// Invalidate fork parent caches when a fork is created/deleted
+export async function invalidateForkParentCaches(parentSlug: string): Promise<void> {
+  if (!isRedisConfigured()) return;
+  const redis = getRedis();
+  const tiers: CacheVisibilityTier[] = ['public', 'org', 'admin'];
+  await Promise.all(
+    tiers.map(t => redis.del(CACHE_KEYS.constructDetail(parentSlug, t)))
+  );
+}
+```
+
+**Timing**: Cache invalidation runs **after** the write transaction commits, not inside it. This prevents stale reads from racing the transaction.
+
+### 6.5 Fork Provenance Redaction (FINDING-006)
+
+**File**: `apps/api/src/services/constructs.ts`
+
+In `packToConstruct()`, when populating `forkedFrom`:
+
+```typescript
+// When building the forkedFrom field:
+let forkedFrom: { slug: string; name: string } | null = null;
+if (pack.forkedFrom && forkedFromRow) {
+  // Only expose provenance if the source is visible to the viewer
+  if (canAccessPack(forkedFromRow, accessContext)) {
+    forkedFrom = { slug: forkedFromRow.slug, name: forkedFromRow.name };
+  }
+  // Otherwise: forkedFrom stays null (redacted)
+}
+```
+
+**File**: `apps/api/src/routes/packs.ts`
+
+In the fork endpoint (`POST /fork`):
+```typescript
+// Before creating fork, verify source is accessible
+const source = await getPackBySlug(body.source_slug, getAccessContext(c));
+if (!source) return c.json({ error: 'PACK_NOT_FOUND' }, 404);
+```
+
+---
+
+## 7. Route Layer Changes
+
+### 7.1 Constructs Routes
+
+**File**: `apps/api/src/routes/constructs.ts`
+
+| Route | Change |
+|-------|--------|
+| `GET /` | Pass `getAccessContext(c)` to `listConstructs()` |
+| `GET /:slug` | Pass `getAccessContext(c)` to `getConstructBySlug()` |
+| `HEAD /:slug` | Pass `getAccessContext(c)` to `constructExists()` |
+| `GET /summary` | Change from no auth to `optionalAuth()`, pass context |
+
+### 7.2 Packs Routes (FINDING-001 — complete inventory)
+
+**File**: `apps/api/src/routes/packs.ts`
+
+**Every** endpoint that resolves a pack by slug must pass `PackAccessContext`. This is the **exhaustive** list — any new pack-resolving route MUST include `getAccessContext(c)` or it bypasses visibility.
+
+| Endpoint | Current Auth | Change |
+|----------|-------------|--------|
+| `GET /:slug/versions` | `optionalAuth` | Pass `getAccessContext(c)` |
+| `GET /:slug/download` | `optionalAuth` | Pass context; reject if null |
+| `GET /:slug/hash` | `optionalAuth` | Pass context |
+| `GET /:slug/reviews` | none | Change to `optionalAuth`, pass context |
+| `POST /fork` | `requireAuth` | Check source visibility before forking |
+| `GET /:slug/permissions` | `requireAuth` | Pass context |
+| `GET /:slug/verification` | `optionalAuth` | Pass `getAccessContext(c)` |
+| `GET /:slug/ground-truth` | `optionalAuth` | Pass `getAccessContext(c)` |
+| `GET /:slug/signals` | `optionalAuth` | Pass `getAccessContext(c)` |
+| `GET /:slug/showcases` | `optionalAuth` | Pass `getAccessContext(c)` |
+| `GET /:slug/accuracy` | `optionalAuth` | Pass `getAccessContext(c)` |
+| `POST /:slug/sync` | `requireAuth` | Pass context (owner/admin only) |
+
+**Regression guard**: Add a test that inventories all `:slug`-parameterized routes in `packs.ts` and asserts each passes `PackAccessContext`. New routes without context fail the test.
+
+---
+
+## 8. Explorer Changes (FINDING-012)
+
+### 8.1 Construct DTO Contract
+
+The API response DTO must include `visibility` for the explorer to render badges and filters. Add to the construct response type:
+
+```typescript
+// In packToConstruct() return shape:
+interface ConstructDTO {
+  // ... existing fields
+  visibility: 'public' | 'internal' | 'unlisted';  // NEW
+}
+```
+
+**Naming convention**: API responses use `snake_case` (`is_org_member`), explorer TypeScript uses `camelCase` (`isOrgMember`). The mapping happens in the auth store's fetch handler. This is consistent with existing API conventions.
+
+### 8.2 Auth Store: `isOrgMember`
+
+**File**: `apps/explorer/lib/stores/auth-store.ts`
+
+```typescript
+interface AuthState {
+  // ... existing
+  isOrgMember: boolean;  // NEW — populated from /auth/me response.is_org_member
+}
+```
+
+### 8.3 Visibility Badge Component
+
+```tsx
+{construct.visibility === 'internal' && (
+  <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-800">
+    INTERNAL
+  </span>
+)}
+```
+
+### 8.4 Filter Toggle (org members only)
+
+Three states: "Public" | "Internal" | "All" (default: "All" for org members).
+
+### 8.5 Data Fetching Strategy
+
+| Page Type | Strategy | Auth | Visibility |
+|-----------|----------|------|------------|
+| Home/listing (SSR/ISR) | Server fetch, no auth | None | Public only (SEO-correct) |
+| Detail page (SSR) | Server fetch, no auth | None | Public + unlisted only |
+| Detail page (client hydration) | Client fetch with auth header | JWT | Full visibility check |
+| Client-side navigation | Client fetch with auth header | JWT | Full visibility check |
+
+**SSR detail page gap**: When an org member hard-refreshes an internal construct page, the SSR fetch has no auth and returns 404. Fix: the detail page component renders a loading state on SSR miss, then client-side fetches with auth. If the client fetch also 404s, render the actual 404 page. This provides a brief loading flash for internal constructs on hard refresh but avoids leaking existence to non-org users.
+
+```tsx
+// apps/explorer/app/(site)/constructs/[slug]/page.tsx
+export default async function ConstructPage({ params }) {
+  // SSR: try public fetch
+  const construct = await fetchConstruct(params.slug); // no auth
+  if (construct) return <ConstructDetail data={construct} />;
+
+  // SSR miss: render client-side auth-aware loader
+  return <AuthAwareConstructLoader slug={params.slug} />;
+}
+```
+
+The `AuthAwareConstructLoader` client component fetches with the auth token. If it gets a 404, it renders `notFound()`. If it gets data, it renders `ConstructDetail`.
+
+---
+
+## 9. Error Handling
+
+| Scenario | Status | Body | Rationale |
+|----------|--------|------|-----------|
+| Internal construct, no auth | 404 | `CONSTRUCT_NOT_FOUND` | Prevent existence leak |
+| Internal construct, no org | 404 | `CONSTRUCT_NOT_FOUND` | Prevent existence leak |
+| Draft/pending pack, no ownership | 404 | `CONSTRUCT_NOT_FOUND` | Prevent existence leak (FINDING-002) |
+| External pack, pending_review, non-admin publish | 403 | `ADMIN_APPROVAL_REQUIRED` | FR-8 gate (FINDING-003) |
+| Org-only endpoint, no org | 403 | `ORG_MEMBERSHIP_REQUIRED` | Clear error |
+| `?visibility=internal` without org | 403 | `ORG_MEMBERSHIP_REQUIRED` | FINDING-007 |
+| GitHub API failure (any path) | Preserve existing `githubOrgMember` | Log warning | **Fail-stale** (FINDING-010) |
+
+**Failure policy — SINGLE RULE (FINDING-010)**: On any GitHub API error (network, 5xx, rate limit), **preserve the existing `githubOrgMember` value** in the DB. Do NOT flip to `false`. The 24h recheck TTL bounds the maximum staleness. This applies uniformly to OAuth login, Google login, password login, and token refresh. Log a structured warning with `{ event: 'github_org_check_failed', userId, error }`.
+
+---
+
+## 10. Testing Strategy
+
+### Unit Tests (9 core combinations)
+
+| Visibility | Auth State | Expected |
+|-----------|------------|----------|
+| `public` | No auth | Visible |
+| `public` | Auth, no org | Visible |
+| `public` | Auth + org | Visible |
+| `internal` | No auth | Hidden (404) |
+| `internal` | Auth, no org | Hidden (404) |
+| `internal` | Auth + org | Visible |
+| `unlisted` | No auth | Visible by slug, not listed |
+| `unlisted` | Auth, no org | Visible by slug, not listed |
+| `unlisted` | Auth + org | Visible by slug, not listed |
+
+### Additional Unit Tests (FINDING-002, FINDING-003)
+
+| Status | Submission Source | Auth | Expected |
+|--------|-----------------|------|----------|
+| `draft` | `org_sync` | Owner | Visible |
+| `draft` | `org_sync` | Non-owner org | Hidden (404) |
+| `pending_review` | `external` | Owner | Visible (read-only) |
+| `pending_review` | `external` | Admin | Visible + can approve |
+| `pending_review` | `external` | Non-owner | Hidden (404) |
+| `published` | `external` | Anyone | Visible (per visibility rules) |
+
+### Integration Tests
+
+- List constructs without auth → only public returned
+- List constructs with org JWT → public + internal
+- List with `?visibility=internal` without org → 403
+- Download internal pack without org → 404
+- Fork internal construct without org → 404
+- Fork provenance redacted when source is internal
+- OAuth callback → org check → JWT `org` claim correct
+- Google OAuth login → reads existing `githubOrgMember` → correct `org` claim
+- Password login → reads existing `githubOrgMember` → correct `org` claim
+- Token refresh with stale org → recheck via GitHub user ID → correct claim
+- Token refresh with GitHub API failure → preserves existing org value
+- Sync with visibility change → all cache tiers + list keys invalidated
+- External submission → `submission_source: 'external'`, `status: 'pending_review'`
+- External pack publish attempt by non-admin → 403
+- **Route regression test**: all `:slug` routes in packs.ts pass `PackAccessContext`
+- Owner views own internal construct (non-org) → visible, bypasses shared cache
+
+---
+
+## 11. Rollout: Near-Zero-Downtime Deployment (FINDING-011)
+
+**Key constraint**: The sync layer must NOT overwrite backfilled visibility values with `internal` when manifests don't yet have a `visibility` field. The sync code's default-to-`internal` behavior would revert the migration backfill.
+
+1. **Deploy migration** — add columns with defaults. Run backfill SQL. No query changes yet.
+2. **Deploy sync layer with preservation guard** — sync writes `visibility` to DB, BUT:
+   ```typescript
+   // Preserve existing visibility when manifest omits field (FINDING-011)
+   const visibility = syncResult.visibility;
+   const shouldUpdateVisibility = rawVisibility !== undefined;
+   // Only write visibility if manifest explicitly declares it
+   ```
+   This prevents the sync from defaulting to `internal` and overwriting the backfill.
+3. **Push construct.yaml PRs** — add `visibility: public` to the 9 public repos, `visibility: internal` to the 4 internal repos. After webhook sync, all packs have explicit manifest-declared visibility.
+4. **Remove preservation guard** — now all manifests have explicit visibility, so the guard is no longer needed. Deploy sync layer that always writes manifest visibility.
+5. **Deploy auth** — OAuth scope, org check, JWT claim, middleware.
+   - **Session migration**: Old tokens without `org` claim default to `org: false`. Org members must re-login or wait for token refresh (15-min window) to get `org: true`. This is acceptable — internal constructs are only hidden for at most one refresh cycle.
+6. **Deploy service layer** — visibility guards, cache key changes. Internal constructs become invisible to non-org users.
+7. **Deploy explorer** — badges, filters, auth store.
+
+---
+
+## 12. File Change Inventory
+
+| File | Change | Lines (est.) |
 |------|--------|-------------|
-| `.claude/scripts/lib/toon-lib.sh` | CREATE | TOON tabular encoder (2 functions) |
-| `.claude/protocols/skill-cta.md` | CREATE | CTA output protocol specification |
-| `.claude/scripts/constructs-lib.sh` | MODIFY | Add `get_output_format()`, `format_tabular_output()`, `is_cta_enabled()`, `emit_cta()` |
-| `.claude/scripts/constructs-browse.sh` | MODIFY | Route through `format_tabular_output()` + `emit_cta()` |
-| `.claude/scripts/constructs-install.sh` | MODIFY | TOON in `show_pack_status()` + CTA in install/status |
-| `.claude/scripts/constructs-loader.sh` | MODIFY | Hash divergence comparison in `check-updates` |
-| `docs/integration/runtime-contract.md` | MODIFY | Add Skill Loading Contract section |
-| `packages/shared/src/types.ts` | MODIFY | Add `workflow_next` to `PackManifest` |
-| `packages/shared/src/validation.ts` | MODIFY | Add `workflow_next` Zod schema |
-| `.loa.config.yaml` | MODIFY | Add `output_format` and `cta` sections |
-| `.claude/skills/browsing-constructs/SKILL.md` | MODIFY | Add `content_hash` to meta example |
-
-**Total**: 2 new files, 9 modified files.
-
----
-
-## 5. Testing Strategy
-
-### 5.1 Unit: TOON Encoder
-
-- Uniform JSON array → correct TOON header + CSV rows
-- Non-uniform JSON array → return code 1 (fallback)
-- Empty array → `label[0]{}: ` (no rows)
-- Single-element array → correct output
-- Nested values → `tostring` produces flat representation
-
-### 5.2 Integration: Output Format Routing
-
-- `output_format.tabular: md` → identical output to pre-cycle-037 (snapshot comparison)
-- `output_format.tabular: toon` → TOON format for `constructs browse` and `constructs status`
-- `output_format.tabular: json` → raw JSON for both targets
-- Missing config → defaults to `md`
-- Invalid config value → defaults to `md`
-
-### 5.3 Integration: CTA Emission
-
-- `cta.enabled: false` → no `Next:` block in any command output
-- `cta.enabled: true` + `constructs browse` → `Next:` block with 3 CTAs
-- `cta.enabled: true` + `constructs status` → `Next:` block with 3 CTAs
-- `cta.enabled: true` + `constructs install <slug>` → `Next:` block with quick_start + 2 CTAs
-- Missing config → no CTAs (default: false)
-
-### 5.4 Regression: Default Output
-
-- Capture current `constructs browse` output as snapshot
-- Capture current `constructs status` output as snapshot
-- After changes, verify byte-identical output with default config
-
-### 5.5 Type System
-
-- `workflow_next` field accepts valid array of `{construct, reason, trigger?}`
-- Zod validation rejects malformed `workflow_next` entries
-- Existing manifests without `workflow_next` pass validation (field is optional)
+| `apps/api/src/db/schema.ts` | Edit | +18 (visibility enum, submission_source enum, github_user_id) |
+| `apps/api/src/services/auth.ts` | Edit | +8 |
+| `apps/api/src/routes/oauth.ts` | Edit | +40 (scope, org check, github_user_id storage) |
+| `apps/api/src/routes/auth.ts` | Edit | +35 (refresh recheck via user ID, password login org claim) |
+| `apps/api/src/middleware/auth.ts` | Edit | +20 |
+| `apps/api/src/services/packs.ts` | Edit | +80 (visibility+status guard, isPackOwnerAsync, publish gate) |
+| `apps/api/src/services/constructs.ts` | Edit | +55 (filter semantics, DTO visibility field) |
+| `apps/api/src/services/redis.ts` | Edit | +45 (owner bypass, list invalidation, fork parent invalidation) |
+| `apps/api/src/services/git-sync.ts` | Edit | +15 (visibility extraction, preservation guard) |
+| `apps/api/src/routes/constructs.ts` | Edit | +15 |
+| `apps/api/src/routes/packs.ts` | Edit | +40 (all slug routes: verification, ground-truth, signals, etc.) |
+| `apps/api/src/routes/webhooks.ts` | Edit | +8 (visibility + submission_source) |
+| `apps/api/src/config/env.ts` | Edit | +3 |
+| `.claude/schemas/construct.schema.json` | Edit | +8 (visibility enum in JSON Schema) |
+| `packages/shared/src/validation.ts` | Edit | +2 |
+| `packages/shared/src/types.ts` | Edit | +2 |
+| `scripts/seed-forge-packs.ts` | Edit | +12 |
+| `apps/explorer/lib/stores/auth-store.ts` | Edit | +5 |
+| `apps/explorer/lib/data/fetch-constructs.ts` | Edit | +15 |
+| `apps/explorer/components/*` | Edit | +20 |
+| `apps/explorer/app/(site)/constructs/[slug]/page.tsx` | Edit | +25 (auth-aware SSR loader) |
+| `apps/explorer/app/(site)/page.tsx` | Edit | +15 |
+| Migration SQL file | New | +25 |
+| Route regression test | New | +30 |
+| **Total** | | ~~551 lines |
 
 ---
 
-## 6. Risks & Mitigations
+## 13. Flatline SDD Review Log
 
-### R1: jq Availability
+**Reviewer**: Codex MCP (GPT-5.2)
+**Verdict**: NEEDS_REVISION → all 12 findings integrated
 
-**Risk**: `toon-lib.sh` requires `jq`.
-**Mitigation**: `jq` is already required by all constructs scripts. `constructs-lib.sh` checks for `jq` at load time. If missing, TOON encoding silently falls back to markdown.
+| Finding | Severity | Title | Resolution |
+|---------|----------|-------|------------|
+| F-001 | BLOCKER | Side-channel route bypasses | §7.2: Complete route inventory + regression test |
+| F-002 | BLOCKER | Central guard ignores status | §6.1: `getPackBySlug()` now checks `status` + visibility |
+| F-003 | BLOCKER | No external submission provenance | §2.2: `submission_source` enum + publish gate in §6.1.1 |
+| F-004 | HIGH | Cache miss for owner exceptions | §6.4: Owner requests bypass shared cache |
+| F-005 | HIGH | Incomplete cache invalidation | §6.4: Full invalidation matrix + list key scanning |
+| F-006 | HIGH | Team ownership not in canAccessPack | §6.1: `isPackOwnerAsync()` for team-aware checks |
+| F-007 | HIGH | List filtering underspecified | §6.3: Explicit per-mode filter semantics table |
+| F-008 | HIGH | Four-layer sync is really three | §3.4: Add visibility to JSON Schema |
+| F-009 | HIGH | Org status not across all auth paths | §4.3: Canonical source on user record, all paths read it |
+| F-010 | HIGH | Refresh recheck: mutable usernames | §4.4: Use `github_user_id` (stable), single fail-stale policy |
+| F-011 | HIGH | Rollout gap between sync and manifest | §11: Preservation guard + reordered phases |
+| F-012 | HIGH | Explorer DTO/SSR gaps | §8: DTO contract, naming convention, auth-aware SSR loader |
 
-### R2: Large Pack Listings
+---
 
-**Risk**: TOON output for 50+ packs could be long.
-**Mitigation**: Current markdown output is longer for the same data. TOON is strictly more compact.
-
-### R3: Config Parsing Overhead
-
-**Risk**: `get_output_format()` reads `.loa.config.yaml` on every tabular output call.
-**Mitigation**: `yq eval` is fast (~10ms). Only 2 integration points in MVP. Caching could be added later if needed.
-
-### R4: CTA Staleness
-
-**Risk**: Hardcoded CTA suggestions may become stale as commands change.
-**Mitigation**: CTAs reference core constructs commands that are stable. The protocol spec in `skill-cta.md` documents which commands are CTA-enabled. Dynamic CTAs from `golden_path.commands` are future scope.
+> **Sources**: PRD `grimoires/loa/prd.md`, session codebase research (exact function signatures, query patterns, and type definitions from all affected files), Codex Flatline PRD review findings, Codex Flatline SDD review findings

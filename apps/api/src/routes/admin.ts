@@ -25,6 +25,7 @@ import {
   sendPackApprovedEmail,
   sendPackRejectedEmail,
 } from '../services/email.js';
+import { invalidateConstructCaches } from '../services/redis.js';
 
 // --- Route Instance ---
 
@@ -652,6 +653,99 @@ adminRouter.post('/packs/:id/review', zValidator('json', reviewPackSchema), asyn
       body.decision === 'approved'
         ? 'Pack approved and published successfully'
         : 'Pack submission rejected',
+    request_id: requestId,
+  });
+});
+
+// --- Construct Review Routes (cycle-038) ---
+
+const constructReviewSchema = z.object({
+  action: z.enum(['approve', 'reject']),
+  reason: z.string().max(2000).optional(),
+});
+
+/**
+ * PATCH /v1/admin/constructs/:slug/review
+ * Review external construct submission by slug
+ * @see sdd.md §6.1.1 Admin Review + Publish Gate
+ */
+adminRouter.patch('/constructs/:slug/review', zValidator('json', constructReviewSchema), async (c) => {
+  const adminId = c.get('userId');
+  const requestId = c.get('requestId');
+  const slug = c.req.param('slug');
+  const body = c.req.valid('json');
+
+  // Find pack by slug
+  const [pack] = await db
+    .select()
+    .from(packs)
+    .where(eq(packs.slug, slug.toLowerCase()))
+    .limit(1);
+
+  if (!pack) {
+    throw Errors.NotFound('Construct not found');
+  }
+
+  // Only external submissions can be reviewed via this endpoint (cycle-038 provenance enforcement)
+  if (pack.submissionSource !== 'external') {
+    throw Errors.BadRequest('Only external submissions can be reviewed via this endpoint. Internal constructs use direct status management.');
+  }
+
+  // Only pending_review packs can be reviewed
+  if (pack.status !== 'pending_review') {
+    throw Errors.BadRequest(
+      `Cannot review construct in '${pack.status}' status. Only pending_review constructs can be reviewed.`
+    );
+  }
+
+  // Rejection requires reason
+  if (body.action === 'reject' && !body.reason) {
+    throw Errors.BadRequest('Reason is required when rejecting a submission');
+  }
+
+  const newStatus = body.action === 'approve' ? 'published' : 'rejected';
+
+  await db
+    .update(packs)
+    .set({
+      status: newStatus,
+      reviewedBy: adminId,
+      reviewedAt: new Date(),
+      reviewNotes: body.reason,
+      updatedAt: new Date(),
+    })
+    .where(eq(packs.id, pack.id));
+
+  // Invalidate caches using shared helper (prevents key namespace drift)
+  await invalidateConstructCaches(slug);
+
+  // Log audit event
+  await createAuditLog({
+    userId: adminId,
+    action: body.action === 'approve' ? 'admin.pack_approved' : 'admin.pack_rejected',
+    resourceType: 'pack',
+    resourceId: pack.id,
+    metadata: {
+      pack_slug: slug,
+      pack_name: pack.name,
+      action: body.action,
+      reason: body.reason,
+      submission_source: pack.submissionSource,
+    },
+  });
+
+  logger.info({ adminId, slug, action: body.action, newStatus, requestId }, 'Admin reviewed construct');
+
+  return c.json({
+    data: {
+      slug,
+      status: newStatus,
+      action: body.action,
+      reviewed_at: new Date().toISOString(),
+    },
+    message: body.action === 'approve'
+      ? 'Construct approved and published successfully'
+      : 'Construct submission rejected',
     request_id: requestId,
   });
 });

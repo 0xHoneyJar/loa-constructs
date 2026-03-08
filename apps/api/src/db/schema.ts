@@ -96,6 +96,26 @@ export const constructMaturityEnum = pgEnum('construct_maturity', [
 ]);
 
 /**
+ * Construct Visibility Enum — cycle-038
+ * @see prd.md §FR-1 Visibility Enum
+ * @see sdd.md §2.1 New Enum: construct_visibility
+ */
+export const constructVisibilityEnum = pgEnum('construct_visibility', [
+  'public',
+  'internal',
+  'unlisted',
+]);
+
+/**
+ * Pack Submission Source Enum — cycle-038
+ * @see sdd.md §2.2 — immutable after creation
+ */
+export const packSubmissionSourceEnum = pgEnum('pack_submission_source', [
+  'org_sync',
+  'external',
+]);
+
+/**
  * Graduation Request Status Enum
  * @see sdd.md §3.1.4 New Table: graduation_requests
  */
@@ -131,6 +151,14 @@ export const users = pgTable(
     ),
     payoutThresholdCents: integer('payout_threshold_cents').default(5000), // $50 minimum
     isAdmin: boolean('is_admin').default(false),
+
+    // GitHub org membership — cycle-038
+    // @see sdd.md §2.4 Users Table: Add Org Membership Columns
+    githubUsername: varchar('github_username', { length: 100 }),
+    githubUserId: bigint('github_user_id', { mode: 'number' }),
+    githubOrgMember: boolean('github_org_member').default(false),
+    githubOrgCheckedAt: timestamp('github_org_checked_at', { withTimezone: true }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },
@@ -138,6 +166,7 @@ export const users = pgTable(
     emailIdx: index('idx_users_email').on(table.email),
     stripeCustomerIdx: index('idx_users_stripe_customer').on(table.stripeCustomerId),
     oauthIdx: uniqueIndex('idx_users_oauth').on(table.oauthProvider, table.oauthId),
+    githubOrgIdx: index('idx_users_github_org').on(table.githubOrgMember),
   })
 );
 
@@ -513,6 +542,13 @@ export const packs = pgTable(
     isFeatured: boolean('is_featured').default(false),
     thjBypass: boolean('thj_bypass').default(false),
 
+    // Visibility control — cycle-038
+    // Source of truth: construct.yaml. Synced via git-sync/seed.
+    // @see sdd.md §2.3 Packs Table
+    visibility: constructVisibilityEnum('visibility').default('internal'),
+    // How this pack entered the network — immutable after creation
+    submissionSource: packSubmissionSourceEnum('submission_source').default('org_sync'),
+
     // Stats
     downloads: integer('downloads').default(0),
     ratingSum: integer('rating_sum').default(0),
@@ -554,6 +590,7 @@ export const packs = pgTable(
     sourceTypeIdx: index('idx_packs_source_type').on(table.sourceType),
     constructTypeIdx: index('idx_packs_construct_type').on(table.constructType),
     forkedFromIdx: index('idx_packs_forked_from').on(table.forkedFrom),
+    visibilityIdx: index('idx_packs_visibility').on(table.visibility, table.status),
     // GIN indexes for array search
     // @see sdd.md §3.1 Database Schema (cycle-007)
     searchKeywordsIdx: index('idx_packs_search_keywords').using('gin', table.searchKeywords),

@@ -419,6 +419,10 @@ export const packManifestSchema = z.object({
   // Construct icon (author-controlled identity)
   icon: z.string().max(10).optional(),
 
+  // Visibility control — cycle-038
+  // @see sdd.md §3.2 Layer 2: Zod Schema
+  visibility: z.enum(['public', 'internal', 'unlisted']).optional().default('internal'),
+
   // Drift reconciliation (SDD §3.4): meta_probe exists in JSON Schema but not Zod
   meta_probe: z.object({
     name: z.string(),

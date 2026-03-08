@@ -18,10 +18,10 @@ import {
   constructIdentities,
   constructVerifications,
 } from '../db/index.js';
-import { getRedis, isRedisConfigured, CACHE_KEYS, CACHE_TTL } from './redis.js';
+import { getRedis, isRedisConfigured, CACHE_KEYS, CACHE_TTL, getCacheVisibilityTier } from './redis.js';
 import { normalizeCategory } from './category.js';
 import { logger } from '../lib/logger.js';
-import { getLatestPackVersion } from './packs.js';
+import { getLatestPackVersion, canAccessPack, type PackAccessContext } from './packs.js';
 import { getLatestVersion as getLatestSkillVersion } from './skills.js';
 import type { ConstructManifest } from '../lib/manifest-validator.js';
 
@@ -73,6 +73,8 @@ export interface Construct {
   constructType: string;
   verificationTier: string;
   verifiedAt: Date | null;
+  // Visibility (cycle-038)
+  visibility: 'public' | 'internal' | 'unlisted';
   // Fork provenance (cycle-035)
   forkedFrom: { slug: string; name: string } | null;
   forkCount: number;
@@ -328,6 +330,7 @@ function skillToConstruct(
     constructType: 'skill-pack',
     verificationTier: 'UNVERIFIED',
     verifiedAt: null,
+    visibility: 'public',
     forkedFrom: null,
     forkCount: 0,
     skillProse: null,
@@ -418,6 +421,7 @@ function packToConstruct(
     constructType: pack.constructType || 'skill-pack',
     verificationTier: 'UNVERIFIED',
     verifiedAt: null,
+    visibility: (pack.visibility as 'public' | 'internal' | 'unlisted') ?? 'internal',
     // Fork provenance — populated by detail query, defaults for list
     forkedFrom: null,
     forkCount: 0,
@@ -434,6 +438,26 @@ function packToConstruct(
   };
 }
 
+/**
+ * Build SQL visibility conditions for pack list queries (cycle-038)
+ * Returns conditions that filter packs based on the caller's access level.
+ * - Anonymous: only 'public' packs
+ * - Org member / admin: 'public' + 'internal' + 'unlisted'
+ * - Authenticated non-member: 'public' + 'unlisted'
+ */
+function getVisibilityConditions(access?: PackAccessContext) {
+  if (!access) {
+    // Anonymous: public only
+    return [eq(packs.visibility, 'public')];
+  }
+  if (access.isAdmin || access.isOrgMember) {
+    // Org members and admins see everything
+    return [];
+  }
+  // Authenticated but not org member: public + unlisted
+  return [or(eq(packs.visibility, 'public'), eq(packs.visibility, 'unlisted')) ?? sql`true`];
+}
+
 // --- Core Functions ---
 
 /**
@@ -441,16 +465,18 @@ function packToConstruct(
  * @see prd-constructs-api.md FR-1.1: GET /v1/constructs
  */
 export async function listConstructs(
-  options: ListConstructsOptions = {}
+  options: ListConstructsOptions = {},
+  access?: PackAccessContext
 ): Promise<ListConstructsResult> {
   const { query, type, tier, category, featured, maturity, page = 1, limit = DEFAULT_PAGE_SIZE } = options;
   const pageSize = Math.min(Math.max(1, limit), MAX_PAGE_SIZE);
   const offset = (Math.max(1, page) - 1) * pageSize;
 
-  // Check cache for non-search queries
+  // Check cache for non-search queries — tier-segmented (cycle-038)
+  const visTier = getCacheVisibilityTier(access);
   const maturityKey = maturity ? maturity.sort().join(',') : '';
   const cacheKey = !query
-    ? CACHE_KEYS.constructList(`${type}:${tier}:${category}:${featured}:${maturityKey}:${page}:${pageSize}`)
+    ? CACHE_KEYS.constructList(`${visTier}:${type}:${tier}:${category}:${featured}:${maturityKey}:${page}:${pageSize}`)
     : null;
 
   if (cacheKey && isRedisConfigured()) {
@@ -487,7 +513,7 @@ export async function listConstructs(
     packsResult = await fetchPacksAsConstructs({
       query, tier, featured, maturity, constructType: type,
       limit: fetchLimit, offset: fetchOffset,
-    });
+    }, access);
   } else {
     // Legacy behavior: skill/pack/bundle routing
     const skillsPromise =
@@ -497,7 +523,7 @@ export async function listConstructs(
 
     const packsPromise =
       !type || type === 'pack'
-        ? fetchPacksAsConstructs({ query, tier, featured, maturity, limit: fetchLimit, offset: fetchOffset })
+        ? fetchPacksAsConstructs({ query, tier, featured, maturity, limit: fetchLimit, offset: fetchOffset }, access)
         : Promise.resolve({ items: [], count: 0 });
 
     [skillsResult, packsResult] = await Promise.all([skillsPromise, packsPromise]);
@@ -556,10 +582,16 @@ export async function listConstructs(
  * Get construct by slug (checks both packs and skills)
  * @see prd-constructs-api.md FR-1.2: GET /v1/constructs/:slug
  */
-export async function getConstructBySlug(slug: string): Promise<Construct | null> {
-  // Check cache
-  const cacheKey = CACHE_KEYS.constructDetail(slug);
-  if (isRedisConfigured()) {
+export async function getConstructBySlug(slug: string, access?: PackAccessContext): Promise<Construct | null> {
+  // Check cache — tier-segmented (cycle-038)
+  // Skip cache for 'auth' tier: owner-specific internal access is too user-specific
+  // to safely share. Caching under 'auth' would let non-owner authenticated users
+  // see cached internal packs via cache poisoning. Only 'anon' and 'member' are safe
+  // shared tiers. (GPT review FINDING-1)
+  const visTier = getCacheVisibilityTier(access);
+  const useCache = visTier !== 'auth';
+  const cacheKey = CACHE_KEYS.constructDetail(`${visTier}:${slug}`);
+  if (useCache && isRedisConfigured()) {
     try {
       const cached = await getRedis().get<Construct>(cacheKey);
       if (cached) {
@@ -571,9 +603,9 @@ export async function getConstructBySlug(slug: string): Promise<Construct | null
   }
 
   // Try packs first (more likely for constructs)
-  const pack = await fetchPackAsConstruct(slug);
+  const pack = await fetchPackAsConstruct(slug, access);
   if (pack) {
-    if (isRedisConfigured()) {
+    if (useCache && isRedisConfigured()) {
       try {
         await getRedis().set(cacheKey, JSON.stringify(pack), { ex: CACHE_TTL.constructDetail });
       } catch (error) {
@@ -586,7 +618,7 @@ export async function getConstructBySlug(slug: string): Promise<Construct | null
   // Then try skills
   const skill = await fetchSkillAsConstruct(slug);
   if (skill) {
-    if (isRedisConfigured()) {
+    if (useCache && isRedisConfigured()) {
       try {
         await getRedis().set(cacheKey, JSON.stringify(skill), { ex: CACHE_TTL.constructDetail });
       } catch (error) {
@@ -603,12 +635,13 @@ export async function getConstructBySlug(slug: string): Promise<Construct | null
  * Get summary (agent-optimized, minimal tokens)
  * @see prd-constructs-api.md FR-5.1: GET /v1/constructs/summary
  */
-export async function getConstructsSummary(): Promise<{
+export async function getConstructsSummary(access?: PackAccessContext): Promise<{
   constructs: ConstructSummary[];
   total: number;
   last_updated: string;
 }> {
-  const cacheKey = CACHE_KEYS.constructSummary();
+  const visTier = getCacheVisibilityTier(access);
+  const cacheKey = CACHE_KEYS.constructSummary(visTier);
   if (isRedisConfigured()) {
     try {
       const cached = await getRedis().get<{
@@ -624,8 +657,9 @@ export async function getConstructsSummary(): Promise<{
     }
   }
 
-  // Step 1: Fetch all published packs (no version JOIN)
+  // Step 1: Fetch all published packs with visibility filtering (cycle-038)
   // @see sdd.md §3.1 Batch Optimization - avoids N+1 queries
+  const visConditions = getVisibilityConditions(access);
   const packsData = await db
     .select({
       id: packs.id,
@@ -634,7 +668,7 @@ export async function getConstructsSummary(): Promise<{
       tierRequired: packs.tierRequired,
     })
     .from(packs)
-    .where(eq(packs.status, 'published'));
+    .where(and(eq(packs.status, 'published'), ...visConditions));
 
   if (packsData.length === 0) {
     const emptyResult = {
@@ -708,10 +742,13 @@ export async function getConstructsSummary(): Promise<{
  * Check if construct exists
  * @see prd-constructs-api.md FR-5.2: HEAD /v1/constructs/:slug
  */
-export async function constructExists(slug: string): Promise<boolean> {
-  // Check cache
-  const cacheKey = CACHE_KEYS.constructExists(slug);
-  if (isRedisConfigured()) {
+export async function constructExists(slug: string, access?: PackAccessContext): Promise<boolean> {
+  // Check cache — tier-segmented (cycle-038)
+  // Skip cache for 'auth' tier (same reasoning as getConstructBySlug)
+  const visTier = getCacheVisibilityTier(access);
+  const useCache = visTier !== 'auth';
+  const cacheKey = CACHE_KEYS.constructExists(`${visTier}:${slug}`);
+  if (useCache && isRedisConfigured()) {
     try {
       const cached = await getRedis().get<boolean>(cacheKey);
       if (cached !== null) {
@@ -722,15 +759,16 @@ export async function constructExists(slug: string): Promise<boolean> {
     }
   }
 
-  // Check packs first
+  // Check packs first — with visibility filtering (cycle-038)
+  const visConditions = getVisibilityConditions(access);
   const [pack] = await db
     .select({ id: packs.id })
     .from(packs)
-    .where(and(eq(packs.slug, slug), eq(packs.status, 'published')))
+    .where(and(eq(packs.slug, slug), eq(packs.status, 'published'), ...visConditions))
     .limit(1);
 
   if (pack) {
-    if (isRedisConfigured()) {
+    if (useCache && isRedisConfigured()) {
       try {
         await getRedis().set(cacheKey, JSON.stringify(true), { ex: CACHE_TTL.constructExists });
       } catch (error) {
@@ -749,7 +787,7 @@ export async function constructExists(slug: string): Promise<boolean> {
 
   const exists = !!skill;
 
-  if (isRedisConfigured()) {
+  if (useCache && isRedisConfigured()) {
     try {
       await getRedis().set(cacheKey, JSON.stringify(exists), { ex: CACHE_TTL.constructExists });
     } catch (error) {
@@ -877,8 +915,9 @@ async function fetchPacksAsConstructs(options: {
   constructType?: string;
   limit: number;
   offset: number;
-}): Promise<{ items: Construct[]; count: number; queryTerms?: string[] }> {
-  const conditions = [eq(packs.status, 'published')];
+}, access?: PackAccessContext): Promise<{ items: Construct[]; count: number; queryTerms?: string[] }> {
+  const visConditions = getVisibilityConditions(access);
+  const conditions = [eq(packs.status, 'published'), ...visConditions];
 
   if (options.constructType) {
     conditions.push(eq(packs.constructType, options.constructType));
@@ -984,7 +1023,7 @@ async function fetchPacksAsConstructs(options: {
   }
 }
 
-async function fetchPackAsConstruct(slug: string): Promise<Construct | null> {
+async function fetchPackAsConstruct(slug: string, access?: PackAccessContext): Promise<Construct | null> {
   try {
     const [pack] = await db
       .select()
@@ -993,6 +1032,9 @@ async function fetchPackAsConstruct(slug: string): Promise<Construct | null> {
       .limit(1);
 
     if (!pack) return null;
+
+    // Visibility enforcement (cycle-038)
+    if (!canAccessPack(pack, access)) return null;
 
     // Get the correct latest version using semver comparison
     const version = await getLatestPackVersion(pack.id);
@@ -1045,15 +1087,15 @@ async function fetchPackAsConstruct(slug: string): Promise<Construct | null> {
     construct.verificationTier = verificationTier;
     construct.verifiedAt = verifiedAt;
 
-    // Fork provenance — detail query only
+    // Fork provenance — detail query only, with visibility redaction (cycle-038)
     if (pack.forkedFrom) {
       try {
         const [parent] = await db
-          .select({ slug: packs.slug, name: packs.name })
+          .select({ slug: packs.slug, name: packs.name, visibility: packs.visibility, ownerId: packs.ownerId, ownerType: packs.ownerType, status: packs.status })
           .from(packs)
           .where(eq(packs.id, pack.forkedFrom))
           .limit(1);
-        if (parent) {
+        if (parent && canAccessPack(parent, access)) {
           construct.forkedFrom = { slug: parent.slug, name: parent.name };
         }
       } catch {

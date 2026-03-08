@@ -6,6 +6,7 @@ export interface User {
   name: string | null;
   role: string;
   emailVerified: boolean;
+  isOrgMember: boolean;
   createdAt: string;
 }
 

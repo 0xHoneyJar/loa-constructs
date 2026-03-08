@@ -13,6 +13,7 @@ import { getRS256SigningCredentials } from '../services/license.js';
 import {
   createPack,
   getPackBySlug,
+  getAccessContext,
   updatePack,
   isPackOwner,
   createPackVersion,
@@ -216,7 +217,7 @@ packsRouter.patch(
     const requestId = c.get('requestId');
 
     // Get pack
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }
@@ -284,7 +285,7 @@ packsRouter.post(
     }
 
     // Get pack
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }
@@ -400,7 +401,7 @@ packsRouter.post('/:slug/withdraw', requireAuth(), async (c) => {
   const requestId = c.get('requestId');
 
   // Get pack
-  const pack = await getPackBySlug(slug);
+  const pack = await getPackBySlug(slug, getAccessContext(c));
   if (!pack) {
     throw Errors.NotFound('Pack not found');
   }
@@ -455,7 +456,7 @@ packsRouter.get('/:slug/review-status', requireAuth(), async (c) => {
   const requestId = c.get('requestId');
 
   // Get pack
-  const pack = await getPackBySlug(slug);
+  const pack = await getPackBySlug(slug, getAccessContext(c));
   if (!pack) {
     throw Errors.NotFound('Pack not found');
   }
@@ -516,7 +517,7 @@ packsRouter.post(
     const requestId = c.get('requestId');
 
     // Get pack
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }
@@ -567,7 +568,7 @@ packsRouter.get('/:slug/versions', optionalAuth(), async (c) => {
   const slug = c.req.param('slug');
   const requestId = c.get('requestId');
 
-  const pack = await getPackBySlug(slug);
+  const pack = await getPackBySlug(slug, getAccessContext(c));
   if (!pack) {
     throw Errors.NotFound('Pack not found');
   }
@@ -609,7 +610,7 @@ packsRouter.post(
     const requestId = c.get('requestId');
 
     // Get pack
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }
@@ -618,6 +619,11 @@ packsRouter.post(
     const isOwner = await isPackOwner(pack.id, userId);
     if (!isOwner) {
       throw Errors.Forbidden('You are not the owner of this pack');
+    }
+
+    // cycle-038: Publish gate — block version uploads for pending_review external packs
+    if (pack.submissionSource === 'external' && pack.status === 'pending_review') {
+      throw Errors.Forbidden('Cannot upload versions while construct is pending review. Wait for admin approval.');
     }
 
     // Check if version already exists
@@ -778,7 +784,7 @@ packsRouter.post(
     const { git_url, git_ref } = c.req.valid('json');
 
     // Get pack
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }
@@ -895,7 +901,7 @@ packsRouter.post(
     const body = c.req.valid('json');
 
     // Get pack
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }
@@ -909,6 +915,11 @@ packsRouter.post(
     const isOwner = await isPackOwner(pack.id, userId);
     if (!isOwner) {
       throw Errors.Forbidden('Only pack owners can trigger sync');
+    }
+
+    // cycle-038: Block sync for pending_review external packs
+    if (pack.submissionSource === 'external' && pack.status === 'pending_review') {
+      throw Errors.Forbidden('Cannot sync while construct is pending review. Wait for admin approval.');
     }
 
     // Rate limit check: max 10 syncs per pack per hour
@@ -1024,6 +1035,8 @@ packsRouter.post(
           updatedAt: new Date(),
           ...(syncedConstructType && { constructType: syncedConstructType }),
           skillProse,
+          // cycle-038: always write visibility from manifest (defaults to 'internal')
+          visibility: syncResult.visibility,
         })
         .where(eq(packs.id, pack.id));
 
@@ -1104,7 +1117,7 @@ packsRouter.get('/:slug/download', optionalAuth(), async (c) => {
   const requestId = c.get('requestId');
 
   // Get pack
-  const pack = await getPackBySlug(slug);
+  const pack = await getPackBySlug(slug, getAccessContext(c));
   if (!pack) {
     throw Errors.NotFound('Pack not found');
   }
@@ -1481,7 +1494,7 @@ packsRouter.post(
     const requestId = c.get('requestId');
     const { rating, title, body } = c.req.valid('json');
 
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }
@@ -1534,7 +1547,7 @@ packsRouter.get('/:slug/reviews', async (c) => {
   const limit = Math.min(parseInt(c.req.query('limit') || '20', 10), 50);
   const offset = parseInt(c.req.query('offset') || '0', 10);
 
-  const pack = await getPackBySlug(slug);
+  const pack = await getPackBySlug(slug, getAccessContext(c));
   if (!pack) {
     throw Errors.NotFound('Pack not found');
   }
@@ -1570,7 +1583,7 @@ packsRouter.patch(
     const requestId = c.get('requestId');
     const { response } = c.req.valid('json');
 
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }
@@ -1603,7 +1616,7 @@ packsRouter.get(
     const slug = c.req.param('slug');
     const requestId = randomUUID();
 
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }
@@ -1647,7 +1660,7 @@ packsRouter.get(
     const userId = c.get('userId' as never) as string;
     const requestId = randomUUID();
 
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }
@@ -1700,7 +1713,7 @@ packsRouter.post(
     };
 
     // Check source exists
-    const sourcePack = await getPackBySlug(source_slug);
+    const sourcePack = await getPackBySlug(source_slug, getAccessContext(c));
     if (!sourcePack) {
       throw Errors.NotFound('Source pack not found');
     }
@@ -1759,7 +1772,7 @@ packsRouter.get(
     const slug = c.req.param('slug');
     const requestId = randomUUID();
 
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }
@@ -1844,7 +1857,7 @@ packsRouter.post(
     const requestId = randomUUID();
     const body = c.req.valid('json' as never) as z.infer<typeof verificationSchema>;
 
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }
@@ -1931,7 +1944,7 @@ packsRouter.get(
     const slug = c.req.param('slug');
     const requestId = randomUUID();
 
-    const pack = await getPackBySlug(slug);
+    const pack = await getPackBySlug(slug, getAccessContext(c));
     if (!pack) {
       throw Errors.NotFound('Pack not found');
     }

@@ -7,7 +7,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { requireAuth, optionalAuth } from '../middleware/auth.js';
-import { isPackOwner, getPackBySlug } from '../services/packs.js';
+import { isPackOwner, getPackBySlug, getAccessContext } from '../services/packs.js';
 import {
   createSignalOutcome,
   evaluateSignalOutcome,
@@ -47,8 +47,8 @@ const createShowcaseSchema = z.object({
 
 // --- Helper: Resolve pack from slug ---
 
-async function resolvePack(slug: string) {
-  const pack = await getPackBySlug(slug);
+async function resolvePack(slug: string, access?: import('../services/packs.js').PackAccessContext) {
+  const pack = await getPackBySlug(slug, access);
   if (!pack) throw Errors.NotFound('Pack');
   return pack;
 }
@@ -72,7 +72,7 @@ signalsRouter.post(
   async (c) => {
     const userId = c.get('userId' as never) as string;
     const slug = c.req.param('slug');
-    const pack = await resolvePack(slug);
+    const pack = await resolvePack(slug, getAccessContext(c));
 
     // Only pack owner can record signals
     const isOwner = await isPackOwner(pack.id, userId);
@@ -124,7 +124,7 @@ signalsRouter.patch(
     const user = c.get('user' as never) as { role?: string };
     const slug = c.req.param('slug');
     const outcomeId = c.req.param('id');
-    const pack = await resolvePack(slug);
+    const pack = await resolvePack(slug, getAccessContext(c));
 
     // Auth: pack owner or admin
     const isOwner = await isPackOwner(pack.id, userId);
@@ -168,7 +168,7 @@ signalsRouter.get(
   optionalAuth(),
   async (c) => {
     const slug = c.req.param('slug');
-    const pack = await resolvePack(slug);
+    const pack = await resolvePack(slug, getAccessContext(c));
 
     const page = parseInt(c.req.query('page') || '1', 10);
     const perPage = Math.min(parseInt(c.req.query('per_page') || '20', 10), 100);
@@ -192,7 +192,7 @@ signalsRouter.get(
   async (c) => {
     const userId = c.get('userId' as never) as string;
     const slug = c.req.param('slug');
-    const pack = await resolvePack(slug);
+    const pack = await resolvePack(slug, getAccessContext(c));
 
     const isOwner = await isPackOwner(pack.id, userId);
     if (!isOwner) {
@@ -220,7 +220,7 @@ signalsRouter.get(
   optionalAuth(),
   async (c) => {
     const slug = c.req.param('slug');
-    const pack = await resolvePack(slug);
+    const pack = await resolvePack(slug, getAccessContext(c));
 
     const report = await computeAccuracy(pack.id, slug);
     return c.json({ data: report });
@@ -239,7 +239,7 @@ signalsRouter.post(
   async (c) => {
     const userId = c.get('userId' as never) as string;
     const slug = c.req.param('slug');
-    const pack = await resolvePack(slug);
+    const pack = await resolvePack(slug, getAccessContext(c));
 
     // Rate limit
     const allowed = await checkShowcaseRateLimit(userId);
@@ -277,7 +277,7 @@ signalsRouter.patch(
     const user = c.get('user' as never) as { role?: string };
     const slug = c.req.param('slug');
     const showcaseId = c.req.param('id');
-    const pack = await resolvePack(slug);
+    const pack = await resolvePack(slug, getAccessContext(c));
 
     const isOwner = await isPackOwner(pack.id, userId);
     const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
@@ -314,7 +314,7 @@ signalsRouter.get(
   async (c) => {
     const userId = c.get('userId' as never) as string | undefined;
     const slug = c.req.param('slug');
-    const pack = await resolvePack(slug);
+    const pack = await resolvePack(slug, getAccessContext(c));
 
     const isOwner = userId ? await isPackOwner(pack.id, userId) : false;
 

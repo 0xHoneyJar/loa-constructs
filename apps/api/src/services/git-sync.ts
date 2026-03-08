@@ -70,6 +70,7 @@ export interface SyncResult {
   files: CollectedFile[];
   identity: IdentityData | null;
   totalSizeBytes: number;
+  visibility: 'public' | 'internal' | 'unlisted'; // cycle-038
 }
 
 export interface CollectedFile {
@@ -826,6 +827,13 @@ export async function syncFromRepo(
     // 6. Parse identity (if present)
     const identity = await parseIdentity(tmpDir);
 
+    // 7. Extract visibility (cycle-038)
+    const VALID_VISIBILITY = ['public', 'internal', 'unlisted'] as const;
+    const rawVisibility = manifest.visibility as string | undefined;
+    const visibility = rawVisibility && VALID_VISIBILITY.includes(rawVisibility as any)
+      ? (rawVisibility as typeof VALID_VISIBILITY[number])
+      : 'internal';
+
     logger.info(
       {
         version,
@@ -833,6 +841,7 @@ export async function syncFromRepo(
         fileCount: files.length,
         totalSizeBytes,
         hasIdentity: !!identity,
+        visibility,
       },
       'Sync complete'
     );
@@ -844,6 +853,7 @@ export async function syncFromRepo(
       files,
       identity,
       totalSizeBytes,
+      visibility,
     };
   } finally {
     // Always cleanup
