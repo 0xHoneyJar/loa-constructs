@@ -1540,7 +1540,7 @@ packsRouter.post(
  * List reviews for a construct. Public endpoint.
  * @see sprint.md T2.2: Review API Endpoints
  */
-packsRouter.get('/:slug/reviews', async (c) => {
+packsRouter.get('/:slug/reviews', optionalAuth(), async (c) => {
   const slug = c.req.param('slug');
   const requestId = c.get('requestId');
   const sort = (c.req.query('sort') || 'newest') as 'newest' | 'highest' | 'lowest';

@@ -95,8 +95,21 @@ async function findOrCreateOAuthUser(
   oauthId: string,
   email: string,
   name: string,
-  avatarUrl?: string
-): Promise<{ id: string; email: string; name: string; emailVerified: boolean; isNew: boolean }> {
+  avatarUrl?: string,
+  github?: { username: string; userId: number; isOrgMember?: boolean }
+): Promise<{ id: string; email: string; name: string; emailVerified: boolean; isNew: boolean; githubOrgMember: boolean }> {
+  // GitHub-specific fields for org membership tracking (cycle-038)
+  // When isOrgMember is undefined, the org check failed — preserve existing DB value.
+  const githubFields = github
+    ? {
+        githubUsername: github.username,
+        githubUserId: github.userId,
+        ...(github.isOrgMember !== undefined
+          ? { githubOrgMember: github.isOrgMember, githubOrgCheckedAt: new Date() }
+          : {}),
+      }
+    : {};
+
   // First, try to find by OAuth provider + ID
   const [existingOAuth] = await db
     .select({
@@ -104,13 +117,26 @@ async function findOrCreateOAuthUser(
       email: users.email,
       name: users.name,
       emailVerified: users.emailVerified,
+      githubOrgMember: users.githubOrgMember,
     })
     .from(users)
     .where(and(eq(users.oauthProvider, provider), eq(users.oauthId, oauthId)))
     .limit(1);
 
   if (existingOAuth) {
-    return { ...existingOAuth, emailVerified: existingOAuth.emailVerified ?? false, isNew: false };
+    // Update org membership on every login (it may have changed)
+    if (github) {
+      await db
+        .update(users)
+        .set({ ...githubFields, updatedAt: new Date() })
+        .where(eq(users.id, existingOAuth.id));
+    }
+    return {
+      ...existingOAuth,
+      emailVerified: existingOAuth.emailVerified ?? false,
+      githubOrgMember: github?.isOrgMember ?? existingOAuth.githubOrgMember ?? false,
+      isNew: false,
+    };
   }
 
   // Try to find by email and link accounts
@@ -120,13 +146,14 @@ async function findOrCreateOAuthUser(
       email: users.email,
       name: users.name,
       emailVerified: users.emailVerified,
+      githubOrgMember: users.githubOrgMember,
     })
     .from(users)
     .where(eq(users.email, email.toLowerCase()))
     .limit(1);
 
   if (existingEmail) {
-    // Link OAuth to existing account
+    // Link OAuth to existing account + update org membership
     await db
       .update(users)
       .set({
@@ -134,11 +161,17 @@ async function findOrCreateOAuthUser(
         oauthId: oauthId,
         emailVerified: true, // OAuth emails are verified
         avatarUrl: avatarUrl || existingEmail.email,
+        ...githubFields,
         updatedAt: new Date(),
       })
       .where(eq(users.id, existingEmail.id));
 
-    return { ...existingEmail, emailVerified: true, isNew: false };
+    return {
+      ...existingEmail,
+      emailVerified: true,
+      githubOrgMember: github?.isOrgMember ?? existingEmail.githubOrgMember ?? false,
+      isNew: false,
+    };
   }
 
   // Create new user
@@ -151,15 +184,22 @@ async function findOrCreateOAuthUser(
       oauthProvider: provider,
       oauthId: oauthId,
       emailVerified: true, // OAuth emails are considered verified
+      ...githubFields,
     })
     .returning({
       id: users.id,
       email: users.email,
       name: users.name,
       emailVerified: users.emailVerified,
+      githubOrgMember: users.githubOrgMember,
     });
 
-  return { ...newUser, emailVerified: newUser.emailVerified ?? false, isNew: true };
+  return {
+    ...newUser,
+    emailVerified: newUser.emailVerified ?? false,
+    githubOrgMember: newUser.githubOrgMember ?? false,
+    isNew: true,
+  };
 }
 
 // --- Routes ---
@@ -183,7 +223,7 @@ oauth.get('/github', async (c) => {
   const params = new URLSearchParams({
     client_id: env.GITHUB_CLIENT_ID,
     redirect_uri: redirectUri,
-    scope: 'user:email',
+    scope: 'user:email read:org',
     state,
   });
 
@@ -274,19 +314,59 @@ oauth.get('/github/callback', async (c) => {
       return c.redirect(`${getDashboardUrl()}/auth/login?error=oauth_no_email`);
     }
 
-    // Find or create user
+    // Check GitHub org membership (cycle-038)
+    // Distinguish "API confirmed not-member" from "API call failed" —
+    // on failure, returning users preserve their existing DB value.
+    let isOrgMember = false;
+    let orgCheckSucceeded = true;
+    try {
+      const orgResponse = await fetch(
+        `https://api.github.com/orgs/${env.CONSTRUCTS_ORG}/members/${githubUser.login}`,
+        {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+            Accept: 'application/json',
+          },
+        }
+      );
+      if (orgResponse.status === 204) {
+        // Confirmed member
+        isOrgMember = true;
+      } else if (orgResponse.status === 302 || orgResponse.status === 404) {
+        // Confirmed not member
+        isOrgMember = false;
+      } else {
+        // Transient/unknown failure (5xx, 429, etc.) — preserve existing DB value (GPT review F4)
+        orgCheckSucceeded = false;
+        logger.warn(
+          { status: orgResponse.status, userId: githubUser.id, requestId },
+          'GitHub org membership check returned non-authoritative status; preserving existing value'
+        );
+      }
+    } catch (orgErr) {
+      orgCheckSucceeded = false;
+      logger.warn({ error: orgErr, userId: githubUser.id, requestId }, 'Failed to check GitHub org membership');
+    }
+
+    // Find or create user — always pass github identity, but isOrgMember is
+    // undefined when the org check failed so returning users preserve their DB value.
     const user = await findOrCreateOAuthUser(
       'github',
       githubUser.id.toString(),
       email,
       githubUser.name || githubUser.login,
-      githubUser.avatar_url
+      githubUser.avatar_url,
+      {
+        username: githubUser.login,
+        userId: githubUser.id,
+        isOrgMember: orgCheckSucceeded ? isOrgMember : undefined,
+      }
     );
 
-    // Generate tokens
-    const tokens = await generateTokens(user.id, user.email);
+    // Generate tokens — pass org membership for visibility (cycle-038)
+    const tokens = await generateTokens(user.id, user.email, user.githubOrgMember);
 
-    logger.info({ userId: user.id, isNew: user.isNew, requestId }, 'GitHub OAuth successful');
+    logger.info({ userId: user.id, isNew: user.isNew, isOrgMember, requestId }, 'GitHub OAuth successful');
 
     // Redirect to dashboard with tokens in URL fragment (handled by client)
     const params = new URLSearchParams({
@@ -409,8 +489,8 @@ oauth.get('/google/callback', async (c) => {
       googleUser.picture
     );
 
-    // Generate tokens
-    const tokens = await generateTokens(user.id, user.email);
+    // Generate tokens — preserve org membership from prior GitHub link (cycle-038)
+    const tokens = await generateTokens(user.id, user.email, user.githubOrgMember);
 
     logger.info({ userId: user.id, isNew: user.isNew, requestId }, 'Google OAuth successful');
 

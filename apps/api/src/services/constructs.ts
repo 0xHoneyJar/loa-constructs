@@ -439,11 +439,12 @@ function packToConstruct(
 }
 
 /**
- * Build SQL visibility conditions for pack list queries (cycle-038)
- * Returns conditions that filter packs based on the caller's access level.
- * - Anonymous: only 'public' packs
- * - Org member / admin: 'public' + 'internal' + 'unlisted'
- * - Authenticated non-member: 'public' + 'unlisted'
+ * Build SQL visibility conditions for pack LIST/SEARCH queries (cycle-038)
+ * Unlisted packs are EXCLUDED from listings — they're accessible via direct slug only.
+ * - Anonymous: only 'public'
+ * - Org member / admin: 'public' + 'internal'
+ * - Authenticated non-member: 'public' only
+ * (GPT review F2: unlisted must not appear in listings)
  */
 function getVisibilityConditions(access?: PackAccessContext) {
   if (!access) {
@@ -451,11 +452,11 @@ function getVisibilityConditions(access?: PackAccessContext) {
     return [eq(packs.visibility, 'public')];
   }
   if (access.isAdmin || access.isOrgMember) {
-    // Org members and admins see everything
-    return [];
+    // Org members and admins: public + internal (unlisted excluded from listings)
+    return [or(eq(packs.visibility, 'public'), eq(packs.visibility, 'internal')) ?? sql`true`];
   }
-  // Authenticated but not org member: public + unlisted
-  return [or(eq(packs.visibility, 'public'), eq(packs.visibility, 'unlisted')) ?? sql`true`];
+  // Authenticated but not org member: public only
+  return [eq(packs.visibility, 'public')];
 }
 
 // --- Core Functions ---
@@ -759,15 +760,22 @@ export async function constructExists(slug: string, access?: PackAccessContext):
     }
   }
 
-  // Check packs first — with visibility filtering (cycle-038)
-  const visConditions = getVisibilityConditions(access);
+  // Check packs first — direct slug access uses canAccessPack (allows unlisted)
+  // instead of getVisibilityConditions (which excludes unlisted from listings).
+  // (GPT review F3)
   const [pack] = await db
-    .select({ id: packs.id })
+    .select({
+      id: packs.id,
+      visibility: packs.visibility,
+      ownerId: packs.ownerId,
+      ownerType: packs.ownerType,
+      status: packs.status,
+    })
     .from(packs)
-    .where(and(eq(packs.slug, slug), eq(packs.status, 'published'), ...visConditions))
+    .where(and(eq(packs.slug, slug), eq(packs.status, 'published')))
     .limit(1);
 
-  if (pack) {
+  if (pack && canAccessPack(pack, access)) {
     if (useCache && isRedisConfigured()) {
       try {
         await getRedis().set(cacheKey, JSON.stringify(true), { ex: CACHE_TTL.constructExists });
@@ -1017,8 +1025,17 @@ async function fetchPacksAsConstructs(options: {
       queryTerms: queryTerms.length > 0 ? queryTerms : undefined,
     };
   } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    // Re-throw structural DB errors (missing columns/tables) — these indicate
+    // a schema migration gap, not a transient failure. Silent swallowing here
+    // caused the registry to appear empty instead of surfacing the real error.
+    if (errMsg.includes('column') || errMsg.includes('does not exist') || errMsg.includes('relation')) {
+      logger.error({ error, context: 'fetchPacksAsConstructs' }, 'Schema error — missing migration?');
+      // Re-throw as a generic error to avoid leaking schema details to the client
+      throw new Error('Internal database configuration error');
+    }
     logger.error({ error, context: 'fetchPacksAsConstructs' }, 'Failed to fetch packs');
-    // Return empty result on error instead of throwing
+    // Return empty result on transient errors (timeouts, connection issues)
     return { items: [], count: 0 };
   }
 }
