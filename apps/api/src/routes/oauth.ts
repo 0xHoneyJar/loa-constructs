@@ -329,8 +329,20 @@ oauth.get('/github/callback', async (c) => {
           },
         }
       );
-      // 204 = member, 302/404 = not a member
-      isOrgMember = orgResponse.status === 204;
+      if (orgResponse.status === 204) {
+        // Confirmed member
+        isOrgMember = true;
+      } else if (orgResponse.status === 302 || orgResponse.status === 404) {
+        // Confirmed not member
+        isOrgMember = false;
+      } else {
+        // Transient/unknown failure (5xx, 429, etc.) — preserve existing DB value (GPT review F4)
+        orgCheckSucceeded = false;
+        logger.warn(
+          { status: orgResponse.status, userId: githubUser.id, requestId },
+          'GitHub org membership check returned non-authoritative status; preserving existing value'
+        );
+      }
     } catch (orgErr) {
       orgCheckSucceeded = false;
       logger.warn({ error: orgErr, userId: githubUser.id, requestId }, 'Failed to check GitHub org membership');

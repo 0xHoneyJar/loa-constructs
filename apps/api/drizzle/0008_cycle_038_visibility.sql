@@ -32,4 +32,8 @@ CREATE INDEX IF NOT EXISTS "idx_users_github_org" ON "users" ("github_org_member
 -- 5. Set existing org-synced packs to 'public'
 -- All packs currently in the DB were org-synced (seeded from 0xHoneyJar repos).
 -- The 'internal' default is for future external submissions pending review.
-UPDATE "packs" SET "visibility" = 'public' WHERE "visibility" = 'internal';
+-- Guard: only backfill rows created before migration epoch (2026-03-08) to prevent
+-- promoting future internal packs on re-run. (GPT review F1)
+UPDATE "packs" SET "visibility" = 'public'
+WHERE "visibility" = 'internal'
+  AND "created_at" < '2026-03-08T00:00:00Z'::timestamptz;

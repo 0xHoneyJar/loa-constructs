@@ -162,10 +162,8 @@ export const requireAuth = (): MiddlewareHandler => {
         const payload = await verifyAccessToken(token);
         user = await getUserById(payload.sub);
         authMethod = 'jwt';
-        // cycle-038: set org membership from JWT claim
-        if (user) {
-          user.isOrgMember = (payload as any).org ?? false;
-        }
+        // cycle-038: DB value from getUserById is authoritative over JWT claim
+        // (JWT org claim may be stale for up to 15min — Bridgebuilder FIND-002)
       } catch {
         throw Errors.InvalidToken();
       }
@@ -179,7 +177,7 @@ export const requireAuth = (): MiddlewareHandler => {
     c.set('user', user);
     c.set('userId', user.id);
     c.set('authMethod', authMethod);
-    c.set('isOrgMember', user.isOrgMember); // cycle-038
+    c.set('isOrgMember', user.isOrgMember); // cycle-038: from DB via getUserById
 
     await next();
   };
@@ -207,10 +205,7 @@ export const optionalAuth = (): MiddlewareHandler => {
           const payload = await verifyAccessToken(token);
           user = await getUserById(payload.sub);
           authMethod = 'jwt';
-          // cycle-038: set org membership from JWT claim
-          if (user) {
-            user.isOrgMember = (payload as any).org ?? false;
-          }
+          // cycle-038: DB value from getUserById is authoritative over JWT claim
         } catch {
           // Invalid token, continue without auth
         }

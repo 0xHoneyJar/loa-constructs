@@ -565,10 +565,10 @@ async function seedForgePacks() {
         const searchKeywords = pack.fullManifest?.keywords ?? [];
         const searchUseCases = pack.fullManifest?.domain ?? [];
 
-        // Org-synced packs are public by default; visibility can be overridden in construct.yaml
+        // Visibility deny-by-default: only explicit manifest opt-in makes a construct public (GPT review F5)
         const VALID_VISIBILITY = ['public', 'internal', 'unlisted'] as const;
         const rawVis = (pack.fullManifest as any)?.visibility;
-        const packVisibility = VALID_VISIBILITY.includes(rawVis) ? rawVis : 'public';
+        const packVisibility = VALID_VISIBILITY.includes(rawVis) ? rawVis : 'internal';
 
         const packResult = await tx`
           INSERT INTO packs (
