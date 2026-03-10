@@ -1012,3 +1012,41 @@ adminRouter.get('/analytics/packs', zValidator('query', analyticsQuerySchema), a
     recent_packs: recentPacks,
   });
 });
+
+/**
+ * GET /v1/admin/analytics/installs
+ * Daily bucketed install counts — cycle-040
+ */
+const installQuerySchema = z.object({
+  pack_id: z.string().uuid().optional(),
+  period: z.enum(['7d', '30d', '90d']).default('30d'),
+});
+
+adminRouter.get('/analytics/installs', zValidator('query', installQuerySchema), async (c) => {
+  const { pack_id: packId, period } = c.req.valid('query');
+
+  const days = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+
+  const conditions = [gte(packInstallations.createdAt, since)];
+  if (packId) {
+    conditions.push(eq(packInstallations.packId, packId));
+  }
+
+  const dailyCounts = await db
+    .select({
+      date: sql<string>`date_trunc('day', ${packInstallations.createdAt})::date::text`,
+      count: count(),
+    })
+    .from(packInstallations)
+    .where(and(...conditions))
+    .groupBy(sql`date_trunc('day', ${packInstallations.createdAt})`)
+    .orderBy(sql`date_trunc('day', ${packInstallations.createdAt})`);
+
+  return c.json({
+    period,
+    pack_id: packId ?? null,
+    buckets: dailyCounts,
+  });
+});
