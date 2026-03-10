@@ -21,6 +21,7 @@ export interface AuthUser {
   tier: 'free' | 'pro' | 'team' | 'enterprise';
   role?: 'user' | 'admin' | 'super_admin';
   isOrgMember: boolean; // cycle-038: GitHub org membership
+  walletAddress: string | null; // cycle-040: dashboard
 }
 
 // Type augmentation for Hono context
@@ -68,6 +69,7 @@ async function getUserById(userId: string): Promise<AuthUser | null> {
       emailVerified: users.emailVerified,
       isAdmin: users.isAdmin,
       githubOrgMember: users.githubOrgMember, // cycle-038
+      walletAddress: users.walletAddress, // cycle-040
     })
     .from(users)
     .where(eq(users.id, userId))
@@ -88,6 +90,7 @@ async function getUserById(userId: string): Promise<AuthUser | null> {
     tier: effectiveTier.tier,
     role: user.isAdmin ? 'admin' : 'user',
     isOrgMember: user.githubOrgMember ?? false, // cycle-038
+    walletAddress: user.walletAddress ?? null, // cycle-040
   };
 }
 

@@ -1,19 +1,20 @@
 'use client';
 
 /**
- * AuthNav — Header auth state island — cycle-039
- * @see sdd.md §6.3 AuthNav
+ * AuthNav — Header auth state island
+ * @see sdd.md §6.6 AuthNav
  *
  * primaryWallet from Dynamic SDK is the source of truth for connected state.
- * Auth store provides supplementary API-level auth (org membership).
+ * Auth store provides supplementary API-level auth (org membership, admin).
  */
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { DynamicConnectButton } from '@/components/auth/dynamic-connect-button';
 
 export function AuthNav() {
-  const { isOrgMember } = useAuthStore();
+  const { isOrgMember, isAuthenticated } = useAuthStore();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -26,6 +27,14 @@ export function AuthNav() {
 
   return (
     <div className="flex items-center gap-3">
+      {isAuthenticated && (
+        <Link
+          href="/dashboard"
+          className="font-mono text-[9px] text-bone-light/70 hover:text-bone-light border border-bone-light/20 hover:border-bone-light/40 px-1.5 py-0.5 uppercase tracking-wider transition-colors"
+        >
+          Dashboard
+        </Link>
+      )}
       {isOrgMember && (
         <span className="font-mono text-[9px] text-cyan-base/70 border border-cyan-base/20 px-1 py-0.5 uppercase tracking-wider">
           org

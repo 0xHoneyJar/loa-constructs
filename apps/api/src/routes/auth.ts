@@ -475,6 +475,8 @@ auth.get('/me', requireAuth(), async (c) => {
       name: user.name,
       email_verified: user.emailVerified,
       is_org_member: user.isOrgMember,
+      is_admin: user.role === 'admin',
+      wallet_address: user.walletAddress ?? null,
       tier: user.tier,
     },
   });
