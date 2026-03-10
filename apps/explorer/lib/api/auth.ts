@@ -1,4 +1,7 @@
-import { publicClient } from './client';
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.CONSTRUCTS_API_URL ||
+  'https://api.constructs.network/v1';
 
 export interface User {
   id: string;
@@ -10,51 +13,26 @@ export interface User {
   createdAt: string;
 }
 
-export interface AuthTokens {
-  access_token: string;
-  refresh_token: string;
-  expires_in: number;
-}
-
 export interface LoginRequest {
   email: string;
   password: string;
 }
 
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  name?: string;
-}
-
-export interface ResetPasswordRequest {
-  token: string;
-  password: string;
-}
-
-export async function loginApi(data: LoginRequest): Promise<AuthTokens> {
-  return publicClient.post<AuthTokens>('/auth/login', data);
-}
-
-export async function registerApi(data: RegisterRequest): Promise<{ message: string }> {
-  return publicClient.post<{ message: string }>('/auth/register', data);
-}
-
-export async function refreshTokenApi(refreshToken: string): Promise<AuthTokens> {
-  return publicClient.post<AuthTokens>('/auth/refresh', { refresh_token: refreshToken });
-}
-
-export async function logoutApi(accessToken: string): Promise<void> {
-  await publicClient.post<void>('/auth/logout', undefined, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-}
-
 export async function fetchMe(accessToken: string): Promise<User> {
-  const response = await publicClient.get<{ user: Record<string, unknown> }>('/auth/me', {
-    headers: { Authorization: `Bearer ${accessToken}` },
+  const response = await fetch(`${API_BASE}/auth/me`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
   });
-  const u = response.user;
+
+  if (!response.ok) {
+    throw new Error(`fetchMe failed: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  const u = data.user;
   return {
     id: u.id as string,
     email: u.email as string,
@@ -64,16 +42,4 @@ export async function fetchMe(accessToken: string): Promise<User> {
     isOrgMember: (u.is_org_member as boolean) ?? false,
     createdAt: (u.created_at as string) ?? new Date().toISOString(),
   };
-}
-
-export async function forgotPasswordApi(email: string): Promise<{ message: string }> {
-  return publicClient.post<{ message: string }>('/auth/forgot-password', { email });
-}
-
-export async function resetPasswordApi(data: ResetPasswordRequest): Promise<{ message: string }> {
-  return publicClient.post<{ message: string }>('/auth/reset-password', data);
-}
-
-export async function verifyEmailApi(token: string): Promise<{ message: string }> {
-  return publicClient.post<{ message: string }>('/auth/verify', { token });
 }

@@ -312,7 +312,7 @@ export default async function ConstructDetailPage({
       {/* Links */}
       <div className="flex gap-3 text-xs font-mono">
         <Link
-          href={`/${slug}`}
+          href="/explore"
           className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors"
         >
           View in graph →
