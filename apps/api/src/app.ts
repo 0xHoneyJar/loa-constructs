@@ -23,6 +23,7 @@ import { signalsRouter } from './routes/signals.js';
 import { constructsRouter } from './routes/constructs.js';
 import { categoriesRouter } from './routes/categories.js';
 import { adminRouter } from './routes/admin.js';
+import { keysRouter } from './routes/keys.js';
 import { publicKeysRouter } from './routes/public-keys.js';
 import { apiRateLimiter } from './middleware/rate-limiter.js';
 import { env } from './config/env.js';
@@ -143,6 +144,9 @@ v1.route('/constructs', constructsRouter);
 
 // Categories routes (taxonomy)
 v1.route('/categories', categoriesRouter);
+
+// API key management (cycle-040)
+v1.route('/keys', keysRouter);
 
 // Admin routes (requires admin role)
 v1.route('/admin', adminRouter);
