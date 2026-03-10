@@ -108,59 +108,41 @@ export function AuthAwareConstructList({ publicConstructs, children }: Omit<Auth
     );
   }
 
-  // Authenticated but not org member
+  // Authenticated but not org member — show public constructs with hint
   if (isAuthenticated && !isOrgMember) {
     return (
-      <div className="py-12">
-        <div className="flex flex-col items-center gap-4 max-w-md mx-auto text-center">
-          <div className="border border-void-border bg-void-raised px-6 py-4 w-full">
-            <p className="font-mono text-sm text-bone-base mb-2">
-              Link GitHub for internal access
-            </p>
-            <p className="font-mono text-xs text-bone-muted mb-4">
-              Connect your GitHub account and verify org membership to access all constructs.
-            </p>
-            <p className="font-mono text-[10px] text-bone-ghost">
-              GitHub org membership required
-            </p>
-          </div>
-        </div>
+      <>
         {publicConstructs.length > 0 && children}
-      </div>
+        <p className="mt-6 text-center font-mono text-[10px] text-bone-ghost tracking-whisper">
+          Link GitHub to access internal constructs
+        </p>
+      </>
     );
   }
 
-  // Not authenticated — show CTA
+  // Not authenticated, no public constructs
   if (publicConstructs.length === 0) {
     return (
-      <div className="py-12">
-        <div className="flex flex-col items-center gap-4 max-w-md mx-auto text-center">
-          <div className="border border-void-border bg-void-raised px-6 py-4 w-full">
-            <p className="font-mono text-sm text-bone-base mb-2">
-              Connect to explore constructs
-            </p>
-            <p className="font-mono text-xs text-bone-muted mb-4">
-              The Constructs Network is a gated registry. Connect your wallet to browse the full catalog.
-            </p>
-            <DynamicConnectButton label="Connect Wallet" />
-          </div>
-        </div>
+      <div className="py-12 text-center">
+        <p className="font-mono text-xs text-bone-ghost">
+          No public constructs available.
+        </p>
+        <p className="mt-3 font-mono text-[10px] text-bone-ghost tracking-whisper">
+          <span>Sign in to browse the full catalog.</span>{' '}
+          <DynamicConnectButton label="Sign in" className="text-[10px] text-cyan-dim hover:text-cyan-base" />
+        </p>
       </div>
     );
   }
 
-  // Has public constructs, show them with connect prompt
+  // Has public constructs, show them with subtle auth hint after list
   return (
     <>
-      <div className="mb-4 flex items-center justify-center">
-        <div className="border border-void-border bg-void-raised px-4 py-2 inline-flex items-center gap-3">
-          <p className="font-mono text-[11px] text-bone-muted">
-            Connect to see all constructs
-          </p>
-          <DynamicConnectButton label="Connect" />
-        </div>
-      </div>
       {children}
+      <p className="mt-6 text-center font-mono text-[10px] text-bone-ghost tracking-whisper">
+        <span>Sign in to see internal constructs</span>{' '}
+        <DynamicConnectButton label="Sign in" className="text-[10px] text-cyan-dim hover:text-cyan-base" />
+      </p>
     </>
   );
 }

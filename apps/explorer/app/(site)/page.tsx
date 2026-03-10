@@ -30,17 +30,15 @@ export default async function HomePage({
       {/* Hero — left-aligned, compact */}
       <section className="px-4 pt-16 pb-10 sm:pt-20 sm:pb-12">
         <div className="mx-auto max-w-4xl">
-          <div className="grid grid-cols-1 lg:grid-cols-[auto_1fr] gap-8 lg:gap-12 items-start">
-            <div>
-              <h1 className="font-display text-4xl sm:text-5xl uppercase tracking-display text-bone-bright leading-[0.95]">
-                Constructs
-              </h1>
-              <p className="mt-2 font-mono text-[10px] uppercase tracking-whisper text-cyan-dim">
-                The Open Agent Expertise Network
-              </p>
-            </div>
-            <p className="font-mono text-sm sm:text-base text-bone-muted leading-relaxed lg:pt-1">
-              Constructs are named expertise for AI coding agents. Install one with a single command — your agent gets identity, skills, and a way of seeing.
+          <div>
+            <h1 className="font-display text-4xl sm:text-5xl uppercase tracking-display text-bone-bright leading-[0.95]">
+              Constructs
+            </h1>
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-whisper text-cyan-dim">
+              The Open Agent Expertise Network
+            </p>
+            <p className="mt-4 font-mono text-sm text-bone-muted leading-relaxed max-w-lg">
+              Named expertise for AI agents. One command to install.
             </p>
           </div>
 
