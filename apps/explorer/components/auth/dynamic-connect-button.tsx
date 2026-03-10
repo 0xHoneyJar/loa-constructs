@@ -8,7 +8,7 @@
  * Dynamic JWT for our API JWT via connectDynamic().
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { useAuthStore } from '@/lib/stores/auth-store';
 
@@ -40,11 +40,14 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
     useDynamicContext();
   const { connectDynamic, clearTokens, isAuthenticated } = useAuthStore();
   const [isExchanging, setIsExchanging] = useState(false);
+  const exchangingRef = useRef(false);
 
   // Handle auth success — exchange Dynamic JWT for our API JWT
+  // Uses ref-based lock to prevent concurrent exchanges on rapid wallet changes
   const handleAuthSuccess = useCallback(async () => {
-    if (isAuthenticated) return;
+    if (isAuthenticated || exchangingRef.current) return;
 
+    exchangingRef.current = true;
     setIsExchanging(true);
     try {
       const dynamicJwt = await getAuthToken();
@@ -54,6 +57,7 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
     } catch {
       // Error handled in auth store
     } finally {
+      exchangingRef.current = false;
       setIsExchanging(false);
     }
   }, [getAuthToken, connectDynamic, isAuthenticated]);

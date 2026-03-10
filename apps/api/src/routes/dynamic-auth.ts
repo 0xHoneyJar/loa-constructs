@@ -18,8 +18,12 @@ import {
 import { Errors } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { env } from '../config/env.js';
+import { authRateLimiter } from '../middleware/rate-limiter.js';
 
 const dynamicAuth = new Hono();
+
+// Rate limit: 10 req/min per IP (same as /auth/login)
+dynamicAuth.use('*', authRateLimiter());
 
 /**
  * POST /v1/auth/dynamic
