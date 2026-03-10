@@ -8,6 +8,9 @@ const withBundleAnalyzer = bundleAnalyzer({
 const config: NextConfig = {
   reactStrictMode: true,
 
+  // Dynamic Labs SDK must be transpiled for Next.js — CJS/ESM hybrid
+  transpilePackages: ['@dynamic-labs/sdk-react-core'],
+
   // Optimize package imports for smaller bundles
   experimental: {
     optimizePackageImports: ['clsx', 'tailwind-merge', 'three', 'fuse.js', '@tanstack/react-query'],
