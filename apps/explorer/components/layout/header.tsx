@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { AuthNav } from './auth-nav';
 
 export function Header() {
   return (
@@ -24,6 +25,7 @@ export function Header() {
           <span className="hidden sm:inline font-mono text-[10px] text-bone-ghost border border-void-border px-1.5 py-0.5">
             &#8984;K
           </span>
+          <AuthNav />
         </nav>
       </div>
     </header>

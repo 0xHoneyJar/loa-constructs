@@ -37,6 +37,7 @@ export interface ConstructNode {
   rating?: number | null;
   hasIdentity?: boolean;
   verificationTier?: string;
+  visibility?: string;
   position?: {
     x: number;
     y: number;

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { GeistMono } from 'geist/font/mono';
 import localFont from 'next/font/local';
+import { DynamicProvider } from '@/components/providers/dynamic-provider';
 import './globals.css';
 
 const basementGrotesque = localFont({
@@ -70,7 +71,9 @@ export default function RootLayout({
       <body
         className={`${GeistMono.variable} ${basementGrotesque.variable} min-h-screen bg-background font-mono text-foreground antialiased`}
       >
-        {children}
+        <DynamicProvider>
+          {children}
+        </DynamicProvider>
       </body>
     </html>
   );

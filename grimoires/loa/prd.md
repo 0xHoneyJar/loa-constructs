@@ -1,48 +1,50 @@
-# PRD: Public/Private Network Separation
+# PRD: Dynamic Labs Auth + Internal Constructs Access
 
-**Cycle**: cycle-038
-**Created**: 2026-03-07
-**Status**: Reviewed (Flatline PRD passed — 12 findings integrated)
-**Context**: `grimoires/loa/context/public-private-network-separation.md`
+**Cycle**: cycle-039
+**Created**: 2026-03-09
+**Status**: Draft
+**Depends on**: cycle-038 (visibility system — merged PR #147)
+**Context**: `grimoires/loa/context/dynamic-labs-auth-integration.md`
 **Grounded in**:
-- `apps/api/src/db/schema.ts:474-562` (packs table — no visibility column)
-- `apps/api/src/services/constructs.ts` (listConstructs — no visibility filter)
-- `apps/api/src/routes/oauth.ts` (GitHub OAuth — no org membership check)
-- `apps/api/src/services/auth.ts` (JWT HS256 — no org claim)
-- `apps/api/src/middleware/auth.ts` (requireAuth, optionalAuth — no requireOrgMember)
-- `scripts/seed-forge-packs.ts` (auto-sync — all constructs become published/public)
-- `apps/api/src/services/git-sync.ts` (syncFromRepo — no visibility extraction)
-- `apps/explorer/lib/stores/auth-store.ts` (Zustand — no org membership state)
+- `apps/explorer/lib/api/auth.ts:53-57` (fetchMe — broken response parsing)
+- `apps/explorer/lib/data/fetch-constructs.ts:106` (ISR fetch — no auth token)
+- `apps/explorer/lib/stores/auth-store.ts:275-280` (setTokens — discards refresh token)
+- `apps/explorer/components/layout/header.tsx` (no login affordance)
+- `apps/api/src/routes/auth.ts:468-481` (/me response — wrapped + snake_case)
+- Ecosystem: `mcv-interface/components/web3-provider.tsx`, `midi-interface/lib/verify-jwt.ts`
 
 ---
 
 ## 1. Problem Statement
 
-The Construct Network has zero visibility control. Every construct in the `0xHoneyJar` GitHub org that follows the `construct-*` naming convention auto-syncs and appears publicly on `constructs.network`. This creates three problems that are now blocking distribution:
+After cycle-038 shipped the visibility system, the Constructs Network has two compounding failures:
 
-**P1: Internal constructs leak to external users.** Team-only tools (hardening, dynamic-auth, gtm-collective, webgl-particles) appear alongside public offerings on the marketplace. As we begin sharing constructs.network externally, users see internal development tooling mixed with polished, public-ready constructs.
+**P1: The leaderboard is broken.** 8 of 13 constructs are invisible. The seed script defaults `visibility` to `internal` when `construct.yaml` omits the field — and zero of the 13 construct repos declare it. The manual SQL backfill from cycle-038 is not persistent across re-seeds. Live API confirms only 5/13 constructs are public.
 
-**P2: No opt-in to public.** There is no mechanism for a construct author to say "this is ready for public consumption." The auto-sync pipeline treats all `construct-*` repos identically — synced and published. The only gating is the `status` field (draft/published), which controls lifecycle state, not audience.
+**P2: Team members cannot see internal constructs.** Even if a team member logs in via GitHub OAuth, three latent bugs prevent the auth-aware flow from working:
+- `fetchMe()` doesn't unwrap the `{ user: { is_org_member } }` response envelope or map snake_case fields — `isOrgMember` is always `false` client-side
+- The leaderboard and catalog are ISR server components that fetch without auth tokens — they can never show internal constructs
+- The OAuth callback discards the refresh token, so sessions die after 15 minutes
 
-**P3: No external submission path.** Non-org members have no way to publish constructs to the network. `POST /v1/constructs/register` exists but only reserves a slug — it does not clone, validate, or create a reviewable submission.
+**P3: No path to team-first access.** The explorer has no Dynamic Labs integration. The rest of the 0xHoneyJar ecosystem (mcv-interface, midi-interface, rektdrop, set-and-forgetti) uses Dynamic Labs for wallet-based auth. The explorer's GitHub+Google OAuth is disconnected from the ecosystem's auth identity. Team members who are wallet-native have no way to authenticate on constructs.network using the same identity they use everywhere else.
 
-> **Source**: Direct observation — session codebase research confirming `packs` table has no `visibility` column, `listConstructs()` filters only on `status='published'`, and GitHub OAuth stores no org membership.
+> **Sources**: Live API probe (5/13 public), codebase exploration of `apps/explorer/lib/api/auth.ts:53-57`, `apps/explorer/lib/data/fetch-constructs.ts:106`, `apps/explorer/app/(auth)/callback/page.tsx:30`, session interview confirming "all private" + Dynamic Labs preference.
 
 ---
 
 ## 2. Vision & Design Principles
 
-**Vision**: The Construct Network serves two audiences through one infrastructure — an internal registry for the team and a public marketplace for external developers. The boundary between them is a single field in `construct.yaml`.
+**Vision**: Constructs.network becomes a team-first, wallet-native developer platform. The registry is private by default — authenticated team members see the full construct library. The auth experience is consistent with the rest of the 0xHoneyJar ecosystem via Dynamic Labs. External access comes later, when constructs are ready.
 
-**Design Principles:**
+**Design Principles**:
 
-1. **Internal by default, public by intent** — org-synced constructs start `internal`. Authors opt into `public` explicitly via `construct.yaml`. Omitting the field = safe default.
+1. **Private by default** — All org-synced constructs are `internal`. The public leaderboard is intentionally gated. Nothing is public until explicitly opted in.
 
-2. **GitHub org = trust boundary** — org membership determines internal access. No separate ACL system, no custom invitation flow. GitHub already manages who's on the team.
+2. **Wallet-native, GitHub-verified** — Dynamic Labs provides the auth UX (wallet connect + social login). GitHub org membership remains the trust boundary for internal access. Users connect with wallet, link GitHub to prove org membership.
 
-3. **External = explicit submission** — third-party constructs enter through registration and review, not auto-discovery. The org namespace is not the only path.
+3. **Ecosystem consistency** — Same Dynamic Labs environment, same `connect-and-sign` flow, same provider nesting pattern as the product dApps. A team member who connects on midi.0xhoneyjar.xyz is recognizable on constructs.network.
 
-4. **Visibility is orthogonal to status** — a construct can be `published` (lifecycle-approved) and `internal` (team-only). These are independent dimensions.
+4. **Additive, not destructive** — Existing GitHub/Google OAuth continues working. Dynamic Labs is an additional auth provider. The API gains a new exchange endpoint without modifying existing auth routes.
 
 ---
 
@@ -52,185 +54,182 @@ The Construct Network has zero visibility control. Every construct in the `0xHon
 
 | Goal | Measure | Target |
 |------|---------|--------|
-| External users see only public constructs | Internal construct count in public API responses | 0 |
-| Internal team retains full access | Org members can discover+download internal constructs | 100% |
-| External authors can submit | At least one external construct published | Within 30 days of launch |
-| No accidental exposure | New constructs default to `internal` | 100% of auto-synced |
+| Team can access all constructs | Authenticated org member sees 13 constructs | 100% |
+| Anonymous leaderboard is gated | Unauthenticated request returns 0 constructs | 0 public |
+| Auth is ecosystem-consistent | Dynamic Labs connect works on constructs.network | Same flow as mcv/midi |
+| Session persistence | OAuth/Dynamic sessions survive refresh | >24h without re-auth |
 
 ### Non-Goals (Explicit)
 
-- **Dynamic Labs / wallet auth bridge** — deferred, no concrete use case yet
-- **Per-skill visibility within a construct** — adds complexity, recommend NO for v1
-- **SAML/SSO enterprise auth** — deferred to enterprise tier
-- **Real-time GitHub API checks on every request** — cached org membership is sufficient
+- **External construct submission** — deferred, no external authors expected yet
+- **On-chain operations on constructs.network** — no minting, staking, or claiming on the explorer
+- **Replacing existing GitHub/Google OAuth** — keep as fallback alongside Dynamic Labs
+- **Per-construct visibility management UI** — constructs are all internal for now; visibility is set in construct.yaml or DB
+- **Dynamic Labs cookie domain / auth proxy** — known ecosystem issue (mcv-interface#7), defer to proxy fix
 
 ---
 
 ## 4. User & Stakeholder Context
 
-### Persona 1: Internal Team Member
+### Persona 1: Team Member (Primary)
 
-**Who**: Developer on the `0xHoneyJar` GitHub org.
-**Has**: GitHub account, org membership, existing constructs.network account (or can create via GitHub OAuth).
-**Needs**: See all constructs (internal + public), develop and test constructs without exposing them externally.
-**Current pain**: No distinction — their WIP constructs are visible to the world.
+**Who**: Developer on the `0xHoneyJar` GitHub org with an existing wallet.
+**Has**: Dynamic Labs wallet identity (from mcv/midi/rektdrop), GitHub org membership.
+**Needs**: Single-click access to all 13 constructs on constructs.network.
+**Current pain**: Leaderboard shows 5 constructs. GitHub OAuth login doesn't propagate org membership to the client. OAuth sessions expire after 15 minutes.
+**Expected flow**: Visit constructs.network → click "Connect" → Dynamic Labs modal → wallet connect → link GitHub (if first time) → see all 13 constructs.
 
-### Persona 2: External Developer
+### Persona 2: External Visitor (Secondary)
 
-**Who**: Developer outside the org who wants to use or contribute constructs.
-**Has**: GitHub account (or email). May or may not have a constructs.network account.
-**Needs**: Browse public constructs, install them, optionally submit their own.
-**Current pain**: Sees internal tooling mixed with public offerings. Has no submission path.
-
-### Persona 3: THJ Product User (Deferred)
-
-**Who**: Berachain wallet holder who uses THJ dApps (rektdrop, midi, mcv).
-**Has**: Wallet via Dynamic Labs. No constructs.network account.
-**Interaction**: Consumes construct outputs through dApps, not through constructs.network directly.
-**When relevant**: If/when product users need direct construct access. Not v1.
-
-### Stakeholders
-
-- **@janitooor** — primary maintainer, PR reviewer, admin
-- **0xHoneyJar team** — internal construct authors
-- **External developers** — early adopters via constructs.network
+**Who**: Developer who discovers constructs.network from a link, tweet, or search.
+**Has**: No 0xHoneyJar org membership.
+**Needs**: Understand what the Constructs Network is, even if they can't browse the full registry.
+**Current pain**: Empty leaderboard with "No constructs found."
+**Expected flow**: Visit constructs.network → see hero section with description → leaderboard shows "Connect to explore" prompt → may connect wallet, sees 0 public constructs → understands this is a gated network.
 
 ---
 
 ## 5. Functional Requirements
 
-### FR-1: Visibility Enum
+### FR-1: Fix `fetchMe` Response Parsing (P0 — blocks everything)
 
-**Add `visibility` column to `packs` table with three values:**
+**File**: `apps/explorer/lib/api/auth.ts:53-57`
 
-| Value | Discovery | Download | Use Case |
-|-------|-----------|----------|----------|
-| `public` | Anyone | Anyone (respecting tier) | Production-ready external constructs |
-| `internal` | Authenticated org members only | Authenticated org members only | Team tools, WIP, sensitive |
-| `unlisted` | Nobody (direct slug access only) | Anyone with the slug | Beta sharing, specific audiences |
+The API `/auth/me` endpoint returns `{ user: { id, email, name, email_verified, is_org_member, tier } }`. The client's `fetchMe()` casts the raw response as `User` without unwrapping the envelope or mapping snake_case fields. This means `user.isOrgMember` is always `undefined` → `false`.
 
-**Default**: `internal` (safe — nothing leaks without explicit intent).
+**Acceptance Criteria**:
+- [ ] `fetchMe` unwraps `{ user: ... }` envelope
+- [ ] Maps `is_org_member` → `isOrgMember`, `email_verified` → `emailVerified`, etc.
+- [ ] Auth store `isOrgMember` reflects actual API value after login
+- [ ] Existing email/password and OAuth login flows continue working
 
-**Acceptance criteria:**
-- [ ] `construct_visibility` enum created in DB
-- [ ] `visibility` column added to `packs` with default `'internal'`
-- [ ] Composite index `(visibility, status)` created
-- [ ] Backfill: 9 public slugs (observer, artisan, crucible, beacon, protocol, herald, k-hole, the-easel, mibera-codex), 4 internal slugs (hardening, dynamic-auth, gtm-collective, webgl-particles) — **canonical list, no heuristics**
-- [ ] `constructVisibilityEnum` added to Drizzle schema
+### FR-2: Dynamic Labs Provider Setup
 
-### FR-2: Visibility in Construct.yaml
+**New file**: `apps/explorer/components/providers/dynamic-provider.tsx`
 
-**Authors declare visibility in their manifest:**
-
-```yaml
-visibility: public  # or 'internal' or 'unlisted'
-```
-
-**construct.yaml is the sole source of truth for visibility.** There is no DB override endpoint — visibility changes only via repo push + sync. This eliminates drift between manifest and DB state (FINDING-003).
-
-**Acceptance criteria:**
-- [ ] `visibility` field added to Zod `packManifestSchema` (optional, defaults to `'internal'`)
-- [ ] `visibility` field added to JSON Schema in `git-sync.ts` manifest validator (four-layer sync: DB enum ↔ Zod ↔ TS types ↔ JSON Schema)
-- [ ] Seed script reads `visibility` from construct.yaml during sync
-- [ ] `git-sync.ts` reads `visibility` from manifest and writes to DB
-- [ ] Omitted field defaults to `'internal'` in both sync paths
-- [ ] TypeScript types updated in `packages/shared`
-- [ ] `PackManifest` type in `packages/shared/src/types.ts` includes `visibility?: 'public' | 'internal' | 'unlisted'`
-
-### FR-3: GitHub Org Membership Check
-
-**On GitHub OAuth login, check `0xHoneyJar` org membership and cache the result.**
-
-**GitHub API contract:** Use `GET /user/memberships/orgs/{org}` (authenticated user's own membership) which returns `{ state: 'active' | 'pending', role: 'member' | 'admin' }`. Only `state: 'active'` grants org membership. API failure = treat as non-member (fail secure). Requires `read:org` scope on the user's OAuth token. (FINDING-012)
-
-**Acceptance criteria:**
-- [ ] GitHub OAuth scope updated: `user:email` → `user:email read:org`
-- [ ] `github_username`, `github_org_member`, `github_org_checked_at` columns added to `users`
-- [ ] Org membership checked via `GET /user/memberships/orgs/{org}` during OAuth callback; only `state: 'active'` = member
-- [ ] Result cached in DB; rechecked on login if stale (>24 hours)
-- [ ] `org: boolean` claim added to JWT access token payload
-- [ ] `GET /v1/auth/me` includes `isOrgMember` field
-- [ ] **Refresh token org recheck** (FINDING-004): On token refresh (`POST /v1/auth/refresh`), if `github_org_checked_at` is stale (>24h), recheck org membership before minting new access token. If user is no longer a member, mint token with `org: false`
-- [ ] **Existing user rollout** (FINDING-009): Existing GitHub-linked users get `github_org_member` backfilled to `false`. On next login, the new `read:org` scope triggers GitHub re-consent; org check runs and populates correctly. Users who don't re-login continue with `org: false` (safe default — they see only public constructs until re-auth)
-- [ ] **Org status is account-level** (FINDING-007): Once a user links GitHub OAuth and passes the org check, `github_org_member = true` persists on the account. Subsequent password or Google sessions on the same account inherit org access. This is intentional — the user proved org membership once, and the 24h recheck cycle handles revocation
-
-### FR-4: Visibility-Aware API Filtering — All Read Paths
-
-**Every endpoint that reads pack/construct data must enforce visibility, not just `/v1/constructs*`.**
-
-The following endpoint families must ALL check visibility (FINDING-001):
-
-| Route Family | Endpoints Affected |
-|---|---|
-| `/v1/constructs` | list, detail, summary, HEAD |
-| `/v1/packs/:slug` | detail, versions, download, verification, ground-truth |
-| `/v1/packs/:slug/fork` | fork source lookup (FINDING-006) |
-| Shared service | `getPackBySlug()` in `services/packs.ts` — add visibility check at service layer |
-
-**Visibility rules:**
+Install `@dynamic-labs/sdk-react-core@^4.61.3`, `@dynamic-labs/ethereum@^4.61.3`, `@dynamic-labs/wagmi-connector@^4.61.3`. Set up provider with ecosystem-consistent nesting:
 
 ```
-No auth         → WHERE visibility = 'public'
-Auth + org      → WHERE visibility IN ('public', 'internal')
-Auth + owner    → sees own constructs regardless of visibility
-Auth + admin    → sees all
+DynamicContextProvider
+  └── WagmiProvider
+        └── QueryClientProvider
+              └── DynamicWagmiConnector
+                    └── {children}
 ```
 
-**Acceptance criteria:**
-- [ ] `getPackBySlug()` in `services/packs.ts` enforces visibility check (single guard for all pack routes)
-- [ ] `listConstructs()` in `constructs.ts` adds visibility WHERE clause
-- [ ] `getConstruct()` returns 404 for `internal` constructs when viewer is not org member
-- [ ] `unlisted` constructs accessible by slug but excluded from listings
-- [ ] `/v1/constructs/summary` applies same visibility filter
-- [ ] `?visibility=internal` explicit filter param works (requires auth + org)
-- [ ] All `/v1/packs/:slug/*` sub-routes (download, versions, verification, HEAD) inherit visibility from the pack
-- [ ] Fork endpoint rejects forking internal/unlisted constructs by non-org members; fork provenance from non-public parents is redacted in public responses (FINDING-006)
-- [ ] Redis cache keys vary by visibility context (viewer auth hash) across ALL cache families: list, detail, summary, existence (FINDING-002)
-- [ ] Visibility changes (sync, toggle, status change) invalidate all affected cache key variants
+**Acceptance Criteria**:
+- [ ] `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` sourced from existing 0xHoneyJar environment
+- [ ] `initialAuthenticationMode: 'connect-and-sign'`
+- [ ] `walletConnectors: [EthereumWalletConnectors]`
+- [ ] Chain-agnostic (no chain overrides)
+- [ ] `multiInjectedProviderDiscovery: false` in wagmi config
+- [ ] Provider wraps app in root layout
+- [ ] `sdkHasLoaded` gate prevents flash before SDK initializes
 
-### FR-5: Org Membership Middleware
+### FR-3: API JWT Exchange Endpoint
 
-**New `requireOrgMember()` middleware for internal-only endpoints.**
+**New files**: `apps/api/src/routes/dynamic-auth.ts`, `apps/api/src/lib/verify-dynamic-jwt.ts`
 
-**Acceptance criteria:**
-- [ ] `requireOrgMember()` chains after `requireAuth()`
-- [ ] Reads `org` claim from JWT; returns 403 if false
-- [ ] `optionalAuth()` sets `c.set('isOrgMember', payload.org ?? false)` when token present
-- [ ] Construct listing endpoints use `optionalAuth()` + read org flag for filtering
+`POST /v1/auth/dynamic` — accepts Dynamic Labs JWT, returns our API JWT:
 
-### ~~FR-6: Visibility Toggle Endpoint~~ — REMOVED
+1. Verify JWT via JWKS at `https://app.dynamic.xyz/api/v0/sdk/<ENV_ID>/.well-known/jwks`
+2. Extract wallet address from `verified_credentials[0].address`
+3. Check for linked GitHub social account in JWT claims
+4. If GitHub linked → check org membership against `CONSTRUCTS_ORG`
+5. Find or create user in DB
+6. Return our API JWT with `org` claim
 
-**Removed per Flatline review FINDING-003.** construct.yaml is the sole source of truth for visibility. A DB toggle would create drift — the next webhook sync would revert it. To change visibility: update `construct.yaml` → push → webhook sync updates DB.
+**Acceptance Criteria**:
+- [ ] JWKS verification with 10min cache, RS256, 30s clock tolerance
+- [ ] Handles minified JWTs (no `verified_credentials` in payload)
+- [ ] Rejects tokens with `requiresAdditionalAuth` scope
+- [ ] Creates user with `wallet_address` if new
+- [ ] Links to existing user if wallet or GitHub match found
+- [ ] Returns standard `{ access_token, refresh_token, expires_in }` response
+- [ ] `org` claim in JWT reflects GitHub org membership (false if no GitHub linked)
+- [ ] Rate-limited to prevent JWT exchange abuse
 
-**Admin override path (emergency only):** Admins can still change `packs.visibility` directly via the admin API or DB console. This is intentionally NOT a first-class endpoint to prevent routine use.
+### FR-4: Explorer Auth Store Integration
 
-### FR-7: Explorer Visibility UI
+**Modify**: `apps/explorer/lib/stores/auth-store.ts`
 
-**Explorer shows/hides constructs based on auth state and org membership.**
+New action `connectDynamic(dynamicJwt: string)`:
+- POST to `/v1/auth/dynamic` with Dynamic JWT
+- Receive API JWT
+- Store access token in cookie
+- Set refresh token via HttpOnly cookie route handler
+- Call `fetchMe` to populate user state
 
-**Acceptance criteria:**
-- [ ] Unauthenticated visitors see only public constructs
-- [ ] Authenticated org members see public + internal with `INTERNAL` badge (amber pill)
-- [ ] Filter toggle: "Public / Internal / All" (only shown to org members)
-- [ ] Internal construct detail pages return 404 for unauthenticated visitors
-- [ ] Auth store (`auth-store.ts`) tracks `isOrgMember` from `/auth/me`
-- [ ] Search results respect visibility (auth token passed on API calls)
+**Acceptance Criteria**:
+- [ ] `connectDynamic` follows same token storage pattern as existing login
+- [ ] Auth state (`isAuthenticated`, `isOrgMember`, `user`) updates after Dynamic connect
+- [ ] Logout via Dynamic Labs SDK triggers `clearTokens`
+- [ ] 14-minute refresh interval works with Dynamic-obtained tokens
 
-### FR-8: External Construct Registration + Publish Lockdown
+### FR-5: Dynamic Connect Button
 
-**Complete the `POST /v1/constructs/register` endpoint for external submissions AND lock down existing publish paths that bypass review (FINDING-005).**
+**New file**: `apps/explorer/components/auth/dynamic-connect-button.tsx`
 
-**Acceptance criteria:**
-- [ ] Accepts `{ slug, gitUrl }` from authenticated user
-- [ ] Clones repo, validates `construct.yaml`, runs Zod schema validation
-- [ ] Creates construct with `status: 'pending_review'`, `visibility: 'public'`
-- [ ] Returns webhook setup instructions for ongoing sync
-- [ ] `PATCH /v1/admin/constructs/:slug/review` endpoint for admin approve/reject
-- [ ] Approved constructs become `status: 'published'`
-- [ ] **Publish gate hardening** (FINDING-005): All paths that can transition a pack to `status: 'published'` or create a downloadable version MUST check: if the pack was created via external registration (not org auto-sync), `status` must be `'published'` (admin-approved) before version upload or download is permitted. Specifically:
-  - `POST /v1/packs/:slug/versions` — reject if `status = 'pending_review'`
-  - `PATCH /v1/packs/:slug` status changes — admin-only for non-org packs
-  - `POST /v1/packs/:slug/sync` — reject if `status = 'pending_review'`
+Uses `useDynamicContext()` hook. On `onAuthSuccess`, gets JWT via `getAuthToken()`, calls `connectDynamic()`.
+
+**Acceptance Criteria**:
+- [ ] Opens Dynamic Labs modal on click
+- [ ] Handles auth success → exchanges JWT → populates store
+- [ ] Handles auth failure gracefully
+- [ ] Shows loading state during JWT exchange
+- [ ] Styled with void/bone/cyan design system
+
+### FR-6: Auth-Aware Leaderboard
+
+**New file**: `apps/explorer/components/constructs/auth-aware-construct-list.tsx`
+**Modify**: `apps/explorer/app/(site)/page.tsx`, `apps/explorer/app/(marketing)/constructs/page.tsx`
+
+Hybrid ISR + client-side auth overlay:
+
+| State | Display |
+|-------|---------|
+| Not authenticated | "Connect to explore constructs" CTA + Dynamic connect |
+| Authenticated, not org member | "Link GitHub to access internal constructs" prompt |
+| Authenticated, org member | Full construct list (13 constructs) |
+
+**Acceptance Criteria**:
+- [ ] ISR page renders immediately (may show 0 constructs)
+- [ ] Client component detects auth state and re-fetches with auth token
+- [ ] Org members see all 13 constructs with install counts and skills
+- [ ] "Internal" badge shown on internal constructs for org members
+- [ ] Smooth transition when auth state resolves (no layout shift)
+- [ ] Search still works for authenticated users
+
+### FR-7: Header Auth State
+
+**New file**: `apps/explorer/components/layout/auth-nav.tsx`
+**Modify**: `apps/explorer/components/layout/header.tsx`
+
+| State | Header Shows |
+|-------|-------------|
+| Not connected | "Connect" button |
+| Connected (wallet) | Truncated address, dashboard link |
+| Connected (org member) | Address + org badge, dashboard link |
+
+**Acceptance Criteria**:
+- [ ] Client component island in server component header
+- [ ] No hydration mismatch (renders placeholder during SSR)
+- [ ] Connect button opens Dynamic Labs modal
+- [ ] Org member indicator is subtle (matches design system)
+
+### FR-8: Fix OAuth Callback Refresh Token
+
+**New file**: `apps/explorer/app/api/auth/set-refresh/route.ts`
+**Modify**: `apps/explorer/app/(auth)/callback/page.tsx`
+
+The OAuth callback receives `refresh_token` in query params but `setTokens()` discards it. Create a route handler that sets the HttpOnly cookie.
+
+**Acceptance Criteria**:
+- [ ] Route handler validates refresh token (non-empty string)
+- [ ] Sets HttpOnly, Secure, SameSite=lax cookie with 7-day expiry
+- [ ] CSRF validation on POST
+- [ ] Callback page POSTs refresh token before calling `setTokens`
+- [ ] OAuth login sessions survive beyond 15 minutes
 
 ---
 
@@ -238,68 +237,60 @@ Auth + admin    → sees all
 
 ### NFR-1: Performance
 
-- Visibility filtering adds at most 1 index-assisted WHERE clause — no measurable query impact
-- Org membership cached in JWT (no per-request DB lookup)
-- Redis cache keys must include auth context hash to prevent serving internal constructs to public visitors
+- Dynamic Labs SDK lazy-loaded (not blocking initial page render)
+- ISR pages maintain <100ms TTFB for anonymous visitors
+- Auth overlay adds <200ms perceived latency for authenticated users
+- JWKS cache (10min) prevents per-request key fetches
 
 ### NFR-2: Security
 
-- **Org membership cache staleness**: Max 24h via DB cache. Refresh endpoint also rechecks if stale. Removed org members lose access within one refresh cycle (max 24h, typically faster). JWT `org` claim ensures no per-request DB lookup (FINDING-004)
-- **Unlisted ≠ secret**: Unlisted constructs are accessible by slug. They are "not advertised" not "access controlled." Do not store secrets in unlisted constructs
-- **Visibility downgrade**: Changing `public` → `internal` takes effect on next sync. ISR cache may show stale data (60s for list, 3600s for detail). Redis caches invalidated on sync
-- **External submissions**: Admin review required. No auto-approve for external repos. SSRF protections in `git-sync.ts` already cover the clone path. All publish paths locked down (FINDING-005)
-- **OAuth scope expansion**: `read:org` is a read-only scope — does not grant write access to the org
-- **Fork provenance**: Internal construct slugs are NOT exposed in fork provenance for public responses (FINDING-006)
+- Dynamic Labs JWT verification via JWKS (RS256, not shared secret)
+- Reject tokens with `requiresAdditionalAuth` scope
+- EVM addresses lowercased before storage (normalization)
+- No wallet addresses in error responses
+- Rate limiting on `/v1/auth/dynamic` (10 req/min per IP)
+- CSRF validation on all POST auth route handlers
+- HttpOnly cookies for refresh tokens (existing pattern)
 
-### NFR-3: Backwards Compatibility
+### NFR-3: Compatibility
 
-- Existing API consumers continue to work — unauthenticated requests see `public` constructs (previously all were effectively public)
-- No breaking change to `/v1/constructs` response shape — `visibility` is a new optional field
-- `construct.yaml` files without `visibility` field continue to validate (defaults to `internal`)
+- Existing GitHub/Google OAuth continues working unchanged
+- Existing email/password auth continues working unchanged
+- Dashboard routes continue using existing auth initializer
+- API backwards-compatible (no breaking changes to existing endpoints)
 
-### NFR-4: Data Integrity
+### NFR-4: Dependencies
 
-- **Four-layer** schema sync must be maintained (FINDING-011): DB enum ↔ Zod (`packManifestSchema`) ↔ TypeScript types (`PackManifest`) ↔ JSON Schema/AJV in `git-sync.ts`
-- Migration must be idempotent (safe to re-run)
-- Backfill must use explicit slug list (see §9 canonical table), not heuristics
-
-### NFR-5: Team Ownership (FINDING-010)
-
-- `isPackOwner()` in `services/packs.ts` currently returns `false` for team-owned packs. The "owner sees own constructs" rule in FR-4 must work for both user-owned and team-owned constructs
-- Team admin/owner of a construct's owning team should have the same visibility permissions as individual owners
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `@dynamic-labs/sdk-react-core` | `^4.61.3` | Core SDK |
+| `@dynamic-labs/ethereum` | `^4.61.3` | EVM wallet connectors |
+| `@dynamic-labs/wagmi-connector` | `^4.61.3` | wagmi integration |
+| `jwks-rsa` | latest | JWKS key fetching (API) |
 
 ---
 
 ## 7. Scope & Prioritization
 
-### MVP (Sprints 1-2)
+### MVP (This Cycle)
 
-| # | Feature | Priority |
-|---|---------|----------|
-| FR-1 | Visibility enum + schema | P0 |
-| FR-2 | Visibility in construct.yaml | P0 |
-| FR-3 | GitHub org membership check | P0 |
-| FR-4 | Visibility-aware API filtering | P0 |
-| FR-5 | Org membership middleware | P0 |
-| ~~FR-6~~ | ~~Visibility toggle endpoint~~ — REMOVED | — |
-| FR-7 | Explorer visibility UI | P1 |
+| Priority | Feature | FR | Effort |
+|----------|---------|-----|--------|
+| P0 | Fix `fetchMe` response parsing | FR-1 | 30min |
+| P0 | Dynamic Labs provider setup | FR-2 | 1h |
+| P0 | API JWT exchange endpoint | FR-3 | 2h |
+| P0 | Auth store + connect button | FR-4, FR-5 | 1h |
+| P1 | Auth-aware leaderboard | FR-6 | 2h |
+| P1 | Header connect button | FR-7 | 1h |
+| P2 | Fix OAuth refresh token | FR-8 | 1h |
 
-### Post-MVP (Sprint 3+)
+### Future (Not This Cycle)
 
-| # | Feature | Priority |
-|---|---------|----------|
-| FR-8 | External construct registration | P2 |
-| — | CLI publish (`npx constructs publish`) | P3 |
-| — | Dynamic Labs / SIWE auth bridge | P4 |
-| — | Admin review dashboard UI | P3 |
-
-### Explicit Out of Scope
-
-- Per-skill visibility within a construct
-- SAML/SSO enterprise auth
-- Wallet-based authentication
-- Private visibility (owner-only) — `draft` status covers this case
-- Real-time GitHub org membership checks (cached is sufficient)
+- Wallet allowlist for org membership (bypass GitHub linking)
+- Dynamic Labs auth proxy / cookie domain fix (ecosystem-wide issue)
+- External submission pipeline with construct review
+- Per-construct visibility management in dashboard
+- Artisan-designed auth theming (Creative Autonomy — may ship alongside)
 
 ---
 
@@ -309,125 +300,42 @@ Auth + admin    → sees all
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| GitHub org API rate limits | Low | Medium | Cache for 24h; recheck on refresh only when stale |
-| OAuth scope change requires re-consent | Medium | Low | Users re-auth once; non-re-authed users default to `org: false` (safe) |
-| Cache poisoning (internal constructs served to public) | Low | High | Cache keys vary by auth context hash across all 4 cache families |
-| ISR stale data after visibility change | Medium | Low | 60s list TTL, 3600s detail TTL; Redis invalidated on sync |
-| `/v1/packs/*` bypass routes | Medium | High | Single visibility guard in `getPackBySlug()` service layer |
-| Publish path bypass for external submissions | Medium | High | All version/publish paths check `status != 'pending_review'` |
-| Refresh token extends org access beyond removal | Medium | Medium | Org recheck on refresh when stale >24h |
+| Dynamic Labs SDK bundle size bloats explorer | Medium | Medium | Lazy-load via `next/dynamic`, measure with `@next/bundle-analyzer` |
+| JWKS endpoint downtime blocks all Dynamic auth | Low | High | Cache keys aggressively (10min), fallback to existing OAuth |
+| Minified JWTs missing wallet address | Medium | Medium | Management API fallback (requires `DYNAMIC_AUTH_TOKEN` env var) |
+| Existing 0xHoneyJar Dynamic env missing GitHub social config | Low | High | Verify in Dynamic dashboard before implementation |
 
-### Dependencies
+### External Dependencies
 
-| Dependency | Type | Status |
-|------------|------|--------|
-| Supabase Postgres | Infrastructure | Available — migration path is standard Drizzle |
-| GitHub OAuth (existing) | Integration | Working — scope expansion needed |
-| Redis (Upstash) | Infrastructure | Available — cache key format change needed |
-| 12 construct repos | External | PRs needed to add `visibility` field to construct.yaml |
-
-### Decisions to Validate
-
-1. **Public construct list at launch**: observer, artisan, crucible, beacon, protocol, herald, k-hole, the-easel, mibera-codex = public. hardening, dynamic-auth, gtm-collective, webgl-particles = internal. `construct-base` = **recommend public** (template for external authors).
-
-2. **External submission review model**: Admin-only review for v1. No auto-approve. This can be relaxed later with verified publisher tiers.
+| Dependency | Owner | Risk |
+|-----------|-------|------|
+| Dynamic Labs dashboard (GitHub social login enabled) | @janitooor | Must verify before Step 3 |
+| `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` value | @janitooor | Source from existing product dApp env |
+| `DYNAMIC_AUTH_TOKEN` for minified JWT fallback | @janitooor | Optional — only needed for edge case |
 
 ---
 
-## 9. Construct.yaml Backfill Plan
+## 9. Org Membership Model
 
-Across the 12 seeded construct repos, add `visibility` field:
+Dynamic Labs supports social account linking. The org membership gate:
 
-| Construct | Visibility | Rationale |
-|-----------|-----------|-----------|
-| observer | `public` | Core offering — user research automation |
-| artisan | `public` | Design system — broad appeal |
-| crucible | `public` | Testing — broad appeal |
-| beacon | `public` | Analytics — broad appeal |
-| protocol | `public` | Web3 protocol integration — broad appeal |
-| herald | `public` | Release management — broad appeal |
-| k-hole | `public` | Deep research — flagship construct |
-| the-easel | `public` | Design engineering — broad appeal |
-| mibera-codex | `public` | Knowledge base — community value |
-| hardening | `internal` | Security tooling — team-only |
-| dynamic-auth | `internal` | Auth patterns — team-specific |
-| gtm-collective | `internal` | GTM workflow — team-specific |
-| webgl-particles | `internal` | Experimental — not production-ready |
+| Auth Method | Org Check | Internal Access |
+|---|---|---|
+| GitHub (via Dynamic social login) | Check 0xHoneyJar org membership | Yes if member |
+| Wallet only | No GitHub linked | No — prompted to link |
+| Wallet + GitHub linked | Check org via linked GitHub | Yes if member |
 
----
+### User Table Extensions
 
-## 10. Implementation Sequence
-
-### Sprint 1: Schema + Auth + API (Backend Foundation)
-
-**DB migrations** (FR-1, FR-3):
-1. `construct_visibility` enum + `visibility` column on `packs`
-2. `github_username`, `github_org_member`, `github_org_checked_at` on `users`
-3. Indexes + canonical backfill (9 public, 4 internal)
-
-**Auth changes** (FR-3, FR-5):
-4. GitHub OAuth scope → `user:email read:org`
-5. Org membership check in OAuth callback via `/user/memberships/orgs/{org}`
-6. `org` claim in JWT access token
-7. Org recheck on token refresh if stale >24h
-8. `requireOrgMember()` middleware
-9. `/auth/me` includes `isOrgMember`
-
-**API changes** (FR-4):
-10. Visibility guard in `getPackBySlug()` service layer (single guard for all pack routes)
-11. Visibility filtering in `listConstructs()` and `getConstruct()`
-12. `/v1/constructs/summary` visibility gate
-13. Fork provenance redaction for non-public parents
-14. Cache key variation by auth context across all cache families
-15. Fix `isPackOwner()` for team-owned packs (NFR-5)
-
-**Sync changes** (FR-2):
-16. Four-layer schema update (DB + Zod + TS + JSON Schema)
-17. Seed script + git-sync visibility extraction
-
-### Sprint 2: Explorer UI + Construct Repo PRs
-
-**Explorer** (FR-7):
-18. Auth store org membership from `/auth/me`
-19. Visibility badges + filter toggle
-20. Detail page access control (404 for internal when unauthenticated)
-21. Search visibility awareness
-
-**Construct repos** (FR-2):
-22. PRs to add `visibility` field across 13 repos (12 seeded + construct-base as public template)
-
-### Sprint 3: External Submission + Publish Lockdown (FR-8)
-
-23. Complete registration endpoint with clone + validate
-24. Admin review endpoint (approve/reject)
-25. Webhook setup instructions in registration response
-26. Publish gate hardening — lock version upload and sync for `pending_review` packs
+```sql
+ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_address varchar(42);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS dynamic_user_id varchar(100);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wallet ON users (wallet_address) WHERE wallet_address IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_dynamic ON users (dynamic_user_id) WHERE dynamic_user_id IS NOT NULL;
+```
 
 ---
 
-*"The network is two networks — one that we share, one that we ship. The gate between them is a single word in a YAML file."*
+## Next Step
 
----
-
-## Appendix: Flatline PRD Review Log
-
-**Reviewer**: Codex (GPT-based, read-only sandbox)
-**Date**: 2026-03-07
-**Findings**: 12 total (5 BLOCKER, 4 HIGH, 2 MEDIUM, 1 LOW)
-
-| ID | Severity | Summary | Resolution |
-|----|----------|---------|------------|
-| FINDING-001 | BLOCKER | `/v1/packs/*` routes bypass visibility | Fixed: FR-4 expanded to cover all pack read paths via `getPackBySlug()` guard |
-| FINDING-002 | BLOCKER | Cache poisoning across all cache families | Fixed: FR-4 acceptance criteria requires auth-context-varied cache keys for all 4 families |
-| FINDING-003 | BLOCKER | Source-of-truth contradiction (YAML vs DB toggle) | Fixed: FR-6 REMOVED. construct.yaml is sole source of truth |
-| FINDING-004 | BLOCKER | Refresh token bypasses org staleness check | Fixed: FR-3 adds org recheck on token refresh when stale >24h |
-| FINDING-005 | BLOCKER | Existing publish paths bypass review gate | Fixed: FR-8 adds publish gate hardening for all version/status paths |
-| FINDING-006 | HIGH | Fork rules missing for internal constructs | Fixed: FR-4 adds fork provenance redaction for non-public parents |
-| FINDING-007 | HIGH | Org status account-level vs session-level ambiguity | Fixed: FR-3 explicitly declares account-level org status |
-| FINDING-008 | HIGH | Migration slug list inconsistent | Fixed: FR-1 backfill uses canonical 9+4 slug list |
-| FINDING-009 | HIGH | Existing user rollout plan missing | Fixed: FR-3 defines backfill + re-consent behavior |
-| FINDING-010 | MEDIUM | `isPackOwner()` false for team-owned packs | Fixed: NFR-5 added |
-| FINDING-011 | MEDIUM | Four-layer schema sync, not three | Fixed: NFR-4 updated to four layers |
-| FINDING-012 | LOW | GitHub API endpoint semantics underspecified | Fixed: FR-3 specifies `/user/memberships/orgs/{org}` with `state: 'active'` check |
-
-> **Sources**: `grimoires/loa/context/public-private-network-separation.md`, session codebase research (auth stack, DB schema, API surface, auto-sync pipeline), `grimoires/loa/context/ecosystem-brand-origins.md` (wallet identity context)
+`/architect` to create Software Design Document based on this PRD.

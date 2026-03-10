@@ -8,6 +8,7 @@ import { maintenanceMode } from './middleware/maintenance.js';
 import { health } from './routes/health.js';
 import { auth } from './routes/auth.js';
 import { oauth } from './routes/oauth.js';
+import { dynamicAuth } from './routes/dynamic-auth.js';
 import { subscriptionsRouter } from './routes/subscriptions.js';
 import { webhooksRouter } from './routes/webhooks.js';
 import { skillsRouter } from './routes/skills.js';
@@ -102,6 +103,7 @@ v1.route('/health', health);
 // Authentication routes
 v1.route('/auth', auth);
 v1.route('/auth/oauth', oauth);
+v1.route('/auth/dynamic', dynamicAuth);
 
 // Subscription routes
 v1.route('/subscriptions', subscriptionsRouter);

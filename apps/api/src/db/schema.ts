@@ -159,6 +159,11 @@ export const users = pgTable(
     githubOrgMember: boolean('github_org_member').default(false),
     githubOrgCheckedAt: timestamp('github_org_checked_at', { withTimezone: true }),
 
+    // Dynamic Labs auth — cycle-039
+    // @see sdd.md §4.1 Migration: wallet_address + dynamic_user_id
+    walletAddress: varchar('wallet_address', { length: 42 }),
+    dynamicUserId: varchar('dynamic_user_id', { length: 100 }),
+
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
   },

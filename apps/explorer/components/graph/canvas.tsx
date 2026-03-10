@@ -8,6 +8,11 @@ interface GraphCanvasProps {
   children: ReactNode;
 }
 
+// R3F intrinsic elements via createElement — avoids JSX.IntrinsicElements + React 18/19 type conflicts
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const r3f = (tag: string, props: Record<string, unknown>): any => createElement(tag, props);
+
+
 export function GraphCanvas({ children }: GraphCanvasProps) {
   return (
     <Canvas
@@ -35,16 +40,9 @@ export function GraphCanvas({ children }: GraphCanvasProps) {
           RIGHT: 2,
         }}
       />
-      {/* Clean balanced lighting */}
-      {createElement('ambientLight', { intensity: 0.5 })}
-      {createElement('directionalLight', {
-        position: [5, 5, 5],
-        intensity: 0.8
-      })}
-      {createElement('pointLight', {
-        position: [-5, -5, 5],
-        intensity: 0.3
-      })}
+      {r3f('ambientLight', { intensity: 0.5 })}
+      {r3f('directionalLight', { position: [5, 5, 5], intensity: 0.8 })}
+      {r3f('pointLight', { position: [-5, -5, 5], intensity: 0.3 })}
       {children}
     </Canvas>
   );

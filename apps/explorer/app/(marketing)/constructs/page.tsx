@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { fetchAllConstructs, searchConstructs } from '@/lib/data/fetch-constructs';
 import { CatalogSearch } from './catalog-search';
+import { AuthAwareConstructList } from '@/components/constructs/auth-aware-construct-list';
 
 export const revalidate = 3600; // ISR: revalidate every hour
 
@@ -77,55 +78,66 @@ export default async function ConstructsCatalogPage({
         </div>
       )}
 
-      {/* Grid */}
-      {filtered.length === 0 ? (
-        <p className="text-sm font-mono text-bone-ghost py-12 text-center">
-          No constructs found.
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-void-border">
-          {filtered.map((construct) => (
-            <Link
-              key={construct.id}
-              href={`/constructs/${construct.slug}`}
-              className="bg-void-base p-5 hover:bg-void-raised transition-colors group"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-bold text-bone-base group-hover:text-bone-bright transition-colors">
-                    {construct.icon && <span className="mr-1.5">{construct.icon}</span>}
-                    {construct.name}
-                  </span>
-                  {construct.constructType !== 'skill-pack' && (
-                    <span className="border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-mono text-violet-400">
-                      {construct.constructType.replace(/-/g, ' ')}
-                    </span>
-                  )}
-                  {construct.verificationTier === 'PROVEN' && (
-                    <span className="border border-green-500/30 bg-green-500/10 px-1.5 py-0.5 text-[9px] font-mono text-green-400">
-                      proven
-                    </span>
-                  )}
-                </div>
-                <span className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost mt-0.5">
-                  {construct.skillsCount > 0 && `${construct.skillsCount}s`}
-                </span>
-              </div>
-              <p className="font-mono text-xs text-bone-muted line-clamp-2 mb-4 leading-relaxed">
-                {construct.shortDescription}
+      {/* Auth-aware construct grid — cycle-039 */}
+      <AuthAwareConstructList publicConstructs={filtered}>
+        {(displayConstructs) => (
+          <>
+            {displayConstructs.length === 0 ? (
+              <p className="text-sm font-mono text-bone-ghost py-12 text-center">
+                No constructs found.
               </p>
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
-                  {construct.category}
-                </span>
-                <span className="font-mono text-[10px] text-bone-ghost">
-                  {construct.downloads.toLocaleString()} installs
-                </span>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-void-border">
+                {displayConstructs.map((construct) => (
+                  <Link
+                    key={construct.id}
+                    href={`/constructs/${construct.slug}`}
+                    className="bg-void-base p-5 hover:bg-void-raised transition-colors group"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-bold text-bone-base group-hover:text-bone-bright transition-colors">
+                          {construct.icon && <span className="mr-1.5">{construct.icon}</span>}
+                          {construct.name}
+                        </span>
+                        {construct.constructType !== 'skill-pack' && (
+                          <span className="border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-mono text-violet-400">
+                            {construct.constructType.replace(/-/g, ' ')}
+                          </span>
+                        )}
+                        {construct.visibility === 'internal' && (
+                          <span className="border border-cyan-base/30 bg-cyan-base/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan-base">
+                            internal
+                          </span>
+                        )}
+                        {construct.verificationTier === 'PROVEN' && (
+                          <span className="border border-green-500/30 bg-green-500/10 px-1.5 py-0.5 text-[9px] font-mono text-green-400">
+                            proven
+                          </span>
+                        )}
+                      </div>
+                      <span className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost mt-0.5">
+                        {construct.skillsCount > 0 && `${construct.skillsCount}s`}
+                      </span>
+                    </div>
+                    <p className="font-mono text-xs text-bone-muted line-clamp-2 mb-4 leading-relaxed">
+                      {construct.shortDescription}
+                    </p>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
+                        {construct.category}
+                      </span>
+                      <span className="font-mono text-[10px] text-bone-ghost">
+                        {construct.downloads.toLocaleString()} installs
+                      </span>
+                    </div>
+                  </Link>
+                ))}
               </div>
-            </Link>
-          ))}
-        </div>
-      )}
+            )}
+          </>
+        )}
+      </AuthAwareConstructList>
     </div>
   );
 }
