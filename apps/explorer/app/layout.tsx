@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { GeistMono } from 'geist/font/mono';
 import localFont from 'next/font/local';
 import { DynamicProvider } from '@/components/providers/dynamic-provider';
+import { ConvexProvider } from '@/components/providers/convex-provider';
 import './globals.css';
 
 const basementGrotesque = localFont({
@@ -72,7 +73,9 @@ export default function RootLayout({
         className={`${GeistMono.variable} ${basementGrotesque.variable} min-h-screen bg-background font-mono text-foreground antialiased`}
       >
         <DynamicProvider>
-          {children}
+          <ConvexProvider>
+            {children}
+          </ConvexProvider>
         </DynamicProvider>
       </body>
     </html>

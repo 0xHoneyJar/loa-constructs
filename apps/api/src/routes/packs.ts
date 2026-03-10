@@ -1297,6 +1297,23 @@ packsRouter.get('/:slug/download', optionalAuth(), async (c) => {
     await trackDownloadAttribution(pack.id, userId, version.id, 'install');
   }
 
+  // cycle-040: Fire-and-forget webhook to explorer BFF for live Convex feed
+  if (process.env.CONVEX_WEBHOOK_URL) {
+    fetch(process.env.CONVEX_WEBHOOK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.CONVEX_WRITE_KEY}`,
+      },
+      body: JSON.stringify({
+        packSlug: pack.slug,
+        packName: pack.name,
+        action: 'install',
+        timestamp: new Date().toISOString(),
+      }),
+    }).catch(() => {}); // Non-blocking, non-fatal
+  }
+
   logger.info(
     {
       userId: userId || 'anonymous',
