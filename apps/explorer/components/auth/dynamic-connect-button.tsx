@@ -40,8 +40,10 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
     useDynamicContext();
   const { connectDynamic, clearTokens, isAuthenticated } = useAuthStore();
   const [isExchanging, setIsExchanging] = useState(false);
+  const [exchangeFailed, setExchangeFailed] = useState(false);
   const [sdkTimedOut, setSdkTimedOut] = useState(false);
   const exchangingRef = useRef(false);
+  const attemptRef = useRef(0);
 
   // Timeout: if SDK hasn't loaded after 5s, stop showing the loading state
   useEffect(() => {
@@ -51,31 +53,51 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
   }, [sdkHasLoaded]);
 
   // Handle auth success — exchange Dynamic JWT for our API JWT
-  // Uses ref-based lock to prevent concurrent exchanges on rapid wallet changes
+  // Uses attempt ID to prevent stale async completions from clobbering state
   const handleAuthSuccess = useCallback(async () => {
-    if (isAuthenticated || exchangingRef.current) return;
+    if (!primaryWallet || isAuthenticated || exchangingRef.current) return;
 
+    const attemptId = ++attemptRef.current;
+    const walletAtStart = primaryWallet.address;
     exchangingRef.current = true;
     setIsExchanging(true);
+    setExchangeFailed(false);
+
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
     try {
       const dynamicJwt = getAuthToken();
-      if (dynamicJwt) {
-        await connectDynamic(dynamicJwt);
+      if (!dynamicJwt) {
+        if (attemptId === attemptRef.current) setExchangeFailed(true);
+        return;
+      }
+      const timeout = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Exchange timeout')), 10_000);
+      });
+      await Promise.race([connectDynamic(dynamicJwt), timeout]);
+
+      // Wallet changed during exchange — invalidate
+      if (!primaryWallet || primaryWallet.address !== walletAtStart) {
+        clearTokens();
+        if (attemptId === attemptRef.current) setExchangeFailed(true);
       }
     } catch {
-      // Error handled in auth store
+      if (attemptId === attemptRef.current) setExchangeFailed(true);
     } finally {
-      exchangingRef.current = false;
-      setIsExchanging(false);
+      if (timeoutId) clearTimeout(timeoutId);
+      if (attemptId === attemptRef.current) {
+        exchangingRef.current = false;
+        setIsExchanging(false);
+      }
     }
-  }, [connectDynamic, isAuthenticated]);
+  }, [connectDynamic, clearTokens, isAuthenticated, primaryWallet]);
 
-  // Watch for wallet connection to trigger JWT exchange
+  // Watch for wallet connection to trigger JWT exchange — only once, not on failure
   useEffect(() => {
-    if (primaryWallet && !isAuthenticated && !isExchanging) {
+    if (primaryWallet && !isAuthenticated && !isExchanging && !exchangeFailed) {
       handleAuthSuccess();
     }
-  }, [primaryWallet, isAuthenticated, isExchanging, handleAuthSuccess]);
+  }, [primaryWallet, isAuthenticated, isExchanging, exchangeFailed, handleAuthSuccess]);
 
   const handleClick = () => {
     setShowAuthFlow(true);
@@ -103,6 +125,18 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
       >
         <span aria-hidden="true" className="inline-block h-3 w-3 animate-spin rounded-full border-b border-cyan-base mr-1.5" />
         Connecting...
+      </button>
+    );
+  }
+
+  if (exchangeFailed && primaryWallet) {
+    return (
+      <button
+        type="button"
+        onClick={() => { setExchangeFailed(false); handleAuthSuccess(); }}
+        className={`font-mono text-[11px] text-bone-muted hover:text-bone-base transition-colors px-2 py-1 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-base/40 ${className ?? ''}`}
+      >
+        Retry
       </button>
     );
   }
