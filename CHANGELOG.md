@@ -5,6 +5,93 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] — 2026-03-10 — Dynamic Labs auth + internal constructs access
+
+
+- **Dynamic Labs wallet auth** integrated into constructs.network (matching 0xHoneyJar ecosystem pattern)
+- **Auth-aware leaderboard**: anonymous visitors see gated CTA, authenticated org members see all 13 internal constructs
+- **P0 fix**: `fetchMe` response parsing — `isOrgMember` was always false due to missing envelope unwrap + snake_case mapping
+- **P3 fix**: OAuth callback refresh token loss — now stored via HttpOnly cookie route handler
+
+### Added
+
+- **cycle-039**: Dynamic Labs auth + internal constructs access (#152)
+- cycle-038 public/private network separation
+- cycle-038 public/private network separation
+- construct sync infrastructure — CI workflow, webhook setup, repo ID tracking
+- skills.sh-inspired leaderboard homepage with prominent search
+- strip navbar to logo + about — skills.sh minimal
+- Basement Grotesque display font, unified navbar, Cmd+K search, left-aligned hero
+- transpose rektdrop OKLCH chromatic engine onto constructs.network
+- homepage hero, catalog search, CLI install with symlinks
+- discovery workflow + ISR for all explorer pages
+- standalone constructs CLI + seed safety fixes
+- seed identity data into construct_identities table
+- namespace auto-discovery — construct-* repos self-announce to registry
+- construct-template → construct-base rename + explorer copy overhaul
+- escape velocity — strategy, deep research, construct health check
+- **hounfour**: add Gemini 3.1 Pro support for Flatline protocol
+- **sprint-4**: integration test, CI lint, protocol docs (#425 #426 #427 #430)
+- **sprint-3**: timeout consolidation & migration (#427)
+- **sprint-2**: verdict centralization & flatline readiness (#427 #430)
+- **sprint-1**: curl guard, error surfacing, YAML regex fix (#425 #426 #427)
+- **sprint-4**: adaptive intelligence + ecosystem design — cycle-047
+- **sprint-3**: shared library extraction — findings-lib + compliance-lib
+- **sprint-2**: constitutional architecture — governance + lifecycle + lore
+- **sprint-1**: verification + defensive hardening — cycle-047
+- **sprint-4**: Governance Lore + Compliance Generalization
+- **sprint-3**: pipeline self-review — the review system examines itself
+- **sprint-2**: deliberative council — prior findings in Red Team gate
+- **sprint-1**: code quality polish — 6 bridge LOW findings resolved
+- **cycle-045/sprint-3**: Observability + backward compat verification
+- **cycle-045/sprint-2**: Red Team code-vs-design gate
+- **cycle-045/sprint-1**: Gemini verification + state schema wiring
+- **cycle-045**: Review Pipeline Hardening — PRD, SDD, Sprint Plan
+- **dx**: surface agent-native output features in /loa status and example config
+- **cycle-044**: Bridgebuilder Design Review — Pre-Implementation Architectural Intelligence (#428)
+
+### Fixed
+
+- add mibera-codex to seed, prefer construct.yaml, add file allowlist
+- add GitHub token auth to git-sync for private repo cloning
+- include error details in webhook sync response
+- default sync to hardcoded list — GITHUB_TOKEN can't list org repos
+- remove pnpm version pin — use packageManager field
+- use pnpm workspace install for sync CI
+- install seed script deps in sync workflow
+- phase 5 — remove pricing page, clean sitemap
+- phase 4 — graph edges, model_preferences, composesWith links
+- phase 3 — leaderboard badges, header nav, remaining CSS class bugs
+- consolidate routes, search routing, CSS class bugs across explorer
+- bazaar diagnostic — seed pipeline, search, identity layer, CSS
+- auth page branding + faster ISR revalidation
+- unify API surface — signals/showcases now served at /v1/constructs/:slug
+- schema tolerance for informal constructs + graph edge computation
+- **lib**: rename SCRIPT_DIR to prefixed vars in all lib/ files (#432)
+- **update-loa**: add BUTTERFREEZONE.md merge=ours + Phase 5.3 content-replacement detection (#439)
+- **mount**: address bridgebuilder review findings
+- **mount**: handle curl-pipe execution where BASH_SOURCE is unset
+- **ci**: resolve 3 CI failures in PR #435
+- **bridge-2**: guard perl fork() against undef return
+- **bridge-1**: address Bridgebuilder review findings
+- **ci**: configure git identity for BATS test suite
+- **ci**: add continuous_learning directory paths to config
+- **ci**: regenerate stale constraint hashes
+- **ci**: sync README version badge with CHANGELOG (1.49.0)
+- **ci**: sync fixtures and exclude test JSON from validator
+- **ci**: resolve 3 pre-existing CI failures
+- **bridge-iter2**: address Bridgebuilder review findings
+- **cycle-046**: address Bridgebuilder review findings from bridge iter 1
+- **sprint-3**: address review/audit findings — jq filter, config gate, dot escaping, SDD map coverage
+- **sprint-2**: expand prior findings keywords for auditor SEC-NNN headers
+- **sprint-1**: POSIX-portable awk fence stripping — \s → [[:space:]]
+- **cycle-045**: address Bridgebuilder review findings (bridge iter 1)
+- **cycle-045**: address audit findings SEC-001 and SEC-004
+- **cycle-045**: address review findings F-001 through F-004
+
+_Source: PR #152_
+
+
 ## [2.9.0] - 2026-02-28
 
 ### Why This Release
