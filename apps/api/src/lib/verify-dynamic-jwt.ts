@@ -56,15 +56,28 @@ function getJWKS(): ReturnType<typeof createRemoteJWKSet> {
  * @throws Error if verification fails or token requires additional auth
  */
 export async function verifyDynamicJWT(token: string): Promise<DynamicJWTPayload> {
+  const envId = process.env.DYNAMIC_ENVIRONMENT_ID;
+  if (!envId) {
+    throw new Error('DYNAMIC_ENVIRONMENT_ID environment variable is required');
+  }
+
+  const expectedIssuer = `https://app.dynamic.xyz/${envId}`;
+
   const { payload } = await jwtVerify(token, getJWKS(), {
     clockTolerance: 30,
     algorithms: ['RS256'],
+    issuer: expectedIssuer,
+    audience: envId,
   });
 
   // Reject tokens that require additional authentication steps
   const scopes = (payload as Record<string, unknown>).scopes as string[] | undefined;
   if (scopes?.includes('requiresAdditionalAuth')) {
     throw new Error('Additional authentication required');
+  }
+
+  if (!payload.sub || typeof payload.sub !== 'string') {
+    throw new Error('JWT missing valid sub claim');
   }
 
   return payload as unknown as DynamicJWTPayload;

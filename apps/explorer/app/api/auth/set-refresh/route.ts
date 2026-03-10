@@ -7,14 +7,22 @@ import { NextRequest, NextResponse } from 'next/server';
  * @see sdd.md §6.5 OAuth Refresh Fix
  */
 export async function POST(request: NextRequest) {
-  // CSRF: validate Origin header
+  // CSRF: validate Origin header (mandatory for cookie-setting endpoints)
   const origin = request.headers.get('origin');
-  const allowedOrigins = [
+  const allowedOrigins = new Set([
     'https://constructs.network',
     'https://www.constructs.network',
-  ];
-  if (process.env.NODE_ENV === 'production' && origin && !allowedOrigins.includes(origin) && !origin.endsWith('.vercel.app')) {
+    ...(process.env.NODE_ENV !== 'production' ? ['http://localhost:3000', 'http://localhost:3001'] : []),
+  ]);
+
+  if (!origin || !allowedOrigins.has(origin)) {
     return NextResponse.json({ error: 'Invalid origin' }, { status: 403 });
+  }
+
+  // Block cross-site requests via Sec-Fetch-Site
+  const secFetchSite = request.headers.get('sec-fetch-site');
+  if (secFetchSite === 'cross-site') {
+    return NextResponse.json({ error: 'Cross-site request blocked' }, { status: 403 });
   }
 
   let body: { refresh_token?: string };

@@ -7,7 +7,7 @@
  */
 
 import { Hono } from 'hono';
-import { eq, or } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { db, users } from '../db/index.js';
 import { generateTokens } from '../services/auth.js';
 import {
@@ -61,7 +61,8 @@ dynamicAuth.post('/', async (c) => {
   const githubCred = extractGitHubCredential(payload);
 
   // 4. Check GitHub org membership if GitHub is linked
-  let isOrgMember = false;
+  // undefined = no authoritative result (preserve DB value); true/false = authoritative
+  let orgMembership: boolean | undefined = undefined;
   if (githubCred) {
     const githubToken = process.env.GITHUB_SYNC_TOKEN || process.env.GITHUB_TOKEN;
     if (githubToken) {
@@ -75,12 +76,16 @@ dynamicAuth.post('/', async (c) => {
             },
           }
         );
-        // 204 = member, 302/404 = not member, other = preserve false
-        isOrgMember = orgRes.status === 204;
+        if (orgRes.status === 204) {
+          orgMembership = true;
+        } else if (orgRes.status === 404 || orgRes.status === 302) {
+          orgMembership = false;
+        }
+        // Other status codes: non-authoritative, preserve existing DB value
       } catch (orgErr) {
         logger.warn(
           { error: orgErr, username: githubCred.username, requestId },
-          'GitHub org membership check failed during Dynamic auth'
+          'GitHub org membership check failed during Dynamic auth; preserving existing value'
         );
       }
     }
@@ -90,12 +95,14 @@ dynamicAuth.post('/', async (c) => {
   let user = await resolveUser(dynamicUserId, walletAddress, githubCred?.username ?? null);
 
   if (user) {
-    // Update fields that may have changed
+    // Update fields that may have changed — only write org membership when authoritative
     const updates: Record<string, unknown> = {
       updatedAt: new Date(),
-      githubOrgMember: isOrgMember,
-      githubOrgCheckedAt: new Date(),
     };
+    if (orgMembership !== undefined) {
+      updates.githubOrgMember = orgMembership;
+      updates.githubOrgCheckedAt = new Date();
+    }
     if (walletAddress && !user.walletAddress) {
       updates.walletAddress = walletAddress;
     }
@@ -109,8 +116,9 @@ dynamicAuth.post('/', async (c) => {
 
     await db.update(users).set(updates).where(eq(users.id, user.id));
 
+    const effectiveOrgMember = orgMembership ?? user.githubOrgMember ?? false;
     logger.info(
-      { userId: user.id, dynamicUserId, walletAddress, isOrgMember, requestId },
+      { userId: user.id, dynamicUserId, walletAddress, isOrgMember: effectiveOrgMember, requestId },
       'Dynamic auth: existing user resolved'
     );
   } else {
@@ -128,22 +136,23 @@ dynamicAuth.post('/', async (c) => {
         dynamicUserId,
         githubUsername: githubCred?.username ?? null,
         githubUserId: githubCred ? (parseInt(githubCred.accountId, 10) || null) : null,
-        githubOrgMember: isOrgMember,
-        githubOrgCheckedAt: new Date(),
+        githubOrgMember: orgMembership ?? false,
+        githubOrgCheckedAt: orgMembership !== undefined ? new Date() : null,
         emailVerified: false,
       })
       .returning({ id: users.id, email: users.email });
 
-    user = { id: newUser.id, email: newUser.email, walletAddress, dynamicUserId, githubUsername: githubCred?.username ?? null };
+    user = { id: newUser.id, email: newUser.email, walletAddress, dynamicUserId, githubUsername: githubCred?.username ?? null, githubOrgMember: orgMembership ?? false };
 
     logger.info(
-      { userId: newUser.id, dynamicUserId, walletAddress, isOrgMember, requestId },
+      { userId: newUser.id, dynamicUserId, walletAddress, isOrgMember: orgMembership ?? false, requestId },
       'Dynamic auth: new user created'
     );
   }
 
-  // 6. Generate our API tokens
-  const tokens = await generateTokens(user.id, user.email, isOrgMember);
+  // 6. Generate our API tokens — use effective org membership
+  const effectiveOrg = user.githubOrgMember ?? orgMembership ?? false;
+  const tokens = await generateTokens(user.id, user.email, effectiveOrg);
 
   return c.json({
     access_token: tokens.accessToken,
@@ -160,35 +169,54 @@ interface ResolvedUser {
   walletAddress: string | null;
   dynamicUserId: string | null;
   githubUsername: string | null;
+  githubOrgMember: boolean | null;
 }
+
+const userSelect = {
+  id: users.id,
+  email: users.email,
+  walletAddress: users.walletAddress,
+  dynamicUserId: users.dynamicUserId,
+  githubUsername: users.githubUsername,
+  githubOrgMember: users.githubOrgMember,
+};
 
 async function resolveUser(
   dynamicUserId: string,
   walletAddress: string | null,
   githubUsername: string | null
 ): Promise<ResolvedUser | null> {
-  // Build OR conditions for user lookup
-  const conditions = [eq(users.dynamicUserId, dynamicUserId)];
-  if (walletAddress) {
-    conditions.push(eq(users.walletAddress, walletAddress));
-  }
-  if (githubUsername) {
-    conditions.push(eq(users.githubUsername, githubUsername));
-  }
+  // Sequential lookup with deterministic precedence
 
-  const result = await db
-    .select({
-      id: users.id,
-      email: users.email,
-      walletAddress: users.walletAddress,
-      dynamicUserId: users.dynamicUserId,
-      githubUsername: users.githubUsername,
-    })
+  // 1. Strongest binding: Dynamic user ID
+  const [byDynamic] = await db
+    .select(userSelect)
     .from(users)
-    .where(or(...conditions))
+    .where(eq(users.dynamicUserId, dynamicUserId))
     .limit(1);
+  if (byDynamic) return byDynamic;
 
-  return result.length > 0 ? result[0] : null;
+  // 2. Wallet address
+  if (walletAddress) {
+    const [byWallet] = await db
+      .select(userSelect)
+      .from(users)
+      .where(eq(users.walletAddress, walletAddress))
+      .limit(1);
+    if (byWallet) return byWallet;
+  }
+
+  // 3. GitHub username
+  if (githubUsername) {
+    const [byGithub] = await db
+      .select(userSelect)
+      .from(users)
+      .where(eq(users.githubUsername, githubUsername))
+      .limit(1);
+    if (byGithub) return byGithub;
+  }
+
+  return null;
 }
 
 export { dynamicAuth };

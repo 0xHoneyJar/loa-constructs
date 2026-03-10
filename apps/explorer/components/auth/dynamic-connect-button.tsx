@@ -17,7 +17,25 @@ interface DynamicConnectButtonProps {
   label?: string;
 }
 
-export function DynamicConnectButton({ className, label = 'Connect' }: DynamicConnectButtonProps) {
+export function DynamicConnectButton(props: DynamicConnectButtonProps) {
+  const isDynamicEnabled = Boolean(process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID);
+
+  if (!isDynamicEnabled) {
+    return (
+      <button
+        disabled
+        className={`font-mono text-[11px] text-bone-muted px-3 py-1 border border-void-border ${props.className ?? ''}`}
+        title="Wallet auth is not configured"
+      >
+        {props.label ?? 'Connect'}
+      </button>
+    );
+  }
+
+  return <DynamicConnectButtonEnabled {...props} />;
+}
+
+function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicConnectButtonProps) {
   const { sdkHasLoaded, setShowAuthFlow, primaryWallet, handleLogOut, getAuthToken } =
     useDynamicContext();
   const { connectDynamic, clearTokens, isAuthenticated } = useAuthStore();
