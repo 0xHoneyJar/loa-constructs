@@ -40,7 +40,15 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
     useDynamicContext();
   const { connectDynamic, clearTokens, isAuthenticated } = useAuthStore();
   const [isExchanging, setIsExchanging] = useState(false);
+  const [sdkTimedOut, setSdkTimedOut] = useState(false);
   const exchangingRef = useRef(false);
+
+  // Timeout: if SDK hasn't loaded after 5s, stop showing the loading state
+  useEffect(() => {
+    if (sdkHasLoaded) return;
+    const timer = setTimeout(() => setSdkTimedOut(true), 5000);
+    return () => clearTimeout(timer);
+  }, [sdkHasLoaded]);
 
   // Handle auth success — exchange Dynamic JWT for our API JWT
   // Uses ref-based lock to prevent concurrent exchanges on rapid wallet changes
@@ -78,7 +86,7 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
     await handleLogOut();
   };
 
-  if (!sdkHasLoaded) {
+  if (!sdkHasLoaded && !sdkTimedOut) {
     return (
       <div className={`h-7 w-20 animate-pulse rounded bg-void-border ${className ?? ''}`} />
     );

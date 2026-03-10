@@ -9,7 +9,6 @@
  */
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { DynamicConnectButton } from '@/components/auth/dynamic-connect-button';
 
@@ -35,12 +34,9 @@ export function AuthNav() {
             org
           </span>
         )}
-        <Link
-          href="/dashboard"
-          className="font-mono text-[11px] text-bone-muted hover:text-bone-base transition-colors"
-        >
-          {user?.name || 'Dashboard'}
-        </Link>
+        <span className="font-mono text-[11px] text-bone-muted">
+          {user?.name || user?.email || 'Connected'}
+        </span>
         <DynamicConnectButton />
       </div>
     );
