@@ -3,11 +3,9 @@
 import { create } from 'zustand';
 import Cookies from 'js-cookie';
 import {
-  registerApi,
   fetchMe,
   type User,
   type LoginRequest,
-  type RegisterRequest,
 } from '@/lib/api/auth';
 import { queryClient } from '@/lib/api/query-client';
 
@@ -35,7 +33,6 @@ interface AuthState {
 
   initialize: () => Promise<InitResult>;
   login: (data: LoginRequest, rememberMe?: boolean) => Promise<AuthResult>;
-  register: (data: RegisterRequest) => Promise<AuthResult>;
   connectDynamic: (dynamicJwt: string) => Promise<AuthResult>;
   refreshToken: () => Promise<AuthResult>;
   logout: () => Promise<void>;
@@ -131,16 +128,6 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       return { ok: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Login failed';
-      return { ok: false, message };
-    }
-  },
-
-  register: async (data): Promise<AuthResult> => {
-    try {
-      await registerApi(data);
-      return { ok: true };
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Registration failed';
       return { ok: false, message };
     }
   },

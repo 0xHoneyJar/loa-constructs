@@ -7,7 +7,7 @@ export function CatalogSearch({ defaultValue }: { defaultValue?: string }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState(defaultValue || '');
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -15,7 +15,7 @@ export function CatalogSearch({ defaultValue }: { defaultValue?: string }) {
       setValue(q);
 
       // Debounce navigation
-      clearTimeout(timeoutRef.current);
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
       timeoutRef.current = setTimeout(() => {
         if (q.trim()) {
           router.push(`/constructs?q=${encodeURIComponent(q.trim())}`);

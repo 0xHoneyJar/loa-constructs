@@ -11,6 +11,12 @@ export function Header() {
 
         <nav className="flex items-center gap-5">
           <Link
+            href="/explore"
+            className="font-mono text-[11px] text-bone-muted hover:text-bone-base transition-colors"
+          >
+            Explore
+          </Link>
+          <Link
             href="/constructs"
             className="font-mono text-[11px] text-bone-muted hover:text-bone-base transition-colors"
           >
