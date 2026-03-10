@@ -68,6 +68,9 @@ const envSchema = z
     // GitHub org for visibility checks — cycle-038
     CONSTRUCTS_ORG: z.string().default('0xHoneyJar'),
 
+    // Dynamic Labs environment ID for JWKS verification — cycle-039
+    DYNAMIC_ENVIRONMENT_ID: z.string().optional(),
+
     // Email
     RESEND_API_KEY: z.string().optional(),
 

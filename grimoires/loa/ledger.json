@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "active_cycle": "cycle-037",
-  "global_sprint_counter": 36,
+  "active_cycle": "cycle-039",
+  "global_sprint_counter": 39,
   "cycles": [
     {
       "id": "cycle-025",
@@ -443,11 +443,54 @@
     {
       "id": "cycle-037",
       "label": "Agent-Native Output Protocol — TOON, CTAs, Lazy-Loading Contract",
-      "status": "active",
+      "status": "archived",
       "created": "2026-02-28T00:00:00Z",
-      "prd": "grimoires/loa/prd.md",
+      "archived": "2026-03-07T00:00:00Z",
+      "archive_path": "grimoires/loa/archive/prd-cycle-037-toon-cta.md",
+      "prd": "grimoires/loa/archive/prd-cycle-037-toon-cta.md",
       "source_issues": [131],
       "sprints": []
+    },
+    {
+      "id": "cycle-038",
+      "label": "Public/Private Network Separation",
+      "status": "archived",
+      "created": "2026-03-07T00:00:00Z",
+      "archived": "2026-03-09T00:00:00Z",
+      "prd": "grimoires/loa/prd.md",
+      "sdd": "grimoires/loa/sdd.md",
+      "pr": 147,
+      "source_issues": [],
+      "sprints": []
+    },
+    {
+      "id": "cycle-039",
+      "label": "Dynamic Labs Auth + Internal Constructs Access",
+      "status": "active",
+      "created": "2026-03-09T00:00:00Z",
+      "prd": "grimoires/loa/prd.md",
+      "sdd": "grimoires/loa/sdd.md",
+      "source_issues": [],
+      "sprints": [
+        {
+          "local_id": "sprint-1",
+          "global_id": "sprint-37",
+          "label": "Foundation — fetchMe Fix + API JWT Exchange + Migration",
+          "status": "pending"
+        },
+        {
+          "local_id": "sprint-2",
+          "global_id": "sprint-38",
+          "label": "Explorer Integration — Dynamic Provider + Auth Store + Header",
+          "status": "pending"
+        },
+        {
+          "local_id": "sprint-3",
+          "global_id": "sprint-39",
+          "label": "Auth-Aware Pages — Leaderboard + Catalog Gating",
+          "status": "pending"
+        }
+      ]
     }
   ]
 }

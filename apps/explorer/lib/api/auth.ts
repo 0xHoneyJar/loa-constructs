@@ -51,9 +51,19 @@ export async function logoutApi(accessToken: string): Promise<void> {
 }
 
 export async function fetchMe(accessToken: string): Promise<User> {
-  return publicClient.get<User>('/auth/me', {
+  const response = await publicClient.get<{ user: Record<string, unknown> }>('/auth/me', {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
+  const u = response.user;
+  return {
+    id: u.id as string,
+    email: u.email as string,
+    name: (u.name as string) ?? null,
+    role: (u.tier as string) ?? 'free',
+    emailVerified: (u.email_verified as boolean) ?? false,
+    isOrgMember: (u.is_org_member as boolean) ?? false,
+    createdAt: (u.created_at as string) ?? new Date().toISOString(),
+  };
 }
 
 export async function forgotPasswordApi(email: string): Promise<{ message: string }> {

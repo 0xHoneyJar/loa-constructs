@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { fetchAllConstructs, searchConstructs } from '@/lib/data/fetch-constructs';
 import { LeaderboardSearch } from '@/components/search/leaderboard-search';
+import { AuthAwareConstructList } from '@/components/constructs/auth-aware-construct-list';
 
 // ISR — revalidate hourly
 export const revalidate = 3600;
@@ -79,69 +80,78 @@ export default async function HomePage({
           {/* Search */}
           <LeaderboardSearch />
 
-          {/* Table */}
-          <div className="mt-6">
-            {/* Table header */}
-            <div className="flex items-center border-b border-void-border pb-2 font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
-              <span className="w-10 shrink-0">#</span>
-              <span className="flex-1">Construct</span>
-              <span className="w-20 text-right hidden sm:block">Skills</span>
-              <span className="w-24 text-right">Installs</span>
-            </div>
+          {/* Auth-aware construct list — cycle-039 */}
+          <AuthAwareConstructList publicConstructs={constructs}>
+            {(displayConstructs) => (
+              <div className="mt-6">
+                {/* Table header */}
+                <div className="flex items-center border-b border-void-border pb-2 font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
+                  <span className="w-10 shrink-0">#</span>
+                  <span className="flex-1">Construct</span>
+                  <span className="w-20 text-right hidden sm:block">Skills</span>
+                  <span className="w-24 text-right">Installs</span>
+                </div>
 
-            {/* Rows */}
-            {constructs.length === 0 ? (
-              <div className="py-12 text-center font-mono text-xs text-bone-ghost">
-                No constructs found.
-              </div>
-            ) : (
-              <div>
-                {constructs.map((construct, i) => (
-                  <Link
-                    key={construct.id}
-                    href={`/constructs/${construct.slug}`}
-                    className="flex items-center py-3 border-b border-void-border hover:bg-void-raised transition-colors group"
-                  >
-                    <span className="w-10 shrink-0 font-mono text-xs text-bone-ghost">
-                      {i + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-bold text-bone-base group-hover:text-bone-bright transition-colors">
-                          {construct.icon && <span className="mr-1">{construct.icon}</span>}
-                          {construct.name}
+                {/* Rows */}
+                {displayConstructs.length === 0 ? (
+                  <div className="py-12 text-center font-mono text-xs text-bone-ghost">
+                    No constructs found.
+                  </div>
+                ) : (
+                  <div>
+                    {displayConstructs.map((construct, i) => (
+                      <Link
+                        key={construct.id}
+                        href={`/constructs/${construct.slug}`}
+                        className="flex items-center py-3 border-b border-void-border hover:bg-void-raised transition-colors group"
+                      >
+                        <span className="w-10 shrink-0 font-mono text-xs text-bone-ghost">
+                          {i + 1}
                         </span>
-                        {construct.constructType !== 'skill-pack' && (
-                          <span className="border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-mono text-violet-400 hidden sm:inline">
-                            {construct.constructType.replace(/-/g, ' ')}
-                          </span>
-                        )}
-                        {construct.verificationTier === 'PROVEN' && (
-                          <span className="border border-green-500/30 bg-green-500/10 px-1.5 py-0.5 text-[9px] font-mono text-green-400 hidden sm:inline">
-                            proven
-                          </span>
-                        )}
-                        {construct.verificationTier === 'BACKTESTED' && (
-                          <span className="border border-yellow-500/30 bg-yellow-500/10 px-1.5 py-0.5 text-[9px] font-mono text-yellow-400 hidden sm:inline">
-                            backtested
-                          </span>
-                        )}
-                      </div>
-                      <p className="font-mono text-xs text-bone-muted truncate mt-0.5 max-w-md">
-                        {construct.shortDescription}
-                      </p>
-                    </div>
-                    <span className="w-20 text-right font-mono text-xs text-bone-dim hidden sm:block">
-                      {construct.skillsCount}
-                    </span>
-                    <span className="w-24 text-right font-mono text-sm text-bone-base">
-                      {formatInstalls(construct.downloads)}
-                    </span>
-                  </Link>
-                ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm font-bold text-bone-base group-hover:text-bone-bright transition-colors">
+                              {construct.icon && <span className="mr-1">{construct.icon}</span>}
+                              {construct.name}
+                            </span>
+                            {construct.constructType !== 'skill-pack' && (
+                              <span className="border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-mono text-violet-400 hidden sm:inline">
+                                {construct.constructType.replace(/-/g, ' ')}
+                              </span>
+                            )}
+                            {(construct as Record<string, unknown>).visibility === 'internal' && (
+                              <span className="border border-cyan-base/30 bg-cyan-base/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan-base hidden sm:inline">
+                                internal
+                              </span>
+                            )}
+                            {construct.verificationTier === 'PROVEN' && (
+                              <span className="border border-green-500/30 bg-green-500/10 px-1.5 py-0.5 text-[9px] font-mono text-green-400 hidden sm:inline">
+                                proven
+                              </span>
+                            )}
+                            {construct.verificationTier === 'BACKTESTED' && (
+                              <span className="border border-yellow-500/30 bg-yellow-500/10 px-1.5 py-0.5 text-[9px] font-mono text-yellow-400 hidden sm:inline">
+                                backtested
+                              </span>
+                            )}
+                          </div>
+                          <p className="font-mono text-xs text-bone-muted truncate mt-0.5 max-w-md">
+                            {construct.shortDescription}
+                          </p>
+                        </div>
+                        <span className="w-20 text-right font-mono text-xs text-bone-dim hidden sm:block">
+                          {construct.skillsCount}
+                        </span>
+                        <span className="w-24 text-right font-mono text-sm text-bone-base">
+                          {formatInstalls(construct.downloads)}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
-          </div>
+          </AuthAwareConstructList>
         </div>
       </section>
     </div>

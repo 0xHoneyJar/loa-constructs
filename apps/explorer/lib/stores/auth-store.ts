@@ -36,6 +36,7 @@ interface AuthState {
   initialize: () => Promise<InitResult>;
   login: (data: LoginRequest, rememberMe?: boolean) => Promise<AuthResult>;
   register: (data: RegisterRequest) => Promise<AuthResult>;
+  connectDynamic: (dynamicJwt: string) => Promise<AuthResult>;
   refreshToken: () => Promise<AuthResult>;
   logout: () => Promise<void>;
   getAccessToken: () => string | undefined;
@@ -140,6 +141,48 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       return { ok: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Registration failed';
+      return { ok: false, message };
+    }
+  },
+
+  // cycle-039: Exchange Dynamic Labs JWT for our API tokens
+  connectDynamic: async (dynamicJwt): Promise<AuthResult> => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network/v1';
+      const response = await fetch(`${apiUrl}/auth/dynamic`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${dynamicJwt}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: 'Auth exchange failed' }));
+        return { ok: false, message: error.message || error.error?.message || 'Auth exchange failed' };
+      }
+
+      const { access_token, refresh_token, expires_in } = await response.json();
+
+      // Store refresh token as HttpOnly cookie
+      await fetch('/api/auth/set-refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token }),
+      }).catch(() => {
+        // Non-fatal — access token still works
+      });
+
+      // Store access token in cookie
+      const expires = expires_in ? expires_in / 86400 : 1;
+      Cookies.set('access_token', access_token, { ...COOKIE_OPTIONS, expires });
+
+      // Populate user state
+      const user = await fetchMe(access_token);
+      set({ user, isAuthenticated: true, isOrgMember: user.isOrgMember ?? false, isLoading: false });
+      return { ok: true };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Dynamic auth failed';
       return { ok: false, message };
     }
   },

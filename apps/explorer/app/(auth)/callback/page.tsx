@@ -27,10 +27,21 @@ function CallbackHandler() {
       return;
     }
 
-    setTokens(accessToken, refreshToken, expiresIn ? parseInt(expiresIn, 10) : undefined);
-    initialize().then(() => {
-      router.replace('/dashboard');
-    });
+    // cycle-039: Store refresh token as HttpOnly cookie before setTokens
+    fetch('/api/auth/set-refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+      .catch(() => {
+        // Non-fatal — setTokens still stores access token
+      })
+      .finally(() => {
+        setTokens(accessToken, refreshToken, expiresIn ? parseInt(expiresIn, 10) : undefined);
+        initialize().then(() => {
+          router.replace('/dashboard');
+        });
+      });
   }, [searchParams, router, setTokens, initialize]);
 
   return (
