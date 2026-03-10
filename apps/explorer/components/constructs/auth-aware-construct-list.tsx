@@ -9,7 +9,7 @@
  * and fetches the full construct list for authenticated org members.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { DynamicConnectButton } from '@/components/auth/dynamic-connect-button';
 import type { ConstructNode } from '@/lib/types/graph';
@@ -17,11 +17,17 @@ import type { ConstructNode } from '@/lib/types/graph';
 interface AuthAwareConstructListProps {
   /** Constructs from ISR (may be empty since all are internal) */
   publicConstructs: ConstructNode[];
-  /** Render function for the actual construct list */
-  children: (constructs: ConstructNode[]) => React.ReactNode;
+  /** Static content to render for the construct list — rendered by server, passed as ReactNode */
+  children: ReactNode;
+  /** Render key to identify which constructs are displayed */
+  renderList: 'public' | 'auth';
 }
 
-export function AuthAwareConstructList({ publicConstructs, children }: AuthAwareConstructListProps) {
+/**
+ * Wrapper that handles auth gating. Renders children (server-rendered list) for
+ * public/loading states, and fetches + renders auth constructs client-side when needed.
+ */
+export function AuthAwareConstructList({ publicConstructs, children }: Omit<AuthAwareConstructListProps, 'renderList'> & { children: ReactNode }) {
   const { isAuthenticated, isOrgMember, isLoading, getAccessToken, initialize } = useAuthStore();
   const [authConstructs, setAuthConstructs] = useState<ConstructNode[] | null>(null);
   const [isFetching, setIsFetching] = useState(false);
@@ -29,7 +35,6 @@ export function AuthAwareConstructList({ publicConstructs, children }: AuthAware
 
   useEffect(() => {
     setMounted(true);
-    // Initialize auth state on mount
     initialize();
   }, [initialize]);
 
@@ -48,7 +53,6 @@ export function AuthAwareConstructList({ publicConstructs, children }: AuthAware
 
       const data = await response.json();
       if (data.data && Array.isArray(data.data)) {
-        // Transform API response to ConstructNode shape
         const nodes: ConstructNode[] = data.data.map((c: Record<string, unknown>) => ({
           id: c.id as string,
           slug: c.slug as string,
@@ -76,21 +80,20 @@ export function AuthAwareConstructList({ publicConstructs, children }: AuthAware
     }
   }, [getAccessToken]);
 
-  // Fetch authenticated constructs when auth state resolves
   useEffect(() => {
     if (mounted && isAuthenticated && isOrgMember && !authConstructs && !isFetching) {
       fetchAuthenticatedConstructs();
     }
   }, [mounted, isAuthenticated, isOrgMember, authConstructs, isFetching, fetchAuthenticatedConstructs]);
 
-  // Not mounted yet — show ISR content
+  // Not mounted yet or loading — show server-rendered content
   if (!mounted || isLoading) {
-    return <>{children(publicConstructs)}</>;
+    return <>{children}</>;
   }
 
   // Authenticated org member with fetched constructs
   if (isAuthenticated && isOrgMember && authConstructs) {
-    return <>{children(authConstructs)}</>;
+    return <AuthConstructTable constructs={authConstructs} />;
   }
 
   // Authenticated org member, still fetching
@@ -122,8 +125,7 @@ export function AuthAwareConstructList({ publicConstructs, children }: AuthAware
             </p>
           </div>
         </div>
-        {/* Still show public constructs if any */}
-        {publicConstructs.length > 0 && children(publicConstructs)}
+        {publicConstructs.length > 0 && children}
       </div>
     );
   }
@@ -158,7 +160,77 @@ export function AuthAwareConstructList({ publicConstructs, children }: AuthAware
           <DynamicConnectButton label="Connect" />
         </div>
       </div>
-      {children(publicConstructs)}
+      {children}
     </>
+  );
+}
+
+/** Client-side table for authenticated constructs (same markup as server version) */
+function AuthConstructTable({ constructs }: { constructs: ConstructNode[] }) {
+  return (
+    <div className="mt-6">
+      <div className="flex items-center border-b border-void-border pb-2 font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
+        <span className="w-10 shrink-0">#</span>
+        <span className="flex-1">Construct</span>
+        <span className="w-20 text-right hidden sm:block">Skills</span>
+        <span className="w-24 text-right">Installs</span>
+      </div>
+      {constructs.length === 0 ? (
+        <div className="py-12 text-center font-mono text-xs text-bone-ghost">
+          No constructs found.
+        </div>
+      ) : (
+        <div>
+          {constructs.map((construct, i) => (
+            <a
+              key={construct.id}
+              href={`/constructs/${construct.slug}`}
+              className="flex items-center py-3 border-b border-void-border hover:bg-void-raised transition-colors group"
+            >
+              <span className="w-10 shrink-0 font-mono text-xs text-bone-ghost">
+                {i + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold text-bone-base group-hover:text-bone-bright transition-colors">
+                    {construct.icon && <span className="mr-1">{construct.icon}</span>}
+                    {construct.name}
+                  </span>
+                  {construct.constructType !== 'skill-pack' && (
+                    <span className="border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-mono text-violet-400 hidden sm:inline">
+                      {construct.constructType.replace(/-/g, ' ')}
+                    </span>
+                  )}
+                  {construct.visibility === 'internal' && (
+                    <span className="border border-cyan-base/30 bg-cyan-base/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan-base hidden sm:inline">
+                      internal
+                    </span>
+                  )}
+                  {construct.verificationTier === 'PROVEN' && (
+                    <span className="border border-green-500/30 bg-green-500/10 px-1.5 py-0.5 text-[9px] font-mono text-green-400 hidden sm:inline">
+                      proven
+                    </span>
+                  )}
+                  {construct.verificationTier === 'BACKTESTED' && (
+                    <span className="border border-yellow-500/30 bg-yellow-500/10 px-1.5 py-0.5 text-[9px] font-mono text-yellow-400 hidden sm:inline">
+                      backtested
+                    </span>
+                  )}
+                </div>
+                <p className="font-mono text-xs text-bone-muted truncate mt-0.5 max-w-md">
+                  {construct.shortDescription}
+                </p>
+              </div>
+              <span className="w-20 text-right font-mono text-xs text-bone-dim hidden sm:block">
+                {construct.skillsCount}
+              </span>
+              <span className="w-24 text-right font-mono text-sm text-bone-base">
+                {construct.downloads >= 1000 ? `${(construct.downloads / 1000).toFixed(1)}K` : construct.downloads.toLocaleString()}
+              </span>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
