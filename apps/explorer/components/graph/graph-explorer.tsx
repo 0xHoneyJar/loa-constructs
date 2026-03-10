@@ -73,7 +73,7 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
   return (
     <div className="relative flex h-full w-full flex-col">
       {/* Category filters */}
-      <div className="absolute left-4 top-4 z-10">
+      <div className="absolute left-4 top-4 z-10 max-w-[calc(100%-2rem)] overflow-x-auto">
         <CategoryFilter categories={data.categories} />
       </div>
 
@@ -97,7 +97,8 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
 
       {/* Instructions */}
       <div className="absolute bottom-4 left-4 z-10 font-mono text-xs text-bone-ghost">
-        <span>Scroll to zoom • Drag to pan • Click to add to stack • <kbd className="rounded border border-border bg-surface px-1">⌘K</kbd> search</span>
+        <span className="hidden sm:inline">Scroll to zoom • Drag to pan • Click to add to stack • <kbd className="rounded border border-border bg-surface px-1">⌘K</kbd> search</span>
+        <span className="sm:hidden">Pinch to zoom • Drag to pan • Tap to add to stack</span>
       </div>
 
       {/* Stack Composer HUD */}

@@ -9,6 +9,8 @@ import { InstallCommand } from '@/components/construct/install-command';
 import { CommandList } from '@/components/construct/command-list';
 import { SkillGrid } from '@/components/construct/skill-grid';
 
+export const revalidate = 3600;
+
 interface PageProps {
   params: Promise<{ slug: string }>;
 }

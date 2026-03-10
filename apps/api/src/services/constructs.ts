@@ -353,7 +353,8 @@ function packToConstruct(
   version: typeof packVersions.$inferSelect | null,
   owner: { name: string; type: 'user' | 'team'; avatarUrl: string | null } | null,
   queryTerms?: string[],
-  identityRow?: { cognitiveFrame: unknown; expertiseDomains: unknown; voiceConfig: unknown; modelPreferences: unknown } | null
+  identityRow?: { cognitiveFrame: unknown; expertiseDomains: unknown; voiceConfig: unknown; modelPreferences: unknown } | null,
+  verification?: { tier: string; verifiedAt: Date | null } | null
 ): Construct {
   const manifest = version?.manifest as ConstructManifest | null;
   const rating = calculateRating(pack.ratingSum || 0, pack.ratingCount || 0);
@@ -419,8 +420,8 @@ function packToConstruct(
         }
       : null,
     constructType: pack.constructType || 'skill-pack',
-    verificationTier: 'UNVERIFIED',
-    verifiedAt: null,
+    verificationTier: verification?.tier ?? 'UNVERIFIED',
+    verifiedAt: verification?.verifiedAt ?? null,
     visibility: (pack.visibility as 'public' | 'internal' | 'unlisted') ?? 'internal',
     // Fork provenance — populated by detail query, defaults for list
     forkedFrom: null,
@@ -876,7 +877,7 @@ async function fetchSkillsAsConstructs(options: {
   const whereClause = and(...conditions);
 
   try {
-    // Remove isLatest JOIN - we call getLatestSkillVersion() anyway
+    // Remove isLatest JOIN - latest version resolved via batch semver comparison
     // @see sdd.md §3.2 - isLatest JOIN removal
     const [skillsResult, countResult] = await Promise.all([
       db
@@ -893,13 +894,65 @@ async function fetchSkillsAsConstructs(options: {
     ]);
 
     // No deduplication needed - query returns unique skills without version JOIN
-    // Get owner info and correct latest version for each skill
-    // Use semver-based getLatestSkillVersion for consistent version resolution
+    // Batch-fetch all related data to avoid N+1 queries (DATA-001)
+    const skillIds = skillsResult.map(s => s.id);
+
+    // Batch-fetch latest versions
+    let skillVersionMap = new Map<string, typeof skillVersions.$inferSelect>();
+    if (skillIds.length > 0) {
+      try {
+        const allVersions = await db
+          .select()
+          .from(skillVersions)
+          .where(inArray(skillVersions.skillId, skillIds));
+        for (const version of allVersions) {
+          const current = skillVersionMap.get(version.skillId);
+          if (!current) {
+            skillVersionMap.set(version.skillId, version);
+          } else {
+            const currentSemver = semver.valid(current.version) || '0.0.0';
+            const newSemver = semver.valid(version.version) || '0.0.0';
+            if (semver.gt(newSemver, currentSemver)) {
+              skillVersionMap.set(version.skillId, version);
+            }
+          }
+        }
+      } catch {
+        // skillVersions query failed — fall back to empty map
+      }
+    }
+
+    // Batch-fetch owner info
+    const userOwnerIds = [...new Set(skillsResult.filter(s => (s.ownerType || 'user') === 'user' && s.ownerId).map(s => s.ownerId!))];
+    const teamOwnerIds = [...new Set(skillsResult.filter(s => s.ownerType === 'team' && s.ownerId).map(s => s.ownerId!))];
+    let skillOwnerMap = new Map<string, { name: string; type: 'user' | 'team'; avatarUrl: string | null }>();
+    try {
+      if (userOwnerIds.length > 0) {
+        const userRows = await db
+          .select({ id: users.id, name: users.name, avatarUrl: users.avatarUrl })
+          .from(users)
+          .where(inArray(users.id, userOwnerIds));
+        for (const u of userRows) {
+          skillOwnerMap.set(u.id, { name: u.name, type: 'user', avatarUrl: u.avatarUrl });
+        }
+      }
+      if (teamOwnerIds.length > 0) {
+        const teamRows = await db
+          .select({ id: teams.id, name: teams.name, avatarUrl: teams.avatarUrl })
+          .from(teams)
+          .where(inArray(teams.id, teamOwnerIds));
+        for (const t of teamRows) {
+          skillOwnerMap.set(t.id, { name: t.name, type: 'team', avatarUrl: t.avatarUrl });
+        }
+      }
+    } catch {
+      // owner query failed — fall back to null owners
+    }
+
     const items: Construct[] = [];
     for (const skill of skillsResult) {
-      // Get the correct latest version using semver comparison
-      const version = await getLatestSkillVersion(skill.id);
-      const owner = await getOwnerInfo(skill.ownerId, skill.ownerType as 'user' | 'team');
+      const version = skillVersionMap.get(skill.id) ?? null;
+      const owner = skill.ownerId ? (skillOwnerMap.get(skill.ownerId) ?? null) : null;
       items.push(skillToConstruct(skill, version, owner, queryTerms.length > 0 ? queryTerms : undefined));
     }
 
@@ -968,7 +1021,7 @@ async function fetchPacksAsConstructs(options: {
   const whereClause = and(...conditions);
 
   try {
-    // Remove isLatest JOIN - we call getLatestPackVersion() anyway
+    // Remove isLatest JOIN - latest version resolved via batch semver comparison
     // @see sdd.md §3.3 - isLatest JOIN removal
     const [packsResult, countResult] = await Promise.all([
       db
@@ -985,10 +1038,10 @@ async function fetchPacksAsConstructs(options: {
     ]);
 
     // No deduplication needed - query returns unique packs without version JOIN
-    // Get owner info and correct latest version for each pack
-    // Use semver-based getLatestPackVersion for consistent version resolution
-    // Batch-fetch identity rows for all packs in result set
+    // Batch-fetch all related data to avoid N+1 queries (DATA-001)
     const packIds = packsResult.map(p => p.id);
+
+    // Batch-fetch identity rows
     let identityMap = new Map<string, { cognitiveFrame: unknown; expertiseDomains: unknown; voiceConfig: unknown; modelPreferences: unknown }>();
     if (packIds.length > 0) {
       try {
@@ -1010,13 +1063,93 @@ async function fetchPacksAsConstructs(options: {
       }
     }
 
+    // Batch-fetch verification tiers (DATA-002)
+    let verificationMap = new Map<string, { tier: string; verifiedAt: Date | null }>();
+    if (packIds.length > 0) {
+      try {
+        const verificationRows = await db
+          .select({
+            packId: constructVerifications.packId,
+            verificationTier: constructVerifications.verificationTier,
+            expiresAt: constructVerifications.expiresAt,
+            createdAt: constructVerifications.createdAt,
+          })
+          .from(constructVerifications)
+          .where(inArray(constructVerifications.packId, packIds))
+          .orderBy(desc(constructVerifications.createdAt));
+        // Keep only the latest non-expired verification per pack
+        for (const row of verificationRows) {
+          if (verificationMap.has(row.packId)) continue; // already have latest
+          const expired = row.expiresAt ? new Date(row.expiresAt) < new Date() : false;
+          verificationMap.set(row.packId, {
+            tier: expired ? 'UNVERIFIED' : row.verificationTier,
+            verifiedAt: expired ? null : row.createdAt,
+          });
+        }
+      } catch {
+        // construct_verifications table might not exist yet — fail gracefully
+      }
+    }
+
+    // Batch-fetch latest versions (resolves N+1 on getLatestPackVersion)
+    let versionMap = new Map<string, typeof packVersions.$inferSelect>();
+    if (packIds.length > 0) {
+      try {
+        const allVersions = await db
+          .select()
+          .from(packVersions)
+          .where(inArray(packVersions.packId, packIds));
+        for (const version of allVersions) {
+          const current = versionMap.get(version.packId);
+          if (!current) {
+            versionMap.set(version.packId, version);
+          } else {
+            const currentSemver = semver.valid(current.version) || '0.0.0';
+            const newSemver = semver.valid(version.version) || '0.0.0';
+            if (semver.gt(newSemver, currentSemver)) {
+              versionMap.set(version.packId, version);
+            }
+          }
+        }
+      } catch {
+        // packVersions query failed — fall back to empty map
+      }
+    }
+
+    // Batch-fetch owner info (resolves N+1 on getOwnerInfo)
+    const userOwnerIds = [...new Set(packsResult.filter(p => (p.ownerType || 'user') === 'user' && p.ownerId).map(p => p.ownerId!))];
+    const teamOwnerIds = [...new Set(packsResult.filter(p => p.ownerType === 'team' && p.ownerId).map(p => p.ownerId!))];
+    let ownerMap = new Map<string, { name: string; type: 'user' | 'team'; avatarUrl: string | null }>();
+    try {
+      if (userOwnerIds.length > 0) {
+        const userRows = await db
+          .select({ id: users.id, name: users.name, avatarUrl: users.avatarUrl })
+          .from(users)
+          .where(inArray(users.id, userOwnerIds));
+        for (const u of userRows) {
+          ownerMap.set(u.id, { name: u.name, type: 'user', avatarUrl: u.avatarUrl });
+        }
+      }
+      if (teamOwnerIds.length > 0) {
+        const teamRows = await db
+          .select({ id: teams.id, name: teams.name, avatarUrl: teams.avatarUrl })
+          .from(teams)
+          .where(inArray(teams.id, teamOwnerIds));
+        for (const t of teamRows) {
+          ownerMap.set(t.id, { name: t.name, type: 'team', avatarUrl: t.avatarUrl });
+        }
+      }
+    } catch {
+      // owner query failed — fall back to null owners
+    }
+
     const items: Construct[] = [];
     for (const pack of packsResult) {
-      // Get the correct latest version using semver comparison
-      const version = await getLatestPackVersion(pack.id);
-      const owner = await getOwnerInfo(pack.ownerId, pack.ownerType as 'user' | 'team');
+      const version = versionMap.get(pack.id) ?? null;
+      const owner = pack.ownerId ? (ownerMap.get(pack.ownerId) ?? null) : null;
       const identityRow = identityMap.get(pack.id) ?? null;
-      items.push(packToConstruct(pack, version, owner, queryTerms.length > 0 ? queryTerms : undefined, identityRow));
+      const verification = verificationMap.get(pack.id) ?? null;
+      items.push(packToConstruct(pack, version, owner, queryTerms.length > 0 ? queryTerms : undefined, identityRow, verification));
     }
 
     return {

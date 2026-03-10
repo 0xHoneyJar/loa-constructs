@@ -109,7 +109,7 @@ function CategoryLegend({
             />
             <span
               className="font-mono text-[9px] uppercase tracking-wider"
-              style={{ color: count > 0 ? color : '#ffffff40' }}
+              style={{ color: count > 0 ? color : 'oklch(1 0 0 / 0.4)' }}
             >
               {label}
             </span>
@@ -137,7 +137,7 @@ function FloatingToggle({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 20 }}
       onClick={onExpand}
-      className="fixed bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 shadow-xl backdrop-blur-md transition-colors hover:bg-surface"
+      className="fixed bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-4 py-2 min-h-[44px] shadow-xl backdrop-blur-md transition-colors hover:bg-surface"
     >
       <ChevronUp className="h-4 w-4 text-bone-dim" />
       <Layers className="h-4 w-4 text-bone-dim" />
@@ -286,7 +286,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
       </div>
 
       {/* Three-column layout */}
-      <div className="grid grid-cols-[1fr_2fr_1fr] gap-4 p-4">
+      <div className="grid grid-cols-1 md:grid-cols-[1fr_2fr_1fr] gap-4 p-4">
         {/* Left column - Category legend */}
         <div className="flex flex-col gap-3">
           <span className="font-mono text-[10px] uppercase tracking-wider text-bone-ghost">

@@ -39,6 +39,10 @@ export function GraphCanvas({ children }: GraphCanvasProps) {
           MIDDLE: 1,
           RIGHT: 2,
         }}
+        touches={{
+          ONE: 1,
+          TWO: 2,
+        }}
       />
       {r3f('ambientLight', { intensity: 0.5 })}
       {r3f('directionalLight', { position: [5, 5, 5], intensity: 0.8 })}

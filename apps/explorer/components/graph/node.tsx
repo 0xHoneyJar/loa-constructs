@@ -6,6 +6,7 @@ import { Html } from '@react-three/drei';
 import type { Mesh, Group } from 'three';
 import type { ConstructNode } from '@/lib/types/graph';
 import { getCategoryColor } from '@/lib/utils/colors';
+import { prefersReducedMotion } from '@/lib/animation';
 
 const NODE_SIZES: Record<string, number> = {
   bundle: 0.16,
@@ -143,15 +144,19 @@ export function GraphNode({
   const detail = node.type === 'bundle' ? 0 : 0;
 
   useFrame((state, delta) => {
+    const reducedMotion = prefersReducedMotion();
+
     if (groupRef.current) {
-      // Rotate the entire group for more dramatic 3D effect
-      groupRef.current.rotation.y += delta * 0.3;
-      groupRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.5 + position[0]) * 0.1;
+      if (!reducedMotion) {
+        // Rotate the entire group for more dramatic 3D effect
+        groupRef.current.rotation.y += delta * 0.3;
+        groupRef.current.rotation.x = Math.sin(state.clock.elapsedTime * 0.5 + position[0]) * 0.1;
+      }
     }
 
     if (meshRef.current) {
-      // Pulsing scale effect on hover or in stack
-      if (isHovered || isSelected) {
+      // Pulsing scale effect on hover or in stack (skip if reduced motion)
+      if (!reducedMotion && (isHovered || isSelected)) {
         const pulse = 1 + Math.sin(state.clock.elapsedTime * 4) * 0.08;
         meshRef.current.scale.setScalar(pulse);
       } else {
@@ -160,7 +165,7 @@ export function GraphNode({
     }
 
     // Animate the ring for stack items
-    if (ringRef.current && isSelected) {
+    if (ringRef.current && isSelected && !reducedMotion) {
       ringRef.current.rotation.z += delta * 2;
       const ringPulse = 1 + Math.sin(state.clock.elapsedTime * 3) * 0.1;
       ringRef.current.scale.setScalar(ringPulse);

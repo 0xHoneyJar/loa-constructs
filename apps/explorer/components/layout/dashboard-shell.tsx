@@ -18,7 +18,7 @@ export function DashboardShell({ children, contentTitle }: DashboardShellProps) 
     <div className="flex h-screen flex-col overflow-hidden bg-void-base">
       <div className="flex flex-1 overflow-hidden">
         {/* Desktop sidebar */}
-        <div className="hidden md:flex flex-col shrink-0 py-3 pl-3" style={{ width: 220 }}>
+        <div className="hidden md:flex flex-col shrink-0 py-3 pl-3 w-[220px]">
           <Panel title="≡ Menu" className="flex-1">
             <Sidebar />
           </Panel>
@@ -31,11 +31,11 @@ export function DashboardShell({ children, contentTitle }: DashboardShellProps) 
               className="fixed inset-0 z-40 bg-black/70 md:hidden"
               onClick={() => setMobileMenuOpen(false)}
             />
-            <div className="fixed inset-y-0 left-0 z-50 flex flex-col p-3 md:hidden" style={{ width: 260 }}>
+            <div className="fixed inset-y-0 left-0 z-50 flex flex-col p-3 md:hidden w-[260px]">
               <Panel title="≡ Menu" className="flex-1 relative">
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="absolute top-2 right-2 p-1 text-bone-muted hover:text-bone-base"
+                  className="absolute top-2 right-2 p-2 min-h-[44px] min-w-[44px] text-bone-muted hover:text-bone-base"
                 >
                   <X size={18} />
                 </button>
@@ -51,7 +51,7 @@ export function DashboardShell({ children, contentTitle }: DashboardShellProps) 
             <div className="md:hidden mb-4">
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className="flex items-center gap-2 border border-void-border px-2 py-1 text-xs font-mono text-bone-muted hover:text-bone-base"
+                className="flex items-center gap-2 border border-void-border px-3 py-2 min-h-[44px] min-w-[44px] text-xs font-mono text-bone-muted hover:text-bone-base"
               >
                 <Menu size={16} />
                 Menu

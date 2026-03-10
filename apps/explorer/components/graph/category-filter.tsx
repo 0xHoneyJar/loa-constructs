@@ -33,7 +33,7 @@ export function CategoryFilter({ categories }: CategoryFilterProps) {
             className="flex items-center gap-1.5 rounded-md px-2 py-1 font-mono text-xs uppercase tracking-wider transition-all"
             style={{
               backgroundColor: isActive ? `${color}20` : 'transparent',
-              color: isActive ? color : '#ffffff60',
+              color: isActive ? color : 'oklch(1 0 0 / 0.6)',
               borderWidth: 1,
               borderColor: isActive ? color : 'transparent',
             }}
@@ -41,7 +41,7 @@ export function CategoryFilter({ categories }: CategoryFilterProps) {
             <span
               className="h-2 w-2 rounded-full"
               style={{
-                backgroundColor: isActive ? color : '#ffffff30',
+                backgroundColor: isActive ? color : 'oklch(1 0 0 / 0.3)',
               }}
             />
             <span className="whitespace-nowrap">{category.label}</span>
