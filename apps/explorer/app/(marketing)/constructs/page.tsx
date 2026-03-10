@@ -105,7 +105,7 @@ export default async function ConstructsCatalogPage({
                             {construct.constructType.replace(/-/g, ' ')}
                           </span>
                         )}
-                        {(construct as Record<string, unknown>).visibility === 'internal' && (
+                        {construct.visibility === 'internal' && (
                           <span className="border border-cyan-base/30 bg-cyan-base/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan-base">
                             internal
                           </span>

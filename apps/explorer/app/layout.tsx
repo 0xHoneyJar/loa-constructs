@@ -1,14 +1,8 @@
 import type { Metadata } from 'next';
 import { GeistMono } from 'geist/font/mono';
 import localFont from 'next/font/local';
-import dynamic from 'next/dynamic';
+import { DynamicProvider } from '@/components/providers/dynamic-provider';
 import './globals.css';
-
-// cycle-039: Lazy-load Dynamic Labs provider to avoid SSR bundle impact
-const DynamicProvider = dynamic(
-  () => import('@/components/providers/dynamic-provider').then((m) => m.DynamicProvider),
-  { ssr: false }
-);
 
 const basementGrotesque = localFont({
   src: './fonts/BasementGrotesque-Black.woff2',

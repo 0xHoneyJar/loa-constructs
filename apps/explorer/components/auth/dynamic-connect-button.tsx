@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useDynamicContext, getAuthToken } from '@dynamic-labs/sdk-react-core';
 import { useAuthStore } from '@/lib/stores/auth-store';
 
 interface DynamicConnectButtonProps {
@@ -36,7 +36,7 @@ export function DynamicConnectButton(props: DynamicConnectButtonProps) {
 }
 
 function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicConnectButtonProps) {
-  const { sdkHasLoaded, setShowAuthFlow, primaryWallet, handleLogOut, getAuthToken } =
+  const { sdkHasLoaded, setShowAuthFlow, primaryWallet, handleLogOut } =
     useDynamicContext();
   const { connectDynamic, clearTokens, isAuthenticated } = useAuthStore();
   const [isExchanging, setIsExchanging] = useState(false);
@@ -50,7 +50,7 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
     exchangingRef.current = true;
     setIsExchanging(true);
     try {
-      const dynamicJwt = await getAuthToken();
+      const dynamicJwt = getAuthToken();
       if (dynamicJwt) {
         await connectDynamic(dynamicJwt);
       }
@@ -60,7 +60,7 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
       exchangingRef.current = false;
       setIsExchanging(false);
     }
-  }, [getAuthToken, connectDynamic, isAuthenticated]);
+  }, [connectDynamic, isAuthenticated]);
 
   // Watch for wallet connection to trigger JWT exchange
   useEffect(() => {

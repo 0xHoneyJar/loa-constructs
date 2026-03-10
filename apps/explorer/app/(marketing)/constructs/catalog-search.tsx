@@ -7,7 +7,7 @@ export function CatalogSearch({ defaultValue }: { defaultValue?: string }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const [value, setValue] = useState(defaultValue || '');
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
