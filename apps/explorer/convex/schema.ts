@@ -7,7 +7,7 @@ export default defineSchema({
     packName: v.string(),
     action: v.string(),
     timestamp: v.string(),
-  }).index('by_created', ['_creationTime']),
+  }).index('by_created', ['timestamp']),
 
   syncStatus: defineTable({
     slug: v.string(),
