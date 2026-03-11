@@ -1,4 +1,5 @@
-import { query, mutation } from './_generated/server';
+import { query, action, internalMutation } from './_generated/server';
+import { internal } from './_generated/api';
 import { v } from 'convex/values';
 
 export const get = query({
@@ -17,20 +18,14 @@ export const listAll = query({
   },
 });
 
-export const upsert = mutation({
+export const upsert = internalMutation({
   args: {
-    writeKey: v.string(),
     slug: v.string(),
     status: v.string(),
     lastSyncAt: v.string(),
     errorMessage: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const expectedKey = process.env.CONVEX_WRITE_KEY;
-    if (!expectedKey || args.writeKey !== expectedKey) {
-      throw new Error('unauthorized');
-    }
-
     const existing = await ctx.db
       .query('syncStatus')
       .withIndex('by_slug', (q) => q.eq('slug', args.slug))
@@ -50,5 +45,27 @@ export const upsert = mutation({
         errorMessage: args.errorMessage,
       });
     }
+  },
+});
+
+export const upsertFromServer = action({
+  args: {
+    writeKey: v.string(),
+    slug: v.string(),
+    status: v.string(),
+    lastSyncAt: v.string(),
+    errorMessage: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const expectedKey = process.env.CONVEX_WRITE_KEY;
+    if (!expectedKey || args.writeKey !== expectedKey) {
+      throw new Error('unauthorized');
+    }
+    await ctx.runMutation(internal.syncStatus.upsert, {
+      slug: args.slug,
+      status: args.status,
+      lastSyncAt: args.lastSyncAt,
+      errorMessage: args.errorMessage,
+    });
   },
 });

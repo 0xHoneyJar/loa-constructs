@@ -1,4 +1,5 @@
-import { query, mutation } from './_generated/server';
+import { query, action, internalMutation } from './_generated/server';
+import { internal } from './_generated/api';
 import { v } from 'convex/values';
 
 export const recent = query({
@@ -12,7 +13,24 @@ export const recent = query({
   },
 });
 
-export const record = mutation({
+export const record = internalMutation({
+  args: {
+    packSlug: v.string(),
+    packName: v.string(),
+    action: v.string(),
+    timestamp: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert('installEvents', {
+      packSlug: args.packSlug,
+      packName: args.packName,
+      action: args.action,
+      timestamp: args.timestamp,
+    });
+  },
+});
+
+export const recordFromWebhook = action({
   args: {
     writeKey: v.string(),
     packSlug: v.string(),
@@ -25,7 +43,7 @@ export const record = mutation({
     if (!expectedKey || args.writeKey !== expectedKey) {
       throw new Error('unauthorized');
     }
-    await ctx.db.insert('installEvents', {
+    await ctx.runMutation(internal.installEvents.record, {
       packSlug: args.packSlug,
       packName: args.packName,
       action: args.action,

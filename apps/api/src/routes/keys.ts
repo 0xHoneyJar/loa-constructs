@@ -33,6 +33,16 @@ keys.post('/', requireAuth(), async (c) => {
     return c.json({ error: 'Maximum 10 active API keys per user' }, 400);
   }
 
+  const ALLOWED_SCOPES = ['read:skills', 'write:installs', 'read:analytics'];
+  const scopes = (body.scopes || ['read:skills', 'write:installs']).filter(
+    (s: string) => ALLOWED_SCOPES.includes(s),
+  );
+  if (scopes.length === 0) {
+    return c.json({ error: 'No valid scopes provided' }, 400);
+  }
+
+  const name = (body.name || 'Unnamed key').slice(0, 100).trim() || 'Unnamed key';
+
   const { key, prefix } = generateApiKey();
   const hash = await hashApiKey(key);
 
@@ -42,8 +52,8 @@ keys.post('/', requireAuth(), async (c) => {
       userId,
       keyPrefix: prefix,
       keyHash: hash,
-      name: body.name || 'Unnamed key',
-      scopes: body.scopes || ['read:skills', 'write:installs'],
+      name,
+      scopes,
     })
     .returning();
 

@@ -41,9 +41,20 @@ export function CreateKeyDialog({
 
   const handleCopy = async () => {
     if (!created) return;
-    await navigator.clipboard.writeText(created.key);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    try {
+      await navigator.clipboard.writeText(created.key);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback: select the text for manual copy
+      const el = document.querySelector('[data-key-display]');
+      if (el) {
+        const range = document.createRange();
+        range.selectNodeContents(el);
+        window.getSelection()?.removeAllRanges();
+        window.getSelection()?.addRange(range);
+      }
+    }
   };
 
   const handleClose = () => {
@@ -83,7 +94,7 @@ export function CreateKeyDialog({
                   Copy this key now — it won&apos;t be shown again
                 </div>
                 <div className="flex items-center gap-2">
-                  <code className="flex-1 font-mono text-[11px] text-bone-light bg-black/30 px-2 py-1.5 break-all select-all">
+                  <code data-key-display className="flex-1 font-mono text-[11px] text-bone-light bg-black/30 px-2 py-1.5 break-all select-all">
                     {created.key}
                   </code>
                   <button

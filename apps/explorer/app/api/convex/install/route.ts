@@ -15,8 +15,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'convex not configured' }, { status: 503 });
   }
 
-  const body = await req.json();
-  await convex.mutation(api.installEvents.record, {
+  let body: Record<string, unknown>;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'invalid json' }, { status: 400 });
+  }
+
+  if (
+    typeof body.packSlug !== 'string' ||
+    typeof body.packName !== 'string' ||
+    typeof body.action !== 'string' ||
+    typeof body.timestamp !== 'string'
+  ) {
+    return NextResponse.json({ error: 'missing required fields' }, { status: 400 });
+  }
+
+  await convex.action(api.installEvents.recordFromWebhook, {
     writeKey,
     packSlug: body.packSlug,
     packName: body.packName,

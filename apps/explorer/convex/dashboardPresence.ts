@@ -35,11 +35,10 @@ export const upsert = mutation({
 export const listOnline = query({
   handler: async (ctx) => {
     const now = Date.now();
-    const all = await ctx.db
+    return ctx.db
       .query('dashboardPresence')
-      .withIndex('by_expires')
+      .withIndex('by_expires', (q) => q.gt('expiresAt', now))
       .collect();
-    return all.filter((p) => p.expiresAt > now);
   },
 });
 
@@ -49,7 +48,7 @@ export const cleanupExpired = internalMutation({
     const expired = await ctx.db
       .query('dashboardPresence')
       .withIndex('by_expires', (q) => q.lt('expiresAt', now))
-      .collect();
+      .take(100);
     for (const row of expired) {
       await ctx.db.delete(row._id);
     }
