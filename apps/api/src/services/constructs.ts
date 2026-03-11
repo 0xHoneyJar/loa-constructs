@@ -390,7 +390,7 @@ function packToConstruct(
     longDescription: pack.longDescription,
     version: version?.version || null,
     tierRequired: pack.tierRequired || 'free',
-    category: null, // Packs don't have category
+    category: pack.category || null,
     downloads: pack.downloads || 0,
     rating,
     isFeatured: pack.isFeatured || false,

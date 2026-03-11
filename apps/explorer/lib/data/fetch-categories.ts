@@ -1,106 +1,29 @@
 /**
  * Fetch Categories from API
- * @see prd-category-taxonomy.md §5.2 Fetch Categories
- * @see sdd-category-taxonomy.md §6 Explorer Integration
+ * @see sdd.md §5.2 Explorer Changes (cycle-041)
  */
 
 import type { Category } from '@/lib/types/graph';
+import { normalizeCategory, CATEGORIES } from '@loa-constructs/shared';
+
+// Re-export for use by fetch-constructs.ts
+export { normalizeCategory };
 
 const API_BASE = process.env.CONSTRUCTS_API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network/v1';
 const FETCH_TIMEOUT_MS = 15_000;
 
 /**
- * Default categories for fallback when API is unavailable
- * @see prd-category-taxonomy.md §3.1 The 8 Categories
+ * Default categories for fallback when API is unavailable.
+ * Built from shared CATEGORIES constant (single source of truth).
  */
-export const DEFAULT_CATEGORIES: Category[] = [
-  {
-    id: 'marketing',
-    slug: 'marketing',
-    label: 'Marketing',
-    color: '#FF44FF',
-    description: 'GTM, campaigns, content, social media',
-    constructCount: 0,
-  },
-  {
-    id: 'development',
-    slug: 'development',
-    label: 'Development',
-    color: '#44FF88',
-    description: 'Coding, testing, debugging, refactoring',
-    constructCount: 0,
-  },
-  {
-    id: 'security',
-    slug: 'security',
-    label: 'Security',
-    color: '#FF8844',
-    description: 'Auditing, scanning, compliance, secrets',
-    constructCount: 0,
-  },
-  {
-    id: 'analytics',
-    slug: 'analytics',
-    label: 'Analytics',
-    color: '#FFDD44',
-    description: 'Data, metrics, reporting, insights',
-    constructCount: 0,
-  },
-  {
-    id: 'documentation',
-    slug: 'documentation',
-    label: 'Documentation',
-    color: '#44DDFF',
-    description: 'Docs, guides, READMEs, knowledge bases',
-    constructCount: 0,
-  },
-  {
-    id: 'operations',
-    slug: 'operations',
-    label: 'Operations',
-    color: '#4488FF',
-    description: 'DevOps, deployment, monitoring, CI/CD',
-    constructCount: 0,
-  },
-  {
-    id: 'design',
-    slug: 'design',
-    label: 'Design',
-    color: '#FF7B9C',
-    description: 'UI/UX, prototyping, design systems',
-    constructCount: 0,
-  },
-  {
-    id: 'infrastructure',
-    slug: 'infrastructure',
-    label: 'Infrastructure',
-    color: '#9B7EDE',
-    description: 'Cloud, networking, IaC, containers',
-    constructCount: 0,
-  },
-];
-
-/**
- * Legacy category slug mappings
- * @see prd-category-taxonomy.md §3.3 Legacy Mapping
- */
-const LEGACY_SLUG_MAPPINGS: Record<string, string> = {
-  gtm: 'marketing',
-  dev: 'development',
-  docs: 'documentation',
-  ops: 'operations',
-  data: 'analytics',
-  devops: 'operations',
-  infra: 'infrastructure',
-};
-
-/**
- * Normalize a category slug, handling legacy mappings
- */
-export function normalizeCategory(slug: string): string {
-  const normalized = slug.toLowerCase().trim();
-  return LEGACY_SLUG_MAPPINGS[normalized] || normalized;
-}
+export const DEFAULT_CATEGORIES: Category[] = CATEGORIES.map((cat, index) => ({
+  id: `default-${index}`,
+  slug: cat.slug,
+  label: cat.label,
+  color: cat.color,
+  description: cat.description,
+  constructCount: 0,
+}));
 
 /**
  * Fetch categories from API with ISR caching

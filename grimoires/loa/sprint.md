@@ -1,354 +1,225 @@
-# Sprint Plan: Internal Dashboard + Convex Real-Time Integration
+# Sprint Plan: Network Cohesion — Construct DX at Platform Scale
 
-**Cycle**: cycle-040
+**Cycle**: cycle-041
 **PRD**: `grimoires/loa/prd.md`
 **SDD**: `grimoires/loa/sdd.md`
-**Sprints**: 5
-**Total tasks**: 22
+**Sprints**: 3
+**Total tasks**: 16
 
 ---
 
-## Sprint 1: Foundation — `is_admin` Pipeline + Auth Store + Middleware
+## Sprint 1: Category Pipeline — Migration → Shared → API → Explorer
 
-**Label**: Foundation — Admin Pipeline + Dashboard Gate
-**FR**: FR-1, FR-2, FR-6, FR-7
-
-Wire `is_admin` from DB through API to frontend auth store. Create dashboard middleware soft gate. Update header nav. Run migration.
+**Label**: Category Derivation Pipeline
+**Global ID**: sprint-45
+**FR**: FR-1, FR-2, FR-3
+**Goal**: Every construct returns a real category from the API. Delete the frontend hack. One source of truth.
 
 ### Tasks
 
-#### 1.1 — Expose `is_admin` and `wallet_address` in `/auth/me` response
+#### 1.1 — Create shared category constants
 
-**File**: `apps/api/src/routes/auth.ts` (lines 471-479)
-**Action**: Add `is_admin: user.role === 'admin'` and `wallet_address` to the user object in `/me` response.
+**File**: `packages/shared/src/categories.ts` (new)
+**Action**: Create file with `CATEGORY_SLUGS`, `CATEGORIES`, `LEGACY_SLUG_MAPPINGS`, `normalizeCategory()`, `isValidCategory()`, `CategorySlug` type, `CategoryDefinition` interface.
 **AC**:
-- [ ] `/auth/me` returns `is_admin: boolean`
-- [ ] `/auth/me` returns `wallet_address: string | null`
-- [ ] Existing fields unchanged
+- [ ] `CATEGORY_SLUGS` is a const array of 8 slugs
+- [ ] `CategorySlug` is a union type derived from the array
+- [ ] `normalizeCategory('gtm')` returns `'marketing'`
+- [ ] `isValidCategory('design')` returns `true`
+- [ ] File exports only pure functions, constants, and types (no side effects)
 
-#### 1.2 — Add `isAdmin` and `walletAddress` to explorer `User` interface and `fetchMe`
+#### 1.2 — Export categories from shared barrel
 
-**File**: `apps/explorer/lib/api/auth.ts`
-**Action**: Add `isAdmin: boolean` and `walletAddress: string | null` to `User` interface. Map `u.is_admin` and `u.wallet_address` in `fetchMe`.
+**File**: `packages/shared/src/index.ts`
+**Action**: Add `export * from './categories.js';`
 **AC**:
-- [ ] `User` interface has both new fields
-- [ ] `fetchMe` maps snake_case → camelCase correctly
+- [ ] `import { normalizeCategory, CATEGORIES } from '@loa-constructs/shared'` works
 
-#### 1.3 — Add `isAdmin` to auth store
+#### 1.3 — Add `category` column to packs table (schema)
 
-**File**: `apps/explorer/lib/stores/auth-store.ts`
-**Action**: Add `isAdmin: boolean` to `AuthState` (default `false`). Populate in `initialize`, `login`, `connectDynamic`, `refreshToken` from `user.isAdmin`.
+**File**: `apps/api/src/db/schema.ts`
+**Action**: Add `category: varchar('category', { length: 50 })` to packs table after `constructType` (line ~576). Add `categoryIdx: index('idx_packs_category').on(table.category)` to indexes.
 **AC**:
-- [ ] `isAdmin` in state, default `false`
-- [ ] All 4 auth paths set `isAdmin` from fetched user
-- [ ] `clearTokens` resets `isAdmin` to `false`
+- [ ] `category` field exists on packs table definition
+- [ ] Index defined in table config
 
-#### 1.4 — Create Next.js middleware for dashboard soft gate
+#### 1.4 — Create migration SQL
 
-**File**: `apps/explorer/middleware.ts` (new)
-**Action**: Matcher `/dashboard/:path*`. Check `access_token` cookie. No cookie → redirect `/?login=required`.
+**File**: `apps/api/src/db/migrations/0011_packs_category.sql` (new)
+**Action**: `ALTER TABLE packs ADD COLUMN category VARCHAR(50)`. `CREATE INDEX idx_packs_category ON packs(category)`. Backfill from `search_use_cases[1]` with legacy mapping CASE statement. Default to `'development'`.
 **AC**:
-- [ ] Only matches `/dashboard/*`
-- [ ] Redirects when no `access_token` cookie
-- [ ] Does not affect other routes
+- [ ] Migration wrapped in BEGIN/COMMIT
+- [ ] Backfill handles NULL `search_use_cases`
+- [ ] Legacy slugs normalized in CASE (gtm→marketing, devops→operations, etc.)
 
-#### 1.5 — Add Dashboard link to AuthNav
+#### 1.5 — API returns real category for packs
 
-**File**: `apps/explorer/components/layout/auth-nav.tsx`
-**Action**: Add "Dashboard" link when `isAuthenticated`. Position before org badge.
+**File**: `apps/api/src/services/constructs.ts:393`
+**Action**: Change `category: null` to `category: pack.category || null`.
 **AC**:
-- [ ] Link visible only when authenticated
-- [ ] Links to `/dashboard`
-- [ ] Styled consistently with existing nav elements
+- [ ] `GET /v1/constructs` returns non-null `category` for all published packs
+- [ ] Zero lines reference `category: null` for pack responses
 
-#### 1.6 — Create admin wallet migration
+#### 1.6 — Category service imports from shared, counts packs
 
-**File**: `apps/api/src/db/migrations/0010_admin_wallet.sql` (new)
-**Action**: `UPDATE users SET is_admin = true WHERE LOWER(wallet_address) = LOWER('0x79092A805f1cf9B0F5bE3c5A296De6e51c1DEd34')`
+**File**: `apps/api/src/services/category.ts`
+**Action**: Delete local `LEGACY_SLUG_MAPPINGS`, `normalizeCategory()`, and `DEFAULT_CATEGORIES`. Import from `@loa-constructs/shared`. Add pack count query in `listCategories()` alongside existing skill count. Merge into `countMap`.
 **AC**:
-- [ ] Idempotent
-- [ ] Case-insensitive match
+- [ ] Zero local category constant definitions remain
+- [ ] `listCategories()` returns counts reflecting both skills and packs per category
+- [ ] Fallback still works (shared `CATEGORIES` as default)
+
+#### 1.7 — Explorer deletes SLUG_CATEGORY_MAP, uses shared
+
+**File**: `apps/explorer/lib/data/fetch-constructs.ts`
+**Action**: Delete `SLUG_CATEGORY_MAP` (lines 74-91). Simplify line 99 to `normalizeCategory(construct.category || 'development')`. Import `normalizeCategory` from shared (via fetch-categories re-export).
+**AC**:
+- [ ] Zero hardcoded slug→category mappings in explorer
+- [ ] `transformToNode` still produces valid category for all constructs
+
+#### 1.8 — Explorer categories file imports from shared
+
+**File**: `apps/explorer/lib/data/fetch-categories.ts`
+**Action**: Delete local `DEFAULT_CATEGORIES` array, `LEGACY_SLUG_MAPPINGS`, and `normalizeCategory` function. Import from `@loa-constructs/shared`. Build `DEFAULT_CATEGORIES` from shared `CATEGORIES`.
+**AC**:
+- [ ] Zero local category definitions in fetch-categories.ts
+- [ ] `fetchCategories()` fallback uses shared constants
+- [ ] `normalizeCategory` re-exported for use by fetch-constructs.ts
+
+#### 1.9 — Seed script derives category from domain[0]
+
+**File**: `scripts/seed-forge-packs.ts`
+**Action**: Import `normalizeCategory` from shared. After extracting `searchUseCases` (~line 578), derive `category` from `domain[0]` via `normalizeCategory()`, default `'development'`. Add `category` to INSERT column list and ON CONFLICT UPDATE SET.
+**AC**:
+- [ ] `category` column populated for all 15 packs after seed
+- [ ] Packs with `domain` in manifest get correct derived category
+- [ ] Packs without `domain` get `'development'`
+
+#### 1.10 — Apply migration and re-seed production
+
+**Action**: Run migration via `bun -e` with postgres driver against production Supabase. Re-run `bun seed:forge` to populate category from existing domain fields.
+**AC**:
+- [ ] `SELECT slug, category FROM packs` returns non-null for all 15 rows
+- [ ] `GET /v1/constructs` on production returns real categories
+- [ ] Explorer graph shows constructs distributed across categories (not single-color blob)
 
 ---
 
-## Sprint 2: Dashboard Shell — Layout + Pages
+## Sprint 2: Scaffold + Publish + Skill-Add
 
-**Label**: Dashboard Shell — Layout, Sidebar, Pages
-**FR**: FR-3, FR-4, FR-5
-
-Build the dashboard route group with layout, sidebar, header, overview page, and explore page.
+**Label**: Author DX — Scaffold, Publish, Skill-Add
+**Global ID**: sprint-46
+**FR**: FR-4, FR-5, FR-6
+**Goal**: Two-phase construct authoring works end-to-end: create → skill-add → publish.
 
 ### Tasks
 
-#### 2.1 — Create dashboard layout with auth hard gate
+#### 2.1 — Verify scaffold produces minimal output
 
-**File**: `apps/explorer/app/(dashboard)/layout.tsx` (new)
-**Action**: Client component. Sidebar (200px) + content area. Read `useAuthStore()`. If `!isAuthenticated` after hydration → redirect to `/`. Pass `children` into content area.
+**File**: `.claude/scripts/constructs-create.sh`
+**Action**: Verify current state matches SDD §7. The scaffold was already revised in this session. Run `constructs-create.sh new --name test-construct --type skill-pack` and confirm output structure.
 **AC**:
-- [ ] Renders sidebar + content
-- [ ] Redirects unauthenticated users
-- [ ] Works with middleware (double gate)
+- [ ] `construct.yaml` has exactly 7 lines (name, slug, version, type, description, license, schema_version)
+- [ ] `skills/<slug>/` directory (not `skills/example/`)
+- [ ] `commands/<slug>.md` with routing frontmatter (agent, agent_path, context_files)
+- [ ] No `identity/`, `contexts/`, `capabilities`, `domain`, `paths` generated
 
-#### 2.2 — Create sidebar navigation
+#### 2.2 — Create `/skill-add` truename
 
-**File**: `apps/explorer/components/dashboard/sidebar.tsx` (new)
-**Action**: Nav items: Overview, Explore, Constructs, API Keys. Admin section (Analytics) gated by `isAdmin`. Highlight active route via `usePathname()`.
+**Files**: `.claude/skills/adding-skills/index.yaml` (new), `.claude/skills/adding-skills/SKILL.md` (new), `.claude/commands/skill-add.md` (new)
+**Action**: Create skill that takes `<name>` argument, detects construct root, reads existing skills for context, creates `skills/<name>/{index.yaml, SKILL.md}` and `commands/<name>.md`.
 **AC**:
-- [ ] All nav items render and link correctly
-- [ ] Admin section hidden for non-admin
-- [ ] Active route highlighted
+- [ ] `/skill-add research` creates `skills/research/index.yaml` with name, triggers, entry
+- [ ] `/skill-add research` creates `skills/research/SKILL.md` with workflow stub
+- [ ] `/skill-add research` creates `commands/research.md` with routing frontmatter
+- [ ] Errors clearly if not in a construct directory (no `construct.yaml`)
+- [ ] Errors if `skills/<name>/` already exists
 
-#### 2.3 — Create dashboard header
+#### 2.3 — Replace publish stub with git-sync
 
-**File**: `apps/explorer/components/dashboard/dashboard-header.tsx` (new)
-**Action**: Breadcrumbs from pathname, wallet address display (truncated), org badge, admin badge.
+**File**: `.claude/scripts/constructs-publish.sh`
+**Action**: Replace lines 316-317 (`print_warning "Publish upload not yet implemented"`) with `git push origin HEAD --tags` + `curl POST /v1/packs/:slug/sync`. Add version-bump support in the agent skill.
 **AC**:
-- [ ] Breadcrumbs reflect current route
-- [ ] Wallet address truncated (0x1234...5678)
-- [ ] Badges match design system (void/bone/cyan)
+- [ ] `constructs-publish.sh push <path>` no longer prints "not yet implemented"
+- [ ] Successful push triggers git push + sync API call
+- [ ] Sync success/failure reported to user
 
-#### 2.4 — Create dashboard overview page
+#### 2.4 — Update `/construct-publish` skill for full flow
 
-**File**: `apps/explorer/app/(dashboard)/dashboard/page.tsx` (new)
-**File**: `apps/explorer/lib/api/dashboard.ts` (new)
-**Action**: Total constructs count, recent activity, quick links. Admin section calls `GET /v1/admin/analytics` (existing endpoint) gated by `isAdmin`. `dashboard.ts` provides authenticated fetch helper.
+**File**: `.claude/skills/publishing-constructs/SKILL.md`
+**Action**: Update to implement full publish flow: filesystem discovery, Tier 2 field prompting, domain suggestion, validation, version bump (patch|minor|major), call publish script.
 **AC**:
-- [ ] Overview shows construct count for all auth'd users
-- [ ] Admin section shows platform stats (users, installs, subscriptions)
-- [ ] Non-admin sees no admin section (no error)
-
-#### 2.5 — Create dashboard explore page
-
-**File**: `apps/explorer/app/(dashboard)/dashboard/explore/page.tsx` (new)
-**Action**: Reuse existing `GraphExplorer` component. Pass pre-fetched `graphData` via `fetchGraphData()`.
-**AC**:
-- [ ] Graph renders in dashboard layout
-- [ ] Public `/explore` unchanged
-- [ ] No duplicate data fetching
+- [ ] `/construct-publish patch` bumps version, commits, tags, pushes, syncs
+- [ ] Missing `description` (still "TODO") prompts user
+- [ ] Missing `domain` prompts with suggestion
+- [ ] Validation errors show file + field + suggestion (errors are navigation)
 
 ---
 
-## Sprint 3: API Key Management
+## Sprint 3: Auto-Sync + QMD + Domain Backfill
 
-**Label**: API Keys — CRUD Endpoints + Dashboard UI
-**FR**: FR-8, FR-9
-
-Full-stack API key management: Hono CRUD endpoints + dashboard key management UI.
+**Label**: Network Automation — Auto-Sync, QMD, Backfill
+**Global ID**: sprint-47
+**FR**: FR-7, FR-8, FR-3 (operational)
+**Goal**: New construct repos auto-enter the network. QMD operational. All 15 constructs have correct domain.
 
 ### Tasks
 
-#### 3.1 — Create keys CRUD router
+#### 3.1 — Complete `--register` flag in discover-constructs.ts
 
-**File**: `apps/api/src/routes/keys.ts` (new)
-**Action**: Three endpoints: `POST /v1/keys` (create), `GET /v1/keys` (list), `DELETE /v1/keys/:id` (revoke). Uses existing `generateApiKey`, `hashApiKey` from `services/auth.ts`. Enforces 10-key limit per user.
+**File**: `scripts/discover-constructs.ts`
+**Action**: Replace stub at lines 237-240 with implementation that reports discovered repos for sync. The actual registration happens through `seed-forge-packs.ts` with `AUTO_DISCOVER=true`.
 **AC**:
-- [ ] POST creates key, returns full key once, 201
-- [ ] POST rejects at 10 active keys (400)
-- [ ] GET lists prefix/name/scopes/lastUsed — no hash
-- [ ] DELETE sets `revoked = true`, validates ownership (404 if not owner)
+- [ ] `--register` outputs actionable report of missing constructs
+- [ ] Report includes git URL and suggested next step
+- [ ] Script returns JSON when combined with `--json`
 
-#### 3.2 — Register keys router in app
+#### 3.2 — Create auto-sync GitHub Action
 
-**File**: `apps/api/src/app.ts`
-**Action**: Import `keysRouter`, mount at `/v1/keys`.
+**File**: `.github/workflows/construct-sync.yml` (new)
+**Action**: Daily cron at 6 AM UTC. Checkout, setup bun, install deps, run discover with `--register --json`, then run seed with `AUTO_DISCOVER=true`.
 **AC**:
-- [ ] Route registered
-- [ ] No conflicts with existing routes
+- [ ] Action triggers on schedule (daily) and workflow_dispatch
+- [ ] Uses `GH_TOKEN` and `DATABASE_URL` secrets
+- [ ] New `construct-*` repos discovered and synced within 24h
 
-#### 3.3 — Create key API client
+#### 3.3 — Verify QMD re-enablement
 
-**File**: `apps/explorer/lib/api/keys.ts` (new)
-**Action**: Functions: `createKey(name, scopes)`, `listKeys()`, `revokeKey(id)`. Authenticated via auth store token.
+**Action**: Run QMD sync against expanded collections. Verify failure count stays at 0. Test query against `constructs` collection.
 **AC**:
-- [ ] All three functions hit correct endpoints with Bearer auth
-- [ ] Error handling for 400/401/404
+- [ ] `.loa.config.yaml` has `memory.qmd.enabled: true`
+- [ ] `.loa/qmd/.failure_count` = 0 after sync
+- [ ] `constructs` collection indexes SKILL.md files from installed packs
+- [ ] `grimoires-all` collection indexes grimoire markdown
 
-#### 3.4 — Create key list component
+#### 3.4 — Domain backfill across 15 construct repos
 
-**File**: `apps/explorer/components/dashboard/api-key-list.tsx` (new)
-**Action**: Table: prefix, name, scopes as pills, last_used relative time, revoke button with confirmation. Empty state.
+**Action**: For each construct repo under `0xHoneyJar`, add/verify `domain:` field in `construct.yaml` with assignments from PRD §FR-3.2. Use `gh` CLI to batch.
 **AC**:
-- [ ] Renders key table
-- [ ] Revoke button confirms before DELETE
-- [ ] Empty state with "Create your first key" CTA
-
-#### 3.5 — Create key dialog component
-
-**File**: `apps/explorer/components/dashboard/create-key-dialog.tsx` (new)
-**Action**: Name input, scope checkboxes. On success: modal shows full key in monospace + copy button + "This key won't be shown again" warning. Closes → refreshes list.
-**AC**:
-- [ ] Full key displayed once on creation
-- [ ] Copy button works
-- [ ] Dialog closes and list refreshes
-
-#### 3.6 — Create keys dashboard page
-
-**File**: `apps/explorer/app/(dashboard)/dashboard/keys/page.tsx` (new)
-**Action**: Composes `ApiKeyList` + create button that opens `CreateKeyDialog`.
-**AC**:
-- [ ] Page renders in dashboard layout
-- [ ] Create and manage flow works end-to-end
+- [ ] All 15 repos have `domain: [<primary>, ...]` in construct.yaml
+- [ ] Assignments match: artisan→design, observer→analytics, protocol→development, etc.
+- [ ] Re-run `bun seed:forge` populates correct category for all 15
 
 ---
 
-## Sprint 4: Convex Setup + Provider + Server Client
+## Risk Mitigation
 
-**Label**: Convex Foundation — Schema, Provider, Server Client, Webhook
-**FR**: FR-10, FR-11, FR-12, FR-13
-
-Install Convex, define schema, set up provider with graceful degradation, server-side client, and install webhook pipeline.
-
-### Tasks
-
-#### 4.1 — Install Convex dependency
-
-**Action**: `cd apps/explorer && bun add convex`. Create `convex.json` with `"functions": "convex/"` for monorepo path override.
-**AC**:
-- [ ] `convex` in `apps/explorer/package.json`
-- [ ] `convex.json` at `apps/explorer/`
-
-#### 4.2 — Create Convex schema
-
-**File**: `apps/explorer/convex/schema.ts` (new)
-**Action**: Three tables: `installEvents` (by_created index), `syncStatus` (by_slug index), `dashboardPresence` (by_wallet, by_expires indexes).
-**AC**:
-- [ ] All tables defined with proper validators
-- [ ] Every query access pattern has an index
-
-#### 4.3 — Create Convex functions
-
-**File**: `apps/explorer/convex/installEvents.ts` (new)
-**File**: `apps/explorer/convex/syncStatus.ts` (new)
-**File**: `apps/explorer/convex/dashboardPresence.ts` (new)
-**File**: `apps/explorer/convex/crons.ts` (new)
-**Action**: Queries for live reads, mutations gated by write key for server writes, internal mutations for cron cleanup. Cron: 30s presence cleanup.
-**AC**:
-- [ ] `installEvents.recent` query returns last N events
-- [ ] `installEvents.record` mutation validates write key
-- [ ] `dashboardPresence.upsert` mutation handles heartbeat
-- [ ] `dashboardPresence.listOnline` query returns non-expired entries
-- [ ] `dashboardPresence.cleanupExpired` internal mutation deletes expired rows
-- [ ] Cron registered for presence cleanup
-
-#### 4.4 — Create ConvexProvider with graceful degradation
-
-**File**: `apps/explorer/components/providers/convex-provider.tsx` (new)
-**Action**: Module-level singleton `ConvexReactClient`. No URL → render children without provider. Console warning.
-**Modify**: `apps/explorer/app/layout.tsx` — wrap with `ConvexProvider` inside `DynamicProvider`.
-**AC**:
-- [ ] App works without `NEXT_PUBLIC_CONVEX_URL`
-- [ ] Console warning (not error) when not configured
-- [ ] Singleton (not recreated per render)
-
-#### 4.5 — Create server-side Convex client
-
-**File**: `apps/explorer/lib/convex/server.ts` (new)
-**Action**: Lazy singleton `ConvexHttpClient`. Falls back `CONVEX_URL → NEXT_PUBLIC_CONVEX_URL`. Returns `null` if absent.
-**AC**:
-- [ ] Singleton pattern
-- [ ] Returns null when not configured
-- [ ] Callers can check and return 503
-
-#### 4.6 — Create install webhook BFF route
-
-**File**: `apps/explorer/app/api/convex/install/route.ts` (new)
-**Action**: POST handler. Validates `CONVEX_WRITE_KEY` from `Authorization: Bearer`. Writes to Convex `installEvents.record`.
-**AC**:
-- [ ] 401 if no/bad write key
-- [ ] 503 if Convex not configured
-- [ ] 200 on success
-
-#### 4.7 — Fire webhook from API install tracking
-
-**File**: `apps/api/src/routes/packs.ts` (modify, after `trackPackInstallation`)
-**Action**: Fire-and-forget `fetch` to `CONVEX_WEBHOOK_URL` with `CONVEX_WRITE_KEY` bearer auth. `.catch(() => {})` — non-blocking.
-**AC**:
-- [ ] Webhook fires after install tracking
-- [ ] Failure does not affect install response
-- [ ] Skipped when `CONVEX_WEBHOOK_URL` not set
+| Risk | Sprint | Mitigation |
+|------|--------|------------|
+| Migration fails on production | 1 | Run via `bun -e` in transaction. Test backfill logic locally first. |
+| Shared package breaks explorer build | 1 | Pure functions + constants only. No Node.js imports. CI catches. |
+| Domain backfill requires 15 repo touches | 3 | Batch with `gh` CLI. Direct push where team has write access. |
+| QMD failures recur | 3 | Three-tier fallback. QMD is never a gate. |
+| Git-sync endpoint returns error during publish | 2 | Warn and suggest manual `bun seed:forge`. Don't block the git push. |
 
 ---
 
-## Sprint 5: Live Dashboard Components + Reconciliation
-
-**Label**: Live Feed, Presence, Metrics, Reconciliation
-**FR**: FR-14, FR-15, FR-16
-
-Wire Convex subscriptions into dashboard components. Build construct metrics page. Set up reconciliation cron.
-
-### Tasks
-
-#### 5.1 — Create live install feed component
-
-**File**: `apps/explorer/components/dashboard/live-install-feed.tsx` (new)
-**Action**: `useQuery(api.installEvents.recent, { limit: 20 })`. Skeleton on undefined, empty state on empty array, scrollable feed on data.
-**AC**:
-- [ ] Live updates via WebSocket
-- [ ] Graceful when Convex not configured (skeleton, not crash)
-- [ ] Scrollable, max-height constrained
-
-#### 5.2 — Create dashboard presence hook
-
-**File**: `apps/explorer/hooks/use-dashboard-presence.ts` (new)
-**Action**: 30s interval heartbeat to `dashboardPresence.upsert`. Query `dashboardPresence.listOnline`. Cleanup on unmount.
-**AC**:
-- [ ] Heartbeat fires every 30s
-- [ ] Initial heartbeat on mount
-- [ ] Interval cleared on unmount
-- [ ] Returns online users list
-
-#### 5.3 — Create construct metrics page
-
-**File**: `apps/explorer/app/(dashboard)/dashboard/constructs/page.tsx` (new)
-**Action**: All constructs with install counts (cold data from existing admin API). Live install feed sidebar (hot data from Convex `LiveInstallFeed`).
-**AC**:
-- [ ] Construct list with install counts
-- [ ] Live feed sidebar
-- [ ] Works without Convex (feed shows empty/skeleton)
-
-#### 5.4 — Add daily install analytics endpoint
-
-**File**: `apps/api/src/routes/analytics.ts` (modify, on admin router)
-**Action**: `GET /v1/admin/analytics/installs?pack_id=X&period=30d`. Daily bucketed install counts via `date_trunc('day', created_at)` on `pack_installations`.
-**AC**:
-- [ ] Returns daily bucketed counts
-- [ ] Supports `pack_id` filter and `period` parameter
-- [ ] Requires admin auth
-
-#### 5.5 — Create reconciliation cron
-
-**File**: `apps/explorer/app/api/cron/reconcile/route.ts` (new)
-**Action**: GET handler. Validates `CRON_SECRET`. Fetches recent installs from Supabase, compares with Convex, backfills gaps. Time-budget guard (50s). Register in `vercel.json` at `*/15 * * * *`.
-**AC**:
-- [ ] 401 without CRON_SECRET
-- [ ] Paginated with time budget
-- [ ] Returns reconciled count
-- [ ] Registered in vercel.json
-
----
-
-## Sprint Dependency Graph
+## Dependencies
 
 ```
-Sprint 1 (Foundation)
-  └── Sprint 2 (Dashboard Shell) ─── depends on isAdmin + middleware
-       └── Sprint 3 (API Keys) ─── depends on dashboard layout
-       └── Sprint 5 (Live Components) ─── depends on dashboard pages
-
-Sprint 4 (Convex Foundation) ─── independent of Sprint 2/3
-  └── Sprint 5 (Live Components) ─── depends on Convex schema + provider
+Sprint 1 ──► Sprint 2 (publish needs category in API)
+Sprint 1 ──► Sprint 3 (domain backfill needs category column)
+Sprint 2 is independent of Sprint 3 (can parallelize)
 ```
 
-Sprint 4 can run in parallel with Sprint 2+3. Sprint 5 depends on both Sprint 2 (dashboard pages) and Sprint 4 (Convex).
-
----
-
-## Ledger Mapping
-
-| Sprint | Local ID | Global ID | Label |
-|--------|----------|-----------|-------|
-| 1 | sprint-1 | sprint-40 | Foundation — Admin Pipeline + Dashboard Gate |
-| 2 | sprint-2 | sprint-41 | Dashboard Shell — Layout, Sidebar, Pages |
-| 3 | sprint-3 | sprint-42 | API Keys — CRUD Endpoints + Dashboard UI |
-| 4 | sprint-4 | sprint-43 | Convex Foundation — Schema, Provider, Server Client, Webhook |
-| 5 | sprint-5 | sprint-44 | Live Feed, Presence, Metrics, Reconciliation |
+Sprint 1 is the critical path. Sprints 2 and 3 can proceed in parallel after Sprint 1 completes.

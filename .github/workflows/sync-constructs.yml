@@ -34,20 +34,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-
-      - name: Install workspace dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
 
       - name: Build shared package
-        run: pnpm --filter @loa-constructs/shared build
+        run: bun run --filter @loa-constructs/shared build
 
       - name: Run seed script
         env:
@@ -59,7 +53,7 @@ jobs:
           if [ "${{ github.event.inputs.auto_discover }}" = "true" ]; then
             FLAGS="--auto-discover"
           fi
-          pnpm seed $FLAGS
+          bun run seed:forge $FLAGS
 
       - name: Summary
         if: always()
@@ -67,5 +61,5 @@ jobs:
           echo "## Construct Sync Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Auto-discover**: ${{ github.event.inputs.auto_discover || 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auto-discover**: ${{ github.event.inputs.auto_discover || 'false' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Time**: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY

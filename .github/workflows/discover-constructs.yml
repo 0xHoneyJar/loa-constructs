@@ -26,35 +26,27 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Run discovery scan
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CONSTRUCTS_ORG: ${{ github.event.inputs.org || '0xHoneyJar' }}
-        run: pnpm discover --json > /tmp/discovery.json
+        run: bun tsx scripts/discover-constructs.ts --register --json > /tmp/discovery.json
 
       - name: Report results
         run: |
           echo "## Construct Discovery Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          TOTAL=$(jq 'length' /tmp/discovery.json)
-          REGISTERED=$(jq '[.[] | select(.inRegistry == true)] | length' /tmp/discovery.json)
-          MISSING=$(jq '[.[] | select(.inRegistry == false and .hasManifest == true)] | length' /tmp/discovery.json)
-          BARE=$(jq '[.[] | select(.hasManifest == false)] | length' /tmp/discovery.json)
+          TOTAL=$(jq '.summary.total' /tmp/discovery.json)
+          REGISTERED=$(jq '.summary.registered' /tmp/discovery.json)
+          MISSING=$(jq '.summary.missing' /tmp/discovery.json)
+          BARE=$(jq '.summary.bare' /tmp/discovery.json)
 
           echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
@@ -67,20 +59,19 @@ jobs:
           if [ "$MISSING" -gt 0 ]; then
             echo "### Missing from Registry" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            jq -r '.[] | select(.inRegistry == false and .hasManifest == true) | "- **\(.slug)** (\(.visibility)) — \(.description // "no description")"' /tmp/discovery.json >> $GITHUB_STEP_SUMMARY
+            jq -r '.register.missing[] | "- **\(.slug)** — \(.description // "no description") [\(.gitUrl)]"' /tmp/discovery.json >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "> Run \`pnpm seed:auto\` to register these constructs." >> $GITHUB_STEP_SUMMARY
+            echo "> Run \`AUTO_DISCOVER=true bun seed:forge\` to register these constructs." >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ "$BARE" -gt 0 ]; then
             echo "### Bare Repos (no manifest)" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            jq -r '.[] | select(.hasManifest == false) | "- **\(.slug)** — needs construct.yaml"' /tmp/discovery.json >> $GITHUB_STEP_SUMMARY
+            jq -r '.results[] | select(.hasManifest == false) | "- **\(.slug)** — needs construct.yaml"' /tmp/discovery.json >> $GITHUB_STEP_SUMMARY
           fi
 
-          # Fail if there are missing constructs (alert via workflow failure)
           if [ "$MISSING" -gt 0 ]; then
             echo ""
-            echo "WARNING: $MISSING construct(s) with manifest not registered in seed script."
-            echo "Run: pnpm seed:auto"
+            echo "WARNING: $MISSING construct(s) with manifest not registered."
+            echo "Run: AUTO_DISCOVER=true bun seed:forge"
           fi

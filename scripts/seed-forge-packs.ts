@@ -23,6 +23,7 @@ import yaml from 'js-yaml';
 // Relative import: @loa-constructs/shared isn't linked at root level by pnpm.
 // This script must be run with tsx from the repo root (e.g., pnpm tsx scripts/seed-forge-packs.ts).
 import { packManifestSchema, type ValidatedPackManifest } from '../packages/shared/src/validation';
+import { normalizeCategory } from '../packages/shared/src/categories';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLONE_DIR = join(__dirname, '../.cache/construct-repos');
@@ -577,6 +578,10 @@ async function seedForgePacks() {
         const searchKeywords = pack.fullManifest?.keywords ?? [];
         const searchUseCases = pack.fullManifest?.domain ?? [];
 
+        // Derive category from domain[0] via shared normalizeCategory (cycle-041)
+        const rawCategory = pack.fullManifest?.domain?.[0] ?? null;
+        const category = rawCategory ? normalizeCategory(rawCategory) : 'development';
+
         // Visibility deny-by-default: only explicit manifest opt-in makes a construct public (GPT review F5)
         const VALID_VISIBILITY = ['public', 'internal', 'unlisted'] as const;
         const rawVis = (pack.fullManifest as any)?.visibility;
@@ -586,7 +591,7 @@ async function seedForgePacks() {
           INSERT INTO packs (
             id, name, slug, description, long_description, icon, owner_id, owner_type,
             status, tier_required, pricing_type, thj_bypass,
-            construct_type,
+            construct_type, category,
             visibility, submission_source,
             repository_url, homepage_url, documentation_url,
             search_keywords, search_use_cases,
@@ -605,6 +610,7 @@ async function seedForgePacks() {
             'free',
             true,
             ${pack.constructType},
+            ${category},
             ${packVisibility},
             'org_sync',
             ${repoUrl},
@@ -622,6 +628,7 @@ async function seedForgePacks() {
             icon = EXCLUDED.icon,
             status = 'published',
             construct_type = EXCLUDED.construct_type,
+            category = EXCLUDED.category,
             visibility = EXCLUDED.visibility,
             repository_url = EXCLUDED.repository_url,
             homepage_url = EXCLUDED.homepage_url,

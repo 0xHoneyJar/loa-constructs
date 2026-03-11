@@ -1,510 +1,289 @@
-# PRD: Internal Dashboard + Convex Real-Time Integration
+# PRD: Network Cohesion — Construct DX at Platform Scale
 
-**Cycle**: cycle-040
-**Created**: 2026-03-10
+**Cycle**: cycle-041
+**Created**: 2026-03-11
 **Status**: Draft
-**Depends on**: cycle-039 (Dynamic Labs auth — merged, auth store wired)
-**Context**: `grimoires/loa/context/internal-dashboard-convex-plan.md`
+**Context**: `grimoires/loa/context/construct-network-cohesion.md`
+**Research**: `grimoires/bridgebuilder/ecosystem-lifecycle-research.md`, `grimoires/bridgebuilder/stripe-dx-patterns.md`
 **Grounded in**:
-- `apps/api/src/routes/auth.ts:468-481` (`/me` response — no `is_admin` field)
-- `apps/api/src/db/schema.ts:153` (`users.is_admin` exists in DB, never exposed)
-- `apps/api/src/middleware/auth.ts:89` (`role: user.isAdmin ? 'admin' : 'user'` — populated but unused)
-- `apps/api/src/services/auth.ts:280-299` (`generateApiKey`, `hashApiKey`, `verifyApiKey` — exist, no CRUD routes)
-- `apps/api/src/db/schema.ts:261-281` (`apiKeys` table — full schema, no endpoints)
-- `apps/explorer/lib/api/auth.ts:6-14` (`User` interface — no `isAdmin`, `role` is actually tier)
-- `apps/explorer/lib/stores/auth-store.ts:26-43` (`AuthState` — no `isAdmin`)
-- `apps/explorer/app/layout.tsx` (single `DynamicProvider` wrapper, no Convex)
-- `apps/api/src/routes/analytics.ts` (user/creator stats only, no admin aggregate)
-- `apps/api/src/routes/packs.ts:1283-1298` (`trackPackInstallation` — no webhook)
-- Ecosystem: `midi-interface/convex/` (hot/cold pattern — BFF writes, WS reads, reconciliation cron)
+- `apps/api/src/db/schema.ts:508-597` (packs table — no category column)
+- `apps/explorer/lib/data/fetch-constructs.ts:74-91` (SLUG_CATEGORY_MAP hack)
+- `apps/api/src/services/constructs.ts:393` (`category: null` hardcoded)
+- `apps/api/src/services/category.ts:153-160` (listCategories counts skills only)
+- `.claude/scripts/constructs-create.sh` (scaffold generates ~40 YAML fields at create)
+- `.claude/scripts/constructs-publish.sh` (do_push prints "not yet implemented")
+- `scripts/seed-forge-packs.ts:77-142` (GIT_CONFIGS hardcoded 15 entries)
+- `scripts/discover-constructs.ts` (--register flag stubbed)
+- `.loa.config.yaml:99-114` (QMD disabled, 188 failures)
 
 ---
 
 ## 1. Problem Statement
 
-The Constructs Network has auth but no depth. Three gaps compound:
+The constructs network has sound architecture — namespace-as-registry, content-addressed versioning, git-sync distribution — but the wiring between what a construct author writes and what the network renders is broken at every joint.
 
-**P1: No internal dashboard.** Auth exists (Dynamic Labs wallet → Hono JWT) but gates nothing. Authenticated team members land on the same public page as anonymous visitors. The admin analytics API endpoints (`/v1/admin/*`) are fully wired but have no frontend consumer. There is no self-service API key management despite the `apiKeys` table and bcrypt validation being fully implemented in `services/auth.ts:280-299`.
+**Category system**: Exists in 4 places (DB seed, API service, frontend constants, frontend SLUG_CATEGORY_MAP), connected to nothing. The `packs` table has no `category` column. Every construct on the graph gets its category from a 16-entry hardcoded map in the frontend. Any new construct not in that map silently falls to `'development'`.
 
-**P2: No real-time visibility.** The registry is static — ISR with 1hr revalidation. No live install feed, no presence, no sync health indicators. The rest of the ecosystem (midi-interface) has Convex for real-time with graceful degradation, but the explorer has no equivalent.
+> Source: `fetch-constructs.ts:74-91`, `schema.ts:508` (no category on packs), `constructs.ts:393`
 
-**P3: Admin state is trapped in the database.** `users.is_admin` exists at `schema.ts:153`. The middleware reads it and sets `role: 'admin'` at `auth.ts:89`. But the `/me` endpoint at `auth.ts:471-479` never serializes it. The explorer's `User` interface has no `isAdmin` field. The auth store has no `isAdmin` field. Admin analytics exist but no admin can reach them through the UI.
+**Scaffold**: Front-loads ~40 YAML fields at create time. The research across Cargo, npm, Shopify, VS Code, and Homebrew shows no ecosystem validates during `create`. Creativity requires incomplete states.
 
-> **Sources**: Codebase grounding (13 files), `internal-dashboard-convex-plan.md`, midi-interface Convex pattern analysis.
+> Source: `constructs-create.sh:75-157`, ecosystem-lifecycle-research.md §Principle 4
 
----
+**Publish path**: The CLI stub prints "not yet implemented" at the final step. The git-sync path works but isn't wired as the canonical flow. Authors hit a dead end.
 
-## 2. Vision & Design Principles
+> Source: `constructs-publish.sh` do_push function
 
-**Vision**: Progressive disclosure. Public browse stays unchanged. Wallet auth unlocks a dashboard with construct management, API key self-service, and real-time activity. Admin status unlocks platform analytics.
+**Auto-sync**: `GIT_CONFIGS` is hardcoded with 15 entries. The namespace-as-registry principle ("a `construct-*` repo with a `construct.yaml` IS a stall in the bazaar") is aspirational, not operational.
 
-**Design Principles**:
+> Source: `seed-forge-packs.ts:77-142`, `discover-constructs.ts`
 
-1. **Progressive disclosure** — Public pages are unaffected. Dashboard is additive, behind auth. Admin sections are additive, behind `isAdmin`.
+**QMD**: Integrated into Loa (scripts, hooks, 3 skills call it) but dormant. 188 failures accumulated, master toggle off.
 
-2. **Hot/cold architecture** — Convex for real-time reads (WebSocket subscriptions), Supabase remains source of truth. BFF routes for auth-bearing writes. Same pattern as midi-interface.
-
-3. **Graceful degradation** — No Convex URL → app works fully without real-time features. All Convex UI components use `"skip"` sentinel fallback.
-
-4. **No new auth** — Uses existing Dynamic Labs + Hono JWT pipeline from cycle-039. Dashboard only needs `isAuthenticated` + `isAdmin` from the auth store.
+> Source: `.loa.config.yaml:101`, `.loa/qmd/.failure_count`
 
 ---
 
-## 3. Goals & Success Metrics
+## 2. Vision
 
-### Business Goals
+**The filesystem IS the configuration. The manifest is for exceptions. The network handles everything after the author writes skills.**
 
-| Goal | Measure | Target |
-|------|---------|--------|
-| Team members have a dashboard | Auth'd user at `/dashboard` sees overview | Works |
-| Admin analytics accessible | `isAdmin` user sees platform stats | Works |
-| Self-service API keys | Create/list/revoke keys from dashboard | Works |
-| Real-time install feed | New installs appear within 2s | <2s latency |
-| No Convex = no breakage | App runs without `NEXT_PUBLIC_CONVEX_URL` | Fully functional |
+The author lives in steps 1-4. The network lives in steps 5-7. They never meet.
 
-### Non-Goals (Explicit)
-
-- **Replacing Supabase with Convex** — Convex is hot layer only. PostgreSQL is truth.
-- **External user dashboard** — Dashboard is for 0xHoneyJar org members only.
-- **Billing/payment integration** — No Stripe, no NowPayments in this cycle.
-- **Per-construct management UI** — No CRUD for constructs from dashboard. That's `/construct sync`.
-- **Auth changes** — Dynamic Labs provider already wired. No auth flow modifications.
-
----
-
-## 4. User & Stakeholder Context
-
-### Persona 1: Team Member (Primary)
-
-**Who**: Developer on `0xHoneyJar` GitHub org, authenticated via Dynamic Labs.
-**Has**: Working wallet auth, `isOrgMember: true` in auth store.
-**Needs**: Dashboard with construct overview, API key management, live activity feed.
-**Current pain**: Logs in, sees same page as anonymous users. No API key UI. No way to see install activity in real-time.
-**Expected flow**: Auth'd → click "Dashboard" in header → sidebar nav → overview / keys / constructs / explore.
-
-### Persona 2: Admin (@janitooor)
-
-**Who**: `is_admin = true` in DB (wallet `0x79092A805f1cf9B0F5bE3c5A296De6e51c1DEd34`).
-**Has**: All team member access + admin role in DB.
-**Needs**: Platform-wide analytics (user count, total installs, construct health).
-**Current pain**: Admin analytics API exists but has no frontend consumer.
-**Expected flow**: Same as team member + admin-only sections visible in dashboard sidebar and overview page.
-
----
-
-## 5. Functional Requirements
-
-### FR-1: Expose `is_admin` from API (P0 — blocks dashboard gating)
-
-**Modify**: `apps/api/src/routes/auth.ts` (lines 471-481)
-
-Add `is_admin: user.role === 'admin'` and `wallet_address` to the `/me` response. The `AuthUser` already carries `role` populated from `users.isAdmin` at `middleware/auth.ts:89`.
-
-**Modify**: `apps/explorer/lib/api/auth.ts`
-- Add `isAdmin: boolean` and `walletAddress: string | null` to `User` interface
-- Map from `u.is_admin` in `fetchMe()`
-
-**Modify**: `apps/explorer/lib/stores/auth-store.ts`
-- Add `isAdmin: boolean` to `AuthState` (default `false`)
-- Populate in `initialize`, `login`, `connectDynamic` from `user.isAdmin`
-
-**Acceptance Criteria**:
-- [ ] `/auth/me` returns `is_admin: boolean` and `wallet_address: string | null`
-- [ ] `User` interface includes `isAdmin` and `walletAddress`
-- [ ] Auth store exposes `isAdmin` alongside existing `isOrgMember`
-- [ ] Existing auth flows (login, OAuth, Dynamic) unaffected
-
-### FR-2: Next.js Middleware — Dashboard Soft Gate
-
-**Create**: `apps/explorer/middleware.ts`
-
-Match `/dashboard/:path*` only. Check `access_token` cookie existence (js-cookie, non-HttpOnly). No token → redirect to `/?login=required`. This is a soft gate — real auth is API-side. Prevents flash of dashboard UI for logged-out users.
-
-**Acceptance Criteria**:
-- [ ] Only matches `/dashboard/*` routes
-- [ ] Redirects to `/?login=required` when no `access_token` cookie
-- [ ] Does not affect any other routes (public pages, API routes)
-- [ ] Cookie check only — no JWT validation in middleware
-
-### FR-3: Dashboard Layout + Navigation
-
-**Create**: `apps/explorer/app/(dashboard)/layout.tsx`
-- Left sidebar (~200px) + content area
-- Client component that reads auth store, redirects if `!isAuthenticated`
-- Sidebar nav: Overview, Explore, Constructs, API Keys
-- Admin-only items gated by `isAdmin`
-
-**Create**: `apps/explorer/components/dashboard/sidebar.tsx`
-**Create**: `apps/explorer/components/dashboard/dashboard-header.tsx`
-- Shows wallet address, org badge, breadcrumbs
-
-**Acceptance Criteria**:
-- [ ] Dashboard layout renders with sidebar + content
-- [ ] Unauthenticated redirect works even if middleware is bypassed
-- [ ] Admin nav items visible only to `isAdmin` users
-- [ ] Sidebar highlights active route
-
-### FR-4: Dashboard Overview Page
-
-**Create**: `apps/explorer/app/(dashboard)/dashboard/page.tsx`
-- Total constructs count, recent activity, quick links
-- Admin section (user count, platform stats) gated by `isAdmin`, calls `GET /v1/admin/analytics`
-
-**Create**: `apps/explorer/lib/api/dashboard.ts`
-- Authenticated fetch helpers with `Authorization: Bearer` from auth store
-
-**Acceptance Criteria**:
-- [ ] Overview shows construct count and recent activity for all auth'd users
-- [ ] Admin section calls existing admin analytics API
-- [ ] Non-admin users see overview without admin section (no error)
-
-### FR-5: Dashboard Explore Page
-
-**Create**: `apps/explorer/app/(dashboard)/dashboard/explore/page.tsx`
-- Reuses existing `GraphExplorer` from `components/graph/graph-explorer.tsx`
-- Same `fetchGraphData()` ISR call, wrapped in dashboard layout
-- Public `/explore` stays as-is
-
-**Acceptance Criteria**:
-- [ ] Graph renders within dashboard layout
-- [ ] Public `/explore` unchanged
-- [ ] No duplicate data fetching
-
-### FR-6: Header Dashboard Link
-
-**Modify**: `apps/explorer/components/layout/auth-nav.tsx`
-- Add "Dashboard" link when `isAuthenticated`
-
-**Acceptance Criteria**:
-- [ ] "Dashboard" link appears only for authenticated users
-- [ ] Links to `/dashboard`
-- [ ] Positioned before the connect button/address display
-
-### FR-7: Admin Wallet Migration
-
-**Create**: `apps/api/src/db/migrations/0010_admin_wallet.sql`
-
-```sql
-UPDATE users SET is_admin = true
-WHERE LOWER(wallet_address) = LOWER('0x79092A805f1cf9B0F5bE3c5A296De6e51c1DEd34');
+```
+1. construct create my-tool        → 5 files, immediately invocable
+2. (author writes skills, accumulates grimoire artifacts)
+3. /skill-add research             → new skill scaffolded with conventions
+4. (author iterates, QMD indexes artifacts)
+5. /construct-publish patch        → validates, infers metadata, bumps, syncs
+6. (network: category derivation, graph position, search indexing, install API)
+7. (consumers: /constructs install my-tool)
 ```
 
-**Acceptance Criteria**:
-- [ ] Migration is idempotent
-- [ ] Only affects the specified wallet address
-- [ ] Case-insensitive matching
+---
 
-### FR-8: API Key CRUD Endpoints
+## 3. Design Principles
 
-**Create**: `apps/api/src/routes/keys.ts`
+Extracted from cross-ecosystem research (Vercel, Cargo, npm, Shopify, VS Code, Stripe, Homebrew). These govern all decisions in this PRD.
 
-Three endpoints using existing utilities from `services/auth.ts:280-299`:
-
-| Endpoint | Auth | Behavior |
-|----------|------|----------|
-| `POST /v1/keys` | `requireAuth()` | `generateApiKey()` + `hashApiKey()` → insert `apiKeys` row. Return full key ONCE. Max 10 active keys/user. |
-| `GET /v1/keys` | `requireAuth()` | List user's non-revoked keys (prefix, name, scopes, last_used, created). Never return hash. |
-| `DELETE /v1/keys/:id` | `requireAuth()` | Set `revoked = true`. Validate key belongs to requesting user. |
-
-**Modify**: `apps/api/src/app.ts`
-- Register `keysRouter` at `/v1/keys`
-
-**Acceptance Criteria**:
-- [ ] POST creates key, returns full key once, enforces 10-key limit
-- [ ] GET lists keys with prefix, name, scopes, last_used — no hash or full key
-- [ ] DELETE sets `revoked = true`, rejects if key doesn't belong to user
-- [ ] Existing `validateApiKeyAuth` in middleware rejects revoked keys (already works)
-
-### FR-9: API Key Dashboard UI
-
-**Create**: `apps/explorer/app/(dashboard)/dashboard/keys/page.tsx`
-**Create**: `apps/explorer/components/dashboard/api-key-list.tsx`
-**Create**: `apps/explorer/components/dashboard/create-key-dialog.tsx`
-**Create**: `apps/explorer/lib/api/keys.ts`
-
-- Key table: prefix, name, scopes, last_used, created_at, revoke button
-- Create dialog: name input, scope checkboxes. On success, show full key ONCE with copy button
-
-**Acceptance Criteria**:
-- [ ] Table displays all user's active keys
-- [ ] Create dialog returns full key once with copy-to-clipboard
-- [ ] Revoke button confirms then calls DELETE
-- [ ] Empty state shown when no keys exist
-
-### FR-10: Convex Project Setup
-
-```bash
-cd apps/explorer && bun add convex
-```
-
-**Create**: `apps/explorer/convex/schema.ts`
-- `installEvents` — live install feed (packSlug, action, timestamp) with `by_created` index
-- `syncStatus` — construct sync health (slug, status, lastSyncAt) with `by_slug` index
-- `dashboardPresence` — who's online (wallet, lastSeen, expiresAt) with `by_expires` index
-
-**Create**: `apps/explorer/convex/installEvents.ts` — queries + mutations
-**Create**: `apps/explorer/convex/syncStatus.ts` — queries + mutations
-**Create**: `apps/explorer/convex/dashboardPresence.ts` — queries + mutations + internal cleanup
-
-**Acceptance Criteria**:
-- [ ] All tables have proper indexes (no naked `.collect()` on large tables)
-- [ ] Mutations gate on write key for server-to-server calls
-- [ ] Queries support pagination/limit parameters
-
-### FR-11: Convex Provider with Graceful Degradation
-
-**Create**: `apps/explorer/components/providers/convex-provider.tsx`
-
-Exact midi-interface pattern:
-```ts
-const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
-```
-
-No Convex URL → renders children without provider, app works fully offline.
-
-**Modify**: `apps/explorer/app/layout.tsx`
-- Wrap with `ConvexProvider` inside `DynamicProvider`
-
-**Acceptance Criteria**:
-- [ ] Module-level singleton (not recreated per render)
-- [ ] App runs fully without `NEXT_PUBLIC_CONVEX_URL`
-- [ ] Console warning when Convex not configured (not error)
-
-### FR-12: Server-Side Convex Client
-
-**Create**: `apps/explorer/lib/convex/server.ts`
-
-Singleton `ConvexHttpClient` (midi-interface `lib/agora/server.ts` pattern). Reads `CONVEX_URL ?? NEXT_PUBLIC_CONVEX_URL`. Returns `null` if not configured.
-
-**Acceptance Criteria**:
-- [ ] Lazy-initialized singleton
-- [ ] Returns `null` when env vars absent (callers return 503)
-
-### FR-13: Install Event Webhook
-
-**Create**: `apps/explorer/app/api/convex/install/route.ts`
-- BFF route: validates `CONVEX_WRITE_KEY` shared secret, writes to Convex `installEvents`
-
-**Modify**: `apps/api/src/routes/packs.ts` (install tracking path at line ~1284)
-- After recording `pack_installations` row, fire-and-forget webhook to explorer BFF
-- Non-blocking, non-fatal (same pattern as midi profile hydration)
-
-**Acceptance Criteria**:
-- [ ] Webhook validates shared secret before writing
-- [ ] API fire-and-forget: failure doesn't affect install tracking
-- [ ] Install event appears in Convex within 2s of API call
-
-### FR-14: Real-Time Dashboard Components
-
-**Create**: `apps/explorer/components/dashboard/live-install-feed.tsx`
-- `useQuery(api.installEvents.recent, { limit: 20 })` with `"skip"` sentinel fallback
-- Scrolling feed of recent installs
-
-**Create**: `apps/explorer/hooks/use-dashboard-presence.ts`
-- 30s heartbeat to `dashboardPresence`, shows who else is online
-
-**Acceptance Criteria**:
-- [ ] Install feed updates live via WebSocket subscription
-- [ ] Components render gracefully when Convex not configured (empty state, not error)
-- [ ] Presence heartbeat cleans up on unmount
-
-### FR-15: Construct Metrics Page
-
-**Create**: `apps/explorer/app/(dashboard)/dashboard/constructs/page.tsx`
-- All constructs with install counts (cold data from Supabase via existing admin API)
-- Live install feed sidebar (hot data from Convex)
-
-**Modify**: `apps/api/src/routes/analytics.ts`
-- Add `GET /v1/analytics/installs?pack_id=X&period=30d` — daily bucketed install counts using `date_trunc('day', created_at)` on `pack_installations`
-
-**Acceptance Criteria**:
-- [ ] Construct list shows install counts from Supabase
-- [ ] Live feed sidebar shows real-time installs from Convex
-- [ ] Analytics endpoint supports `pack_id` filter and `period` parameter
-
-### FR-16: Sync Reconciliation Cron
-
-**Create**: `apps/explorer/app/api/cron/reconcile/route.ts`
-- Every 15 min: compare recent `pack_installations` (Supabase) with Convex `installEvents`, backfill gaps
-- Pattern from midi-interface `app/api/cron/reconcile-profiles/route.ts`
-- Time budget guard (50s max), paginated, `CRON_SECRET` auth
-
-**Acceptance Criteria**:
-- [ ] Verifies `CRON_SECRET` from `Authorization: Bearer`
-- [ ] Paginated with time budget guard
-- [ ] Monotonic guard: skips if event already exists in Convex
-- [ ] Partial success returns reconciled count
+| # | Principle | Source |
+|---|-----------|--------|
+| 1 | **Filesystem inference over declaration** | Cargo infers targets from `src/`, Next.js infers routes from `app/` |
+| 2 | **Graduated manifest tiers** — Identity (create) < Publication (publish) < Discovery (registry) | Every ecosystem separates these; none front-load all fields |
+| 3 | **Two-phase scaffolding** — shell first, capabilities later | Shopify `app init` + `app generate extension` |
+| 4 | **Progressive commitment** — same primitives at every tier | Stripe: zero-config and full-control share the same pipeline |
+| 5 | **One state machine, all distribution methods** | Stripe PaymentIntents: one lifecycle regardless of method |
+| 6 | **Validate at boundaries, not in editors** | No ecosystem validates during `create` or `dev` |
+| 7 | **Errors are navigation, not dead ends** | Stripe: every error includes the next step |
+| 8 | **Detection over declaration** | Vercel CLI reads 6+ signals before asking the developer anything |
 
 ---
 
-## 6. Technical & Non-Functional Requirements
+## 4. Users
 
-### NFR-1: Performance
+**Primary**: Internal team — @janitooor and team members creating and maintaining constructs under the `0xHoneyJar` org. They build constructs to solve real problems in their product repos (midi-interface, mcv-interface, rektdrop-interface). They want to focus on the craft, not the plumbing.
 
-- Dashboard pages are client components (no ISR needed — auth-gated)
-- Convex subscriptions use indexed queries only (no table scans)
-- Install webhook is fire-and-forget (does not slow down install API)
-- Live feed limited to 20 most recent events
-
-### NFR-2: Security
-
-- Dashboard soft-gated by middleware (cookie check) + hard-gated by auth store
-- Admin sections double-gated: `isAuthenticated && isAdmin`
-- API key full value shown once, then only prefix
-- Key CRUD endpoints validate ownership (user_id match)
-- Convex write mutations gated by `CONVEX_WRITE_KEY` shared secret
-- Reconciliation cron gated by `CRON_SECRET`
-- No admin bypass — `isAdmin` is DB-authoritative, not JWT-claimable
-
-### NFR-3: Compatibility
-
-- Public pages (`/`, `/explore`, `/constructs/*`, `/about`) unchanged
-- Existing auth flows (login, OAuth, Dynamic) unaffected
-- Existing API endpoints backwards-compatible
-- App fully functional without Convex environment variables
+**Secondary** (deferred): External contributors. The register/pending_review path exists but is not the focus of this cycle.
 
 ---
 
-## 7. Scope & Prioritization
+## 5. Success Criteria
 
-### Phase 1: Dashboard Shell + Auth Routing (Sprint 1-2)
-
-| Priority | Feature | FR |
-|----------|---------|-----|
-| P0 | Expose `is_admin` from API | FR-1 |
-| P0 | Next.js middleware (soft gate) | FR-2 |
-| P0 | Dashboard layout + sidebar | FR-3 |
-| P1 | Overview page | FR-4 |
-| P1 | Explore in dashboard | FR-5 |
-| P1 | Header dashboard link | FR-6 |
-| P2 | Admin wallet migration | FR-7 |
-
-### Phase 2: API Key Management (Sprint 3)
-
-| Priority | Feature | FR |
-|----------|---------|-----|
-| P0 | Key CRUD endpoints | FR-8 |
-| P0 | Key dashboard UI | FR-9 |
-
-### Phase 3: Convex Real-Time (Sprint 4-5)
-
-| Priority | Feature | FR |
-|----------|---------|-----|
-| P0 | Convex setup + provider | FR-10, FR-11 |
-| P0 | Server-side client | FR-12 |
-| P1 | Install webhook | FR-13 |
-| P1 | Live feed + presence | FR-14 |
-| P1 | Construct metrics page | FR-15 |
-| P2 | Reconciliation cron | FR-16 |
-
-### Future (Not This Cycle)
-
-- Construct CRUD from dashboard (create/update/delete)
-- Usage analytics per API key
-- Billing integration (NowPayments)
-- Team management UI
-- Notification center (installs, sync failures)
+| Metric | Current | Target | How Measured |
+|--------|---------|--------|-------------|
+| Constructs with real category in API response | 0 of 15 | 15 of 15 | `GET /v1/constructs` — zero `category: null` |
+| Frontend SLUG_CATEGORY_MAP entries | 16 | 0 (deleted) | Code search |
+| Category constants definitions | 3 (duplicated) | 1 (shared) | `packages/shared/src/categories.ts` |
+| Scaffold YAML lines at create time | ~40 | <10 | `construct.yaml` line count after `construct create` |
+| Scaffold files for skill-pack | 6 (missing dispatch files) | 5 (dispatch-ready) | Includes `commands/<slug>.md` with frontmatter |
+| Publish path completes end-to-end | No (stub) | Yes | `construct publish` triggers git-sync successfully |
+| New construct-* repos auto-discovered | No (manual GIT_CONFIGS) | Yes (within 24h) | GitHub Action cron runs successfully |
+| Constructs with `domain` in construct.yaml | 2 of 15 | 15 of 15 | Check across all construct repos |
+| QMD operational | No (disabled, 188 failures) | Yes (enabled, 0 failures) | `.loa.config.yaml` enabled + collections indexed |
+| `/skill-add` exists | No | Yes | Skill invocable, creates working skill directory |
 
 ---
 
-## 8. Risks & Dependencies
+## 6. Functional Requirements
 
-### Technical Risks
+### FR-1: Category Derivation Pipeline (P0)
+
+**Goal**: Category flows from `construct.yaml:domain[0]` through the network to the graph. No client-side hacks.
+
+| ID | Requirement | Acceptance |
+|----|-------------|-----------|
+| FR-1.1 | Add `category VARCHAR(50)` column to `packs` table | Migration applied, indexed |
+| FR-1.2 | Seed script derives category from `manifest.domain[0]` via `normalizeCategory()` | All 15 packs have non-null category after seed |
+| FR-1.3 | API returns `pack.category` in construct responses | `GET /v1/constructs` returns real category for all packs |
+| FR-1.4 | `listCategories()` counts both `packs.category` and `skills.category` | Category counts reflect actual construct distribution |
+| FR-1.5 | Frontend deletes `SLUG_CATEGORY_MAP`, trusts API | Zero hardcoded category mappings in explorer |
+| FR-1.6 | `skillCategoryEnum` aligned with 8-category taxonomy | Enum values match: marketing, development, security, analytics, documentation, operations, design, infrastructure |
+
+### FR-2: Shared Category Constants (P0)
+
+| ID | Requirement | Acceptance |
+|----|-------------|-----------|
+| FR-2.1 | Create `packages/shared/src/categories.ts` with `CATEGORIES`, `LEGACY_SLUG_MAPPINGS`, `normalizeCategory()` | One file, exported |
+| FR-2.2 | API imports from shared package | `services/category.ts` uses shared constants |
+| FR-2.3 | Explorer imports from shared package | `lib/data/fetch-categories.ts` uses shared constants |
+| FR-2.4 | Seed script imports from shared package | `seed-forge-packs.ts` uses shared `normalizeCategory()` |
+
+### FR-3: Construct Repo Domain Backfill (P0)
+
+| ID | Requirement | Acceptance |
+|----|-------------|-----------|
+| FR-3.1 | Add `domain` field to all 15 construct.yaml files across repos | Each repo has `domain: [<category>, ...]` in construct.yaml |
+| FR-3.2 | Domain values match the intended category for each construct | Observer→analytics, Artisan→design, Protocol→development, etc. |
+| FR-3.3 | Re-run seed script to populate `packs.category` from new domain fields | All 15 DB records have correct category |
+
+**Domain assignments** (derived from existing SLUG_CATEGORY_MAP + construct purpose):
+
+| Construct | domain[0] | Rationale |
+|-----------|-----------|-----------|
+| artisan | design | Material feel, typography, motion |
+| the-easel | design | Visual direction, TDRs |
+| webgl-particles | design | WebGL visual effects |
+| webreel | design | Video/visual content |
+| observer | analytics | User research, feedback capture |
+| k-hole | analytics | Deep research, resonance profiles |
+| crucible | security | QA, testing, verification |
+| hardening | security | Security hardening |
+| dynamic-auth | security | Authentication patterns |
+| protocol | development | Web3 protocol, dapp UX |
+| beacon | operations | Deployment, monitoring |
+| herald | operations | PR→social content pipeline |
+| gtm-collective | marketing | GTM strategy |
+| social-oracle | marketing | Social media content |
+| growthpages | marketing | Growth content |
+| mibera-codex | documentation | Knowledge base |
+
+### FR-4: Minimal Scaffold (P1)
+
+**Goal**: `construct create` produces 5 files that dispatch immediately. No enrichment fields at create time.
+
+| ID | Requirement | Acceptance |
+|----|-------------|-----------|
+| FR-4.1 | `construct.yaml` contains only: name, slug, version, type, description, license, schema_version | <10 lines. No domain, capabilities, paths, identity, pack_dependencies |
+| FR-4.2 | `skills/<slug>/index.yaml` contains only: name, triggers, entry | Dispatch-critical fields only |
+| FR-4.3 | `skills/<slug>/SKILL.md` is a minimal workflow stub | Invocation + TODO sections |
+| FR-4.4 | `commands/<slug>.md` has valid routing frontmatter | agent, agent_path, context_files present |
+| FR-4.5 | Skill directory named after slug, not "example" | `skills/<slug>/` not `skills/example/` |
+| FR-4.6 | No `identity/`, `contexts/`, `capabilities`, `domain`, `paths` generated | These are enrichment — added at publish or via `/skill-add` |
+
+### FR-5: Publish Boundary (P1)
+
+**Goal**: `/construct-publish` validates, infers missing metadata, and syncs via git-sync. One command from "I'm done" to "it's live."
+
+| ID | Requirement | Acceptance |
+|----|-------------|-----------|
+| FR-5.1 | Filesystem discovery: skills from `skills/*/index.yaml`, commands from `commands/*.md` | Inferred arrays match actual directory contents |
+| FR-5.2 | Prompt for Tier 2 fields if missing: version, description, license | User prompted once, values written to construct.yaml |
+| FR-5.3 | Suggest Tier 3 fields: domain (with type-based default), keywords | Agent proposes, user confirms or overrides |
+| FR-5.4 | Validation: routing frontmatter present, triggers populated, at least one skill | Errors are actionable (file + field + suggestion) |
+| FR-5.5 | Git-sync trigger: `POST /v1/packs/:slug/sync` | Sync completes, content hash updated |
+| FR-5.6 | Remove direct-upload stub from `do_push()` | One publish path, not two |
+| FR-5.7 | Version ceremony: `construct publish patch\|minor\|major` bumps version, commits, tags, pushes | Like `vsce publish minor` |
+
+### FR-6: `/skill-add` Truename (P1)
+
+**Goal**: Two-phase scaffolding — shell first (create), capabilities later (skill-add).
+
+| ID | Requirement | Acceptance |
+|----|-------------|-----------|
+| FR-6.1 | `/skill-add <name>` creates `skills/<name>/{index.yaml, SKILL.md}` | Files created with populated triggers, entry, name |
+| FR-6.2 | Agent reads existing skills to populate domain_hints and examples | New skill is contextually aware of the construct |
+| FR-6.3 | Creates `commands/<name>.md` with routing frontmatter if missing | New skill is immediately invocable |
+| FR-6.4 | Works inside any construct repo (detects construct.yaml) | Errors clearly if not in a construct directory |
+
+### FR-7: Auto-Sync (P2)
+
+**Goal**: Namespace IS the registry. New `construct-*` repos auto-enter the network.
+
+| ID | Requirement | Acceptance |
+|----|-------------|-----------|
+| FR-7.1 | Complete `--register` flag in `discover-constructs.ts` | Script can register new constructs via API |
+| FR-7.2 | GitHub Action runs daily cron: discover → register → sync | New repos appear in registry within 24h |
+| FR-7.3 | Existing repos: compare `last_sync_commit` vs HEAD, sync if diverged | Stale constructs auto-update |
+| FR-7.4 | `GIT_CONFIGS` becomes a fallback, not the registry | Auto-discovery is the primary path |
+
+### FR-8: QMD Re-enablement (P2)
+
+**Goal**: QMD operational with expanded construct collections.
+
+| ID | Requirement | Acceptance |
+|----|-------------|-----------|
+| FR-8.1 | `memory.qmd.enabled: true` in `.loa.config.yaml` | Toggle on |
+| FR-8.2 | Failure counter at 0, stays at 0 after sync | `.loa/qmd/.failure_count` = 0 post-index |
+| FR-8.3 | `constructs` collection indexes SKILL.md, index.yaml, persona.yaml, CLAUDE.md from installed packs | QMD search returns construct documentation |
+| FR-8.4 | `grimoires-all` collection indexes all grimoire markdown | Cross-grimoire semantic search works |
+| FR-8.5 | QMD assists domain inference at publish time | Publish skill queries QMD for SKILL.md content → category suggestion |
+
+---
+
+## 7. Technical Constraints
+
+| Constraint | Impact |
+|-----------|--------|
+| DB migration on production Supabase | Must use `bun -e` with postgres driver (no `psql` locally). Test in dry-run first. |
+| `skillCategoryEnum` is a PostgreSQL enum type | ALTER TYPE requires careful migration — rename values, add new, drop unused |
+| 15 construct repos under 0xHoneyJar | Domain backfill requires PRs or direct pushes to each repo |
+| QMD v1.1.5 globally installed, not project dep | Binary must be in PATH. Graceful degradation if missing. |
+| `packages/shared` must be importable by both API (Node) and explorer (Next.js) | Package must work in both server and browser contexts |
+| Auto-sync GitHub Action needs `DATABASE_URL` and `GH_TOKEN` secrets | Must be configured in repo settings |
+
+---
+
+## 8. Scope
+
+### In Scope (P0-P2)
+
+- Category derivation pipeline: migration → seed → API → frontend
+- Shared constants package
+- Domain field backfill across all 15 construct repos
+- Minimal scaffold (5 files, <10 YAML lines)
+- Publish boundary with git-sync + validation
+- `/skill-add` truename
+- Auto-sync GitHub Action
+- QMD re-enablement + collection expansion
+
+### Out of Scope
+
+- External contributor path (register → pending_review → approval)
+- Billing/payments integration
+- MCP server wrapper for QMD
+- `/construct-distill` truename (P3 — depends on QMD + /skill-add)
+- Lifecycle state machine formalization (P4)
+- Path inference at publish time (P3)
+- Construct piping / event bus
+- Explorer UI changes beyond category cleanup
+
+---
+
+## 9. Risks
 
 | Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Convex cold start latency on first dashboard load | Medium | Low | Singleton client, lazy init |
-| Convex free tier limits (function calls/month) | Low | Medium | Monitor usage, reconciliation cron is heaviest consumer |
-| `is_admin` exposure creates privilege escalation surface | Low | High | DB-authoritative (not JWT claim), server validates on every request |
-| Dashboard layout breaks existing (site) pages | Low | High | Separate route group `(dashboard)`, no shared layout |
-
-### External Dependencies
-
-| Dependency | Owner | Risk |
-|-----------|-------|------|
-| Convex project creation + env vars | @janitooor | Must set up before Phase 3 |
-| `CONVEX_WRITE_KEY` shared secret | @janitooor | Needed for install webhook |
-| `CRON_SECRET` for Vercel cron auth | @janitooor | Needed for reconciliation |
-| Admin wallet in production DB | @janitooor | Migration 0010 must run |
+|------|-----------|--------|-----------|
+| Enum migration breaks existing skill rows | Medium | High | Verify zero rows for `sales`/`support` before dropping. Run migration in transaction. |
+| QMD failures recur after re-enable | Medium | Low | Three-tier fallback (QMD → CK → grep) means functionality degrades gracefully |
+| Domain backfill requires 15 PRs to construct repos | Certain | Medium | Batch with `gh` CLI. Direct push to repos where team has write access. |
+| Shared package import breaks explorer build | Low | Medium | Test in CI before merging. Shared package exports only pure functions + constants. |
+| Auto-sync discovers repos with broken construct.yaml | Medium | Low | Validation in discover script — skip repos that fail manifest parse |
+| `last_sync_commit` comparison has edge cases (force push, rebase) | Low | Low | Fall back to full sync if comparison fails |
 
 ---
 
-## 9. New Environment Variables
+## 10. Dependencies
 
-| Variable | App | Phase |
-|----------|-----|-------|
-| `NEXT_PUBLIC_CONVEX_URL` | explorer | 3 |
-| `CONVEX_URL` | explorer | 3 |
-| `CONVEX_WRITE_KEY` | explorer + api | 3 |
-| `CRON_SECRET` | explorer | 3 |
-
----
-
-## 10. File Inventory
-
-### Phase 1 (8 new + 4 modify)
-
-| Action | File |
-|--------|------|
-| Create | `apps/explorer/middleware.ts` |
-| Create | `apps/explorer/app/(dashboard)/layout.tsx` |
-| Create | `apps/explorer/app/(dashboard)/dashboard/page.tsx` |
-| Create | `apps/explorer/app/(dashboard)/dashboard/explore/page.tsx` |
-| Create | `apps/explorer/components/dashboard/sidebar.tsx` |
-| Create | `apps/explorer/components/dashboard/dashboard-header.tsx` |
-| Create | `apps/explorer/lib/api/dashboard.ts` |
-| Create | `apps/api/src/db/migrations/0010_admin_wallet.sql` |
-| Modify | `apps/api/src/routes/auth.ts` — add `is_admin`, `wallet_address` to `/me` |
-| Modify | `apps/explorer/lib/api/auth.ts` — add `isAdmin`, `walletAddress` to User |
-| Modify | `apps/explorer/lib/stores/auth-store.ts` — add `isAdmin` state |
-| Modify | `apps/explorer/components/layout/auth-nav.tsx` — dashboard link |
-
-### Phase 2 (5 new + 1 modify)
-
-| Action | File |
-|--------|------|
-| Create | `apps/api/src/routes/keys.ts` |
-| Create | `apps/explorer/app/(dashboard)/dashboard/keys/page.tsx` |
-| Create | `apps/explorer/components/dashboard/api-key-list.tsx` |
-| Create | `apps/explorer/components/dashboard/create-key-dialog.tsx` |
-| Create | `apps/explorer/lib/api/keys.ts` |
-| Modify | `apps/api/src/app.ts` — register keys router |
-
-### Phase 3 (10 new + 3 modify)
-
-| Action | File |
-|--------|------|
-| Create | `apps/explorer/convex/schema.ts` |
-| Create | `apps/explorer/convex/installEvents.ts` |
-| Create | `apps/explorer/convex/syncStatus.ts` |
-| Create | `apps/explorer/convex/dashboardPresence.ts` |
-| Create | `apps/explorer/components/providers/convex-provider.tsx` |
-| Create | `apps/explorer/lib/convex/server.ts` |
-| Create | `apps/explorer/app/api/convex/install/route.ts` |
-| Create | `apps/explorer/components/dashboard/live-install-feed.tsx` |
-| Create | `apps/explorer/hooks/use-dashboard-presence.ts` |
-| Create | `apps/explorer/app/(dashboard)/dashboard/constructs/page.tsx` |
-| Create | `apps/explorer/app/api/cron/reconcile/route.ts` |
-| Modify | `apps/explorer/app/layout.tsx` — ConvexProvider wrapper |
-| Modify | `apps/api/src/routes/packs.ts` — fire install webhook |
-| Modify | `apps/api/src/routes/analytics.ts` — daily install buckets |
-
----
-
-## 11. Grounding Discrepancies Found
-
-Issues discovered during codebase grounding that should be addressed in implementation:
-
-1. **`User.role` is actually tier** — `explorer/lib/api/auth.ts:40` maps `u.tier` to `role`. The DB/middleware `role` (admin vs user) is never surfaced. FR-1 adds `isAdmin` to fix this without touching the misnamed field.
-
-2. **`User.createdAt` is phantom data** — `/me` never returns `created_at`, so `fetchMe` always falls back to `new Date().toISOString()`. Not blocking, but worth noting.
-
-3. **No `requireAdmin` middleware** — Only `requireOrgMember` exists. Admin-gated endpoints in this cycle should use `requireAuth()` + manual `role === 'admin'` check, or create a `requireAdmin` middleware.
-
-4. **`analyticsRouter` mounted at `/v1/` root** — Not at `/v1/analytics`. New install analytics (FR-15) should use the `adminRouter` at `/v1/admin` or create a proper `/v1/analytics` namespace.
+| Dependency | Status | Blocks |
+|-----------|--------|--------|
+| Supabase production DB access | Available | FR-1.1 (migration) |
+| Write access to 15 construct repos | Available (0xHoneyJar org) | FR-3.1 (domain backfill) |
+| `packages/shared` exists in monorepo | Exists | FR-2.1 (shared constants) |
+| QMD v1.1.5 binary in PATH | Available | FR-8.1 (re-enablement) |
+| GitHub Actions configured for repo | Available | FR-7.2 (auto-sync cron) |
 
 ---
 
 ## Next Step
 
-`/architect` to create Software Design Document based on this PRD.
+`/architect` to create Software Design Document from this PRD.
