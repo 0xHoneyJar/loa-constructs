@@ -10,6 +10,8 @@ export interface User {
   role: string;
   emailVerified: boolean;
   isOrgMember: boolean;
+  isAdmin: boolean;
+  walletAddress: string | null;
   createdAt: string;
 }
 
@@ -40,6 +42,8 @@ export async function fetchMe(accessToken: string): Promise<User> {
     role: (u.tier as string) ?? 'free',
     emailVerified: (u.email_verified as boolean) ?? false,
     isOrgMember: (u.is_org_member as boolean) ?? false,
+    isAdmin: (u.is_admin as boolean) ?? false,
+    walletAddress: (u.wallet_address as string) ?? null,
     createdAt: (u.created_at as string) ?? new Date().toISOString(),
   };
 }

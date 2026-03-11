@@ -28,6 +28,7 @@ interface AuthState {
   isLoading: boolean;
   isAuthenticated: boolean;
   isOrgMember: boolean;
+  isAdmin: boolean;
   isRefreshing: boolean;
   refreshLog: RefreshLogEntry[];
 
@@ -55,6 +56,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
   isLoading: true,
   isAuthenticated: false,
   isOrgMember: false,
+  isAdmin: false,
   isRefreshing: false,
   refreshLog: [],
 
@@ -63,7 +65,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     await get().waitForRefresh();
     const accessToken = get().getAccessToken();
     if (!accessToken) {
-      set({ isLoading: false, isAuthenticated: false, isOrgMember: false, user: null });
+      set({ isLoading: false, isAuthenticated: false, isOrgMember: false, isAdmin: false, user: null });
       return { ok: false, reason: 'unauthorized' };
     }
 
@@ -73,13 +75,13 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     try {
       const user = await fetchMe(accessToken);
       clearTimeout(timeout);
-      set({ user, isLoading: false, isAuthenticated: true, isOrgMember: user.isOrgMember ?? false });
+      set({ user, isLoading: false, isAuthenticated: true, isOrgMember: user.isOrgMember ?? false, isAdmin: user.isAdmin ?? false });
       return { ok: true, user };
     } catch (error) {
       clearTimeout(timeout);
       if (error instanceof DOMException && error.name === 'AbortError') {
         get().clearTokens();
-        set({ isLoading: false, isAuthenticated: false, isOrgMember: false, user: null });
+        set({ isLoading: false, isAuthenticated: false, isOrgMember: false, isAdmin: false, user: null });
         return { ok: false, reason: 'timeout' };
       }
 
@@ -90,7 +92,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
           const newToken = get().getAccessToken();
           if (newToken) {
             const user = await fetchMe(newToken);
-            set({ user, isLoading: false, isAuthenticated: true, isOrgMember: user.isOrgMember ?? false });
+            set({ user, isLoading: false, isAuthenticated: true, isOrgMember: user.isOrgMember ?? false, isAdmin: user.isAdmin ?? false });
             return { ok: true, user };
           }
         } catch {
@@ -98,7 +100,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         }
       }
 
-      set({ isLoading: false, isAuthenticated: false, isOrgMember: false, user: null });
+      set({ isLoading: false, isAuthenticated: false, isOrgMember: false, isAdmin: false, user: null });
 
       if (error instanceof TypeError) {
         return { ok: false, reason: 'network_error' };
@@ -124,7 +126,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       const expires = rememberMe ? 30 : expires_in ? expires_in / 86400 : 1;
       Cookies.set('access_token', access_token, { ...COOKIE_OPTIONS, expires });
       const user = await fetchMe(access_token);
-      set({ user, isAuthenticated: true, isOrgMember: user.isOrgMember ?? false, isLoading: false });
+      set({ user, isAuthenticated: true, isOrgMember: user.isOrgMember ?? false, isAdmin: user.isAdmin ?? false, isLoading: false });
       return { ok: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Login failed';
@@ -166,7 +168,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
       // Populate user state
       const user = await fetchMe(access_token);
-      set({ user, isAuthenticated: true, isOrgMember: user.isOrgMember ?? false, isLoading: false });
+      set({ user, isAuthenticated: true, isOrgMember: user.isOrgMember ?? false, isAdmin: user.isAdmin ?? false, isLoading: false });
       return { ok: true };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Dynamic auth failed';
@@ -194,7 +196,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
         if (!response.ok) {
           if (response.status === 401 || response.status === 403) {
             get().clearTokens();
-            set({ user: null, isAuthenticated: false, isOrgMember: false });
+            set({ user: null, isAuthenticated: false, isOrgMember: false, isAdmin: false });
             return { ok: false, message: 'Refresh token expired' };
           }
 
@@ -208,7 +210,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
 
           if (!retryResponse.ok) {
             get().clearTokens();
-            set({ user: null, isAuthenticated: false, isOrgMember: false });
+            set({ user: null, isAuthenticated: false, isOrgMember: false, isAdmin: false });
             return { ok: false, message: 'Refresh failed after retry' };
           }
 
@@ -232,7 +234,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             });
             if (!retryResponse.ok) {
               get().clearTokens();
-              set({ user: null, isAuthenticated: false, isOrgMember: false });
+              set({ user: null, isAuthenticated: false, isOrgMember: false, isAdmin: false });
               return { ok: false, message: 'Refresh failed after retry' };
             }
             const retryTokens = await retryResponse.json();
@@ -240,12 +242,12 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
             return { ok: true };
           } catch {
             get().clearTokens();
-            set({ user: null, isAuthenticated: false, isOrgMember: false });
+            set({ user: null, isAuthenticated: false, isOrgMember: false, isAdmin: false });
             return { ok: false, message: 'Refresh failed' };
           }
         }
         get().clearTokens();
-        set({ user: null, isAuthenticated: false, isOrgMember: false });
+        set({ user: null, isAuthenticated: false, isOrgMember: false, isAdmin: false });
         return { ok: false, message: 'Refresh failed' };
       }
     })().then(
@@ -271,7 +273,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
     const accessToken = get().getAccessToken();
     get().clearTokens();
     queryClient.clear();
-    set({ user: null, isAuthenticated: false, isOrgMember: false, isLoading: false });
+    set({ user: null, isAuthenticated: false, isOrgMember: false, isAdmin: false, isLoading: false });
 
     // Call route handler — it clears HttpOnly refresh cookie and does best-effort server logout
     try {
