@@ -3,7 +3,8 @@
   "private": true,
   "version": "1.5.0",
   "description": "SaaS platform for distributing, licensing, and monetizing AI agent constructs",
-  "packageManager": "pnpm@9.15.0",
+  "packageManager": "bun@1.2.7",
+  "workspaces": ["apps/*", "packages/*"],
   "engines": {
     "node": ">=20.0.0"
   },
@@ -31,10 +32,8 @@
     "turbo": "^2.3.0",
     "typescript": "^5.4.0"
   },
-  "pnpm": {
-    "overrides": {
-      "@types/react": "^18.3.0",
-      "@types/react-dom": "^18.3.0"
-    }
+  "overrides": {
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0"
   }
 }
