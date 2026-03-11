@@ -575,6 +575,10 @@ export const packs = pgTable(
     // @see prd.md §FR-1 — issue #131, cycle-034
     constructType: varchar('construct_type', { length: 20 }).default('skill-pack'),
 
+    // Category derived from construct.yaml domain[0] at sync/seed time
+    // @see prd.md §FR-1 Category Derivation Pipeline (cycle-041)
+    category: varchar('category', { length: 50 }),
+
     // Fork provenance — cycle-035
     forkedFrom: uuid('forked_from').references((): AnyPgColumn => packs.id),
 
@@ -594,6 +598,7 @@ export const packs = pgTable(
     maturityIdx: index('idx_packs_maturity').on(table.maturity),
     sourceTypeIdx: index('idx_packs_source_type').on(table.sourceType),
     constructTypeIdx: index('idx_packs_construct_type').on(table.constructType),
+    categoryIdx: index('idx_packs_category').on(table.category),
     forkedFromIdx: index('idx_packs_forked_from').on(table.forkedFrom),
     visibilityIdx: index('idx_packs_visibility').on(table.visibility, table.status),
     // GIN indexes for array search

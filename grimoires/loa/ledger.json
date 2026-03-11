@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "active_cycle": "cycle-040",
-  "global_sprint_counter": 44,
+  "active_cycle": "cycle-041",
+  "global_sprint_counter": 47,
   "cycles": [
     {
       "id": "cycle-025",
@@ -478,42 +478,44 @@
     {
       "id": "cycle-040",
       "label": "Internal Dashboard + Convex Real-Time Integration",
-      "status": "active",
+      "status": "archived",
       "created": "2026-03-10T00:00:00Z",
+      "archived": "2026-03-11T00:00:00Z",
+      "archive_path": "grimoires/loa/archive/cycle-040-internal-dashboard",
+      "prd": "grimoires/loa/archive/cycle-040-internal-dashboard/prd.md",
+      "sdd": "grimoires/loa/archive/cycle-040-internal-dashboard/sdd.md",
+      "sprint_plan": "grimoires/loa/archive/cycle-040-internal-dashboard/sprint.md",
+      "source_issues": [],
+      "note": "Archived — zero sprints completed. Superseded by cycle-041 (Network Cohesion).",
+      "sprints": []
+    },
+    {
+      "id": "cycle-041",
+      "label": "Network Cohesion — Construct DX at Platform Scale",
+      "status": "active",
+      "created": "2026-03-11T00:00:00Z",
       "prd": "grimoires/loa/prd.md",
       "sdd": "grimoires/loa/sdd.md",
-      "sprint_plan": "grimoires/loa/sprint.md",
       "source_issues": [],
+      "sprint_plan": "grimoires/loa/sprint.md",
       "sprints": [
         {
           "local_id": "sprint-1",
-          "global_id": "sprint-40",
-          "label": "Foundation — Admin Pipeline + Dashboard Gate",
-          "status": "pending"
+          "global_id": "sprint-45",
+          "label": "Category Derivation Pipeline",
+          "status": "completed"
         },
         {
           "local_id": "sprint-2",
-          "global_id": "sprint-41",
-          "label": "Dashboard Shell — Layout, Sidebar, Pages",
-          "status": "pending"
+          "global_id": "sprint-46",
+          "label": "Author DX — Scaffold, Publish, Skill-Add",
+          "status": "completed"
         },
         {
           "local_id": "sprint-3",
-          "global_id": "sprint-42",
-          "label": "API Keys — CRUD Endpoints + Dashboard UI",
-          "status": "pending"
-        },
-        {
-          "local_id": "sprint-4",
-          "global_id": "sprint-43",
-          "label": "Convex Foundation — Schema, Provider, Server Client, Webhook",
-          "status": "pending"
-        },
-        {
-          "local_id": "sprint-5",
-          "global_id": "sprint-44",
-          "label": "Live Feed, Presence, Metrics, Reconciliation",
-          "status": "pending"
+          "global_id": "sprint-47",
+          "label": "Network Automation — Auto-Sync, QMD, Backfill",
+          "status": "completed"
         }
       ]
     }

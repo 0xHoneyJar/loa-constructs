@@ -312,9 +312,41 @@ do_push() {
         return $EXIT_AUTH_ERROR
     fi
 
-    # Upload (simplified — actual upload involves base64 encoding files)
-    print_status "Uploading $slug@$version to registry..."
-    print_warning "Publish upload not yet implemented — use registry web UI"
+    # Git-sync publish: push to origin + trigger registry sync (cycle-041)
+    print_status "Publishing $slug@$version via git-sync..."
+
+    # Push to origin with tags
+    if ! git push origin HEAD --tags 2>/dev/null; then
+        print_warning "Git push failed — check remote configuration"
+        print_warning "You may need to push manually: git push origin HEAD --tags"
+    fi
+
+    # Trigger sync via API
+    print_status "Triggering registry sync..."
+    local sync_tmp
+    sync_tmp=$(mktemp)
+    chmod 600 "$sync_tmp"
+
+    local sync_code
+    sync_code=$(curl --silent --proto '=https' --tlsv1.2 \
+        -o "$sync_tmp" -w "%{http_code}" \
+        -X POST \
+        -H "Authorization: Bearer $api_key" \
+        "${registry_url}/packs/${slug}/sync")
+
+    rm -f "$sync_tmp"
+
+    case "$sync_code" in
+        200|202)
+            print_success "Published $slug@$version — sync triggered successfully"
+            ;;
+        404)
+            print_warning "Pack '$slug' not found in registry — run 'bun seed:forge' to register"
+            ;;
+        *)
+            print_warning "Sync returned HTTP $sync_code — run 'bun seed:forge' to sync manually"
+            ;;
+    esac
 
     return $EXIT_SUCCESS
 }

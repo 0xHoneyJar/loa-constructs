@@ -210,17 +210,34 @@ async function main() {
     }
   }
 
-  if (JSON_OUTPUT) {
-    console.log(JSON.stringify(results, null, 2));
-    return;
-  }
-
-  // Summary
+  // Compute summary data used by both output modes
   const total = results.length;
   const inReg = results.filter(r => r.inRegistry).length;
   const missing = results.filter(r => !r.inRegistry && r.hasManifest);
   const bare = results.filter(r => !r.hasManifest);
 
+  const registrationReport = missing.map(m => ({
+    slug: m.slug,
+    repo: m.repo,
+    gitUrl: `https://github.com/${ORG}/${m.repo}.git`,
+    manifestType: m.manifestType,
+    skillCount: m.skillCount,
+    description: m.description,
+  }));
+
+  if (JSON_OUTPUT) {
+    const output: Record<string, unknown> = {
+      results,
+      summary: { total, registered: inReg, missing: missing.length, bare: bare.length },
+    };
+    if (REGISTER) {
+      output.register = { missing: registrationReport, action: 'seed' };
+    }
+    console.log(JSON.stringify(output, null, 2));
+    return;
+  }
+
+  // Human-readable output
   console.log(`\n  Summary: ${total} construct-* repos`);
   console.log(`    ${inReg} registered`);
   console.log(`    ${missing.length} with manifest but not registered`);
@@ -235,8 +252,21 @@ async function main() {
   }
 
   if (REGISTER && missing.length > 0) {
-    console.log(`\n  --register flag detected but not yet implemented.`);
-    console.log(`  Future: auto-register ${missing.length} constructs via POST /v1/constructs/register`);
+    console.log(`\n  Registration Report (${missing.length} constructs)`);
+    console.log(`  ${'─'.repeat(50)}`);
+
+    for (const entry of registrationReport) {
+      console.log(`\n    ${entry.slug}`);
+      console.log(`      git:      ${entry.gitUrl}`);
+      console.log(`      manifest: ${entry.manifestType}`);
+      console.log(`      skills:   ${entry.skillCount ?? 'unknown'}`);
+    }
+
+    console.log(`\n  Next steps:`);
+    console.log(`    1. Add entries to scripts/seed-forge-packs.ts GIT_CONFIGS`);
+    console.log(`    2. Run: bun seed:forge`);
+    console.log(`    — or —`);
+    console.log(`    Run: AUTO_DISCOVER=true bun seed:forge`);
   }
 
   console.log('');

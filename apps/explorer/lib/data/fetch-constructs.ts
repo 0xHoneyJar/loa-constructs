@@ -66,37 +66,14 @@ function parseConstructType(ct: string | undefined): ConstructArchetype {
   return 'skill-pack';
 }
 
-/**
- * Client-side category mapping for constructs whose API returns category: null.
- * The packs DB table has no category column, so we map by slug here until
- * the API schema is updated.
- */
-const SLUG_CATEGORY_MAP: Record<string, string> = {
-  artisan: 'design',
-  'the-easel': 'design',
-  'webgl-particles': 'design',
-  observer: 'analytics',
-  crucible: 'security',
-  hardening: 'security',
-  'dynamic-auth': 'security',
-  protocol: 'development',
-  beacon: 'operations',
-  herald: 'operations',
-  'gtm-collective': 'marketing',
-  'social-oracle': 'marketing',
-  growthpages: 'marketing',
-  'mibera-codex': 'documentation',
-  webreel: 'design',
-  'k-hole': 'analytics',
-};
-
 function transformToNode(construct: APIConstruct): ConstructNode {
   const commands = construct.manifest?.commands || [];
   const shortDesc = construct.description
     ? construct.description.split('.')[0].slice(0, 60)
     : 'No description';
 
-  const category = normalizeCategory(construct.category || SLUG_CATEGORY_MAP[construct.slug] || 'development');
+  // Category now comes from API (packs.category column, cycle-041)
+  const category = normalizeCategory(construct.category || 'development');
 
   return {
     id: construct.id,
