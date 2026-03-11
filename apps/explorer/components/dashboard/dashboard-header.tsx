@@ -36,7 +36,7 @@ export function DashboardHeader() {
           </span>
         )}
         {isAdmin && (
-          <span className="font-mono text-[9px] text-amber-400/70 border border-amber-400/20 px-1 py-0.5 uppercase tracking-wider">
+          <span className="font-mono text-[9px] text-graduation-beta/70 border border-graduation-beta/20 px-1 py-0.5 uppercase tracking-wider">
             admin
           </span>
         )}

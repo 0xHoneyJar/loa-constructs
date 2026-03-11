@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { fetchDashboard } from '@/lib/api/dashboard';
 import { LiveInstallFeed } from '@/components/dashboard/live-install-feed';
 
@@ -89,6 +90,15 @@ export default function ConstructMetricsPage() {
               </tbody>
             </table>
           </div>
+        ) : constructs.length === 0 ? (
+          <div className="border border-void-border p-8 text-center">
+            <div className="font-mono text-xs text-bone-muted">
+              No constructs found
+            </div>
+            <div className="mt-1 font-mono text-[9px] text-bone-ghost">
+              Constructs will appear once they are published to the registry
+            </div>
+          </div>
         ) : (
           <div className="border border-void-border overflow-hidden">
             <table className="w-full">
@@ -112,13 +122,18 @@ export default function ConstructMetricsPage() {
                 {constructs.map((c) => (
                   <tr
                     key={c.id}
-                    className="border-b border-void-border/50 last:border-b-0"
+                    className="border-b border-void-border/50 last:border-b-0 hover:bg-void-raised/50 transition-colors"
                   >
-                    <td className="px-4 py-2.5 font-mono text-[11px] text-bone-base">
-                      {c.name}
+                    <td className="px-4 py-2.5">
+                      <Link
+                        href={`/constructs/${c.slug}`}
+                        className="font-mono text-[11px] text-bone-base hover:text-cyan-base transition-colors"
+                      >
+                        {c.name}
+                      </Link>
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className="font-mono text-[8px] text-bone-muted border border-void-border px-1 py-0.5">
+                      <span className="inline-block font-mono text-[9px] text-bone-muted border border-void-border px-1.5 py-0.5 uppercase">
                         {c.constructType || 'pack'}
                       </span>
                     </td>

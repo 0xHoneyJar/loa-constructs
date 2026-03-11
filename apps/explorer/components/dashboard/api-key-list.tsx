@@ -84,7 +84,7 @@ export function ApiKeyList({
           {keys.map((key) => (
             <tr
               key={key.id}
-              className="border-b border-void-border/50 last:border-b-0"
+              className="border-b border-void-border/50 last:border-b-0 hover:bg-void-raised/50 transition-colors"
             >
               <td className="px-4 py-2.5 font-mono text-[11px] text-bone-dim">
                 {key.keyPrefix}...
@@ -97,26 +97,26 @@ export function ApiKeyList({
                   {key.scopes.map((scope) => (
                     <span
                       key={scope}
-                      className="font-mono text-[8px] text-cyan-base/60 border border-cyan-base/20 px-1 py-0.5"
+                      className="font-mono text-[9px] text-cyan-base/60 border border-cyan-base/20 px-1 py-0.5"
                     >
                       {scope}
                     </span>
                   ))}
                 </div>
               </td>
-              <td className="px-4 py-2.5 font-mono text-[10px] text-bone-muted">
+              <td className="px-4 py-2.5 font-mono text-[11px] text-bone-muted">
                 {formatRelativeTime(key.lastUsedAt)}
               </td>
               <td className="px-4 py-2.5 text-right">
                 {error === key.id ? (
-                  <span className="font-mono text-[9px] text-red-400 uppercase tracking-wider animate-[fadeOut_3s_ease-in_forwards]">
+                  <span className="font-mono text-[9px] text-crimson-base uppercase tracking-wider animate-[fadeOut_3s_ease-in_forwards]">
                     Failed to revoke
                   </span>
                 ) : confirming === key.id ? (
                   <span className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => handleRevoke(key.id)}
-                      className="font-mono text-[9px] text-red-400 hover:text-red-300 uppercase tracking-wider transition-colors"
+                      className="font-mono text-[9px] text-crimson-base hover:text-crimson-base/80 uppercase tracking-wider transition-colors"
                     >
                       Confirm?
                     </button>
@@ -131,7 +131,7 @@ export function ApiKeyList({
                   <button
                     onClick={() => setConfirming(key.id)}
                     disabled={revoking === key.id}
-                    className="font-mono text-[9px] text-red-400/60 hover:text-red-400 uppercase tracking-wider disabled:opacity-50 transition-colors"
+                    className="font-mono text-[9px] text-crimson-base/60 hover:text-crimson-base uppercase tracking-wider disabled:opacity-50 transition-colors"
                   >
                     {revoking === key.id ? 'Revoking...' : 'Revoke'}
                   </button>

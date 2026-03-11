@@ -2,6 +2,14 @@
 
 import { useState } from 'react';
 import { createKey, type CreatedApiKey } from '@/lib/api/keys';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '@/components/ui/dialog';
 
 const AVAILABLE_SCOPES = [
   { id: 'read:skills', label: 'Read Skills' },
@@ -46,7 +54,6 @@ export function CreateKeyDialog({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback: select the text for manual copy
       const el = document.querySelector('[data-key-display]');
       if (el) {
         const range = document.createRange();
@@ -57,16 +64,18 @@ export function CreateKeyDialog({
     }
   };
 
-  const handleClose = () => {
-    if (created) {
-      onCreated();
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen) {
+      if (created) {
+        onCreated();
+      }
+      setName('');
+      setScopes(['read:skills', 'write:installs']);
+      setCreated(null);
+      setError(null);
+      setCopied(false);
+      onClose();
     }
-    setName('');
-    setScopes(['read:skills', 'write:installs']);
-    setCreated(null);
-    setError(null);
-    setCopied(false);
-    onClose();
   };
 
   const toggleScope = (scope: string) => {
@@ -75,37 +84,41 @@ export function CreateKeyDialog({
     );
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-void-base border border-void-border w-full max-w-md mx-4">
-        <div className="px-6 py-4 border-b border-void-border">
-          <h2 className="font-mono text-sm text-bone-base">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>
             {created ? 'Key Created' : 'Create API Key'}
-          </h2>
-        </div>
+          </DialogTitle>
+          <DialogDescription>
+            {created
+              ? 'Store this key securely — it cannot be retrieved later.'
+              : 'Create an API key to authenticate with the Constructs Network.'}
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="px-6 py-4 space-y-4">
+        <div className="space-y-4">
           {created ? (
-            <>
-              <div className="border border-amber-400/30 bg-amber-400/5 p-3">
-                <div className="font-mono text-[9px] text-amber-400/80 uppercase tracking-widest mb-2">
-                  Copy this key now — it won&apos;t be shown again
-                </div>
-                <div className="flex items-center gap-2">
-                  <code data-key-display className="flex-1 font-mono text-[11px] text-bone-base bg-black/30 px-2 py-1.5 break-all select-all">
-                    {created.key}
-                  </code>
-                  <button
-                    onClick={handleCopy}
-                    className="shrink-0 font-mono text-[9px] text-cyan-base/70 hover:text-cyan-base border border-cyan-base/20 px-2 py-1 uppercase tracking-wider transition-colors"
-                  >
-                    {copied ? 'Copied' : 'Copy'}
-                  </button>
-                </div>
+            <div className="border border-graduation-beta/30 bg-graduation-beta/5 p-3">
+              <div className="font-mono text-[9px] text-graduation-beta/80 uppercase tracking-widest mb-2">
+                Copy this key now — it won&apos;t be shown again
               </div>
-            </>
+              <div className="flex items-center gap-2">
+                <code
+                  data-key-display
+                  className="flex-1 font-mono text-[11px] text-bone-base bg-void-raised px-2 py-1.5 break-all select-all"
+                >
+                  {created.key}
+                </code>
+                <button
+                  onClick={handleCopy}
+                  className="shrink-0 font-mono text-[9px] text-cyan-base/70 hover:text-cyan-base border border-cyan-base/20 px-2 py-1 uppercase tracking-wider transition-colors"
+                >
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
           ) : (
             <>
               <div>
@@ -117,7 +130,10 @@ export function CreateKeyDialog({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="My API key"
-                  className="w-full bg-black/30 border border-void-border px-3 py-1.5 font-mono text-xs text-bone-base placeholder:text-bone-ghost focus:border-cyan-base/40 focus:outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && name.trim()) handleCreate();
+                  }}
+                  className="w-full bg-void-raised border border-void-border px-3 py-1.5 font-mono text-xs text-bone-base placeholder:text-bone-ghost focus:border-cyan-dim focus:outline-none transition-colors"
                 />
               </div>
 
@@ -129,15 +145,15 @@ export function CreateKeyDialog({
                   {AVAILABLE_SCOPES.map((scope) => (
                     <label
                       key={scope.id}
-                      className="flex items-center gap-2 cursor-pointer"
+                      className="flex items-center gap-2 cursor-pointer group"
                     >
                       <input
                         type="checkbox"
                         checked={scopes.includes(scope.id)}
                         onChange={() => toggleScope(scope.id)}
-                        className="accent-cyan-base"
+                        className="accent-[var(--color-cyan-base)]"
                       />
-                      <span className="font-mono text-[11px] text-bone-dim">
+                      <span className="font-mono text-[11px] text-bone-dim group-hover:text-bone-base transition-colors">
                         {scope.label}
                       </span>
                       <span className="font-mono text-[9px] text-bone-ghost">
@@ -149,7 +165,7 @@ export function CreateKeyDialog({
               </div>
 
               {error && (
-                <div className="font-mono text-[10px] text-red-400/80">
+                <div className="font-mono text-[10px] text-crimson-base/80">
                   {error}
                 </div>
               )}
@@ -157,10 +173,10 @@ export function CreateKeyDialog({
           )}
         </div>
 
-        <div className="px-6 py-3 border-t border-void-border flex justify-end gap-2">
+        <DialogFooter>
           <button
-            onClick={handleClose}
-            className="font-mono text-[9px] text-bone-muted hover:text-bone-dim px-3 py-1 uppercase tracking-wider transition-colors"
+            onClick={() => handleOpenChange(false)}
+            className="font-mono text-[9px] text-bone-muted hover:text-bone-dim px-3 py-1.5 uppercase tracking-wider transition-colors"
           >
             {created ? 'Done' : 'Cancel'}
           </button>
@@ -168,13 +184,13 @@ export function CreateKeyDialog({
             <button
               onClick={handleCreate}
               disabled={!name.trim() || creating}
-              className="font-mono text-[9px] text-void-base bg-cyan-base/80 hover:bg-cyan-base px-3 py-1 uppercase tracking-wider disabled:opacity-50 transition-colors"
+              className="font-mono text-[9px] text-void-base bg-cyan-base/80 hover:bg-cyan-base px-3 py-1.5 uppercase tracking-wider disabled:opacity-50 transition-colors"
             >
               {creating ? 'Creating...' : 'Create'}
             </button>
           )}
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
