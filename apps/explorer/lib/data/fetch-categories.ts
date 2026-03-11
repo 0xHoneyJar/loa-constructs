@@ -123,7 +123,7 @@ export async function fetchCategories(): Promise<Category[]> {
 
     const json = await response.json();
 
-    return json.data.map((cat: {
+    const categories = json.data.map((cat: {
       id: string;
       slug: string;
       label: string;
@@ -138,6 +138,13 @@ export async function fetchCategories(): Promise<Category[]> {
       description: cat.description,
       constructCount: cat.construct_count,
     }));
+
+    // API returned empty — use defaults so graph has categories to filter by
+    if (categories.length === 0) {
+      return DEFAULT_CATEGORIES;
+    }
+
+    return categories;
   } catch (error) {
     console.warn('Error fetching categories, using defaults:', error);
     return DEFAULT_CATEGORIES;
