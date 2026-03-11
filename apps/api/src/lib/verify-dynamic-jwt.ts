@@ -39,7 +39,7 @@ function getJWKS(): ReturnType<typeof createRemoteJWKSet> {
       throw new Error('DYNAMIC_ENVIRONMENT_ID environment variable is required');
     }
     const jwksUrl = new URL(
-      `https://app.dynamic.xyz/api/v0/sdk/${envId}/.well-known/jwks`
+      `https://app.dynamicauth.com/api/v0/sdk/${envId}/.well-known/jwks`
     );
     jwks = createRemoteJWKSet(jwksUrl);
   }
@@ -61,13 +61,16 @@ export async function verifyDynamicJWT(token: string): Promise<DynamicJWTPayload
     throw new Error('DYNAMIC_ENVIRONMENT_ID environment variable is required');
   }
 
-  const expectedIssuer = `https://app.dynamic.xyz/${envId}`;
+  // Dynamic Labs migrated from app.dynamic.xyz to app.dynamicauth.com
+  const expectedIssuers = [
+    `https://app.dynamic.xyz/${envId}`,
+    `app.dynamicauth.com/${envId}`,
+  ];
 
   const { payload } = await jwtVerify(token, getJWKS(), {
     clockTolerance: 30,
     algorithms: ['RS256'],
-    issuer: expectedIssuer,
-    audience: envId,
+    issuer: expectedIssuers,
   });
 
   // Reject tokens that require additional authentication steps
