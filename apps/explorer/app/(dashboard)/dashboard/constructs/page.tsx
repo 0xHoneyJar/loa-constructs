@@ -4,6 +4,15 @@ import { useEffect, useState } from 'react';
 import { fetchDashboard } from '@/lib/api/dashboard';
 import { LiveInstallFeed } from '@/components/dashboard/live-install-feed';
 
+interface ApiConstruct {
+  id: string;
+  name: string;
+  slug: string;
+  downloads: number;
+  skills_count: number;
+  type: string;
+}
+
 interface ConstructSummary {
   id: string;
   name: string;
@@ -18,11 +27,17 @@ export default function ConstructMetricsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchDashboard<{ constructs: ConstructSummary[] }>('/constructs?per_page=100')
-      .then((data) => {
-        const sorted = (data.constructs || []).sort(
-          (a, b) => b.downloads - a.downloads,
-        );
+    fetchDashboard<{ data: ApiConstruct[] }>('/constructs?per_page=100')
+      .then((res) => {
+        const mapped = (res.data || []).map((c) => ({
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+          downloads: c.downloads,
+          skillsCount: c.skills_count,
+          constructType: c.type,
+        }));
+        const sorted = mapped.sort((a, b) => b.downloads - a.downloads);
         setConstructs(sorted);
       })
       .catch(() => {})

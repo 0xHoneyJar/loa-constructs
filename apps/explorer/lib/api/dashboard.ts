@@ -27,10 +27,6 @@ export async function fetchDashboard<T>(path: string): Promise<T> {
 
 export interface AdminAnalytics {
   users: { total: number; new: number; verified: number };
-  subscriptions: Record<string, number>;
-  skills: { count: number; downloads: number };
-  packs: { byStatus: Record<string, number>; downloads: number };
-  usage: Record<string, number>;
   apiKeys: number;
   teams: number;
 }

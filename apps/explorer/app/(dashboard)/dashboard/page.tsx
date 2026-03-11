@@ -11,15 +11,23 @@ export default function DashboardOverview() {
   const [constructCount, setConstructCount] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchDashboard<{ constructs: { id: string }[] }>('/constructs?per_page=100')
-      .then((data) => setConstructCount(data.constructs?.length ?? 0))
+    fetchDashboard<{ data: { id: string }[]; pagination: { total: number } }>('/constructs?per_page=1')
+      .then((res) => setConstructCount(res.pagination?.total ?? res.data?.length ?? 0))
       .catch(() => setConstructCount(0));
   }, []);
 
   useEffect(() => {
     if (!isAdmin) return;
-    fetchDashboard<AdminAnalytics>('/admin/analytics')
-      .then(setAnalytics)
+    fetchDashboard<Record<string, unknown>>('/admin/analytics')
+      .then((raw) => setAnalytics({
+        users: {
+          total: (raw.users as { total: number })?.total ?? 0,
+          new: (raw.users as { new_in_period: number })?.new_in_period ?? 0,
+          verified: (raw.users as { verified: number })?.verified ?? 0,
+        },
+        apiKeys: (raw.api_keys as { total_active: number })?.total_active ?? 0,
+        teams: (raw.teams as { total: number })?.total ?? 0,
+      } as AdminAnalytics))
       .catch(() => {});
   }, [isAdmin]);
 
