@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { AuthNav } from './auth-nav';
+import { SearchTrigger } from './search-trigger';
 
 export function Header() {
   return (
@@ -28,9 +29,7 @@ export function Header() {
           >
             About
           </Link>
-          <span className="hidden sm:inline font-mono text-[10px] text-bone-ghost border border-void-border px-1.5 py-0.5">
-            &#8984;K
-          </span>
+          <SearchTrigger />
           <AuthNav />
         </nav>
       </div>

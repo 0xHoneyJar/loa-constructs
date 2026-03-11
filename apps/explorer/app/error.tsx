@@ -35,13 +35,13 @@ export default function Error({ error, reset }: ErrorProps) {
         <button
           type="button"
           onClick={reset}
-          className="rounded-md border border-cyan-dim bg-transparent px-4 py-2 font-mono text-xs uppercase tracking-wider text-cyan-dim transition-colors hover:bg-cyan-dim hover:text-background"
+          className="border border-cyan-dim bg-transparent px-4 py-2 font-mono text-xs uppercase tracking-wider text-cyan-dim transition-colors hover:bg-cyan-dim hover:text-void-base"
         >
           Try Again
         </button>
         <Link
           href="/"
-          className="rounded-md border border-border bg-surface px-4 py-2 font-mono text-xs uppercase tracking-wider text-bone-dim transition-colors hover:bg-surface hover:text-bone-bright"
+          className="border border-void-border bg-void-raised px-4 py-2 font-mono text-xs uppercase tracking-wider text-bone-dim transition-colors hover:bg-void-surface hover:text-bone-bright"
         >
           Go Home
         </Link>

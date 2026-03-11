@@ -141,7 +141,7 @@ export function GraphNode({
         : 'octahedron';
 
   // Detail level for geometry (lower = more faceted/visible 3D)
-  const detail = node.type === 'bundle' ? 0 : 0;
+  const detail = node.type === 'bundle' ? 1 : 0;
 
   useFrame((state, delta) => {
     const reducedMotion = prefersReducedMotion();
@@ -242,9 +242,9 @@ export function GraphNode({
         <div
           className={`whitespace-nowrap font-mono text-[10px] uppercase tracking-wider transition-all ${
             isSelected
-              ? 'rounded-md px-2 py-1 text-bone-base backdrop-blur-sm'
+              ? 'px-2 py-1 text-bone-base backdrop-blur-sm'
               : localHover
-                ? 'rounded-md bg-surface/90 px-2 py-1 text-bone-base backdrop-blur-sm'
+                ? 'bg-void-raised/90 px-2 py-1 text-bone-base backdrop-blur-sm'
                 : isDimmed
                   ? 'text-bone-ghost'
                   : 'text-bone-dim'

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import Fuse from 'fuse.js';
-import type { GraphData, ConstructNode, Category } from '@/lib/types/graph';
+import type { GraphData, ConstructNode, Category, CategoryStats } from '@/lib/types/graph';
 
 // Soft limits for stack composition
 const STACK_SOFT_LIMIT_WARNING = 5;
@@ -11,7 +11,7 @@ export type StackHint = 'none' | 'focus' | 'large';
 interface GraphState {
   // Data
   graphData: GraphData | null;
-  categories: Category[];
+  categories: (Category | CategoryStats)[];
 
   // UI State
   hoveredNodeId: string | null;
@@ -28,7 +28,7 @@ interface GraphState {
 
   // Actions
   setGraphData: (data: GraphData) => void;
-  setCategories: (categories: Category[]) => void;
+  setCategories: (categories: (Category | CategoryStats)[]) => void;
   setHoveredNode: (id: string | null) => void;
   toggleStackNode: (id: string) => void;
   addToStack: (id: string) => void;

@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 
-export function useWebGL(): boolean {
-  const [supported, setSupported] = useState(true);
+export function useWebGL(): boolean | null {
+  const [supported, setSupported] = useState<boolean | null>(null);
 
   useEffect(() => {
     try {

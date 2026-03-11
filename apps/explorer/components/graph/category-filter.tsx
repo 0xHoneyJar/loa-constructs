@@ -16,7 +16,7 @@ export function CategoryFilter({ categories }: CategoryFilterProps) {
       <button
         type="button"
         onClick={() => setAllCategories(!allActive)}
-        className="rounded-md bg-surface/50 px-2 py-1 font-mono text-xs uppercase tracking-wider text-bone-dim transition-colors hover:bg-surface hover:text-bone-bright"
+        className="bg-void-raised/50 px-2 py-1 font-mono text-xs uppercase tracking-wider text-bone-dim transition-colors hover:bg-void-raised hover:text-bone-bright"
       >
         {allActive ? 'Clear' : 'All'}
       </button>
@@ -30,7 +30,7 @@ export function CategoryFilter({ categories }: CategoryFilterProps) {
             key={category.slug}
             type="button"
             onClick={() => toggleCategory(category.slug)}
-            className="flex items-center gap-1.5 rounded-md px-2 py-1 font-mono text-xs uppercase tracking-wider transition-all"
+            className="flex items-center gap-1.5 px-2 py-1 font-mono text-xs uppercase tracking-wider transition-all"
             style={{
               backgroundColor: isActive ? `${color}20` : 'transparent',
               color: isActive ? color : 'oklch(1 0 0 / 0.6)',

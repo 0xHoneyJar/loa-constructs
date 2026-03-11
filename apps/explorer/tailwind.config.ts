@@ -1,5 +1,6 @@
 import type { Config } from 'tailwindcss';
 import plugin from 'tailwindcss/plugin';
+import tailwindcssAnimate from 'tailwindcss-animate';
 
 const config: Config = {
   darkMode: 'class',
@@ -52,6 +53,43 @@ const config: Config = {
           stable: 'var(--graduation-stable)',
           deprecated: 'var(--graduation-deprecated)',
         },
+
+        // shadcn/ui semantic tokens (aliased to OKLCH system)
+        primary: {
+          DEFAULT: 'var(--primary)',
+          foreground: 'var(--primary-foreground)',
+        },
+        secondary: {
+          DEFAULT: 'var(--secondary)',
+          foreground: 'var(--secondary-foreground)',
+        },
+        muted: {
+          DEFAULT: 'var(--muted)',
+          foreground: 'var(--muted-foreground)',
+        },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          foreground: 'var(--accent-foreground)',
+        },
+        destructive: {
+          DEFAULT: 'var(--destructive)',
+          foreground: 'var(--destructive-foreground)',
+        },
+        card: {
+          DEFAULT: 'var(--card)',
+          foreground: 'var(--card-foreground)',
+        },
+        popover: {
+          DEFAULT: 'var(--popover)',
+          foreground: 'var(--popover-foreground)',
+        },
+        input: 'var(--input)',
+        ring: 'var(--ring)',
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'var(--radius)',
+        sm: 'var(--radius)',
       },
       fontFamily: {
         mono: ['var(--font-geist-mono)', 'monospace'],
@@ -81,6 +119,7 @@ const config: Config = {
     },
   },
   plugins: [
+    tailwindcssAnimate,
     plugin(function ({ addUtilities }) {
       addUtilities({
         '.scrollbar-hide': {

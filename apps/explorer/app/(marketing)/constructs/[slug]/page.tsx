@@ -4,7 +4,7 @@ import { notFound } from 'next/navigation';
 import { fetchConstruct } from '@/lib/data/fetch-constructs';
 import { IdentityPanel } from '@/components/construct/identity-panel';
 
-export const revalidate = 3600; // ISR: revalidate every hour
+export const revalidate = 3600;
 
 export async function generateMetadata({
   params,
@@ -61,11 +61,21 @@ export default async function ConstructDetailPage({
           __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c'),
         }}
       />
+
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-2 font-mono text-[10px] text-bone-ghost uppercase tracking-wider">
+        <Link href="/constructs" className="hover:text-bone-dim transition-colors">
+          Catalog
+        </Link>
+        <span>/</span>
+        <span className="text-bone-muted">{construct.name}</span>
+      </nav>
+
       {/* Header */}
       <div>
-        <div className="flex items-center gap-3 mb-2">
+        <div className="flex items-center gap-3 mb-2 flex-wrap">
           <h1 className="text-2xl font-mono font-bold text-bone-base">{construct.name}</h1>
-          <span className="border border-bone-ghost px-2 py-0.5 text-[10px] font-mono text-bone-dim">
+          <span className="border border-void-border px-2 py-0.5 text-[10px] font-mono text-bone-dim">
             v{construct.version}
           </span>
           <span className="text-[10px] font-mono text-bone-ghost uppercase">{construct.type}</span>
@@ -75,7 +85,7 @@ export default async function ConstructDetailPage({
             </span>
           )}
           {construct.owner && (
-            <span className="border border-bone-ghost px-2 py-0.5 text-[10px] font-mono text-bone-dim">
+            <span className="border border-void-border px-2 py-0.5 text-[10px] font-mono text-bone-dim">
               by {construct.owner.name}
             </span>
           )}
@@ -83,20 +93,20 @@ export default async function ConstructDetailPage({
             const tier = construct.verificationTier;
             if (tier === 'PROVEN') {
               return (
-                <span className="border border-green-500/30 bg-green-500/10 px-2 py-0.5 text-[10px] font-mono text-green-400">
+                <span className="border border-graduation-stable/30 bg-graduation-stable/10 px-2 py-0.5 text-[10px] font-mono text-graduation-stable">
                   Proven
                 </span>
               );
             }
             if (tier === 'BACKTESTED') {
               return (
-                <span className="border border-yellow-500/30 bg-yellow-500/10 px-2 py-0.5 text-[10px] font-mono text-yellow-400">
+                <span className="border border-graduation-beta/30 bg-graduation-beta/10 px-2 py-0.5 text-[10px] font-mono text-graduation-beta">
                   Backtested
                 </span>
               );
             }
             return (
-              <span className="border border-bone-ghost px-2 py-0.5 text-[10px] font-mono text-bone-ghost">
+              <span className="border border-void-border px-2 py-0.5 text-[10px] font-mono text-bone-ghost">
                 Unverified
               </span>
             );
@@ -106,12 +116,11 @@ export default async function ConstructDetailPage({
         {construct.longDescription && (
           <p className="text-sm font-mono text-bone-ghost mt-2">{construct.longDescription}</p>
         )}
-        {/* Fork provenance badge */}
         {construct.forkedFrom && (
           <div className="mt-2">
             <Link
               href={`/constructs/${construct.forkedFrom.slug}`}
-              className="inline-flex items-center gap-1 text-xs font-mono text-blue-400 hover:text-blue-300 transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-mono text-cyan-dim hover:text-cyan-base transition-colors"
             >
               Forked from {construct.forkedFrom.name}
             </Link>
@@ -133,7 +142,7 @@ export default async function ConstructDetailPage({
         </div>
       )}
 
-      {/* Info */}
+      {/* Info Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-xs font-mono">
         <div className="border border-void-border p-3">
           <p className="text-bone-ghost mb-1">Category</p>
@@ -147,21 +156,9 @@ export default async function ConstructDetailPage({
           <p className="text-bone-ghost mb-1">Commands</p>
           <p className="text-bone-base">{construct.commandCount}</p>
         </div>
-        <div className="border border-void-border p-3 col-span-2 sm:col-span-1">
-          <p className="text-sm text-bone-dim">
-            {(() => {
-              switch (construct.graduationLevel) {
-                case 'stable':
-                  return 'Stable';
-                case 'beta':
-                  return 'Beta — needs CHANGELOG + no critical issues for stable';
-                case 'deprecated':
-                  return 'Deprecated';
-                default:
-                  return 'Experimental — needs README + 7 days for beta';
-              }
-            })()}
-          </p>
+        <div className="border border-void-border p-3">
+          <p className="text-bone-ghost mb-1">Graduation</p>
+          <p className="text-bone-base capitalize">{construct.graduationLevel}</p>
         </div>
         {construct.rating != null && (
           <div className="border border-void-border p-3">
@@ -199,7 +196,7 @@ export default async function ConstructDetailPage({
       {/* Install */}
       <div className="border border-void-border p-4">
         <p className="text-xs font-mono text-bone-ghost mb-2">Install</p>
-        <code className="block text-sm font-mono text-green-400">
+        <code className="block text-sm font-mono text-cyan-base">
           {construct.installCommand}
         </code>
       </div>
@@ -211,7 +208,7 @@ export default async function ConstructDetailPage({
           <div className="space-y-2">
             {construct.commands.map((cmd) => (
               <div key={cmd.name} className="border border-void-border p-3">
-                <code className="text-xs font-mono text-blue-400">{cmd.name}</code>
+                <code className="text-xs font-mono text-cyan-dim">{cmd.name}</code>
                 <p className="text-xs font-mono text-bone-muted mt-1">{cmd.description}</p>
                 {cmd.usage && (
                   <code className="block text-[10px] font-mono text-bone-ghost mt-1">{cmd.usage}</code>
@@ -248,7 +245,7 @@ export default async function ConstructDetailPage({
               <Link
                 key={dep}
                 href={`/constructs/${dep}`}
-                className="border border-bone-ghost px-2 py-1 text-xs font-mono text-bone-dim hover:bg-void-surface hover:text-bone-base transition-colors"
+                className="border border-void-border px-2 py-1 text-xs font-mono text-bone-dim hover:bg-void-surface hover:text-bone-base transition-colors"
               >
                 {dep}
               </Link>
@@ -268,9 +265,9 @@ export default async function ConstructDetailPage({
                   href={showcase.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-mono text-blue-400 hover:text-blue-300 transition-colors"
+                  className="text-xs font-mono text-cyan-dim hover:text-cyan-base transition-colors"
                 >
-                  {showcase.title} →
+                  {showcase.title} &rarr;
                 </a>
                 {showcase.description && (
                   <p className="text-xs font-mono text-bone-muted mt-1">{showcase.description}</p>
@@ -302,7 +299,7 @@ export default async function ConstructDetailPage({
           {construct.accuracy.warnings.length > 0 && (
             <div className="mt-2 space-y-1">
               {construct.accuracy.warnings.map((warning, i) => (
-                <p key={i} className="text-xs font-mono text-amber-400">{warning}</p>
+                <p key={i} className="text-xs font-mono text-graduation-beta">{warning}</p>
               ))}
             </div>
           )}
@@ -310,59 +307,56 @@ export default async function ConstructDetailPage({
       )}
 
       {/* Links */}
-      <div className="flex gap-3 text-xs font-mono">
-        <Link
-          href="/explore"
-          className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors"
-        >
-          View in graph →
-        </Link>
-        {construct.sourceType === 'git' && construct.gitUrl && (
-          <a
-            href={construct.gitUrl.replace(/\.git$/, '')}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors"
+      <div>
+        <h2 className="text-sm font-mono font-bold text-bone-base mb-3">Links</h2>
+        <div className="flex flex-wrap gap-3 text-xs font-mono">
+          <Link
+            href="/explore"
+            className="border border-void-border px-4 py-2 text-bone-dim hover:bg-void-raised hover:text-bone-base transition-colors"
           >
-            View Source on GitHub →
-          </a>
-        )}
-        {construct.repositoryUrl && (
-          <a
-            href={construct.repositoryUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors"
-          >
-            Repository →
-          </a>
-        )}
-        {construct.homepageUrl && (
-          <a
-            href={construct.homepageUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors"
-          >
-            Homepage →
-          </a>
-        )}
-        {construct.documentationUrl && (
-          <a
-            href={construct.documentationUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors"
-          >
-            Documentation →
-          </a>
-        )}
-        <Link
-          href="/constructs"
-          className="text-bone-ghost hover:text-bone-dim transition-colors flex items-center"
-        >
-          ← Back to catalog
-        </Link>
+            View in graph &rarr;
+          </Link>
+          {construct.sourceType === 'git' && construct.gitUrl && (
+            <a
+              href={construct.gitUrl.replace(/\.git$/, '')}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border border-void-border px-4 py-2 text-bone-dim hover:bg-void-raised hover:text-bone-base transition-colors"
+            >
+              Source &rarr;
+            </a>
+          )}
+          {construct.repositoryUrl && (
+            <a
+              href={construct.repositoryUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border border-void-border px-4 py-2 text-bone-dim hover:bg-void-raised hover:text-bone-base transition-colors"
+            >
+              Repository &rarr;
+            </a>
+          )}
+          {construct.homepageUrl && (
+            <a
+              href={construct.homepageUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border border-void-border px-4 py-2 text-bone-dim hover:bg-void-raised hover:text-bone-base transition-colors"
+            >
+              Homepage &rarr;
+            </a>
+          )}
+          {construct.documentationUrl && (
+            <a
+              href={construct.documentationUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="border border-void-border px-4 py-2 text-bone-dim hover:bg-void-raised hover:text-bone-base transition-colors"
+            >
+              Docs &rarr;
+            </a>
+          )}
+        </div>
       </div>
     </div>
   );

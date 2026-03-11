@@ -1,4 +1,4 @@
-import type { Category } from '@/lib/types/graph';
+import type { Category, CategoryStats } from '@/lib/types/graph';
 import { DEFAULT_CATEGORIES, normalizeCategory } from '@/lib/data/fetch-categories';
 
 // === CATEGORY CACHE ===
@@ -9,8 +9,8 @@ let categoryCache: Map<string, Category> = new Map();
  * Initialize category cache with fetched categories
  * Call this once at app initialization
  */
-export function setCategoryCache(categories: Category[]): void {
-  categoryCache = new Map(categories.map((c) => [c.slug, c]));
+export function setCategoryCache(categories: (Category | CategoryStats)[]): void {
+  categoryCache = new Map(categories.map((c) => [c.slug, c as Category]));
 }
 
 /**

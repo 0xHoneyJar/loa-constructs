@@ -44,7 +44,7 @@ export default function AboutPage() {
         </section>
 
         {/* Divider */}
-        <div className="border-t border-border" />
+        <div className="border-t border-void-border" />
 
         {/* How They Compose */}
         <section className="space-y-4">
@@ -69,7 +69,7 @@ export default function AboutPage() {
         </section>
 
         {/* Divider */}
-        <div className="border-t border-border" />
+        <div className="border-t border-void-border" />
 
         {/* Create */}
         <section className="space-y-4">
@@ -88,7 +88,7 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div className="rounded-md border border-border bg-surface/50 p-4">
+          <div className="border border-void-border bg-void-raised/50 p-4">
             <code className="font-mono text-sm text-bone-base">
               gh repo create my-org/construct-my-expertise \<br />
               {'  '}--template 0xHoneyJar/construct-base --private --clone

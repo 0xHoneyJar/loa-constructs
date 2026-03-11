@@ -127,6 +127,18 @@ const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
     gitUrl: 'https://github.com/0xHoneyJar/construct-mibera-codex.git',
     gitRef: 'main',
   },
+  webreel: {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-webreel.git',
+    gitRef: 'main',
+  },
+  'social-oracle': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-social-oracle.git',
+    gitRef: 'main',
+  },
+  growthpages: {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-growthpages.git',
+    gitRef: 'main',
+  },
 };
 
 interface PackManifest {

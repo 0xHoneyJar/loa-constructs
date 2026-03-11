@@ -81,7 +81,7 @@ function FooterStats() {
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-background">
+    <footer className="border-t border-void-border bg-void-base">
       <div className="mx-auto flex h-12 max-w-6xl items-center justify-center px-4">
         <FooterStats />
       </div>

@@ -42,7 +42,7 @@ export function GraphFallback({ data }: GraphFallbackProps) {
   const viewBox = '-350 -250 700 500';
 
   return (
-    <div className="relative h-full w-full overflow-hidden bg-background">
+    <div className="relative h-full w-full overflow-hidden bg-void-base">
       <svg
         viewBox={viewBox}
         className="h-full w-full"
@@ -88,7 +88,7 @@ export function GraphFallback({ data }: GraphFallbackProps) {
             const radius = node.type === 'pack' ? 12 : node.type === 'bundle' ? 14 : 8;
 
             return (
-              <Link key={node.id} href={`/${node.slug}`}>
+              <Link key={node.id} href={`/constructs/${node.slug}`}>
                 <g
                   className="cursor-pointer transition-transform hover:scale-110"
                   style={{ transformOrigin: `${pos.x}px ${pos.y}px` }}
@@ -126,7 +126,7 @@ export function GraphFallback({ data }: GraphFallbackProps) {
       </svg>
 
       {/* Legend */}
-      <div className="absolute bottom-4 right-4 rounded-md border border-border bg-surface/80 p-3 backdrop-blur-sm">
+      <div className="absolute bottom-4 right-4 border border-void-border bg-void-raised/80 p-3 backdrop-blur-sm">
         <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-bone-ghost">
           Legend
         </div>

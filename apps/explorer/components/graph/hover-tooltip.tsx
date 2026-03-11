@@ -39,7 +39,7 @@ export function HoverTooltip({ nodes }: HoverTooltipProps) {
 
   return (
     <div
-      className="pointer-events-none fixed max-w-xs rounded-lg border border-void-border bg-surface/95 p-3 shadow-xl backdrop-blur-sm"
+      className="pointer-events-none fixed max-w-xs border border-void-border bg-void-raised/95 p-3 shadow-xl backdrop-blur-sm"
       style={{
         left: position.x,
         top: position.y,

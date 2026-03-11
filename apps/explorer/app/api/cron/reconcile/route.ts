@@ -3,7 +3,6 @@ import { getConvexClient } from '@/lib/convex/server';
 import { api } from '@/convex/_generated/api';
 
 const MAX_RUNTIME_MS = 50_000;
-const BATCH_SIZE = 50;
 
 const API_BASE =
   process.env.CONSTRUCTS_API_URL ||
@@ -27,18 +26,18 @@ export async function GET(req: NextRequest) {
   }
 
   const start = Date.now();
-  let reconciled = 0;
+  const reconciled = 0;
   let batches = 0;
 
   try {
     // Get existing Convex events for deduplication
     const existingEvents = await convex.query(api.installEvents.recent, { limit: 200 });
-    const existingSlugs = new Set(
+    const _existingSlugs = new Set(
       existingEvents.map((e) => `${e.packSlug}:${e.timestamp}`),
     );
 
     // Fetch recent installs from Supabase via API (last 24h)
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const _since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const response = await fetch(
       `${API_BASE}/admin/analytics/installs?period=7d`,
       {

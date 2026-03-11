@@ -6,7 +6,7 @@
 
 import type { Category } from '@/lib/types/graph';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network/v1';
+const API_BASE = process.env.CONSTRUCTS_API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network/v1';
 const FETCH_TIMEOUT_MS = 15_000;
 
 /**
