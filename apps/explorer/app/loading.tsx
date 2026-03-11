@@ -3,9 +3,9 @@ export default function Loading() {
     <div className="flex min-h-[60vh] items-center justify-center">
       <div className="space-y-3 text-center">
         <div className="mx-auto flex gap-2">
-          <div className="h-3 w-3 animate-pulse rounded-sm bg-void-raised" />
-          <div className="h-3 w-3 animate-pulse rounded-sm bg-void-raised" style={{ animationDelay: "150ms" }} />
-          <div className="h-3 w-3 animate-pulse rounded-sm bg-void-raised" style={{ animationDelay: "300ms" }} />
+          <div className="h-2 w-2 animate-pulse bg-void-raised" />
+          <div className="h-2 w-2 animate-pulse bg-void-raised" style={{ animationDelay: "150ms" }} />
+          <div className="h-2 w-2 animate-pulse bg-void-raised" style={{ animationDelay: "300ms" }} />
         </div>
         <p className="font-mono text-xs uppercase tracking-wider text-bone-ghost">
           Loading...
