@@ -163,11 +163,11 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
       return null;
     }
 
-    // Count skills with this category
+    // Count skills with this category (raw SQL avoids legacy Drizzle enum constraint)
     const [skillsWithCategory] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(skills)
-      .where(eq(skills.category, normalizedSlug as 'marketing' | 'development' | 'security' | 'analytics' | 'devops' | 'other'));
+      .where(sql`${skills.category} = ${normalizedSlug}`);
 
     // Count packs with this category (cycle-041)
     const [packsWithCategory] = await db
