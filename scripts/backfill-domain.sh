@@ -78,18 +78,35 @@ for slug in "${!DOMAINS[@]}"; do
 domain:\\
   - ${domain}")
 
-  # Get SHA for update
+  # Get SHA and default branch for update
   sha=$(gh api "repos/${ORG}/${repo}/contents/construct.yaml" --jq '.sha' 2>/dev/null)
+  default_branch=$(gh api "repos/${ORG}/${repo}" --jq '.default_branch' 2>/dev/null || echo "main")
 
-  # Update via API
-  encoded=$(echo "$new_content" | base64)
+  # Create branch and open PR (no direct default-branch writes)
+  branch="chore/domain-backfill"
+  base_sha=$(gh api "repos/${ORG}/${repo}/git/ref/heads/${default_branch}" --jq '.object.sha' 2>/dev/null)
+  gh api "repos/${ORG}/${repo}/git/refs" \
+    --method POST \
+    --field ref="refs/heads/${branch}" \
+    --field sha="${base_sha}" \
+    --silent 2>/dev/null || true
+
+  encoded=$(printf '%s' "$new_content" | base64 | tr -d '\n')
   if gh api "repos/${ORG}/${repo}/contents/construct.yaml" \
     --method PUT \
     --field message="chore: add domain field for category derivation" \
     --field content="${encoded}" \
     --field sha="${sha}" \
+    --field branch="${branch}" \
     --silent 2>/dev/null; then
-    echo "  DONE  ${slug} → domain: [${domain}]"
+    gh pr create \
+      --repo "${ORG}/${repo}" \
+      --base "${default_branch}" \
+      --head "${branch}" \
+      --title "chore: add domain field for category derivation" \
+      --body "Automated domain backfill for category derivation pipeline (cycle-041)." \
+      2>/dev/null || true
+    echo "  DONE  ${slug} → domain: [${domain}] (PR opened)"
     updated=$((updated + 1))
   else
     echo "  ERR   ${slug} — API update failed"

@@ -5,7 +5,7 @@ purpose: SaaS platform for distributing, licensing, and monetizing AI agent cons
 key_files: [CLAUDE.md, .claude/loa/CLAUDE.loa.md, .loa.config.yaml, .claude/scripts/, .claude/skills/, package.json]
 interfaces:
   core: [/auditing-security, /autonomous-agent, /bridgebuilder-review, /browsing-constructs, /bug-triaging]
-  project: [/creating-constructs, /finding-constructs, /linking-constructs, /publishing-constructs, /syncing-constructs]
+  project: [/adding-skills, /creating-constructs, /finding-constructs, /linking-constructs, /publishing-constructs]
 dependencies: [git, jq, yq, node]
 ecosystem:
   - repo: 0xHoneyJar/loa-finn
@@ -27,7 +27,7 @@ capability_requirements:
   - git: read_write
   - shell: execute
   - github_api: read_write (scope: external)
-version: v2.9.0
+version: v2.11.0
 installation_mode: unknown
 trust_level: L2-verified
 -->
@@ -37,7 +37,7 @@ trust_level: L2-verified
 <!-- provenance: DERIVED -->
 SaaS platform for distributing, licensing, and monetizing AI agent constructs
 
-The framework provides 35 specialized skills, built with TypeScript/JavaScript, Python, Shell.
+The framework provides 36 specialized skills, built with TypeScript/JavaScript, Python, Shell.
 
 ## Key Capabilities
 <!-- provenance: DERIVED -->
@@ -49,30 +49,24 @@ The project exposes 15 key entry points across its public API surface.
 - **pass** — Upass (`./.cache/construct-repos/construct-beacon/scripts/validate.sh:26`)
 - **warn** — Uwarn (`./.cache/construct-repos/construct-beacon/scripts/validate.sh:28`)
 
-### .cache/construct-repos/construct-k-hole/scripts/templates
+### .cache/construct-repos/construct-growthpages/src
 
-- **DISCOVERY_QUERIES:DiscoveryQuery[]=[** — Udiscovery queries:discovery query[]=[ (`./.cache/construct-repos/construct-k-hole/scripts/templates/research-config.template.ts:28`)
-- **SYNTHESIS_CONTEXT=`Theresearcherwantstobuilddeepexpertisein[** — Usynthesis context=`theresearcherwantstobuilddeepexpertisein[ (`./.cache/construct-repos/construct-k-hole/scripts/templates/research-config.template.ts:75`)
-- **TOPICS:Topic[]=[** — Utopics:topic[]=[ (`./.cache/construct-repos/construct-k-hole/scripts/templates/research-config.template.ts:53`)
-
-### .cache/construct-repos/construct-mibera-codex/.claude/adapters
-
-- **_build_provider_config** — U build provider config (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:149`)
-- **_error_json** — U error json (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:74`)
-- **_load_persona** — U load persona (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:93`)
-- **cmd_invoke** — Ucmd invoke (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:177`)
-- **cmd_print_config** — Ucmd print config (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:326`)
-- **cmd_validate_bindings** — Ucmd validate bindings (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:337`)
-- **main** — Umain (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/cheval.py:351`)
-
-### .cache/construct-repos/construct-mibera-codex/.claude/adapters/loa_cheval/config
-
-- **LazyValue** — Ulazy value (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/loa_cheval/config/interpolation.py:41`)
-- **_check_env_allowed** — U check env allowed (`./.cache/construct-repos/construct-mibera-codex/.claude/adapters/loa_cheval/config/interpolation.py:122`)
+- **_call_claude** — U call claude (`./.cache/construct-repos/construct-growthpages/src/generate.py:80`)
+- **_get_client** — U get client (`./.cache/construct-repos/construct-growthpages/src/generate.py:66`)
+- **_gh_bin** — U gh bin (`./.cache/construct-repos/construct-growthpages/src/generate.py:54`)
+- **build_launch_message** — Ubuild launch message (`./.cache/construct-repos/construct-growthpages/src/generate.py:462`)
+- **build_system_message** — Ubuild system message (`./.cache/construct-repos/construct-growthpages/src/generate.py:431`)
+- **fetch_github_readme** — Ufetch github readme (`./.cache/construct-repos/construct-growthpages/src/generate.py:170`)
+- **fetch_github_recent_activity** — Ufetch github recent activity (`./.cache/construct-repos/construct-growthpages/src/generate.py:192`)
+- **fetch_release_notes** — Ufetch release notes (`./.cache/construct-repos/construct-growthpages/src/generate.py:264`)
+- **fetch_url_text** — Ufetch url text (`./.cache/construct-repos/construct-growthpages/src/generate.py:222`)
+- **get_project_dir** — Uget project dir (`./.cache/construct-repos/construct-growthpages/src/generate.py:95`)
+- **load_brand** — Uload brand (`./.cache/construct-repos/construct-growthpages/src/generate.py:129`)
+- **load_brief_files** — Uload brief files (`./.cache/construct-repos/construct-growthpages/src/generate.py:152`)
 
 ## Architecture
 <!-- provenance: DERIVED -->
-The architecture follows a three-zone model: System (`.claude/`) contains framework-managed scripts and skills, State (`grimoires/`, `.beads/`) holds project-specific artifacts and memory, and App (`src/`, `lib/`) contains developer-owned application code. The framework orchestrates       35 specialized skills through slash commands.
+The architecture follows a three-zone model: System (`.claude/`) contains framework-managed scripts and skills, State (`grimoires/`, `.beads/`) holds project-specific artifacts and memory, and App (`src/`, `lib/`) contains developer-owned application code. The framework orchestrates       36 specialized skills through slash commands.
 ```mermaid
 graph TD
     api[api]
@@ -131,7 +125,7 @@ Directory structure:
 <!-- provenance: DERIVED -->
 ### HTTP Routes
 
-- **GET** `/` (`./apps/api/src/app.ts:159`)
+- **GET** `/` (`./apps/api/src/app.ts:165`)
 
 ### Skill Commands
 
@@ -168,10 +162,11 @@ Directory structure:
 - **/translating-for-executives** — Utranslating for executives
 #### Project-Specific
 
+- **/adding-skills** — Two-phase scaffolding: `construct create` makes the shell, `/skill-add <name>` grows capabilities. Creates a dispatch-ready skill with context-aware content by reading existing skills.
 - **/creating-constructs** — Scaffold new construct projects from templates. Supports three construct
 - **/finding-constructs** — Ufinding constructs
 - **/linking-constructs** — Link local construct repositories for live development. When a construct is linked,
-- **/publishing-constructs** — Publish constructs to the Loa Constructs Registry. Runs a 10-point validation
+- **/publishing-constructs** — Publish constructs to the registry via git-sync. Discovers filesystem structure, prompts for missing Tier 2/3 fields, validates, bumps version, and triggers sync. The agent handles intelligence (field inference, domain suggestion); the bash script handles mechanics (validation, push, sync).
 - **/syncing-constructs** — Detect divergence between local constructs and their upstream registry versions.
 - **/upgrading-constructs** — Upgrade installed constructs to newer versions using 3-way merge. Uses the
 
@@ -180,20 +175,20 @@ Directory structure:
 | Module | Files | Purpose | Documentation |
 |--------|-------|---------|---------------|
 | `api/` | 3 | API endpoints | \u2014 |
-| `apps/` | 15747 | Uapps | \u2014 |
+| `apps/` | 213293 | Uapps | \u2014 |
 | `audits/` | 1 | Uaudits | \u2014 |
 | `docs/` | 41 | Documentation | \u2014 |
 | `evals/` | 122 | Benchmarking and regression framework for the Loa agent development system. Ensures framework changes don't degrade agent behavior through | [evals/README.md](evals/README.md) |
-| `grimoires/` | 553 | Home to all grimoire directories for the Loa | [grimoires/README.md](grimoires/README.md) |
-| `packages/` | 93 | Upackages | \u2014 |
+| `grimoires/` | 568 | Home to all grimoire directories for the Loa | [grimoires/README.md](grimoires/README.md) |
+| `packages/` | 443 | Upackages | \u2014 |
 | `packs/` | 1 | Upacks | \u2014 |
-| `scripts/` | 30 | Utility scripts | \u2014 |
+| `scripts/` | 31 | Utility scripts | \u2014 |
 | `tests/` | 202 | Test suites | \u2014 |
 
 ## Verification
 <!-- provenance: CODE-FACTUAL -->
 - Trust Level: **L2 — CI Verified**
-- 202 test files across 1 suite
+- 205 test files across 1 suite
 - CI/CD: GitHub Actions (12 workflows)
 - Linting: ESLint configured
 - Security: SECURITY.md present
@@ -240,16 +235,16 @@ Available commands:
 - `npm run test` — turbo
 - `npm run test:coverage` — turbo
 <!-- ground-truth-meta
-head_sha: d8886d4eeba0bb78cacf9fd2387b4cdee35acd6e
-generated_at: 2026-03-08T02:22:59Z
+head_sha: c7149664b6e7208f01cf7fa50281c1c9a25bc898
+generated_at: 2026-03-11T20:48:17Z
 generator: butterfreezone-gen v1.0.0
 sections:
-  agent_context: 641bcdc90a9f0c26d60baa6663d108c59173e891175d85542ca4ee7b8154629b
-  capabilities: adf373939ce9b10506f6a776ef7ac3f6b1662864c0adb1f9181d9e0f4f8d4bb7
-  architecture: ffdfd8f14e40bdad179aae5c8587b22dc82e36eee2f0d0d1448a561cc5978b35
-  interfaces: b6aca6dcb25d75731ce5b1ef817757e785907ca6e7c00503440bd40d50a1fed4
-  module_map: f416e9e23e480bfcd2c8c8fa8994034cfb93a237e119621332209afbc07be0a0
-  verification: 59ac6fde298eae65daf5282a330aa55a3eb3615c47aff6f1d324c2ab6b7f1947
+  agent_context: e8041aaaee5d28a974a5b981103f922e5077b7e539902d5bbd2e32ea0ca6be5e
+  capabilities: 55cdf786da29fdc114418f21228c8ad5b3864c775e6f143b7b3fe1028a4a65cc
+  architecture: 6b9d22d3060a09f9fa062c167397e3f3103df2b5e34e64fefa55364aa0e27f7c
+  interfaces: a28d2390d9ad68ddf602447cbe2b26252e1bd919223ed94feb9392269836605d
+  module_map: 1709ef4aaa3ece23b7ee67f420abb9c3e66737e4a17059339b71b8c6af2c16a0
+  verification: ff7b35899eb2dde1aea7b6d03b695a883afc44735c4662b4abfdb99fbb654297
   agents: ca263d1e05fd123434a21ef574fc8d76b559d22060719640a1f060527ef6a0b6
   ecosystem: 0d998700d4489ca2aec077a69004279a3c45c117b9fb5b37c9f85ad511187c7c
   culture: f73380f93bb4fadf36ccc10d60fc57555914363fc90e4f15b4dc4eb92bd1640f

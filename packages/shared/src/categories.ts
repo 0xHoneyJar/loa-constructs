@@ -52,11 +52,12 @@ export const LEGACY_SLUG_MAPPINGS: Record<string, CategorySlug> = {
 
 /**
  * Normalize a category slug, handling legacy mappings.
- * Returns the input lowercased if no mapping exists.
+ * Always returns a valid canonical CategorySlug — defaults to 'development'.
  */
-export function normalizeCategory(slug: string): string {
+export function normalizeCategory(slug: string): CategorySlug {
   const normalized = slug.toLowerCase().trim();
-  return LEGACY_SLUG_MAPPINGS[normalized] || normalized;
+  const mapped = LEGACY_SLUG_MAPPINGS[normalized] ?? normalized;
+  return isValidCategory(mapped) ? mapped : 'development';
 }
 
 /**
