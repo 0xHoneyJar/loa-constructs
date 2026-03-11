@@ -114,7 +114,7 @@ export function GraphFallback({ data }: GraphFallbackProps) {
                     x={pos.x}
                     y={pos.y + radius + 14}
                     textAnchor="middle"
-                    className="fill-white/60 font-mono text-[8px] uppercase"
+                    className="fill-bone-dim font-mono text-[8px] uppercase"
                   >
                     {node.name}
                   </text>

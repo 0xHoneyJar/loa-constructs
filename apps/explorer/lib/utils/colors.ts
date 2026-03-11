@@ -26,7 +26,7 @@ export function getCategory(slug: string): Category | undefined {
  */
 export function getCategoryColor(slug: string): string {
   const category = getCategory(slug);
-  return category?.color ?? '#44FF88'; // Default to development green
+  return category?.color ?? 'oklch(0.70 0.18 155)'; // Default to stable green
 }
 
 /**

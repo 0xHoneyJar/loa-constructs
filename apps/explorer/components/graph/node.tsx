@@ -209,7 +209,7 @@ export function GraphNode({
         <ThreeMesh scale={1.02}>
           <ThreeGeometry type={geometryType} args={[size, detail]} />
           <ThreeBasicMaterial
-            color="#ffffff"
+            color="oklch(0.88 0.01 95)"
             transparent
             opacity={isSelected ? 1.0 : (isHovered ? 0.9 : (isDimmed ? 0.3 : 0.6))}
             wireframe

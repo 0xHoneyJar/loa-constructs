@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import { useWebGL } from '@/lib/hooks/use-webgl';
 import { useGraphStore } from '@/lib/stores/graph-store';
@@ -31,6 +31,12 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
   const webglSupported = useWebGL();
   const setGraphData = useGraphStore((s) => s.setGraphData);
   const setCategories = useGraphStore((s) => s.setCategories);
+
+  // OS-aware modifier key
+  const modKey = useMemo(() => {
+    if (typeof navigator === 'undefined') return '⌘';
+    return /Mac|iPhone|iPad|iPod/.test(navigator.userAgent) ? '⌘' : 'Ctrl+';
+  }, []);
 
   // Initialize store with data + categories + color cache
   useEffect(() => {
@@ -66,7 +72,7 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
         </div>
 
         <div className="absolute bottom-4 left-4 z-10 font-mono text-xs text-bone-ghost">
-          <span>Click to view • <kbd className="border border-void-border bg-void-raised px-1">⌘K</kbd> search</span>
+          <span>Click to view • <kbd className="border border-void-border bg-void-raised px-1">{modKey}K</kbd> search</span>
         </div>
 
         <StackComposerHud nodes={data.nodes} />
@@ -96,7 +102,7 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
       <HoverTooltip nodes={data.nodes} />
 
       <div className="absolute bottom-4 left-4 z-10 font-mono text-xs text-bone-ghost">
-        <span className="hidden sm:inline">Scroll to zoom • Drag to pan • Click to add to stack • <kbd className="border border-void-border bg-void-raised px-1">⌘K</kbd> search</span>
+        <span className="hidden sm:inline">Scroll to zoom • Drag to pan • Click to add to stack • <kbd className="border border-void-border bg-void-raised px-1">{modKey}K</kbd> search</span>
         <span className="sm:hidden">Pinch to zoom • Drag to pan • Tap to add to stack</span>
       </div>
 

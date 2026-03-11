@@ -12,7 +12,7 @@ export default async function ExplorePage() {
   const { graphData } = await fetchGraphData();
 
   return (
-    <div className="h-[calc(100vh-3rem)]">
+    <div className="h-[calc(100dvh-3rem)]">
       <GraphExplorer data={graphData} />
     </div>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { getCategoryColor } from '@/lib/utils/colors';
 import type { ConstructNode } from '@/lib/types/graph';
 
@@ -47,6 +47,7 @@ interface BlockProps {
 
 function Block({ node, position }: BlockProps) {
   const color = getCategoryColor(node.category);
+  const shouldReduceMotion = useReducedMotion();
   const size = getBlockSize(node.type);
   const blockSize = CELL_SIZE * size;
   const x = position.x * (CELL_SIZE + GAP);
@@ -54,10 +55,10 @@ function Block({ node, position }: BlockProps) {
 
   return (
     <motion.g
-      initial={{ opacity: 0, scale: 0 }}
+      initial={shouldReduceMotion ? false : { opacity: 0, scale: 0 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0 }}
-      transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0 }}
+      transition={{ duration: 0.15, ease: [0.23, 1, 0.32, 1] }}
     >
       {/* Glow effect */}
       <rect
@@ -87,7 +88,7 @@ function Block({ node, position }: BlockProps) {
         width={blockSize - 2}
         height={3}
         rx={1}
-        fill="white"
+        fill="oklch(0.88 0.01 95)"
         opacity={0.3}
       />
     </motion.g>
@@ -177,7 +178,7 @@ export function StackPreview({ nodes }: StackPreviewProps) {
               y1={i * (CELL_SIZE + GAP)}
               x2={viewBoxSize}
               y2={i * (CELL_SIZE + GAP)}
-              stroke="white"
+              stroke="oklch(0.88 0.01 95)"
               strokeWidth={0.5}
             />
             <line
@@ -185,7 +186,7 @@ export function StackPreview({ nodes }: StackPreviewProps) {
               y1={0}
               x2={i * (CELL_SIZE + GAP)}
               y2={viewBoxSize}
-              stroke="white"
+              stroke="oklch(0.88 0.01 95)"
               strokeWidth={0.5}
             />
           </g>

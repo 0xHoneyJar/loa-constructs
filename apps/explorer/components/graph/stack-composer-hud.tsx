@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   X,
   Copy,
@@ -39,13 +39,14 @@ function StackItemPill({
   onRemove: () => void;
 }) {
   const categoryColor = getCategoryColor(node.category);
+  const shouldReduceMotion = useReducedMotion();
 
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, scale: 0.8 }}
+      initial={shouldReduceMotion ? false : { opacity: 0, scale: 0.8 }}
       animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.8 }}
+      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.8 }}
       className="group flex items-center gap-1.5 rounded-full px-2 py-0.5"
       style={{
         backgroundColor: `${categoryColor}20`,
@@ -108,8 +109,8 @@ function CategoryLegend({
               style={{ backgroundColor: color, opacity: count > 0 ? 1 : 0.3 }}
             />
             <span
-              className="font-mono text-[9px] uppercase tracking-wider"
-              style={{ color: count > 0 ? color : 'oklch(1 0 0 / 0.4)' }}
+              className={`font-mono text-[9px] uppercase tracking-wider ${count > 0 ? '' : 'text-bone-ghost'}`}
+              style={count > 0 ? { color } : undefined}
             >
               {label}
             </span>
@@ -130,12 +131,14 @@ function FloatingToggle({
   count: number;
   onExpand: () => void;
 }) {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
     <motion.button
       type="button"
-      initial={{ opacity: 0, y: 20 }}
+      initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 20 }}
+      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
       onClick={onExpand}
       className="fixed bottom-4 left-1/2 z-20 flex -translate-x-1/2 items-center gap-2 rounded-full border border-void-border bg-void-base/95 px-4 py-2 min-h-[44px] shadow-xl backdrop-blur-md transition-colors hover:bg-void-raised"
     >
@@ -165,6 +168,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
     toggleStackHud,
   } = useGraphStore();
   const [copied, setCopied] = useState(false);
+  const shouldReduceMotion = useReducedMotion();
 
   // Get the actual node objects for items in stack
   const stackNodes = useMemo(() => {
@@ -241,9 +245,9 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 20 }}
+      exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
       className="absolute bottom-4 left-4 right-4 z-20 mx-auto max-w-4xl border border-void-border bg-void-base/95 shadow-2xl backdrop-blur-md"
     >
       {/* Header */}
@@ -258,7 +262,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
             Constructs Stack
           </span>
           <span className="font-mono text-sm text-bone-ghost">=</span>
-          <span className="font-mono text-xs uppercase tracking-wider" style={{ color: 'var(--color-cyan-base)' }}>
+          <span className="font-mono text-xs uppercase tracking-wider text-cyan-base">
             Capabilities
           </span>
           <span className="rounded bg-void-raised px-2 py-0.5 font-mono text-[10px] text-bone-dim">
@@ -269,7 +273,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
           <button
             type="button"
             onClick={toggleStackHud}
-            className="rounded p-1 text-bone-ghost transition-colors hover:bg-void-raised hover:text-bone-bright"
+            className="rounded p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-bone-ghost transition-colors hover:bg-void-raised hover:text-bone-bright"
             aria-label="Collapse HUD"
           >
             <ChevronDown className="h-4 w-4" />
@@ -277,7 +281,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
           <button
             type="button"
             onClick={clearStack}
-            className="rounded p-1 text-bone-ghost transition-colors hover:bg-void-raised hover:text-crimson-base"
+            className="rounded p-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-bone-ghost transition-colors hover:bg-void-raised hover:text-crimson-base"
             aria-label="Clear stack"
           >
             <Trash2 className="h-4 w-4" />
@@ -318,9 +322,9 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
           <AnimatePresence>
             {hintMessage && (
               <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
                 className="border border-graduation-beta/30 bg-graduation-beta/10 px-2 py-1"
               >
                 <p className="font-mono text-[10px] text-graduation-beta/80">
@@ -339,8 +343,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
             <button
               type="button"
               onClick={handleCopy}
-              className="flex shrink-0 items-center gap-1.5 rounded px-2 py-1 transition-colors hover:bg-void-surface"
-              style={{ color: 'var(--color-cyan-base)' }}
+              className="flex shrink-0 items-center gap-1.5 rounded px-2 py-1 min-h-[44px] text-cyan-base transition-colors hover:bg-void-surface"
               aria-label="Copy install command"
             >
               {copied ? (
@@ -372,7 +375,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
       {/* Footer hint */}
       <div className="border-t border-void-border px-4 py-2">
         <span className="font-mono text-[10px] text-bone-ghost">
-          Click nodes to add • <kbd className="rounded border border-void-border bg-void-raised px-1">Esc</kbd> collapse • <kbd className="rounded border border-void-border bg-void-raised px-1">⌘C</kbd> copy command
+          Click nodes to add • <kbd className="rounded border border-void-border bg-void-raised px-1">Esc</kbd> collapse • <kbd className="rounded border border-void-border bg-void-raised px-1">{typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.userAgent) ? '⌘' : 'Ctrl+'}C</kbd> copy command
         </span>
       </div>
     </motion.div>
