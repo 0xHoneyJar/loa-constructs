@@ -1,50 +1,52 @@
-# PRD: Dynamic Labs Auth + Internal Constructs Access
+# PRD: Internal Dashboard + Convex Real-Time Integration
 
-**Cycle**: cycle-039
-**Created**: 2026-03-09
+**Cycle**: cycle-040
+**Created**: 2026-03-10
 **Status**: Draft
-**Depends on**: cycle-038 (visibility system — merged PR #147)
-**Context**: `grimoires/loa/context/dynamic-labs-auth-integration.md`
+**Depends on**: cycle-039 (Dynamic Labs auth — merged, auth store wired)
+**Context**: `grimoires/loa/context/internal-dashboard-convex-plan.md`
 **Grounded in**:
-- `apps/explorer/lib/api/auth.ts:53-57` (fetchMe — broken response parsing)
-- `apps/explorer/lib/data/fetch-constructs.ts:106` (ISR fetch — no auth token)
-- `apps/explorer/lib/stores/auth-store.ts:275-280` (setTokens — discards refresh token)
-- `apps/explorer/components/layout/header.tsx` (no login affordance)
-- `apps/api/src/routes/auth.ts:468-481` (/me response — wrapped + snake_case)
-- Ecosystem: `mcv-interface/components/web3-provider.tsx`, `midi-interface/lib/verify-jwt.ts`
+- `apps/api/src/routes/auth.ts:468-481` (`/me` response — no `is_admin` field)
+- `apps/api/src/db/schema.ts:153` (`users.is_admin` exists in DB, never exposed)
+- `apps/api/src/middleware/auth.ts:89` (`role: user.isAdmin ? 'admin' : 'user'` — populated but unused)
+- `apps/api/src/services/auth.ts:280-299` (`generateApiKey`, `hashApiKey`, `verifyApiKey` — exist, no CRUD routes)
+- `apps/api/src/db/schema.ts:261-281` (`apiKeys` table — full schema, no endpoints)
+- `apps/explorer/lib/api/auth.ts:6-14` (`User` interface — no `isAdmin`, `role` is actually tier)
+- `apps/explorer/lib/stores/auth-store.ts:26-43` (`AuthState` — no `isAdmin`)
+- `apps/explorer/app/layout.tsx` (single `DynamicProvider` wrapper, no Convex)
+- `apps/api/src/routes/analytics.ts` (user/creator stats only, no admin aggregate)
+- `apps/api/src/routes/packs.ts:1283-1298` (`trackPackInstallation` — no webhook)
+- Ecosystem: `midi-interface/convex/` (hot/cold pattern — BFF writes, WS reads, reconciliation cron)
 
 ---
 
 ## 1. Problem Statement
 
-After cycle-038 shipped the visibility system, the Constructs Network has two compounding failures:
+The Constructs Network has auth but no depth. Three gaps compound:
 
-**P1: The leaderboard is broken.** 8 of 13 constructs are invisible. The seed script defaults `visibility` to `internal` when `construct.yaml` omits the field — and zero of the 13 construct repos declare it. The manual SQL backfill from cycle-038 is not persistent across re-seeds. Live API confirms only 5/13 constructs are public.
+**P1: No internal dashboard.** Auth exists (Dynamic Labs wallet → Hono JWT) but gates nothing. Authenticated team members land on the same public page as anonymous visitors. The admin analytics API endpoints (`/v1/admin/*`) are fully wired but have no frontend consumer. There is no self-service API key management despite the `apiKeys` table and bcrypt validation being fully implemented in `services/auth.ts:280-299`.
 
-**P2: Team members cannot see internal constructs.** Even if a team member logs in via GitHub OAuth, three latent bugs prevent the auth-aware flow from working:
-- `fetchMe()` doesn't unwrap the `{ user: { is_org_member } }` response envelope or map snake_case fields — `isOrgMember` is always `false` client-side
-- The leaderboard and catalog are ISR server components that fetch without auth tokens — they can never show internal constructs
-- The OAuth callback discards the refresh token, so sessions die after 15 minutes
+**P2: No real-time visibility.** The registry is static — ISR with 1hr revalidation. No live install feed, no presence, no sync health indicators. The rest of the ecosystem (midi-interface) has Convex for real-time with graceful degradation, but the explorer has no equivalent.
 
-**P3: No path to team-first access.** The explorer has no Dynamic Labs integration. The rest of the 0xHoneyJar ecosystem (mcv-interface, midi-interface, rektdrop, set-and-forgetti) uses Dynamic Labs for wallet-based auth. The explorer's GitHub+Google OAuth is disconnected from the ecosystem's auth identity. Team members who are wallet-native have no way to authenticate on constructs.network using the same identity they use everywhere else.
+**P3: Admin state is trapped in the database.** `users.is_admin` exists at `schema.ts:153`. The middleware reads it and sets `role: 'admin'` at `auth.ts:89`. But the `/me` endpoint at `auth.ts:471-479` never serializes it. The explorer's `User` interface has no `isAdmin` field. The auth store has no `isAdmin` field. Admin analytics exist but no admin can reach them through the UI.
 
-> **Sources**: Live API probe (5/13 public), codebase exploration of `apps/explorer/lib/api/auth.ts:53-57`, `apps/explorer/lib/data/fetch-constructs.ts:106`, `apps/explorer/app/(auth)/callback/page.tsx:30`, session interview confirming "all private" + Dynamic Labs preference.
+> **Sources**: Codebase grounding (13 files), `internal-dashboard-convex-plan.md`, midi-interface Convex pattern analysis.
 
 ---
 
 ## 2. Vision & Design Principles
 
-**Vision**: Constructs.network becomes a team-first, wallet-native developer platform. The registry is private by default — authenticated team members see the full construct library. The auth experience is consistent with the rest of the 0xHoneyJar ecosystem via Dynamic Labs. External access comes later, when constructs are ready.
+**Vision**: Progressive disclosure. Public browse stays unchanged. Wallet auth unlocks a dashboard with construct management, API key self-service, and real-time activity. Admin status unlocks platform analytics.
 
 **Design Principles**:
 
-1. **Private by default** — All org-synced constructs are `internal`. The public leaderboard is intentionally gated. Nothing is public until explicitly opted in.
+1. **Progressive disclosure** — Public pages are unaffected. Dashboard is additive, behind auth. Admin sections are additive, behind `isAdmin`.
 
-2. **Wallet-native, GitHub-verified** — Dynamic Labs provides the auth UX (wallet connect + social login). GitHub org membership remains the trust boundary for internal access. Users connect with wallet, link GitHub to prove org membership.
+2. **Hot/cold architecture** — Convex for real-time reads (WebSocket subscriptions), Supabase remains source of truth. BFF routes for auth-bearing writes. Same pattern as midi-interface.
 
-3. **Ecosystem consistency** — Same Dynamic Labs environment, same `connect-and-sign` flow, same provider nesting pattern as the product dApps. A team member who connects on midi.0xhoneyjar.xyz is recognizable on constructs.network.
+3. **Graceful degradation** — No Convex URL → app works fully without real-time features. All Convex UI components use `"skip"` sentinel fallback.
 
-4. **Additive, not destructive** — Existing GitHub/Google OAuth continues working. Dynamic Labs is an additional auth provider. The API gains a new exchange endpoint without modifying existing auth routes.
+4. **No new auth** — Uses existing Dynamic Labs + Hono JWT pipeline from cycle-039. Dashboard only needs `isAuthenticated` + `isAdmin` from the auth store.
 
 ---
 
@@ -54,18 +56,19 @@ After cycle-038 shipped the visibility system, the Constructs Network has two co
 
 | Goal | Measure | Target |
 |------|---------|--------|
-| Team can access all constructs | Authenticated org member sees 13 constructs | 100% |
-| Anonymous leaderboard is gated | Unauthenticated request returns 0 constructs | 0 public |
-| Auth is ecosystem-consistent | Dynamic Labs connect works on constructs.network | Same flow as mcv/midi |
-| Session persistence | OAuth/Dynamic sessions survive refresh | >24h without re-auth |
+| Team members have a dashboard | Auth'd user at `/dashboard` sees overview | Works |
+| Admin analytics accessible | `isAdmin` user sees platform stats | Works |
+| Self-service API keys | Create/list/revoke keys from dashboard | Works |
+| Real-time install feed | New installs appear within 2s | <2s latency |
+| No Convex = no breakage | App runs without `NEXT_PUBLIC_CONVEX_URL` | Fully functional |
 
 ### Non-Goals (Explicit)
 
-- **External construct submission** — deferred, no external authors expected yet
-- **On-chain operations on constructs.network** — no minting, staking, or claiming on the explorer
-- **Replacing existing GitHub/Google OAuth** — keep as fallback alongside Dynamic Labs
-- **Per-construct visibility management UI** — constructs are all internal for now; visibility is set in construct.yaml or DB
-- **Dynamic Labs cookie domain / auth proxy** — known ecosystem issue (mcv-interface#7), defer to proxy fix
+- **Replacing Supabase with Convex** — Convex is hot layer only. PostgreSQL is truth.
+- **External user dashboard** — Dashboard is for 0xHoneyJar org members only.
+- **Billing/payment integration** — No Stripe, no NowPayments in this cycle.
+- **Per-construct management UI** — No CRUD for constructs from dashboard. That's `/construct sync`.
+- **Auth changes** — Dynamic Labs provider already wired. No auth flow modifications.
 
 ---
 
@@ -73,163 +76,264 @@ After cycle-038 shipped the visibility system, the Constructs Network has two co
 
 ### Persona 1: Team Member (Primary)
 
-**Who**: Developer on the `0xHoneyJar` GitHub org with an existing wallet.
-**Has**: Dynamic Labs wallet identity (from mcv/midi/rektdrop), GitHub org membership.
-**Needs**: Single-click access to all 13 constructs on constructs.network.
-**Current pain**: Leaderboard shows 5 constructs. GitHub OAuth login doesn't propagate org membership to the client. OAuth sessions expire after 15 minutes.
-**Expected flow**: Visit constructs.network → click "Connect" → Dynamic Labs modal → wallet connect → link GitHub (if first time) → see all 13 constructs.
+**Who**: Developer on `0xHoneyJar` GitHub org, authenticated via Dynamic Labs.
+**Has**: Working wallet auth, `isOrgMember: true` in auth store.
+**Needs**: Dashboard with construct overview, API key management, live activity feed.
+**Current pain**: Logs in, sees same page as anonymous users. No API key UI. No way to see install activity in real-time.
+**Expected flow**: Auth'd → click "Dashboard" in header → sidebar nav → overview / keys / constructs / explore.
 
-### Persona 2: External Visitor (Secondary)
+### Persona 2: Admin (@janitooor)
 
-**Who**: Developer who discovers constructs.network from a link, tweet, or search.
-**Has**: No 0xHoneyJar org membership.
-**Needs**: Understand what the Constructs Network is, even if they can't browse the full registry.
-**Current pain**: Empty leaderboard with "No constructs found."
-**Expected flow**: Visit constructs.network → see hero section with description → leaderboard shows "Connect to explore" prompt → may connect wallet, sees 0 public constructs → understands this is a gated network.
+**Who**: `is_admin = true` in DB (wallet `0x79092A805f1cf9B0F5bE3c5A296De6e51c1DEd34`).
+**Has**: All team member access + admin role in DB.
+**Needs**: Platform-wide analytics (user count, total installs, construct health).
+**Current pain**: Admin analytics API exists but has no frontend consumer.
+**Expected flow**: Same as team member + admin-only sections visible in dashboard sidebar and overview page.
 
 ---
 
 ## 5. Functional Requirements
 
-### FR-1: Fix `fetchMe` Response Parsing (P0 — blocks everything)
+### FR-1: Expose `is_admin` from API (P0 — blocks dashboard gating)
 
-**File**: `apps/explorer/lib/api/auth.ts:53-57`
+**Modify**: `apps/api/src/routes/auth.ts` (lines 471-481)
 
-The API `/auth/me` endpoint returns `{ user: { id, email, name, email_verified, is_org_member, tier } }`. The client's `fetchMe()` casts the raw response as `User` without unwrapping the envelope or mapping snake_case fields. This means `user.isOrgMember` is always `undefined` → `false`.
+Add `is_admin: user.role === 'admin'` and `wallet_address` to the `/me` response. The `AuthUser` already carries `role` populated from `users.isAdmin` at `middleware/auth.ts:89`.
 
-**Acceptance Criteria**:
-- [ ] `fetchMe` unwraps `{ user: ... }` envelope
-- [ ] Maps `is_org_member` → `isOrgMember`, `email_verified` → `emailVerified`, etc.
-- [ ] Auth store `isOrgMember` reflects actual API value after login
-- [ ] Existing email/password and OAuth login flows continue working
-
-### FR-2: Dynamic Labs Provider Setup
-
-**New file**: `apps/explorer/components/providers/dynamic-provider.tsx`
-
-Install `@dynamic-labs/sdk-react-core@^4.61.3`, `@dynamic-labs/ethereum@^4.61.3`, `@dynamic-labs/wagmi-connector@^4.61.3`. Set up provider with ecosystem-consistent nesting:
-
-```
-DynamicContextProvider
-  └── WagmiProvider
-        └── QueryClientProvider
-              └── DynamicWagmiConnector
-                    └── {children}
-```
-
-**Acceptance Criteria**:
-- [ ] `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` sourced from existing 0xHoneyJar environment
-- [ ] `initialAuthenticationMode: 'connect-and-sign'`
-- [ ] `walletConnectors: [EthereumWalletConnectors]`
-- [ ] Chain-agnostic (no chain overrides)
-- [ ] `multiInjectedProviderDiscovery: false` in wagmi config
-- [ ] Provider wraps app in root layout
-- [ ] `sdkHasLoaded` gate prevents flash before SDK initializes
-
-### FR-3: API JWT Exchange Endpoint
-
-**New files**: `apps/api/src/routes/dynamic-auth.ts`, `apps/api/src/lib/verify-dynamic-jwt.ts`
-
-`POST /v1/auth/dynamic` — accepts Dynamic Labs JWT, returns our API JWT:
-
-1. Verify JWT via JWKS at `https://app.dynamic.xyz/api/v0/sdk/<ENV_ID>/.well-known/jwks`
-2. Extract wallet address from `verified_credentials[0].address`
-3. Check for linked GitHub social account in JWT claims
-4. If GitHub linked → check org membership against `CONSTRUCTS_ORG`
-5. Find or create user in DB
-6. Return our API JWT with `org` claim
-
-**Acceptance Criteria**:
-- [ ] JWKS verification with 10min cache, RS256, 30s clock tolerance
-- [ ] Handles minified JWTs (no `verified_credentials` in payload)
-- [ ] Rejects tokens with `requiresAdditionalAuth` scope
-- [ ] Creates user with `wallet_address` if new
-- [ ] Links to existing user if wallet or GitHub match found
-- [ ] Returns standard `{ access_token, refresh_token, expires_in }` response
-- [ ] `org` claim in JWT reflects GitHub org membership (false if no GitHub linked)
-- [ ] Rate-limited to prevent JWT exchange abuse
-
-### FR-4: Explorer Auth Store Integration
+**Modify**: `apps/explorer/lib/api/auth.ts`
+- Add `isAdmin: boolean` and `walletAddress: string | null` to `User` interface
+- Map from `u.is_admin` in `fetchMe()`
 
 **Modify**: `apps/explorer/lib/stores/auth-store.ts`
-
-New action `connectDynamic(dynamicJwt: string)`:
-- POST to `/v1/auth/dynamic` with Dynamic JWT
-- Receive API JWT
-- Store access token in cookie
-- Set refresh token via HttpOnly cookie route handler
-- Call `fetchMe` to populate user state
+- Add `isAdmin: boolean` to `AuthState` (default `false`)
+- Populate in `initialize`, `login`, `connectDynamic` from `user.isAdmin`
 
 **Acceptance Criteria**:
-- [ ] `connectDynamic` follows same token storage pattern as existing login
-- [ ] Auth state (`isAuthenticated`, `isOrgMember`, `user`) updates after Dynamic connect
-- [ ] Logout via Dynamic Labs SDK triggers `clearTokens`
-- [ ] 14-minute refresh interval works with Dynamic-obtained tokens
+- [ ] `/auth/me` returns `is_admin: boolean` and `wallet_address: string | null`
+- [ ] `User` interface includes `isAdmin` and `walletAddress`
+- [ ] Auth store exposes `isAdmin` alongside existing `isOrgMember`
+- [ ] Existing auth flows (login, OAuth, Dynamic) unaffected
 
-### FR-5: Dynamic Connect Button
+### FR-2: Next.js Middleware — Dashboard Soft Gate
 
-**New file**: `apps/explorer/components/auth/dynamic-connect-button.tsx`
+**Create**: `apps/explorer/middleware.ts`
 
-Uses `useDynamicContext()` hook. On `onAuthSuccess`, gets JWT via `getAuthToken()`, calls `connectDynamic()`.
-
-**Acceptance Criteria**:
-- [ ] Opens Dynamic Labs modal on click
-- [ ] Handles auth success → exchanges JWT → populates store
-- [ ] Handles auth failure gracefully
-- [ ] Shows loading state during JWT exchange
-- [ ] Styled with void/bone/cyan design system
-
-### FR-6: Auth-Aware Leaderboard
-
-**New file**: `apps/explorer/components/constructs/auth-aware-construct-list.tsx`
-**Modify**: `apps/explorer/app/(site)/page.tsx`, `apps/explorer/app/(marketing)/constructs/page.tsx`
-
-Hybrid ISR + client-side auth overlay:
-
-| State | Display |
-|-------|---------|
-| Not authenticated | "Connect to explore constructs" CTA + Dynamic connect |
-| Authenticated, not org member | "Link GitHub to access internal constructs" prompt |
-| Authenticated, org member | Full construct list (13 constructs) |
+Match `/dashboard/:path*` only. Check `access_token` cookie existence (js-cookie, non-HttpOnly). No token → redirect to `/?login=required`. This is a soft gate — real auth is API-side. Prevents flash of dashboard UI for logged-out users.
 
 **Acceptance Criteria**:
-- [ ] ISR page renders immediately (may show 0 constructs)
-- [ ] Client component detects auth state and re-fetches with auth token
-- [ ] Org members see all 13 constructs with install counts and skills
-- [ ] "Internal" badge shown on internal constructs for org members
-- [ ] Smooth transition when auth state resolves (no layout shift)
-- [ ] Search still works for authenticated users
+- [ ] Only matches `/dashboard/*` routes
+- [ ] Redirects to `/?login=required` when no `access_token` cookie
+- [ ] Does not affect any other routes (public pages, API routes)
+- [ ] Cookie check only — no JWT validation in middleware
 
-### FR-7: Header Auth State
+### FR-3: Dashboard Layout + Navigation
 
-**New file**: `apps/explorer/components/layout/auth-nav.tsx`
-**Modify**: `apps/explorer/components/layout/header.tsx`
+**Create**: `apps/explorer/app/(dashboard)/layout.tsx`
+- Left sidebar (~200px) + content area
+- Client component that reads auth store, redirects if `!isAuthenticated`
+- Sidebar nav: Overview, Explore, Constructs, API Keys
+- Admin-only items gated by `isAdmin`
 
-| State | Header Shows |
-|-------|-------------|
-| Not connected | "Connect" button |
-| Connected (wallet) | Truncated address, dashboard link |
-| Connected (org member) | Address + org badge, dashboard link |
-
-**Acceptance Criteria**:
-- [ ] Client component island in server component header
-- [ ] No hydration mismatch (renders placeholder during SSR)
-- [ ] Connect button opens Dynamic Labs modal
-- [ ] Org member indicator is subtle (matches design system)
-
-### FR-8: Fix OAuth Callback Refresh Token
-
-**New file**: `apps/explorer/app/api/auth/set-refresh/route.ts`
-**Modify**: `apps/explorer/app/(auth)/callback/page.tsx`
-
-The OAuth callback receives `refresh_token` in query params but `setTokens()` discards it. Create a route handler that sets the HttpOnly cookie.
+**Create**: `apps/explorer/components/dashboard/sidebar.tsx`
+**Create**: `apps/explorer/components/dashboard/dashboard-header.tsx`
+- Shows wallet address, org badge, breadcrumbs
 
 **Acceptance Criteria**:
-- [ ] Route handler validates refresh token (non-empty string)
-- [ ] Sets HttpOnly, Secure, SameSite=lax cookie with 7-day expiry
-- [ ] CSRF validation on POST
-- [ ] Callback page POSTs refresh token before calling `setTokens`
-- [ ] OAuth login sessions survive beyond 15 minutes
+- [ ] Dashboard layout renders with sidebar + content
+- [ ] Unauthenticated redirect works even if middleware is bypassed
+- [ ] Admin nav items visible only to `isAdmin` users
+- [ ] Sidebar highlights active route
+
+### FR-4: Dashboard Overview Page
+
+**Create**: `apps/explorer/app/(dashboard)/dashboard/page.tsx`
+- Total constructs count, recent activity, quick links
+- Admin section (user count, platform stats) gated by `isAdmin`, calls `GET /v1/admin/analytics`
+
+**Create**: `apps/explorer/lib/api/dashboard.ts`
+- Authenticated fetch helpers with `Authorization: Bearer` from auth store
+
+**Acceptance Criteria**:
+- [ ] Overview shows construct count and recent activity for all auth'd users
+- [ ] Admin section calls existing admin analytics API
+- [ ] Non-admin users see overview without admin section (no error)
+
+### FR-5: Dashboard Explore Page
+
+**Create**: `apps/explorer/app/(dashboard)/dashboard/explore/page.tsx`
+- Reuses existing `GraphExplorer` from `components/graph/graph-explorer.tsx`
+- Same `fetchGraphData()` ISR call, wrapped in dashboard layout
+- Public `/explore` stays as-is
+
+**Acceptance Criteria**:
+- [ ] Graph renders within dashboard layout
+- [ ] Public `/explore` unchanged
+- [ ] No duplicate data fetching
+
+### FR-6: Header Dashboard Link
+
+**Modify**: `apps/explorer/components/layout/auth-nav.tsx`
+- Add "Dashboard" link when `isAuthenticated`
+
+**Acceptance Criteria**:
+- [ ] "Dashboard" link appears only for authenticated users
+- [ ] Links to `/dashboard`
+- [ ] Positioned before the connect button/address display
+
+### FR-7: Admin Wallet Migration
+
+**Create**: `apps/api/src/db/migrations/0010_admin_wallet.sql`
+
+```sql
+UPDATE users SET is_admin = true
+WHERE LOWER(wallet_address) = LOWER('0x79092A805f1cf9B0F5bE3c5A296De6e51c1DEd34');
+```
+
+**Acceptance Criteria**:
+- [ ] Migration is idempotent
+- [ ] Only affects the specified wallet address
+- [ ] Case-insensitive matching
+
+### FR-8: API Key CRUD Endpoints
+
+**Create**: `apps/api/src/routes/keys.ts`
+
+Three endpoints using existing utilities from `services/auth.ts:280-299`:
+
+| Endpoint | Auth | Behavior |
+|----------|------|----------|
+| `POST /v1/keys` | `requireAuth()` | `generateApiKey()` + `hashApiKey()` → insert `apiKeys` row. Return full key ONCE. Max 10 active keys/user. |
+| `GET /v1/keys` | `requireAuth()` | List user's non-revoked keys (prefix, name, scopes, last_used, created). Never return hash. |
+| `DELETE /v1/keys/:id` | `requireAuth()` | Set `revoked = true`. Validate key belongs to requesting user. |
+
+**Modify**: `apps/api/src/app.ts`
+- Register `keysRouter` at `/v1/keys`
+
+**Acceptance Criteria**:
+- [ ] POST creates key, returns full key once, enforces 10-key limit
+- [ ] GET lists keys with prefix, name, scopes, last_used — no hash or full key
+- [ ] DELETE sets `revoked = true`, rejects if key doesn't belong to user
+- [ ] Existing `validateApiKeyAuth` in middleware rejects revoked keys (already works)
+
+### FR-9: API Key Dashboard UI
+
+**Create**: `apps/explorer/app/(dashboard)/dashboard/keys/page.tsx`
+**Create**: `apps/explorer/components/dashboard/api-key-list.tsx`
+**Create**: `apps/explorer/components/dashboard/create-key-dialog.tsx`
+**Create**: `apps/explorer/lib/api/keys.ts`
+
+- Key table: prefix, name, scopes, last_used, created_at, revoke button
+- Create dialog: name input, scope checkboxes. On success, show full key ONCE with copy button
+
+**Acceptance Criteria**:
+- [ ] Table displays all user's active keys
+- [ ] Create dialog returns full key once with copy-to-clipboard
+- [ ] Revoke button confirms then calls DELETE
+- [ ] Empty state shown when no keys exist
+
+### FR-10: Convex Project Setup
+
+```bash
+cd apps/explorer && bun add convex
+```
+
+**Create**: `apps/explorer/convex/schema.ts`
+- `installEvents` — live install feed (packSlug, action, timestamp) with `by_created` index
+- `syncStatus` — construct sync health (slug, status, lastSyncAt) with `by_slug` index
+- `dashboardPresence` — who's online (wallet, lastSeen, expiresAt) with `by_expires` index
+
+**Create**: `apps/explorer/convex/installEvents.ts` — queries + mutations
+**Create**: `apps/explorer/convex/syncStatus.ts` — queries + mutations
+**Create**: `apps/explorer/convex/dashboardPresence.ts` — queries + mutations + internal cleanup
+
+**Acceptance Criteria**:
+- [ ] All tables have proper indexes (no naked `.collect()` on large tables)
+- [ ] Mutations gate on write key for server-to-server calls
+- [ ] Queries support pagination/limit parameters
+
+### FR-11: Convex Provider with Graceful Degradation
+
+**Create**: `apps/explorer/components/providers/convex-provider.tsx`
+
+Exact midi-interface pattern:
+```ts
+const convex = convexUrl ? new ConvexReactClient(convexUrl) : null;
+```
+
+No Convex URL → renders children without provider, app works fully offline.
+
+**Modify**: `apps/explorer/app/layout.tsx`
+- Wrap with `ConvexProvider` inside `DynamicProvider`
+
+**Acceptance Criteria**:
+- [ ] Module-level singleton (not recreated per render)
+- [ ] App runs fully without `NEXT_PUBLIC_CONVEX_URL`
+- [ ] Console warning when Convex not configured (not error)
+
+### FR-12: Server-Side Convex Client
+
+**Create**: `apps/explorer/lib/convex/server.ts`
+
+Singleton `ConvexHttpClient` (midi-interface `lib/agora/server.ts` pattern). Reads `CONVEX_URL ?? NEXT_PUBLIC_CONVEX_URL`. Returns `null` if not configured.
+
+**Acceptance Criteria**:
+- [ ] Lazy-initialized singleton
+- [ ] Returns `null` when env vars absent (callers return 503)
+
+### FR-13: Install Event Webhook
+
+**Create**: `apps/explorer/app/api/convex/install/route.ts`
+- BFF route: validates `CONVEX_WRITE_KEY` shared secret, writes to Convex `installEvents`
+
+**Modify**: `apps/api/src/routes/packs.ts` (install tracking path at line ~1284)
+- After recording `pack_installations` row, fire-and-forget webhook to explorer BFF
+- Non-blocking, non-fatal (same pattern as midi profile hydration)
+
+**Acceptance Criteria**:
+- [ ] Webhook validates shared secret before writing
+- [ ] API fire-and-forget: failure doesn't affect install tracking
+- [ ] Install event appears in Convex within 2s of API call
+
+### FR-14: Real-Time Dashboard Components
+
+**Create**: `apps/explorer/components/dashboard/live-install-feed.tsx`
+- `useQuery(api.installEvents.recent, { limit: 20 })` with `"skip"` sentinel fallback
+- Scrolling feed of recent installs
+
+**Create**: `apps/explorer/hooks/use-dashboard-presence.ts`
+- 30s heartbeat to `dashboardPresence`, shows who else is online
+
+**Acceptance Criteria**:
+- [ ] Install feed updates live via WebSocket subscription
+- [ ] Components render gracefully when Convex not configured (empty state, not error)
+- [ ] Presence heartbeat cleans up on unmount
+
+### FR-15: Construct Metrics Page
+
+**Create**: `apps/explorer/app/(dashboard)/dashboard/constructs/page.tsx`
+- All constructs with install counts (cold data from Supabase via existing admin API)
+- Live install feed sidebar (hot data from Convex)
+
+**Modify**: `apps/api/src/routes/analytics.ts`
+- Add `GET /v1/analytics/installs?pack_id=X&period=30d` — daily bucketed install counts using `date_trunc('day', created_at)` on `pack_installations`
+
+**Acceptance Criteria**:
+- [ ] Construct list shows install counts from Supabase
+- [ ] Live feed sidebar shows real-time installs from Convex
+- [ ] Analytics endpoint supports `pack_id` filter and `period` parameter
+
+### FR-16: Sync Reconciliation Cron
+
+**Create**: `apps/explorer/app/api/cron/reconcile/route.ts`
+- Every 15 min: compare recent `pack_installations` (Supabase) with Convex `installEvents`, backfill gaps
+- Pattern from midi-interface `app/api/cron/reconcile-profiles/route.ts`
+- Time budget guard (50s max), paginated, `CRON_SECRET` auth
+
+**Acceptance Criteria**:
+- [ ] Verifies `CRON_SECRET` from `Authorization: Bearer`
+- [ ] Paginated with time budget guard
+- [ ] Monotonic guard: skips if event already exists in Convex
+- [ ] Partial success returns reconciled count
 
 ---
 
@@ -237,60 +341,69 @@ The OAuth callback receives `refresh_token` in query params but `setTokens()` di
 
 ### NFR-1: Performance
 
-- Dynamic Labs SDK lazy-loaded (not blocking initial page render)
-- ISR pages maintain <100ms TTFB for anonymous visitors
-- Auth overlay adds <200ms perceived latency for authenticated users
-- JWKS cache (10min) prevents per-request key fetches
+- Dashboard pages are client components (no ISR needed — auth-gated)
+- Convex subscriptions use indexed queries only (no table scans)
+- Install webhook is fire-and-forget (does not slow down install API)
+- Live feed limited to 20 most recent events
 
 ### NFR-2: Security
 
-- Dynamic Labs JWT verification via JWKS (RS256, not shared secret)
-- Reject tokens with `requiresAdditionalAuth` scope
-- EVM addresses lowercased before storage (normalization)
-- No wallet addresses in error responses
-- Rate limiting on `/v1/auth/dynamic` (10 req/min per IP)
-- CSRF validation on all POST auth route handlers
-- HttpOnly cookies for refresh tokens (existing pattern)
+- Dashboard soft-gated by middleware (cookie check) + hard-gated by auth store
+- Admin sections double-gated: `isAuthenticated && isAdmin`
+- API key full value shown once, then only prefix
+- Key CRUD endpoints validate ownership (user_id match)
+- Convex write mutations gated by `CONVEX_WRITE_KEY` shared secret
+- Reconciliation cron gated by `CRON_SECRET`
+- No admin bypass — `isAdmin` is DB-authoritative, not JWT-claimable
 
 ### NFR-3: Compatibility
 
-- Existing GitHub/Google OAuth continues working unchanged
-- Existing email/password auth continues working unchanged
-- Dashboard routes continue using existing auth initializer
-- API backwards-compatible (no breaking changes to existing endpoints)
-
-### NFR-4: Dependencies
-
-| Package | Version | Purpose |
-|---------|---------|---------|
-| `@dynamic-labs/sdk-react-core` | `^4.61.3` | Core SDK |
-| `@dynamic-labs/ethereum` | `^4.61.3` | EVM wallet connectors |
-| `@dynamic-labs/wagmi-connector` | `^4.61.3` | wagmi integration |
-| `jwks-rsa` | latest | JWKS key fetching (API) |
+- Public pages (`/`, `/explore`, `/constructs/*`, `/about`) unchanged
+- Existing auth flows (login, OAuth, Dynamic) unaffected
+- Existing API endpoints backwards-compatible
+- App fully functional without Convex environment variables
 
 ---
 
 ## 7. Scope & Prioritization
 
-### MVP (This Cycle)
+### Phase 1: Dashboard Shell + Auth Routing (Sprint 1-2)
 
-| Priority | Feature | FR | Effort |
-|----------|---------|-----|--------|
-| P0 | Fix `fetchMe` response parsing | FR-1 | 30min |
-| P0 | Dynamic Labs provider setup | FR-2 | 1h |
-| P0 | API JWT exchange endpoint | FR-3 | 2h |
-| P0 | Auth store + connect button | FR-4, FR-5 | 1h |
-| P1 | Auth-aware leaderboard | FR-6 | 2h |
-| P1 | Header connect button | FR-7 | 1h |
-| P2 | Fix OAuth refresh token | FR-8 | 1h |
+| Priority | Feature | FR |
+|----------|---------|-----|
+| P0 | Expose `is_admin` from API | FR-1 |
+| P0 | Next.js middleware (soft gate) | FR-2 |
+| P0 | Dashboard layout + sidebar | FR-3 |
+| P1 | Overview page | FR-4 |
+| P1 | Explore in dashboard | FR-5 |
+| P1 | Header dashboard link | FR-6 |
+| P2 | Admin wallet migration | FR-7 |
+
+### Phase 2: API Key Management (Sprint 3)
+
+| Priority | Feature | FR |
+|----------|---------|-----|
+| P0 | Key CRUD endpoints | FR-8 |
+| P0 | Key dashboard UI | FR-9 |
+
+### Phase 3: Convex Real-Time (Sprint 4-5)
+
+| Priority | Feature | FR |
+|----------|---------|-----|
+| P0 | Convex setup + provider | FR-10, FR-11 |
+| P0 | Server-side client | FR-12 |
+| P1 | Install webhook | FR-13 |
+| P1 | Live feed + presence | FR-14 |
+| P1 | Construct metrics page | FR-15 |
+| P2 | Reconciliation cron | FR-16 |
 
 ### Future (Not This Cycle)
 
-- Wallet allowlist for org membership (bypass GitHub linking)
-- Dynamic Labs auth proxy / cookie domain fix (ecosystem-wide issue)
-- External submission pipeline with construct review
-- Per-construct visibility management in dashboard
-- Artisan-designed auth theming (Creative Autonomy — may ship alongside)
+- Construct CRUD from dashboard (create/update/delete)
+- Usage analytics per API key
+- Billing integration (NowPayments)
+- Team management UI
+- Notification center (installs, sync failures)
 
 ---
 
@@ -300,39 +413,95 @@ The OAuth callback receives `refresh_token` in query params but `setTokens()` di
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|-----------|--------|------------|
-| Dynamic Labs SDK bundle size bloats explorer | Medium | Medium | Lazy-load via `next/dynamic`, measure with `@next/bundle-analyzer` |
-| JWKS endpoint downtime blocks all Dynamic auth | Low | High | Cache keys aggressively (10min), fallback to existing OAuth |
-| Minified JWTs missing wallet address | Medium | Medium | Management API fallback (requires `DYNAMIC_AUTH_TOKEN` env var) |
-| Existing 0xHoneyJar Dynamic env missing GitHub social config | Low | High | Verify in Dynamic dashboard before implementation |
+| Convex cold start latency on first dashboard load | Medium | Low | Singleton client, lazy init |
+| Convex free tier limits (function calls/month) | Low | Medium | Monitor usage, reconciliation cron is heaviest consumer |
+| `is_admin` exposure creates privilege escalation surface | Low | High | DB-authoritative (not JWT claim), server validates on every request |
+| Dashboard layout breaks existing (site) pages | Low | High | Separate route group `(dashboard)`, no shared layout |
 
 ### External Dependencies
 
 | Dependency | Owner | Risk |
 |-----------|-------|------|
-| Dynamic Labs dashboard (GitHub social login enabled) | @janitooor | Must verify before Step 3 |
-| `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` value | @janitooor | Source from existing product dApp env |
-| `DYNAMIC_AUTH_TOKEN` for minified JWT fallback | @janitooor | Optional — only needed for edge case |
+| Convex project creation + env vars | @janitooor | Must set up before Phase 3 |
+| `CONVEX_WRITE_KEY` shared secret | @janitooor | Needed for install webhook |
+| `CRON_SECRET` for Vercel cron auth | @janitooor | Needed for reconciliation |
+| Admin wallet in production DB | @janitooor | Migration 0010 must run |
 
 ---
 
-## 9. Org Membership Model
+## 9. New Environment Variables
 
-Dynamic Labs supports social account linking. The org membership gate:
+| Variable | App | Phase |
+|----------|-----|-------|
+| `NEXT_PUBLIC_CONVEX_URL` | explorer | 3 |
+| `CONVEX_URL` | explorer | 3 |
+| `CONVEX_WRITE_KEY` | explorer + api | 3 |
+| `CRON_SECRET` | explorer | 3 |
 
-| Auth Method | Org Check | Internal Access |
-|---|---|---|
-| GitHub (via Dynamic social login) | Check 0xHoneyJar org membership | Yes if member |
-| Wallet only | No GitHub linked | No — prompted to link |
-| Wallet + GitHub linked | Check org via linked GitHub | Yes if member |
+---
 
-### User Table Extensions
+## 10. File Inventory
 
-```sql
-ALTER TABLE users ADD COLUMN IF NOT EXISTS wallet_address varchar(42);
-ALTER TABLE users ADD COLUMN IF NOT EXISTS dynamic_user_id varchar(100);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_wallet ON users (wallet_address) WHERE wallet_address IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS idx_users_dynamic ON users (dynamic_user_id) WHERE dynamic_user_id IS NOT NULL;
-```
+### Phase 1 (8 new + 4 modify)
+
+| Action | File |
+|--------|------|
+| Create | `apps/explorer/middleware.ts` |
+| Create | `apps/explorer/app/(dashboard)/layout.tsx` |
+| Create | `apps/explorer/app/(dashboard)/dashboard/page.tsx` |
+| Create | `apps/explorer/app/(dashboard)/dashboard/explore/page.tsx` |
+| Create | `apps/explorer/components/dashboard/sidebar.tsx` |
+| Create | `apps/explorer/components/dashboard/dashboard-header.tsx` |
+| Create | `apps/explorer/lib/api/dashboard.ts` |
+| Create | `apps/api/src/db/migrations/0010_admin_wallet.sql` |
+| Modify | `apps/api/src/routes/auth.ts` — add `is_admin`, `wallet_address` to `/me` |
+| Modify | `apps/explorer/lib/api/auth.ts` — add `isAdmin`, `walletAddress` to User |
+| Modify | `apps/explorer/lib/stores/auth-store.ts` — add `isAdmin` state |
+| Modify | `apps/explorer/components/layout/auth-nav.tsx` — dashboard link |
+
+### Phase 2 (5 new + 1 modify)
+
+| Action | File |
+|--------|------|
+| Create | `apps/api/src/routes/keys.ts` |
+| Create | `apps/explorer/app/(dashboard)/dashboard/keys/page.tsx` |
+| Create | `apps/explorer/components/dashboard/api-key-list.tsx` |
+| Create | `apps/explorer/components/dashboard/create-key-dialog.tsx` |
+| Create | `apps/explorer/lib/api/keys.ts` |
+| Modify | `apps/api/src/app.ts` — register keys router |
+
+### Phase 3 (10 new + 3 modify)
+
+| Action | File |
+|--------|------|
+| Create | `apps/explorer/convex/schema.ts` |
+| Create | `apps/explorer/convex/installEvents.ts` |
+| Create | `apps/explorer/convex/syncStatus.ts` |
+| Create | `apps/explorer/convex/dashboardPresence.ts` |
+| Create | `apps/explorer/components/providers/convex-provider.tsx` |
+| Create | `apps/explorer/lib/convex/server.ts` |
+| Create | `apps/explorer/app/api/convex/install/route.ts` |
+| Create | `apps/explorer/components/dashboard/live-install-feed.tsx` |
+| Create | `apps/explorer/hooks/use-dashboard-presence.ts` |
+| Create | `apps/explorer/app/(dashboard)/dashboard/constructs/page.tsx` |
+| Create | `apps/explorer/app/api/cron/reconcile/route.ts` |
+| Modify | `apps/explorer/app/layout.tsx` — ConvexProvider wrapper |
+| Modify | `apps/api/src/routes/packs.ts` — fire install webhook |
+| Modify | `apps/api/src/routes/analytics.ts` — daily install buckets |
+
+---
+
+## 11. Grounding Discrepancies Found
+
+Issues discovered during codebase grounding that should be addressed in implementation:
+
+1. **`User.role` is actually tier** — `explorer/lib/api/auth.ts:40` maps `u.tier` to `role`. The DB/middleware `role` (admin vs user) is never surfaced. FR-1 adds `isAdmin` to fix this without touching the misnamed field.
+
+2. **`User.createdAt` is phantom data** — `/me` never returns `created_at`, so `fetchMe` always falls back to `new Date().toISOString()`. Not blocking, but worth noting.
+
+3. **No `requireAdmin` middleware** — Only `requireOrgMember` exists. Admin-gated endpoints in this cycle should use `requireAuth()` + manual `role === 'admin'` check, or create a `requireAdmin` middleware.
+
+4. **`analyticsRouter` mounted at `/v1/` root** — Not at `/v1/analytics`. New install analytics (FR-15) should use the `adminRouter` at `/v1/admin` or create a proper `/v1/analytics` namespace.
 
 ---
 

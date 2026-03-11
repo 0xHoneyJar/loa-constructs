@@ -1,538 +1,888 @@
-# SDD: Dynamic Labs Auth + Internal Constructs Access
+# SDD: Internal Dashboard + Convex Real-Time Integration
 
-**Cycle**: cycle-039
-**Created**: 2026-03-09
+**Cycle**: cycle-040
+**Created**: 2026-03-10
 **Status**: Draft
 **PRD**: `grimoires/loa/prd.md`
-**Depends on**: cycle-038 (visibility system — merged PR #147)
+**Depends on**: cycle-039 (Dynamic Labs auth — merged)
 
 ---
 
 ## 1. Executive Summary
 
-Cycle-039 adds Dynamic Labs wallet auth to `constructs.network`, fixes the broken `fetchMe` response parsing, and introduces auth-aware public pages. After this cycle, anonymous visitors see a gated leaderboard. Authenticated org members see all 13 internal constructs.
+Cycle-040 adds three capabilities to `constructs.network`: an authenticated dashboard with progressive disclosure (team → admin), self-service API key management, and a Convex real-time layer replicating the midi-interface hot/cold pattern. After this cycle, authenticated users have a sidebar-navigated dashboard with construct metrics, API key CRUD, and live install feeds. The public site is unchanged.
 
-**Scope**: 4 new files (explorer), 2 new files (API), 1 migration, 6 modified files. No breaking API changes. Additive auth — existing OAuth continues working.
+**Scope**: 23 new files (explorer + API), 8 modified files, 1 migration, 1 new dependency (`convex`). No breaking API changes.
 
 ---
 
 ## 2. System Architecture
 
-### 2.1 Auth Flow Overview
+### 2.1 High-Level Data Flow
 
 ```
-┌──────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Browser     │    │  Dynamic Labs    │    │  Constructs API │
-│  (Explorer)   │    │  SDK + JWKS      │    │  (Hono)         │
-└──────┬───────┘    └────────┬─────────┘    └────────┬────────┘
-       │                      │                       │
-       │  1. Click "Connect"  │                       │
-       │─────────────────────>│                       │
-       │                      │                       │
-       │  2. Wallet sign /    │                       │
-       │     social login     │                       │
-       │<─────────────────────│                       │
-       │                      │                       │
-       │  3. Dynamic JWT      │                       │
-       │<─────────────────────│                       │
-       │                      │                       │
-       │  4. POST /v1/auth/dynamic (Dynamic JWT)      │
-       │──────────────────────────────────────────────>│
-       │                      │                       │
-       │                      │  5. Verify JWT        │
-       │                      │<──────────────────────│
-       │                      │  (JWKS RS256)         │
-       │                      │──────────────────────>│
-       │                      │                       │
-       │                      │  6. Check GitHub org  │
-       │                      │  (if GitHub linked)   │
-       │                      │                       │
-       │  7. API JWT (HS256) + refresh token          │
-       │<─────────────────────────────────────────────│
-       │                      │                       │
-       │  8. Store tokens,    │                       │
-       │     fetchMe()        │                       │
-       │──────────────────────────────────────────────>│
-       │                      │                       │
-       │  9. User state       │                       │
-       │<─────────────────────────────────────────────│
+                    ┌─────────────────────────────────────┐
+                    │          constructs.network          │
+                    │          (Next.js 15 / Vercel)       │
+                    ├─────────────┬───────────────────────┤
+                    │  (site)     │  (dashboard)           │
+                    │  Public ISR │  Client Components     │
+                    │  /          │  /dashboard/*           │
+                    │  /explore   │  /dashboard/keys        │
+                    │  /constructs│  /dashboard/constructs  │
+                    │             │  /dashboard/explore     │
+                    └──────┬──────┴──────────┬─────────────┘
+                           │                 │
+                    ISR fetch          Bearer token fetch
+                    (no auth)          (auth store → cookie)
+                           │                 │
+                    ┌──────▼─────────────────▼─────────────┐
+                    │       api.constructs.network          │
+                    │       (Hono / Railway)                │
+                    ├──────────────────────────────────────┤
+                    │  /v1/auth/me      → is_admin NEW     │
+                    │  /v1/keys         → CRUD NEW         │
+                    │  /v1/admin/*      → existing          │
+                    │  /v1/analytics/*  → installs NEW     │
+                    │  /v1/constructs/* → existing          │
+                    └──────────┬───────────────────────────┘
+                               │
+                    fire-and-forget webhook
+                    (on pack install)
+                               │
+                    ┌──────────▼───────────────────────────┐
+                    │  /api/convex/install  (BFF route)     │
+                    │  validates CONVEX_WRITE_KEY            │
+                    └──────────┬───────────────────────────┘
+                               │
+                    ┌──────────▼───────────────────────────┐
+                    │          Convex Cloud                  │
+                    │  installEvents  (hot — live feed)      │
+                    │  syncStatus     (hot — health)         │
+                    │  dashboardPresence (hot — who's on)    │
+                    └──────────────────────────────────────┘
+                               ▲
+                    useQuery() │ WebSocket subscriptions
+                               │
+                    ┌──────────┴───────────────────────────┐
+                    │  Dashboard Components (client)         │
+                    │  LiveInstallFeed, PresenceIndicator    │
+                    └──────────────────────────────────────┘
 ```
 
-### 2.2 Component Boundaries
+### 2.2 Hot/Cold Data Architecture
+
+| Data Type | Source of Truth (Cold) | Live Layer (Hot) | Sync Mechanism |
+|-----------|----------------------|-------------------|----------------|
+| Construct metadata | PostgreSQL (Supabase) | — | ISR revalidation |
+| Install counts | `pack_installations` table | `installEvents` (Convex) | Webhook + 15min reconciliation cron |
+| API keys | `api_keys` table | — | Direct CRUD (no real-time needed) |
+| Dashboard presence | — | `dashboardPresence` (Convex) | 30s heartbeat, TTL cleanup |
+| Admin analytics | PostgreSQL aggregates | — | On-demand fetch |
+
+### 2.3 Route Group Architecture
 
 ```
-Explorer (Next.js 15)                          API (Hono)
-═══════════════════                            ═══════════
-
-layout.tsx                                     app.ts
-  └─ DynamicProvider (client boundary)           └─ /v1/auth/dynamic (new)
-       └─ DynamicContextProvider                      └─ verify-dynamic-jwt.ts
-            └─ WagmiProvider                          └─ users upsert
-                 └─ QueryClientProvider               └─ generateTokens()
-                      └─ DynamicWagmiConnector
-                           └─ {children}         /v1/auth/* (existing, unchanged)
-                                                 /v1/constructs/* (unchanged)
-header.tsx (RSC)
-  └─ AuthNav (client island)
-       └─ DynamicConnectButton
-       └─ UserMenu
-
-page.tsx (ISR, RSC)
-  └─ AuthAwareConstructList (client)
-       └─ re-fetches with auth token
-       └─ CTA states (connect / link GitHub / full list)
+apps/explorer/app/
+├── (site)/              # Public pages (existing, unchanged)
+│   ├── page.tsx         # Homepage / leaderboard
+│   └── [slug]/          # Construct detail
+├── (marketing)/         # Marketing pages (existing, unchanged)
+│   ├── about/
+│   └── constructs/
+├── (dashboard)/         # NEW — authenticated dashboard
+│   └── dashboard/
+│       ├── page.tsx         # Overview
+│       ├── explore/page.tsx # Graph in dashboard context
+│       ├── keys/page.tsx    # API key management
+│       └── constructs/page.tsx  # Construct metrics + live feed
+├── api/                 # BFF routes
+│   ├── convex/
+│   │   └── install/route.ts  # NEW — install webhook receiver
+│   └── cron/
+│       └── reconcile/route.ts # NEW — Convex↔Supabase sync
+└── layout.tsx           # Root layout (add ConvexProvider)
 ```
 
 ---
 
-## 3. Technology Stack
+## 3. Component Architecture
 
-### 3.1 New Dependencies
+### 3.1 Dashboard Layout
 
-| Package | Version | Location | Purpose |
-|---------|---------|----------|---------|
-| `@dynamic-labs/sdk-react-core` | `^4.61.3` | explorer | Dynamic Labs SDK core |
-| `@dynamic-labs/ethereum` | `^4.61.3` | explorer | EVM wallet connectors |
-| `@dynamic-labs/wagmi-connector` | `^4.61.3` | explorer | wagmi bridge |
-
-### 3.2 Existing Dependencies (Reused)
-
-| Package | Location | Purpose |
-|---------|----------|---------|
-| `jose` | API | JWT verification (already used for HS256, reuse for RS256 JWKS) |
-| `zustand` | explorer | Auth store |
-| `js-cookie` | explorer | Access token storage |
-
-### 3.3 No New API Dependencies
-
-The API already has `jose` which supports `createRemoteJWKSet()` for JWKS verification. No need for `jwks-rsa` or `jsonwebtoken` — `jose` handles both HS256 (existing) and RS256 (Dynamic Labs) natively.
-
----
-
-## 4. Data Architecture
-
-### 4.1 Migration: `0009_cycle_039_dynamic_auth.sql`
-
-```sql
--- Add wallet and Dynamic Labs columns to users table
-ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "wallet_address" varchar(42);
-ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "dynamic_user_id" varchar(100);
-
--- Unique indexes for lookup (partial — only non-null values)
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_users_wallet"
-  ON "users" ("wallet_address")
-  WHERE "wallet_address" IS NOT NULL;
-
-CREATE UNIQUE INDEX IF NOT EXISTS "idx_users_dynamic"
-  ON "users" ("dynamic_user_id")
-  WHERE "dynamic_user_id" IS NOT NULL;
+```
+(dashboard)/layout.tsx
+├── Auth gate (client-side redirect if !isAuthenticated)
+├── Sidebar (200px fixed)
+│   ├── Nav items: Overview, Explore, Constructs, API Keys
+│   └── Admin section (gated by isAdmin): Analytics
+└── Content area
+    └── DashboardHeader (breadcrumbs, wallet address, org badge)
+        └── {children}
 ```
 
-### 4.2 Schema Changes
+**Auth gate strategy**: Two layers.
+1. `middleware.ts` — soft gate. Checks `access_token` cookie existence. Redirects to `/?login=required`. Prevents flash.
+2. `(dashboard)/layout.tsx` — hard gate. Client component reads `useAuthStore()`. If `!isAuthenticated` after hydration, redirects. This catches cases where cookie exists but token is expired.
 
-**File**: `apps/api/src/db/schema.ts`
+### 3.2 Provider Nesting (Updated)
 
-Add to `users` table:
+```
+// app/layout.tsx
+<DynamicProvider>           // Existing — Dynamic Labs SDK
+  <ConvexProvider>          // NEW — graceful degradation
+    {children}
+  </ConvexProvider>
+</DynamicProvider>
+```
+
+`ConvexProvider` is a no-op wrapper when `NEXT_PUBLIC_CONVEX_URL` is unset. Module-level singleton `ConvexReactClient` (not recreated per render).
+
+### 3.3 Middleware
 
 ```typescript
-walletAddress: varchar('wallet_address', { length: 42 }),
-dynamicUserId: varchar('dynamic_user_id', { length: 100 }),
+// apps/explorer/middleware.ts
+import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
+
+export function middleware(request: NextRequest) {
+  const token = request.cookies.get('access_token');
+  if (!token) {
+    return NextResponse.redirect(new URL('/?login=required', request.url));
+  }
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: '/dashboard/:path*',
+};
 ```
 
-### 4.3 User Lookup Strategy
-
-Dynamic auth creates a three-path user resolution:
-
-| Priority | Lookup | Scenario |
-|----------|--------|----------|
-| 1 | `dynamic_user_id` | Returning Dynamic Labs user |
-| 2 | `wallet_address` | Wallet previously seen via different auth |
-| 3 | `github_username` | GitHub linked in Dynamic, matches existing OAuth user |
-| 4 | Create new | First-time wallet user |
-
-Wallet addresses are **lowercased** before storage (EVM normalization).
+Cookie-only check. No JWT validation — that's the API's job. This is a UX gate, not a security gate.
 
 ---
 
-## 5. API Design
+## 4. API Changes
 
-### 5.1 New Endpoint: `POST /v1/auth/dynamic`
+### 4.1 `/auth/me` Response Extension
 
-**File**: `apps/api/src/routes/dynamic-auth.ts`
+**File**: `apps/api/src/routes/auth.ts` (lines 471-479)
 
-#### Request
-
-```
-POST /v1/auth/dynamic
-Content-Type: application/json
-Authorization: Bearer <dynamic_labs_jwt>
-```
-
-No request body — JWT is in the Authorization header.
-
-#### Response (200)
-
+Current response:
 ```json
 {
-  "access_token": "eyJ...",
-  "refresh_token": "eyJ...",
-  "expires_in": 900
+  "user": {
+    "id": "...",
+    "email": "...",
+    "name": "...",
+    "email_verified": false,
+    "is_org_member": true,
+    "tier": "free"
+  }
 }
 ```
 
-#### Error Responses
-
-| Status | Code | Condition |
-|--------|------|-----------|
-| 401 | `INVALID_TOKEN` | JWT verification failed |
-| 401 | `ADDITIONAL_AUTH_REQUIRED` | JWT has `requiresAdditionalAuth` scope |
-| 429 | `RATE_LIMIT_EXCEEDED` | >10 requests/min per IP |
-| 500 | `INTERNAL_ERROR` | JWKS fetch failed, DB error |
-
-#### Processing Pipeline
-
-```
-1. Extract Bearer token from Authorization header
-2. Verify JWT via JWKS (RS256)
-   └─ JWKS URL: https://app.dynamic.xyz/api/v0/sdk/{ENV_ID}/.well-known/jwks
-   └─ Cache: 10 min (jose caches internally via createRemoteJWKSet)
-   └─ Clock tolerance: 30s
-3. Check scopes — reject if 'requiresAdditionalAuth' present
-4. Extract identity:
-   └─ sub (Dynamic user ID)
-   └─ verified_credentials[0].address (wallet address)
-   └─ Fallback: environmentId + sub for minified JWTs
-5. Check for GitHub social:
-   └─ verified_credentials.find(c => c.oauthProvider === 'github')
-   └─ If found → check 0xHoneyJar org membership via GitHub API
-6. Resolve user (see §4.3 lookup strategy)
-7. Generate API tokens via existing generateTokens(userId, email, isOrgMember)
-8. Return token pair
+New response (additive):
+```json
+{
+  "user": {
+    "id": "...",
+    "email": "...",
+    "name": "...",
+    "email_verified": false,
+    "is_org_member": true,
+    "is_admin": true,
+    "wallet_address": "0x79092A...",
+    "tier": "free"
+  }
+}
 ```
 
-### 5.2 JWKS Verification Module
+Two new fields: `is_admin` (from `user.role === 'admin'` on the `AuthUser` context) and `wallet_address` (from the user record). Both optional/nullable — no breaking change.
 
-**File**: `apps/api/src/lib/verify-dynamic-jwt.ts`
+### 4.2 Keys Router
 
-Uses `jose` (already in the project) with `createRemoteJWKSet()`:
-
-- Algorithm: RS256 only
-- Clock tolerance: 30 seconds
-- Rejects tokens with `requiresAdditionalAuth` scope
-- Returns typed `DynamicJWTPayload` with `sub`, `verified_credentials`, `scopes`
-
-### 5.3 Route Mounting
-
-**File**: `apps/api/src/app.ts`
+**File**: `apps/api/src/routes/keys.ts`
 
 ```typescript
-import { dynamicAuth } from './routes/dynamic-auth.js';
+import { Hono } from 'hono';
+import { requireAuth } from '../middleware/auth.js';
+import { generateApiKey, hashApiKey } from '../services/auth.js';
+import { apiKeys } from '../db/schema.js';
+import { db } from '../db/index.js';
+import { eq, and, count } from 'drizzle-orm';
 
-// Add alongside existing auth routes
-v1.route('/auth/dynamic', dynamicAuth);
+const keys = new Hono();
+
+// POST /v1/keys — Create API key
+keys.post('/', requireAuth(), async (c) => {
+  const userId = c.get('userId');
+  const { name, scopes } = await c.req.json();
+
+  // Enforce 10-key limit
+  const [{ value: activeCount }] = await db
+    .select({ value: count() })
+    .from(apiKeys)
+    .where(and(eq(apiKeys.userId, userId), eq(apiKeys.revoked, false)));
+
+  if (activeCount >= 10) {
+    return c.json({ error: 'Maximum 10 active keys' }, 400);
+  }
+
+  const { key, prefix } = generateApiKey();
+  const hash = await hashApiKey(key);
+
+  const [row] = await db.insert(apiKeys).values({
+    userId,
+    keyPrefix: prefix,
+    keyHash: hash,
+    name: name || 'Unnamed key',
+    scopes: scopes || ['read:skills', 'write:installs'],
+  }).returning();
+
+  // Return full key ONCE
+  return c.json({
+    id: row.id,
+    key,          // Only time full key is returned
+    prefix: row.keyPrefix,
+    name: row.name,
+    scopes: row.scopes,
+    created_at: row.createdAt,
+  }, 201);
+});
+
+// GET /v1/keys — List user's keys
+keys.get('/', requireAuth(), async (c) => {
+  const userId = c.get('userId');
+  const rows = await db.select({
+    id: apiKeys.id,
+    keyPrefix: apiKeys.keyPrefix,
+    name: apiKeys.name,
+    scopes: apiKeys.scopes,
+    lastUsedAt: apiKeys.lastUsedAt,
+    createdAt: apiKeys.createdAt,
+  })
+  .from(apiKeys)
+  .where(and(eq(apiKeys.userId, userId), eq(apiKeys.revoked, false)))
+  .orderBy(apiKeys.createdAt);
+
+  return c.json({ keys: rows });
+});
+
+// DELETE /v1/keys/:id — Revoke key
+keys.delete('/:id', requireAuth(), async (c) => {
+  const userId = c.get('userId');
+  const keyId = c.req.param('id');
+
+  const [updated] = await db.update(apiKeys)
+    .set({ revoked: true })
+    .where(and(eq(apiKeys.id, keyId), eq(apiKeys.userId, userId)))
+    .returning({ id: apiKeys.id });
+
+  if (!updated) {
+    return c.json({ error: 'Key not found' }, 404);
+  }
+
+  return c.json({ revoked: true });
+});
+
+export { keys as keysRouter };
 ```
 
-### 5.4 Existing Endpoints (Unchanged)
-
-All existing auth routes (`/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/me`, `/auth/oauth/*`) remain unchanged. The Dynamic Labs endpoint is purely additive.
-
----
-
-## 6. Component Design
-
-### 6.1 DynamicProvider
-
-**File**: `apps/explorer/components/providers/dynamic-provider.tsx`
-
-```
-'use client'
-
-DynamicContextProvider
-  settings:
-    environmentId: NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID
-    initialAuthenticationMode: 'connect-and-sign'
-    walletConnectors: [EthereumWalletConnectors]
-  └─ WagmiProvider (config: multiInjectedProviderDiscovery: false)
-       └─ QueryClientProvider
-            └─ DynamicWagmiConnector
-                 └─ {children}
+**Registration** in `apps/api/src/app.ts`:
+```typescript
+import { keysRouter } from './routes/keys.js';
+// ...
+v1.route('/keys', keysRouter);
 ```
 
-**Integration with layout.tsx**: The root layout wraps `{children}` in `<DynamicProvider>`. Since layout.tsx is RSC, the provider is imported as a client component boundary.
+### 4.3 Install Analytics Endpoint
 
-**SDK loading gate**: The provider exposes an `sdkHasLoaded` check to prevent flash of unauthenticated content before the SDK initializes.
+**File**: `apps/api/src/routes/analytics.ts` (append to admin router)
 
-### 6.2 DynamicConnectButton
+New endpoint on `adminRouter` at `/v1/admin/analytics/installs`:
 
-**File**: `apps/explorer/components/auth/dynamic-connect-button.tsx`
-
-Client component using `useDynamicContext()`:
-
-| Event | Action |
-|-------|--------|
-| Click | `setShowAuthFlow(true)` — opens Dynamic modal |
-| `onAuthSuccess` | `getAuthToken()` → `connectDynamic(jwt)` → populate auth store |
-| `onLogout` | `clearTokens()` → reset auth store |
-
-**Loading states**:
-- SDK loading → disabled button with skeleton
-- JWT exchange in progress → spinner overlay
-- Error → toast notification, button returns to default
-
-### 6.3 AuthNav
-
-**File**: `apps/explorer/components/layout/auth-nav.tsx`
-
-Client component island rendered inside the RSC header:
-
-| Auth State | Renders |
-|------------|---------|
-| SDK loading | Skeleton placeholder (prevents hydration mismatch) |
-| Not connected | "Connect" button |
-| Connected (wallet) | Truncated address + "Dashboard" link |
-| Connected (org member) | Address + subtle org badge + "Dashboard" link |
-
-**Hydration safety**: Renders a placeholder `<div>` during SSR, mounts actual content after `useEffect`. This prevents server/client mismatch since auth state is client-only.
-
-### 6.4 AuthAwareConstructList
-
-**File**: `apps/explorer/components/constructs/auth-aware-construct-list.tsx`
-
-Client component that overlays the ISR construct list:
-
-```
-Props: { publicConstructs: Construct[] }
-
-State flow:
-  1. Initial render: show publicConstructs (from ISR, likely 0)
-  2. Check auth store → isAuthenticated?
-     ├─ No  → Show "Connect to explore constructs" CTA
-     ├─ Yes, !isOrgMember → Show "Link GitHub for internal access" prompt
-     └─ Yes, isOrgMember  → Fetch /v1/constructs with auth token → show all
-  3. During auth fetch: skeleton overlay (no layout shift)
+```typescript
+// GET /v1/admin/analytics/installs?pack_id=X&period=30d
+admin.get('/analytics/installs', requireAuth(), requireAdmin(), async (c) => {
+  const packId = c.req.query('pack_id');
+  const period = c.req.query('period') || '30d';
+  // date_trunc('day', created_at) GROUP BY bucketed install counts
+});
 ```
 
-**Data fetching**: Uses `createAuthClient` from `lib/api/client.ts` to make authenticated requests. The auth client handles 401 refresh automatically.
+This goes on the existing `adminRouter` at `/v1/admin`, not the root-mounted analytics router.
 
-### 6.5 OAuth Refresh Fix
+### 4.4 Install Webhook (Fire-and-Forget)
 
-**File**: `apps/explorer/app/api/auth/set-refresh/route.ts`
+**File**: `apps/api/src/routes/packs.ts` (after `trackPackInstallation` call at ~line 1284)
 
-Next.js route handler:
-
-```
-POST /api/auth/set-refresh
-Body: { refresh_token: string }
-
-1. Validate: non-empty string, reasonable length
-2. Set HttpOnly cookie:
-   - Name: 'refresh_token'
-   - Value: refresh_token
-   - HttpOnly: true
-   - Secure: true (production)
-   - SameSite: 'lax'
-   - Path: '/'
-   - MaxAge: 7 days
-3. Return 200
-```
-
-**CSRF**: Validated via `Origin` / `Referer` header check against known domains.
-
-**Callback page modification**: Before calling `setTokens()`, POST the refresh token to this route handler. This ensures the HttpOnly cookie is set for the existing refresh flow.
-
----
-
-## 7. Security Architecture
-
-### 7.1 JWT Verification
-
-| Token Type | Algorithm | Key Source | Validation |
-|------------|-----------|------------|------------|
-| Dynamic Labs JWT | RS256 | JWKS endpoint (cached 10min) | `jose.jwtVerify()` with remote JWKS |
-| Our access token | HS256 | `JWT_SECRET` env var | `jose.jwtVerify()` (existing) |
-| Our refresh token | HS256 | `JWT_SECRET` env var | `jose.jwtVerify()` + blacklist check |
-
-### 7.2 Threat Model
-
-| Threat | Mitigation |
-|--------|------------|
-| Stolen Dynamic JWT | Short-lived (5min), RS256 verification, one-time exchange |
-| JWT replay | Clock tolerance 30s, JWKS rotation handles key compromise |
-| Wallet address spoofing | Address comes from verified JWT, not user input |
-| Org membership bypass | DB is authoritative (cycle-038 FIND-002), JWT `org` claim is convenience only |
-| Brute force JWT exchange | Rate limit: 10 req/min per IP on `/v1/auth/dynamic` |
-| XSS token theft | Access token in JS cookie (existing pattern), refresh in HttpOnly cookie |
-| Minified JWT (no credentials) | Extract `sub` (Dynamic user ID) only; skip wallet lookup, create user by Dynamic ID |
-
-### 7.3 EVM Address Normalization
-
-All wallet addresses are lowercased before storage and comparison. This prevents checksum-case mismatches (EIP-55 vs lowercase).
-
-### 7.4 Rate Limiting
-
-The `/v1/auth/dynamic` endpoint uses the existing Hono rate limiter: 10 requests per minute per IP.
-
----
-
-## 8. Environment Variables
-
-### 8.1 New Variables
-
-| Variable | Location | Required | Description |
-|----------|----------|----------|-------------|
-| `NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID` | Explorer | Yes | Dynamic Labs environment ID (from existing 0xHoneyJar env) |
-| `DYNAMIC_ENVIRONMENT_ID` | API | Yes | Same value, server-side (for JWKS URL construction) |
-
-### 8.2 Existing Variables (Unchanged)
-
-| Variable | Location | Description |
-|----------|----------|-------------|
-| `JWT_SECRET` | API | HS256 signing key for our tokens |
-| `CONSTRUCTS_ORG` | API | GitHub org name (`0xHoneyJar`) |
-| `GITHUB_TOKEN` | API | For org membership checks |
-| `NEXT_PUBLIC_API_URL` | Explorer | API base URL |
-
----
-
-## 9. File Manifest
-
-### 9.1 New Files
-
-| File | Type | Description |
-|------|------|-------------|
-| `apps/api/src/routes/dynamic-auth.ts` | API route | JWT exchange endpoint |
-| `apps/api/src/lib/verify-dynamic-jwt.ts` | API lib | JWKS verification module |
-| `apps/api/drizzle/0009_cycle_039_dynamic_auth.sql` | Migration | wallet_address + dynamic_user_id columns |
-| `apps/explorer/components/providers/dynamic-provider.tsx` | Component | Dynamic Labs + wagmi provider tree |
-| `apps/explorer/components/auth/dynamic-connect-button.tsx` | Component | Connect button with JWT exchange |
-| `apps/explorer/components/layout/auth-nav.tsx` | Component | Header auth state island |
-| `apps/explorer/components/constructs/auth-aware-construct-list.tsx` | Component | Auth overlay for leaderboard |
-| `apps/explorer/app/api/auth/set-refresh/route.ts` | Route handler | HttpOnly refresh cookie setter |
-
-### 9.2 Modified Files
-
-| File | Changes |
-|------|---------|
-| `apps/api/src/db/schema.ts` | Add `walletAddress`, `dynamicUserId` columns |
-| `apps/api/src/app.ts` | Mount `/v1/auth/dynamic` route |
-| `apps/explorer/lib/api/auth.ts` | Fix `fetchMe` response parsing |
-| `apps/explorer/lib/stores/auth-store.ts` | Add `connectDynamic()` action |
-| `apps/explorer/app/layout.tsx` | Wrap in `DynamicProvider` |
-| `apps/explorer/components/layout/header.tsx` | Add `AuthNav` island |
-| `apps/explorer/app/(site)/page.tsx` | Wrap leaderboard in `AuthAwareConstructList` |
-| `apps/explorer/app/(marketing)/constructs/page.tsx` | Wrap catalog in `AuthAwareConstructList` |
-| `apps/explorer/app/(auth)/callback/page.tsx` | POST refresh token before `setTokens` |
-| `apps/explorer/package.json` | Add Dynamic Labs dependencies |
-
----
-
-## 10. Implementation Sequence
-
-### Sprint 1: Foundation (P0 fixes + API)
-
-| Task | File(s) | Effort |
-|------|---------|--------|
-| T1.1: Fix `fetchMe` response parsing | `explorer/lib/api/auth.ts` | 30min |
-| T1.2: DB migration + schema | `api/drizzle/0009_*.sql`, `api/db/schema.ts` | 30min |
-| T1.3: JWKS verification module | `api/lib/verify-dynamic-jwt.ts` | 1h |
-| T1.4: Dynamic auth endpoint | `api/routes/dynamic-auth.ts`, `api/app.ts` | 2h |
-| T1.5: Fix OAuth refresh token | `explorer/app/api/auth/set-refresh/route.ts`, `callback/page.tsx` | 1h |
-
-### Sprint 2: Explorer Integration
-
-| Task | File(s) | Effort |
-|------|---------|--------|
-| T2.1: Install Dynamic Labs packages | `explorer/package.json` | 15min |
-| T2.2: Dynamic provider setup | `explorer/components/providers/dynamic-provider.tsx`, `layout.tsx` | 1h |
-| T2.3: Auth store `connectDynamic` | `explorer/lib/stores/auth-store.ts` | 45min |
-| T2.4: Dynamic connect button | `explorer/components/auth/dynamic-connect-button.tsx` | 1h |
-| T2.5: AuthNav header island | `explorer/components/layout/auth-nav.tsx`, `header.tsx` | 1h |
-
-### Sprint 3: Auth-Aware Pages
-
-| Task | File(s) | Effort |
-|------|---------|--------|
-| T3.1: AuthAwareConstructList | `explorer/components/constructs/auth-aware-construct-list.tsx` | 2h |
-| T3.2: Homepage integration | `explorer/app/(site)/page.tsx` | 30min |
-| T3.3: Catalog integration | `explorer/app/(marketing)/constructs/page.tsx` | 30min |
-| T3.4: E2E verification | Manual testing | 1h |
-
----
-
-## 11. Performance Considerations
-
-### 11.1 Bundle Impact
-
-Dynamic Labs SDK is ~200KB gzipped. Mitigation: lazy-load via `next/dynamic` with `ssr: false`. ISR pages render instantly for anonymous users. The Dynamic Labs SDK loads in the background and enables auth UI when ready.
-
-### 11.2 JWKS Caching
-
-`jose`'s `createRemoteJWKSet()` caches keys automatically. The JWKS endpoint is only fetched when:
-- First request after server cold start
-- Cache expires
-- Unknown `kid` encountered (key rotation)
-
-### 11.3 ISR Preservation
-
-Auth-aware pages maintain ISR performance:
-- Server component renders ISR shell (instant TTFB)
-- Client component mounts, checks auth, optionally re-fetches
-- No waterfall — auth check and SDK load happen in parallel
-
----
-
-## 12. Testing Strategy
-
-### 12.1 Manual Verification
-
-1. Anonymous → constructs.network → "Connect to explore" CTA, 0 constructs
-2. Click Connect → Dynamic Labs modal → wallet connect
-3. Wallet only → "Link GitHub for internal access"
-4. Link GitHub → org check → all 13 constructs appear
-5. Refresh → session persists (>24h)
-6. DevTools → `isOrgMember: true`, `isAuthenticated: true`
-
-### 12.2 API Verification
-
-```bash
-# Anonymous — 0 constructs
-curl -s https://api.constructs.network/v1/constructs | jq '.data | length'
-
-# Authenticated org member — 13 constructs
-curl -s -H "Authorization: Bearer <token>" \
-  https://api.constructs.network/v1/constructs | jq '.data | length'
-
-# Dynamic JWT exchange
-curl -s -X POST \
-  -H "Authorization: Bearer <dynamic_jwt>" \
-  https://api.constructs.network/v1/auth/dynamic | jq '.access_token'
+```typescript
+// Fire-and-forget webhook to explorer BFF for live Convex feed
+if (process.env.CONVEX_WEBHOOK_URL) {
+  fetch(process.env.CONVEX_WEBHOOK_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.CONVEX_WRITE_KEY}`,
+    },
+    body: JSON.stringify({
+      packSlug: pack.slug,
+      packName: pack.name,
+      action: 'install',
+      timestamp: new Date().toISOString(),
+    }),
+  }).catch(() => {}); // Non-blocking, non-fatal
+}
 ```
 
 ---
 
-## 13. Risks & Mitigations
+## 5. Convex Schema & Functions
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Dynamic Labs SDK bundle bloat | Medium | Medium | `next/dynamic` lazy load, measure with bundle analyzer |
-| JWKS endpoint downtime | Low | High | `jose` caches keys; existing OAuth is fallback |
-| Minified JWTs (no `verified_credentials`) | Medium | Medium | Fall back to `sub` claim only, create user by Dynamic ID |
-| GitHub social not enabled in Dynamic dashboard | Low | High | Verify before implementation (external dependency on @janitooor) |
-| wagmi version conflict with Dynamic SDK | Low | Medium | Pin to ecosystem versions (`^4.61.3`), test in isolation |
+### 5.1 Directory Structure
+
+```
+apps/explorer/
+├── convex/
+│   ├── schema.ts            # Table definitions
+│   ├── installEvents.ts     # Install feed queries + mutations
+│   ├── syncStatus.ts        # Sync health queries + mutations
+│   ├── dashboardPresence.ts # Presence queries + mutations + cleanup
+│   └── crons.ts             # Convex-native cron registrations
+├── convex.json              # Functions path override for monorepo
+```
+
+`convex.json` at `apps/explorer/`:
+```json
+{
+  "functions": "convex/"
+}
+```
+
+### 5.2 Schema
+
+```typescript
+// apps/explorer/convex/schema.ts
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  installEvents: defineTable({
+    packSlug: v.string(),
+    packName: v.string(),
+    action: v.string(),       // "install" | "uninstall" | "update"
+    timestamp: v.string(),    // ISO 8601
+  }).index("by_created", ["_creationTime"]),
+
+  syncStatus: defineTable({
+    slug: v.string(),
+    status: v.string(),       // "healthy" | "stale" | "error"
+    lastSyncAt: v.string(),
+    errorMessage: v.optional(v.string()),
+  }).index("by_slug", ["slug"]),
+
+  dashboardPresence: defineTable({
+    wallet: v.string(),
+    displayName: v.optional(v.string()),
+    lastSeen: v.number(),     // Date.now()
+    expiresAt: v.number(),    // lastSeen + 60_000 (60s TTL)
+  })
+    .index("by_wallet", ["wallet"])
+    .index("by_expires", ["expiresAt"]),
+});
+```
+
+Every table has indexes for every query access pattern. No naked `.collect()` on large tables.
+
+### 5.3 Functions Pattern
+
+**Queries** — live subscriptions via WebSocket:
+```typescript
+// installEvents.ts
+export const recent = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit = 20 }) => {
+    return ctx.db
+      .query("installEvents")
+      .withIndex("by_created")
+      .order("desc")
+      .take(limit);
+  },
+});
+```
+
+**Mutations** — write-key gated for server-to-server:
+```typescript
+export const record = mutation({
+  args: {
+    writeKey: v.string(),
+    packSlug: v.string(),
+    packName: v.string(),
+    action: v.string(),
+    timestamp: v.string(),
+  },
+  handler: async (ctx, args) => {
+    if (args.writeKey !== process.env.CONVEX_WRITE_KEY) {
+      throw new Error("unauthorized");
+    }
+    await ctx.db.insert("installEvents", {
+      packSlug: args.packSlug,
+      packName: args.packName,
+      action: args.action,
+      timestamp: args.timestamp,
+    });
+  },
+});
+```
+
+**Internal mutations** — for cron cleanup:
+```typescript
+// dashboardPresence.ts
+export const cleanupExpired = internalMutation({
+  handler: async (ctx) => {
+    const now = Date.now();
+    const expired = await ctx.db
+      .query("dashboardPresence")
+      .withIndex("by_expires", (q) => q.lt("expiresAt", now))
+      .collect();
+    for (const row of expired) {
+      await ctx.db.delete(row._id);
+    }
+  },
+});
+```
+
+### 5.4 Crons
+
+```typescript
+// apps/explorer/convex/crons.ts
+import { cronJobs } from "convex/server";
+import { internal } from "./_generated/api";
+
+const crons = cronJobs();
+
+crons.interval(
+  "presence/cleanup",
+  { seconds: 30 },
+  internal.dashboardPresence.cleanupExpired
+);
+
+export default crons;
+```
 
 ---
 
-## 14. Non-Goals (Explicit)
+## 6. Frontend Components
 
-- No on-chain operations on constructs.network
-- No wallet allowlist bypass for org membership
-- No Dynamic Labs auth proxy / cookie domain fix (ecosystem-wide issue)
-- No per-construct visibility management UI
-- No external construct submission pipeline
-- No replacing existing GitHub/Google OAuth
+### 6.1 Sidebar
+
+```typescript
+// apps/explorer/components/dashboard/sidebar.tsx
+'use client';
+
+const navItems = [
+  { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
+  { href: '/dashboard/explore', label: 'Explore', icon: Network },
+  { href: '/dashboard/constructs', label: 'Constructs', icon: Box },
+  { href: '/dashboard/keys', label: 'API Keys', icon: Key },
+];
+
+const adminItems = [
+  { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
+];
+
+export function Sidebar() {
+  const { isAdmin } = useAuthStore();
+  const pathname = usePathname();
+  // render nav items, admin section gated by isAdmin
+}
+```
+
+### 6.2 Dashboard Header
+
+```typescript
+// apps/explorer/components/dashboard/dashboard-header.tsx
+'use client';
+
+export function DashboardHeader() {
+  const { user, isAdmin, isOrgMember } = useAuthStore();
+  // Breadcrumbs from pathname, wallet address display, org/admin badges
+}
+```
+
+### 6.3 API Key Components
+
+**Key List** (`api-key-list.tsx`):
+- Table: prefix (`sk_live_xxxx...`), name, scopes as pills, last_used relative time, revoke button
+- Empty state with create CTA
+
+**Create Dialog** (`create-key-dialog.tsx`):
+- Name input (required)
+- Scope checkboxes (read:skills, write:installs, read:analytics — checked by default)
+- On success: modal shows full key with monospace display + copy button + "This key won't be shown again" warning
+- Closes dialog → refreshes key list
+
+### 6.4 Live Install Feed
+
+```typescript
+// apps/explorer/components/dashboard/live-install-feed.tsx
+'use client';
+
+export function LiveInstallFeed() {
+  const events = useQuery(api.installEvents.recent, { limit: 20 });
+
+  // "skip" sentinel: Convex not configured
+  if (events === undefined) {
+    return <FeedSkeleton />;
+  }
+
+  if (events.length === 0) {
+    return <EmptyFeed />;
+  }
+
+  return (
+    <div className="space-y-2 max-h-96 overflow-y-auto">
+      {events.map((event) => (
+        <InstallEventRow key={event._id} event={event} />
+      ))}
+    </div>
+  );
+}
+```
+
+### 6.5 Presence Hook
+
+```typescript
+// apps/explorer/hooks/use-dashboard-presence.ts
+'use client';
+
+export function useDashboardPresence() {
+  const heartbeat = useMutation(api.dashboardPresence.upsert);
+  const online = useQuery(api.dashboardPresence.listOnline);
+  const { user } = useAuthStore();
+
+  useEffect(() => {
+    if (!user?.walletAddress) return;
+    const interval = setInterval(() => {
+      heartbeat({
+        wallet: user.walletAddress,
+        displayName: user.name,
+      }).catch(() => {}); // Non-fatal
+    }, 30_000);
+
+    // Initial heartbeat
+    heartbeat({ wallet: user.walletAddress, displayName: user.name });
+
+    return () => clearInterval(interval);
+  }, [user?.walletAddress]);
+
+  return { online: online ?? [] };
+}
+```
+
+### 6.6 Auth Nav Update
+
+```typescript
+// apps/explorer/components/layout/auth-nav.tsx (modified)
+'use client';
+
+export function AuthNav() {
+  const { isOrgMember, isAuthenticated } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  if (!mounted) {
+    return <div className="h-7 w-20" />;
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      {isAuthenticated && (
+        <Link
+          href="/dashboard"
+          className="font-mono text-[9px] text-bone-light/70 hover:text-bone-light border border-bone-light/20 hover:border-bone-light/40 px-1.5 py-0.5 uppercase tracking-wider transition-colors"
+        >
+          Dashboard
+        </Link>
+      )}
+      {isOrgMember && (
+        <span className="font-mono text-[9px] text-cyan-base/70 border border-cyan-base/20 px-1 py-0.5 uppercase tracking-wider">
+          org
+        </span>
+      )}
+      <DynamicConnectButton />
+    </div>
+  );
+}
+```
+
+---
+
+## 7. Server-Side Convex Client
+
+```typescript
+// apps/explorer/lib/convex/server.ts
+import { ConvexHttpClient } from "convex/browser";
+
+let _convex: ConvexHttpClient | null | undefined;
+
+export function getConvexClient(): ConvexHttpClient | null {
+  if (_convex !== undefined) return _convex;
+  const url = process.env.CONVEX_URL ?? process.env.NEXT_PUBLIC_CONVEX_URL;
+  _convex = url ? new ConvexHttpClient(url) : null;
+  return _convex;
+}
+```
+
+Lazy singleton. Returns `null` when not configured. Callers return 503.
+
+---
+
+## 8. BFF Routes
+
+### 8.1 Install Webhook Receiver
+
+```typescript
+// apps/explorer/app/api/convex/install/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getConvexClient } from '@/lib/convex/server';
+import { api } from '@/convex/_generated/api';
+
+export async function POST(req: NextRequest) {
+  const authHeader = req.headers.get('authorization');
+  const writeKey = process.env.CONVEX_WRITE_KEY;
+
+  if (!writeKey || authHeader !== `Bearer ${writeKey}`) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  const convex = getConvexClient();
+  if (!convex) {
+    return NextResponse.json({ error: 'convex not configured' }, { status: 503 });
+  }
+
+  const body = await req.json();
+  await convex.mutation(api.installEvents.record, {
+    writeKey,
+    packSlug: body.packSlug,
+    packName: body.packName,
+    action: body.action,
+    timestamp: body.timestamp,
+  });
+
+  return NextResponse.json({ ok: true });
+}
+```
+
+### 8.2 Reconciliation Cron
+
+```typescript
+// apps/explorer/app/api/cron/reconcile/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getConvexClient } from '@/lib/convex/server';
+import { api } from '@/convex/_generated/api';
+
+const MAX_RUNTIME_MS = 50_000;
+
+export async function GET(req: NextRequest) {
+  const authHeader = req.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  const convex = getConvexClient();
+  if (!convex) {
+    return NextResponse.json({ error: 'convex not configured' }, { status: 503 });
+  }
+
+  const start = Date.now();
+  let reconciled = 0;
+  let batches = 0;
+
+  // Fetch recent pack_installations from Supabase (last 24h)
+  // Compare with Convex installEvents
+  // Backfill gaps
+  // Paginated with time budget guard
+
+  while (Date.now() - start < MAX_RUNTIME_MS) {
+    // fetch batch, compare, backfill
+    // break if no gaps remain
+    batches++;
+  }
+
+  return NextResponse.json({ reconciled, batches });
+}
+```
+
+Registered in `vercel.json`:
+```json
+{
+  "crons": [
+    {
+      "path": "/api/cron/reconcile",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}
+```
+
+---
+
+## 9. Auth Store Extension
+
+**File**: `apps/explorer/lib/stores/auth-store.ts`
+
+### 9.1 Interface Changes
+
+```typescript
+interface AuthState {
+  // ... existing fields
+  isAdmin: boolean;  // NEW — default false
+  // ... existing methods
+}
+```
+
+### 9.2 fetchMe Integration
+
+```typescript
+// In apps/explorer/lib/api/auth.ts
+export interface User {
+  // ... existing fields
+  isAdmin: boolean;           // NEW
+  walletAddress: string | null; // NEW
+}
+
+// In fetchMe mapping
+const user: User = {
+  // ... existing mappings
+  isAdmin: u.is_admin ?? false,
+  walletAddress: u.wallet_address ?? null,
+};
+```
+
+### 9.3 Store Population
+
+Every path that calls `fetchMe` and sets user state must also set `isAdmin`:
+- `initialize()` — on page load from existing token
+- `login()` — after email/password
+- `connectDynamic()` — after wallet connect
+- `refreshToken()` — after token refresh
+
+Pattern: `set({ user, isOrgMember: user.isOrgMember, isAdmin: user.isAdmin })`
+
+---
+
+## 10. Migration
+
+```sql
+-- apps/api/src/db/migrations/0010_admin_wallet.sql
+-- Promote the primary admin wallet
+UPDATE users SET is_admin = true
+WHERE LOWER(wallet_address) = LOWER('0x79092A805f1cf9B0F5bE3c5A296De6e51c1DEd34');
+```
+
+Idempotent — `SET is_admin = true` is a no-op if already true.
+
+---
+
+## 11. Environment Variables
+
+| Variable | Where | Required | Default |
+|----------|-------|----------|---------|
+| `NEXT_PUBLIC_CONVEX_URL` | Explorer (client) | No | — (graceful degradation) |
+| `CONVEX_URL` | Explorer (server) | No | Falls back to `NEXT_PUBLIC_CONVEX_URL` |
+| `CONVEX_WRITE_KEY` | Explorer + API | No | — (webhook skipped if absent) |
+| `CONVEX_WEBHOOK_URL` | API | No | — (webhook skipped if absent) |
+| `CRON_SECRET` | Explorer | No | — (cron returns 401 if absent) |
+
+All optional. App is fully functional without any Convex configuration.
+
+---
+
+## 12. File Inventory (31 files total)
+
+### Phase 1: Dashboard Shell (8 new, 4 modify)
+
+| Action | File | Description |
+|--------|------|-------------|
+| Create | `apps/explorer/middleware.ts` | Dashboard soft gate (cookie check) |
+| Create | `apps/explorer/app/(dashboard)/layout.tsx` | Dashboard layout + sidebar + auth hard gate |
+| Create | `apps/explorer/app/(dashboard)/dashboard/page.tsx` | Overview page |
+| Create | `apps/explorer/app/(dashboard)/dashboard/explore/page.tsx` | Graph in dashboard context |
+| Create | `apps/explorer/components/dashboard/sidebar.tsx` | Sidebar navigation |
+| Create | `apps/explorer/components/dashboard/dashboard-header.tsx` | Header with breadcrumbs + badges |
+| Create | `apps/explorer/lib/api/dashboard.ts` | Authenticated fetch helpers |
+| Create | `apps/api/src/db/migrations/0010_admin_wallet.sql` | Admin wallet promotion |
+| Modify | `apps/api/src/routes/auth.ts` | Add `is_admin`, `wallet_address` to `/me` |
+| Modify | `apps/explorer/lib/api/auth.ts` | Add `isAdmin`, `walletAddress` to User |
+| Modify | `apps/explorer/lib/stores/auth-store.ts` | Add `isAdmin` to AuthState |
+| Modify | `apps/explorer/components/layout/auth-nav.tsx` | Add Dashboard link |
+
+### Phase 2: API Keys (5 new, 1 modify)
+
+| Action | File | Description |
+|--------|------|-------------|
+| Create | `apps/api/src/routes/keys.ts` | Keys CRUD router |
+| Create | `apps/explorer/app/(dashboard)/dashboard/keys/page.tsx` | Keys management page |
+| Create | `apps/explorer/components/dashboard/api-key-list.tsx` | Key table + revoke |
+| Create | `apps/explorer/components/dashboard/create-key-dialog.tsx` | Create key dialog |
+| Create | `apps/explorer/lib/api/keys.ts` | Key API client |
+| Modify | `apps/api/src/app.ts` | Register keys router |
+
+### Phase 3: Convex Real-Time (10 new, 3 modify)
+
+| Action | File | Description |
+|--------|------|-------------|
+| Create | `apps/explorer/convex/schema.ts` | Convex table definitions |
+| Create | `apps/explorer/convex/installEvents.ts` | Install feed functions |
+| Create | `apps/explorer/convex/syncStatus.ts` | Sync health functions |
+| Create | `apps/explorer/convex/dashboardPresence.ts` | Presence functions |
+| Create | `apps/explorer/convex/crons.ts` | Convex-native cron jobs |
+| Create | `apps/explorer/components/providers/convex-provider.tsx` | Graceful degradation provider |
+| Create | `apps/explorer/lib/convex/server.ts` | Server-side Convex client |
+| Create | `apps/explorer/app/api/convex/install/route.ts` | Install webhook BFF |
+| Create | `apps/explorer/components/dashboard/live-install-feed.tsx` | Live install feed |
+| Create | `apps/explorer/hooks/use-dashboard-presence.ts` | Presence heartbeat hook |
+| Create | `apps/explorer/app/(dashboard)/dashboard/constructs/page.tsx` | Construct metrics page |
+| Create | `apps/explorer/app/api/cron/reconcile/route.ts` | Reconciliation cron |
+| Modify | `apps/explorer/app/layout.tsx` | Wrap with ConvexProvider |
+| Modify | `apps/api/src/routes/packs.ts` | Fire install webhook |
+| Modify | `apps/api/src/routes/analytics.ts` | Add daily install buckets |
+
+---
+
+## 13. Security Considerations
+
+| Concern | Mitigation |
+|---------|-----------|
+| Admin privilege escalation | `isAdmin` is DB-authoritative. Not in JWT claims. Server validates on every `/admin/*` request via `requireAdmin()` middleware. |
+| API key exposure | Full key shown once at creation. Only prefix stored/returned after that. Hash is bcrypt (cost 12). |
+| Key ownership bypass | DELETE validates `userId` match before revoking. |
+| Convex write abuse | All write mutations gated by `CONVEX_WRITE_KEY` shared secret. No direct client→Convex mutations for auth-bearing data. |
+| Dashboard route bypass | Two-layer gate: middleware (cookie) + layout (auth store). Even if middleware is bypassed, layout redirects. |
+| Reconciliation cron abuse | `CRON_SECRET` bearer auth. No unauthenticated access. |
+| XSS in API key names | Key names are user input — sanitize on display (React's default JSX escaping handles this). |
+
+---
+
+## 14. Testing Strategy
+
+| Layer | What | How |
+|-------|------|-----|
+| API | Keys CRUD | Integration tests: create, list, revoke, 10-key limit, ownership validation |
+| API | `/me` extension | Unit test: verify `is_admin` and `wallet_address` in response |
+| API | Install webhook | Integration test: verify fire-and-forget doesn't block install |
+| Explorer | Middleware | Edge case: no cookie → redirect, valid cookie → pass-through |
+| Explorer | Dashboard layout | Auth gate: redirect when unauthenticated |
+| Explorer | Convex provider | Graceful degradation: no URL → renders children |
+| Explorer | Key management | E2E: create key, verify shown once, list, revoke |
+| Convex | Schema | Type validation: all fields match expected types |
+| Convex | Reconciliation | Monotonic guard: duplicate events skipped |
 
 ---
 
 ## Next Step
 
-`/sprint-plan` to break down into implementation sprints with task dependencies and acceptance criteria.
+`/sprint-plan` to create sprint plan based on this SDD.

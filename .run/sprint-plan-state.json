@@ -1,32 +1,35 @@
 {
-  "plan_id": "plan-20260222-c035aa",
-  "branch": "feature/cycle-035-measurement-honesty",
-  "state": "RUNNING",
+  "plan_id": "plan-20260310-c040db",
+  "branch": "feat/cycle-040-dashboard-convex",
+  "state": "JACKED_OUT",
   "timestamps": {
-    "started": "2026-02-22T01:20:00Z",
-    "last_activity": "2026-02-22T01:20:00Z"
+    "started": "2026-03-10T06:30:00Z",
+    "last_activity": "2026-03-10T07:15:00Z",
+    "completed": "2026-03-10T07:15:00Z"
   },
   "sprints": {
-    "total": 3,
-    "completed": 0,
-    "current": "sprint-1",
+    "total": 5,
+    "completed": 5,
+    "current": null,
     "list": [
-      {"id": "sprint-1", "global_id": "sprint-34", "status": "in_progress", "cycles": 0},
-      {"id": "sprint-2", "global_id": "sprint-35", "status": "pending", "cycles": 0},
-      {"id": "sprint-3", "global_id": "sprint-36", "status": "pending", "cycles": 0}
+      {"id": "sprint-1", "global_id": "sprint-40", "status": "completed", "cycles": 1, "files_changed": 7},
+      {"id": "sprint-2", "global_id": "sprint-41", "status": "completed", "cycles": 1, "files_changed": 6},
+      {"id": "sprint-3", "global_id": "sprint-42", "status": "completed", "cycles": 1, "files_changed": 6},
+      {"id": "sprint-4", "global_id": "sprint-43", "status": "completed", "cycles": 1, "files_changed": 11},
+      {"id": "sprint-5", "global_id": "sprint-44", "status": "completed", "cycles": 1, "files_changed": 6}
     ]
   },
   "options": {
     "from": 1,
-    "to": 3,
+    "to": 5,
     "max_cycles": 20,
     "timeout_hours": 8
   },
   "metrics": {
-    "total_cycles": 0,
-    "total_files_changed": 0,
+    "total_cycles": 5,
+    "total_files_changed": 36,
     "total_findings_fixed": 0
   },
-  "cycle": "cycle-035",
-  "title": "R&D Synthesis — Measurement Honesty"
+  "cycle": "cycle-040",
+  "title": "Internal Dashboard + Convex Real-Time Integration"
 }

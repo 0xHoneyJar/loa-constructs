@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "active_cycle": "cycle-039",
-  "global_sprint_counter": 39,
+  "active_cycle": "cycle-040",
+  "global_sprint_counter": 44,
   "cycles": [
     {
       "id": "cycle-025",
@@ -466,28 +466,53 @@
     {
       "id": "cycle-039",
       "label": "Dynamic Labs Auth + Internal Constructs Access",
-      "status": "active",
+      "status": "archived",
       "created": "2026-03-09T00:00:00Z",
+      "archived": "2026-03-10T00:00:00Z",
       "prd": "grimoires/loa/prd.md",
       "sdd": "grimoires/loa/sdd.md",
+      "source_issues": [],
+      "note": "Superseded by cycle-040 — zero sprints completed, auth work subsumed into dashboard cycle",
+      "sprints": []
+    },
+    {
+      "id": "cycle-040",
+      "label": "Internal Dashboard + Convex Real-Time Integration",
+      "status": "active",
+      "created": "2026-03-10T00:00:00Z",
+      "prd": "grimoires/loa/prd.md",
+      "sdd": "grimoires/loa/sdd.md",
+      "sprint_plan": "grimoires/loa/sprint.md",
       "source_issues": [],
       "sprints": [
         {
           "local_id": "sprint-1",
-          "global_id": "sprint-37",
-          "label": "Foundation — fetchMe Fix + API JWT Exchange + Migration",
+          "global_id": "sprint-40",
+          "label": "Foundation — Admin Pipeline + Dashboard Gate",
           "status": "pending"
         },
         {
           "local_id": "sprint-2",
-          "global_id": "sprint-38",
-          "label": "Explorer Integration — Dynamic Provider + Auth Store + Header",
+          "global_id": "sprint-41",
+          "label": "Dashboard Shell — Layout, Sidebar, Pages",
           "status": "pending"
         },
         {
           "local_id": "sprint-3",
-          "global_id": "sprint-39",
-          "label": "Auth-Aware Pages — Leaderboard + Catalog Gating",
+          "global_id": "sprint-42",
+          "label": "API Keys — CRUD Endpoints + Dashboard UI",
+          "status": "pending"
+        },
+        {
+          "local_id": "sprint-4",
+          "global_id": "sprint-43",
+          "label": "Convex Foundation — Schema, Provider, Server Client, Webhook",
+          "status": "pending"
+        },
+        {
+          "local_id": "sprint-5",
+          "global_id": "sprint-44",
+          "label": "Live Feed, Presence, Metrics, Reconciliation",
           "status": "pending"
         }
       ]
