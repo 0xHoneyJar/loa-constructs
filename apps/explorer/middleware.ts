@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
   const token = request.cookies.get('access_token')?.value;
-  if (!token || token.split('.').length !== 3) {
+  if (!token) {
     return NextResponse.redirect(new URL('/?login=required', request.url));
   }
   return NextResponse.next();
