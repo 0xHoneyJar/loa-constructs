@@ -5,7 +5,7 @@
  * @see sdd.md §4.2 Category Counts (cycle-041)
  */
 
-import { eq, asc, sql } from 'drizzle-orm';
+import { and, eq, asc, sql } from 'drizzle-orm';
 import { db, categories, skills, packs } from '../db/index.js';
 import { getRedis, isRedisConfigured, CACHE_KEYS, CACHE_TTL } from './redis.js';
 import { logger } from '../lib/logger.js';
@@ -173,7 +173,7 @@ export async function getCategoryBySlug(slug: string): Promise<Category | null> 
     const [packsWithCategory] = await db
       .select({ count: sql<number>`count(*)::int` })
       .from(packs)
-      .where(sql`${packs.category} = ${normalizedSlug} AND ${packs.status} = 'published'`);
+      .where(and(sql`${packs.category} = ${normalizedSlug}`, eq(packs.status, 'published')));
 
     const totalCount = (skillsWithCategory?.count || 0) + (packsWithCategory?.count || 0);
 

@@ -50,7 +50,9 @@ jobs:
           CONSTRUCTS_ORG: '0xHoneyJar'
         run: |
           FLAGS=""
-          if [ "${{ github.event.inputs.auto_discover }}" = "true" ]; then
+          # Schedule and repository_dispatch events should auto-discover by default
+          AUTO_DISCOVER="${{ github.event.inputs.auto_discover || 'true' }}"
+          if [ "$AUTO_DISCOVER" = "true" ]; then
             FLAGS="--auto-discover"
           fi
           bun run seed:forge $FLAGS
@@ -61,5 +63,5 @@ jobs:
           echo "## Construct Sync Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Auto-discover**: ${{ github.event.inputs.auto_discover || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auto-discover**: ${{ github.event.inputs.auto_discover || 'true' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Time**: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
