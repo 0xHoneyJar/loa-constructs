@@ -8,7 +8,7 @@ export const metadata = {
 function CodeBlock({ children }: { children: string }) {
   return (
     <div className="group relative">
-      <pre className="overflow-x-auto border border-void-border bg-white/[0.02] p-4">
+      <pre className="overflow-x-auto border border-void-border bg-void-raised p-4">
         <code className="font-mono text-sm text-bone-base">{children}</code>
       </pre>
     </div>

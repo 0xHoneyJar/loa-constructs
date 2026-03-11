@@ -70,7 +70,7 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
     <button
       type="button"
       onClick={() => setShowAuthFlow(true)}
-      className={`font-mono text-[11px] text-cyan-base hover:text-cyan-hover transition-colors px-2 py-1 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-base/40 ${className ?? ''}`}
+      className={`font-mono text-[11px] text-cyan-base hover:text-cyan-dim transition-colors px-2 py-1 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-base/40 ${className ?? ''}`}
     >
       {label}
     </button>

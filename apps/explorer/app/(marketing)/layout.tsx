@@ -11,15 +11,15 @@ function MarketingFooter() {
             <p className="text-bone-ghost mb-2">Product</p>
             <div className="space-y-1">
               <Link href="/constructs" className="block text-bone-dim hover:text-bone-bright">Constructs</Link>
-              <Link href="/docs" className="block text-bone-dim hover:text-bone-bright">Docs</Link>
-              <Link href="/changelog" className="block text-bone-dim hover:text-bone-bright">Changelog</Link>
+              <Link href="/install" className="block text-bone-dim hover:text-bone-bright">Install</Link>
+              <Link href="/explore" className="block text-bone-dim hover:text-bone-bright">Explore</Link>
             </div>
           </div>
           <div>
             <p className="text-bone-ghost mb-2">Community</p>
             <div className="space-y-1">
-              <Link href="/blog" className="block text-bone-dim hover:text-bone-bright">Blog</Link>
-              <a href="https://github.com/0xHoneyJar/loa" className="block text-bone-dim hover:text-bone-bright" target="_blank" rel="noopener noreferrer">GitHub</a>
+              <a href="https://github.com/0xHoneyJar/loa-constructs" className="block text-bone-dim hover:text-bone-bright" target="_blank" rel="noopener noreferrer">GitHub</a>
+              <a href="https://github.com/0xHoneyJar/construct-base" className="block text-bone-dim hover:text-bone-bright" target="_blank" rel="noopener noreferrer">Template</a>
             </div>
           </div>
           <div>

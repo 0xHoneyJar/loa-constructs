@@ -80,7 +80,7 @@ export default async function ConstructDetailPage({
           </span>
           <span className="text-[10px] font-mono text-bone-ghost uppercase">{construct.type}</span>
           {construct.constructType && construct.constructType !== 'skill-pack' && (
-            <span className="border border-violet-500/30 bg-violet-500/10 px-2 py-0.5 text-[10px] font-mono text-violet-400">
+            <span className="border border-cyan-dim/30 bg-cyan-dim/10 px-2 py-0.5 text-[10px] font-mono text-cyan-dim">
               {construct.constructType.replace(/-/g, ' ')}
             </span>
           )}

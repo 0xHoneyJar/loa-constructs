@@ -277,7 +277,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
           <button
             type="button"
             onClick={clearStack}
-            className="rounded p-1 text-bone-ghost transition-colors hover:bg-void-raised hover:text-red-400"
+            className="rounded p-1 text-bone-ghost transition-colors hover:bg-void-raised hover:text-crimson-base"
             aria-label="Clear stack"
           >
             <Trash2 className="h-4 w-4" />
@@ -321,9 +321,9 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="rounded border border-amber-500/30 bg-amber-500/10 px-2 py-1"
+                className="border border-graduation-beta/30 bg-graduation-beta/10 px-2 py-1"
               >
-                <p className="font-mono text-[10px] text-amber-400/80">
+                <p className="font-mono text-[10px] text-graduation-beta/80">
                   {hintMessage}
                 </p>
               </motion.div>

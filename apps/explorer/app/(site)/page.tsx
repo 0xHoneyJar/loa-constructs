@@ -112,7 +112,7 @@ export default async function HomePage({
                             {construct.name}
                           </span>
                           {construct.constructType !== 'skill-pack' && (
-                            <span className="border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-mono text-violet-400 hidden sm:inline">
+                            <span className="border border-cyan-dim/30 bg-cyan-dim/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan-dim hidden sm:inline">
                               {construct.constructType.replace(/-/g, ' ')}
                             </span>
                           )}
@@ -122,12 +122,12 @@ export default async function HomePage({
                             </span>
                           )}
                           {construct.verificationTier === 'PROVEN' && (
-                            <span className="border border-green-500/30 bg-green-500/10 px-1.5 py-0.5 text-[9px] font-mono text-green-400 hidden sm:inline">
+                            <span className="border border-graduation-stable/30 bg-graduation-stable/10 px-1.5 py-0.5 text-[9px] font-mono text-graduation-stable hidden sm:inline">
                               proven
                             </span>
                           )}
                           {construct.verificationTier === 'BACKTESTED' && (
-                            <span className="border border-yellow-500/30 bg-yellow-500/10 px-1.5 py-0.5 text-[9px] font-mono text-yellow-400 hidden sm:inline">
+                            <span className="border border-graduation-beta/30 bg-graduation-beta/10 px-1.5 py-0.5 text-[9px] font-mono text-graduation-beta hidden sm:inline">
                               backtested
                             </span>
                           )}

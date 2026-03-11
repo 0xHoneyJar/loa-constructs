@@ -70,7 +70,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body
-        className={`${GeistMono.variable} ${basementGrotesque.variable} min-h-screen bg-background font-mono text-foreground antialiased`}
+        className={`${GeistMono.variable} ${basementGrotesque.variable} min-h-screen bg-void-base font-mono text-bone-base antialiased`}
       >
         <DynamicProvider>
           <ConvexProvider>

@@ -19,15 +19,13 @@ interface AuthAwareConstructListProps {
   publicConstructs: ConstructNode[];
   /** Static content to render for the construct list — rendered by server, passed as ReactNode */
   children: ReactNode;
-  /** Render key to identify which constructs are displayed */
-  renderList: 'public' | 'auth';
 }
 
 /**
  * Wrapper that handles auth gating. Renders children (server-rendered list) for
  * public/loading states, and fetches + renders auth constructs client-side when needed.
  */
-export function AuthAwareConstructList({ publicConstructs, children }: Omit<AuthAwareConstructListProps, 'renderList'> & { children: ReactNode }) {
+export function AuthAwareConstructList({ publicConstructs, children }: AuthAwareConstructListProps) {
   const { isAuthenticated, isOrgMember, isLoading, getAccessToken, initialize } = useAuthStore();
   const [authConstructs, setAuthConstructs] = useState<ConstructNode[] | null>(null);
   const [isFetching, setIsFetching] = useState(false);
@@ -101,7 +99,7 @@ export function AuthAwareConstructList({ publicConstructs, children }: Omit<Auth
     return (
       <div className="py-12">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-cyan-base" />
+          <div className="h-6 w-6 animate-spin border-b-2 border-cyan-base" style={{ borderRadius: '9999px' }} />
           <p className="font-mono text-xs text-bone-ghost">Loading constructs...</p>
         </div>
       </div>
@@ -179,7 +177,7 @@ function AuthConstructTable({ constructs }: { constructs: ConstructNode[] }) {
                     {construct.name}
                   </span>
                   {construct.constructType !== 'skill-pack' && (
-                    <span className="border border-violet-500/30 bg-violet-500/10 px-1.5 py-0.5 text-[9px] font-mono text-violet-400 hidden sm:inline">
+                    <span className="border border-cyan-dim/30 bg-cyan-dim/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan-dim hidden sm:inline">
                       {construct.constructType.replace(/-/g, ' ')}
                     </span>
                   )}
@@ -189,12 +187,12 @@ function AuthConstructTable({ constructs }: { constructs: ConstructNode[] }) {
                     </span>
                   )}
                   {construct.verificationTier === 'PROVEN' && (
-                    <span className="border border-green-500/30 bg-green-500/10 px-1.5 py-0.5 text-[9px] font-mono text-green-400 hidden sm:inline">
+                    <span className="border border-graduation-stable/30 bg-graduation-stable/10 px-1.5 py-0.5 text-[9px] font-mono text-graduation-stable hidden sm:inline">
                       proven
                     </span>
                   )}
                   {construct.verificationTier === 'BACKTESTED' && (
-                    <span className="border border-yellow-500/30 bg-yellow-500/10 px-1.5 py-0.5 text-[9px] font-mono text-yellow-400 hidden sm:inline">
+                    <span className="border border-graduation-beta/30 bg-graduation-beta/10 px-1.5 py-0.5 text-[9px] font-mono text-graduation-beta hidden sm:inline">
                       backtested
                     </span>
                   )}
