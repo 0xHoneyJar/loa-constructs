@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuthStore } from '@/lib/stores/auth-store';
 
 const navItems = [
   { href: '/dashboard', label: 'Overview' },
@@ -12,6 +13,8 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useAuthStore();
 
   return (
     <aside className="w-[200px] shrink-0 border-r border-void-border bg-void-base flex flex-col">
@@ -43,6 +46,15 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      <div className="p-2 border-t border-void-border">
+        <button
+          onClick={async () => { await logout(); router.replace('/'); }}
+          className="w-full text-left px-3 py-1.5 font-mono text-[11px] text-bone-ghost hover:text-crimson-base uppercase tracking-wider transition-colors"
+        >
+          Disconnect
+        </button>
+      </div>
     </aside>
   );
 }

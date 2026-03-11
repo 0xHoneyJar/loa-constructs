@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/stores/auth-store';
 
@@ -12,7 +13,6 @@ const routeLabels: Record<string, string> = {
   '/dashboard/explore': 'Explore',
   '/dashboard/constructs': 'Constructs',
   '/dashboard/keys': 'API Keys',
-  '/dashboard/analytics': 'Analytics',
 };
 
 export function DashboardHeader() {
@@ -24,7 +24,7 @@ export function DashboardHeader() {
   return (
     <header className="h-12 shrink-0 border-b border-void-border px-6 flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <span className="font-mono text-xs text-bone-muted">Dashboard</span>
+        <Link href="/dashboard" className="font-mono text-xs text-bone-muted hover:text-bone-base transition-colors">Dashboard</Link>
         <span className="font-mono text-[9px] text-bone-ghost">/</span>
         <span className="font-mono text-xs text-bone-base">{pageLabel}</span>
       </div>

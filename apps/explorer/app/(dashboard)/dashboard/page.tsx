@@ -88,12 +88,12 @@ function QuickLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="border border-void-border bg-void-base p-4 hover:border-void-border transition-colors group"
+      className="border border-void-border bg-void-base p-4 hover:bg-void-raised hover:border-cyan-dim/20 transition-colors group"
     >
       <div className="font-mono text-[11px] text-bone-dim group-hover:text-bone-base transition-colors uppercase tracking-wider">
         {label}
       </div>
-      <div className="mt-1 font-mono text-[9px] text-bone-ghost">
+      <div className="mt-1 font-mono text-[9px] text-bone-ghost group-hover:text-cyan-dim group-hover:translate-x-0.5 transition-all">
         &rarr;
       </div>
     </Link>
