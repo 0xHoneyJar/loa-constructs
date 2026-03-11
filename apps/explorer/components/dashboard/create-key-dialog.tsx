@@ -79,9 +79,9 @@ export function CreateKeyDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-void-base border border-bone-light/20 w-full max-w-md mx-4">
-        <div className="px-6 py-4 border-b border-bone-light/10">
-          <h2 className="font-mono text-sm text-bone-light">
+      <div className="bg-void-base border border-void-border w-full max-w-md mx-4">
+        <div className="px-6 py-4 border-b border-void-border">
+          <h2 className="font-mono text-sm text-bone-base">
             {created ? 'Key Created' : 'Create API Key'}
           </h2>
         </div>
@@ -94,7 +94,7 @@ export function CreateKeyDialog({
                   Copy this key now — it won&apos;t be shown again
                 </div>
                 <div className="flex items-center gap-2">
-                  <code data-key-display className="flex-1 font-mono text-[11px] text-bone-light bg-black/30 px-2 py-1.5 break-all select-all">
+                  <code data-key-display className="flex-1 font-mono text-[11px] text-bone-base bg-black/30 px-2 py-1.5 break-all select-all">
                     {created.key}
                   </code>
                   <button
@@ -109,7 +109,7 @@ export function CreateKeyDialog({
           ) : (
             <>
               <div>
-                <label className="block font-mono text-[9px] text-bone-light/40 uppercase tracking-widest mb-1">
+                <label className="block font-mono text-[9px] text-bone-muted uppercase tracking-widest mb-1">
                   Name
                 </label>
                 <input
@@ -117,12 +117,12 @@ export function CreateKeyDialog({
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="My API key"
-                  className="w-full bg-black/30 border border-bone-light/10 px-3 py-1.5 font-mono text-xs text-bone-light placeholder:text-bone-light/20 focus:border-cyan-base/40 focus:outline-none"
+                  className="w-full bg-black/30 border border-void-border px-3 py-1.5 font-mono text-xs text-bone-base placeholder:text-bone-ghost focus:border-cyan-base/40 focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="block font-mono text-[9px] text-bone-light/40 uppercase tracking-widest mb-2">
+                <label className="block font-mono text-[9px] text-bone-muted uppercase tracking-widest mb-2">
                   Scopes
                 </label>
                 <div className="space-y-1.5">
@@ -137,10 +137,10 @@ export function CreateKeyDialog({
                         onChange={() => toggleScope(scope.id)}
                         className="accent-cyan-base"
                       />
-                      <span className="font-mono text-[11px] text-bone-light/70">
+                      <span className="font-mono text-[11px] text-bone-dim">
                         {scope.label}
                       </span>
-                      <span className="font-mono text-[9px] text-bone-light/30">
+                      <span className="font-mono text-[9px] text-bone-ghost">
                         ({scope.id})
                       </span>
                     </label>
@@ -157,10 +157,10 @@ export function CreateKeyDialog({
           )}
         </div>
 
-        <div className="px-6 py-3 border-t border-bone-light/10 flex justify-end gap-2">
+        <div className="px-6 py-3 border-t border-void-border flex justify-end gap-2">
           <button
             onClick={handleClose}
-            className="font-mono text-[9px] text-bone-light/40 hover:text-bone-light/70 px-3 py-1 uppercase tracking-wider transition-colors"
+            className="font-mono text-[9px] text-bone-muted hover:text-bone-dim px-3 py-1 uppercase tracking-wider transition-colors"
           >
             {created ? 'Done' : 'Cancel'}
           </button>

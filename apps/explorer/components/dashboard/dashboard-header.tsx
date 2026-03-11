@@ -22,11 +22,11 @@ export function DashboardHeader() {
   const pageLabel = routeLabels[pathname] ?? 'Dashboard';
 
   return (
-    <header className="h-12 shrink-0 border-b border-bone-light/10 px-6 flex items-center justify-between">
+    <header className="h-12 shrink-0 border-b border-void-border px-6 flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <span className="font-mono text-xs text-bone-light/40">Dashboard</span>
-        <span className="font-mono text-[9px] text-bone-light/20">/</span>
-        <span className="font-mono text-xs text-bone-light">{pageLabel}</span>
+        <span className="font-mono text-xs text-bone-muted">Dashboard</span>
+        <span className="font-mono text-[9px] text-bone-ghost">/</span>
+        <span className="font-mono text-xs text-bone-base">{pageLabel}</span>
       </div>
 
       <div className="flex items-center gap-3">
@@ -41,7 +41,7 @@ export function DashboardHeader() {
           </span>
         )}
         {user?.walletAddress && (
-          <span className="font-mono text-[10px] text-bone-light/50">
+          <span className="font-mono text-[10px] text-bone-muted">
             {truncateAddress(user.walletAddress)}
           </span>
         )}

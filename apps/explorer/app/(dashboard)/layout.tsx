@@ -27,7 +27,7 @@ export default function DashboardLayout({
   if (isLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-void-base">
-        <div className="font-mono text-xs text-bone-light/50">Loading...</div>
+        <div className="font-mono text-xs text-bone-muted">Loading...</div>
       </div>
     );
   }

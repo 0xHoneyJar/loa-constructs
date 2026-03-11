@@ -32,25 +32,62 @@ export default function ConstructMetricsPage() {
   return (
     <div className="flex gap-6 max-w-6xl">
       <div className="flex-1 min-w-0 space-y-4">
-        <h1 className="font-mono text-lg text-bone-light">Constructs</h1>
+        <h1 className="font-mono text-lg text-bone-base">Constructs</h1>
 
         {loading ? (
-          <div className="font-mono text-xs text-bone-light/30">Loading...</div>
-        ) : (
-          <div className="border border-bone-light/10 overflow-hidden">
+          <div className="border border-void-border overflow-hidden">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-bone-light/10">
-                  <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-light/40 uppercase tracking-widest">
+                <tr className="border-b border-void-border">
+                  <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
                     Name
                   </th>
-                  <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-light/40 uppercase tracking-widest">
+                  <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
                     Type
                   </th>
-                  <th className="px-4 py-2 text-right font-mono text-[9px] text-bone-light/40 uppercase tracking-widest">
+                  <th className="px-4 py-2 text-right font-mono text-[9px] text-bone-muted uppercase tracking-widest">
                     Skills
                   </th>
-                  <th className="px-4 py-2 text-right font-mono text-[9px] text-bone-light/40 uppercase tracking-widest">
+                  <th className="px-4 py-2 text-right font-mono text-[9px] text-bone-muted uppercase tracking-widest">
+                    Installs
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="border-b border-void-border/50 last:border-b-0">
+                    <td className="px-4 py-2.5">
+                      <div className="animate-pulse bg-void-raised rounded-none h-3 w-28" />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="animate-pulse bg-void-raised rounded-none h-3 w-12" />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="animate-pulse bg-void-raised rounded-none h-3 w-6 ml-auto" />
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="animate-pulse bg-void-raised rounded-none h-3 w-10 ml-auto" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="border border-void-border overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-void-border">
+                  <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
+                    Name
+                  </th>
+                  <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
+                    Type
+                  </th>
+                  <th className="px-4 py-2 text-right font-mono text-[9px] text-bone-muted uppercase tracking-widest">
+                    Skills
+                  </th>
+                  <th className="px-4 py-2 text-right font-mono text-[9px] text-bone-muted uppercase tracking-widest">
                     Installs
                   </th>
                 </tr>
@@ -59,17 +96,17 @@ export default function ConstructMetricsPage() {
                 {constructs.map((c) => (
                   <tr
                     key={c.id}
-                    className="border-b border-bone-light/5 last:border-b-0"
+                    className="border-b border-void-border/50 last:border-b-0"
                   >
-                    <td className="px-4 py-2.5 font-mono text-[11px] text-bone-light">
+                    <td className="px-4 py-2.5 font-mono text-[11px] text-bone-base">
                       {c.name}
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className="font-mono text-[8px] text-bone-light/40 border border-bone-light/10 px-1 py-0.5">
+                      <span className="font-mono text-[8px] text-bone-muted border border-void-border px-1 py-0.5">
                         {c.constructType || 'pack'}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5 text-right font-mono text-[11px] text-bone-light/60">
+                    <td className="px-4 py-2.5 text-right font-mono text-[11px] text-bone-dim">
                       {c.skillsCount}
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono text-[11px] text-cyan-base/70">
@@ -84,7 +121,7 @@ export default function ConstructMetricsPage() {
       </div>
 
       <div className="w-72 shrink-0 space-y-4">
-        <h2 className="font-mono text-xs text-bone-light/40 uppercase tracking-widest">
+        <h2 className="font-mono text-xs text-bone-muted uppercase tracking-widest">
           Live Feed
         </h2>
         <LiveInstallFeed />

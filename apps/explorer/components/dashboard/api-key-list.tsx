@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { type ApiKey, revokeKey } from '@/lib/api/keys';
 
 function formatRelativeTime(dateStr: string | null): string {
@@ -23,15 +23,23 @@ export function ApiKeyList({
   onRevoke: () => void;
 }) {
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => setError(null), 3000);
+    return () => clearTimeout(timer);
+  }, [error]);
 
   const handleRevoke = async (id: string) => {
-    if (!confirm('Revoke this API key? This cannot be undone.')) return;
+    setConfirming(null);
     setRevoking(id);
     try {
       await revokeKey(id);
       onRevoke();
     } catch {
-      alert('Failed to revoke key');
+      setError(id);
     } finally {
       setRevoking(null);
     }
@@ -39,11 +47,11 @@ export function ApiKeyList({
 
   if (keys.length === 0) {
     return (
-      <div className="border border-bone-light/10 p-8 text-center">
-        <div className="font-mono text-xs text-bone-light/40">
+      <div className="border border-void-border p-8 text-center">
+        <div className="font-mono text-xs text-bone-muted">
           No API keys yet
         </div>
-        <div className="mt-1 font-mono text-[9px] text-bone-light/20">
+        <div className="mt-1 font-mono text-[9px] text-bone-ghost">
           Create your first key to get started
         </div>
       </div>
@@ -51,23 +59,23 @@ export function ApiKeyList({
   }
 
   return (
-    <div className="border border-bone-light/10 overflow-hidden">
+    <div className="border border-void-border overflow-hidden">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-bone-light/10">
-            <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-light/40 uppercase tracking-widest">
+          <tr className="border-b border-void-border">
+            <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
               Prefix
             </th>
-            <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-light/40 uppercase tracking-widest">
+            <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
               Name
             </th>
-            <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-light/40 uppercase tracking-widest">
+            <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
               Scopes
             </th>
-            <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-light/40 uppercase tracking-widest">
+            <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
               Last Used
             </th>
-            <th className="px-4 py-2 text-right font-mono text-[9px] text-bone-light/40 uppercase tracking-widest">
+            <th className="px-4 py-2 text-right font-mono text-[9px] text-bone-muted uppercase tracking-widest">
               Action
             </th>
           </tr>
@@ -76,12 +84,12 @@ export function ApiKeyList({
           {keys.map((key) => (
             <tr
               key={key.id}
-              className="border-b border-bone-light/5 last:border-b-0"
+              className="border-b border-void-border/50 last:border-b-0"
             >
-              <td className="px-4 py-2.5 font-mono text-[11px] text-bone-light/70">
+              <td className="px-4 py-2.5 font-mono text-[11px] text-bone-dim">
                 {key.keyPrefix}...
               </td>
-              <td className="px-4 py-2.5 font-mono text-[11px] text-bone-light">
+              <td className="px-4 py-2.5 font-mono text-[11px] text-bone-base">
                 {key.name}
               </td>
               <td className="px-4 py-2.5">
@@ -96,17 +104,38 @@ export function ApiKeyList({
                   ))}
                 </div>
               </td>
-              <td className="px-4 py-2.5 font-mono text-[10px] text-bone-light/40">
+              <td className="px-4 py-2.5 font-mono text-[10px] text-bone-muted">
                 {formatRelativeTime(key.lastUsedAt)}
               </td>
               <td className="px-4 py-2.5 text-right">
-                <button
-                  onClick={() => handleRevoke(key.id)}
-                  disabled={revoking === key.id}
-                  className="font-mono text-[9px] text-red-400/60 hover:text-red-400 uppercase tracking-wider disabled:opacity-50 transition-colors"
-                >
-                  {revoking === key.id ? 'Revoking...' : 'Revoke'}
-                </button>
+                {error === key.id ? (
+                  <span className="font-mono text-[9px] text-red-400 uppercase tracking-wider animate-[fadeOut_3s_ease-in_forwards]">
+                    Failed to revoke
+                  </span>
+                ) : confirming === key.id ? (
+                  <span className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => handleRevoke(key.id)}
+                      className="font-mono text-[9px] text-red-400 hover:text-red-300 uppercase tracking-wider transition-colors"
+                    >
+                      Confirm?
+                    </button>
+                    <button
+                      onClick={() => setConfirming(null)}
+                      className="font-mono text-[9px] text-bone-muted hover:text-bone-dim uppercase tracking-wider transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => setConfirming(key.id)}
+                    disabled={revoking === key.id}
+                    className="font-mono text-[9px] text-red-400/60 hover:text-red-400 uppercase tracking-wider disabled:opacity-50 transition-colors"
+                  >
+                    {revoking === key.id ? 'Revoking...' : 'Revoke'}
+                  </button>
+                )}
               </td>
             </tr>
           ))}

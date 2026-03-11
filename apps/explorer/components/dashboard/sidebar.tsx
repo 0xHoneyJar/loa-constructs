@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuthStore } from '@/lib/stores/auth-store';
 
 const navItems = [
   { href: '/dashboard', label: 'Overview' },
@@ -11,18 +10,13 @@ const navItems = [
   { href: '/dashboard/keys', label: 'API Keys' },
 ];
 
-const adminItems = [
-  { href: '/dashboard/analytics', label: 'Analytics' },
-];
-
 export function Sidebar() {
-  const { isAdmin } = useAuthStore();
   const pathname = usePathname();
 
   return (
-    <aside className="w-[200px] shrink-0 border-r border-bone-light/10 bg-void-base flex flex-col">
-      <div className="p-4 border-b border-bone-light/10">
-        <Link href="/" className="font-mono text-xs text-bone-light/70 hover:text-bone-light transition-colors">
+    <aside className="w-[200px] shrink-0 border-r border-void-border bg-void-base flex flex-col">
+      <div className="p-4 border-b border-void-border">
+        <Link href="/" className="font-mono text-xs text-bone-dim hover:text-bone-bright transition-colors">
           constructs.network
         </Link>
       </div>
@@ -40,39 +34,14 @@ export function Sidebar() {
               href={item.href}
               className={`block px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors ${
                 isActive
-                  ? 'text-cyan-base bg-cyan-base/5 border-l-2 border-cyan-base'
-                  : 'text-bone-light/50 hover:text-bone-light/80 hover:bg-bone-light/5 border-l-2 border-transparent'
+                  ? 'text-cyan-base bg-cyan-dim/10 border-l-2 border-cyan-base'
+                  : 'text-bone-muted hover:text-bone-base hover:bg-void-raised border-l-2 border-transparent'
               }`}
             >
               {item.label}
             </Link>
           );
         })}
-
-        {isAdmin && (
-          <>
-            <div className="my-3 border-t border-bone-light/10" />
-            <div className="px-3 py-1 font-mono text-[9px] text-bone-light/30 uppercase tracking-widest">
-              Admin
-            </div>
-            {adminItems.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`block px-3 py-1.5 font-mono text-[11px] uppercase tracking-wider transition-colors ${
-                    isActive
-                      ? 'text-cyan-base bg-cyan-base/5 border-l-2 border-cyan-base'
-                      : 'text-bone-light/50 hover:text-bone-light/80 hover:bg-bone-light/5 border-l-2 border-transparent'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              );
-            })}
-          </>
-        )}
       </nav>
     </aside>
   );

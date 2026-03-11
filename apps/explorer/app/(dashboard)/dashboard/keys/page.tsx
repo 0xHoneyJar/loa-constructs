@@ -29,7 +29,7 @@ export default function KeysPage() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center justify-between">
-        <h1 className="font-mono text-lg text-bone-light">API Keys</h1>
+        <h1 className="font-mono text-lg text-bone-base">API Keys</h1>
         <button
           onClick={() => setDialogOpen(true)}
           className="font-mono text-[9px] text-void-base bg-cyan-base/80 hover:bg-cyan-base px-3 py-1.5 uppercase tracking-wider transition-colors"
@@ -39,8 +39,49 @@ export default function KeysPage() {
       </div>
 
       {loading ? (
-        <div className="font-mono text-xs text-bone-light/30">
-          Loading keys...
+        <div className="border border-void-border overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-void-border">
+                <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
+                  Prefix
+                </th>
+                <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
+                  Name
+                </th>
+                <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
+                  Scopes
+                </th>
+                <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
+                  Last Used
+                </th>
+                <th className="px-4 py-2 text-right font-mono text-[9px] text-bone-muted uppercase tracking-widest">
+                  Action
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 3 }).map((_, i) => (
+                <tr key={i} className="border-b border-void-border/50 last:border-b-0">
+                  <td className="px-4 py-2.5">
+                    <div className="animate-pulse bg-void-raised rounded-none h-3 w-16" />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="animate-pulse bg-void-raised rounded-none h-3 w-24" />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="animate-pulse bg-void-raised rounded-none h-3 w-20" />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="animate-pulse bg-void-raised rounded-none h-3 w-12" />
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <div className="animate-pulse bg-void-raised rounded-none h-3 w-10 ml-auto" />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : (
         <ApiKeyList keys={keys} onRevoke={loadKeys} />

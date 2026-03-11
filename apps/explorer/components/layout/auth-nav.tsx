@@ -30,7 +30,7 @@ export function AuthNav() {
       {isAuthenticated && (
         <Link
           href="/dashboard"
-          className="font-mono text-[9px] text-bone-light/70 hover:text-bone-light border border-bone-light/20 hover:border-bone-light/40 px-1.5 py-0.5 uppercase tracking-wider transition-colors"
+          className="font-mono text-[9px] text-bone-dim hover:text-bone-bright border border-void-border hover:border-void-border px-1.5 py-0.5 uppercase tracking-wider transition-colors"
         >
           Dashboard
         </Link>
