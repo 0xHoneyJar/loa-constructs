@@ -556,6 +556,7 @@
       "prd": "grimoires/loa/prd.md",
       "sprint_plan": "grimoires/loa/sprint.md",
       "source_issues": [],
+      "pr": 157,
       "sprints": [
         {
           "local_id": "sprint-1",
@@ -569,7 +570,14 @@
           "label": "Ecosystem Propagation",
           "status": "planned"
         }
-      ]
+      ],
+      "bridge": {
+        "id": "bridge-20260311-a03fb1",
+        "iterations": 3,
+        "findings_addressed": 8,
+        "score_trajectory": "1.0 → 0.15 → 0.0",
+        "flatline": true
+      }
     }
   ]
 }
