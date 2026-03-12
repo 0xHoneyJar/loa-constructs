@@ -71,6 +71,7 @@ const PACK_ICONS: Record<string, string> = {
   'the-easel': '🖼️',
   'k-hole': '🕳️',
   'webgl-particles': '✨',
+  'the-arcade': '🕹️',
 };
 
 // Git source configurations for packs with registered repos
@@ -134,6 +135,10 @@ const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
   },
   'social-oracle': {
     gitUrl: 'https://github.com/0xHoneyJar/construct-social-oracle.git',
+    gitRef: 'main',
+  },
+  'the-arcade': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-the-arcade.git',
     gitRef: 'main',
   },
   growthpages: {
