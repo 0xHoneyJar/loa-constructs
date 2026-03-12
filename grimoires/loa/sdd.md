@@ -1,866 +1,518 @@
-# SDD: Network Cohesion — Construct DX at Platform Scale
+# SDD: API Stability — Test Infrastructure & Regression Prevention
 
-**Cycle**: cycle-041
+**Cycle**: cycle-042
 **Created**: 2026-03-11
 **Status**: Draft
 **PRD**: `grimoires/loa/prd.md`
-**Context**: `grimoires/loa/context/construct-network-cohesion.md`
-**Research**: `grimoires/bridgebuilder/ecosystem-lifecycle-research.md`, `grimoires/bridgebuilder/stripe-dx-patterns.md`
+**Context**: `grimoires/loa/context/api-test-stability-baseline.md`
 
 ---
 
 ## 1. Executive Summary
 
-Cycle-041 fixes the broken wiring between what a construct author writes and what the network renders. The category system gets a real database column and shared constants, eliminating a 16-entry client-side hack. The scaffold shrinks from ~40 YAML fields to <10. The publish stub becomes a real git-sync boundary. `/skill-add` enables two-phase construct growth. Auto-sync replaces hardcoded `GIT_CONFIGS`. QMD re-enables with expanded collections.
+This SDD defines the test infrastructure architecture for the constructs.network API. The design is grounded in the existing codebase patterns — specifically the `app.request()` contract test pattern in `tests/contract/api-snapshots.test.ts`, the Drizzle mock chain pattern at that file's lines 59–133, and the Vitest v2.1 + v8 coverage setup already in `vitest.config.ts`.
 
-**Scope**: 1 new package file, 1 new GitHub Action, 1 new skill, 1 migration, ~12 modified files. No breaking API changes. No explorer UI changes beyond category cleanup.
+The architecture introduces four components:
+1. **Shared test helpers** — reusable factories that reduce per-test boilerplate to <10 lines
+2. **Stability tests** — tests targeting the 11 fragile areas that cause actual downtime
+3. **Core API route tests** — `app.request()` tests for public endpoints
+4. **Contract/snapshot tests** — response shape regression guards
 
-**Governing principle**: The filesystem IS the configuration. The manifest is for exceptions. The network handles everything after the author writes skills.
+No new dependencies. Everything uses Vitest, Hono's `app.request()`, and `jose` (already installed).
 
 ---
 
 ## 2. System Architecture
 
-### 2.1 Category Derivation Pipeline
-
-The core data flow that replaces 4 disconnected category definitions with one pipeline:
+### 2.1 Test File Organization
 
 ```
-construct.yaml                    (Author declares domain: [analytics, research])
-       │
-       ▼
-seed-forge-packs.ts               (Reads domain[0] from fullManifest)
-       │
-       ▼
-normalizeCategory()               (Shared: packages/shared/src/categories.ts)
-       │                           Handles legacy slugs: gtm→marketing, devops→operations
-       ▼
-packs.category column             (New: VARCHAR(50), indexed)
-       │
-       ▼
-GET /v1/constructs                (Returns pack.category instead of null)
-       │
-       ▼
-Explorer transformToNode()        (Trusts API. SLUG_CATEGORY_MAP deleted.)
-       │
-       ▼
-3D Graph                          (Nodes colored by real category)
+apps/api/
+├── vitest.config.ts          # MODIFY: add testTimeout, pool, coverage thresholds
+├── vitest.setup.ts            # MODIFY: add UPSTASH env guards
+├── src/
+│   ├── middleware/
+│   │   ├── auth.test.ts       # NEW: requireAuth, optionalAuth, requireTier, requireOrgMember
+│   │   ├── error-handler.test.ts  # NEW: AppError vs unknown error shapes
+│   │   └── rate-limiter.test.ts   # NEW: fail-open/fail-closed, 429, headers
+│   ├── services/
+│   │   ├── blacklist.test.ts  # NEW: fail-secure, graceful degradation
+│   │   ├── auth.test.ts       # KEEP: real bcrypt + JWT crypto
+│   │   ├── category.test.ts   # KEEP: real normalizeCategory()
+│   │   ├── license.test.ts    # KEEP: real RSA
+│   │   ├── namespace-validation.test.ts  # KEEP
+│   │   ├── public-keys.test.ts           # KEEP
+│   │   ├── storage.test.ts              # KEEP
+│   │   ├── subscription.test.ts         # KEEP
+│   │   ├── constructs.test.ts  # DELETE: tests local variables
+│   │   ├── skills.test.ts      # DELETE: tests local constants
+│   │   └── submissions.test.ts # DELETE: tests local objects
+│   ├── routes/
+│   │   ├── health.test.ts     # ENHANCE: readiness probe, metrics shape
+│   │   ├── auth.test.ts       # NEW: login, refresh, logout, me, validate flows
+│   │   ├── constructs.test.ts # NEW: list, filters, pagination, detail, HEAD, summary
+│   │   ├── categories.test.ts # KEEP + ENHANCE: response shape contract
+│   │   ├── public-keys.test.ts # KEEP
+│   │   └── webhooks.test.ts   # NEW: Stripe HMAC, GitHub HMAC, idempotency
+│   └── lib/
+│       └── manifest-validator.test.ts  # KEEP
+├── tests/
+│   ├── helpers/
+│   │   ├── mock-db.ts         # NEW: Drizzle mock chain factory
+│   │   ├── mock-redis.ts      # NEW: Redis mock with failMode
+│   │   ├── fixtures.ts        # NEW: DB row factories
+│   │   ├── auth.ts            # NEW: JWT generator for test auth headers
+│   │   └── index.ts           # NEW: barrel export
+│   ├── contract/
+│   │   ├── api-snapshots.test.ts      # ENHANCE: all public endpoints
+│   │   └── response-schemas.test.ts   # NEW: Zod schema validation
+│   ├── e2e/
+│   │   ├── constructs.test.ts  # DELETE: inline JSON, no HTTP
+│   │   ├── pack-flow.test.ts   # DELETE: mock object assertions
+│   │   └── creator.test.ts     # DELETE: mock object assertions
+│   └── fixtures/
+│       └── production/         # KEEP: existing production fixture JSONs
+└── package.json
 ```
 
-### 2.2 Construct Lifecycle (Target State)
+### 2.2 Mock Initialization Order
+
+Every test file that imports `app` must follow this mock order established in `api-snapshots.test.ts`. Vitest hoists `vi.mock()` calls, but declaration order matters for dependencies between mocked modules.
 
 ```
-LOCAL ──────► REGISTERED ──────► SYNCED ──────► PUBLISHED
-  │              │                  │               │
-  │              │                  │               ▼
-construct      auto-discover     git push      INSTALLED
-create         or register       + sync        (/constructs install)
+1. vi.mock('../../src/db/index.js')        — Drizzle mock chain
+2. vi.mock('../../src/config/env.js')       — env vars
+3. vi.mock('../../src/lib/logger.js')       — silent logger
+4. vi.mock('../../src/lib/monitoring.js')   — stub Sentry
+5. vi.mock('../../src/services/redis.js')   — Redis mock
+6. import { app } from '../../src/app.js'   — AFTER all mocks
 ```
 
-All distribution methods (git-sync, auto-discover, manual seed) feed the same state machine. The construct object absorbs the branching.
+The shared helpers centralize steps 1–5 so individual test files only call setup functions.
 
-### 2.3 Package Dependency Graph
+---
 
+## 3. Component Design
+
+### 3.1 `tests/helpers/mock-db.ts`
+
+Factory for creating the Drizzle mock chain. Follows the exact pattern from `api-snapshots.test.ts:59–133` but makes return values configurable.
+
+```typescript
+// Interface
+export function createMockDb(overrides?: {
+  selectResult?: unknown[];
+  queryOverrides?: Record<string, unknown>;
+}): MockDb;
+
+export function getMockDbModule(): object;  // Full vi.mock return value
 ```
-packages/shared/src/categories.ts     ◄── NEW: single source of truth
-       │
-       ├── apps/api/src/services/category.ts      (imports normalizeCategory, CATEGORIES)
-       ├── apps/api/src/services/constructs.ts     (imports normalizeCategory for pack responses)
-       ├── apps/explorer/lib/data/fetch-categories.ts  (imports normalizeCategory, CATEGORIES as fallback)
-       ├── apps/explorer/lib/data/fetch-constructs.ts  (imports normalizeCategory — SLUG_CATEGORY_MAP deleted)
-       └── scripts/seed-forge-packs.ts             (imports normalizeCategory for category derivation)
+
+**Design decisions:**
+
+- **Chained methods return `this`**: `select().from().where().orderBy().limit().offset()` — every intermediate method returns the chain, only terminal methods (`Promise.resolve()`) return data.
+- **`mockResolvedValueOnce` at terminals**: Tests configure return data by calling `.mockResolvedValueOnce()` on the terminal mock (typically `offset`, `limit`, or `returning`).
+- **Schema table stubs**: All 14 table exports (`packs`, `users`, `skills`, etc.) exported as `{ name: 'tableName' }` stubs plus all enum and relation exports — matching `api-snapshots.test.ts:89–132`.
+- **`db.execute`**: Mocked separately for raw SQL (used by health readiness check: `db.execute(sql\`SELECT 1\`)`).
+
+### 3.2 `tests/helpers/mock-redis.ts`
+
+```typescript
+export function createMockRedis(opts?: { failMode?: boolean }): MockRedis;
+export function getMockRedisModule(opts?: { configured?: boolean; failMode?: boolean }): object;
+```
+
+**Design decisions:**
+
+- **`failMode: true`**: Every operation (`get`, `set`, `del`, `incr`, `expire`, `exists`, `setex`, `ping`, `keys`) rejects with `new Error('Redis connection error')`. This tests the fail-secure paths in blacklist (`blacklist.ts:69-74`) and fail-closed paths in rate limiter (`rate-limiter.ts:202-214`).
+- **`configured: false`**: `isRedisConfigured()` returns `false`, `getRedis()` throws. Tests the bypass paths where Redis is not available (`blacklist.ts:58-62`, `rate-limiter.ts:134-137`, `health.ts:165-171`).
+- **Re-exports**: `CACHE_KEYS` and `CACHE_TTL` from `src/services/redis.ts` are re-exported for test assertions (not mocked — they're just constants).
+
+### 3.3 `tests/helpers/fixtures.ts`
+
+Realistic DB row factories matching Drizzle schema column names (camelCase).
+
+```typescript
+export function createMockUser(overrides?: Partial<UserRow>): UserRow;
+export function createMockPack(overrides?: Partial<PackRow>): PackRow;
+export function createMockSkill(overrides?: Partial<SkillRow>): SkillRow;
+export function createMockVersion(overrides?: Partial<VersionRow>): VersionRow;
+export function createMockSubscription(overrides?: Partial<SubscriptionRow>): SubscriptionRow;
+export function createMockApiKey(overrides?: Partial<ApiKeyRow>): ApiKeyRow;
+```
+
+**Default values:**
+
+| Factory | Key Defaults |
+|---------|-------------|
+| `createMockUser` | `id: 'user-test-1'`, `email: 'test@constructs.network'`, `emailVerified: true`, `isAdmin: false`, `githubOrgMember: false`, `walletAddress: null` |
+| `createMockPack` | `id: 'pack-test-1'`, `slug: 'test-pack'`, `status: 'published'`, `visibility: 'public'`, `maturity: 'stable'` |
+| `createMockSubscription` | `tier: 'free'`, `status: 'active'` |
+| `createMockApiKey` | `keyPrefix: 'sk_test_1234'`, `revoked: false`, `expiresAt: null` |
+
+### 3.4 `tests/helpers/auth.ts`
+
+```typescript
+export async function createAuthHeaders(
+  userId?: string,
+  email?: string,
+  opts?: { expiresIn?: string; jti?: string; isOrgMember?: boolean }
+): Promise<{ Authorization: string }>;
+
+export async function createExpiredAuthHeaders(userId?: string): Promise<{ Authorization: string }>;
+```
+
+**Design decisions:**
+
+- **Real JWT signing**: Uses `jose` library (already installed) with `HS256` and the test `JWT_SECRET` from `vitest.setup.ts`. This means auth middleware tests exercise the real `verifyAccessToken()` code path — no middleware mocking needed.
+- **`jti` parameter**: Allows tests to set a known JTI for blacklist testing (e.g., `POST /v1/auth/logout` should blacklist the exact JTI).
+- **`createExpiredAuthHeaders`**: Generates a JWT with `exp` in the past for testing 401 on expired tokens.
+
+### 3.5 `tests/helpers/index.ts`
+
+Barrel export:
+
+```typescript
+export { createMockDb, getMockDbModule } from './mock-db.js';
+export { createMockRedis, getMockRedisModule } from './mock-redis.js';
+export { createMockUser, createMockPack, createMockSkill, ... } from './fixtures.js';
+export { createAuthHeaders, createExpiredAuthHeaders } from './auth.js';
 ```
 
 ---
 
-## 3. Data Architecture
+## 4. Stability Tests (Tier 1) — Detailed Design
 
-### 3.1 Migration: `0011_packs_category.sql`
+### 4.1 `src/services/blacklist.test.ts`
 
-**Naming rationale**: `0001` and `0010` exist in `apps/api/src/db/migrations/`. Next available: `0011`.
+Tests `blacklistService` from `src/services/blacklist.ts`.
 
-```sql
--- Migration: Add category column to packs table
--- Cycle: 041
--- Depends on: categories table (seeded), packs table
+| Test Case | Target Code | What It Verifies |
+|-----------|-------------|-----------------|
+| `add()` skips when Redis not configured | `blacklist.ts:29-32` | No throw, logs warning |
+| `add()` skips expired tokens (TTL <= 0) | `blacklist.ts:39-42` | Early return, no Redis call |
+| `add()` sets key with correct TTL | `blacklist.ts:44` | `redis.setex(key, ttl, '1')` called |
+| `add()` degrades gracefully on Redis error | `blacklist.ts:46-49` | No throw, logs error |
+| `isBlacklisted()` returns false when Redis not configured | `blacklist.ts:58-62` | Returns `false` (pass-through) |
+| `isBlacklisted()` returns false when token not found | `blacklist.ts:67-68` | `redis.exists()` returns 0 |
+| `isBlacklisted()` returns true when token found | `blacklist.ts:67-68` | `redis.exists()` returns 1 |
+| `isBlacklisted()` returns true on Redis error (fail-secure) | `blacklist.ts:69-74` | **Critical**: Redis outage blocks token use |
 
-BEGIN;
+**Mock strategy**: Mock `src/services/redis.js` with `getMockRedisModule()`. Each test configures `configured` and `failMode` independently.
 
--- 1. Add category column
-ALTER TABLE packs ADD COLUMN category VARCHAR(50);
+### 4.2 `src/middleware/rate-limiter.test.ts`
 
--- 2. Index for category filtering and counting
-CREATE INDEX idx_packs_category ON packs(category);
+Tests the rate limiter middleware from `src/middleware/rate-limiter.ts`.
 
--- 3. Backfill existing packs from search_use_cases[1] (which holds domain[0])
--- Uses the same mapping logic as normalizeCategory()
-UPDATE packs SET category = CASE
-  WHEN search_use_cases[1] IS NOT NULL THEN
-    CASE search_use_cases[1]
-      WHEN 'gtm' THEN 'marketing'
-      WHEN 'dev' THEN 'development'
-      WHEN 'docs' THEN 'documentation'
-      WHEN 'ops' THEN 'operations'
-      WHEN 'data' THEN 'analytics'
-      WHEN 'devops' THEN 'operations'
-      WHEN 'infra' THEN 'infrastructure'
-      ELSE search_use_cases[1]
-    END
-  ELSE 'development'  -- fallback for packs with no domain
-END;
+| Test Case | Target Code | What It Verifies |
+|-----------|-------------|-----------------|
+| Passes through when Redis not configured | `rate-limiter.ts:134-137` | Request proceeds, no rate limit headers |
+| Sets `X-RateLimit-*` headers on response | `rate-limiter.ts:167-169` | `Limit`, `Remaining`, `Reset` headers present |
+| Returns 429 with `Retry-After` when limit exceeded | `rate-limiter.ts:172-188` | Status 429, correct error shape |
+| Auth endpoints fail closed (503) on Redis error | `rate-limiter.ts:202-214` | **Critical**: Auth rate limit failures block requests |
+| Non-auth endpoints fail open with `X-RateLimit-Degraded: true` | `rate-limiter.ts:216-218` | Request proceeds with degraded header |
+| `skip` function bypasses limiting | `rate-limiter.ts:129-131` | Skipped IPs/paths not rate limited |
 
-COMMIT;
-```
+**Mock strategy**: Create a minimal Hono app with the rate limiter middleware applied, then use `app.request()`. Mock Redis to control rate limit counters.
 
-**Decision: `VARCHAR(50)` not `ENUM`**. The existing `skillCategoryEnum` is a PostgreSQL enum with 8 legacy values (`development`, `devops`, `marketing`, `sales`, `support`, `analytics`, `security`, `other`). ALTER TYPE on enums is complex and risky (requires adding values, renaming, dropping unused). Using `VARCHAR(50)` for packs avoids coupling to the enum lifecycle. Application-layer validation via the shared `CATEGORIES` constant is sufficient. The skill enum remains unchanged for now — aligning it is a separate, lower-priority migration.
+### 4.3 `src/middleware/auth.test.ts`
 
-**Why not a FK to `categories` table?** The `categories` table exists for display metadata (label, color, sortOrder). The `packs.category` column stores a slug for filtering. A FK would require the category to exist before the pack, which breaks auto-sync (new categories can't arrive before the category table is seeded). The slug is validated at the application layer.
+Tests auth middleware functions from `src/middleware/auth.ts`.
 
-### 3.2 Schema Change: `apps/api/src/db/schema.ts`
+| Test Case | Target Code | What It Verifies |
+|-----------|-------------|-----------------|
+| `requireAuth()` — 401 with no Authorization header | `auth.ts:151-153` | `Errors.Unauthorized` thrown |
+| `requireAuth()` — 401 with invalid JWT | `auth.ts:164-172` | `Errors.InvalidToken` thrown |
+| `requireAuth()` — 401 with expired JWT | `auth.ts:164-172` | `Errors.InvalidToken` thrown |
+| `requireAuth()` — sets context vars with valid JWT + user | `auth.ts:179-184` | `user`, `userId`, `authMethod`, `isOrgMember` set |
+| `requireAuth()` — 401 when JWT valid but user deleted | `auth.ts:175-177` | `getUserById` returns null |
+| `requireAuth()` — API key path (`sk_*` prefix) | `auth.ts:159-161` | `validateApiKeyAuth` called, bcrypt verified |
+| `optionalAuth()` — passes with no header, no error | `auth.ts:194-196` | `next()` called, no user set |
+| `optionalAuth()` — attaches user with valid JWT | `auth.ts:217-222` | User set silently, request continues |
+| `requireTier('pro')` — 402 for free user | `auth.ts:262-263` | `Errors.TierUpgradeRequired` thrown |
+| `requireTier('pro')` — passes for pro user | `auth.ts:262-263` | `next()` called |
+| `requireOrgMember()` — 403 for non-member | `auth.ts:283-284` | `Errors.Forbidden` thrown |
+| `requireVerifiedEmail()` — 403 for unverified | `auth.ts:241-242` | `Errors.Forbidden` thrown |
 
-Add to the `packs` table definition (after `constructType`):
+**Mock strategy**: Create minimal Hono apps with each middleware applied. Mock `db` to control `getUserById` results. Use `createAuthHeaders()` for real JWT tokens that exercise `verifyAccessToken()`.
 
-```typescript
-// Category derived from construct.yaml domain[0] at sync/seed time
-// @see prd.md §FR-1 Category Derivation Pipeline (cycle-041)
-category: varchar('category', { length: 50 }),
-```
+### 4.4 `src/middleware/error-handler.test.ts`
 
-Add to table indexes:
+Tests the error handler middleware from `src/middleware/error-handler.ts`.
 
-```typescript
-categoryIdx: index('idx_packs_category').on(table.category),
-```
+| Test Case | Target Code | What It Verifies |
+|-----------|-------------|-----------------|
+| `AppError` returns structured `{ error: { code, message, details }, request_id }` | `error-handler.ts:23-43` | Correct shape, correct status code |
+| Unknown `Error` returns 500 without leaking internals | `error-handler.ts:46-89` | Message is generic, no stack trace |
+| Duck-typing check works for `AppError` instances | `error-handler.ts:20-21` | Both `instanceof` and duck-type paths work |
+| `request_id` is included from context | `error-handler.ts:16` | UUID format, matches `requestId` middleware |
 
-### 3.3 Shared Constants: `packages/shared/src/categories.ts`
+**Mock strategy**: Create a Hono app with `errorHandler()` middleware and routes that throw different error types. Mock `logger` and `monitoring` to silence output.
 
-New file — the single source of truth for the 8-category taxonomy.
+### 4.5 `src/routes/health.test.ts` (Enhance)
 
-```typescript
-/**
- * Construct Category Taxonomy
- * Single source of truth — imported by API, explorer, and seed scripts.
- * @see prd.md §FR-2 Shared Category Constants (cycle-041)
- */
+Existing file has basic health check. Add readiness probe tests.
 
-/** The 8 canonical category slugs */
-export const CATEGORY_SLUGS = [
-  'marketing',
-  'development',
-  'security',
-  'analytics',
-  'documentation',
-  'operations',
-  'design',
-  'infrastructure',
-] as const;
+| Test Case | Target Code | What It Verifies |
+|-----------|-------------|-----------------|
+| `/v1/health/ready` with DB up | `health.ts:42-78` | Status 200, `database: 'pass'` |
+| `/v1/health/ready` with DB down | `health.ts:144-155` | Status 503, `database: 'fail'` |
+| `/v1/health/ready` with Redis down | `health.ts:183-194` | Status 200 (degraded), `cache: 'warn'` |
+| `/v1/health/ready` with Redis not configured | `health.ts:165-171` | Status 200, `cache: 'warn'` |
+| `/v1/health/metrics` response shape | `health.ts:98-118` | `memory.rss_mb`, `process.pid` present |
+| `/v1/health/live` response shape | `health.ts:85-92` | `status: 'alive'`, `uptime_seconds` |
 
-export type CategorySlug = (typeof CATEGORY_SLUGS)[number];
+**Mock strategy**: Mock `db.execute` to succeed or throw for database checks. Mock Redis module for cache checks.
 
-export interface CategoryDefinition {
-  slug: CategorySlug;
-  label: string;
-  color: string;
-  description: string;
-  sortOrder: number;
-}
+### 4.6 `src/routes/auth.test.ts`
 
-/** Canonical category definitions with display metadata */
-export const CATEGORIES: CategoryDefinition[] = [
-  { slug: 'marketing', label: 'Marketing', color: '#FF44FF', description: 'GTM, campaigns, content, social media', sortOrder: 1 },
-  { slug: 'development', label: 'Development', color: '#44FF88', description: 'Coding, testing, debugging, refactoring', sortOrder: 2 },
-  { slug: 'security', label: 'Security', color: '#FF8844', description: 'Auditing, scanning, compliance, secrets', sortOrder: 3 },
-  { slug: 'analytics', label: 'Analytics', color: '#FFDD44', description: 'Data, metrics, reporting, insights', sortOrder: 4 },
-  { slug: 'documentation', label: 'Documentation', color: '#44DDFF', description: 'Docs, guides, READMEs, knowledge bases', sortOrder: 5 },
-  { slug: 'operations', label: 'Operations', color: '#4488FF', description: 'DevOps, deployment, monitoring, CI/CD', sortOrder: 6 },
-  { slug: 'design', label: 'Design', color: '#FF7B9C', description: 'UI/UX, prototyping, design systems', sortOrder: 7 },
-  { slug: 'infrastructure', label: 'Infrastructure', color: '#9B7EDE', description: 'Cloud, networking, IaC, containers', sortOrder: 8 },
-];
+Full auth flow tests via `app.request()`.
 
-/** Legacy slug → canonical slug mappings */
-export const LEGACY_SLUG_MAPPINGS: Record<string, CategorySlug> = {
-  gtm: 'marketing',
-  dev: 'development',
-  docs: 'documentation',
-  ops: 'operations',
-  data: 'analytics',
-  devops: 'operations',
-  infra: 'infrastructure',
-};
+| Test Case | What It Verifies |
+|-----------|-----------------|
+| POST `/v1/auth/login` — success with valid credentials | Returns access + refresh token pair |
+| POST `/v1/auth/login` — 401 on wrong password | Error shape, not 500 |
+| POST `/v1/auth/login` — 401 on non-existent email | Same error shape (anti-enumeration) |
+| POST `/v1/auth/refresh` — success with valid refresh token | New token pair returned |
+| POST `/v1/auth/refresh` — 401 when token is blacklisted | Blacklist service consulted |
+| POST `/v1/auth/logout` — blacklists with correct JTI | `blacklistService.add()` called with JTI |
+| GET `/v1/auth/me` — returns user shape | `is_org_member`, `tier`, `wallet_address` present |
+| GET `/v1/auth/validate` — returns validation result | `{ valid: true, auth_method: 'jwt' }` |
 
-/**
- * Normalize a category slug, handling legacy mappings.
- * Returns the input lowercased if no mapping exists — caller is responsible
- * for validating against CATEGORY_SLUGS if strict validation is needed.
- */
-export function normalizeCategory(slug: string): string {
-  const normalized = slug.toLowerCase().trim();
-  return LEGACY_SLUG_MAPPINGS[normalized] || normalized;
-}
-
-/**
- * Check if a string is a valid canonical category slug.
- */
-export function isValidCategory(slug: string): slug is CategorySlug {
-  return (CATEGORY_SLUGS as readonly string[]).includes(slug.toLowerCase().trim());
-}
-```
-
-**Export from barrel**: Add `export * from './categories.js';` to `packages/shared/src/index.ts`.
+**Mock strategy**: Mock `db` for user lookups and `bcrypt` results. Use `createAuthHeaders()` for authenticated requests. Mock `blacklistService` to verify calls.
 
 ---
 
-## 4. API Changes
+## 5. Core API Tests (Tier 2) — Detailed Design
 
-### 4.1 Construct Response: `category` Field
+### 5.1 `src/routes/constructs.test.ts`
 
-**File**: `apps/api/src/services/constructs.ts:393`
+All tests via `app.request()`. Replaces fake `tests/e2e/constructs.test.ts`.
 
-**Current**:
+| Test Case | What It Verifies |
+|-----------|-----------------|
+| GET `/v1/constructs` — returns `{ data, pagination, request_id }` | Response shape contract |
+| `?type=pack` filter | Only packs returned |
+| `?category=development` filter | Category filter applied |
+| `?featured=true` filter | Featured filter applied |
+| `?q=observer` search | Search query applied |
+| `?page=2&per_page=5` pagination | Correct offset/limit, pagination metadata |
+| `?per_page=101` validation error | Rejected by Zod (max 100) |
+| GET `/v1/constructs/:slug` — detail | Manifest, identity, owner fields present |
+| GET `/v1/constructs/:slug` — 404 | Non-existent slug returns 404 with error shape |
+| HEAD `/v1/constructs/:slug` — 200 | Empty body, correct status |
+| HEAD `/v1/constructs/:slug` — 404 | Empty body, 404 status |
+| GET `/v1/constructs/summary` | Agent-optimized minimal format |
+| Visibility: anonymous sees only `public` | `optionalAuth` with no header |
+| Visibility: org member sees `public + internal` | `optionalAuth` with org member JWT |
+
+**Mock strategy**: Mock `db` to return `createMockPack()` fixtures. Configure mock chain to return different results for different query patterns.
+
+### 5.2 `src/routes/categories.test.ts` (Enhance)
+
+| Test Case | What It Verifies |
+|-----------|-----------------|
+| Response shape: each category has required fields | `id`, `slug`, `label`, `color`, `description`, `construct_count` |
+| Sort order preserved | Categories returned in consistent order |
+
+### 5.3 `src/routes/webhooks.test.ts`
+
+| Test Case | What It Verifies |
+|-----------|-----------------|
+| Stripe webhook: valid HMAC accepted | 200, event processed |
+| Stripe webhook: invalid HMAC rejected | 400 |
+| Stripe webhook: duplicate delivery skipped | Idempotency check |
+| GitHub webhook: valid `X-Hub-Signature-256` accepted | 200 |
+| GitHub webhook: invalid signature rejected | 400 |
+| GitHub webhook: replay protection | Duplicate delivery ID rejected |
+
+**Mock strategy**: Generate real HMAC signatures using the test webhook secret for valid cases. Use wrong secrets for rejection cases.
+
+---
+
+## 6. Contract & Snapshot Tests (Tier 3) — Detailed Design
+
+### 6.1 `tests/contract/api-snapshots.test.ts` (Expand)
+
+Extend current snapshots (health + 404) to all public endpoints:
+
+| Endpoint | Snapshot Fields |
+|----------|----------------|
+| GET `/v1/categories` | List shape |
+| GET `/v1/categories/:slug` | Detail shape |
+| GET `/v1/constructs` | List with `data`, `pagination`, `request_id` |
+| GET `/v1/constructs/:slug` | Detail with manifest, identity |
+| GET `/v1/health/live` | `status`, `uptime_seconds` |
+| GET `/v1/health/metrics` | `memory`, `process` objects |
+| GET `/v1/health/ready` | `status`, `checks` array |
+
+Use `expect.any(String)` for timestamps, UUIDs, and `request_id`. Use `expect.any(Number)` for `uptime`, `pid`, memory values.
+
+### 6.2 `tests/contract/response-schemas.test.ts`
+
+Zod schema validation of production fixtures — stronger than snapshots because it validates structural constraints, not just shape equality.
+
 ```typescript
-category: null, // Packs don't have category
-```
+const HealthResponseSchema = z.object({
+  status: z.enum(['healthy', 'degraded', 'unhealthy']),
+  checks: z.array(z.object({
+    name: z.string(),
+    status: z.enum(['pass', 'fail', 'warn']),
+    duration_ms: z.number().optional(),
+    message: z.string().optional(),
+  })),
+  timestamp: z.string().datetime(),
+  version: z.string().optional(),
+});
 
-**Target**:
-```typescript
-category: pack.category || null,
-```
+const ErrorResponseSchema = z.object({
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    details: z.record(z.unknown()).optional(),
+  }),
+  request_id: z.string().uuid(),
+});
 
-No new endpoints. No breaking changes. The `category` field already exists in the API response shape (type `string | null`). Consumers that handled `null` will now receive a real value.
-
-### 4.2 Category Counts: `listCategories()`
-
-**File**: `apps/api/src/services/category.ts:152-160`
-
-**Current**: Counts only `skills.category`. The `constructCount` field misrepresents — it counts skills, not constructs.
-
-**Target**: Count both skills and packs, then sum:
-
-```typescript
-// Get skill counts per category (existing)
-const skillCounts = await db
-  .select({ category: skills.category, count: sql<number>`count(*)::int` })
-  .from(skills)
-  .where(eq(skills.isPublic, true))
-  .groupBy(skills.category);
-
-// Get pack counts per category (NEW)
-const packCounts = await db
-  .select({ category: packs.category, count: sql<number>`count(*)::int` })
-  .from(packs)
-  .where(eq(packs.status, 'published'))
-  .groupBy(packs.category);
-
-// Merge counts
-const countMap = new Map<string, number>();
-for (const sc of skillCounts) {
-  if (sc.category) {
-    const normalized = normalizeCategory(sc.category);
-    countMap.set(normalized, (countMap.get(normalized) || 0) + sc.count);
-  }
-}
-for (const pc of packCounts) {
-  if (pc.category) {
-    const normalized = normalizeCategory(pc.category);
-    countMap.set(normalized, (countMap.get(normalized) || 0) + pc.count);
-  }
-}
-```
-
-**Import change**: `category.ts` imports `normalizeCategory` from `@loa-constructs/shared` instead of defining its own. The local `DEFAULT_CATEGORIES`, `LEGACY_SLUG_MAPPINGS`, and `normalizeCategory()` are deleted and replaced by shared imports.
-
-### 4.3 Category Service Import Refactor
-
-**File**: `apps/api/src/services/category.ts`
-
-Replace:
-```typescript
-const LEGACY_SLUG_MAPPINGS: Record<string, string> = { ... };
-export function normalizeCategory(slug: string): string { ... }
-export const DEFAULT_CATEGORIES: Omit<CategoryWithoutCount, 'id'>[] = [ ... ];
-```
-
-With:
-```typescript
-import { normalizeCategory, CATEGORIES, type CategoryDefinition } from '@loa-constructs/shared';
-```
-
-The `DEFAULT_CATEGORIES` fallback in `listCategories()` becomes:
-```typescript
-return CATEGORIES.map((cat, index) => ({
-  id: `default-${index}`,
-  slug: cat.slug,
-  label: cat.label,
-  color: cat.color,
-  description: cat.description,
-  sortOrder: cat.sortOrder,
-  constructCount: 0,
-}));
+const PaginatedResponseSchema = z.object({
+  data: z.array(z.unknown()),
+  pagination: z.object({
+    page: z.number().int().positive(),
+    per_page: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    total_pages: z.number().int().nonnegative(),
+  }),
+  request_id: z.string(),
+});
 ```
 
 ---
 
-## 5. Explorer Changes
+## 7. Vitest Configuration Changes
 
-### 5.1 Delete `SLUG_CATEGORY_MAP`
-
-**File**: `apps/explorer/lib/data/fetch-constructs.ts:74-91`
-
-Delete the entire `SLUG_CATEGORY_MAP` object and the comment above it. Change line 99 from:
+### 7.1 `vitest.config.ts`
 
 ```typescript
-const category = normalizeCategory(construct.category || SLUG_CATEGORY_MAP[construct.slug] || 'development');
+export default defineConfig({
+  test: {
+    globals: true,
+    environment: 'node',
+    setupFiles: ['./vitest.setup.ts'],
+    include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+    testTimeout: 10000,  // ADD: bcrypt operations are slow
+    pool: 'forks',       // ADD: isolate test files, prevent mock pollution
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: ['src/**/*.ts'],
+      exclude: ['src/**/*.test.ts', 'src/index.ts'],
+      thresholds: {      // ADD: start low, increase as coverage grows
+        statements: 40,
+        branches: 30,
+        functions: 35,
+        lines: 40,
+      },
+    },
+  },
+  resolve: {
+    alias: {
+      '@': './src',
+    },
+  },
+});
 ```
 
-To:
+**Rationale:**
+
+- `testTimeout: 10000` — bcrypt `compare()` in API key auth tests takes ~300ms per candidate, up to 10 candidates = 3s. Buffer for CI variability.
+- `pool: 'forks'` — each test file runs in a separate process. Prevents `vi.mock()` pollution between files (current default `threads` shares module registry).
+- Coverage thresholds at 40/30/35/40 — the baseline after deleting ~1,800 lines of fake tests and adding ~160 real tests. Will increase as coverage grows.
+
+### 7.2 `vitest.setup.ts`
+
+Add Upstash env guards to prevent `Redis.fromEnv()` from reading stale shell env vars:
 
 ```typescript
-const category = normalizeCategory(construct.category || 'development');
+// Existing
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = 'test-jwt-secret-for-unit-tests-only-32chars!';
+}
+if (!process.env.NODE_ENV) {
+  process.env.NODE_ENV = 'test';
+}
+
+// ADD: Prevent Redis.fromEnv() from reading real credentials
+// Redis.fromEnv() reads UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
+// Setting to empty ensures tests never hit real Redis
+process.env.UPSTASH_REDIS_REST_URL = '';
+process.env.UPSTASH_REDIS_REST_TOKEN = '';
 ```
-
-### 5.2 Refactor `fetch-categories.ts`
-
-**File**: `apps/explorer/lib/data/fetch-categories.ts`
-
-Delete the local `DEFAULT_CATEGORIES` array (lines 16-81) and `LEGACY_SLUG_MAPPINGS` (lines 87-95) and `normalizeCategory` function (lines 100-103). Replace with shared imports:
-
-```typescript
-import { normalizeCategory, CATEGORIES } from '@loa-constructs/shared';
-
-const DEFAULT_CATEGORIES: Category[] = CATEGORIES.map((cat, index) => ({
-  id: `default-${index}`,
-  slug: cat.slug,
-  label: cat.label,
-  color: cat.color,
-  description: cat.description ?? null,
-  constructCount: 0,
-}));
-
-export { normalizeCategory };
-```
-
-### 5.3 Shared Package Compatibility
-
-`packages/shared` must work in both Node.js (API) and Next.js browser/server contexts. The new `categories.ts` exports only:
-- Pure functions (`normalizeCategory`, `isValidCategory`)
-- Constants (`CATEGORIES`, `CATEGORY_SLUGS`, `LEGACY_SLUG_MAPPINGS`)
-- Types (`CategorySlug`, `CategoryDefinition`)
-
-No Node.js-specific imports, no side effects, no runtime dependencies. This is safe for both contexts.
 
 ---
 
-## 6. Seed Script Changes
+## 8. Cleanup: Fake Test Deletion
 
-### 6.1 Category Derivation in `seed-forge-packs.ts`
+| File | Lines | Reason for Deletion |
+|------|-------|-------------------|
+| `src/services/constructs.test.ts` | ~290 | Defines local variables, asserts on them — never imports from `src/` |
+| `src/services/skills.test.ts` | ~147 | Defines `['free','pro','team','enterprise']`, asserts `.toHaveLength(4)` |
+| `src/services/submissions.test.ts` | ~290 | Constructs local objects, asserts on properties — no real code exercised |
+| `tests/e2e/constructs.test.ts` | ~713 | Builds inline JSON, asserts on that JSON — zero HTTP calls |
+| `tests/e2e/pack-flow.test.ts` | ~200 | Mock object assertions, no `app.request()` |
+| `tests/e2e/creator.test.ts` | ~150 | Mock object assertions, no `app.request()` |
 
-**File**: `scripts/seed-forge-packs.ts`
-
-**Current** (line 578):
-```typescript
-const searchUseCases = pack.fullManifest?.domain ?? [];
-```
-
-**Add** (after line 578):
-```typescript
-import { normalizeCategory } from '@loa-constructs/shared';
-
-// Derive category from domain[0]
-const rawCategory = pack.fullManifest?.domain?.[0] ?? null;
-const category = rawCategory ? normalizeCategory(rawCategory) : 'development';
-```
-
-**Modify** the INSERT column list (line 586-593) to include `category`:
-
-```sql
-INSERT INTO packs (
-  id, name, slug, description, long_description, icon, owner_id, owner_type,
-  status, tier_required, pricing_type, thj_bypass,
-  construct_type, category,
-  visibility, submission_source,
-  repository_url, homepage_url, documentation_url,
-  search_keywords, search_use_cases,
-  created_at, updated_at
-)
-```
-
-**Modify** the ON CONFLICT UPDATE SET (line 618-631) to include:
-
-```sql
-category = EXCLUDED.category,
-```
-
-### 6.2 Domain Backfill Script
-
-A one-time script is NOT needed in this repo. The domain field already exists in `construct.yaml` across repos — some have it, some don't. The backfill is:
-
-1. For each of the 15 construct repos, add/verify `domain:` in `construct.yaml`
-2. Re-run `bun seed:forge` to populate `packs.category` from the new domain values
-
-**Domain assignments** (from PRD §FR-3.2):
-
-| Construct | domain[0] | Current `search_use_cases` state |
-|-----------|-----------|----------------------------------|
-| artisan | design | May already have domain |
-| the-easel | design | May already have domain |
-| webgl-particles | design | Manifest is `manifest.json` (schema v1) |
-| webreel | design | — |
-| observer | analytics | Has domain from prior work |
-| k-hole | analytics | Has domain from cycle-038 |
-| crucible | security | — |
-| hardening | security | — |
-| dynamic-auth | security | — |
-| protocol | development | Has domain from prior work |
-| beacon | operations | — |
-| herald | operations | — |
-| gtm-collective | marketing | — |
-| social-oracle | marketing | — |
-| growthpages | marketing | — |
-| mibera-codex | documentation | — |
-
-The backfill uses `gh` CLI to batch PRs or direct-push across repos. This is an operational task, not a code change.
+**Total**: ~1,790 lines deleted. Replaced by ~160 real tests across 10 new/enhanced test files.
 
 ---
 
-## 7. Scaffold Design
+## 9. CI Integration
 
-### 7.1 Minimal Scaffold Output (skill-pack)
+### 9.1 Test Execution
 
-`construct create my-tool` produces exactly 5 files:
-
-```
-my-tool/
-├── construct.yaml       # 7 lines (identity tier only)
-├── skills/
-│   └── my-tool/
-│       ├── index.yaml   # 6 lines (dispatch-critical only)
-│       └── SKILL.md     # Workflow stub
-├── commands/
-│   └── my-tool.md       # Routing frontmatter
-├── README.md
-└── .gitignore
-```
-
-### 7.2 `construct.yaml` at Create Time
+Tests run in GitHub Actions without any secrets or external services:
 
 ```yaml
-# Construct Manifest
-name: "my-tool"
-slug: "my-tool"
-version: "0.1.0"
-type: "skill-pack"
-description: "TODO: Add description"
-license: "MIT"
-schema_version: 3
+# Existing CI step (no changes needed to workflow file)
+- name: Test API
+  working-directory: apps/api
+  run: bun run test
 ```
 
-**Not generated at create time**: `domain`, `capabilities`, `paths`, `identity`, `pack_dependencies`, `skills` array, `commands` array. These are either inferred at publish time (skills, commands, capabilities) or prompted at publish time (domain, description refinement).
+All external dependencies (DB, Redis, Stripe, GitHub) are mocked. The `vitest.setup.ts` env guards ensure no accidental connections.
 
-### 7.3 `index.yaml` at Create Time
+### 9.2 Coverage Reporting
 
 ```yaml
-name: my-tool
-version: "0.1.0"
-description: "Use this skill when you need to run my-tool"
-triggers:
-  - pattern: "/my-tool"
-    description: "Run the my-tool skill"
-entry: skills/my-tool/SKILL.md
+# Optional: add coverage step
+- name: Test API with Coverage
+  working-directory: apps/api
+  run: bun run test:coverage
 ```
 
-**Not generated**: `capabilities`, `domain_hints`, `zones`, `examples`. These are enrichment — either inferred or added via `/skill-add`.
-
-### 7.4 `commands/my-tool.md` at Create Time
-
-```markdown
----
-agent: skill
-agent_path: skills/my-tool/SKILL.md
-context_files:
-  - construct.yaml
----
-
-# /my-tool
-
-Run the my-tool construct.
-```
-
-**Why commands/ is in the scaffold**: Without routing frontmatter, the runtime cannot dispatch to the skill. This is the minimum for invocation — like `src/main.rs` is the minimum for `cargo run`.
-
-### 7.5 Implementation
-
-The scaffold script (`.claude/scripts/constructs-create.sh`) is already updated to this minimal structure. The `generate_manifest()` function for `skill-pack` type produces only identity-tier fields. The `generate_starter_skill()` creates `skills/<slug>/` (named after slug, not "example"). The `generate_command_entry()` creates `commands/<slug>.md` with valid routing frontmatter.
-
-No further code changes needed — the scaffold was already revised.
+Coverage thresholds in `vitest.config.ts` will fail the build if coverage drops below minimums.
 
 ---
 
-## 8. Publish Boundary Design
+## 10. Test Count Projections
 
-### 8.1 Flow
+| Category | Test Files | Test Count |
+|----------|-----------|------------|
+| Stability (Tier 1) | 6 files | ~65 tests |
+| Core API (Tier 2) | 3 files | ~45 tests |
+| Contract (Tier 3) | 2 files | ~20 tests |
+| Existing (kept) | 9 files | ~45 tests |
+| **Total** | **20 files** | **~175 tests** |
 
-`/construct-publish <patch|minor|major>` performs:
-
-```
-1. Detect construct root (find construct.yaml walking up)
-2. Read filesystem:
-   ├── skills from skills/*/index.yaml
-   ├── commands from commands/*.md
-   ├── identity from identity/persona.yaml existence
-   └── README.md for description fallback
-3. Prompt for Tier 2 fields if missing:
-   ├── version (already present from create)
-   ├── description (if still "TODO")
-   └── license (already present from create)
-4. Suggest Tier 3 fields:
-   ├── domain (agent proposes based on skill content)
-   └── keywords (agent proposes based on skill names + description)
-5. Run validation (existing 10-point checklist + new checks)
-6. Version ceremony:
-   ├── Bump version in construct.yaml (patch|minor|major)
-   ├── git add construct.yaml
-   ├── git commit -m "release: v<new-version>"
-   └── git tag v<new-version>
-7. Push: git push origin <branch> --tags
-8. Trigger sync: POST /v1/packs/:slug/sync
-9. Report: URL, sync status, warnings
-```
-
-### 8.2 Filesystem Discovery
-
-At publish time, the skill agent (not the bash script) discovers the construct's actual structure:
-
-```typescript
-// Pseudocode for filesystem inference
-const skills = glob('skills/*/index.yaml').map(parseYaml);
-const commands = glob('commands/*.md').map(parseFrontmatter);
-const hasIdentity = exists('identity/persona.yaml');
-const readme = read('README.md');
-const manifest = parseYaml('construct.yaml');
-
-// Inferred metadata
-const inferredSkills = skills.map(s => ({ slug: s.name, path: dirname(s._path) }));
-const inferredCommands = commands.map(c => ({ name: basename(c._path, '.md'), ...c.frontmatter }));
-const inferredDescription = manifest.description === 'TODO: Add description'
-  ? readme.split('\n\n')[1]  // First paragraph after title
-  : manifest.description;
-```
-
-### 8.3 Validation Additions
-
-The existing 10-point checklist in `constructs-publish.sh:do_validate()` is supplemented at the skill level:
-
-| # | Check | Severity | Source |
-|---|-------|----------|--------|
-| 11 | Routing frontmatter present in all `commands/*.md` | FAIL | New |
-| 12 | All skills have `triggers` with at least one pattern | FAIL | New |
-| 13 | `domain` field present in `construct.yaml` | WARN | New (prompted if missing) |
-| 14 | Inferred skills count matches manifest skills array (if declared) | WARN | New |
-
-### 8.4 Publish Script Changes
-
-**File**: `.claude/scripts/constructs-publish.sh`
-
-The `do_push()` function (lines 247-319) currently validates, checks permissions, then prints a warning stub. Replace the stub with:
-
-```bash
-# Replace lines 316-317 (the stub) with:
-print_status "Pushing to origin..."
-git add construct.yaml
-git commit -m "release: ${slug}@${version}"
-git tag "v${version}"
-git push origin HEAD --tags
-
-# Trigger sync
-print_status "Triggering sync..."
-local sync_code
-sync_code=$(curl --silent --proto '=https' --tlsv1.2 \
-    -o /dev/null -w "%{http_code}" \
-    -X POST \
-    -H "Authorization: Bearer $api_key" \
-    "${registry_url}/packs/${slug}/sync")
-
-if [[ "$sync_code" == "200" ]] || [[ "$sync_code" == "202" ]]; then
-    print_success "Published ${slug}@${version} — sync triggered"
-else
-    print_warning "Published to git but sync returned HTTP $sync_code"
-    print_warning "Run 'bun seed:forge' to sync manually"
-fi
-```
-
-**Version bump** is handled by the `/construct-publish` skill (the SKILL.md agent), not the bash script. The agent reads the current version from `construct.yaml`, computes the new version based on the argument (patch/minor/major), writes it back, then calls `do_push`.
-
-### 8.5 The `/construct-publish` Skill
-
-**New file**: `.claude/skills/publishing-constructs/SKILL.md`
-
-This wraps the bash script with agent intelligence:
-
-1. **Filesystem discovery** — read skills/, commands/, identity/, README
-2. **Prompt for missing fields** — description, domain
-3. **Domain suggestion** — if QMD available, query for content similarity; otherwise propose based on construct type
-4. **Validate** — call `constructs-publish.sh validate <path>`
-5. **Version bump** — compute new version, write to construct.yaml
-6. **Publish** — call `constructs-publish.sh push <path>`
-
-The existing `publishing-constructs` skill directory already exists (`.claude/skills/publishing-constructs/`). The SKILL.md needs to be updated to implement this flow.
+Target: full suite completes in < 30 seconds.
 
 ---
 
-## 9. `/skill-add` Truename Design
+## 11. Risks & Mitigations
 
-### 9.1 Flow
-
-```
-/skill-add <name>
-  │
-  ├── 1. Detect construct root (construct.yaml)
-  ├── 2. Read existing skills/ for context
-  ├── 3. Create skills/<name>/index.yaml
-  │      ├── name, description (context-aware)
-  │      ├── triggers (pattern: /<name>)
-  │      └── entry: skills/<name>/SKILL.md
-  ├── 4. Create skills/<name>/SKILL.md
-  │      └── Workflow stub with construct-aware sections
-  ├── 5. Create commands/<name>.md (if not exists)
-  │      └── Routing frontmatter pointing to new skill
-  └── 6. Report: files created, next steps
-```
-
-### 9.2 Implementation
-
-**New skill**: `.claude/skills/adding-skills/SKILL.md`
-
-The agent:
-- Reads `construct.yaml` for name, type, description context
-- Lists existing skills via `ls skills/` to understand naming patterns
-- Reads 1-2 existing SKILL.md files to match style
-- Generates new skill files with populated content (not just TODOs)
-- Creates the command entry point with correct routing
-
-### 9.3 Guard Rails
-
-- Errors clearly if `construct.yaml` not found (not in a construct directory)
-- Errors if `skills/<name>/` already exists (no silent overwrite)
-- Skill name validated: lowercase, alphanumeric + hyphens, no reserved words
-
----
-
-## 10. Auto-Sync Design
-
-### 10.1 GitHub Action: `.github/workflows/construct-sync.yml`
-
-```yaml
-name: Construct Auto-Sync
-on:
-  schedule:
-    - cron: '0 6 * * *'  # Daily at 6 AM UTC
-  workflow_dispatch: {}    # Manual trigger
-
-jobs:
-  sync:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install
-
-      # Discover new construct-* repos
-      - name: Discover constructs
-        env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
-          CONSTRUCTS_ORG: 0xHoneyJar
-        run: bun tsx scripts/discover-constructs.ts --register --json > discovery.json
-
-      # Seed/sync all known constructs
-      - name: Sync constructs
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          AUTO_DISCOVER: true
-        run: bun tsx scripts/seed-forge-packs.ts
-```
-
-### 10.2 Complete `--register` Flag
-
-**File**: `scripts/discover-constructs.ts:237-240`
-
-Replace the stub with:
-
-```typescript
-if (REGISTER && missing.length > 0) {
-  console.log(`\n  Registering ${missing.length} constructs...`);
-  for (const m of missing) {
-    const gitUrl = `https://github.com/${ORG}/construct-${m.slug}.git`;
-    // Add to seed-forge-packs GIT_CONFIGS dynamically
-    // The seed script's discoverFromOrg() already handles this when AUTO_DISCOVER=true
-    console.log(`  ✓ ${m.slug} queued for sync (${gitUrl})`);
-  }
-  console.log(`\n  Run 'bun seed:forge' with AUTO_DISCOVER=true to complete registration.`);
-}
-```
-
-**Key insight**: The `seed-forge-packs.ts` already has `discoverFromOrg()` (line 330) that queries `gh repo list` and builds GIT_CONFIGS dynamically when `AUTO_DISCOVER=true`. The `--register` flag in discover-constructs becomes a diagnostic + trigger, not a separate registration path. The real registration happens through the existing seed flow.
-
-### 10.3 Staleness Detection
-
-The seed script already tracks `last_sync_commit` and `last_synced_at` on packs. Auto-sync compares:
-
-```typescript
-// In seed-forge-packs.ts, during the sync loop:
-const headCommit = getRepoHeadCommit(gitUrl, gitRef);
-if (pack.lastSyncCommit === headCommit) {
-  console.log(`  ⏭ ${slug}: up to date (${headCommit.slice(0, 7)})`);
-  continue;
-}
-// Proceed with sync...
-```
-
-This is not new code — the field exists. The missing piece is the GitHub Action that runs it on a schedule.
-
----
-
-## 11. QMD Re-enablement
-
-### 11.1 Configuration Changes
-
-**File**: `.loa.config.yaml`
-
-Already applied:
-- `memory.qmd.enabled: true` (was `false`)
-- `.loa/qmd/.failure_count` reset to 0
-
-### 11.2 Expanded Collections
-
-```yaml
-collections:
-  - path: grimoires/loa
-    name: loa-state
-    include: ["*.md"]
-    exclude: ["archive/**", "a2a/trajectory/**"]
-  - path: grimoires/loa/reality
-    name: loa-reality
-    include: ["*.md"]
-  - path: .claude/constructs/packs        # NEW
-    name: constructs
-    include: ["**/SKILL.md", "**/index.yaml", "**/persona.yaml", "**/CLAUDE.md"]
-  - path: grimoires                       # NEW
-    name: grimoires-all
-    include: ["**/*.md"]
-    exclude: ["loa/archive/**"]
-```
-
-### 11.3 QMD Role at Publish Time
-
-When `/construct-publish` runs and the construct has no `domain` field:
-
-1. Query QMD `constructs` collection for SKILL.md content similarity
-2. Propose domain based on nearest-neighbor categories
-3. Present to author for confirmation
-
-This is an enhancement, not a gate. If QMD is unavailable, the agent falls back to keyword analysis of the SKILL.md text. If that also fails, the default is `development`.
-
----
-
-## 12. File Change Summary
-
-### 12.1 New Files
-
-| File | Purpose | Priority |
-|------|---------|----------|
-| `packages/shared/src/categories.ts` | Shared category taxonomy | P0 |
-| `apps/api/src/db/migrations/0011_packs_category.sql` | Add category column to packs | P0 |
-| `.github/workflows/construct-sync.yml` | Daily auto-sync GitHub Action | P2 |
-| `.claude/skills/adding-skills/SKILL.md` | `/skill-add` truename | P1 |
-| `.claude/skills/adding-skills/index.yaml` | Skill manifest for `/skill-add` | P1 |
-| `.claude/commands/skill-add.md` | Command entry point | P1 |
-
-### 12.2 Modified Files
-
-| File | Change | Priority |
-|------|--------|----------|
-| `packages/shared/src/index.ts` | Add `export * from './categories.js'` | P0 |
-| `apps/api/src/db/schema.ts` | Add `category` column + index to `packs` table | P0 |
-| `apps/api/src/services/constructs.ts` | Return `pack.category` instead of `null` at line 393 | P0 |
-| `apps/api/src/services/category.ts` | Import from shared; count packs + skills in `listCategories()` | P0 |
-| `apps/explorer/lib/data/fetch-constructs.ts` | Delete `SLUG_CATEGORY_MAP`; simplify line 99 | P0 |
-| `apps/explorer/lib/data/fetch-categories.ts` | Import from shared; delete local constants | P0 |
-| `scripts/seed-forge-packs.ts` | Add `category` to INSERT/UPSERT; derive from `domain[0]` | P0 |
-| `.claude/scripts/constructs-publish.sh` | Replace upload stub with git push + sync trigger | P1 |
-| `.claude/skills/publishing-constructs/SKILL.md` | Full publish flow with filesystem discovery | P1 |
-| `scripts/discover-constructs.ts` | Complete `--register` flag implementation | P2 |
-
-### 12.3 Deleted Code
-
-| Location | What | Why |
-|----------|------|-----|
-| `fetch-constructs.ts:74-91` | `SLUG_CATEGORY_MAP` (16 entries) | API now returns real category |
-| `fetch-categories.ts:16-95` | Local `DEFAULT_CATEGORIES`, `LEGACY_SLUG_MAPPINGS`, `normalizeCategory` | Moved to shared package |
-| `category.ts:40-57` | Local `LEGACY_SLUG_MAPPINGS`, `normalizeCategory` | Moved to shared package |
-| `category.ts:66-123` | Local `DEFAULT_CATEGORIES` | Moved to shared package |
-| `constructs-publish.sh:317` | `print_warning "Publish upload not yet implemented"` | Replaced with real publish |
-
----
-
-## 13. Technical Risks & Mitigation
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Migration on production Supabase fails | Low | High | Run via `bun -e` with postgres driver (no psql locally). Wrap in transaction. Test on staging first. |
-| Shared package breaks explorer build | Low | Medium | `categories.ts` has zero dependencies — pure functions + constants. CI will catch. |
-| `search_use_cases[1]` is empty for some packs during migration backfill | High | Low | Default to `'development'` in CASE statement. The seed re-run after domain backfill will overwrite with correct values. |
-| Auto-sync discovers repos with invalid manifests | Medium | Low | `discoverFromOrg()` already skips repos that fail manifest parse. |
-| QMD failures recur after re-enable | Medium | Low | Three-tier fallback: QMD → keyword analysis → `'development'` default. QMD is never a gate. |
-| Domain backfill across 15 repos is tedious | Certain | Medium | Batch with `gh` CLI. Most repos have write access. Script the YAML update. |
-
----
-
-## 14. Sprint Decomposition (Suggested)
-
-### Sprint 1: Category Pipeline (P0)
-
-1. Create `packages/shared/src/categories.ts`
-2. Export from `packages/shared/src/index.ts`
-3. Migration `0011_packs_category.sql` — add column + backfill
-4. Update `apps/api/src/db/schema.ts` — add column + index
-5. Update `apps/api/src/services/constructs.ts:393` — return `pack.category`
-6. Update `apps/api/src/services/category.ts` — import shared, count packs
-7. Update `apps/explorer/lib/data/fetch-constructs.ts` — delete SLUG_CATEGORY_MAP
-8. Update `apps/explorer/lib/data/fetch-categories.ts` — import shared
-9. Update `scripts/seed-forge-packs.ts` — derive category from domain[0]
-10. Apply migration to production, run seed
-
-### Sprint 2: Scaffold + Publish + Skill-Add (P1)
-
-1. Verify scaffold script produces minimal output (already done)
-2. Create `/skill-add` truename (new skill + command)
-3. Update publish script — replace stub with git push + sync
-4. Update `/construct-publish` SKILL.md — full flow with filesystem discovery
-5. Test: create → add skill → publish → verify in registry
-
-### Sprint 3: Auto-Sync + QMD (P2)
-
-1. Complete `--register` in `discover-constructs.ts`
-2. Create `.github/workflows/construct-sync.yml`
-3. Test auto-sync: add a new `construct-*` repo, verify discovery within 24h
-4. Verify QMD re-enablement: run sync, check failure count stays at 0
-5. Domain backfill across 15 construct repos (operational task)
-
----
-
-## 15. Design Decisions Log
-
-| Decision | Alternatives Considered | Rationale |
-|----------|------------------------|-----------|
-| `VARCHAR(50)` for `packs.category` | PostgreSQL ENUM, FK to categories table | VARCHAR avoids complex ALTER TYPE migrations. App-layer validation is sufficient. FK creates chicken-and-egg with auto-sync. |
-| Shared package for constants | Copy-paste constants, API-only with client fetch | Copy-paste is the current bug. API-only adds latency and failure modes to what should be a static lookup. |
-| Derive category from `domain[0]` | Separate `category` field in manifest | KISS. The data exists. No new field for the author to maintain. `domain` is freeform (useful for search), `domain[0]` is the structural category. |
-| Git-sync as only publish path | Direct upload API, dual path | One path = one state machine = fewer bugs. The direct-upload stub was never completed. Git is already the source of truth. |
-| `/skill-add` as a skill (not bash script) | Bash scaffolding, CLI subcommand | The agent can read existing skills for context, match style, propose content. A bash script can only template. |
-| Daily cron for auto-sync | Webhook on repo push, manual trigger only | Webhook requires per-repo configuration. Daily cron is zero-config. Good enough for 15 repos. Webhook can be added later. |
-| No `skillCategoryEnum` migration this cycle | Align enum with 8-category taxonomy | Risk/reward imbalanced. The enum affects the `skills` table (hundreds of rows). The packs category is VARCHAR. Enum alignment is a separate migration. |
-
----
-
-## Next Step
-
-`/sprint-plan` to create sprint breakdown from this SDD.
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Drizzle mock chain doesn't match real query builder | Tests pass but miss real bugs | `createMockDb()` mirrors exact chain from `api-snapshots.test.ts` — one central place to update |
+| `pool: 'forks'` slower than default `threads` | Suite time > 30s | Benchmark after implementation; revert to `threads` if <30s target missed |
+| bcrypt slows API key auth tests | Individual test >10s | Use lower cost factor in test env; `testTimeout: 10000` provides buffer |
+| Snapshot brittleness on minor changes | Spurious CI failures | Use `expect.any()` for all dynamic fields; keep snapshots minimal |
+| Mock fidelity drift over time | Tests diverge from reality | `app.request()` exercises real middleware chain (CORS, error handler, request ID) — only DB/Redis are mocked |

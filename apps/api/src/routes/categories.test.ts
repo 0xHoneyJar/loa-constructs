@@ -215,4 +215,101 @@ describe('Categories Routes', () => {
       expect(body.error.code).toBe('NOT_FOUND');
     });
   });
+
+  describe('Response Shape Contract (T2.2)', () => {
+    it('every category has id, slug, label, color, description, construct_count', async () => {
+      const res = await app.request('/v1/categories');
+      const body = await res.json();
+
+      expect(body.data.length).toBeGreaterThan(0);
+
+      for (const cat of body.data) {
+        // Required fields present
+        expect(cat).toHaveProperty('id');
+        expect(cat).toHaveProperty('slug');
+        expect(cat).toHaveProperty('label');
+        expect(cat).toHaveProperty('color');
+        expect(cat).toHaveProperty('description');
+        expect(cat).toHaveProperty('construct_count');
+
+        // Type constraints
+        expect(typeof cat.id).toBe('string');
+        expect(typeof cat.slug).toBe('string');
+        expect(typeof cat.label).toBe('string');
+        expect(typeof cat.color).toBe('string');
+        // description can be string or null
+        expect(cat.description === null || typeof cat.description === 'string').toBe(true);
+        expect(typeof cat.construct_count).toBe('number');
+        expect(cat.construct_count).toBeGreaterThanOrEqual(0);
+
+        // Color must be hex format
+        expect(cat.color).toMatch(/^#[0-9A-Fa-f]{6}$/);
+
+        // Slug is lowercase alphanumeric with hyphens
+        expect(cat.slug).toMatch(/^[a-z0-9-]+$/);
+      }
+    });
+
+    it('id matches slug (public-facing simplification)', async () => {
+      const res = await app.request('/v1/categories');
+      const body = await res.json();
+
+      for (const cat of body.data) {
+        // formatCategory uses slug as public ID
+        expect(cat.id).toBe(cat.slug);
+      }
+    });
+
+    it('sort order is consistent (ascending by sortOrder)', async () => {
+      const res = await app.request('/v1/categories');
+      const body = await res.json();
+
+      // The mock data is sorted by sortOrder 1-8
+      // Verify the data comes back in the same order
+      const slugs = body.data.map((c: { slug: string }) => c.slug);
+      expect(slugs).toEqual([
+        'marketing',
+        'development',
+        'security',
+        'analytics',
+        'documentation',
+        'operations',
+        'design',
+        'infrastructure',
+      ]);
+    });
+
+    it('no unexpected fields in category response', async () => {
+      const res = await app.request('/v1/categories');
+      const body = await res.json();
+
+      const allowedFields = ['id', 'slug', 'label', 'color', 'description', 'construct_count'];
+
+      for (const cat of body.data) {
+        const keys = Object.keys(cat);
+        for (const key of keys) {
+          expect(allowedFields).toContain(key);
+        }
+      }
+    });
+
+    it('detail response has same shape as list item', async () => {
+      const res = await app.request('/v1/categories/marketing');
+      const body = await res.json();
+
+      expect(body.data).toHaveProperty('id');
+      expect(body.data).toHaveProperty('slug');
+      expect(body.data).toHaveProperty('label');
+      expect(body.data).toHaveProperty('color');
+      expect(body.data).toHaveProperty('description');
+      expect(body.data).toHaveProperty('construct_count');
+
+      // Same set of fields as list items
+      const allowedFields = ['id', 'slug', 'label', 'color', 'description', 'construct_count'];
+      const keys = Object.keys(body.data);
+      for (const key of keys) {
+        expect(allowedFields).toContain(key);
+      }
+    });
+  });
 });

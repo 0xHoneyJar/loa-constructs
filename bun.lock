@@ -64,6 +64,7 @@
         "@dynamic-labs/sdk-react-core": "^4.61.3",
         "@dynamic-labs/wagmi-connector": "^4.61.3",
         "@hookform/resolvers": "^3.9.1",
+        "@loa-constructs/shared": "workspace:*",
         "@radix-ui/react-dialog": "^1.1.15",
         "@radix-ui/react-dropdown-menu": "^2.1.16",
         "@radix-ui/react-label": "^2.1.8",

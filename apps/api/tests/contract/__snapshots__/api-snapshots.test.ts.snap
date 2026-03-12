@@ -7,7 +7,7 @@ exports[`Contract Tests: API Response Shapes > GET /v1/health > should return ex
   "status": "healthy",
   "timestamp": Any<String>,
   "uptime": Any<Number>,
-  "version": "0.1.0",
+  "version": "0.1.0-test",
 }
 `;
 
@@ -18,6 +18,121 @@ exports[`Contract Tests: API Response Shapes > GET /v1/packs/:slug - 404 Respons
     "message": "Route not found",
   },
   "request_id": Any<String>,
+}
+`;
+
+exports[`Expanded Endpoint Snapshots (T2.4) > GET /v1/categories > snapshot: categories list response shape 1`] = `
+{
+  "data": [
+    {
+      "color": "#FF44FF",
+      "construct_count": 5,
+      "description": "GTM and campaigns",
+      "id": "marketing",
+      "label": "Marketing",
+      "slug": "marketing",
+    },
+    {
+      "color": "#44FF88",
+      "construct_count": 10,
+      "description": "Coding and testing",
+      "id": "development",
+      "label": "Development",
+      "slug": "development",
+    },
+  ],
+  "request_id": Any<String>,
+}
+`;
+
+exports[`Expanded Endpoint Snapshots (T2.4) > GET /v1/categories/:slug > snapshot: category 404 response shape 1`] = `
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "details": {
+      "resource": "Category",
+    },
+    "message": "Category not found",
+  },
+  "request_id": Any<String>,
+}
+`;
+
+exports[`Expanded Endpoint Snapshots (T2.4) > GET /v1/categories/:slug > snapshot: category detail response shape 1`] = `
+{
+  "data": {
+    "color": "#FF44FF",
+    "construct_count": 5,
+    "description": "GTM and campaigns",
+    "id": "marketing",
+    "label": "Marketing",
+    "slug": "marketing",
+  },
+  "request_id": Any<String>,
+}
+`;
+
+exports[`Expanded Endpoint Snapshots (T2.4) > GET /v1/constructs (empty result) > snapshot: constructs list empty response shape 1`] = `
+{
+  "data": [],
+  "pagination": {
+    "page": Any<Number>,
+    "per_page": Any<Number>,
+    "total": Any<Number>,
+    "total_pages": Any<Number>,
+  },
+  "request_id": Any<String>,
+}
+`;
+
+exports[`Expanded Endpoint Snapshots (T2.4) > GET /v1/constructs/:slug - 404 > snapshot: construct 404 response shape 1`] = `
+{
+  "error": {
+    "code": "NOT_FOUND",
+    "details": {
+      "resource": "Construct",
+    },
+    "message": "Construct not found",
+  },
+  "request_id": Any<String>,
+}
+`;
+
+exports[`Expanded Endpoint Snapshots (T2.4) > GET /v1/health/live > snapshot: health live response shape 1`] = `
+{
+  "startup_time": Any<String>,
+  "status": "alive",
+  "timestamp": Any<String>,
+  "uptime_seconds": Any<Number>,
+}
+`;
+
+exports[`Expanded Endpoint Snapshots (T2.4) > GET /v1/health/metrics > snapshot: health metrics response shape 1`] = `
+{
+  "memory": {
+    "external_mb": Any<Number>,
+    "heap_total_mb": Any<Number>,
+    "heap_used_mb": Any<Number>,
+    "rss_mb": Any<Number>,
+  },
+  "process": {
+    "arch": Any<String>,
+    "node_version": Any<String>,
+    "pid": Any<Number>,
+    "platform": Any<String>,
+  },
+  "timestamp": Any<String>,
+  "uptime_seconds": Any<Number>,
+  "version": Any<String>,
+}
+`;
+
+exports[`Expanded Endpoint Snapshots (T2.4) > GET /v1/health/ready > snapshot: health ready response shape 1`] = `
+{
+  "checks": Any<Array>,
+  "status": StringMatching /\\^\\(healthy\\|degraded\\|unhealthy\\)\\$/,
+  "timestamp": Any<String>,
+  "version": "0.1.0-test",
 }
 `;
 
