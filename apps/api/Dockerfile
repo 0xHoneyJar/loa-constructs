@@ -2,7 +2,7 @@
 # @see sdd.md §1.7 Deployment Architecture
 
 # --- Build Stage ---
-FROM oven/bun:1.2 AS builder
+FROM oven/bun:1.2.22 AS builder
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ WORKDIR /app
 RUN rm -rf node_modules && bun install --production
 
 # --- Production Stage ---
-FROM oven/bun:1.2-alpine AS runner
+FROM oven/bun:1.2.22-alpine AS runner
 
 # Install git (required by git-sync service for construct repo cloning)
 RUN apk add --no-cache git
