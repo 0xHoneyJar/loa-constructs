@@ -44,7 +44,7 @@ COPY --from=builder --chown=nodejs:nodejs /app/apps/api/package.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/bun.lock ./
 
 # Install production dependencies only
-RUN bun install --production
+RUN bun install --no-save
 
 # Set environment
 ENV NODE_ENV=production
