@@ -16,6 +16,7 @@ const ALLOWED_SCOPES = ['read:skills', 'write:installs', 'read:analytics', 'writ
 
 /**
  * Fire-and-forget sync of signal key to Convex signalKeys table.
+ * Uses public action endpoint with write-key auth (HIGH-006 fix).
  * If sync fails, logs warning — manual resync available via admin endpoint.
  */
 async function syncKeyToConvex(
@@ -28,15 +29,12 @@ async function syncKeyToConvex(
   if (!convexUrl || !convexWriteKey) return;
 
   try {
-    // Use Convex HTTP action endpoint
-    const response = await fetch(`${convexUrl}/api/mutation`, {
+    const response = await fetch(`${convexUrl}/api/action`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        path: 'signals:syncSignalKey',
-        args: { keyPrefix, keyHash, appSlug },
+        path: 'signals:syncSignalKeyPublic',
+        args: { writeKey: convexWriteKey, keyPrefix, keyHash, appSlug },
       }),
     });
     if (!response.ok) {
@@ -49,15 +47,16 @@ async function syncKeyToConvex(
 
 async function syncKeyRevocationToConvex(keyPrefix: string) {
   const convexUrl = process.env.CONVEX_URL;
-  if (!convexUrl) return;
+  const convexWriteKey = process.env.CONVEX_WRITE_KEY;
+  if (!convexUrl || !convexWriteKey) return;
 
   try {
-    await fetch(`${convexUrl}/api/mutation`, {
+    await fetch(`${convexUrl}/api/action`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        path: 'signals:revokeSignalKey',
-        args: { keyPrefix },
+        path: 'signals:revokeSignalKeyPublic',
+        args: { writeKey: convexWriteKey, keyPrefix },
       }),
     });
   } catch (err) {

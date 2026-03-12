@@ -6,6 +6,7 @@ import { useAuthStore } from '@/lib/stores/auth-store';
 import { SignalStatusBar } from '@/components/dashboard/signals/signal-status-bar';
 import { SignalInbox } from '@/components/dashboard/signals/signal-inbox';
 import { SignalActivityFeed } from '@/components/dashboard/signals/signal-activity-feed';
+import { updateSignalStatus, escalateSignal } from '@/app/actions/signal-actions';
 
 const CONVEX_AVAILABLE = !!process.env.NEXT_PUBLIC_CONVEX_URL;
 
@@ -76,21 +77,8 @@ function SignalsDashboardInner() {
 
   const handleUpdateStatus = useCallback(
     async (signalId: string, status: string, note?: string) => {
-      const writeKey = process.env.NEXT_PUBLIC_CONVEX_WRITE_KEY;
-      if (!writeKey) return;
-
       try {
-        const { getConvexClient } = await import('@/lib/convex/server');
-        const convex = getConvexClient();
-        if (!convex) return;
-
-        const { api } = await import('@/convex/_generated/api');
-        await convex.action(api.signals.updateStatusFromDashboard, {
-          writeKey,
-          signalId: signalId as never,
-          status,
-          resolutionNote: note,
-        });
+        await updateSignalStatus(signalId, status, note);
       } catch (err) {
         console.error('Failed to update signal status:', err);
       }
@@ -100,19 +88,8 @@ function SignalsDashboardInner() {
 
   const handleEscalate = useCallback(
     async (signalId: string) => {
-      const writeKey = process.env.NEXT_PUBLIC_CONVEX_WRITE_KEY;
-      if (!writeKey) return;
-
       try {
-        const { getConvexClient } = await import('@/lib/convex/server');
-        const convex = getConvexClient();
-        if (!convex) return;
-
-        const { api } = await import('@/convex/_generated/api');
-        await convex.action(api.signals.escalate, {
-          writeKey,
-          signalId: signalId as never,
-        });
+        await escalateSignal(signalId);
       } catch (err) {
         console.error('Failed to escalate signal:', err);
       }

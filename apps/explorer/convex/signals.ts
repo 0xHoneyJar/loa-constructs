@@ -1,5 +1,6 @@
 import {
   query,
+  mutation,
   action,
   internalMutation,
   internalAction,
@@ -107,6 +108,7 @@ export const insert = internalMutation({
 export const ingest = action({
   args: {
     writeKey: v.string(),
+    keyPrefix: v.optional(v.string()),
     appSlug: v.string(),
     source: v.string(),
     severity: v.string(),
@@ -115,26 +117,38 @@ export const ingest = action({
     incidentGroupId: v.string(),
     timestamp: v.string(),
   },
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<{ signalId: string; deduplicated: boolean }> => {
     const expectedKey = process.env.CONVEX_WRITE_KEY;
     if (!expectedKey || args.writeKey !== expectedKey) {
       throw new Error('unauthorized');
     }
 
-    const { writeKey: _, ...signalData } = args;
+    // Rate limiting per API key
+    if (args.keyPrefix) {
+      const rateResult: { allowed: boolean; remaining: number } =
+        await ctx.runMutation(internal.signals.checkRateLimit, {
+          keyPrefix: args.keyPrefix,
+        });
+      if (!rateResult.allowed) {
+        throw new Error('rate limit exceeded');
+      }
+    }
 
-    const result = await ctx.runMutation(internal.signals.insert, signalData);
+    const { writeKey: _, keyPrefix: _kp, ...signalData } = args;
+
+    const result: { signalId: string; deduplicated: boolean } =
+      await ctx.runMutation(internal.signals.insert, signalData);
 
     // Schedule classification for new signals (not deduped)
     if (!result.deduplicated) {
       await ctx.scheduler.runAfter(0, internal.signals.classify, {
-        signalId: result.signalId,
+        signalId: result.signalId as any,
       });
 
       // Discord alerting for critical/high
       if (args.severity === 'critical' || args.severity === 'high') {
         await ctx.scheduler.runAfter(0, internal.signals.alertDiscord, {
-          signalId: result.signalId,
+          signalId: result.signalId as any,
           incidentGroupId: args.incidentGroupId,
         });
       }
@@ -150,10 +164,9 @@ export const byApp = query({
   args: {
     appSlug: v.optional(v.string()),
     status: v.optional(v.string()),
-    cursor: v.optional(v.string()),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, { appSlug, status, cursor, limit = 20 }) => {
+  handler: async (ctx, { appSlug, status, limit = 20 }) => {
     let q;
     if (appSlug) {
       q = ctx.db
@@ -181,16 +194,29 @@ export const byApp = query({
 
 export const statusCounts = query({
   handler: async (ctx) => {
-    const all = await ctx.db.query('signals').collect();
+    // Query only active statuses via index instead of full table scan (HIGH-001)
+    const newSigs = await ctx.db
+      .query('signals')
+      .withIndex('by_status', (q) => q.eq('status', 'new'))
+      .collect();
+    const triaged = await ctx.db
+      .query('signals')
+      .withIndex('by_status', (q) => q.eq('status', 'triaged'))
+      .collect();
+    const escalated = await ctx.db
+      .query('signals')
+      .withIndex('by_status', (q) => q.eq('status', 'escalated'))
+      .collect();
+
+    const active = [...newSigs, ...triaged, ...escalated].filter(
+      (s) => s.source !== 'heartbeat',
+    );
 
     const counts: Record<string, Record<string, number>> = {};
     let totalNew = 0;
     let totalCritical = 0;
 
-    for (const signal of all) {
-      // Filter out heartbeat signals from counts
-      if (signal.source === 'heartbeat') continue;
-
+    for (const signal of active) {
       const app = signal.appSlug;
       if (!counts[app]) {
         counts[app] = { new: 0, triaged: 0, escalated: 0, resolved: 0, dismissed: 0, critical: 0, high: 0 };
@@ -491,8 +517,11 @@ export const patchFromLinear = internalMutation({
     status: v.string(),
   },
   handler: async (ctx, { linearIssueId, status }) => {
-    const all = await ctx.db.query('signals').collect();
-    const signal = all.find((s) => s.linearIssueId === linearIssueId);
+    // Use index instead of full table scan (HIGH-002)
+    const signal = await ctx.db
+      .query('signals')
+      .withIndex('by_linear_issue', (q) => q.eq('linearIssueId', linearIssueId))
+      .first();
     if (!signal) return;
 
     const statusMap: Record<string, string> = {
@@ -507,6 +536,25 @@ export const patchFromLinear = internalMutation({
         linearSyncedAt: new Date().toISOString(),
       });
     }
+  },
+});
+
+// Public action wrapper for Linear webhook (HIGH-003)
+export const patchFromLinearWebhook = action({
+  args: {
+    writeKey: v.string(),
+    linearIssueId: v.string(),
+    status: v.string(),
+  },
+  handler: async (ctx, { writeKey, linearIssueId, status }) => {
+    const expectedKey = process.env.CONVEX_WRITE_KEY;
+    if (!expectedKey || writeKey !== expectedKey) {
+      throw new Error('unauthorized');
+    }
+    await ctx.runMutation(internal.signals.patchFromLinear, {
+      linearIssueId,
+      status,
+    });
   },
 });
 
@@ -682,6 +730,55 @@ export const revokeSignalKey = internalMutation({
   },
 });
 
+// --- Public Action Wrappers for External Callers (HIGH-003, HIGH-006) ---
+
+export const syncSignalKeyPublic = action({
+  args: {
+    writeKey: v.string(),
+    keyPrefix: v.string(),
+    keyHash: v.string(),
+    appSlug: v.string(),
+  },
+  handler: async (ctx, { writeKey, ...keyData }) => {
+    const expectedKey = process.env.CONVEX_WRITE_KEY;
+    if (!expectedKey || writeKey !== expectedKey) {
+      throw new Error('unauthorized');
+    }
+    await ctx.runMutation(internal.signals.syncSignalKey, keyData);
+  },
+});
+
+export const revokeSignalKeyPublic = action({
+  args: {
+    writeKey: v.string(),
+    keyPrefix: v.string(),
+  },
+  handler: async (ctx, { writeKey, keyPrefix }) => {
+    const expectedKey = process.env.CONVEX_WRITE_KEY;
+    if (!expectedKey || writeKey !== expectedKey) {
+      throw new Error('unauthorized');
+    }
+    await ctx.runMutation(internal.signals.revokeSignalKey, { keyPrefix });
+  },
+});
+
+// --- Key Verification (HIGH-004: hash stays inside Convex) ---
+
+export const verifySignalKey = action({
+  args: { keyPrefix: v.string(), rawKey: v.string() },
+  handler: async (ctx, { keyPrefix, rawKey }): Promise<{ appSlug: string } | null> => {
+    const keyData: { keyHash: string; appSlug: string } | null =
+      await ctx.runQuery(internal.signals.validateKey, { keyPrefix });
+    if (!keyData) return null;
+
+    const { default: bcryptLib } = await import('bcryptjs');
+    const valid = await bcryptLib.compare(rawKey, keyData.keyHash);
+    if (!valid) return null;
+
+    return { appSlug: keyData.appSlug };
+  },
+});
+
 // --- Heartbeat (Pipeline Health) ---
 
 export const checkHeartbeat = internalAction({
@@ -722,18 +819,36 @@ export const checkHeartbeat = internalAction({
 
 export const getLastHeartbeat = internalQuery({
   handler: async (ctx) => {
-    const all = await ctx.db
-      .query('signals')
-      .withIndex('by_timestamp')
-      .order('desc')
-      .take(50);
-    return all.find((s) => s.source === 'heartbeat') ?? null;
+    // Use source index instead of scanning 50 recent signals (LOW-002)
+    return (
+      (await ctx.db
+        .query('signals')
+        .withIndex('by_source_timestamp', (q) => q.eq('source', 'heartbeat'))
+        .order('desc')
+        .first()) ?? null
+    );
   },
 });
 
 export const sendHeartbeat = internalMutation({
   handler: async (ctx) => {
     const now = new Date().toISOString();
+
+    // Upsert: update existing heartbeat instead of accumulating rows (MEDIUM-006)
+    const existing = await ctx.db
+      .query('signals')
+      .withIndex('by_source_timestamp', (q) => q.eq('source', 'heartbeat'))
+      .order('desc')
+      .first();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        timestamp: now,
+        occurrenceCount: existing.occurrenceCount + 1,
+      });
+      return;
+    }
+
     const timeBucket = Math.floor(Date.now() / 300_000);
     const groupId = `system:heartbeat:health:${timeBucket}`;
 

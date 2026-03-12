@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getConvexClient } from '@/lib/convex/server';
-import { internal } from '@/convex/_generated/api';
+import { api } from '@/convex/_generated/api';
 
 export async function POST(req: NextRequest) {
   const secret = process.env.LINEAR_WEBHOOK_SECRET;
@@ -22,7 +22,17 @@ export async function POST(req: NextRequest) {
     .update(rawBody)
     .digest('hex');
 
-  if (signature !== expectedSignature) {
+  // Timing-safe comparison (MEDIUM-002)
+  try {
+    const sigBuffer = Buffer.from(signature, 'hex');
+    const expectedBuffer = Buffer.from(expectedSignature, 'hex');
+    if (
+      sigBuffer.length !== expectedBuffer.length ||
+      !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
+    ) {
+      return NextResponse.json({ error: 'invalid signature' }, { status: 401 });
+    }
+  } catch {
     return NextResponse.json({ error: 'invalid signature' }, { status: 401 });
   }
 
@@ -51,21 +61,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // Sync status back to Convex
+  // Sync status back to Convex via public action (HIGH-003)
   const convex = getConvexClient();
-  if (convex) {
+  const writeKey = process.env.CONVEX_WRITE_KEY;
+  if (convex && writeKey) {
     try {
-      // Use HTTP client to call internal mutation via API
-      // Since ConvexHttpClient can't call internal functions directly,
-      // we'll use the signals.patchFromLinear which is already internal.
-      // We need a public mutation for this.
-      await fetch(`${process.env.CONVEX_URL}/api/mutation`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          path: 'signals:patchFromLinear',
-          args: { linearIssueId: issueId, status: stateName },
-        }),
+      await convex.action(api.signals.patchFromLinearWebhook, {
+        writeKey,
+        linearIssueId: issueId,
+        status: stateName,
       });
     } catch (err) {
       console.error('[webhook/linear] Failed to sync status:', err);

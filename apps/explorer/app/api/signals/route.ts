@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import bcrypt from 'bcryptjs';
 import { getConvexClient } from '@/lib/convex/server';
 import { api } from '@/convex/_generated/api';
 import {
@@ -8,11 +7,8 @@ import {
   computeIncidentGroupId,
 } from '@/lib/signals/validation';
 
-// In-memory key validation cache (prefix → { hash, appSlug, validatedAt })
-const keyCache = new Map<
-  string,
-  { keyHash: string; appSlug: string; validatedAt: number; verified: boolean }
->();
+// In-memory key validation cache (prefix → { appSlug, validatedAt })
+const keyCache = new Map<string, { appSlug: string; validatedAt: number }>();
 const KEY_CACHE_TTL_MS = 60_000; // 60s
 
 export async function POST(req: NextRequest) {
@@ -30,32 +26,25 @@ export async function POST(req: NextRequest) {
   const apiKey = authHeader;
   const prefix = apiKey.substring(0, 12);
 
-  // Validate key against Convex signalKeys table (with cache)
+  // Validate key via Convex action — hash never leaves Convex (HIGH-004)
   let keyInfo: { appSlug: string } | null = null;
 
   const cached = keyCache.get(prefix);
-  if (cached && Date.now() - cached.validatedAt < KEY_CACHE_TTL_MS && cached.verified) {
+  if (cached && Date.now() - cached.validatedAt < KEY_CACHE_TTL_MS) {
     keyInfo = { appSlug: cached.appSlug };
   } else {
-    // Query Convex for key hash
     try {
-      const keyData = await convex.query(api.signalKeys.getByPrefix, { keyPrefix: prefix });
-      if (!keyData) {
+      const result = await convex.action(api.signals.verifySignalKey, {
+        keyPrefix: prefix,
+        rawKey: apiKey,
+      });
+      if (!result) {
         return NextResponse.json({ error: 'invalid api key' }, { status: 403 });
       }
-
-      // Verify full key against hash
-      const valid = await bcrypt.compare(apiKey, keyData.keyHash);
-      if (!valid) {
-        return NextResponse.json({ error: 'invalid api key' }, { status: 403 });
-      }
-
-      keyInfo = { appSlug: keyData.appSlug };
+      keyInfo = { appSlug: result.appSlug };
       keyCache.set(prefix, {
-        keyHash: keyData.keyHash,
-        appSlug: keyData.appSlug,
+        appSlug: result.appSlug,
         validatedAt: Date.now(),
-        verified: true,
       });
     } catch {
       return NextResponse.json({ error: 'key validation failed' }, { status: 500 });
@@ -96,10 +85,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'server misconfigured' }, { status: 500 });
   }
 
-  // Ingest signal via Convex action
+  // Ingest signal via Convex action (rate limiting wired inside)
   try {
     const result = await convex.action(api.signals.ingest, {
       writeKey,
+      keyPrefix: prefix,
       appSlug: keyInfo.appSlug,
       source: signal.source,
       severity: signal.severity,
@@ -117,8 +107,16 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 },
     );
-  } catch {
-    // Fallback: return 202 Accepted on Convex timeout — SDD §6.1
+  } catch (err) {
+    // Differentiate error types instead of catch-all 202 (MEDIUM-003)
+    const message = err instanceof Error ? err.message : '';
+    if (message === 'rate limit exceeded') {
+      return NextResponse.json({ error: 'rate limit exceeded' }, { status: 429 });
+    }
+    if (message === 'unauthorized') {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    }
+    // Timeout/network — fallback 202 Accepted (SDD §6.1)
     return NextResponse.json(
       { status: 'accepted', message: 'Signal queued for processing' },
       { status: 202 },

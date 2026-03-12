@@ -105,7 +105,9 @@ export default defineSchema({
     .index('by_status', ['status', 'timestamp'])
     .index('by_severity', ['severity', 'timestamp'])
     .index('by_incident_group', ['incidentGroupId'])
-    .index('by_timestamp', ['timestamp']),
+    .index('by_timestamp', ['timestamp'])
+    .index('by_linear_issue', ['linearIssueId'])
+    .index('by_source_timestamp', ['source', 'timestamp']),
 
   signalKeys: defineTable({
     keyPrefix: v.string(),
