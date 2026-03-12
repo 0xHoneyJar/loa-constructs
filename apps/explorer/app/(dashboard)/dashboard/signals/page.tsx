@@ -1,6 +1,11 @@
 'use client';
 
+import { useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { SignalStatusBar } from '@/components/dashboard/signals/signal-status-bar';
+import { SignalInbox } from '@/components/dashboard/signals/signal-inbox';
+import { SignalActivityFeed } from '@/components/dashboard/signals/signal-activity-feed';
 
 const CONVEX_AVAILABLE = !!process.env.NEXT_PUBLIC_CONVEX_URL;
 
@@ -34,21 +39,88 @@ export default function SignalsDashboard() {
 }
 
 function SignalsDashboardInner() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const selectedApp = searchParams.get('app');
+  const selectedSignalId = searchParams.get('id');
+
+  const updateParams = useCallback(
+    (updates: Record<string, string | null>) => {
+      const params = new URLSearchParams(searchParams.toString());
+      for (const [key, value] of Object.entries(updates)) {
+        if (value === null) {
+          params.delete(key);
+        } else {
+          params.set(key, value);
+        }
+      }
+      router.replace(`/dashboard/signals?${params.toString()}`);
+    },
+    [searchParams, router],
+  );
+
+  const handleSelectApp = useCallback(
+    (app: string | null) => {
+      updateParams({ app, id: null });
+    },
+    [updateParams],
+  );
+
+  const handleSelectSignal = useCallback(
+    (id: string | null) => {
+      updateParams({ id });
+    },
+    [updateParams],
+  );
+
+  const handleUpdateStatus = useCallback(
+    async (signalId: string, status: string, note?: string) => {
+      const writeKey = process.env.NEXT_PUBLIC_CONVEX_WRITE_KEY;
+      if (!writeKey) return;
+
+      try {
+        const { getConvexClient } = await import('@/lib/convex/server');
+        const convex = getConvexClient();
+        if (!convex) return;
+
+        const { api } = await import('@/convex/_generated/api');
+        await convex.action(api.signals.updateStatusFromDashboard, {
+          writeKey,
+          signalId: signalId as never,
+          status,
+          resolutionNote: note,
+        });
+      } catch (err) {
+        console.error('Failed to update signal status:', err);
+      }
+    },
+    [],
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Zone A: Status Bar */}
       <div>
-        <h2 className="font-mono text-[9px] text-bone-muted uppercase tracking-widest mb-3">
+        <h2 className="font-mono text-[9px] text-bone-muted uppercase tracking-widest mb-2">
           Signals
         </h2>
-        <div className="border border-void-border bg-void-base p-8 text-center">
-          <div className="font-mono text-xs text-bone-muted">
-            No signals yet
-          </div>
-          <div className="mt-2 font-mono text-[10px] text-bone-ghost max-w-sm mx-auto">
-            Create an API key with <code className="text-cyan-base">write:signals</code> scope to start receiving signals from your apps.
-          </div>
-        </div>
+        <SignalStatusBar
+          selectedApp={selectedApp}
+          onSelectApp={handleSelectApp}
+        />
       </div>
+
+      {/* Zone B: Triage Inbox */}
+      <SignalInbox
+        selectedApp={selectedApp}
+        selectedSignalId={selectedSignalId}
+        onSelectSignal={handleSelectSignal}
+        onUpdateStatus={handleUpdateStatus}
+      />
+
+      {/* Zone C: Activity Feed */}
+      <SignalActivityFeed />
     </div>
   );
 }
