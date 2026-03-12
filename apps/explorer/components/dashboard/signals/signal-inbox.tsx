@@ -11,6 +11,7 @@ interface InboxProps {
   selectedSignalId: string | null;
   onSelectSignal: (id: string | null) => void;
   onUpdateStatus: (signalId: string, status: string, note?: string) => Promise<void>;
+  onEscalate: (signalId: string) => Promise<void>;
 }
 
 export function SignalInbox({
@@ -18,6 +19,7 @@ export function SignalInbox({
   selectedSignalId,
   onSelectSignal,
   onUpdateStatus,
+  onEscalate,
 }: InboxProps) {
   const result = useQuery(api.signals.byApp, {
     appSlug: selectedApp ?? undefined,
@@ -93,6 +95,7 @@ export function SignalInbox({
             onUpdateStatus={(status, note) =>
               onUpdateStatus(selectedSignal._id, status, note)
             }
+            onEscalate={() => onEscalate(selectedSignal._id)}
           />
         ) : (
           <div className="h-full flex items-center justify-center p-4">

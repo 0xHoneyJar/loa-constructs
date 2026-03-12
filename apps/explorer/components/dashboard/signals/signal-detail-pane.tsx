@@ -7,6 +7,7 @@ import { SignalActionButtons } from './signal-action-buttons';
 interface DetailPaneProps {
   signal: Doc<'signals'>;
   onUpdateStatus: (status: string, note?: string) => Promise<void>;
+  onEscalate: () => Promise<void>;
 }
 
 const severityBadge: Record<string, string> = {
@@ -24,7 +25,7 @@ const statusBadge: Record<string, string> = {
   dismissed: 'text-bone-ghost',
 };
 
-export function SignalDetailPane({ signal, onUpdateStatus }: DetailPaneProps) {
+export function SignalDetailPane({ signal, onUpdateStatus, onEscalate }: DetailPaneProps) {
   const severity = severityBadge[signal.severity] || severityBadge.low;
 
   return (
@@ -78,7 +79,7 @@ export function SignalDetailPane({ signal, onUpdateStatus }: DetailPaneProps) {
 
       {/* Actions */}
       <div className="pt-2 border-t border-void-border">
-        <SignalActionButtons signal={signal} onUpdateStatus={onUpdateStatus} />
+        <SignalActionButtons signal={signal} onUpdateStatus={onUpdateStatus} onEscalate={onEscalate} />
       </div>
 
       {/* Incident Group */}

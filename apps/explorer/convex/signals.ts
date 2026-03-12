@@ -510,6 +510,91 @@ export const patchFromLinear = internalMutation({
   },
 });
 
+export const patchLinearCreationAttempt = internalMutation({
+  args: {
+    signalId: v.id('signals'),
+    attempts: v.number(),
+  },
+  handler: async (ctx, { signalId, attempts }) => {
+    await ctx.db.patch(signalId, { linearCreationAttempts: attempts });
+  },
+});
+
+export const escalate = action({
+  args: {
+    writeKey: v.string(),
+    signalId: v.id('signals'),
+  },
+  handler: async (ctx, { writeKey, signalId }) => {
+    const expectedKey = process.env.CONVEX_WRITE_KEY;
+    if (!expectedKey || writeKey !== expectedKey) {
+      throw new Error('unauthorized');
+    }
+
+    // Delegate to Linear integration
+    await ctx.scheduler.runAfter(0, internal.linear.createLinearIssue, {
+      signalId,
+    });
+
+    return { scheduled: true };
+  },
+});
+
+// --- Reconciliation ---
+
+export const reconcile = internalAction({
+  handler: async (ctx) => {
+    // Find escalated signals with stale sync
+    const escalated = await ctx.runQuery(internal.signals.getStaleEscalated);
+
+    for (const signal of escalated) {
+      if (!signal.linearIssueId) {
+        // Retry creation if under retry limit
+        if ((signal.linearCreationAttempts ?? 0) < 3) {
+          await ctx.scheduler.runAfter(0, internal.linear.createLinearIssue, {
+            signalId: signal._id,
+          });
+        }
+        continue;
+      }
+
+      // Check Linear status
+      const linearStatus = await ctx.runAction(
+        internal.linear.fetchIssueStatus,
+        { linearIssueId: signal.linearIssueId },
+      );
+
+      if (linearStatus) {
+        const statusMap: Record<string, string> = {
+          Done: 'resolved',
+          Canceled: 'dismissed',
+        };
+        const mapped = statusMap[linearStatus];
+        if (mapped && mapped !== signal.status) {
+          await ctx.runMutation(internal.signals.updateStatus, {
+            signalId: signal._id,
+            status: mapped,
+          });
+        }
+      }
+    }
+  },
+});
+
+export const getStaleEscalated = internalQuery({
+  handler: async (ctx) => {
+    const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString();
+    const escalated = await ctx.db
+      .query('signals')
+      .withIndex('by_status', (q) => q.eq('status', 'escalated'))
+      .collect();
+
+    return escalated.filter(
+      (s) => !s.linearSyncedAt || s.linearSyncedAt < oneHourAgo,
+    );
+  },
+});
+
 // --- Retention Purge ---
 
 export const purgeExpired = internalMutation({

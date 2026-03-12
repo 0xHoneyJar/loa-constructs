@@ -98,6 +98,28 @@ function SignalsDashboardInner() {
     [],
   );
 
+  const handleEscalate = useCallback(
+    async (signalId: string) => {
+      const writeKey = process.env.NEXT_PUBLIC_CONVEX_WRITE_KEY;
+      if (!writeKey) return;
+
+      try {
+        const { getConvexClient } = await import('@/lib/convex/server');
+        const convex = getConvexClient();
+        if (!convex) return;
+
+        const { api } = await import('@/convex/_generated/api');
+        await convex.action(api.signals.escalate, {
+          writeKey,
+          signalId: signalId as never,
+        });
+      } catch (err) {
+        console.error('Failed to escalate signal:', err);
+      }
+    },
+    [],
+  );
+
   return (
     <div className="space-y-4">
       {/* Zone A: Status Bar */}
@@ -117,6 +139,7 @@ function SignalsDashboardInner() {
         selectedSignalId={selectedSignalId}
         onSelectSignal={handleSelectSignal}
         onUpdateStatus={handleUpdateStatus}
+        onEscalate={handleEscalate}
       />
 
       {/* Zone C: Activity Feed */}

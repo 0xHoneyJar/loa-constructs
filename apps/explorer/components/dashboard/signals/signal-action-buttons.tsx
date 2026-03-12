@@ -6,13 +6,15 @@ import type { Doc } from '@/convex/_generated/dataModel';
 interface ActionButtonsProps {
   signal: Doc<'signals'>;
   onUpdateStatus: (status: string, note?: string) => Promise<void>;
+  onEscalate: () => Promise<void>;
 }
 
-export function SignalActionButtons({ signal, onUpdateStatus }: ActionButtonsProps) {
+export function SignalActionButtons({ signal, onUpdateStatus, onEscalate }: ActionButtonsProps) {
   const [isActing, setIsActing] = useState(false);
   const [showResolveInput, setShowResolveInput] = useState(false);
   const [resolveNote, setResolveNote] = useState('');
   const [confirmDismiss, setConfirmDismiss] = useState(false);
+  const [showEscalatePreview, setShowEscalatePreview] = useState(false);
 
   if (signal.status === 'resolved' || signal.status === 'dismissed') {
     return (
@@ -84,20 +86,48 @@ export function SignalActionButtons({ signal, onUpdateStatus }: ActionButtonsPro
           </button>
         )}
 
-        {/* Escalate — heavy weight (crimson) */}
-        <div className="relative group">
+        {/* Escalate — heavy weight (crimson), preview before confirm */}
+        {signal.status !== 'escalated' && !showEscalatePreview ? (
           <button
-            disabled
-            className="px-2 py-0.5 font-mono text-[10px] text-crimson-base/40 border border-crimson-base/20 cursor-not-allowed"
+            disabled={isActing}
+            onClick={() => setShowEscalatePreview(true)}
+            className="px-2 py-0.5 font-mono text-[10px] text-crimson-base border border-crimson-base/30 hover:bg-crimson-base/10 transition-colors disabled:opacity-40"
           >
             Escalate
           </button>
-          <div className="absolute bottom-full left-0 mb-1 hidden group-hover:block">
-            <div className="px-2 py-1 bg-void-raised border border-void-border font-mono text-[8px] text-bone-ghost whitespace-nowrap">
-              Linear integration coming in Sprint 3
+        ) : signal.status !== 'escalated' && showEscalatePreview ? (
+          <div className="flex flex-col gap-1 p-2 border border-crimson-base/20 bg-crimson-base/5">
+            <div className="font-mono text-[9px] text-bone-dim">
+              Create Linear issue: <span className="text-bone-base">[{signal.appSlug}] {signal.title}</span>
+            </div>
+            <div className="font-mono text-[8px] text-bone-ghost">
+              Team: {signal.data.type === 'error_report' ? 'Infrastructure' : 'Product'}
+            </div>
+            <div className="flex gap-1">
+              <button
+                disabled={isActing}
+                onClick={async () => {
+                  setIsActing(true);
+                  try {
+                    await onEscalate();
+                  } finally {
+                    setIsActing(false);
+                    setShowEscalatePreview(false);
+                  }
+                }}
+                className="px-2 py-0.5 font-mono text-[9px] text-crimson-base border border-crimson-base/30 hover:bg-crimson-base/10 disabled:opacity-40"
+              >
+                Confirm Escalation
+              </button>
+              <button
+                onClick={() => setShowEscalatePreview(false)}
+                className="px-2 py-0.5 font-mono text-[9px] text-bone-ghost hover:text-bone-muted"
+              >
+                Cancel
+              </button>
             </div>
           </div>
-        </div>
+        ) : null}
 
         {/* Resolve — medium weight */}
         {!showResolveInput ? (

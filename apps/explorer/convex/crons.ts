@@ -18,6 +18,13 @@ crons.interval(
   internal.signals.retryFailedClassifications,
 );
 
+// Reconcile Linear issue statuses — hourly
+crons.interval(
+  'signals/reconcile-linear',
+  { hours: 1 },
+  internal.signals.reconcile,
+);
+
 // Purge signals older than 90 days — daily
 crons.interval(
   'signals/purge-expired',
