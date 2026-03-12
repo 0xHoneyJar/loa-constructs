@@ -13,6 +13,7 @@ import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { DynamicConnectButton } from '@/components/auth/dynamic-connect-button';
 import type { ConstructNode } from '@/lib/types/graph';
+import { resolveShortDescription } from '@/lib/utils/resolve-short-description';
 
 interface AuthAwareConstructListProps {
   /** Constructs from ISR (may be empty since all are internal) */
@@ -60,7 +61,7 @@ export function AuthAwareConstructList({ publicConstructs, children }: AuthAware
           category: (c.category as string) || 'other',
           graduationLevel: (c.graduation_level as string) || 'experimental',
           description: (c.description as string) || '',
-          shortDescription: (c.short_description as string) || (c.description as string || '').split('.')[0].slice(0, 80) || 'No description',
+          shortDescription: resolveShortDescription(c.short_description as string, c.description as string),
           commandCount: (c.command_count as number) || 0,
           skillsCount: (c.skills_count as number) || 0,
           downloads: (c.downloads as number) || 0,
