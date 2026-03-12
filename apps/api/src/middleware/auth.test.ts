@@ -13,17 +13,6 @@ const updateChain = {
   then: (resolve: (value: unknown) => void) => resolve([]),
 };
 
-const selectChain = {
-  from: vi.fn(() => selectChain),
-  where: vi.fn(() => selectChain),
-  limit: vi.fn(() => selectChain),
-  then: (resolve: (value: unknown) => void) => {
-    const result = selectResults[selectCallIndex] ?? [];
-    selectCallIndex++;
-    resolve(result);
-  },
-};
-
 vi.mock('../db/index.js', () => ({
   db: {
     select: vi.fn(() => {
@@ -85,6 +74,7 @@ vi.mock('../services/subscription.js', () => ({
 // Import AFTER mocks
 import { requireAuth, optionalAuth, requireTier, requireOrgMember, requireVerifiedEmail } from './auth.js';
 import { createAuthHeaders, createExpiredAuthHeaders } from '../../tests/helpers/auth.js';
+import { createMockUser } from '../../tests/helpers/fixtures.js';
 
 // Helper: create a minimal test app with auth middleware
 function createApp(middleware: ReturnType<typeof requireAuth>) {
@@ -149,7 +139,7 @@ describe('Auth Middleware', () => {
     it('sets context vars with valid JWT + existing user', async () => {
       // Mock: getUserById returns a user (2 select calls: user lookup + subscription tier)
       selectResults = [
-        [{ id: 'user-test-1', email: 'test@constructs.network', name: 'Test User', emailVerified: true, isAdmin: false, githubOrgMember: false, walletAddress: null }],
+        [createMockUser()],
       ];
 
       const app = createApp(requireAuth());
@@ -181,7 +171,7 @@ describe('Auth Middleware', () => {
       // Mock: apiKeys lookup returns a key, then user lookup, then update lastUsedAt
       selectResults = [
         [{ id: 'key-1', userId: 'user-test-1', keyHash: 'fake-hash', revoked: false, expiresAt: null }],
-        [{ id: 'user-test-1', email: 'test@constructs.network', name: 'Test User', emailVerified: true, isAdmin: false, githubOrgMember: false, walletAddress: null }],
+        [createMockUser()],
       ];
 
       // Mock bcrypt.compare to return true for API key verification
@@ -211,7 +201,7 @@ describe('Auth Middleware', () => {
 
     it('attaches user with valid JWT', async () => {
       selectResults = [
-        [{ id: 'user-test-1', email: 'test@constructs.network', name: 'Test User', emailVerified: true, isAdmin: false, githubOrgMember: true, walletAddress: '0x123' }],
+        [createMockUser({ githubOrgMember: true, walletAddress: '0x123' })],
       ];
 
       const app = createApp(optionalAuth());

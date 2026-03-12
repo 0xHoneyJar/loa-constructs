@@ -4,6 +4,8 @@
 
 export { createMockDb, getMockDbModule } from './mock-db.js';
 export { createMockRedis, getMockRedisModule } from './mock-redis.js';
+export { createMockLogger, getMockLoggerModule } from './mock-logger.js';
+export { getMockMonitoringModule } from './mock-monitoring.js';
 export {
   createMockUser,
   createMockPack,

@@ -169,6 +169,7 @@ vi.mock('../services/subscription.js', () => ({
 import { app } from '../app.js';
 import bcrypt from 'bcrypt';
 import { createAuthHeaders, createRefreshToken } from '../../tests/helpers/auth.js';
+import { createMockUser } from '../../tests/helpers/fixtures.js';
 
 // Pre-hash a password for test fixtures
 let testPasswordHash: string;
@@ -194,7 +195,7 @@ describe('Auth Routes', () => {
     it('returns token pair on success', async () => {
       // Mock: find user by email
       selectResults = [
-        [{ id: 'user-1', email: 'test@constructs.network', name: 'Test', passwordHash: testPasswordHash, emailVerified: true, githubOrgMember: false }],
+        [createMockUser({ id: 'user-1', name: 'Test', passwordHash: testPasswordHash })],
         // Mock: audit log insert (ignored)
       ];
       insertResults = [
@@ -218,7 +219,7 @@ describe('Auth Routes', () => {
 
     it('returns 401 on wrong password', async () => {
       selectResults = [
-        [{ id: 'user-1', email: 'test@constructs.network', name: 'Test', passwordHash: testPasswordHash, emailVerified: true, githubOrgMember: false }],
+        [createMockUser({ id: 'user-1', name: 'Test', passwordHash: testPasswordHash })],
       ];
 
       const res = await app.request('/v1/auth/login', {
@@ -255,7 +256,7 @@ describe('Auth Routes', () => {
 
       // Mock: user lookup for refresh
       selectResults = [
-        [{ id: 'user-1', email: 'test@constructs.network', name: 'Test', emailVerified: true, githubOrgMember: false, githubUserId: null, githubOrgCheckedAt: null }],
+        [createMockUser({ id: 'user-1', name: 'Test' })],
       ];
 
       const res = await app.request('/v1/auth/refresh', {
@@ -307,7 +308,7 @@ describe('Auth Routes', () => {
 
       // Mock: getUserById for requireAuth (access token validation)
       selectResults = [
-        [{ id: 'user-1', email: 'test@constructs.network', name: 'Test', emailVerified: true, isAdmin: false, githubOrgMember: false, walletAddress: null }],
+        [createMockUser({ id: 'user-1', name: 'Test' })],
       ];
 
       const authHeaders = await createAuthHeaders('user-1', 'test@constructs.network');
@@ -331,7 +332,7 @@ describe('Auth Routes', () => {
     it('returns user with is_org_member, tier, wallet_address', async () => {
       // Mock: getUserById for requireAuth
       selectResults = [
-        [{ id: 'user-1', email: 'test@constructs.network', name: 'Test User', emailVerified: true, isAdmin: false, githubOrgMember: true, walletAddress: '0xABC123' }],
+        [createMockUser({ id: 'user-1', githubOrgMember: true, walletAddress: '0xABC123' })],
       ];
 
       const authHeaders = await createAuthHeaders('user-1', 'test@constructs.network');
@@ -354,7 +355,7 @@ describe('Auth Routes', () => {
     it('returns { valid: true, auth_method: "jwt" }', async () => {
       // Mock: getUserById for requireAuth
       selectResults = [
-        [{ id: 'user-1', email: 'test@constructs.network', name: 'Test User', emailVerified: true, isAdmin: false, githubOrgMember: false, walletAddress: null }],
+        [createMockUser({ id: 'user-1' })],
       ];
 
       const authHeaders = await createAuthHeaders('user-1', 'test@constructs.network');

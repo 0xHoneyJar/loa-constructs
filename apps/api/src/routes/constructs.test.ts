@@ -164,6 +164,7 @@ vi.mock('../services/subscription.js', () => ({
 // Import app AFTER all mocks
 import { app } from '../app.js';
 import { createAuthHeaders } from '../../tests/helpers/auth.js';
+import { createMockUser } from '../../tests/helpers/fixtures.js';
 
 // --- Mock pack/skill data factories ---
 
@@ -557,7 +558,7 @@ describe('Constructs Routes', () => {
       // Mock user lookup for requireAuth/optionalAuth
       selectResults = [
         // optionalAuth user lookup
-        [{ id: 'user-1', email: 'member@constructs.network', name: 'Member', emailVerified: true, isAdmin: false, githubOrgMember: true, walletAddress: null }],
+        [createMockUser({ id: 'user-1', email: 'member@constructs.network', name: 'Member', githubOrgMember: true })],
         // listConstructs queries
         [mockPackRow({ visibility: 'internal' })],
         [mockVersionRow()],
