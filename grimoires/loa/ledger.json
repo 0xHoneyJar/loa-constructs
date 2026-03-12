@@ -562,13 +562,15 @@
           "local_id": "sprint-1",
           "global_id": "sprint-50",
           "label": "Commit, Deploy, Verify",
-          "status": "planned"
+          "status": "in_progress",
+          "note": "Code committed + PR opened. Migration + seed pending production deploy."
         },
         {
           "local_id": "sprint-2",
           "global_id": "sprint-51",
           "label": "Ecosystem Propagation",
-          "status": "planned"
+          "status": "completed",
+          "note": "construct-base#6 + 17 construct repo PRs opened (webgl-particles skipped — no construct.yaml)"
         }
       ],
       "bridge": {
