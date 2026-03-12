@@ -27,7 +27,7 @@ capability_requirements:
   - git: read_write
   - shell: execute
   - github_api: read_write (scope: external)
-version: v2.11.0
+version: v2.12.0
 installation_mode: unknown
 trust_level: L2-verified
 -->
@@ -49,6 +49,11 @@ The project exposes 15 key entry points across its public API surface.
 - **pass** — Upass (`./.cache/construct-repos/construct-beacon/scripts/validate.sh:26`)
 - **warn** — Uwarn (`./.cache/construct-repos/construct-beacon/scripts/validate.sh:28`)
 
+### .cache/construct-repos/construct-gecko/scripts
+
+- **load_state** — Uload state (`./.cache/construct-repos/construct-gecko/scripts/patrol-loop.sh:51`)
+- **save_state** — Usave state (`./.cache/construct-repos/construct-gecko/scripts/patrol-loop.sh:59`)
+
 ### .cache/construct-repos/construct-growthpages/src
 
 - **_call_claude** — U call claude (`./.cache/construct-repos/construct-growthpages/src/generate.py:80`)
@@ -61,8 +66,6 @@ The project exposes 15 key entry points across its public API surface.
 - **fetch_release_notes** — Ufetch release notes (`./.cache/construct-repos/construct-growthpages/src/generate.py:264`)
 - **fetch_url_text** — Ufetch url text (`./.cache/construct-repos/construct-growthpages/src/generate.py:222`)
 - **get_project_dir** — Uget project dir (`./.cache/construct-repos/construct-growthpages/src/generate.py:95`)
-- **load_brand** — Uload brand (`./.cache/construct-repos/construct-growthpages/src/generate.py:129`)
-- **load_brief_files** — Uload brief files (`./.cache/construct-repos/construct-growthpages/src/generate.py:152`)
 
 ## Architecture
 <!-- provenance: DERIVED -->
@@ -118,7 +121,7 @@ Directory structure:
 ./grimoires
 ./grimoires/artisan
 ./grimoires/bridgebuilder
-./grimoires/loa
+./grimoires/gecko
 ```
 
 ## Interfaces
@@ -126,6 +129,16 @@ Directory structure:
 ### HTTP Routes
 
 - **GET** `/` (`./apps/api/src/app.ts:165`)
+- **GET** `/app-error` (`./apps/api/src/middleware/error-handler.test.ts:40`)
+- **GET** `/duck-type-error` (`./apps/api/src/middleware/error-handler.test.ts:48`)
+- **GET** `/test` (`./apps/api/src/middleware/auth.test.ts:235`)
+- **GET** `/test` (`./apps/api/src/middleware/auth.test.ts:250`)
+- **GET** `/test` (`./apps/api/src/middleware/auth.test.ts:272`)
+- **GET** `/test` (`./apps/api/src/middleware/auth.test.ts:296`)
+- **GET** `/test` (`./apps/api/src/middleware/auth.test.ts:93`)
+- **GET** `/test` (`./apps/api/src/middleware/rate-limiter.test.ts:61`)
+- **GET** `/unknown-error` (`./apps/api/src/middleware/error-handler.test.ts:44`)
+- **GET** `/v1/auth/login` (`./apps/api/src/middleware/rate-limiter.test.ts:62`)
 
 ### Skill Commands
 
@@ -175,11 +188,11 @@ Directory structure:
 | Module | Files | Purpose | Documentation |
 |--------|-------|---------|---------------|
 | `api/` | 3 | API endpoints | \u2014 |
-| `apps/` | 213293 | Uapps | \u2014 |
+| `apps/` | 213716 | Uapps | \u2014 |
 | `audits/` | 1 | Uaudits | \u2014 |
 | `docs/` | 41 | Documentation | \u2014 |
 | `evals/` | 122 | Benchmarking and regression framework for the Loa agent development system. Ensures framework changes don't degrade agent behavior through | [evals/README.md](evals/README.md) |
-| `grimoires/` | 568 | Home to all grimoire directories for the Loa | [grimoires/README.md](grimoires/README.md) |
+| `grimoires/` | 603 | Home to all grimoire directories for the Loa | [grimoires/README.md](grimoires/README.md) |
 | `packages/` | 443 | Upackages | \u2014 |
 | `packs/` | 1 | Upacks | \u2014 |
 | `scripts/` | 31 | Utility scripts | \u2014 |
@@ -235,15 +248,15 @@ Available commands:
 - `npm run test` — turbo
 - `npm run test:coverage` — turbo
 <!-- ground-truth-meta
-head_sha: c7149664b6e7208f01cf7fa50281c1c9a25bc898
-generated_at: 2026-03-11T20:48:17Z
+head_sha: 91eb707b16c9e971f518de056a561133f06663a8
+generated_at: 2026-03-12T21:14:57Z
 generator: butterfreezone-gen v1.0.0
 sections:
-  agent_context: e8041aaaee5d28a974a5b981103f922e5077b7e539902d5bbd2e32ea0ca6be5e
-  capabilities: 55cdf786da29fdc114418f21228c8ad5b3864c775e6f143b7b3fe1028a4a65cc
-  architecture: 6b9d22d3060a09f9fa062c167397e3f3103df2b5e34e64fefa55364aa0e27f7c
-  interfaces: a28d2390d9ad68ddf602447cbe2b26252e1bd919223ed94feb9392269836605d
-  module_map: 1709ef4aaa3ece23b7ee67f420abb9c3e66737e4a17059339b71b8c6af2c16a0
+  agent_context: f013b30d5d4d15e42a1c1c8c2d158af8e0596ac4f96432a98b104738e04d72e6
+  capabilities: 3c4e92a98ef07d946adf96b42e70d1556b805d453ca8f816937fbf8ec83bc5c5
+  architecture: c24ec5561ee22cf1eb1173619873c1c5c3b154d65c01d19665168450e17debf4
+  interfaces: e5c1a6f7d7338ecf67f31681dcf59120c77ad7556f147ab36cfacd1176167922
+  module_map: 4a1fc54920dd7130f7cc900c6f94b408514197b4146a5cd72ac4ae2d6e62ec43
   verification: ff7b35899eb2dde1aea7b6d03b695a883afc44735c4662b4abfdb99fbb654297
   agents: ca263d1e05fd123434a21ef574fc8d76b559d22060719640a1f060527ef6a0b6
   ecosystem: 0d998700d4489ca2aec077a69004279a3c45c117b9fb5b37c9f85ad511187c7c
