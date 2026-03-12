@@ -111,7 +111,7 @@ export function AuthAwareConstructList({ publicConstructs, children }: AuthAware
     return (
       <>
         {publicConstructs.length > 0 && children}
-        <p className="mt-6 text-center font-mono text-[10px] text-bone-ghost tracking-whisper">
+        <p className="mt-6 text-center font-mono text-xs text-bone-ghost tracking-whisper">
           Link GitHub to access internal constructs
         </p>
       </>
@@ -125,9 +125,9 @@ export function AuthAwareConstructList({ publicConstructs, children }: AuthAware
         <p className="font-mono text-xs text-bone-ghost">
           No public constructs available.
         </p>
-        <p className="mt-3 font-mono text-[10px] text-bone-ghost tracking-whisper">
+        <p className="mt-3 font-mono text-xs text-bone-ghost tracking-whisper">
           <span>Sign in to browse the full catalog.</span>{' '}
-          <DynamicConnectButton label="Sign in" className="text-[10px] text-cyan-dim hover:text-cyan-base" />
+          <DynamicConnectButton label="Sign in" className="text-xs text-cyan-dim hover:text-cyan-base" />
         </p>
       </div>
     );
@@ -137,9 +137,9 @@ export function AuthAwareConstructList({ publicConstructs, children }: AuthAware
   return (
     <>
       {children}
-      <p className="mt-6 text-center font-mono text-[10px] text-bone-ghost tracking-whisper">
+      <p className="mt-6 text-center font-mono text-xs text-bone-ghost tracking-whisper">
         <span>Sign in to see internal constructs</span>{' '}
-        <DynamicConnectButton label="Sign in" className="text-[10px] text-cyan-dim hover:text-cyan-base" />
+        <DynamicConnectButton label="Sign in" className="text-xs text-cyan-dim hover:text-cyan-base" />
       </p>
     </>
   );
@@ -149,7 +149,7 @@ export function AuthAwareConstructList({ publicConstructs, children }: AuthAware
 function AuthConstructTable({ constructs }: { constructs: ConstructNode[] }) {
   return (
     <div className="mt-6">
-      <div className="flex items-center border-b border-void-border pb-2 font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
+      <div className="flex items-center border-b border-void-border pb-2 font-mono text-xs uppercase tracking-whisper text-bone-ghost">
         <span className="w-10 shrink-0">#</span>
         <span className="flex-1">Construct</span>
         <span className="w-20 text-right hidden sm:block">Skills</span>
@@ -167,44 +167,44 @@ function AuthConstructTable({ constructs }: { constructs: ConstructNode[] }) {
               href={`/constructs/${construct.slug}`}
               className="flex items-center py-3 border-b border-void-border hover:bg-void-raised transition-colors group"
             >
-              <span className="w-10 shrink-0 font-mono text-xs text-bone-ghost">
+              <span className="w-10 shrink-0 font-mono text-sm text-bone-ghost">
                 {i + 1}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-bold text-bone-base group-hover:text-bone-bright transition-colors">
+                  <span className="font-mono text-base font-bold text-bone-base group-hover:text-bone-bright transition-colors">
                     {construct.icon && <span className="mr-1">{construct.icon}</span>}
                     {construct.name}
                   </span>
                   {construct.constructType !== 'skill-pack' && (
-                    <span className="border border-cyan-dim/30 bg-cyan-dim/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan-dim hidden sm:inline">
+                    <span className="border border-cyan-dim/30 bg-cyan-dim/10 px-1.5 py-0.5 text-[11px] font-mono text-cyan-dim hidden sm:inline">
                       {construct.constructType.replace(/-/g, ' ')}
                     </span>
                   )}
                   {construct.visibility === 'internal' && (
-                    <span className="border border-cyan-base/30 bg-cyan-base/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan-base hidden sm:inline">
+                    <span className="border border-cyan-base/30 bg-cyan-base/10 px-1.5 py-0.5 text-[11px] font-mono text-cyan-base hidden sm:inline">
                       internal
                     </span>
                   )}
                   {construct.verificationTier === 'PROVEN' && (
-                    <span className="border border-graduation-stable/30 bg-graduation-stable/10 px-1.5 py-0.5 text-[9px] font-mono text-graduation-stable hidden sm:inline">
+                    <span className="border border-graduation-stable/30 bg-graduation-stable/10 px-1.5 py-0.5 text-[11px] font-mono text-graduation-stable hidden sm:inline">
                       proven
                     </span>
                   )}
                   {construct.verificationTier === 'BACKTESTED' && (
-                    <span className="border border-graduation-beta/30 bg-graduation-beta/10 px-1.5 py-0.5 text-[9px] font-mono text-graduation-beta hidden sm:inline">
+                    <span className="border border-graduation-beta/30 bg-graduation-beta/10 px-1.5 py-0.5 text-[11px] font-mono text-graduation-beta hidden sm:inline">
                       backtested
                     </span>
                   )}
                 </div>
-                <p className="font-mono text-xs text-bone-muted truncate mt-0.5 max-w-md">
+                <p className="font-mono text-sm text-bone-muted truncate mt-0.5 max-w-md">
                   {construct.shortDescription}
                 </p>
               </div>
-              <span className="w-20 text-right font-mono text-xs text-bone-dim hidden sm:block">
+              <span className="w-20 text-right font-mono text-sm text-bone-dim hidden sm:block">
                 {construct.skillsCount}
               </span>
-              <span className="w-24 text-right font-mono text-sm text-bone-base">
+              <span className="w-24 text-right font-mono text-base text-bone-base">
                 {construct.downloads >= 1000 ? `${(construct.downloads / 1000).toFixed(1)}K` : construct.downloads.toLocaleString()}
               </span>
             </a>

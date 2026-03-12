@@ -31,13 +31,13 @@ export default async function HomePage({
       <section className="px-4 pt-16 pb-10 sm:pt-20 sm:pb-12">
         <div className="mx-auto max-w-4xl">
           <div>
-            <h1 className="font-display text-4xl sm:text-5xl uppercase tracking-display text-bone-bright leading-[0.95]">
+            <h1 className="font-display text-5xl sm:text-6xl uppercase tracking-display text-bone-bright leading-[0.95]">
               Constructs
             </h1>
-            <p className="mt-2 font-mono text-[10px] uppercase tracking-whisper text-cyan-dim">
+            <p className="mt-3 font-mono text-xs uppercase tracking-whisper text-cyan-dim">
               The Open Agent Expertise Network
             </p>
-            <p className="mt-4 font-mono text-sm text-bone-muted leading-relaxed max-w-lg">
+            <p className="mt-5 font-mono text-base sm:text-lg text-bone-muted leading-relaxed max-w-lg">
               Named expertise for AI agents. One command to install.
             </p>
           </div>
@@ -45,10 +45,10 @@ export default async function HomePage({
           {/* Install CTA */}
           <div className="mt-10 flex flex-col sm:flex-row items-start gap-6">
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-whisper text-bone-ghost mb-2">
+              <p className="font-mono text-xs uppercase tracking-whisper text-bone-ghost mb-3">
                 Try it now
               </p>
-              <div className="border border-void-border bg-void-raised px-4 py-2.5 font-mono text-sm inline-flex items-center gap-3">
+              <div className="border border-void-border bg-void-raised px-5 py-3 font-mono text-base inline-flex items-center gap-3">
                 <div>
                   <span className="text-bone-ghost">$ </span>
                   <span className="text-cyan-base">npx constructs install</span>
@@ -65,10 +65,10 @@ export default async function HomePage({
         <div className="mx-auto max-w-4xl">
           {/* Section header */}
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-mono text-[10px] uppercase tracking-whisper text-cyan-dim">
+            <h2 className="font-mono text-xs uppercase tracking-whisper text-cyan-dim">
               Constructs Leaderboard
             </h2>
-            <div className="flex items-center gap-4 font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
+            <div className="flex items-center gap-4 font-mono text-xs uppercase tracking-whisper text-bone-ghost">
               <span>{allConstructs.length} constructs</span>
               <span className="w-px h-3 bg-void-border" />
               <span>{totalSkills} skills</span>
@@ -82,7 +82,7 @@ export default async function HomePage({
           <AuthAwareConstructList publicConstructs={constructs}>
             <div className="mt-6">
               {/* Table header */}
-              <div className="flex items-center border-b border-void-border pb-2 font-mono text-[10px] uppercase tracking-whisper text-bone-ghost">
+              <div className="flex items-center border-b border-void-border pb-2 font-mono text-xs uppercase tracking-whisper text-bone-ghost">
                 <span className="w-10 shrink-0">#</span>
                 <span className="flex-1">Construct</span>
                 <span className="w-20 text-right hidden sm:block">Skills</span>
@@ -102,44 +102,44 @@ export default async function HomePage({
                       href={`/constructs/${construct.slug}`}
                       className="flex items-center py-3 border-b border-void-border hover:bg-void-raised transition-colors group"
                     >
-                      <span className="w-10 shrink-0 font-mono text-xs text-bone-ghost">
+                      <span className="w-10 shrink-0 font-mono text-sm text-bone-ghost">
                         {i + 1}
                       </span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm font-bold text-bone-base group-hover:text-bone-bright transition-colors">
+                          <span className="font-mono text-base font-bold text-bone-base group-hover:text-bone-bright transition-colors">
                             {construct.icon && <span className="mr-1">{construct.icon}</span>}
                             {construct.name}
                           </span>
                           {construct.constructType !== 'skill-pack' && (
-                            <span className="border border-cyan-dim/30 bg-cyan-dim/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan-dim hidden sm:inline">
+                            <span className="border border-cyan-dim/30 bg-cyan-dim/10 px-1.5 py-0.5 text-[11px] font-mono text-cyan-dim hidden sm:inline">
                               {construct.constructType.replace(/-/g, ' ')}
                             </span>
                           )}
                           {construct.visibility === 'internal' && (
-                            <span className="border border-cyan-base/30 bg-cyan-base/10 px-1.5 py-0.5 text-[9px] font-mono text-cyan-base hidden sm:inline">
+                            <span className="border border-cyan-base/30 bg-cyan-base/10 px-1.5 py-0.5 text-[11px] font-mono text-cyan-base hidden sm:inline">
                               internal
                             </span>
                           )}
                           {construct.verificationTier === 'PROVEN' && (
-                            <span className="border border-graduation-stable/30 bg-graduation-stable/10 px-1.5 py-0.5 text-[9px] font-mono text-graduation-stable hidden sm:inline">
+                            <span className="border border-graduation-stable/30 bg-graduation-stable/10 px-1.5 py-0.5 text-[11px] font-mono text-graduation-stable hidden sm:inline">
                               proven
                             </span>
                           )}
                           {construct.verificationTier === 'BACKTESTED' && (
-                            <span className="border border-graduation-beta/30 bg-graduation-beta/10 px-1.5 py-0.5 text-[9px] font-mono text-graduation-beta hidden sm:inline">
+                            <span className="border border-graduation-beta/30 bg-graduation-beta/10 px-1.5 py-0.5 text-[11px] font-mono text-graduation-beta hidden sm:inline">
                               backtested
                             </span>
                           )}
                         </div>
-                        <p className="font-mono text-xs text-bone-muted truncate mt-0.5 max-w-md">
+                        <p className="font-mono text-sm text-bone-muted truncate mt-0.5 max-w-md">
                           {construct.shortDescription}
                         </p>
                       </div>
-                      <span className="w-20 text-right font-mono text-xs text-bone-dim hidden sm:block">
+                      <span className="w-20 text-right font-mono text-sm text-bone-dim hidden sm:block">
                         {construct.skillsCount}
                       </span>
-                      <span className="w-24 text-right font-mono text-sm text-bone-base">
+                      <span className="w-24 text-right font-mono text-base text-bone-base">
                         {formatInstalls(construct.downloads)}
                       </span>
                     </Link>

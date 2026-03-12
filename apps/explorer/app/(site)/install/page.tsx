@@ -9,7 +9,7 @@ function CodeBlock({ children }: { children: string }) {
   return (
     <div className="group relative">
       <pre className="overflow-x-auto border border-void-border bg-void-raised p-4">
-        <code className="font-mono text-sm text-bone-base">{children}</code>
+        <code className="font-mono text-base text-bone-base">{children}</code>
       </pre>
     </div>
   );
@@ -22,7 +22,7 @@ function Step({ number, title, children }: { number: number; title: string; chil
         <span className="flex h-6 w-6 items-center justify-center border border-bone-ghost font-mono text-xs text-bone-dim">
           {number}
         </span>
-        <h3 className="font-mono text-sm font-medium text-bone-base">{title}</h3>
+        <h3 className="font-mono text-base font-medium text-bone-base">{title}</h3>
       </div>
       {children}
     </div>
@@ -34,49 +34,49 @@ export default function InstallPage() {
     <div className="mx-auto max-w-2xl px-4 py-12">
       <Link
         href="/"
-        className="mb-8 inline-flex items-center gap-2 font-mono text-xs text-bone-ghost transition-colors hover:text-bone-bright"
+        className="mb-8 inline-flex items-center gap-2 font-mono text-sm text-bone-ghost transition-colors hover:text-bone-bright"
       >
         ← Back
       </Link>
 
-      <h1 className="mb-2 font-mono text-2xl font-bold text-bone-base">
+      <h1 className="mb-2 font-mono text-3xl font-bold text-bone-base">
         Install a Construct
       </h1>
-      <p className="mb-10 font-mono text-sm text-bone-muted">
+      <p className="mb-10 font-mono text-base text-bone-muted">
         Named expertise for your AI coding agent. No account required for free constructs.
       </p>
 
       {/* CLI */}
       <section className="mb-12">
-        <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-wider text-bone-ghost">
+        <h2 className="mb-4 font-mono text-sm font-semibold uppercase tracking-wider text-bone-ghost">
           With the CLI
         </h2>
 
         <div className="space-y-8">
           <Step number={1} title="Browse what's available">
             <CodeBlock>npx @loa-constructs/cli list</CodeBlock>
-            <p className="mt-2 text-xs text-bone-ghost">
+            <p className="mt-2 text-sm text-bone-ghost">
               Or search: <code className="text-bone-dim">npx @loa-constructs/cli find &quot;design&quot;</code>
             </p>
           </Step>
 
           <Step number={2} title="Get details on a construct">
             <CodeBlock>npx @loa-constructs/cli info observer</CodeBlock>
-            <p className="mt-2 text-xs text-bone-ghost">
+            <p className="mt-2 text-sm text-bone-ghost">
               See skills, commands, expertise domains, and install instructions.
             </p>
           </Step>
 
           <Step number={3} title="Install">
             <CodeBlock>npx @loa-constructs/cli install observer</CodeBlock>
-            <p className="mt-2 text-xs text-bone-ghost">
+            <p className="mt-2 text-sm text-bone-ghost">
               Downloads to <code className="text-bone-dim">.claude/constructs/packs/observer/</code>
             </p>
           </Step>
 
           <Step number={4} title="Use the skills">
             <CodeBlock>/observing-users</CodeBlock>
-            <p className="mt-2 text-xs text-bone-ghost">
+            <p className="mt-2 text-sm text-bone-ghost">
               Each construct installs slash commands you invoke directly in Claude Code.
             </p>
           </Step>
@@ -85,19 +85,19 @@ export default function InstallPage() {
 
       {/* With Loa */}
       <section className="mb-12">
-        <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-wider text-bone-ghost">
+        <h2 className="mb-4 font-mono text-sm font-semibold uppercase tracking-wider text-bone-ghost">
           With Loa Framework
         </h2>
-        <p className="mb-4 text-sm text-bone-muted">
+        <p className="mb-4 text-base text-bone-muted">
           If you have the Loa framework installed, constructs integrate directly:
         </p>
         <div className="space-y-3">
           <CodeBlock>/constructs</CodeBlock>
-          <p className="text-xs text-bone-ghost">
+          <p className="text-sm text-bone-ghost">
             Opens the interactive browser to select and install packs.
           </p>
           <CodeBlock>/constructs install observer</CodeBlock>
-          <p className="text-xs text-bone-ghost">
+          <p className="text-sm text-bone-ghost">
             Direct install by slug.
           </p>
         </div>
@@ -105,29 +105,29 @@ export default function InstallPage() {
 
       {/* Create Your Own */}
       <section className="mb-12">
-        <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-wider text-bone-ghost">
+        <h2 className="mb-4 font-mono text-sm font-semibold uppercase tracking-wider text-bone-ghost">
           Create Your Own
         </h2>
-        <p className="mb-4 text-sm text-bone-muted">
+        <p className="mb-4 text-base text-bone-muted">
           Name your repo <code className="text-bone-dim">construct-*</code> in your GitHub org
           and it auto-discovers on the network.
         </p>
         <CodeBlock>{`gh repo create my-org/construct-my-expertise \\
   --template 0xHoneyJar/construct-base --clone`}</CodeBlock>
-        <p className="mt-2 text-xs text-bone-ghost">
+        <p className="mt-2 text-sm text-bone-ghost">
           Edit three files. Push. CI validates. Your expertise is installable.
         </p>
       </section>
 
       {/* API */}
       <section className="mb-12">
-        <h2 className="mb-4 font-mono text-xs font-semibold uppercase tracking-wider text-bone-ghost">
+        <h2 className="mb-4 font-mono text-sm font-semibold uppercase tracking-wider text-bone-ghost">
           API
         </h2>
-        <p className="mb-4 text-sm text-bone-muted">
+        <p className="mb-4 text-base text-bone-muted">
           Every construct is accessible via REST. No auth for public reads.
         </p>
-        <div className="space-y-2 text-sm font-mono">
+        <div className="space-y-2 text-base font-mono">
           <div className="flex items-start gap-3 border-b border-void-border pb-2">
             <span className="text-bone-ghost w-12 shrink-0">GET</span>
             <code className="text-bone-dim">/v1/constructs</code>
@@ -149,14 +149,14 @@ export default function InstallPage() {
             <span className="text-bone-ghost ml-auto">Exists?</span>
           </div>
         </div>
-        <p className="mt-3 text-xs text-bone-ghost">
+        <p className="mt-3 text-sm text-bone-ghost">
           Base: <code>https://api.constructs.network/v1</code>
         </p>
       </section>
 
       {/* Links */}
       <section>
-        <div className="flex gap-4 text-xs font-mono">
+        <div className="flex gap-4 text-sm font-mono">
           <Link href="/constructs" className="text-bone-muted hover:text-bone-bright transition-colors">
             Browse Constructs →
           </Link>

@@ -29,7 +29,7 @@ export function GraduationBadge({ level, showStable = false }: GraduationBadgePr
 
   return (
     <span
-      className="inline-flex items-center px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-terminal"
+      className="inline-flex items-center px-1.5 py-0.5 font-mono text-[11px] uppercase tracking-terminal"
       style={{
         color: styles.color,
         borderWidth: 1,

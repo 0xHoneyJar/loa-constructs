@@ -57,9 +57,9 @@ export function LeaderboardSearch() {
         value={value}
         onChange={handleChange}
         placeholder="Search constructs..."
-        className="w-full border border-void-border bg-transparent py-3 pl-11 pr-12 font-mono text-sm text-bone-base placeholder:text-bone-ghost focus:border-cyan-dim focus:outline-none transition-colors"
+        className="w-full border border-void-border bg-transparent py-3 pl-11 pr-12 font-mono text-base text-bone-base placeholder:text-bone-ghost focus:border-cyan-dim focus:outline-none transition-colors"
       />
-      <kbd className="absolute right-4 top-1/2 -translate-y-1/2 border border-void-border px-1.5 py-0.5 font-mono text-[10px] text-bone-ghost">
+      <kbd className="absolute right-4 top-1/2 -translate-y-1/2 border border-void-border px-1.5 py-0.5 font-mono text-xs text-bone-ghost">
         /
       </kbd>
     </div>

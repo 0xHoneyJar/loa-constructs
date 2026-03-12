@@ -135,18 +135,18 @@ export function GlobalSearch() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handlePaletteKeyDown}
             placeholder="Search constructs..."
-            className="w-full bg-transparent font-mono text-sm text-bone-base placeholder:text-bone-ghost focus:outline-none"
+            className="w-full bg-transparent font-mono text-base text-bone-base placeholder:text-bone-ghost focus:outline-none"
           />
         </div>
 
         <div className="max-h-72 overflow-y-auto">
           {!loaded ? (
             <div className="px-4 py-6 text-center">
-              <p className="font-mono text-xs text-bone-ghost">Loading...</p>
+              <p className="font-mono text-sm text-bone-ghost">Loading...</p>
             </div>
           ) : results.length === 0 ? (
             <div className="px-4 py-6 text-center">
-              <p className="font-mono text-xs text-bone-ghost">No constructs found</p>
+              <p className="font-mono text-sm text-bone-ghost">No constructs found</p>
             </div>
           ) : (
             <ul className="py-1">
@@ -165,19 +165,19 @@ export function GlobalSearch() {
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm text-bone-base">
+                        <span className="font-mono text-base text-bone-base">
                           {result.name}
                         </span>
-                        <span className="font-mono text-[10px] uppercase tracking-terminal text-bone-ghost">
+                        <span className="font-mono text-xs uppercase tracking-terminal text-bone-ghost">
                           {result.category}
                         </span>
                       </div>
-                      <p className="truncate font-mono text-xs text-bone-muted">
+                      <p className="truncate font-mono text-sm text-bone-muted">
                         {result.shortDescription}
                       </p>
                     </div>
                     {index === selectedIndex && (
-                      <kbd className="shrink-0 border border-void-border px-1.5 py-0.5 font-mono text-[10px] text-bone-ghost">
+                      <kbd className="shrink-0 border border-void-border px-1.5 py-0.5 font-mono text-xs text-bone-ghost">
                         enter
                       </kbd>
                     )}
@@ -189,12 +189,12 @@ export function GlobalSearch() {
         </div>
 
         <div className="flex items-center justify-between border-t border-void-border px-4 py-2">
-          <div className="flex items-center gap-3 font-mono text-[10px] text-bone-ghost">
+          <div className="flex items-center gap-3 font-mono text-xs text-bone-ghost">
             <span><kbd className="border border-void-border px-1">↑↓</kbd> navigate</span>
             <span><kbd className="border border-void-border px-1">↵</kbd> open</span>
             <span><kbd className="border border-void-border px-1">esc</kbd> close</span>
           </div>
-          <span className="font-mono text-[10px] text-bone-ghost">
+          <span className="font-mono text-xs text-bone-ghost">
             {results.length} results
           </span>
         </div>

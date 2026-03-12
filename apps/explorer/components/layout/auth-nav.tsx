@@ -30,13 +30,13 @@ export function AuthNav() {
       {isAuthenticated && (
         <Link
           href="/dashboard"
-          className="font-mono text-[9px] text-bone-dim hover:text-bone-bright border border-void-border hover:border-void-border px-1.5 py-0.5 uppercase tracking-wider transition-colors"
+          className="font-mono text-[11px] text-bone-dim hover:text-bone-bright border border-void-border hover:border-void-border px-2 py-1 uppercase tracking-wider transition-colors"
         >
           Dashboard
         </Link>
       )}
       {isOrgMember && (
-        <span className="font-mono text-[9px] text-cyan-base/70 border border-cyan-base/20 px-1 py-0.5 uppercase tracking-wider">
+        <span className="font-mono text-[11px] text-cyan-base/70 border border-cyan-base/20 px-1.5 py-0.5 uppercase tracking-wider">
           org
         </span>
       )}
