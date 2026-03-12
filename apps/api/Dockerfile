@@ -11,7 +11,7 @@ COPY package.json bun.lock ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/shared/package.json ./packages/shared/
 
-# Install dependencies
+# Install all dependencies
 RUN bun install
 
 # Copy source code
@@ -26,6 +26,10 @@ RUN bun run build
 WORKDIR /app/apps/api
 RUN bun run build
 
+# Prune to production deps only (from workspace root)
+WORKDIR /app
+RUN rm -rf node_modules && bun install --production
+
 # --- Production Stage ---
 FROM oven/bun:1.2-alpine AS runner
 
@@ -38,13 +42,11 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 WORKDIR /app
 
-# Copy built application
+# Copy built dist
 COPY --from=builder --chown=nodejs:nodejs /app/apps/api/dist ./dist
-COPY --from=builder --chown=nodejs:nodejs /app/apps/api/package.json ./
-COPY --from=builder --chown=nodejs:nodejs /app/bun.lock ./
 
-# Install production dependencies only
-RUN bun install --no-save
+# Copy production node_modules from builder (already pruned)
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
 # Set environment
 ENV NODE_ENV=production

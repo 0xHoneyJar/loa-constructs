@@ -24,20 +24,19 @@ const observationFields = {
   source: v.optional(v.string()),
 };
 
-export const insert = internalMutation({
+// Atomic insert-if-not-exists: read + write in single mutation transaction
+// prevents race conditions from concurrent pushes (GPT-review finding #2)
+export const insertIfNotExists = internalMutation({
   args: observationFields,
   handler: async (ctx, args) => {
-    await ctx.db.insert('healthObservations', args);
-  },
-});
-
-export const findByTimestamp = internalQuery({
-  args: { timestamp: v.string() },
-  handler: async (ctx, { timestamp }) => {
-    return ctx.db
+    const existing = await ctx.db
       .query('healthObservations')
-      .withIndex('by_timestamp', (q) => q.eq('timestamp', timestamp))
+      .withIndex('by_timestamp', (q) => q.eq('timestamp', args.timestamp))
       .first();
+    if (existing) {
+      throw new Error('duplicate observation');
+    }
+    await ctx.db.insert('healthObservations', args);
   },
 });
 
@@ -52,16 +51,8 @@ export const pushFromGecko = action({
       throw new Error('unauthorized');
     }
 
-    const existing = await ctx.runQuery(
-      internal.healthObservations.findByTimestamp,
-      { timestamp: args.timestamp },
-    );
-    if (existing) {
-      throw new Error('duplicate observation');
-    }
-
     const { writeKey: _, ...observation } = args;
-    await ctx.runMutation(internal.healthObservations.insert, observation);
+    await ctx.runMutation(internal.healthObservations.insertIfNotExists, observation);
   },
 });
 
