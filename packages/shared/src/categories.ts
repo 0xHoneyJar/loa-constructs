@@ -48,6 +48,11 @@ export const LEGACY_SLUG_MAPPINGS: Record<string, CategorySlug> = {
   data: 'analytics',
   devops: 'operations',
   infra: 'infrastructure',
+  observability: 'analytics',
+  'game-design': 'design',
+  web3: 'development',
+  aesthetics: 'design',
+  'visual-direction': 'design',
 };
 
 /**
