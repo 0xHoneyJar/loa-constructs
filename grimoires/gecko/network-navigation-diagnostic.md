@@ -1,6 +1,6 @@
 # Network Navigation Diagnostic — 2026-03-12
 
-> **Status**: CRITICAL (API down) + 2 HIGH fixes applied locally
+> **Status**: RESOLVED — all 3 bugs fixed, API stable
 > **Discovered by**: Gecko ecosystem patrol + Bridgebuilder review
 > **Impact**: Every Loa consumer sees empty registry. `/constructs` returns `[]`.
 
@@ -10,7 +10,7 @@
 
 **Symptom**: `api.constructs.network` returns 502 on all endpoints.
 
-**Root cause**: Dockerfile uses floating `oven/bun:1.2` tag → resolved to v1.2.23 → **segfault crash loop** on Railway.
+**Root cause**: Native `bcrypt@5.1.1` C++ addon (node-pre-gyp + node-addon-api) causes a segmentation fault at address `0x4190` under Bun on Linux x64. Crash occurs ~19-29s after server start, affects Bun 1.2.22 AND 1.2.23.
 
 ```
 panic: Segmentation fault at address 0x4190
@@ -18,15 +18,15 @@ Bun v1.2.23 (cf136713) Linux x64 (baseline)
 Elapsed: 29291ms | RSS: 0.60GB | Peak: 0.14GB
 ```
 
-The API starts, runs ~29 seconds, segfaults, Railway restarts, repeat.
+The API starts, runs ~29 seconds, segfaults, Railway restarts, repeat. Additionally, the Dockerfile used a floating `oven/bun:1.2` tag that auto-resolved to the broken version.
 
-**Fix**: Pin both Dockerfile stages to `oven/bun:1.2.22`:
-```dockerfile
-FROM oven/bun:1.2.22 AS builder
-FROM oven/bun:1.2.22-alpine AS runner
-```
+**Fix (two commits)**:
+1. `bcrypt@5.1.1` → `bcryptjs@2.4.3` (pure JS drop-in, no native code, no segfault)
+2. Pin Dockerfile to `oven/bun:1.2.22` (defense in depth against future floating tag issues)
 
-**Lesson**: Never use floating tags in production Dockerfiles. This is the exact class of problem an observability dashboard would catch within 60 seconds.
+**Auth code path**: `middleware/auth.ts` → `services/auth.ts:verifyApiKey()` → `bcrypt.compare()`. The native addon's OpenSSL/libuv interactions under Bun's Node.js compat layer triggered the segfault.
+
+**Lesson**: Never use native C++ addons under Bun without explicit compatibility testing. Never use floating Docker tags in production. This is the exact class of problem an observability dashboard would catch within 60 seconds.
 
 **Crash report**: `https://bun.report/1.2.23/Br1cf13671wwBqggUm25wvEg/vTwjtCu9sD0ro69CipxlhD80hXA2Ag5gB`
 
