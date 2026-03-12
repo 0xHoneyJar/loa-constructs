@@ -46,6 +46,7 @@ export interface Construct {
   slug: string;
   icon: string | null;
   description: string | null;
+  shortDescription: string | null;
   longDescription: string | null;
   version: string | null;
   tierRequired: string;
@@ -302,6 +303,7 @@ function skillToConstruct(
     slug: skill.slug,
     icon: null, // Skills don't have icons
     description: skill.description,
+    shortDescription: null, // Skills don't have short_description
     longDescription: skill.longDescription,
     version: version?.version || null,
     tierRequired: skill.tierRequired || 'free',
@@ -387,6 +389,7 @@ function packToConstruct(
     slug: pack.slug,
     icon: pack.icon || null,
     description: pack.description,
+    shortDescription: pack.shortDescription || null,
     longDescription: pack.longDescription,
     version: version?.version || null,
     tierRequired: pack.tierRequired || 'free',

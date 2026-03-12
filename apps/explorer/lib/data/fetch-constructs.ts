@@ -8,6 +8,7 @@ interface APIConstruct {
   name: string;
   type: 'skill' | 'pack' | 'bundle';
   description: string | null;
+  short_description: string | null;
   category: string | null;
   version: string | null;
   downloads: number;
@@ -68,9 +69,10 @@ function parseConstructType(ct: string | undefined): ConstructArchetype {
 
 function transformToNode(construct: APIConstruct): ConstructNode {
   const commands = construct.manifest?.commands || [];
-  const shortDesc = construct.description
-    ? construct.description.split('.')[0].slice(0, 60)
-    : 'No description';
+  // Fallback chain: short_description → first sentence of description → 'No description'
+  const shortDesc = construct.short_description
+    || (construct.description ? construct.description.split('.')[0].slice(0, 80) : null)
+    || 'No description';
 
   // Category now comes from API (packs.category column, cycle-041)
   const category = normalizeCategory(construct.category || 'development');

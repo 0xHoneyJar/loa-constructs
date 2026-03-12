@@ -6,7 +6,7 @@ function MarketingFooter() {
   return (
     <footer className="border-t border-void-border px-6 py-8 mt-auto">
       <div className="max-w-6xl mx-auto">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-sm font-mono">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-base font-mono">
           <div>
             <p className="text-bone-ghost mb-2">Product</p>
             <div className="space-y-1">
@@ -38,7 +38,7 @@ function MarketingFooter() {
             </div>
           </div>
         </div>
-        <div className="mt-8 pt-4 border-t border-void-border text-sm font-mono text-bone-ghost">
+        <div className="mt-8 pt-4 border-t border-void-border text-base font-mono text-bone-ghost">
           &copy; {new Date().getFullYear()} Constructs Network. All rights reserved.
         </div>
       </div>

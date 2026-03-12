@@ -36,7 +36,7 @@ export function GlobalSearch() {
             slug: c.slug as string,
             name: c.name as string,
             icon: c.icon as string | undefined,
-            shortDescription: (c.description || '') as string,
+            shortDescription: ((c.short_description as string) || (c.description as string || '').split('.')[0].slice(0, 80) || '') as string,
             category: c.category as string,
             type: c.type as string,
           }));
@@ -78,6 +78,14 @@ export function GlobalSearch() {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
         setOpen((prev) => !prev);
+      }
+      if (
+        e.key === '/' &&
+        !open &&
+        !['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName)
+      ) {
+        e.preventDefault();
+        setOpen(true);
       }
       if (e.key === 'Escape' && open) {
         e.preventDefault();
@@ -135,18 +143,18 @@ export function GlobalSearch() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handlePaletteKeyDown}
             placeholder="Search constructs..."
-            className="w-full bg-transparent font-mono text-base text-bone-base placeholder:text-bone-ghost focus:outline-none"
+            className="w-full bg-transparent font-mono text-lg text-bone-base placeholder:text-bone-ghost focus:outline-none"
           />
         </div>
 
         <div className="max-h-72 overflow-y-auto">
           {!loaded ? (
             <div className="px-4 py-6 text-center">
-              <p className="font-mono text-sm text-bone-ghost">Loading...</p>
+              <p className="font-mono text-base text-bone-ghost">Loading...</p>
             </div>
           ) : results.length === 0 ? (
             <div className="px-4 py-6 text-center">
-              <p className="font-mono text-sm text-bone-ghost">No constructs found</p>
+              <p className="font-mono text-base text-bone-ghost">No constructs found</p>
             </div>
           ) : (
             <ul className="py-1">
@@ -161,23 +169,23 @@ export function GlobalSearch() {
                     }`}
                   >
                     {result.icon && (
-                      <span className="text-base shrink-0">{result.icon}</span>
+                      <span className="text-lg shrink-0">{result.icon}</span>
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-base text-bone-base">
+                        <span className="font-mono text-lg text-bone-base">
                           {result.name}
                         </span>
-                        <span className="font-mono text-xs uppercase tracking-terminal text-bone-ghost">
+                        <span className="font-mono text-sm uppercase tracking-terminal text-bone-ghost">
                           {result.category}
                         </span>
                       </div>
-                      <p className="truncate font-mono text-sm text-bone-muted">
+                      <p className="truncate font-mono text-base text-bone-muted">
                         {result.shortDescription}
                       </p>
                     </div>
                     {index === selectedIndex && (
-                      <kbd className="shrink-0 border border-void-border px-1.5 py-0.5 font-mono text-xs text-bone-ghost">
+                      <kbd className="shrink-0 border border-void-border px-1.5 py-0.5 font-mono text-sm text-bone-ghost">
                         enter
                       </kbd>
                     )}
@@ -189,12 +197,12 @@ export function GlobalSearch() {
         </div>
 
         <div className="flex items-center justify-between border-t border-void-border px-4 py-2">
-          <div className="flex items-center gap-3 font-mono text-xs text-bone-ghost">
+          <div className="flex items-center gap-3 font-mono text-sm text-bone-ghost">
             <span><kbd className="border border-void-border px-1">↑↓</kbd> navigate</span>
             <span><kbd className="border border-void-border px-1">↵</kbd> open</span>
             <span><kbd className="border border-void-border px-1">esc</kbd> close</span>
           </div>
-          <span className="font-mono text-xs text-bone-ghost">
+          <span className="font-mono text-sm text-bone-ghost">
             {results.length} results
           </span>
         </div>

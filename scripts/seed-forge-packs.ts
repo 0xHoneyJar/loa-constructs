@@ -57,6 +57,28 @@ function canonicalStringify(value: unknown): string {
   return 'null';
 }
 
+// Short description overrides — handcrafted taglines for storefront display
+// Used when construct.yaml doesn't provide short_description
+const SHORT_DESCRIPTION_OVERRIDES: Record<string, string> = {
+  artisan: 'Design systems craft',
+  beacon: 'AI-retrievable trust signals',
+  crucible: 'Journey validation testing',
+  'dynamic-auth': 'Wallet identity resolution',
+  gecko: 'Ecosystem intelligence',
+  growthpages: 'Educational content pipeline',
+  'gtm-collective': 'Go-to-market operations',
+  hardening: 'Defensive artifact forge',
+  herald: 'Grounded product comms',
+  'k-hole': 'Depth engine for exploration',
+  'mibera-codex': 'Mibera universe knowledge',
+  observer: 'Hypothesis-first user research',
+  protocol: 'On-chain verification',
+  'social-oracle': 'GitHub-to-social content',
+  'the-arcade': 'Game design philosophy',
+  'the-easel': 'Aesthetic direction studio',
+  webreel: 'Cinematic web capture',
+};
+
 // Pack icons (not stored in manifest to keep manifests simple)
 const PACK_ICONS: Record<string, string> = {
   observer: '👁️',
@@ -576,6 +598,10 @@ async function seedForgePacks() {
       for (const pack of packs) {
         const packId = randomUUID();
         // Extract fields from fullManifest when available
+        // Short description: manifest > override map > derive from description
+        const shortDesc = pack.fullManifest?.short_description
+          ?? SHORT_DESCRIPTION_OVERRIDES[pack.slug]
+          ?? (pack.description ? pack.description.split('.')[0].slice(0, 80) : null);
         const longDesc = pack.fullManifest?.long_description ?? null;
         const repoUrl = pack.fullManifest?.repository ?? null;
         const homepageUrl = pack.fullManifest?.homepage ?? null;
@@ -594,7 +620,7 @@ async function seedForgePacks() {
 
         const packResult = await tx`
           INSERT INTO packs (
-            id, name, slug, description, long_description, icon, owner_id, owner_type,
+            id, name, slug, description, short_description, long_description, icon, owner_id, owner_type,
             status, tier_required, pricing_type, thj_bypass,
             construct_type, category,
             visibility, submission_source,
@@ -606,6 +632,7 @@ async function seedForgePacks() {
             ${pack.name},
             ${pack.slug},
             ${pack.description},
+            ${shortDesc},
             ${longDesc},
             ${pack.icon},
             ${ownerId},
@@ -629,6 +656,7 @@ async function seedForgePacks() {
           ON CONFLICT (slug) DO UPDATE SET
             name = EXCLUDED.name,
             description = EXCLUDED.description,
+            short_description = EXCLUDED.short_description,
             long_description = EXCLUDED.long_description,
             icon = EXCLUDED.icon,
             status = 'published',
