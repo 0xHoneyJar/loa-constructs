@@ -167,7 +167,7 @@ vi.mock('../services/subscription.js', () => ({
 
 // Import app AFTER all mocks
 import { app } from '../app.js';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { createAuthHeaders, createRefreshToken } from '../../tests/helpers/auth.js';
 import { createMockUser } from '../../tests/helpers/fixtures.js';
 

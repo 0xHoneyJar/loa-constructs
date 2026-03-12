@@ -4,7 +4,7 @@
  * @see sprint.md T2.1: Auth Service
  */
 
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { SignJWT, jwtVerify, type JWTPayload } from 'jose';
 import { env } from '../config/env.js';
 import { blacklistService } from './blacklist.js';
