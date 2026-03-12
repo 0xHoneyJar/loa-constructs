@@ -95,6 +95,11 @@ const PACK_ICONS: Record<string, string> = {
   'k-hole': '🕳️',
   'webgl-particles': '✨',
   'the-arcade': '🕹️',
+  gecko: '🦎',
+  'social-oracle': '🔮',
+  'mibera-codex': '📖',
+  webreel: '🎬',
+  growthpages: '🌱',
 };
 
 // Git source configurations for packs with registered repos

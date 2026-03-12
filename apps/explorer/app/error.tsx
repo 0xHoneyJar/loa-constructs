@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -32,19 +33,16 @@ export default function Error({ error, reset }: ErrorProps) {
       </div>
 
       <div className="flex items-center gap-4">
-        <button
-          type="button"
+        <Button
+          variant="outline"
           onClick={reset}
-          className="border border-cyan-dim bg-transparent px-4 py-2 font-mono text-xs uppercase tracking-wider text-cyan-dim transition-colors hover:bg-cyan-dim hover:text-void-base"
+          className="border-cyan-dim text-cyan-dim hover:bg-cyan-dim hover:text-void-base"
         >
           Try Again
-        </button>
-        <Link
-          href="/"
-          className="border border-void-border bg-void-raised px-4 py-2 font-mono text-xs uppercase tracking-wider text-bone-dim transition-colors hover:bg-void-surface hover:text-bone-bright"
-        >
-          Go Home
-        </Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href="/">Go Home</Link>
+        </Button>
       </div>
     </div>
   );

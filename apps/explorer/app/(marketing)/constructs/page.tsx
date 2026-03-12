@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { fetchAllConstructs, searchConstructs } from '@/lib/data/fetch-constructs';
 import { CatalogSearch } from './catalog-search';
 import { AuthAwareConstructList } from '@/components/constructs/auth-aware-construct-list';
+import { Badge } from '@/components/ui/badge';
 
 export const revalidate = 3600; // ISR: revalidate every hour
 
@@ -101,19 +102,19 @@ export default async function ConstructsCatalogPage({
                       {construct.name}
                     </span>
                     {construct.constructType !== 'skill-pack' && (
-                      <span className="border border-cyan-dim/30 bg-cyan-dim/10 px-1.5 py-0.5 text-xs font-mono text-cyan-dim">
+                      <Badge variant="cyan">
                         {construct.constructType.replace(/-/g, ' ')}
-                      </span>
+                      </Badge>
                     )}
                     {construct.visibility === 'internal' && (
-                      <span className="border border-cyan-base/30 bg-cyan-base/10 px-1.5 py-0.5 text-xs font-mono text-cyan-base">
+                      <Badge variant="internal">
                         internal
-                      </span>
+                      </Badge>
                     )}
                     {construct.verificationTier === 'PROVEN' && (
-                      <span className="border border-graduation-stable/30 bg-graduation-stable/10 px-1.5 py-0.5 text-xs font-mono text-graduation-stable">
+                      <Badge variant="proven">
                         proven
-                      </span>
+                      </Badge>
                     )}
                   </div>
                   <span className="font-mono text-sm uppercase tracking-whisper text-bone-ghost mt-0.5">

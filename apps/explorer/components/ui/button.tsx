@@ -11,7 +11,7 @@ const buttonVariants = cva(
         default:
           'bg-bone-base text-void-base hover:bg-bone-dim active:scale-[0.98]',
         destructive:
-          'bg-destructive text-destructive-foreground hover:bg-destructive/90 active:scale-[0.98]',
+          'bg-destructive text-destructive-foreground hover:bg-crimson-dim active:scale-[0.98]',
         outline:
           'border border-void-border bg-transparent text-bone-base hover:bg-void-raised active:scale-[0.98]',
         secondary:

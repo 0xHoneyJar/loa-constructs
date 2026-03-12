@@ -1,16 +1,9 @@
 'use client';
 
-/**
- * Dynamic Labs Connect Button — cycle-039
- * @see sdd.md §6.2 DynamicConnectButton
- *
- * Thin wrapper around Dynamic SDK auth flow.
- * Matches midi-interface/mcv-interface pattern: button calls setShowAuthFlow(true),
- * SDK handles everything, primaryWallet is the auth state.
- */
-
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import { useEffect, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface DynamicConnectButtonProps {
   className?: string;
@@ -22,26 +15,25 @@ export function DynamicConnectButton(props: DynamicConnectButtonProps) {
 
   if (!isDynamicEnabled) {
     return (
-      <button
-        type="button"
+      <Button
+        variant="outline"
         disabled
-        className={`font-mono text-sm text-bone-ghost border border-void-border px-3 py-1 ${props.className ?? ''}`}
+        className={props.className}
         title="Wallet auth is not configured"
       >
-        {props.label ?? 'Connect'}
-      </button>
+        {props.label ?? 'Sign in'}
+      </Button>
     );
   }
 
   return <DynamicConnectButtonEnabled {...props} />;
 }
 
-function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicConnectButtonProps) {
+function DynamicConnectButtonEnabled({ className, label = 'Sign in' }: DynamicConnectButtonProps) {
   const { sdkHasLoaded, setShowAuthFlow, primaryWallet, handleLogOut } =
     useDynamicContext();
   const [sdkTimedOut, setSdkTimedOut] = useState(false);
 
-  // Timeout: if SDK hasn't loaded after 5s, stop showing the loading state
   useEffect(() => {
     if (sdkHasLoaded) return;
     const timer = setTimeout(() => setSdkTimedOut(true), 5000);
@@ -49,30 +41,28 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
   }, [sdkHasLoaded]);
 
   if (!sdkHasLoaded && !sdkTimedOut) {
-    return (
-      <div className={`h-7 w-20 animate-pulse rounded bg-void-border ${className ?? ''}`} />
-    );
+    return <Skeleton className={`h-9 w-24 ${className ?? ''}`} />;
   }
 
   if (primaryWallet) {
     return (
-      <button
-        type="button"
+      <Button
+        variant="outline"
         onClick={() => handleLogOut()}
-        className={`font-mono text-sm text-bone-muted hover:text-bone-base transition-colors border border-void-border px-3 py-1 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-base/40 ${className ?? ''}`}
+        className={className}
       >
         {primaryWallet.address.slice(0, 6)}...{primaryWallet.address.slice(-4)}
-      </button>
+      </Button>
     );
   }
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="outline"
       onClick={() => setShowAuthFlow(true)}
-      className={`font-mono text-sm text-cyan-base hover:text-cyan-dim transition-colors border border-cyan-base/30 px-3 py-1 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-base/40 ${className ?? ''}`}
+      className={`border-cyan-dim text-cyan-base hover:bg-void-raised hover:text-bone-bright ${className ?? ''}`}
     >
       {label}
-    </button>
+    </Button>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
 
 export default function MarketingError({
   error,
@@ -15,16 +16,13 @@ export default function MarketingError({
       <p className="text-sm font-mono text-bone-dim mb-6 max-w-md">
         {error.message || 'An unexpected error occurred.'}
       </p>
-      <div className="flex gap-3 text-sm font-mono">
-        <button
-          onClick={reset}
-          className="border border-bone-ghost px-4 py-2 text-bone-base hover:bg-void-surface transition-colors"
-        >
+      <div className="flex gap-3">
+        <Button variant="outline" onClick={reset}>
           Try again
-        </button>
-        <Link href="/" className="border border-bone-ghost px-4 py-2 text-bone-dim hover:bg-void-surface transition-colors">
-          Go home
-        </Link>
+        </Button>
+        <Button asChild variant="secondary">
+          <Link href="/">Go home</Link>
+        </Button>
       </div>
     </div>
   );

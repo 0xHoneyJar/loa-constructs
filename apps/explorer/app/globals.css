@@ -28,6 +28,18 @@
   --color-crimson-base: oklch(0.55 0.24 25);
   --color-crimson-dim: oklch(0.35 0.18 25);
 
+  /* Tints — solid OKLCH equivalents of opacity blends on void-base */
+  --color-cyan-tint-bg: oklch(0.14 0.015 195);
+  --color-cyan-tint-border: oklch(0.25 0.04 195);
+  --color-cyan-dim-tint-bg: oklch(0.13 0.012 195);
+  --color-cyan-dim-tint-border: oklch(0.22 0.035 195);
+  --color-stable-tint-bg: oklch(0.14 0.02 155);
+  --color-stable-tint-border: oklch(0.25 0.05 155);
+  --color-beta-tint-bg: oklch(0.14 0.02 85);
+  --color-beta-tint-border: oklch(0.25 0.05 85);
+  --color-crimson-tint-bg: oklch(0.14 0.03 25);
+  --color-crimson-tint-border: oklch(0.25 0.06 25);
+
   /* Semantic aliases */
   --background: var(--color-void-base);
   --surface: var(--color-void-raised);

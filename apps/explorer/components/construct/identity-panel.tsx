@@ -1,3 +1,5 @@
+import { Badge } from '@/components/ui/badge';
+
 interface IdentityPanelProps {
   identity: {
     cognitiveFrame?: Record<string, unknown>;
@@ -74,12 +76,9 @@ export function IdentityPanel({ identity }: IdentityPanelProps) {
             </span>
             <div className="mt-1 flex flex-wrap gap-1.5">
               {domains.map((domain) => (
-                <span
-                  key={domain}
-                  className="border border-void-border bg-void-surface px-2 py-0.5 font-mono text-sm text-bone-muted"
-                >
+                <Badge key={domain} variant="skill">
                   {domain}
-                </span>
+                </Badge>
               ))}
             </div>
           </div>

@@ -54,6 +54,20 @@ const config: Config = {
           deprecated: 'var(--graduation-deprecated)',
         },
 
+        // Tints — solid OKLCH badge/surface backgrounds (no opacity)
+        tint: {
+          'cyan-bg': 'var(--color-cyan-tint-bg)',
+          'cyan-border': 'var(--color-cyan-tint-border)',
+          'cyan-dim-bg': 'var(--color-cyan-dim-tint-bg)',
+          'cyan-dim-border': 'var(--color-cyan-dim-tint-border)',
+          'stable-bg': 'var(--color-stable-tint-bg)',
+          'stable-border': 'var(--color-stable-tint-border)',
+          'beta-bg': 'var(--color-beta-tint-bg)',
+          'beta-border': 'var(--color-beta-tint-border)',
+          'crimson-bg': 'var(--color-crimson-tint-bg)',
+          'crimson-border': 'var(--color-crimson-tint-border)',
+        },
+
         // shadcn/ui semantic tokens (aliased to OKLCH system)
         primary: {
           DEFAULT: 'var(--primary)',

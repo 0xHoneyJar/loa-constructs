@@ -65,16 +65,16 @@ function FooterStats() {
 
   if (!stats) {
     return (
-      <p className="font-mono text-base uppercase tracking-wider text-bone-ghost">
-        CONSTRUCTS NETWORK
+      <p className="font-mono text-xs uppercase tracking-widest text-bone-ghost">
+        Constructs Network
       </p>
     );
   }
 
   return (
-    <p className="font-mono text-base uppercase tracking-wider text-bone-ghost">
-      {stats.totalConstructs} CONSTRUCTS · {stats.totalCommands} COMMANDS ·{' '}
-      {stats.categoryCount} CATEGORIES
+    <p className="font-mono text-xs uppercase tracking-widest text-bone-ghost">
+      {stats.totalConstructs} Constructs · {stats.totalCommands} Commands ·{' '}
+      {stats.categoryCount} Categories
     </p>
   );
 }
@@ -82,7 +82,22 @@ function FooterStats() {
 export function Footer() {
   return (
     <footer className="border-t border-void-border bg-void-base">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-center px-4">
+      <div className="mx-auto flex flex-col items-center justify-center gap-3 max-w-6xl px-4 py-6">
+        <div
+          className="h-5 sm:h-6"
+          style={{
+            maskImage: 'url(/logo-bone.svg)',
+            WebkitMaskImage: 'url(/logo-bone.svg)',
+            maskSize: 'contain',
+            WebkitMaskSize: 'contain',
+            maskRepeat: 'no-repeat',
+            WebkitMaskRepeat: 'no-repeat',
+            aspectRatio: '455 / 155',
+            backgroundColor: 'oklch(0.4 0.005 80)',
+          }}
+          role="img"
+          aria-label="Loa"
+        />
         <FooterStats />
       </div>
     </footer>

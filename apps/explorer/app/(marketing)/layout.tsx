@@ -38,8 +38,25 @@ function MarketingFooter() {
             </div>
           </div>
         </div>
-        <div className="mt-8 pt-4 border-t border-void-border text-base font-mono text-bone-ghost">
-          &copy; {new Date().getFullYear()} Constructs Network. All rights reserved.
+        <div className="mt-8 pt-4 border-t border-void-border flex flex-col items-center gap-3">
+          <div
+            className="h-5 sm:h-6"
+            style={{
+              maskImage: 'url(/logo-bone.svg)',
+              WebkitMaskImage: 'url(/logo-bone.svg)',
+              maskSize: 'contain',
+              WebkitMaskSize: 'contain',
+              maskRepeat: 'no-repeat',
+              WebkitMaskRepeat: 'no-repeat',
+              aspectRatio: '455 / 155',
+              backgroundColor: 'oklch(0.4 0.005 80)',
+            }}
+            role="img"
+            aria-label="Loa"
+          />
+          <p className="text-base font-mono text-bone-ghost">
+            &copy; {new Date().getFullYear()} Constructs Network. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>
