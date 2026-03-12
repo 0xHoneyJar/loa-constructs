@@ -1,38 +1,36 @@
 # Dockerfile for Loa Constructs API
 # @see sdd.md §1.7 Deployment Architecture
-# @see sprint.md T1.6: Fly.io Deployment
 
 # --- Build Stage ---
-FROM node:20-alpine AS builder
-
-# Enable pnpm
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+FROM oven/bun:1.2 AS builder
 
 WORKDIR /app
 
-# Copy root package files for workspace
-COPY package.json pnpm-workspace.yaml pnpm-lock.yaml* ./
+# Copy root workspace files
+COPY package.json bun.lock ./
 COPY apps/api/package.json ./apps/api/
+COPY packages/shared/package.json ./packages/shared/
 
 # Install dependencies
-RUN pnpm install --frozen-lockfile --prod=false
+RUN bun install --frozen-lockfile
 
 # Copy source code
 COPY apps/api ./apps/api
+COPY packages/shared ./packages/shared
 COPY tsconfig.base.json ./
 
-# Build the API
+# Build shared package first, then API
+WORKDIR /app/packages/shared
+RUN bun run build
+
 WORKDIR /app/apps/api
-RUN pnpm build
+RUN bun run build
 
 # --- Production Stage ---
-FROM node:20-alpine AS runner
+FROM oven/bun:1.2-alpine AS runner
 
 # Install git (required by git-sync service for construct repo cloning)
 RUN apk add --no-cache git
-
-# Enable pnpm
-RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 # Create non-root user for security
 RUN addgroup --system --gid 1001 nodejs && \
@@ -40,13 +38,13 @@ RUN addgroup --system --gid 1001 nodejs && \
 
 WORKDIR /app
 
-# Copy built application and lockfile
+# Copy built application
 COPY --from=builder --chown=nodejs:nodejs /app/apps/api/dist ./dist
 COPY --from=builder --chown=nodejs:nodejs /app/apps/api/package.json ./
-COPY --from=builder --chown=nodejs:nodejs /app/pnpm-lock.yaml ./
+COPY --from=builder --chown=nodejs:nodejs /app/bun.lock ./
 
 # Install production dependencies only
-RUN pnpm install --prod
+RUN bun install --production
 
 # Set environment
 ENV NODE_ENV=production
@@ -63,4 +61,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/v1/health || exit 1
 
 # Start the server
-CMD ["node", "dist/index.js"]
+CMD ["bun", "run", "dist/index.js"]
