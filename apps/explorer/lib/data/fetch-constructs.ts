@@ -1,5 +1,6 @@
 import type { ConstructArchetype, ConstructDetail, ConstructNode, GraduationLevel, GraphData, CategoryStats, Category, Showcase, AccuracyReport } from '@/lib/types/graph';
 import { fetchCategories, normalizeCategory } from './fetch-categories';
+import { resolveShortDescription } from '@/lib/utils/resolve-short-description';
 
 /** API response shape for a single construct */
 interface APIConstruct {
@@ -69,10 +70,7 @@ function parseConstructType(ct: string | undefined): ConstructArchetype {
 
 function transformToNode(construct: APIConstruct): ConstructNode {
   const commands = construct.manifest?.commands || [];
-  // Fallback chain: short_description → first sentence of description → 'No description'
-  const shortDesc = construct.short_description
-    || (construct.description ? construct.description.split('.')[0].slice(0, 80) : null)
-    || 'No description';
+  const shortDesc = resolveShortDescription(construct.short_description, construct.description);
 
   // Category now comes from API (packs.category column, cycle-041)
   const category = normalizeCategory(construct.category || 'development');

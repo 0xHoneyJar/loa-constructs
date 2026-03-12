@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { resolveShortDescription } from '@/lib/utils/resolve-short-description';
 
 interface SearchResult {
   id: string;
@@ -36,7 +37,7 @@ export function GlobalSearch() {
             slug: c.slug as string,
             name: c.name as string,
             icon: c.icon as string | undefined,
-            shortDescription: ((c.short_description as string) || (c.description as string || '').split('.')[0].slice(0, 80) || 'No description') as string,
+            shortDescription: resolveShortDescription(c.short_description as string, c.description as string),
             category: c.category as string,
             type: c.type as string,
           }));
