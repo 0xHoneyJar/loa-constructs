@@ -1,6 +1,6 @@
 {
-  "buildCommand": "bun run build",
-  "installCommand": "bun install",
+  "buildCommand": "cd ../../packages/shared && bun run build && cd ../../apps/explorer && bun run build",
+  "installCommand": "cd ../.. && bun install",
   "framework": "nextjs",
   "regions": ["iad1"],
   "crons": [
