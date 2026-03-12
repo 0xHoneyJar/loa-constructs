@@ -3,6 +3,7 @@ import { GeistMono } from 'geist/font/mono';
 import localFont from 'next/font/local';
 import { DynamicProvider } from '@/components/providers/dynamic-provider';
 import { ConvexProvider } from '@/components/providers/convex-provider';
+import { FeedbackWidget } from '@/components/feedback-widget';
 import './globals.css';
 
 const basementGrotesque = localFont({
@@ -75,6 +76,7 @@ export default function RootLayout({
         <DynamicProvider>
           <ConvexProvider>
             {children}
+            <FeedbackWidget />
           </ConvexProvider>
         </DynamicProvider>
       </body>
