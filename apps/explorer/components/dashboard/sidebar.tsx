@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/stores/auth-store';
 
-const navItems = [
+const baseNavItems = [
   { href: '/dashboard', label: 'Overview' },
   { href: '/dashboard/explore', label: 'Explore' },
   { href: '/dashboard/constructs', label: 'Constructs' },
@@ -14,7 +14,12 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useAuthStore();
+  const { logout, isAdmin } = useAuthStore();
+
+  const navItems = [
+    ...baseNavItems,
+    ...(isAdmin ? [{ href: '/dashboard/health', label: 'Health' }] : []),
+  ];
 
   return (
     <aside className="w-[200px] shrink-0 border-r border-void-border bg-void-base flex flex-col">

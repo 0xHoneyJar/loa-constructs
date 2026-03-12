@@ -10,6 +10,7 @@
 
 import type * as crons from "../crons.js";
 import type * as dashboardPresence from "../dashboardPresence.js";
+import type * as healthObservations from "../healthObservations.js";
 import type * as installEvents from "../installEvents.js";
 import type * as syncStatus from "../syncStatus.js";
 
@@ -22,6 +23,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   dashboardPresence: typeof dashboardPresence;
+  healthObservations: typeof healthObservations;
   installEvents: typeof installEvents;
   syncStatus: typeof syncStatus;
 }>;
