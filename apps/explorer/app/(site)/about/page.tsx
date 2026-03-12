@@ -19,11 +19,11 @@ export default function AboutPage() {
       <div className="space-y-12">
         {/* What are Constructs */}
         <section className="space-y-4">
-          <h1 className="font-mono text-base font-semibold uppercase tracking-wider text-bone-base">
+          <h1 className="font-mono text-lg font-semibold uppercase tracking-wider text-bone-base">
             What are Constructs?
           </h1>
 
-          <div className="space-y-4 text-base leading-relaxed text-bone-dim">
+          <div className="space-y-4 text-lg leading-relaxed text-bone-dim">
             <p>
               A construct is a named unit of expertise — identity, skills, and
               boundaries — that you install into your AI coding agent.
@@ -48,11 +48,11 @@ export default function AboutPage() {
 
         {/* How They Compose */}
         <section className="space-y-4">
-          <h2 className="font-mono text-base font-semibold uppercase tracking-wider text-bone-base">
+          <h2 className="font-mono text-lg font-semibold uppercase tracking-wider text-bone-base">
             Composition
           </h2>
 
-          <div className="space-y-4 text-base leading-relaxed text-bone-dim">
+          <div className="space-y-4 text-lg leading-relaxed text-bone-dim">
             <p>Constructs aren&apos;t solo. They compose.</p>
 
             <p>
@@ -73,11 +73,11 @@ export default function AboutPage() {
 
         {/* Create */}
         <section className="space-y-4">
-          <h2 className="font-mono text-base font-semibold uppercase tracking-wider text-bone-base">
+          <h2 className="font-mono text-lg font-semibold uppercase tracking-wider text-bone-base">
             Create Your Own
           </h2>
 
-          <div className="space-y-4 text-base leading-relaxed text-bone-dim">
+          <div className="space-y-4 text-lg leading-relaxed text-bone-dim">
             <p>
               Edit three files. Push. CI validates automatically.
             </p>
@@ -89,7 +89,7 @@ export default function AboutPage() {
           </div>
 
           <div className="border border-void-border bg-void-raised/50 p-4">
-            <code className="font-mono text-base text-bone-base">
+            <code className="font-mono text-lg text-bone-base">
               gh repo create my-org/construct-my-expertise \<br />
               {'  '}--template 0xHoneyJar/construct-base --private --clone
             </code>
@@ -100,7 +100,7 @@ export default function AboutPage() {
         <div className="pt-4">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 font-mono text-sm uppercase tracking-wider text-cyan-dim hover:text-bone-bright transition-colors"
+            className="inline-flex items-center gap-2 font-mono text-base uppercase tracking-wider text-cyan-dim hover:text-bone-bright transition-colors"
           >
             <span>→</span>
             <span>Explore the Network</span>

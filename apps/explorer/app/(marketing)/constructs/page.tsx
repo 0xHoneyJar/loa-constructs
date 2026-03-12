@@ -41,8 +41,8 @@ export default async function ConstructsCatalogPage({
     <div className="space-y-8">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-3xl uppercase tracking-display text-bone-bright">Constructs</h1>
-          <p className="text-sm font-mono text-bone-muted mt-1">
+          <h1 className="font-display text-4xl uppercase tracking-display text-bone-bright">Constructs</h1>
+          <p className="text-base font-mono text-bone-muted mt-1">
             {allConstructs.length} constructs available
           </p>
         </div>
@@ -51,7 +51,7 @@ export default async function ConstructsCatalogPage({
 
       {/* Category Filters */}
       {categories.length > 1 && (
-        <div className="flex flex-wrap gap-2 font-mono text-xs uppercase tracking-terminal">
+        <div className="flex flex-wrap gap-2 font-mono text-sm uppercase tracking-terminal">
           <Link
             href="/constructs"
             className={`border px-3 py-1 transition-colors ${
@@ -81,7 +81,7 @@ export default async function ConstructsCatalogPage({
       {/* Auth-aware construct grid — cycle-039 */}
       <AuthAwareConstructList publicConstructs={filtered}>
         {filtered.length === 0 ? (
-          <p className="text-base font-mono text-bone-ghost py-12 text-center">
+          <p className="text-lg font-mono text-bone-ghost py-12 text-center">
             No constructs found.
           </p>
         ) : (
@@ -93,39 +93,41 @@ export default async function ConstructsCatalogPage({
                 className="bg-void-base p-5 hover:bg-void-raised transition-colors group"
               >
                 <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-base font-bold text-bone-base group-hover:text-bone-bright transition-colors">
-                      {construct.icon && <span className="mr-1.5">{construct.icon}</span>}
+                  <div className="flex items-center gap-3">
+                    {construct.icon && (
+                      <span className="text-2xl shrink-0">{construct.icon}</span>
+                    )}
+                    <span className="font-mono text-xl font-bold text-bone-base group-hover:text-bone-bright transition-colors">
                       {construct.name}
                     </span>
                     {construct.constructType !== 'skill-pack' && (
-                      <span className="border border-cyan-dim/30 bg-cyan-dim/10 px-1.5 py-0.5 text-[11px] font-mono text-cyan-dim">
+                      <span className="border border-cyan-dim/30 bg-cyan-dim/10 px-1.5 py-0.5 text-xs font-mono text-cyan-dim">
                         {construct.constructType.replace(/-/g, ' ')}
                       </span>
                     )}
                     {construct.visibility === 'internal' && (
-                      <span className="border border-cyan-base/30 bg-cyan-base/10 px-1.5 py-0.5 text-[11px] font-mono text-cyan-base">
+                      <span className="border border-cyan-base/30 bg-cyan-base/10 px-1.5 py-0.5 text-xs font-mono text-cyan-base">
                         internal
                       </span>
                     )}
                     {construct.verificationTier === 'PROVEN' && (
-                      <span className="border border-graduation-stable/30 bg-graduation-stable/10 px-1.5 py-0.5 text-[11px] font-mono text-graduation-stable">
+                      <span className="border border-graduation-stable/30 bg-graduation-stable/10 px-1.5 py-0.5 text-xs font-mono text-graduation-stable">
                         proven
                       </span>
                     )}
                   </div>
-                  <span className="font-mono text-xs uppercase tracking-whisper text-bone-ghost mt-0.5">
+                  <span className="font-mono text-sm uppercase tracking-whisper text-bone-ghost mt-0.5">
                     {construct.skillsCount > 0 && `${construct.skillsCount}s`}
                   </span>
                 </div>
-                <p className="font-mono text-sm text-bone-muted line-clamp-2 mb-4 leading-relaxed">
+                <p className="font-mono text-base text-bone-muted line-clamp-2 mb-4 leading-relaxed">
                   {construct.shortDescription}
                 </p>
                 <div className="flex items-center justify-between">
-                  <span className="font-mono text-xs uppercase tracking-whisper text-bone-ghost">
+                  <span className="font-mono text-sm uppercase tracking-whisper text-bone-ghost">
                     {construct.category}
                   </span>
-                  <span className="font-mono text-xs text-bone-ghost">
+                  <span className="font-mono text-sm text-bone-ghost">
                     {construct.downloads.toLocaleString()} installs
                   </span>
                 </div>

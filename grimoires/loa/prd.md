@@ -1,57 +1,61 @@
-# PRD: API Stability — Test Infrastructure & Regression Prevention
+# PRD: Construct Short Description System — Storefront Taglines
 
-**Cycle**: cycle-042
-**Created**: 2026-03-11
+**Cycle**: cycle-043
+**Created**: 2026-03-12
 **Status**: Draft
-**Context**: `grimoires/loa/context/api-test-stability-baseline.md`
+**Context**: `grimoires/loa/context/construct-short-description-system.md`
+**Research**:
+- `grimoires/bridgebuilder/developer-marketplace-taglines.md` (70 searches — NP/VP schism, brew audit patterns)
+- `grimoires/bridgebuilder/word-economy-research.md` (64 searches — McIlroy test, semantic density, cognitive load)
+- `grimoires/bridgebuilder/storefront-workshop-architecture.md` (45 searches — Brad Frost model, passive context, dual audience)
+
 **Grounded in**:
-- `apps/api/vitest.config.ts` (existing Vitest v2.1 config)
-- `apps/api/vitest.setup.ts` (minimal — only JWT_SECRET + NODE_ENV)
-- `apps/api/src/middleware/auth.ts:63-95` (getUserById on every request, no caching)
-- `apps/api/src/middleware/rate-limiter.ts:134-218` (fail-open/fail-closed split, dead code at 193)
-- `apps/api/src/services/blacklist.ts:57-75` (fail-secure returns true on Redis error)
-- `apps/api/src/services/redis.ts` (env var mismatch: REDIS_URL vs UPSTASH_REDIS_REST_URL)
-- `apps/api/src/db/index.ts` (prepare: false, max: 10, dummy fallback URL)
-- `apps/api/src/routes/health.ts` (readiness probe: DB + Redis)
-- `apps/api/src/config/env.ts` (JWT_SECRET optional in Zod schema, runtime crash)
-- `tests/e2e/constructs.test.ts` (~713 lines testing inline objects, zero HTTP calls)
-- `src/services/constructs.test.ts` (~290 lines testing local constants)
+- `apps/api/src/db/schema.ts:515` (shortDescription column — implemented)
+- `apps/api/src/db/migrations/0013_short_description.sql` (ALTER TABLE — not applied to production)
+- `apps/api/src/routes/constructs.ts:59` (short_description in API response — implemented)
+- `apps/explorer/lib/data/fetch-constructs.ts:73` (fallback chain — implemented)
+- `scripts/seed-forge-packs.ts:62` (17-construct override map — implemented)
+- `packages/shared/src/validation.ts:334` (Zod schema — implemented)
+- `packages/shared/src/types.ts:225` (TypeScript type — implemented)
 
 ---
 
 ## 1. Problem Statement
 
-The constructs.network API has experienced repeated downtime. The root cause is not bad architecture — the middleware stack, auth flow, and rate limiting are well-designed. The root cause is that the critical failure modes are untested.
+Construct descriptions are too long for the storefront. 14 of 17 constructs display broken text in the explorer UI — truncated mid-word ("AI-retrievabl") because there is no `short_description` field anywhere in the data model. The frontend derives one by splitting the `description` on `.` and truncating to 60 characters:
 
-The API has 40+ endpoints, ~20 test files, and ~1,800 lines of tests that exercise nothing. The "e2e" tests in `tests/e2e/` construct mock JSON objects inline and assert on those objects — they never make an HTTP request through the Hono app. Service tests like `constructs.test.ts` and `skills.test.ts` define local constants and assert `['free','pro','team','enterprise'].toHaveLength(4)`. These tests pass when the API is completely broken.
+```typescript
+// fetch-constructs.ts — the current hack
+const shortDesc = description.split('.')[0].slice(0, 60);
+```
 
-Meanwhile, the paths that actually cause downtime — Redis outages blocking all token refresh, missing env vars causing runtime 500s, auth middleware hitting the DB on every request without caching — have zero test coverage.
+This produces garbage like "A comprehensive pack for building and maintaining design s" (Artisan) and "AI-retrievable trust signals for distributed autonomous org" (Beacon). The tagline is the first thing a developer reads — and right now it proves nothing about the maintainer's understanding of their construct.
 
-> Sources: `api-test-stability-baseline.md`, diagnostic session 2026-03-11
+The deeper principle: **the tagline is proof-of-work**. Karl Maton's Legitimation Code Theory shows that precise, high-density terms ("hypothesis-first", "aesthetic direction") function as trust signals — shibboleths that prove the maintainer has paid the cost of mastering the domain. A truncated sentence signals the opposite: nobody looked.
+
+> Sources: `construct-short-description-system.md:1-7`, `word-economy-research.md:14-20`
 
 ---
 
 ## 2. Goals & Success Metrics
 
 ### Primary Goal
-Prevent API downtime by testing the code paths that cause it.
+Every construct displays a handcrafted, semantically dense tagline (3-4 words) that proves the maintainer understands what the construct captures.
 
 ### Success Metrics
 
 | Metric | Current | Target | How to Measure |
 |--------|---------|--------|----------------|
-| Fake test lines | ~1,800 | 0 | grep for test files that don't import from `src/` |
-| Real test count | ~45 | 160+ | `bun run test --reporter=verbose \| grep '✓' \| wc -l` |
-| Critical path coverage | 0% | 100% | All 11 fragile areas have dedicated tests |
-| Test suite speed | N/A | < 30s | `time bun run test` |
-| Coverage (statements) | Unknown | > 40% | `bun run test:coverage` |
-| Production incidents from untested paths | Recurring | 0 | Incident log |
+| Truncated descriptions in UI | 14/17 | 0/17 | Visual inspection of /constructs catalog |
+| Constructs with `short_description` in DB | 0 | 17 | `SELECT count(*) FROM packs WHERE short_description IS NOT NULL` |
+| Taglines passing McIlroy test (no "and") | N/A | 17/17 | Manual review of override map |
+| Construct repos with `short_description` in YAML | 0 | 17 | Audit across 0xHoneyJar construct-* repos |
 
 ### Non-Goals
-- Full 100% code coverage (diminishing returns past ~60%)
-- Integration tests against live Supabase/Redis (mock-based is fine for regression detection)
-- Performance/load testing (separate initiative)
-- Frontend/explorer testing (separate scope)
+- Convex-backed profile editing (future — requires auth-gated mutations, merge logic)
+- Making `short_description` required in Zod schema (after all 17 repos are updated)
+- Automated tagline linting (`brew audit`-style enforcement)
+- Revising weak taglines (Crucible, GTM Collective, Gecko — tracked separately)
 
 ---
 
@@ -59,139 +63,141 @@ Prevent API downtime by testing the code paths that cause it.
 
 | Role | Need |
 |------|------|
-| @janitooor (maintainer) | Confidence that merges won't cause downtime |
-| API consumers (Loa CLI, explorer, constructs) | Stable endpoints that don't return 500s |
-| CI pipeline | Fast, deterministic test suite that catches regressions |
+| **Developer browsing /constructs** | Instantly understand what a construct does in 3-4 words |
+| **AI agent evaluating constructs** | Dense, searchable tagline for construct selection |
+| **Construct maintainer** | Prove domain mastery through tagline precision |
+| **@janitooor (maintainer)** | Eliminate the truncated-text embarrassment on the storefront |
 
 ---
 
 ## 4. Functional Requirements
 
-### FR-1: Shared Test Infrastructure
-**Priority**: P0 (blocks all other work)
+### FR-1: Database Column ✅ IMPLEMENTED
+Add `short_description TEXT` column to `packs` table.
 
-Create `apps/api/tests/helpers/` with:
+- **Migration**: `apps/api/src/db/migrations/0013_short_description.sql`
+- **Schema**: `apps/api/src/db/schema.ts:515` — `shortDescription: text('short_description')`
 
-| Helper | Purpose |
-|--------|---------|
-| `mock-db.ts` | Drizzle query builder mock factory with chained methods |
-| `mock-redis.ts` | Redis mock with `failMode` option for error testing |
-| `fixtures.ts` | Realistic DB row factories (user, pack, skill, version, subscription) |
-| `auth.ts` | JWT generator using test secret for auth header creation |
+**Acceptance**: Column exists, nullable (backward-compatible).
 
-**Acceptance**: Any new test file requires < 10 lines of setup.
+### FR-2: Shared Type System ✅ IMPLEMENTED
+Add `short_description` to both TypeScript and Zod layers.
 
-> Source: `api-test-stability-baseline.md` Phase 0
+- **Zod**: `packages/shared/src/validation.ts:334` — `z.string().min(5).max(80).optional()`
+- **Type**: `packages/shared/src/types.ts:225` — `short_description?: string`
 
-### FR-2: Stability Tests (Tier 1)
-**Priority**: P0
+**Acceptance**: Four schema layers in sync (SQL, Drizzle, Zod, TypeScript).
 
-Test every known fragile area:
+### FR-3: API Response ✅ IMPLEMENTED
+Include `short_description` in both list and detail construct responses.
 
-| ID | Fragile Area | Test File | What Breaks Without It |
-|----|-------------|-----------|----------------------|
-| F-1 | Redis env mismatch | `redis.test.ts` | First Redis call throws, rate limiter 503s |
-| F-2 | JWT_SECRET missing | `auth.test.ts` (route) | First auth request 500s |
-| F-3 | Blacklist fail-secure | `blacklist.test.ts` | Redis outage blocks all token refresh |
-| F-4 | Rate limiter fail modes | `rate-limiter.test.ts` | Auth endpoints 503 vs non-auth pass-through |
-| F-5 | Auth middleware | `auth.test.ts` (middleware) | Every auth variant: JWT, API key, optional |
-| F-6 | Error handler | `error-handler.test.ts` | AppError vs unknown error response shapes |
-| F-7 | Health readiness | `health.test.ts` (enhance) | DB/Redis probe behavior |
+- **Route**: `apps/api/src/routes/constructs.ts:59` — `short_description: c.shortDescription`
 
-**Acceptance**: Breaking any of these 7 areas causes at least one test to fail.
+**Acceptance**: `GET /v1/constructs` and `GET /v1/constructs/:slug` include `short_description`.
 
-> Source: `api-test-stability-baseline.md` Phase 1, diagnostic session fragile areas 1-11
+### FR-4: Seed Script Override Map ✅ IMPLEMENTED
+Handcrafted taglines for all 17 constructs with three-tier fallback:
 
-### FR-3: Core API Tests (Tier 2)
-**Priority**: P1
+1. `construct.yaml` → `short_description` (canonical source)
+2. Override map in seed script (interim)
+3. Derive from `description.split('.')[0].slice(0, 80)` (last resort)
 
-| Test File | Endpoints Covered |
-|-----------|------------------|
-| `constructs.test.ts` (route) | GET list, filters, pagination, detail, HEAD, summary, visibility |
-| `categories.test.ts` (enhance) | Response shape contract, sort order |
-| `webhooks.test.ts` | Stripe HMAC, GitHub HMAC, idempotency, replay protection |
-
-**Acceptance**: All public endpoints have at least one test via `app.request()`.
-
-> Source: `api-test-stability-baseline.md` Phase 2
-
-### FR-4: Contract & Snapshot Tests (Tier 3)
-**Priority**: P1
-
-| Test File | Purpose |
+| Construct | Tagline |
 |-----------|---------|
-| `api-snapshots.test.ts` (expand) | Snapshot every public endpoint response shape |
-| `response-schemas.test.ts` (new) | Zod schema validation of production fixtures |
+| Artisan | Design systems craft |
+| Beacon | AI-retrievable trust signals |
+| Crucible | Journey validation testing |
+| Dynamic Auth | Wallet identity resolution |
+| Gecko | Ecosystem intelligence |
+| GrowthPages | Educational content pipeline |
+| GTM Collective | Go-to-market operations |
+| Hardening | Defensive artifact forge |
+| Herald | Grounded product comms |
+| K-Hole | Depth engine for exploration |
+| Mibera Codex | Mibera universe knowledge |
+| Observer | Hypothesis-first user research |
+| Protocol | On-chain verification |
+| Social Oracle | GitHub-to-social content |
+| The Arcade | Game design philosophy |
+| The Easel | Aesthetic direction studio |
+| WebReel | Cinematic web capture |
 
-**Acceptance**: Changing any response field causes a snapshot mismatch or schema failure.
+**Acceptance**: `bun run seed` populates all 17 `short_description` values.
 
-> Source: `api-test-stability-baseline.md` Phase 3
+> Source: `construct-short-description-system.md:31-53`
 
-### FR-5: Cleanup Fake Tests
-**Priority**: P1
+### FR-5: Frontend Fallback Chain ✅ IMPLEMENTED
+Replace the `split('.')[0].slice(0, 60)` hack with real API field consumption.
 
-Delete these files (~1,800 lines):
+- **Data layer**: `apps/explorer/lib/data/fetch-constructs.ts:73` — `construct.short_description || description.split('.')[0].slice(0, 80) || 'No description'`
+- **Auth-aware list**: `apps/explorer/components/constructs/auth-aware-construct-list.tsx:63` — `(c.short_description as string) || ''`
 
-| File | Lines | Why Fake |
-|------|-------|----------|
-| `src/services/constructs.test.ts` | ~290 | Tests local variables |
-| `src/services/skills.test.ts` | ~147 | Tests local constants |
-| `src/services/submissions.test.ts` | ~290 | Tests local objects |
-| `tests/e2e/constructs.test.ts` | ~713 | Inline JSON, no HTTP |
-| `tests/e2e/pack-flow.test.ts` | ~200 | Mock object assertions |
-| `tests/e2e/creator.test.ts` | ~150 | Mock object assertions |
+**Acceptance**: No truncated taglines on /constructs catalog or leaderboard.
 
-**Acceptance**: Zero test files that only assert on locally-defined data.
+### FR-6: Production Migration 🔲 NOT DONE
+Apply `0013_short_description.sql` to production Supabase, then run seed.
 
-### FR-6: Vitest Configuration
-**Priority**: P0
+**Acceptance**: `SELECT short_description FROM packs WHERE slug = 'observer'` returns `'Hypothesis-first user research'`.
 
-Update `apps/api/vitest.config.ts`:
-- `testTimeout: 10000` (bcrypt operations are slow)
-- `pool: 'forks'` (isolate test files to prevent mock pollution)
-- Coverage thresholds: `statements: 40, branches: 30, functions: 35, lines: 40`
+### FR-7: construct-base Template 🔲 NOT DONE
+Add `short_description` to the template `construct.yaml` with usage comment.
 
-Update `apps/api/vitest.setup.ts`:
-- Set `UPSTASH_REDIS_REST_URL=''` and `UPSTASH_REDIS_REST_TOKEN=''`
+**Acceptance**: `constructs create` generates a `construct.yaml` with `short_description` field.
 
-**Acceptance**: `bun run test` passes in CI without environment secrets.
+### FR-8: Ecosystem Propagation 🔲 NOT DONE
+Open PRs to all 17 construct repos adding `short_description` to their `construct.yaml`.
+
+**Acceptance**: All 17 repos have `short_description` in their `construct.yaml`.
 
 ---
 
 ## 5. Technical & Non-Functional Requirements
 
-### NFR-1: Speed
-Full test suite completes in < 30 seconds. No network calls, no external service dependencies.
+### NFR-1: Schema Consistency
+Four schema layers must stay in sync: SQL migration, Drizzle schema, Zod validation, TypeScript types. All four are implemented for `short_description`.
 
-### NFR-2: Determinism
-Tests produce identical results on every run. No time-dependent assertions, no random data without seeds, no shared mutable state between test files.
+### NFR-2: Backward Compatibility
+Field is optional (`TEXT` nullable, Zod `.optional()`). Existing constructs without `short_description` in their YAML continue to work via the override map fallback.
 
-### NFR-3: CI Compatibility
-Tests run in GitHub Actions without Supabase, Redis, or any secret env vars. All external dependencies are mocked.
+### NFR-3: Word Economy Constraints
+Taglines should follow the patterns identified in research:
+- **Noun phrases preferred** over verb phrases (constructs are infrastructure, not workflow tools)
+- **No articles, no marketing superlatives** (Homebrew's `brew audit` standard)
+- **McIlroy test**: if it needs "and", the construct may be doing too much
+- **Front-load the differentiator** (NNG F-shaped scanning: value in first 11 chars)
+- **Max 80 characters** (Debian lineage, validated by modern platforms)
 
-### NFR-4: Maintainability
-Shared helpers eliminate boilerplate. Adding a new route test requires < 10 lines of setup beyond the test logic itself.
+### NFR-4: Dual Audience
+`short_description` serves two consumers simultaneously:
+- **Human**: storefront scanning (Tier 1 in Brad Frost's model)
+- **AI agent**: search result ranking and construct identification
 
 ---
 
 ## 6. Scope & Prioritization
 
-### MVP (Sprint 1)
-- FR-1: Shared test helpers
-- FR-2: Stability tests (all 7 fragile areas)
-- FR-6: Vitest config changes
-- FR-5: Delete fake tests (clean slate)
+### Sprint 1: Deploy + Seed
+- FR-6: Apply migration to production Supabase
+- FR-4: Run `bun run seed` to populate all 17 taglines
+- Verify: API responses include `short_description`, UI displays clean taglines
 
-### Sprint 2
-- FR-3: Core API tests
-- FR-4: Contract & snapshot tests
+### Sprint 2: Ecosystem Propagation
+- FR-7: Update construct-base template
+- FR-8: Open PRs to all 17 construct repos
+- After all merged: make `short_description` required in Zod schema
+
+### Already Done (This Cycle, Pre-PRD)
+- FR-1: Database column + migration file
+- FR-2: Shared type system (Zod + TypeScript)
+- FR-3: API response inclusion
+- FR-5: Frontend fallback chain + auth-aware list fix
 
 ### Out of Scope
-- Integration tests against live databases
-- Performance/load testing
-- Frontend (explorer) test coverage
-- E2E tests with real HTTP server (Hono's `app.request()` is sufficient)
-- Fixing the 11 fragile areas (test them first, fix in future cycle)
+- Convex-backed profile editing (maintainers edit taglines via web UI)
+- CLI enforcement (`constructs publish` rejects without `short_description`)
+- Automated tagline linting (Homebrew-style `brew audit`)
+- Tagline revisions for weak entries (Crucible → "User journey stress tests", etc.)
+- `long_description` as agent operational context (workshop tier — separate initiative)
 
 ---
 
@@ -199,31 +205,27 @@ Shared helpers eliminate boilerplate. Adding a new route test requires < 10 line
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Mock fidelity drift | Tests pass but real behavior differs | Use `app.request()` for route tests (exercises real middleware chain). Use real crypto in auth tests. |
-| Drizzle mock chain complexity | Hard to maintain as schema evolves | Centralized `createMockDb()` factory — single place to update |
-| bcrypt slows tests | Suite exceeds 30s target | Use `testTimeout: 10000`, consider lower cost factor in test env |
-| Snapshot brittleness | Minor changes cause spurious failures | Use `expect.any()` for dynamic fields (timestamps, IDs, request_id) |
+| Migration not applied before seed | Seed fails with column-not-found | Run migration first, verify column exists |
+| Override map taglines are wrong | Maintainers object to their tagline | Taglines are interim — `construct.yaml` field takes precedence once repos are updated |
+| 17 PRs to repos = maintenance burden | Slow adoption | Batch PRs, simple one-field addition |
+| Zod `required()` breaks CI before all repos update | Auto-sync fails for repos without field | Keep optional until ecosystem-wide coverage confirmed |
 
 ### Dependencies
-- Vitest v2.1 (already installed)
-- `@hono/node-server` test utilities — `app.request()` (already available)
-- `jose` for JWT generation in test helpers (already installed)
-- No new dependencies required
+- Production Supabase access (`.env.railway` has creds)
+- Railway CLI for deployment verification
+- GitHub access to all 17 0xHoneyJar/construct-* repos for PRs
+- No new package dependencies
 
 ---
 
-## 8. Known Fragile Areas (Reference)
+## 8. Three-Tier Description Architecture (Reference)
 
-These 11 areas were identified during the diagnostic session. The test suite must cover all of them:
+From the storefront-workshop research — the model this change implements:
 
-1. **Redis env var mismatch** — `env.ts` validates `REDIS_URL` but `Redis.fromEnv()` reads `UPSTASH_REDIS_REST_URL`
-2. **JWT_SECRET missing = runtime 500** — not validated at startup
-3. **Every auth request hits DB** — `getUserById()` on every JWT validation
-4. **bcrypt on every API key auth** — up to 10 candidates, ~300ms each
-5. **Redis outage = token refresh blocked** — `isBlacklisted()` fail-secure
-6. **Rate limiter dead code** — re-throw check at `rate-limiter.ts:193`
-7. **No circuit breakers** — GitHub API calls in OAuth have no timeout
-8. **Sentry is a stub** — `captureException()` only logs
-9. **OAuth tokens in URL query params** — tokens in browser history
-10. **AppError duck-typing** — `'code' in err` instead of `instanceof`
-11. **Bare catch blocks** — DB errors return as "invalid token"
+| Tier | Field | Audience | Density |
+|------|-------|----------|---------|
+| **Storefront** | `short_description` | Human scanner + AI search | Minimal: 3-4 word tagline |
+| **Gallery** | `description` | Human evaluator | Medium: full sentence |
+| **Workshop** | `long_description` + `identity/persona.yaml` | AI agent + maintainer | Maximum: operational context |
+
+The storefront tier is what this PRD delivers. Gallery is already served by `description`. Workshop is future work (Convex-backed, maintainer-editable).

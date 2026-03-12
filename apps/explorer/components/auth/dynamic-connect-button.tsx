@@ -25,7 +25,7 @@ export function DynamicConnectButton(props: DynamicConnectButtonProps) {
       <button
         type="button"
         disabled
-        className={`font-mono text-[11px] text-bone-ghost ${props.className ?? ''}`}
+        className={`font-mono text-sm text-bone-ghost border border-void-border px-3 py-1 ${props.className ?? ''}`}
         title="Wallet auth is not configured"
       >
         {props.label ?? 'Connect'}
@@ -59,7 +59,7 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
       <button
         type="button"
         onClick={() => handleLogOut()}
-        className={`font-mono text-[11px] text-bone-muted hover:text-bone-base transition-colors px-2 py-1 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-base/40 ${className ?? ''}`}
+        className={`font-mono text-sm text-bone-muted hover:text-bone-base transition-colors border border-void-border px-3 py-1 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-base/40 ${className ?? ''}`}
       >
         {primaryWallet.address.slice(0, 6)}...{primaryWallet.address.slice(-4)}
       </button>
@@ -70,7 +70,7 @@ function DynamicConnectButtonEnabled({ className, label = 'Connect' }: DynamicCo
     <button
       type="button"
       onClick={() => setShowAuthFlow(true)}
-      className={`font-mono text-[11px] text-cyan-base hover:text-cyan-dim transition-colors px-2 py-1 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-base/40 ${className ?? ''}`}
+      className={`font-mono text-sm text-cyan-base hover:text-cyan-dim transition-colors border border-cyan-base/30 px-3 py-1 focus-visible:outline focus-visible:outline-1 focus-visible:outline-cyan-base/40 ${className ?? ''}`}
     >
       {label}
     </button>

@@ -221,6 +221,8 @@ export interface PackManifest {
   slug: string;
   version: string;
   description?: string;
+  /** Short tagline for storefront display (3-4 words) */
+  short_description?: string;
   /** FR-2: Zod has this, TS was missing */
   long_description?: string;
   /** FR-2: Accept string shorthand or object (matches Zod union) */

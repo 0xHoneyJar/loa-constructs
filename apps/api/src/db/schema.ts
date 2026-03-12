@@ -512,6 +512,7 @@ export const packs = pgTable(
     name: varchar('name', { length: 255 }).notNull(),
     slug: varchar('slug', { length: 100 }).unique().notNull(),
     description: text('description'),
+    shortDescription: text('short_description'),
     longDescription: text('long_description'),
     ownerId: uuid('owner_id').notNull(),
     ownerType: ownerTypeEnum('owner_type').notNull().default('user'),

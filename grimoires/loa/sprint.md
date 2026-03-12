@@ -1,140 +1,144 @@
-# Sprint Plan: Gecko Network Health Dashboard
+# Sprint Plan: Construct Short Description System
 
 **Cycle**: cycle-043
 **PRD**: `grimoires/loa/prd.md`
-**SDD**: `grimoires/loa/sdd.md`
-**Team**: 1 engineer (autonomous)
-**Sprint Duration**: 1 session
+**Created**: 2026-03-12
+**Team**: @janitooor (solo)
+**Sprint duration**: 1 day each
 
 ---
 
-## Sprint 1: Full Implementation
+## Sprint 1: Commit, Deploy, Verify (global sprint-50)
 
-**Goal**: Convex schema + functions + dashboard page + sidebar nav.
+**Goal**: Get handcrafted taglines visible on production constructs.network.
 
-**Success Criteria**: Admin at `/dashboard/health` sees stat cards, trend chart, sub-score bars, and issues panel from Convex data. Non-admin sees access denied. Gecko can push via Convex action.
+**Precondition**: FR-1 through FR-5 are implemented in the working tree (31 files, 399 insertions). No code to write — this sprint is commit + deploy + verify.
 
----
-
-### T1.1: Convex Schema — Add healthObservations Table
-**Priority**: P0 (blocks all functions)
-**Files**: `apps/explorer/convex/schema.ts`
-
-**Description**: Add `healthObservations` table with all observation fields and `by_timestamp` index.
-
-**Acceptance Criteria**:
-- Table added alongside existing 3 tables
-- Fields match observation JSONL shape (camelCase)
-- `by_timestamp` index on `['timestamp']`
-
-**Dependencies**: None
-**Effort**: Small
-
----
-
-### T1.2: Convex Functions — healthObservations.ts
-**Priority**: P0 (blocks frontend)
-**Files**: `apps/explorer/convex/healthObservations.ts`
-
-**Description**: 5 Convex functions: `insert` (internalMutation), `findByTimestamp` (internalQuery), `pushFromGecko` (action with write-key auth), `current` (query — latest), `trends` (query — date-bucketed averages).
-
-**Acceptance Criteria**:
-- `pushFromGecko` rejects invalid `writeKey`
-- `pushFromGecko` rejects duplicate timestamps
-- `current` returns latest observation or `null`
-- `trends({ days: 30 })` returns date-bucketed `{ period, points }`
-- Follows `syncStatus.ts` action → internalMutation pattern
-
-**Dependencies**: T1.1
-**Effort**: Medium
-
----
-
-### T1.3: Components — health-score-card, sub-score-bar, issues-panel
-**Priority**: P0
+### Task 1.1: Commit short_description pipeline
+**Description**: Stage and commit all short_description-related changes across the stack.
 **Files**:
-- `apps/explorer/components/dashboard/health/health-score-card.tsx`
-- `apps/explorer/components/dashboard/health/sub-score-bar.tsx`
-- `apps/explorer/components/dashboard/health/issues-panel.tsx`
+- `packages/shared/src/validation.ts` — Zod schema addition
+- `packages/shared/src/types.ts` — TypeScript type addition
+- `apps/api/src/db/schema.ts` — Drizzle column
+- `apps/api/src/db/migrations/0013_short_description.sql` — ALTER TABLE
+- `apps/api/src/routes/constructs.ts` — API response inclusion
+- `apps/api/src/services/constructs.ts` — service layer
+- `scripts/seed-forge-packs.ts` — override map + mapping logic
+- `apps/explorer/lib/data/fetch-constructs.ts` — fallback chain
+- `apps/explorer/components/constructs/auth-aware-construct-list.tsx` — field reference fix
 
-**Description**: Three presentational components. Score card with threshold coloring (cyan/amber/crimson). Sub-score horizontal CSS bar. Issues panel listing empty categories, stale constructs, verification tiers.
+**Acceptance**:
+- [ ] Clean commit with only short_description-related changes
+- [ ] `bun run build --filter @loa-constructs/explorer` passes
+- [ ] `bun run build --filter @loa-constructs/api` passes
 
-**Acceptance Criteria**:
-- Score card: `border border-void-border bg-void-base p-4`, threshold colors at 80/50 breakpoints
-- Sub-score bar: label + CSS width bar + score number
-- Issues panel: amber for warnings, "No issues" when clean
-- All named exports, no default exports
+### Task 1.2: Commit explorer UI polish (if any unrelated changes)
+**Description**: Separate commit for any explorer typography/UI changes that are unrelated to short_description.
+**Acceptance**:
+- [ ] Unrelated UI changes in their own commit (not mixed with short_description)
 
-**Dependencies**: None (presentational, no data)
-**Effort**: Small
+### Task 1.3: Apply migration to production
+**Description**: Run `0013_short_description.sql` against production Supabase.
+**Method**: `bun -e` with `postgres` driver using `.env.railway` creds (no local `psql`).
+**Acceptance**:
+- [ ] `SELECT column_name FROM information_schema.columns WHERE table_name = 'packs' AND column_name = 'short_description'` returns a row
+- [ ] No data loss — existing rows unaffected (nullable column addition)
 
----
+### Task 1.4: Deploy API to Railway
+**Description**: Push to main to trigger Railway deployment. Verify API is healthy.
+**Acceptance**:
+- [ ] `GET https://api.constructs.network/health` returns 200
+- [ ] `GET https://api.constructs.network/v1/constructs` response includes `short_description` field
 
-### T1.4: Component — health-trend-chart.tsx
-**Priority**: P1
-**Files**: `apps/explorer/components/dashboard/health/health-trend-chart.tsx`
+### Task 1.5: Run seed script
+**Description**: `bun run seed` to populate all 17 `short_description` values from the override map.
+**Acceptance**:
+- [ ] All 17 constructs have non-null `short_description` in the database
+- [ ] `GET /v1/constructs` returns taglines (not null) for every construct
+- [ ] Taglines match the override map in the PRD
 
-**Description**: SVG polyline sparkline. Converts `points[].avgScore` to SVG coordinates. Fixed 120px height, scales to container width. Cyan stroke.
+### Task 1.6: Visual verification
+**Description**: Check production UI for clean tagline display.
+**Acceptance**:
+- [ ] `constructs.network/constructs` — no truncated descriptions, all 17 show full taglines
+- [ ] Leaderboard — taglines display without ellipsis or mid-word cuts
+- [ ] `/constructs/[slug]` detail pages — short_description visible if rendered
 
-**Acceptance Criteria**:
-- Renders SVG polyline from trend data
-- Loading: skeleton div
-- Empty: "No trend data" message
-- Single data point: renders dot
-- No external dependencies
-
-**Dependencies**: None
-**Effort**: Medium
-
----
-
-### T1.5: Dashboard Page — /dashboard/health
-**Priority**: P0
-**Files**: `apps/explorer/app/(dashboard)/dashboard/health/page.tsx`
-
-**Description**: Client component with `useQuery` subscriptions. Admin-gated. 4 sections: stat cards, trend chart with period switcher, sub-score bars, issues panel.
-
-**Acceptance Criteria**:
-- `CONVEX_AVAILABLE` guard
-- `isAdmin` gate
-- `useQuery(api.healthObservations.current)` + `useQuery(api.healthObservations.trends, { days })`
-- Period switcher: 7d/30d/90d buttons
-- Loading skeleton, empty state, full data state all handled
-- Grid: `grid grid-cols-2 sm:grid-cols-4 gap-4`
-
-**Dependencies**: T1.2, T1.3, T1.4
-**Effort**: Large
-
----
-
-### T1.6: Sidebar — Admin-Gated Health Link
-**Priority**: P0
-**Files**: `apps/explorer/components/dashboard/sidebar.tsx`
-
-**Description**: Import `useAuthStore`, conditionally add Health nav item for admins.
-
-**Acceptance Criteria**:
-- "Health" link at `/dashboard/health` only visible to admins
-- Active state works with existing `startsWith` logic
-
-**Dependencies**: None
-**Effort**: Small
+### Task 1.7: Deploy explorer to Vercel
+**Description**: Push triggers Vercel deployment. Verify frontend renders new API field.
+**Acceptance**:
+- [ ] `constructs.network` loads without errors
+- [ ] Network tab: API response includes `short_description` for all constructs
 
 ---
 
-## Task Dependency Graph
+## Sprint 2: Ecosystem Propagation (global sprint-51)
 
+**Goal**: Make `short_description` a first-class field across the construct ecosystem so the override map becomes unnecessary.
+
+**Precondition**: Sprint 1 complete — production serving taglines from override map.
+
+### Task 2.1: Update construct-base template
+**Description**: Add `short_description` field to the template `construct.yaml` in `0xHoneyJar/construct-base`.
+**Change**:
+```yaml
+# construct.yaml
+short_description: "3-4 word tagline (max 80 chars)"  # Storefront display
 ```
-T1.1 (schema) → T1.2 (functions) ─┐
-T1.3 (presentational components)  ─┼→ T1.5 (page)
-T1.4 (trend chart)               ─┘
-T1.6 (sidebar) ── independent
+**Acceptance**:
+- [ ] PR opened to `0xHoneyJar/construct-base`
+- [ ] `constructs create` generates YAML with `short_description` field
+- [ ] Comment explains the constraint (noun phrase, no articles, max 80 chars)
+
+### Task 2.2: Open PRs to construct repos (batch 1 — core 9)
+**Description**: Add `short_description` to `construct.yaml` for the 9 most active constructs.
+**Repos**: artisan, observer, protocol, k-hole, the-easel, hardening, herald, beacon, crucible
+**PR template**:
+```yaml
+short_description: "<tagline from override map>"
 ```
+**Acceptance**:
+- [ ] 9 PRs opened with correct taglines
+- [ ] Each PR is a single-field addition (minimal diff)
+- [ ] PRs assigned to @janitooor for review
+
+### Task 2.3: Open PRs to construct repos (batch 2 — remaining 8)
+**Description**: Add `short_description` to remaining construct repos.
+**Repos**: dynamic-auth, gecko, growthpages, gtm-collective, mibera-codex, social-oracle, the-arcade, webreel
+**Acceptance**:
+- [ ] 8 PRs opened with correct taglines
+- [ ] All 17 repos now have `short_description` in their `construct.yaml`
+
+### Task 2.4: Verify auto-sync picks up new field
+**Description**: After PRs merge, run `bun run seed` to confirm `construct.yaml` `short_description` overrides the seed script fallback map.
+**Acceptance**:
+- [ ] `bun run seed` with a construct that has `short_description` in YAML uses the YAML value (not the override map)
+- [ ] Fallback chain works: YAML → override map → derived
+
+### Task 2.5: Make field required in Zod schema (gate on 2.2 + 2.3)
+**Description**: After all 17 repos have `short_description`, change Zod from `.optional()` to required.
+**File**: `packages/shared/src/validation.ts:334`
+**Change**: `z.string().min(5).max(80).optional()` → `z.string().min(5).max(80)`
+**Acceptance**:
+- [ ] `bun run seed` still passes (all manifests provide the field)
+- [ ] `constructs publish` without `short_description` fails validation
+- [ ] TypeScript type updated to non-optional
 
 ---
 
-## Summary
+## Risk Mitigation
 
-| Sprint | Tasks | New Files | Modified Files | Lines (est.) |
-|--------|-------|-----------|---------------|-------------|
-| Sprint 1 | 6 tasks | 6 new | 2 modified | ~405 |
+| Risk | Sprint | Mitigation |
+|------|--------|------------|
+| Migration fails on production | 1.3 | Nullable ADD COLUMN is safe — test on staging first if available |
+| Seed script errors on new column | 1.5 | Verify migration applied before seeding |
+| Auto-sync breaks for repos without field | 2.5 | Gate on ALL 17 PRs merged before making required |
+| Tagline objections from maintainers | 2.2/2.3 | PRs are proposals — maintainers can edit before merge |
+
+## Definition of Done
+
+- [ ] All 17 constructs display handcrafted taglines on production
+- [ ] Zero truncated descriptions in the UI
+- [ ] `short_description` field in API response for all endpoints
+- [ ] construct-base template includes `short_description`
+- [ ] All 17 construct repos have `short_description` in `construct.yaml`

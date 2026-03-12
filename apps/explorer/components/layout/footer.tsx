@@ -65,14 +65,14 @@ function FooterStats() {
 
   if (!stats) {
     return (
-      <p className="font-mono text-sm uppercase tracking-wider text-bone-ghost">
+      <p className="font-mono text-base uppercase tracking-wider text-bone-ghost">
         CONSTRUCTS NETWORK
       </p>
     );
   }
 
   return (
-    <p className="font-mono text-sm uppercase tracking-wider text-bone-ghost">
+    <p className="font-mono text-base uppercase tracking-wider text-bone-ghost">
       {stats.totalConstructs} CONSTRUCTS · {stats.totalCommands} COMMANDS ·{' '}
       {stats.categoryCount} CATEGORIES
     </p>
@@ -82,7 +82,7 @@ function FooterStats() {
 export function Footer() {
   return (
     <footer className="border-t border-void-border bg-void-base">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-center px-4">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-center px-4">
         <FooterStats />
       </div>
     </footer>

@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils/cn';
 import { getCategoryColor } from '@/lib/utils/colors';
 
 const badgeVariants = cva(
-  'inline-flex items-center px-2 py-0.5 text-xs font-mono uppercase tracking-terminal',
+  'inline-flex items-center px-2 py-0.5 text-sm font-mono uppercase tracking-terminal',
   {
     variants: {
       variant: {
@@ -34,7 +34,7 @@ export function Badge({ className, variant, style, ...props }: BadgeProps) {
     return (
       <span
         className={cn(
-          'inline-flex items-center px-2 py-0.5 text-xs font-mono uppercase tracking-terminal border',
+          'inline-flex items-center px-2 py-0.5 text-sm font-mono uppercase tracking-terminal border',
           className
         )}
         style={{
