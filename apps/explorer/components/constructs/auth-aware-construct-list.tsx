@@ -11,7 +11,6 @@
 
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useAuthStore } from '@/lib/stores/auth-store';
-import { DynamicConnectButton } from '@/components/auth/dynamic-connect-button';
 import { Badge } from '@/components/ui/badge';
 import {
   Table,
