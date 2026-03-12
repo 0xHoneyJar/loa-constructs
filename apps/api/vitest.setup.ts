@@ -13,3 +13,9 @@ if (!process.env.JWT_SECRET) {
 if (!process.env.NODE_ENV) {
   process.env.NODE_ENV = 'test';
 }
+
+// Prevent Redis.fromEnv() from reading real credentials in tests
+// Redis.fromEnv() reads UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN
+// Setting to empty ensures tests never hit real Redis
+process.env.UPSTASH_REDIS_REST_URL = '';
+process.env.UPSTASH_REDIS_REST_TOKEN = '';

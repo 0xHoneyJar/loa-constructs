@@ -1,289 +1,229 @@
-# PRD: Network Cohesion — Construct DX at Platform Scale
+# PRD: API Stability — Test Infrastructure & Regression Prevention
 
-**Cycle**: cycle-041
+**Cycle**: cycle-042
 **Created**: 2026-03-11
 **Status**: Draft
-**Context**: `grimoires/loa/context/construct-network-cohesion.md`
-**Research**: `grimoires/bridgebuilder/ecosystem-lifecycle-research.md`, `grimoires/bridgebuilder/stripe-dx-patterns.md`
+**Context**: `grimoires/loa/context/api-test-stability-baseline.md`
 **Grounded in**:
-- `apps/api/src/db/schema.ts:508-597` (packs table — no category column)
-- `apps/explorer/lib/data/fetch-constructs.ts:74-91` (SLUG_CATEGORY_MAP hack)
-- `apps/api/src/services/constructs.ts:393` (`category: null` hardcoded)
-- `apps/api/src/services/category.ts:153-160` (listCategories counts skills only)
-- `.claude/scripts/constructs-create.sh` (scaffold generates ~40 YAML fields at create)
-- `.claude/scripts/constructs-publish.sh` (do_push prints "not yet implemented")
-- `scripts/seed-forge-packs.ts:77-142` (GIT_CONFIGS hardcoded 15 entries)
-- `scripts/discover-constructs.ts` (--register flag stubbed)
-- `.loa.config.yaml:99-114` (QMD disabled, 188 failures)
+- `apps/api/vitest.config.ts` (existing Vitest v2.1 config)
+- `apps/api/vitest.setup.ts` (minimal — only JWT_SECRET + NODE_ENV)
+- `apps/api/src/middleware/auth.ts:63-95` (getUserById on every request, no caching)
+- `apps/api/src/middleware/rate-limiter.ts:134-218` (fail-open/fail-closed split, dead code at 193)
+- `apps/api/src/services/blacklist.ts:57-75` (fail-secure returns true on Redis error)
+- `apps/api/src/services/redis.ts` (env var mismatch: REDIS_URL vs UPSTASH_REDIS_REST_URL)
+- `apps/api/src/db/index.ts` (prepare: false, max: 10, dummy fallback URL)
+- `apps/api/src/routes/health.ts` (readiness probe: DB + Redis)
+- `apps/api/src/config/env.ts` (JWT_SECRET optional in Zod schema, runtime crash)
+- `tests/e2e/constructs.test.ts` (~713 lines testing inline objects, zero HTTP calls)
+- `src/services/constructs.test.ts` (~290 lines testing local constants)
 
 ---
 
 ## 1. Problem Statement
 
-The constructs network has sound architecture — namespace-as-registry, content-addressed versioning, git-sync distribution — but the wiring between what a construct author writes and what the network renders is broken at every joint.
+The constructs.network API has experienced repeated downtime. The root cause is not bad architecture — the middleware stack, auth flow, and rate limiting are well-designed. The root cause is that the critical failure modes are untested.
 
-**Category system**: Exists in 4 places (DB seed, API service, frontend constants, frontend SLUG_CATEGORY_MAP), connected to nothing. The `packs` table has no `category` column. Every construct on the graph gets its category from a 16-entry hardcoded map in the frontend. Any new construct not in that map silently falls to `'development'`.
+The API has 40+ endpoints, ~20 test files, and ~1,800 lines of tests that exercise nothing. The "e2e" tests in `tests/e2e/` construct mock JSON objects inline and assert on those objects — they never make an HTTP request through the Hono app. Service tests like `constructs.test.ts` and `skills.test.ts` define local constants and assert `['free','pro','team','enterprise'].toHaveLength(4)`. These tests pass when the API is completely broken.
 
-> Source: `fetch-constructs.ts:74-91`, `schema.ts:508` (no category on packs), `constructs.ts:393`
+Meanwhile, the paths that actually cause downtime — Redis outages blocking all token refresh, missing env vars causing runtime 500s, auth middleware hitting the DB on every request without caching — have zero test coverage.
 
-**Scaffold**: Front-loads ~40 YAML fields at create time. The research across Cargo, npm, Shopify, VS Code, and Homebrew shows no ecosystem validates during `create`. Creativity requires incomplete states.
-
-> Source: `constructs-create.sh:75-157`, ecosystem-lifecycle-research.md §Principle 4
-
-**Publish path**: The CLI stub prints "not yet implemented" at the final step. The git-sync path works but isn't wired as the canonical flow. Authors hit a dead end.
-
-> Source: `constructs-publish.sh` do_push function
-
-**Auto-sync**: `GIT_CONFIGS` is hardcoded with 15 entries. The namespace-as-registry principle ("a `construct-*` repo with a `construct.yaml` IS a stall in the bazaar") is aspirational, not operational.
-
-> Source: `seed-forge-packs.ts:77-142`, `discover-constructs.ts`
-
-**QMD**: Integrated into Loa (scripts, hooks, 3 skills call it) but dormant. 188 failures accumulated, master toggle off.
-
-> Source: `.loa.config.yaml:101`, `.loa/qmd/.failure_count`
+> Sources: `api-test-stability-baseline.md`, diagnostic session 2026-03-11
 
 ---
 
-## 2. Vision
+## 2. Goals & Success Metrics
 
-**The filesystem IS the configuration. The manifest is for exceptions. The network handles everything after the author writes skills.**
+### Primary Goal
+Prevent API downtime by testing the code paths that cause it.
 
-The author lives in steps 1-4. The network lives in steps 5-7. They never meet.
+### Success Metrics
 
-```
-1. construct create my-tool        → 5 files, immediately invocable
-2. (author writes skills, accumulates grimoire artifacts)
-3. /skill-add research             → new skill scaffolded with conventions
-4. (author iterates, QMD indexes artifacts)
-5. /construct-publish patch        → validates, infers metadata, bumps, syncs
-6. (network: category derivation, graph position, search indexing, install API)
-7. (consumers: /constructs install my-tool)
-```
+| Metric | Current | Target | How to Measure |
+|--------|---------|--------|----------------|
+| Fake test lines | ~1,800 | 0 | grep for test files that don't import from `src/` |
+| Real test count | ~45 | 160+ | `bun run test --reporter=verbose \| grep '✓' \| wc -l` |
+| Critical path coverage | 0% | 100% | All 11 fragile areas have dedicated tests |
+| Test suite speed | N/A | < 30s | `time bun run test` |
+| Coverage (statements) | Unknown | > 40% | `bun run test:coverage` |
+| Production incidents from untested paths | Recurring | 0 | Incident log |
 
----
-
-## 3. Design Principles
-
-Extracted from cross-ecosystem research (Vercel, Cargo, npm, Shopify, VS Code, Stripe, Homebrew). These govern all decisions in this PRD.
-
-| # | Principle | Source |
-|---|-----------|--------|
-| 1 | **Filesystem inference over declaration** | Cargo infers targets from `src/`, Next.js infers routes from `app/` |
-| 2 | **Graduated manifest tiers** — Identity (create) < Publication (publish) < Discovery (registry) | Every ecosystem separates these; none front-load all fields |
-| 3 | **Two-phase scaffolding** — shell first, capabilities later | Shopify `app init` + `app generate extension` |
-| 4 | **Progressive commitment** — same primitives at every tier | Stripe: zero-config and full-control share the same pipeline |
-| 5 | **One state machine, all distribution methods** | Stripe PaymentIntents: one lifecycle regardless of method |
-| 6 | **Validate at boundaries, not in editors** | No ecosystem validates during `create` or `dev` |
-| 7 | **Errors are navigation, not dead ends** | Stripe: every error includes the next step |
-| 8 | **Detection over declaration** | Vercel CLI reads 6+ signals before asking the developer anything |
+### Non-Goals
+- Full 100% code coverage (diminishing returns past ~60%)
+- Integration tests against live Supabase/Redis (mock-based is fine for regression detection)
+- Performance/load testing (separate initiative)
+- Frontend/explorer testing (separate scope)
 
 ---
 
-## 4. Users
+## 3. Users & Stakeholders
 
-**Primary**: Internal team — @janitooor and team members creating and maintaining constructs under the `0xHoneyJar` org. They build constructs to solve real problems in their product repos (midi-interface, mcv-interface, rektdrop-interface). They want to focus on the craft, not the plumbing.
-
-**Secondary** (deferred): External contributors. The register/pending_review path exists but is not the focus of this cycle.
-
----
-
-## 5. Success Criteria
-
-| Metric | Current | Target | How Measured |
-|--------|---------|--------|-------------|
-| Constructs with real category in API response | 0 of 15 | 15 of 15 | `GET /v1/constructs` — zero `category: null` |
-| Frontend SLUG_CATEGORY_MAP entries | 16 | 0 (deleted) | Code search |
-| Category constants definitions | 3 (duplicated) | 1 (shared) | `packages/shared/src/categories.ts` |
-| Scaffold YAML lines at create time | ~40 | <10 | `construct.yaml` line count after `construct create` |
-| Scaffold files for skill-pack | 6 (missing dispatch files) | 5 (dispatch-ready) | Includes `commands/<slug>.md` with frontmatter |
-| Publish path completes end-to-end | No (stub) | Yes | `construct publish` triggers git-sync successfully |
-| New construct-* repos auto-discovered | No (manual GIT_CONFIGS) | Yes (within 24h) | GitHub Action cron runs successfully |
-| Constructs with `domain` in construct.yaml | 2 of 15 | 15 of 15 | Check across all construct repos |
-| QMD operational | No (disabled, 188 failures) | Yes (enabled, 0 failures) | `.loa.config.yaml` enabled + collections indexed |
-| `/skill-add` exists | No | Yes | Skill invocable, creates working skill directory |
+| Role | Need |
+|------|------|
+| @janitooor (maintainer) | Confidence that merges won't cause downtime |
+| API consumers (Loa CLI, explorer, constructs) | Stable endpoints that don't return 500s |
+| CI pipeline | Fast, deterministic test suite that catches regressions |
 
 ---
 
-## 6. Functional Requirements
+## 4. Functional Requirements
 
-### FR-1: Category Derivation Pipeline (P0)
+### FR-1: Shared Test Infrastructure
+**Priority**: P0 (blocks all other work)
 
-**Goal**: Category flows from `construct.yaml:domain[0]` through the network to the graph. No client-side hacks.
+Create `apps/api/tests/helpers/` with:
 
-| ID | Requirement | Acceptance |
-|----|-------------|-----------|
-| FR-1.1 | Add `category VARCHAR(50)` column to `packs` table | Migration applied, indexed |
-| FR-1.2 | Seed script derives category from `manifest.domain[0]` via `normalizeCategory()` | All 15 packs have non-null category after seed |
-| FR-1.3 | API returns `pack.category` in construct responses | `GET /v1/constructs` returns real category for all packs |
-| FR-1.4 | `listCategories()` counts both `packs.category` and `skills.category` | Category counts reflect actual construct distribution |
-| FR-1.5 | Frontend deletes `SLUG_CATEGORY_MAP`, trusts API | Zero hardcoded category mappings in explorer |
-| FR-1.6 | `skillCategoryEnum` aligned with 8-category taxonomy | Enum values match: marketing, development, security, analytics, documentation, operations, design, infrastructure |
+| Helper | Purpose |
+|--------|---------|
+| `mock-db.ts` | Drizzle query builder mock factory with chained methods |
+| `mock-redis.ts` | Redis mock with `failMode` option for error testing |
+| `fixtures.ts` | Realistic DB row factories (user, pack, skill, version, subscription) |
+| `auth.ts` | JWT generator using test secret for auth header creation |
 
-### FR-2: Shared Category Constants (P0)
+**Acceptance**: Any new test file requires < 10 lines of setup.
 
-| ID | Requirement | Acceptance |
-|----|-------------|-----------|
-| FR-2.1 | Create `packages/shared/src/categories.ts` with `CATEGORIES`, `LEGACY_SLUG_MAPPINGS`, `normalizeCategory()` | One file, exported |
-| FR-2.2 | API imports from shared package | `services/category.ts` uses shared constants |
-| FR-2.3 | Explorer imports from shared package | `lib/data/fetch-categories.ts` uses shared constants |
-| FR-2.4 | Seed script imports from shared package | `seed-forge-packs.ts` uses shared `normalizeCategory()` |
+> Source: `api-test-stability-baseline.md` Phase 0
 
-### FR-3: Construct Repo Domain Backfill (P0)
+### FR-2: Stability Tests (Tier 1)
+**Priority**: P0
 
-| ID | Requirement | Acceptance |
-|----|-------------|-----------|
-| FR-3.1 | Add `domain` field to all 15 construct.yaml files across repos | Each repo has `domain: [<category>, ...]` in construct.yaml |
-| FR-3.2 | Domain values match the intended category for each construct | Observer→analytics, Artisan→design, Protocol→development, etc. |
-| FR-3.3 | Re-run seed script to populate `packs.category` from new domain fields | All 15 DB records have correct category |
+Test every known fragile area:
 
-**Domain assignments** (derived from existing SLUG_CATEGORY_MAP + construct purpose):
+| ID | Fragile Area | Test File | What Breaks Without It |
+|----|-------------|-----------|----------------------|
+| F-1 | Redis env mismatch | `redis.test.ts` | First Redis call throws, rate limiter 503s |
+| F-2 | JWT_SECRET missing | `auth.test.ts` (route) | First auth request 500s |
+| F-3 | Blacklist fail-secure | `blacklist.test.ts` | Redis outage blocks all token refresh |
+| F-4 | Rate limiter fail modes | `rate-limiter.test.ts` | Auth endpoints 503 vs non-auth pass-through |
+| F-5 | Auth middleware | `auth.test.ts` (middleware) | Every auth variant: JWT, API key, optional |
+| F-6 | Error handler | `error-handler.test.ts` | AppError vs unknown error response shapes |
+| F-7 | Health readiness | `health.test.ts` (enhance) | DB/Redis probe behavior |
 
-| Construct | domain[0] | Rationale |
-|-----------|-----------|-----------|
-| artisan | design | Material feel, typography, motion |
-| the-easel | design | Visual direction, TDRs |
-| webgl-particles | design | WebGL visual effects |
-| webreel | design | Video/visual content |
-| observer | analytics | User research, feedback capture |
-| k-hole | analytics | Deep research, resonance profiles |
-| crucible | security | QA, testing, verification |
-| hardening | security | Security hardening |
-| dynamic-auth | security | Authentication patterns |
-| protocol | development | Web3 protocol, dapp UX |
-| beacon | operations | Deployment, monitoring |
-| herald | operations | PR→social content pipeline |
-| gtm-collective | marketing | GTM strategy |
-| social-oracle | marketing | Social media content |
-| growthpages | marketing | Growth content |
-| mibera-codex | documentation | Knowledge base |
+**Acceptance**: Breaking any of these 7 areas causes at least one test to fail.
 
-### FR-4: Minimal Scaffold (P1)
+> Source: `api-test-stability-baseline.md` Phase 1, diagnostic session fragile areas 1-11
 
-**Goal**: `construct create` produces 5 files that dispatch immediately. No enrichment fields at create time.
+### FR-3: Core API Tests (Tier 2)
+**Priority**: P1
 
-| ID | Requirement | Acceptance |
-|----|-------------|-----------|
-| FR-4.1 | `construct.yaml` contains only: name, slug, version, type, description, license, schema_version | <10 lines. No domain, capabilities, paths, identity, pack_dependencies |
-| FR-4.2 | `skills/<slug>/index.yaml` contains only: name, triggers, entry | Dispatch-critical fields only |
-| FR-4.3 | `skills/<slug>/SKILL.md` is a minimal workflow stub | Invocation + TODO sections |
-| FR-4.4 | `commands/<slug>.md` has valid routing frontmatter | agent, agent_path, context_files present |
-| FR-4.5 | Skill directory named after slug, not "example" | `skills/<slug>/` not `skills/example/` |
-| FR-4.6 | No `identity/`, `contexts/`, `capabilities`, `domain`, `paths` generated | These are enrichment — added at publish or via `/skill-add` |
+| Test File | Endpoints Covered |
+|-----------|------------------|
+| `constructs.test.ts` (route) | GET list, filters, pagination, detail, HEAD, summary, visibility |
+| `categories.test.ts` (enhance) | Response shape contract, sort order |
+| `webhooks.test.ts` | Stripe HMAC, GitHub HMAC, idempotency, replay protection |
 
-### FR-5: Publish Boundary (P1)
+**Acceptance**: All public endpoints have at least one test via `app.request()`.
 
-**Goal**: `/construct-publish` validates, infers missing metadata, and syncs via git-sync. One command from "I'm done" to "it's live."
+> Source: `api-test-stability-baseline.md` Phase 2
 
-| ID | Requirement | Acceptance |
-|----|-------------|-----------|
-| FR-5.1 | Filesystem discovery: skills from `skills/*/index.yaml`, commands from `commands/*.md` | Inferred arrays match actual directory contents |
-| FR-5.2 | Prompt for Tier 2 fields if missing: version, description, license | User prompted once, values written to construct.yaml |
-| FR-5.3 | Suggest Tier 3 fields: domain (with type-based default), keywords | Agent proposes, user confirms or overrides |
-| FR-5.4 | Validation: routing frontmatter present, triggers populated, at least one skill | Errors are actionable (file + field + suggestion) |
-| FR-5.5 | Git-sync trigger: `POST /v1/packs/:slug/sync` | Sync completes, content hash updated |
-| FR-5.6 | Remove direct-upload stub from `do_push()` | One publish path, not two |
-| FR-5.7 | Version ceremony: `construct publish patch\|minor\|major` bumps version, commits, tags, pushes | Like `vsce publish minor` |
+### FR-4: Contract & Snapshot Tests (Tier 3)
+**Priority**: P1
 
-### FR-6: `/skill-add` Truename (P1)
+| Test File | Purpose |
+|-----------|---------|
+| `api-snapshots.test.ts` (expand) | Snapshot every public endpoint response shape |
+| `response-schemas.test.ts` (new) | Zod schema validation of production fixtures |
 
-**Goal**: Two-phase scaffolding — shell first (create), capabilities later (skill-add).
+**Acceptance**: Changing any response field causes a snapshot mismatch or schema failure.
 
-| ID | Requirement | Acceptance |
-|----|-------------|-----------|
-| FR-6.1 | `/skill-add <name>` creates `skills/<name>/{index.yaml, SKILL.md}` | Files created with populated triggers, entry, name |
-| FR-6.2 | Agent reads existing skills to populate domain_hints and examples | New skill is contextually aware of the construct |
-| FR-6.3 | Creates `commands/<name>.md` with routing frontmatter if missing | New skill is immediately invocable |
-| FR-6.4 | Works inside any construct repo (detects construct.yaml) | Errors clearly if not in a construct directory |
+> Source: `api-test-stability-baseline.md` Phase 3
 
-### FR-7: Auto-Sync (P2)
+### FR-5: Cleanup Fake Tests
+**Priority**: P1
 
-**Goal**: Namespace IS the registry. New `construct-*` repos auto-enter the network.
+Delete these files (~1,800 lines):
 
-| ID | Requirement | Acceptance |
-|----|-------------|-----------|
-| FR-7.1 | Complete `--register` flag in `discover-constructs.ts` | Script can register new constructs via API |
-| FR-7.2 | GitHub Action runs daily cron: discover → register → sync | New repos appear in registry within 24h |
-| FR-7.3 | Existing repos: compare `last_sync_commit` vs HEAD, sync if diverged | Stale constructs auto-update |
-| FR-7.4 | `GIT_CONFIGS` becomes a fallback, not the registry | Auto-discovery is the primary path |
+| File | Lines | Why Fake |
+|------|-------|----------|
+| `src/services/constructs.test.ts` | ~290 | Tests local variables |
+| `src/services/skills.test.ts` | ~147 | Tests local constants |
+| `src/services/submissions.test.ts` | ~290 | Tests local objects |
+| `tests/e2e/constructs.test.ts` | ~713 | Inline JSON, no HTTP |
+| `tests/e2e/pack-flow.test.ts` | ~200 | Mock object assertions |
+| `tests/e2e/creator.test.ts` | ~150 | Mock object assertions |
 
-### FR-8: QMD Re-enablement (P2)
+**Acceptance**: Zero test files that only assert on locally-defined data.
 
-**Goal**: QMD operational with expanded construct collections.
+### FR-6: Vitest Configuration
+**Priority**: P0
 
-| ID | Requirement | Acceptance |
-|----|-------------|-----------|
-| FR-8.1 | `memory.qmd.enabled: true` in `.loa.config.yaml` | Toggle on |
-| FR-8.2 | Failure counter at 0, stays at 0 after sync | `.loa/qmd/.failure_count` = 0 post-index |
-| FR-8.3 | `constructs` collection indexes SKILL.md, index.yaml, persona.yaml, CLAUDE.md from installed packs | QMD search returns construct documentation |
-| FR-8.4 | `grimoires-all` collection indexes all grimoire markdown | Cross-grimoire semantic search works |
-| FR-8.5 | QMD assists domain inference at publish time | Publish skill queries QMD for SKILL.md content → category suggestion |
+Update `apps/api/vitest.config.ts`:
+- `testTimeout: 10000` (bcrypt operations are slow)
+- `pool: 'forks'` (isolate test files to prevent mock pollution)
+- Coverage thresholds: `statements: 40, branches: 30, functions: 35, lines: 40`
+
+Update `apps/api/vitest.setup.ts`:
+- Set `UPSTASH_REDIS_REST_URL=''` and `UPSTASH_REDIS_REST_TOKEN=''`
+
+**Acceptance**: `bun run test` passes in CI without environment secrets.
 
 ---
 
-## 7. Technical Constraints
+## 5. Technical & Non-Functional Requirements
 
-| Constraint | Impact |
-|-----------|--------|
-| DB migration on production Supabase | Must use `bun -e` with postgres driver (no `psql` locally). Test in dry-run first. |
-| `skillCategoryEnum` is a PostgreSQL enum type | ALTER TYPE requires careful migration — rename values, add new, drop unused |
-| 15 construct repos under 0xHoneyJar | Domain backfill requires PRs or direct pushes to each repo |
-| QMD v1.1.5 globally installed, not project dep | Binary must be in PATH. Graceful degradation if missing. |
-| `packages/shared` must be importable by both API (Node) and explorer (Next.js) | Package must work in both server and browser contexts |
-| Auto-sync GitHub Action needs `DATABASE_URL` and `GH_TOKEN` secrets | Must be configured in repo settings |
+### NFR-1: Speed
+Full test suite completes in < 30 seconds. No network calls, no external service dependencies.
+
+### NFR-2: Determinism
+Tests produce identical results on every run. No time-dependent assertions, no random data without seeds, no shared mutable state between test files.
+
+### NFR-3: CI Compatibility
+Tests run in GitHub Actions without Supabase, Redis, or any secret env vars. All external dependencies are mocked.
+
+### NFR-4: Maintainability
+Shared helpers eliminate boilerplate. Adding a new route test requires < 10 lines of setup beyond the test logic itself.
 
 ---
 
-## 8. Scope
+## 6. Scope & Prioritization
 
-### In Scope (P0-P2)
+### MVP (Sprint 1)
+- FR-1: Shared test helpers
+- FR-2: Stability tests (all 7 fragile areas)
+- FR-6: Vitest config changes
+- FR-5: Delete fake tests (clean slate)
 
-- Category derivation pipeline: migration → seed → API → frontend
-- Shared constants package
-- Domain field backfill across all 15 construct repos
-- Minimal scaffold (5 files, <10 YAML lines)
-- Publish boundary with git-sync + validation
-- `/skill-add` truename
-- Auto-sync GitHub Action
-- QMD re-enablement + collection expansion
+### Sprint 2
+- FR-3: Core API tests
+- FR-4: Contract & snapshot tests
 
 ### Out of Scope
-
-- External contributor path (register → pending_review → approval)
-- Billing/payments integration
-- MCP server wrapper for QMD
-- `/construct-distill` truename (P3 — depends on QMD + /skill-add)
-- Lifecycle state machine formalization (P4)
-- Path inference at publish time (P3)
-- Construct piping / event bus
-- Explorer UI changes beyond category cleanup
+- Integration tests against live databases
+- Performance/load testing
+- Frontend (explorer) test coverage
+- E2E tests with real HTTP server (Hono's `app.request()` is sufficient)
+- Fixing the 11 fragile areas (test them first, fix in future cycle)
 
 ---
 
-## 9. Risks
+## 7. Risks & Dependencies
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|-----------|
-| Enum migration breaks existing skill rows | Medium | High | Verify zero rows for `sales`/`support` before dropping. Run migration in transaction. |
-| QMD failures recur after re-enable | Medium | Low | Three-tier fallback (QMD → CK → grep) means functionality degrades gracefully |
-| Domain backfill requires 15 PRs to construct repos | Certain | Medium | Batch with `gh` CLI. Direct push to repos where team has write access. |
-| Shared package import breaks explorer build | Low | Medium | Test in CI before merging. Shared package exports only pure functions + constants. |
-| Auto-sync discovers repos with broken construct.yaml | Medium | Low | Validation in discover script — skip repos that fail manifest parse |
-| `last_sync_commit` comparison has edge cases (force push, rebase) | Low | Low | Fall back to full sync if comparison fails |
+| Risk | Impact | Mitigation |
+|------|--------|------------|
+| Mock fidelity drift | Tests pass but real behavior differs | Use `app.request()` for route tests (exercises real middleware chain). Use real crypto in auth tests. |
+| Drizzle mock chain complexity | Hard to maintain as schema evolves | Centralized `createMockDb()` factory — single place to update |
+| bcrypt slows tests | Suite exceeds 30s target | Use `testTimeout: 10000`, consider lower cost factor in test env |
+| Snapshot brittleness | Minor changes cause spurious failures | Use `expect.any()` for dynamic fields (timestamps, IDs, request_id) |
 
----
-
-## 10. Dependencies
-
-| Dependency | Status | Blocks |
-|-----------|--------|--------|
-| Supabase production DB access | Available | FR-1.1 (migration) |
-| Write access to 15 construct repos | Available (0xHoneyJar org) | FR-3.1 (domain backfill) |
-| `packages/shared` exists in monorepo | Exists | FR-2.1 (shared constants) |
-| QMD v1.1.5 binary in PATH | Available | FR-8.1 (re-enablement) |
-| GitHub Actions configured for repo | Available | FR-7.2 (auto-sync cron) |
+### Dependencies
+- Vitest v2.1 (already installed)
+- `@hono/node-server` test utilities — `app.request()` (already available)
+- `jose` for JWT generation in test helpers (already installed)
+- No new dependencies required
 
 ---
 
-## Next Step
+## 8. Known Fragile Areas (Reference)
 
-`/architect` to create Software Design Document from this PRD.
+These 11 areas were identified during the diagnostic session. The test suite must cover all of them:
+
+1. **Redis env var mismatch** — `env.ts` validates `REDIS_URL` but `Redis.fromEnv()` reads `UPSTASH_REDIS_REST_URL`
+2. **JWT_SECRET missing = runtime 500** — not validated at startup
+3. **Every auth request hits DB** — `getUserById()` on every JWT validation
+4. **bcrypt on every API key auth** — up to 10 candidates, ~300ms each
+5. **Redis outage = token refresh blocked** — `isBlacklisted()` fail-secure
+6. **Rate limiter dead code** — re-throw check at `rate-limiter.ts:193`
+7. **No circuit breakers** — GitHub API calls in OAuth have no timeout
+8. **Sentry is a stub** — `captureException()` only logs
+9. **OAuth tokens in URL query params** — tokens in browser history
+10. **AppError duck-typing** — `'code' in err` instead of `instanceof`
+11. **Bare catch blocks** — DB errors return as "invalid token"

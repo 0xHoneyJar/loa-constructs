@@ -1,225 +1,354 @@
-# Sprint Plan: Network Cohesion — Construct DX at Platform Scale
+# Sprint Plan: API Stability — Test Infrastructure & Regression Prevention
 
-**Cycle**: cycle-041
+**Cycle**: cycle-042
 **PRD**: `grimoires/loa/prd.md`
 **SDD**: `grimoires/loa/sdd.md`
-**Sprints**: 3
-**Total tasks**: 16
+**Team**: 1 engineer (autonomous)
+**Sprint Duration**: 1 session each
 
 ---
 
-## Sprint 1: Category Pipeline — Migration → Shared → API → Explorer
+## Sprint 1: Test Infrastructure + Stability Tests (MVP)
 
-**Label**: Category Derivation Pipeline
-**Global ID**: sprint-45
-**FR**: FR-1, FR-2, FR-3
-**Goal**: Every construct returns a real category from the API. Delete the frontend hack. One source of truth.
+**Goal**: Shared helpers, vitest config, delete fake tests, stability tests for all fragile areas.
 
-### Tasks
+**Success Criteria**: `cd apps/api && bun run test` passes with 0 fake tests, all 7 fragile areas covered.
 
-#### 1.1 — Create shared category constants
+### T1.1: Vitest Configuration Updates
+**Priority**: P0 (blocks all tests)
+**Files**: `apps/api/vitest.config.ts`, `apps/api/vitest.setup.ts`
 
-**File**: `packages/shared/src/categories.ts` (new)
-**Action**: Create file with `CATEGORY_SLUGS`, `CATEGORIES`, `LEGACY_SLUG_MAPPINGS`, `normalizeCategory()`, `isValidCategory()`, `CategorySlug` type, `CategoryDefinition` interface.
-**AC**:
-- [ ] `CATEGORY_SLUGS` is a const array of 8 slugs
-- [ ] `CategorySlug` is a union type derived from the array
-- [ ] `normalizeCategory('gtm')` returns `'marketing'`
-- [ ] `isValidCategory('design')` returns `true`
-- [ ] File exports only pure functions, constants, and types (no side effects)
+**Description**: Update vitest config with `testTimeout: 10000`, `pool: 'forks'`, coverage thresholds (40/30/35/40). Add UPSTASH env guards to setup file.
 
-#### 1.2 — Export categories from shared barrel
+**Acceptance Criteria**:
+- `vitest.config.ts` has `testTimeout: 10000` and `pool: 'forks'`
+- `vitest.config.ts` has coverage thresholds: `statements: 40, branches: 30, functions: 35, lines: 40`
+- `vitest.setup.ts` sets `UPSTASH_REDIS_REST_URL=''` and `UPSTASH_REDIS_REST_TOKEN=''`
+- `bun run test` passes without environment secrets
 
-**File**: `packages/shared/src/index.ts`
-**Action**: Add `export * from './categories.js';`
-**AC**:
-- [ ] `import { normalizeCategory, CATEGORIES } from '@loa-constructs/shared'` works
-
-#### 1.3 — Add `category` column to packs table (schema)
-
-**File**: `apps/api/src/db/schema.ts`
-**Action**: Add `category: varchar('category', { length: 50 })` to packs table after `constructType` (line ~576). Add `categoryIdx: index('idx_packs_category').on(table.category)` to indexes.
-**AC**:
-- [ ] `category` field exists on packs table definition
-- [ ] Index defined in table config
-
-#### 1.4 — Create migration SQL
-
-**File**: `apps/api/src/db/migrations/0011_packs_category.sql` (new)
-**Action**: `ALTER TABLE packs ADD COLUMN category VARCHAR(50)`. `CREATE INDEX idx_packs_category ON packs(category)`. Backfill from `search_use_cases[1]` with legacy mapping CASE statement. Default to `'development'`.
-**AC**:
-- [ ] Migration wrapped in BEGIN/COMMIT
-- [ ] Backfill handles NULL `search_use_cases`
-- [ ] Legacy slugs normalized in CASE (gtm→marketing, devops→operations, etc.)
-
-#### 1.5 — API returns real category for packs
-
-**File**: `apps/api/src/services/constructs.ts:393`
-**Action**: Change `category: null` to `category: pack.category || null`.
-**AC**:
-- [ ] `GET /v1/constructs` returns non-null `category` for all published packs
-- [ ] Zero lines reference `category: null` for pack responses
-
-#### 1.6 — Category service imports from shared, counts packs
-
-**File**: `apps/api/src/services/category.ts`
-**Action**: Delete local `LEGACY_SLUG_MAPPINGS`, `normalizeCategory()`, and `DEFAULT_CATEGORIES`. Import from `@loa-constructs/shared`. Add pack count query in `listCategories()` alongside existing skill count. Merge into `countMap`.
-**AC**:
-- [ ] Zero local category constant definitions remain
-- [ ] `listCategories()` returns counts reflecting both skills and packs per category
-- [ ] Fallback still works (shared `CATEGORIES` as default)
-
-#### 1.7 — Explorer deletes SLUG_CATEGORY_MAP, uses shared
-
-**File**: `apps/explorer/lib/data/fetch-constructs.ts`
-**Action**: Delete `SLUG_CATEGORY_MAP` (lines 74-91). Simplify line 99 to `normalizeCategory(construct.category || 'development')`. Import `normalizeCategory` from shared (via fetch-categories re-export).
-**AC**:
-- [ ] Zero hardcoded slug→category mappings in explorer
-- [ ] `transformToNode` still produces valid category for all constructs
-
-#### 1.8 — Explorer categories file imports from shared
-
-**File**: `apps/explorer/lib/data/fetch-categories.ts`
-**Action**: Delete local `DEFAULT_CATEGORIES` array, `LEGACY_SLUG_MAPPINGS`, and `normalizeCategory` function. Import from `@loa-constructs/shared`. Build `DEFAULT_CATEGORIES` from shared `CATEGORIES`.
-**AC**:
-- [ ] Zero local category definitions in fetch-categories.ts
-- [ ] `fetchCategories()` fallback uses shared constants
-- [ ] `normalizeCategory` re-exported for use by fetch-constructs.ts
-
-#### 1.9 — Seed script derives category from domain[0]
-
-**File**: `scripts/seed-forge-packs.ts`
-**Action**: Import `normalizeCategory` from shared. After extracting `searchUseCases` (~line 578), derive `category` from `domain[0]` via `normalizeCategory()`, default `'development'`. Add `category` to INSERT column list and ON CONFLICT UPDATE SET.
-**AC**:
-- [ ] `category` column populated for all 15 packs after seed
-- [ ] Packs with `domain` in manifest get correct derived category
-- [ ] Packs without `domain` get `'development'`
-
-#### 1.10 — Apply migration and re-seed production
-
-**Action**: Run migration via `bun -e` with postgres driver against production Supabase. Re-run `bun seed:forge` to populate category from existing domain fields.
-**AC**:
-- [ ] `SELECT slug, category FROM packs` returns non-null for all 15 rows
-- [ ] `GET /v1/constructs` on production returns real categories
-- [ ] Explorer graph shows constructs distributed across categories (not single-color blob)
+**Dependencies**: None
+**Effort**: Small
 
 ---
 
-## Sprint 2: Scaffold + Publish + Skill-Add
+### T1.2: Shared Test Helpers — mock-db.ts
+**Priority**: P0 (blocks stability tests)
+**Files**: `apps/api/tests/helpers/mock-db.ts`
 
-**Label**: Author DX — Scaffold, Publish, Skill-Add
-**Global ID**: sprint-46
-**FR**: FR-4, FR-5, FR-6
-**Goal**: Two-phase construct authoring works end-to-end: create → skill-add → publish.
+**Description**: Create Drizzle mock chain factory following the pattern from `tests/contract/api-snapshots.test.ts:59-133`. Returns fully-chained mock (`select→from→where→orderBy→limit→offset`, `insert→values→returning`, `update→set→where→returning`, `execute`). Includes all schema table stubs and enum/relation exports.
 
-### Tasks
+**Acceptance Criteria**:
+- `createMockDb()` returns a mock with configurable return values via `mockResolvedValueOnce`
+- `getMockDbModule()` returns full `vi.mock()` payload including 14 table stubs + enum/relation exports
+- `db.execute` is mocked for raw SQL queries (health readiness)
+- Pattern matches existing `api-snapshots.test.ts` mock structure
 
-#### 2.1 — Verify scaffold produces minimal output
-
-**File**: `.claude/scripts/constructs-create.sh`
-**Action**: Verify current state matches SDD §7. The scaffold was already revised in this session. Run `constructs-create.sh new --name test-construct --type skill-pack` and confirm output structure.
-**AC**:
-- [ ] `construct.yaml` has exactly 7 lines (name, slug, version, type, description, license, schema_version)
-- [ ] `skills/<slug>/` directory (not `skills/example/`)
-- [ ] `commands/<slug>.md` with routing frontmatter (agent, agent_path, context_files)
-- [ ] No `identity/`, `contexts/`, `capabilities`, `domain`, `paths` generated
-
-#### 2.2 — Create `/skill-add` truename
-
-**Files**: `.claude/skills/adding-skills/index.yaml` (new), `.claude/skills/adding-skills/SKILL.md` (new), `.claude/commands/skill-add.md` (new)
-**Action**: Create skill that takes `<name>` argument, detects construct root, reads existing skills for context, creates `skills/<name>/{index.yaml, SKILL.md}` and `commands/<name>.md`.
-**AC**:
-- [ ] `/skill-add research` creates `skills/research/index.yaml` with name, triggers, entry
-- [ ] `/skill-add research` creates `skills/research/SKILL.md` with workflow stub
-- [ ] `/skill-add research` creates `commands/research.md` with routing frontmatter
-- [ ] Errors clearly if not in a construct directory (no `construct.yaml`)
-- [ ] Errors if `skills/<name>/` already exists
-
-#### 2.3 — Replace publish stub with git-sync
-
-**File**: `.claude/scripts/constructs-publish.sh`
-**Action**: Replace lines 316-317 (`print_warning "Publish upload not yet implemented"`) with `git push origin HEAD --tags` + `curl POST /v1/packs/:slug/sync`. Add version-bump support in the agent skill.
-**AC**:
-- [ ] `constructs-publish.sh push <path>` no longer prints "not yet implemented"
-- [ ] Successful push triggers git push + sync API call
-- [ ] Sync success/failure reported to user
-
-#### 2.4 — Update `/construct-publish` skill for full flow
-
-**File**: `.claude/skills/publishing-constructs/SKILL.md`
-**Action**: Update to implement full publish flow: filesystem discovery, Tier 2 field prompting, domain suggestion, validation, version bump (patch|minor|major), call publish script.
-**AC**:
-- [ ] `/construct-publish patch` bumps version, commits, tags, pushes, syncs
-- [ ] Missing `description` (still "TODO") prompts user
-- [ ] Missing `domain` prompts with suggestion
-- [ ] Validation errors show file + field + suggestion (errors are navigation)
+**Dependencies**: None
+**Effort**: Medium
 
 ---
 
-## Sprint 3: Auto-Sync + QMD + Domain Backfill
+### T1.3: Shared Test Helpers — mock-redis.ts
+**Priority**: P0
+**Files**: `apps/api/tests/helpers/mock-redis.ts`
 
-**Label**: Network Automation — Auto-Sync, QMD, Backfill
-**Global ID**: sprint-47
-**FR**: FR-7, FR-8, FR-3 (operational)
-**Goal**: New construct repos auto-enter the network. QMD operational. All 15 constructs have correct domain.
+**Description**: Create Redis mock with `failMode` option. Mocks `get`, `set`, `del`, `incr`, `expire`, `exists`, `setex`, `ping`, `keys`. `failMode: true` makes all operations reject. `configured: false` makes `isRedisConfigured()` return false.
 
-### Tasks
+**Acceptance Criteria**:
+- `createMockRedis()` returns mock with all Redis methods
+- `createMockRedis({ failMode: true })` makes all operations throw
+- `getMockRedisModule({ configured: false })` returns module where `isRedisConfigured()` returns false
+- Re-exports `CACHE_KEYS` and `CACHE_TTL` constants
 
-#### 3.1 — Complete `--register` flag in discover-constructs.ts
-
-**File**: `scripts/discover-constructs.ts`
-**Action**: Replace stub at lines 237-240 with implementation that reports discovered repos for sync. The actual registration happens through `seed-forge-packs.ts` with `AUTO_DISCOVER=true`.
-**AC**:
-- [ ] `--register` outputs actionable report of missing constructs
-- [ ] Report includes git URL and suggested next step
-- [ ] Script returns JSON when combined with `--json`
-
-#### 3.2 — Create auto-sync GitHub Action
-
-**File**: `.github/workflows/construct-sync.yml` (new)
-**Action**: Daily cron at 6 AM UTC. Checkout, setup bun, install deps, run discover with `--register --json`, then run seed with `AUTO_DISCOVER=true`.
-**AC**:
-- [ ] Action triggers on schedule (daily) and workflow_dispatch
-- [ ] Uses `GH_TOKEN` and `DATABASE_URL` secrets
-- [ ] New `construct-*` repos discovered and synced within 24h
-
-#### 3.3 — Verify QMD re-enablement
-
-**Action**: Run QMD sync against expanded collections. Verify failure count stays at 0. Test query against `constructs` collection.
-**AC**:
-- [ ] `.loa.config.yaml` has `memory.qmd.enabled: true`
-- [ ] `.loa/qmd/.failure_count` = 0 after sync
-- [ ] `constructs` collection indexes SKILL.md files from installed packs
-- [ ] `grimoires-all` collection indexes grimoire markdown
-
-#### 3.4 — Domain backfill across 15 construct repos
-
-**Action**: For each construct repo under `0xHoneyJar`, add/verify `domain:` field in `construct.yaml` with assignments from PRD §FR-3.2. Use `gh` CLI to batch.
-**AC**:
-- [ ] All 15 repos have `domain: [<primary>, ...]` in construct.yaml
-- [ ] Assignments match: artisan→design, observer→analytics, protocol→development, etc.
-- [ ] Re-run `bun seed:forge` populates correct category for all 15
+**Dependencies**: None
+**Effort**: Small
 
 ---
 
-## Risk Mitigation
+### T1.4: Shared Test Helpers — fixtures.ts
+**Priority**: P0
+**Files**: `apps/api/tests/helpers/fixtures.ts`
 
-| Risk | Sprint | Mitigation |
-|------|--------|------------|
-| Migration fails on production | 1 | Run via `bun -e` in transaction. Test backfill logic locally first. |
-| Shared package breaks explorer build | 1 | Pure functions + constants only. No Node.js imports. CI catches. |
-| Domain backfill requires 15 repo touches | 3 | Batch with `gh` CLI. Direct push where team has write access. |
-| QMD failures recur | 3 | Three-tier fallback. QMD is never a gate. |
-| Git-sync endpoint returns error during publish | 2 | Warn and suggest manual `bun seed:forge`. Don't block the git push. |
+**Description**: Create factory functions for realistic DB rows: `createMockUser`, `createMockPack`, `createMockSkill`, `createMockVersion`, `createMockSubscription`, `createMockApiKey`. Column names match Drizzle schema (camelCase). All accept optional overrides.
+
+**Acceptance Criteria**:
+- Each factory returns a complete row with realistic defaults
+- Override any field via parameter: `createMockUser({ tier: 'pro' })`
+- Column names match actual Drizzle schema (camelCase)
+- Date fields use `new Date()` objects
+
+**Dependencies**: None
+**Effort**: Small
 
 ---
 
-## Dependencies
+### T1.5: Shared Test Helpers — auth.ts + index.ts
+**Priority**: P0
+**Files**: `apps/api/tests/helpers/auth.ts`, `apps/api/tests/helpers/index.ts`
 
-```
-Sprint 1 ──► Sprint 2 (publish needs category in API)
-Sprint 1 ──► Sprint 3 (domain backfill needs category column)
-Sprint 2 is independent of Sprint 3 (can parallelize)
-```
+**Description**: Create JWT generator using `jose` + test `JWT_SECRET`. `createAuthHeaders(userId, email, opts)` returns `{ Authorization: 'Bearer <token>' }`. `createExpiredAuthHeaders()` returns expired JWT. Barrel export in `index.ts`.
 
-Sprint 1 is the critical path. Sprints 2 and 3 can proceed in parallel after Sprint 1 completes.
+**Acceptance Criteria**:
+- `createAuthHeaders()` generates a valid HS256 JWT with `sub`, `email`, `jti`, `exp` claims
+- Token is verifiable by the real `verifyAccessToken()` from `src/services/auth.ts`
+- `createExpiredAuthHeaders()` generates a JWT with `exp` in the past
+- `jti` parameter allows setting specific JTI for blacklist testing
+- `index.ts` re-exports all helpers
+
+**Dependencies**: None
+**Effort**: Small
+
+---
+
+### T1.6: Delete Fake Tests
+**Priority**: P0 (clean slate before adding real tests)
+**Files**: 6 files deleted
+
+**Description**: Delete the ~1,790 lines of fake tests that assert on locally-defined data:
+- `apps/api/src/services/constructs.test.ts` (~290 lines)
+- `apps/api/src/services/skills.test.ts` (~147 lines)
+- `apps/api/src/services/submissions.test.ts` (~290 lines)
+- `apps/api/tests/e2e/constructs.test.ts` (~713 lines)
+- `apps/api/tests/e2e/pack-flow.test.ts` (~200 lines)
+- `apps/api/tests/e2e/creator.test.ts` (~150 lines)
+
+**Acceptance Criteria**:
+- All 6 files deleted
+- `bun run test` still passes (remaining good tests unaffected)
+- Zero test files that only assert on locally-defined constants
+
+**Dependencies**: None
+**Effort**: Small
+
+---
+
+### T1.7: Stability Test — blacklist.test.ts
+**Priority**: P0
+**Files**: `apps/api/src/services/blacklist.test.ts`
+
+**Description**: Test `blacklistService` fail-secure/fail-open behavior. 8 test cases covering: Redis not configured, expired token skip, correct TTL, graceful degradation on error, fail-secure on Redis error (returns `true`).
+
+**Acceptance Criteria**:
+- `isBlacklisted()` returns `false` when Redis not configured
+- `isBlacklisted()` returns `true` on Redis error (fail-secure — **critical**)
+- `add()` does not throw on Redis error (graceful degradation)
+- `add()` skips tokens with `expiresInSeconds <= 0`
+- All 8 test cases pass
+
+**Dependencies**: T1.3 (mock-redis)
+**Effort**: Medium
+
+---
+
+### T1.8: Stability Test — rate-limiter.test.ts
+**Priority**: P0
+**Files**: `apps/api/src/middleware/rate-limiter.test.ts`
+
+**Description**: Test rate limiter middleware fail modes. 6 test cases covering: Redis bypass, 429 response, rate limit headers, auth fail-closed (503), non-auth fail-open, skip function.
+
+**Acceptance Criteria**:
+- Passes through when Redis not configured (no rate limit headers)
+- Returns 429 with `Retry-After` header when limit exceeded
+- Sets `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset` on responses
+- Auth endpoints return 503 on Redis error (fail-closed — **critical**)
+- Non-auth endpoints pass through with `X-RateLimit-Degraded: true` on Redis error
+- All 6 test cases pass
+
+**Dependencies**: T1.2, T1.3
+**Effort**: Medium
+
+---
+
+### T1.9: Stability Test — auth.test.ts (middleware)
+**Priority**: P0
+**Files**: `apps/api/src/middleware/auth.test.ts`
+
+**Description**: Test auth middleware: `requireAuth()`, `optionalAuth()`, `requireTier()`, `requireOrgMember()`, `requireVerifiedEmail()`. 12 test cases using minimal Hono apps with each middleware.
+
+**Acceptance Criteria**:
+- `requireAuth()` returns 401 with no header, invalid JWT, expired JWT
+- `requireAuth()` sets context vars with valid JWT + existing user
+- `requireAuth()` returns 401 when JWT valid but user deleted from DB
+- `requireAuth()` handles API key path (`sk_*` prefix)
+- `optionalAuth()` passes through without auth, attaches user when present
+- `requireTier('pro')` returns 402 for free user, passes for pro
+- `requireOrgMember()` returns 403 for non-member
+- `requireVerifiedEmail()` returns 403 for unverified
+- All 12 test cases pass
+
+**Dependencies**: T1.2, T1.4, T1.5
+**Effort**: Large
+
+---
+
+### T1.10: Stability Test — error-handler.test.ts
+**Priority**: P0
+**Files**: `apps/api/src/middleware/error-handler.test.ts`
+
+**Description**: Test error handler middleware. 4 test cases covering: AppError structured response, unknown error 500 without leaking internals, duck-typing compatibility, request_id inclusion.
+
+**Acceptance Criteria**:
+- `AppError` returns `{ error: { code, message, details }, request_id }` with correct HTTP status
+- Unknown `Error` returns 500 with `{ error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } }` — no stack trace leaked
+- Duck-typing check (`'code' in err && err.name === 'AppError'`) works
+- `request_id` is UUID format
+- All 4 test cases pass
+
+**Dependencies**: T1.2
+**Effort**: Small
+
+---
+
+### T1.11: Stability Test — health.test.ts (Enhance)
+**Priority**: P0
+**Files**: `apps/api/src/routes/health.test.ts`
+
+**Description**: Enhance existing health test file with readiness probe and metrics tests. 6 new test cases covering: DB up/down readiness, Redis down/not-configured readiness, metrics shape, live shape.
+
+**Acceptance Criteria**:
+- `/v1/health/ready` returns 200 with `database: 'pass'` when DB up
+- `/v1/health/ready` returns 503 with `database: 'fail'` when DB down
+- `/v1/health/ready` returns 200 (degraded) with `cache: 'warn'` when Redis down
+- `/v1/health/metrics` includes `memory.rss_mb` and `process.pid`
+- `/v1/health/live` includes `status: 'alive'` and `uptime_seconds`
+- All new test cases pass alongside existing tests
+
+**Dependencies**: T1.2, T1.3
+**Effort**: Medium
+
+---
+
+### T1.12: Stability Test — auth.test.ts (routes)
+**Priority**: P0
+**Files**: `apps/api/src/routes/auth.test.ts`
+
+**Description**: Full auth flow tests via `app.request()`. 8 test cases covering: login success/failure, refresh success/blacklisted, logout blacklisting, me endpoint, validate endpoint.
+
+**Acceptance Criteria**:
+- POST `/v1/auth/login` returns token pair on success
+- POST `/v1/auth/login` returns 401 on wrong password (not 500)
+- POST `/v1/auth/login` returns 401 on non-existent email (anti-enumeration)
+- POST `/v1/auth/refresh` returns new tokens with valid refresh token
+- POST `/v1/auth/refresh` returns 401 when token is blacklisted
+- POST `/v1/auth/logout` calls `blacklistService.add()` with correct JTI
+- GET `/v1/auth/me` returns user with `is_org_member`, `tier`, `wallet_address`
+- GET `/v1/auth/validate` returns `{ valid: true, auth_method: 'jwt' }`
+- All 8 test cases pass
+
+**Dependencies**: T1.2, T1.3, T1.4, T1.5
+**Effort**: Large
+
+---
+
+## Sprint 2: Core API Tests + Contract Tests
+
+**Goal**: Route tests for public endpoints, contract/snapshot test expansion, Zod schema validation.
+
+**Success Criteria**: All public endpoints have at least one test via `app.request()`. Response shape changes cause test failures.
+
+### T2.1: Core API Test — constructs.test.ts (routes)
+**Priority**: P1
+**Files**: `apps/api/src/routes/constructs.test.ts`
+
+**Description**: Route-level tests replacing fake `tests/e2e/constructs.test.ts`. 14 test cases via `app.request()` covering: list, filters, pagination, validation, detail, 404, HEAD, summary, visibility.
+
+**Acceptance Criteria**:
+- GET `/v1/constructs` returns `{ data, pagination, request_id }`
+- Filters (`type`, `category`, `featured`, `q`) applied correctly
+- `?per_page=101` rejected by Zod
+- GET `/v1/constructs/:slug` returns detail or 404
+- HEAD `/v1/constructs/:slug` returns correct status with empty body
+- GET `/v1/constructs/summary` returns minimal format
+- Anonymous sees only `public`, org member sees `public + internal`
+- All 14 test cases pass
+
+**Dependencies**: Sprint 1 complete
+**Effort**: Large
+
+---
+
+### T2.2: Core API Test — categories.test.ts (Enhance)
+**Priority**: P1
+**Files**: `apps/api/src/routes/categories.test.ts`
+
+**Description**: Enhance existing categories test. Add response shape contract tests: each category has `id`, `slug`, `label`, `color`, `description`, `construct_count`. Verify sort order.
+
+**Acceptance Criteria**:
+- Each category in response has all required fields
+- Sort order is consistent
+- All new test cases pass alongside existing tests
+
+**Dependencies**: Sprint 1 complete
+**Effort**: Small
+
+---
+
+### T2.3: Core API Test — webhooks.test.ts
+**Priority**: P1
+**Files**: `apps/api/src/routes/webhooks.test.ts`
+
+**Description**: Webhook HMAC verification tests. 6 test cases covering: Stripe valid/invalid HMAC, Stripe idempotency, GitHub valid/invalid signature, GitHub replay protection.
+
+**Acceptance Criteria**:
+- Valid Stripe HMAC signature accepted (200)
+- Invalid Stripe HMAC rejected (400)
+- Duplicate Stripe delivery skipped
+- Valid GitHub `X-Hub-Signature-256` accepted (200)
+- Invalid GitHub signature rejected (400)
+- Duplicate GitHub delivery rejected (replay protection)
+- All 6 test cases pass
+
+**Dependencies**: Sprint 1 complete
+**Effort**: Medium
+
+---
+
+### T2.4: Contract Test — api-snapshots.test.ts (Expand)
+**Priority**: P1
+**Files**: `apps/api/tests/contract/api-snapshots.test.ts`
+
+**Description**: Expand snapshot tests to all public endpoints. Add snapshots for: categories list/detail, constructs list/detail, health live/metrics/ready. Use `expect.any()` for dynamic fields.
+
+**Acceptance Criteria**:
+- Snapshots for all 7 public endpoint groups
+- Dynamic fields (timestamps, UUIDs, PIDs) use `expect.any()`
+- Snapshot update (`vitest -u`) works cleanly
+- All snapshot tests pass
+
+**Dependencies**: Sprint 1 complete
+**Effort**: Medium
+
+---
+
+### T2.5: Contract Test — response-schemas.test.ts
+**Priority**: P1
+**Files**: `apps/api/tests/contract/response-schemas.test.ts`
+
+**Description**: Zod schema validation of API responses. Define schemas for: health response, error response, paginated response, category response. Validate production fixtures and live responses against schemas.
+
+**Acceptance Criteria**:
+- `HealthResponseSchema` validates health endpoint responses
+- `ErrorResponseSchema` validates error responses (code, message, request_id)
+- `PaginatedResponseSchema` validates list responses (data, pagination invariants)
+- Changing any response field causes Zod validation failure
+- All schema validation tests pass
+
+**Dependencies**: Sprint 1 complete
+**Effort**: Medium
+
+---
+
+## Summary
+
+| Sprint | Tasks | Test Files | Projected Tests |
+|--------|-------|-----------|----------------|
+| Sprint 1 | 12 tasks | 5 helpers + 6 test files + 6 deleted | ~65 stability tests |
+| Sprint 2 | 5 tasks | 5 test files | ~45 route + contract tests |
+| **Total** | **17 tasks** | **20 active test files** | **~175 tests** |
+
+## Risk Mitigations
+
+- **Mock chain complexity**: Centralized in `mock-db.ts` — single place to update
+- **bcrypt slowness**: `testTimeout: 10000` provides buffer
+- **Snapshot brittleness**: `expect.any()` for all dynamic fields
+- **Suite speed**: Target < 30s; `pool: 'forks'` may slow — benchmark and adjust

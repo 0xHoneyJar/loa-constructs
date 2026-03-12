@@ -157,9 +157,46 @@ vi.mock('../../src/lib/logger.js', () => ({
   },
 }));
 
-vi.mock('../../src/lib/redis.js', () => ({
-  getRedis: vi.fn().mockReturnValue(null),
+vi.mock('../../src/services/redis.js', () => ({
+  getRedis: vi.fn(() => {
+    throw new Error('REDIS_URL is not configured');
+  }),
   isRedisConfigured: vi.fn().mockReturnValue(false),
+  CACHE_KEYS: {
+    rateLimit: (key: string, window: string) => `rate:${key}:${window}`,
+    userTier: () => 'ut', constructList: () => 'cl', constructDetail: () => 'cd',
+    constructSummary: () => 'cs', constructExists: () => 'ce',
+    categoryList: () => 'catl', categoryDetail: () => 'catd',
+    skillList: () => 'sl', skill: () => 's', session: () => 'se',
+  },
+  CACHE_TTL: { userTier: 300, skillList: 60, skill: 300, constructList: 60, constructDetail: 60, constructSummary: 60, constructExists: 300, categories: 3600 },
+  getCacheVisibilityTier: vi.fn(() => 'anon'),
+  invalidateConstructCaches: vi.fn(),
+}));
+
+vi.mock('../../src/lib/monitoring.js', () => ({
+  captureException: vi.fn(() => 'mock-event-id'),
+  addBreadcrumb: vi.fn(),
+  getAppVersion: vi.fn(() => '0.1.0-test'),
+  initMonitoring: vi.fn(),
+}));
+
+vi.mock('../../src/services/category.js', () => ({
+  normalizeCategory: (slug: string) => {
+    const mappings: Record<string, string> = { gtm: 'marketing', dev: 'development' };
+    return mappings[slug.toLowerCase()] || slug.toLowerCase();
+  },
+  listCategories: vi.fn().mockResolvedValue([
+    { id: '1', slug: 'marketing', label: 'Marketing', color: '#FF44FF', description: 'GTM and campaigns', sortOrder: 1, constructCount: 5 },
+    { id: '2', slug: 'development', label: 'Development', color: '#44FF88', description: 'Coding and testing', sortOrder: 2, constructCount: 10 },
+  ]),
+  getCategoryBySlug: vi.fn().mockImplementation(async (slug: string) => {
+    const cats: Record<string, { id: string; slug: string; label: string; color: string; description: string; sortOrder: number; constructCount: number }> = {
+      marketing: { id: '1', slug: 'marketing', label: 'Marketing', color: '#FF44FF', description: 'GTM and campaigns', sortOrder: 1, constructCount: 5 },
+      development: { id: '2', slug: 'development', label: 'Development', color: '#44FF88', description: 'Coding and testing', sortOrder: 2, constructCount: 10 },
+    };
+    return cats[slug.toLowerCase()] || null;
+  }),
 }));
 
 // Import app after all mocks are set up
@@ -309,5 +346,135 @@ describe('Production Response Snapshots', () => {
   it('documents expected 404 error response', () => {
     const production404Response = loadProductionFixture('404');
     expect(production404Response).toMatchSnapshot();
+  });
+});
+
+/**
+ * Expanded Contract Snapshots (T2.4)
+ *
+ * Snapshot tests for all public endpoints:
+ * - Categories list/detail
+ * - Constructs list/detail (404 shape)
+ * - Health live/metrics/ready
+ */
+describe('Expanded Endpoint Snapshots (T2.4)', () => {
+  describe('GET /v1/categories', () => {
+    it('snapshot: categories list response shape', async () => {
+      const res = await app.request('/v1/categories');
+      expect(res.status).toBe(200);
+
+      const body = await res.json();
+      expect(body).toMatchSnapshot({
+        request_id: expect.any(String),
+      });
+    });
+  });
+
+  describe('GET /v1/categories/:slug', () => {
+    it('snapshot: category detail response shape', async () => {
+      const res = await app.request('/v1/categories/marketing');
+      expect(res.status).toBe(200);
+
+      const body = await res.json();
+      expect(body).toMatchSnapshot({
+        request_id: expect.any(String),
+      });
+    });
+
+    it('snapshot: category 404 response shape', async () => {
+      const res = await app.request('/v1/categories/nonexistent');
+      expect(res.status).toBe(404);
+
+      const body = await res.json();
+      expect(body).toMatchSnapshot({
+        request_id: expect.any(String),
+      });
+    });
+  });
+
+  describe('GET /v1/constructs (empty result)', () => {
+    it('snapshot: constructs list empty response shape', async () => {
+      const res = await app.request('/v1/constructs');
+      expect(res.status).toBe(200);
+
+      const body = await res.json();
+      // Use expect.any() for dynamic fields
+      expect(body).toMatchSnapshot({
+        request_id: expect.any(String),
+        pagination: {
+          page: expect.any(Number),
+          per_page: expect.any(Number),
+          total: expect.any(Number),
+          total_pages: expect.any(Number),
+        },
+      });
+    });
+  });
+
+  describe('GET /v1/constructs/:slug - 404', () => {
+    it('snapshot: construct 404 response shape', async () => {
+      const res = await app.request('/v1/constructs/nonexistent-construct');
+      expect(res.status).toBe(404);
+
+      const body = await res.json();
+      expect(body).toMatchSnapshot({
+        request_id: expect.any(String),
+      });
+    });
+  });
+
+  describe('GET /v1/health/live', () => {
+    it('snapshot: health live response shape', async () => {
+      const res = await app.request('/v1/health/live');
+      expect(res.status).toBe(200);
+
+      const body = await res.json();
+      expect(body).toMatchSnapshot({
+        uptime_seconds: expect.any(Number),
+        timestamp: expect.any(String),
+        startup_time: expect.any(String),
+      });
+    });
+  });
+
+  describe('GET /v1/health/metrics', () => {
+    it('snapshot: health metrics response shape', async () => {
+      const res = await app.request('/v1/health/metrics');
+      expect(res.status).toBe(200);
+
+      const body = await res.json();
+      expect(body).toMatchSnapshot({
+        memory: {
+          rss_mb: expect.any(Number),
+          heap_used_mb: expect.any(Number),
+          heap_total_mb: expect.any(Number),
+          external_mb: expect.any(Number),
+        },
+        process: {
+          pid: expect.any(Number),
+          node_version: expect.any(String),
+          platform: expect.any(String),
+          arch: expect.any(String),
+        },
+        timestamp: expect.any(String),
+        version: expect.any(String),
+        uptime_seconds: expect.any(Number),
+      });
+    });
+  });
+
+  describe('GET /v1/health/ready', () => {
+    it('snapshot: health ready response shape', async () => {
+      const res = await app.request('/v1/health/ready');
+      // May be 200 or 503 depending on DB mock
+      expect([200, 503]).toContain(res.status);
+
+      const body = await res.json();
+      expect(body).toMatchSnapshot({
+        status: expect.stringMatching(/^(healthy|degraded|unhealthy)$/),
+        timestamp: expect.any(String),
+        checks: expect.any(Array),
+      });
+    });
   });
 });
