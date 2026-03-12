@@ -60,7 +60,7 @@ export function AuthAwareConstructList({ publicConstructs, children }: AuthAware
           category: (c.category as string) || 'other',
           graduationLevel: (c.graduation_level as string) || 'experimental',
           description: (c.description as string) || '',
-          shortDescription: (c.short_description as string) || (c.description as string || '').split('.')[0].slice(0, 80) || '',
+          shortDescription: (c.short_description as string) || (c.description as string || '').split('.')[0].slice(0, 80) || 'No description',
           commandCount: (c.command_count as number) || 0,
           skillsCount: (c.skills_count as number) || 0,
           downloads: (c.downloads as number) || 0,

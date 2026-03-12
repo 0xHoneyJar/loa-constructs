@@ -303,7 +303,7 @@ function skillToConstruct(
     slug: skill.slug,
     icon: null, // Skills don't have icons
     description: skill.description,
-    shortDescription: null, // Skills don't have short_description
+    shortDescription: null, // Skills derive shortDescription from description in the frontend fallback chain
     longDescription: skill.longDescription,
     version: version?.version || null,
     tierRequired: skill.tierRequired || 'free',

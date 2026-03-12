@@ -77,6 +77,7 @@ const SHORT_DESCRIPTION_OVERRIDES: Record<string, string> = {
   'the-arcade': 'Game design philosophy',
   'the-easel': 'Aesthetic direction studio',
   webreel: 'Cinematic web capture',
+  'webgl-particles': 'WebGL particle system',
 };
 
 // Pack icons (not stored in manifest to keep manifests simple)
@@ -601,7 +602,7 @@ async function seedForgePacks() {
         // Short description: manifest > override map > derive from description
         const shortDesc = pack.fullManifest?.short_description
           ?? SHORT_DESCRIPTION_OVERRIDES[pack.slug]
-          ?? (pack.description ? pack.description.split('.')[0].slice(0, 80) : null);
+          ?? (pack.description ? pack.description.split('.')[0].slice(0, 80) || null : null);
         const longDesc = pack.fullManifest?.long_description ?? null;
         const repoUrl = pack.fullManifest?.repository ?? null;
         const homepageUrl = pack.fullManifest?.homepage ?? null;

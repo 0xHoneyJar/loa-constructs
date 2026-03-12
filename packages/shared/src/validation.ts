@@ -468,6 +468,7 @@ export const createPackSchema = z.object({
   name: z.string().min(1).max(255),
   slug: slugSchema,
   description: z.string().max(500).optional(),
+  short_description: z.string().min(5).max(80).optional(),
   long_description: z.string().max(10000).optional(),
   pricing: z
     .object({
