@@ -1,20 +1,19 @@
 {
-  "plan_id": "plan-20260313-structural047",
-  "branch": "feat/cycle-047-ruggy-structural-alignment",
-  "state": "JACKED_OUT",
+  "plan_id": "plan-20260314-semantic050",
+  "branch": "feature/semantic-architecture-050",
+  "state": "RUNNING",
   "timestamps": {
-    "started": "2026-03-13T12:20:00Z",
-    "last_activity": "2026-03-13T12:45:00Z",
-    "completed": "2026-03-13T12:45:00Z"
+    "started": "2026-03-14T00:40:00Z",
+    "last_activity": "2026-03-14T00:40:00Z"
   },
   "sprints": {
     "total": 3,
-    "completed": 3,
-    "current": null,
+    "completed": 0,
+    "current": "sprint-1",
     "list": [
-      {"id": "sprint-1", "global_id": "sprint-63", "status": "completed", "cycles": 1, "files_changed": 3, "label": "Documentation & Dashboard Visibility"},
-      {"id": "sprint-2", "global_id": "sprint-64", "status": "completed", "cycles": 1, "files_changed": 2, "label": "HIGH Reliability Fixes"},
-      {"id": "sprint-3", "global_id": "sprint-65", "status": "completed", "cycles": 1, "files_changed": 6, "label": "Consolidation"}
+      {"id": "sprint-1", "status": "in_progress", "cycles": 0, "label": "Semantic Token Foundation"},
+      {"id": "sprint-2", "status": "pending", "label": "Component Token Scoping + Migration"},
+      {"id": "sprint-3", "status": "pending", "label": "Context System + Density"}
     ]
   },
   "options": {
@@ -24,10 +23,10 @@
     "timeout_hours": 8
   },
   "metrics": {
-    "total_cycles": 3,
-    "total_files_changed": 11,
-    "total_findings_fixed": 14
+    "total_cycles": 0,
+    "total_files_changed": 0,
+    "total_findings_fixed": 0
   },
-  "cycle": "cycle-047",
-  "title": "Ruggy Structural Alignment"
+  "cycle": "cycle-050",
+  "title": "SprawlOS Design System — Semantic Architecture"
 }
