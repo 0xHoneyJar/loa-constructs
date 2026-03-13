@@ -509,24 +509,52 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
       }
 
       // Extract skill descriptions from SKILL.md files (cycle-048)
-      if (manifest.skills) {
-        for (const skill of manifest.skills) {
-          const skillDir = join(repoDir, skill.path || `skills/${skill.slug}`);
+      // Handles both object-form ({slug, path}) and string-form skills
+      if (Array.isArray(manifest.skills)) {
+        for (let i = 0; i < manifest.skills.length; i++) {
+          const raw = manifest.skills[i] as any;
+          const slug = typeof raw === 'string' ? raw : raw?.slug;
+          if (!slug || typeof slug !== 'string') continue;
+
+          const skillPath = typeof raw === 'object' && raw?.path ? raw.path : `skills/${slug}`;
+          const skillDir = join(repoDir, skillPath);
           const skillMdPath = join(skillDir, 'SKILL.md');
-          if (existsSync(skillMdPath)) {
-            try {
-              const content = await readFile(skillMdPath, 'utf-8');
-              const lines = content.split('\n');
-              let inFrontmatter = false;
-              for (const line of lines) {
-                if (line.trim() === '---') { inFrontmatter = !inFrontmatter; continue; }
-                if (inFrontmatter) continue;
-                if (line.trim() && !line.startsWith('#')) {
-                  (skill as any).description = line.trim().slice(0, 120);
-                  break;
+          if (!existsSync(skillMdPath)) continue;
+
+          try {
+            const content = await readFile(skillMdPath, 'utf-8');
+            const lines = content.split('\n');
+            let inFrontmatter = false;
+            let sawOpeningFrontmatter = false;
+            let description = '';
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed === '---') {
+                if (!sawOpeningFrontmatter) {
+                  sawOpeningFrontmatter = true;
+                  inFrontmatter = true;
+                } else if (inFrontmatter) {
+                  inFrontmatter = false;
                 }
+                continue;
               }
-            } catch { /* skip if unreadable */ }
+              if (inFrontmatter) continue;
+              if (trimmed && !trimmed.startsWith('#')) {
+                description = trimmed.slice(0, 120);
+                break;
+              }
+            }
+
+            if (description) {
+              // Normalize string-form skills back to object form with description
+              const normalized = typeof raw === 'string'
+                ? { slug, path: `skills/${slug}`, description }
+                : { ...raw, description };
+              manifest.skills[i] = normalized as any;
+            }
+          } catch {
+            // skip unreadable skill markdown
           }
         }
       }

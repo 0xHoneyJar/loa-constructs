@@ -172,6 +172,7 @@ constructsRouter.get(
       type: query.type,
       tier: query.tier,
       category: query.category,
+      domain: query.domain?.trim() || undefined,
       featured: query.featured,
       page: query.page,
       limit: query.per_page,
@@ -188,16 +189,8 @@ constructsRouter.get(
       'Constructs listed'
     );
 
-    let constructs = result.constructs;
-    if (query.domain) {
-      const domainFilter = query.domain.toLowerCase();
-      constructs = constructs.filter(c =>
-        (c.domains || []).some(d => d.toLowerCase() === domainFilter)
-      );
-    }
-
     return c.json({
-      data: constructs.map(formatConstruct),
+      data: result.constructs.map(formatConstruct),
       pagination: {
         page: result.page,
         per_page: result.limit,

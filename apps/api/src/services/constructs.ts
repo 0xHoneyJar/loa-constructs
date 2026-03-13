@@ -110,6 +110,7 @@ export interface ListConstructsOptions {
   type?: ConstructType | ConstructArchetype;
   tier?: string;
   category?: string;
+  domain?: string;
   featured?: boolean;
   maturity?: MaturityLevel[];
   page?: number;
@@ -495,9 +496,20 @@ function packToConstruct(
 // --- Discovery Enrichment Helpers (cycle-048) ---
 
 function extractDomains(manifest: ConstructManifest | null, category: string | null): string[] {
-  const domains = (manifest as any)?.domain;
-  if (Array.isArray(domains) && domains.length > 0) return domains;
-  return category ? [category] : [];
+  const raw = (manifest as any)?.domains ?? (manifest as any)?.domain;
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+
+  const normalized = values
+    .filter((d): d is string => typeof d === 'string')
+    .map((d) => d.trim())
+    .filter(Boolean);
+
+  if (normalized.length > 0) {
+    return [...new Set(normalized)];
+  }
+
+  const fallback = category?.trim();
+  return fallback ? [fallback] : [];
 }
 
 function extractExpertiseSummary(identity: { expertiseDomains: unknown } | null): string[] {
@@ -525,31 +537,45 @@ function extractSkillDetails(manifest: ConstructManifest | null): Array<{ slug: 
 }
 
 function computeDependedByMap(constructs: Construct[]): Map<string, string[]> {
-  const map = new Map<string, string[]>();
+  const map = new Map<string, Set<string>>();
+
   for (const c of constructs) {
     const deps = extractAllDependencies(c.manifest);
-    for (const slug of deps) {
-      if (!map.has(slug)) map.set(slug, []);
-      map.get(slug)!.push(c.slug);
+    for (const depSlug of deps) {
+      if (depSlug === c.slug) continue; // ignore self-dependency noise
+      if (!map.has(depSlug)) map.set(depSlug, new Set<string>());
+      map.get(depSlug)!.add(c.slug);
     }
   }
-  return map;
+
+  return new Map(
+    [...map.entries()].map(([slug, dependents]) => [slug, [...dependents].sort()])
+  );
 }
 
 function extractAllDependencies(manifest: ConstructManifest | null): string[] {
   const deps = (manifest as any)?.pack_dependencies;
   if (!deps) return [];
-  const slugs: string[] = [];
+
+  const out = new Set<string>();
+
+  const add = (entry: unknown) => {
+    const slug = typeof entry === 'string' ? entry : (entry as any)?.slug;
+    if (typeof slug === 'string' && slug.trim()) out.add(slug.trim());
+  };
+
   if (Array.isArray(deps)) {
-    for (const d of deps) slugs.push(typeof d === 'string' ? d : d?.slug);
+    for (const d of deps) add(d);
+  } else {
+    if (Array.isArray((deps as any).required)) {
+      for (const d of (deps as any).required) add(d);
+    }
+    if (Array.isArray((deps as any).optional)) {
+      for (const d of (deps as any).optional) add(d);
+    }
   }
-  if (deps.required && Array.isArray(deps.required)) {
-    for (const d of deps.required) slugs.push(typeof d === 'string' ? d : d?.slug);
-  }
-  if (deps.optional && Array.isArray(deps.optional)) {
-    for (const d of deps.optional) slugs.push(typeof d === 'string' ? d : d?.slug);
-  }
-  return slugs.filter(Boolean);
+
+  return [...out];
 }
 
 /**
@@ -583,15 +609,16 @@ export async function listConstructs(
   options: ListConstructsOptions = {},
   access?: PackAccessContext
 ): Promise<ListConstructsResult> {
-  const { query, type, tier, category, featured, maturity, page = 1, limit = DEFAULT_PAGE_SIZE } = options;
+  const { query, type, tier, category, domain, featured, maturity, page = 1, limit = DEFAULT_PAGE_SIZE } = options;
   const pageSize = Math.min(Math.max(1, limit), MAX_PAGE_SIZE);
   const offset = (Math.max(1, page) - 1) * pageSize;
 
   // Check cache for non-search queries — tier-segmented (cycle-038)
   const visTier = getCacheVisibilityTier(access);
   const maturityKey = maturity ? maturity.sort().join(',') : '';
+  const domainKey = domain?.trim().toLowerCase() || '';
   const cacheKey = !query
-    ? CACHE_KEYS.constructList(`${visTier}:${type}:${tier}:${category}:${featured}:${maturityKey}:${page}:${pageSize}`)
+    ? CACHE_KEYS.constructList(`${visTier}:${type}:${tier}:${category}:${domainKey}:${featured}:${maturityKey}:${page}:${pageSize}`)
     : null;
 
   if (cacheKey && isRedisConfigured()) {
@@ -663,21 +690,29 @@ export async function listConstructs(
     allConstructs.sort((a, b) => b.downloads - a.downloads);
   }
 
-  // For mixed queries, apply pagination after global sort
-  // For filtered queries, results are already correctly paginated
+  // Apply domain filter BEFORE pagination so total/total_pages are accurate (GPT review F1)
+  if (domain) {
+    const domainFilter = domain.trim().toLowerCase();
+    allConstructs = allConstructs.filter(c =>
+      (c.domains || []).some(d => d.toLowerCase() === domainFilter)
+    );
+  }
+
+  // Compute dependedBy cross-reference on full filtered set BEFORE pagination (GPT review F3)
+  const dependedByMap = computeDependedByMap(allConstructs);
+  for (const c of allConstructs) {
+    c.dependedBy = dependedByMap.get(c.slug) ?? [];
+  }
+
+  // Use filtered length for accurate pagination metadata
+  const total = domain ? allConstructs.length : skillsResult.count + packsResult.count;
+
+  // Apply pagination after domain filter and enrichment
   if (isMixedQuery) {
     allConstructs = allConstructs.slice(offset, offset + pageSize);
   } else {
     allConstructs = allConstructs.slice(0, pageSize);
   }
-
-  // Compute dependedBy cross-reference (cycle-048)
-  const dependedByMap = computeDependedByMap(allConstructs);
-  for (const c of allConstructs) {
-    c.dependedBy = dependedByMap.get(c.slug) || [];
-  }
-
-  const total = skillsResult.count + packsResult.count;
 
   const result: ListConstructsResult = {
     constructs: allConstructs,
