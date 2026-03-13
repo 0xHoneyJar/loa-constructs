@@ -1402,6 +1402,43 @@ export const resetCircuitBreaker = mutation({
   },
 });
 
+// --- Manual Sovereignty Override (SDD §3.3) ---
+
+export const setManualOverride = mutation({
+  args: {
+    writeKey: v.string(),
+    scope: v.string(),
+    tier: v.string(),
+    setBy: v.string(),
+    reason: v.string(),
+    expiresAt: v.optional(v.number()),
+  },
+  handler: async (ctx, { writeKey, scope, tier, setBy, reason, expiresAt }) => {
+    const expectedKey = process.env.CONVEX_WRITE_KEY;
+    if (!expectedKey || writeKey !== expectedKey) {
+      throw new Error('unauthorized');
+    }
+
+    const state = await ctx.db
+      .query('sovereigntyState')
+      .withIndex('by_scope', (q) => q.eq('scope', scope))
+      .first();
+
+    if (!state) throw new Error(`No sovereignty state for ${scope}`);
+
+    await ctx.db.patch(state._id, {
+      manualOverride: { tier, setBy, reason, expiresAt },
+      lastTransition: {
+        from: state.tier,
+        to: tier,
+        timestamp: Date.now(),
+        trigger: `manual_override by ${setBy}: ${reason}`,
+      },
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 // --- Pipeline Error Alerting (SDD §3.7, Sprint 3.5) ---
 
 export const alertPipelineError = internalAction({
