@@ -46,4 +46,20 @@ crons.interval(
   internal.signals.checkHeartbeat,
 );
 
+// --- Ruggy Ecosystem Intelligence (cycle-045) ---
+
+// Recalculate sovereignty tiers hourly
+crons.interval(
+  'signals/recalculate-sovereignty',
+  { hours: 1 },
+  internal.signals.recalculateSovereignty,
+);
+
+// Check for Linear creation failures every 15 minutes
+crons.interval(
+  'signals/check-linear-failures',
+  { minutes: 15 },
+  internal.signals.checkLinearFailures,
+);
+
 export default crons;

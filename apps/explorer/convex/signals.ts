@@ -140,12 +140,14 @@ export const ingest = action({
       await ctx.runMutation(internal.signals.insert, signalData);
 
     // Schedule classification for new signals (not deduped)
+    // Classification → sovereignty-gated escalation → Discord alerting
+    // (alerting now happens post-classification via sovereigntyGatedEscalate)
     if (!result.deduplicated) {
       await ctx.scheduler.runAfter(0, internal.signals.classify, {
         signalId: result.signalId as any,
       });
 
-      // Discord alerting for critical/high
+      // Immediate Discord alerting for critical/high (pre-classification)
       if (args.severity === 'critical' || args.severity === 'high') {
         await ctx.scheduler.runAfter(0, internal.signals.alertDiscord, {
           signalId: result.signalId as any,
@@ -360,24 +362,77 @@ export const classify = internalAction({
         throw new Error('Invalid classification shape');
       }
 
+      const classification = {
+        level1Symptom: parsed.level1Symptom.slice(0, 200),
+        level2Want: parsed.level2Want.slice(0, 200),
+        level3Hypothesis: parsed.level3Hypothesis.slice(0, 500),
+        confidence: Math.min(1, Math.max(0, parsed.confidence)),
+        labels: parsed.labels.slice(0, 10).map((l: string) => String(l).slice(0, 50)),
+      };
+
+      // Include enhanced fields (type, severity, category) in labels
+      const enhancedLabels = [...classification.labels];
+      if (parsed.type === 'bug' || parsed.type === 'utc') {
+        enhancedLabels.unshift(`type:${parsed.type}`);
+      }
+      if (parsed.severity) {
+        enhancedLabels.unshift(`severity:${parsed.severity}`);
+      }
+      if (parsed.category) {
+        enhancedLabels.unshift(`category:${parsed.category}`);
+      }
+      classification.labels = enhancedLabels.slice(0, 15);
+
       await ctx.runMutation(internal.signals.patchClassification, {
         signalId,
-        classification: {
-          level1Symptom: parsed.level1Symptom.slice(0, 200),
-          level2Want: parsed.level2Want.slice(0, 200),
-          level3Hypothesis: parsed.level3Hypothesis.slice(0, 500),
-          confidence: Math.min(1, Math.max(0, parsed.confidence)),
-          labels: parsed.labels.slice(0, 10).map((l: string) => String(l).slice(0, 50)),
-        },
+        classification,
       });
-    } catch {
+
+      // Sovereignty-gated escalation (SDD §3.3)
+      const derivedSeverity = parsed.severity || signal.severity;
+      await ctx.scheduler.runAfter(0, internal.signals.sovereigntyGatedEscalate, {
+        signalId,
+        appSlug: signal.appSlug,
+        severity: derivedSeverity,
+      });
+
+      // Record successful classification for circuit breaker
+      await ctx.runMutation(internal.signals.recordClassificationResult, {
+        appSlug: signal.appSlug,
+        success: true,
+      });
+    } catch (err) {
       await ctx.runMutation(internal.signals.patchClassificationAttempt, {
         signalId,
         attempts: signal.classificationAttempts + 1,
       });
+
+      // Record failure for circuit breaker
+      await ctx.runMutation(internal.signals.recordClassificationResult, {
+        appSlug: signal.appSlug,
+        success: false,
+        errorMessage: err instanceof Error ? err.message : String(err),
+      });
     }
   },
 });
+
+// --- App Context Snippets (SDD §3.6) ---
+
+const APP_CONTEXT: Record<string, string> = {
+  'midi-interface':
+    'Mibera Dimensions — 3D voxel world explorer for Berachain NFT collections. Users browse voxel maps, view collection metadata, interact with spatial UI. Known issues: WebGL performance on mobile, Dynamic Labs wallet connection edge cases.',
+  'mibera-honeyroad':
+    'Mibera Honeyroad — Berachain token swap and liquidity interface. Users swap tokens, provide liquidity, track positions. Known issues: price impact calculation on low-liquidity pairs, slippage tolerance UX.',
+  'mcv-interface':
+    'Money Comb Vault — DeFi vault interface for yield strategies on Berachain. Users deposit/withdraw from vaults, track APY, manage positions. Known issues: vault share calculation display, approval flow UX.',
+  'cubquests-interface':
+    'CubQuests — Gamified quest platform for Berachain ecosystem engagement. Users complete quests, earn rewards, track progress. Known issues: quest completion verification delays, reward claim UX.',
+  'set-and-forgetti':
+    'Set & Forgetti — Automated DCA (dollar-cost averaging) dApp for Berachain. Users configure recurring token purchases, manage strategies, view execution history. Gold standard dApp — highest code quality. Known issues: scheduling edge cases with gas estimation.',
+  'apdao-auction-house':
+    'apDAO Auction House — NFT auction platform for Berachain governance NFTs. Users bid on auctions, settle completed auctions, view auction history. Origin repo with legacy patterns. Known issues: bid timing edge cases, settlement gas estimation.',
+};
 
 function buildClassificationPrompt(signal: {
   title: string;
@@ -388,10 +443,17 @@ function buildClassificationPrompt(signal: {
 }): string {
   const dataStr =
     signal.data.type === 'feedback'
-      ? `Category: ${(signal.data as { category?: string }).category || 'unknown'}\nDescription: ${(signal.data as { description?: string }).description || 'N/A'}\nWhat user wanted: ${(signal.data as { whatUserWanted?: string }).whatUserWanted || 'N/A'}`
+      ? `Category: ${(signal.data as { category?: string }).category || 'unknown'}\nDescription: ${(signal.data as { description?: string }).description || 'N/A'}\nWhat user wanted: ${(signal.data as { whatUserWanted?: string }).whatUserWanted || 'N/A'}\nFrustration: ${(signal.data as { frustration?: number }).frustration ?? 'N/A'}/5`
       : `Error: ${(signal.data as { errorClass?: string }).errorClass || 'unknown'}\nMessage: ${(signal.data as { message?: string }).message || 'N/A'}`;
 
-  return `Classify this product signal. Return ONLY a JSON object.
+  const appContext = APP_CONTEXT[signal.appSlug] || 'Unknown product app.';
+
+  return `You are Ruggy, an ecosystem health triage agent for 0xHoneyJar products.
+
+Context about ${signal.appSlug}:
+${appContext}
+
+Classify this user feedback. Return ONLY a JSON object.
 
 Signal:
 - App: ${signal.appSlug}
@@ -400,11 +462,14 @@ Signal:
 - Title: ${signal.title}
 - ${dataStr}
 
-Return JSON with:
+Return JSON:
 {
+  "type": "bug" | "utc",
   "level1Symptom": "What the user experienced (max 200 chars)",
   "level2Want": "What the user actually wants (max 200 chars)",
   "level3Hypothesis": "Root cause hypothesis (max 500 chars)",
+  "severity": "critical" | "high" | "medium" | "low",
+  "category": "crash" | "regression" | "broken_feature" | "data_issue" | "feature_request" | "ux_friction" | "performance" | "confusion" | "praise",
   "confidence": 0.0-1.0,
   "labels": ["tag1", "tag2"]
 }`;
@@ -891,6 +956,523 @@ export const getUnclassifiedSignals = internalQuery({
 
     return all.filter(
       (s) => !s.classification && s.classificationAttempts < 3,
+    );
+  },
+});
+
+// --- Sovereignty Engine (cycle-045, SDD §3.3) ---
+
+const MONITORED_REPOS = [
+  'midi-interface',
+  'mibera-honeyroad',
+  'mcv-interface',
+  'cubquests-interface',
+  'set-and-forgetti',
+  'apdao-auction-house',
+];
+
+// Default tiers — apdao starts at STANDARD (SDD §3.3)
+const DEFAULT_TIERS: Record<string, 'constrained' | 'standard' | 'autonomous'> = {
+  'midi-interface': 'constrained',
+  'mibera-honeyroad': 'constrained',
+  'mcv-interface': 'constrained',
+  'cubquests-interface': 'constrained',
+  'set-and-forgetti': 'constrained',
+  'apdao-auction-house': 'standard',
+};
+
+export const getSovereigntyState = query({
+  args: { scope: v.optional(v.string()) },
+  handler: async (ctx, { scope }) => {
+    if (scope) {
+      return ctx.db
+        .query('sovereigntyState')
+        .withIndex('by_scope', (q) => q.eq('scope', scope))
+        .first();
+    }
+    return ctx.db.query('sovereigntyState').collect();
+  },
+});
+
+export const initializeSovereignty = internalMutation({
+  handler: async (ctx) => {
+    const now = Date.now();
+
+    for (const repo of MONITORED_REPOS) {
+      const existing = await ctx.db
+        .query('sovereigntyState')
+        .withIndex('by_scope', (q) => q.eq('scope', repo))
+        .first();
+
+      if (!existing) {
+        await ctx.db.insert('sovereigntyState', {
+          scope: repo,
+          tier: DEFAULT_TIERS[repo] || 'constrained',
+          overrideRate: 0,
+          signalCount: 0,
+          overrideCount: 0,
+          windowDays: 30, // start with 30-day window (low volume expected)
+          updatedAt: now,
+        });
+      }
+    }
+
+    // Global scope
+    const globalState = await ctx.db
+      .query('sovereigntyState')
+      .withIndex('by_scope', (q) => q.eq('scope', 'global'))
+      .first();
+
+    if (!globalState) {
+      await ctx.db.insert('sovereigntyState', {
+        scope: 'global',
+        tier: 'constrained',
+        overrideRate: 0,
+        signalCount: 0,
+        overrideCount: 0,
+        windowDays: 30,
+        updatedAt: now,
+      });
+    }
+  },
+});
+
+export const recalculateSovereignty = internalMutation({
+  handler: async (ctx) => {
+    const now = Date.now();
+
+    for (const repo of MONITORED_REPOS) {
+      const state = await ctx.db
+        .query('sovereigntyState')
+        .withIndex('by_scope', (q) => q.eq('scope', repo))
+        .first();
+
+      if (!state) continue;
+
+      // Check manual override expiry
+      if (state.manualOverride?.expiresAt && state.manualOverride.expiresAt < now) {
+        // Manual override expired — clear it and recalculate
+        await ctx.db.patch(state._id, { manualOverride: undefined });
+      } else if (state.manualOverride) {
+        // Manual override active — skip automatic calculation
+        continue;
+      }
+
+      // Adaptive window: ≥10 signals/week → 7d, <10 → 30d
+      const windowMs = state.windowDays * 86_400_000;
+      const windowStart = now - windowMs;
+
+      // Count signals in window
+      const signals = await ctx.db
+        .query('signals')
+        .withIndex('by_app', (q) => q.eq('appSlug', repo))
+        .collect();
+      const windowSignals = signals.filter(
+        (s) => new Date(s.timestamp).getTime() > windowStart && s.source !== 'heartbeat',
+      );
+
+      // Count overrides in window
+      const overrides = await ctx.db
+        .query('signalOverrides')
+        .withIndex('by_app_timestamp', (q) => q.eq('appSlug', repo))
+        .collect();
+      const windowOverrides = overrides.filter((o) => o.timestamp > windowStart);
+
+      const signalCount = windowSignals.length;
+      const overrideCount = windowOverrides.length;
+      const overrideRate = signalCount > 0 ? overrideCount / signalCount : 0;
+
+      // Adaptive window: ≥10 signals/week → 7d window, else 30d
+      const signalsPerWeek = signalCount / (state.windowDays / 7);
+      const newWindowDays = signalsPerWeek >= 10 ? 7 : 30;
+
+      // Tier transitions (SDD §3.3 — minimum sample sizes)
+      let newTier = state.tier;
+      if (overrideRate < 0.15 && signalCount >= 50) {
+        newTier = 'autonomous';
+      } else if (overrideRate < 0.4 && signalCount >= 20) {
+        newTier = 'standard';
+      } else {
+        newTier = 'constrained';
+      }
+
+      const transition =
+        newTier !== state.tier
+          ? {
+              from: state.tier,
+              to: newTier,
+              timestamp: now,
+              trigger: `override_rate=${overrideRate.toFixed(3)}, signals=${signalCount}`,
+            }
+          : state.lastTransition;
+
+      await ctx.db.patch(state._id, {
+        tier: newTier,
+        overrideRate,
+        signalCount,
+        overrideCount,
+        windowDays: newWindowDays,
+        lastTransition: transition,
+        updatedAt: now,
+      });
+    }
+  },
+});
+
+// --- Sovereignty-Gated Escalation (SDD §3.3) ---
+
+export const sovereigntyGatedEscalate = internalAction({
+  args: {
+    signalId: v.id('signals'),
+    appSlug: v.string(),
+    severity: v.string(),
+  },
+  handler: async (ctx, { signalId, appSlug, severity }) => {
+    // Check circuit breaker first
+    const halted: boolean = await ctx.runQuery(internal.signals.isCircuitBroken, { appSlug });
+    if (halted) return;
+
+    // Check per-repo rate limits (SDD §3.3: max 5/day, 1h between)
+    const rateLimited: boolean = await ctx.runQuery(
+      internal.signals.isEscalationRateLimited,
+      { appSlug },
+    );
+    if (rateLimited) return;
+
+    // Get sovereignty tier
+    const state = await ctx.runQuery(internal.signals.getSovereigntyForApp, { appSlug });
+    const tier = state?.manualOverride
+      ? (state.manualOverride.tier as 'constrained' | 'standard' | 'autonomous')
+      : (state?.tier ?? 'constrained');
+
+    const shouldAutoEscalate =
+      tier === 'autonomous' ||
+      (tier === 'standard' && (severity === 'low' || severity === 'medium'));
+
+    if (shouldAutoEscalate) {
+      await ctx.scheduler.runAfter(0, internal.linear.createLinearIssue, {
+        signalId,
+      });
+    } else {
+      // Mark as needs_review for dashboard triage
+      await ctx.runMutation(internal.signals.updateStatus, {
+        signalId,
+        status: 'triaged',
+      });
+    }
+  },
+});
+
+export const getSovereigntyForApp = internalQuery({
+  args: { appSlug: v.string() },
+  handler: async (ctx, { appSlug }) => {
+    return ctx.db
+      .query('sovereigntyState')
+      .withIndex('by_scope', (q) => q.eq('scope', appSlug))
+      .first();
+  },
+});
+
+export const isEscalationRateLimited = internalQuery({
+  args: { appSlug: v.string() },
+  handler: async (ctx, { appSlug }) => {
+    const oneDayAgo = new Date(Date.now() - 86_400_000).toISOString();
+    const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString();
+
+    const recentEscalated = await ctx.db
+      .query('signals')
+      .withIndex('by_app', (q) => q.eq('appSlug', appSlug))
+      .collect();
+
+    const escalatedToday = recentEscalated.filter(
+      (s) => s.linearIssueId && s.linearSyncedAt && s.linearSyncedAt > oneDayAgo,
+    );
+
+    // Max 5 Linear issues/day per repo
+    if (escalatedToday.length >= 5) return true;
+
+    // 1 hour between issues to same repo
+    const escalatedLastHour = escalatedToday.filter(
+      (s) => s.linearSyncedAt && s.linearSyncedAt > oneHourAgo,
+    );
+    return escalatedLastHour.length > 0;
+  },
+});
+
+// --- Override Tracking (SDD §3.2, Sprint 3.4) ---
+
+export const recordOverride = mutation({
+  args: {
+    writeKey: v.string(),
+    signalId: v.id('signals'),
+    newClassification: v.object({
+      level1Symptom: v.string(),
+      level2Want: v.string(),
+      level3Hypothesis: v.string(),
+      confidence: v.number(),
+      labels: v.array(v.string()),
+    }),
+    overriddenBy: v.string(),
+    reason: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const expectedKey = process.env.CONVEX_WRITE_KEY;
+    if (!expectedKey || args.writeKey !== expectedKey) {
+      throw new Error('unauthorized');
+    }
+
+    const signal = await ctx.db.get(args.signalId);
+    if (!signal || !signal.classification) {
+      throw new Error('Signal not found or not yet classified');
+    }
+
+    // Record the override
+    await ctx.db.insert('signalOverrides', {
+      signalId: args.signalId,
+      appSlug: signal.appSlug,
+      originalClassification: signal.classification,
+      overriddenClassification: args.newClassification,
+      overriddenBy: args.overriddenBy,
+      reason: args.reason,
+      timestamp: Date.now(),
+    });
+
+    // Update the signal's classification
+    await ctx.db.patch(args.signalId, {
+      classification: args.newClassification,
+    });
+  },
+});
+
+export const getOverrides = query({
+  args: {
+    appSlug: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { appSlug, limit = 50 }) => {
+    if (appSlug) {
+      return ctx.db
+        .query('signalOverrides')
+        .withIndex('by_app_timestamp', (q) => q.eq('appSlug', appSlug))
+        .order('desc')
+        .take(limit);
+    }
+    return ctx.db.query('signalOverrides').order('desc').take(limit);
+  },
+});
+
+// --- Circuit Breaker (SDD §3.3, SOUL.md) ---
+
+// In-memory circuit breaker state (per Convex action runtime)
+// Persisted via signalOverrides count + dedicated tracking
+
+export const recordClassificationResult = internalMutation({
+  args: {
+    appSlug: v.string(),
+    success: v.boolean(),
+    errorMessage: v.optional(v.string()),
+  },
+  handler: async (ctx, { appSlug, success, errorMessage }) => {
+    const state = await ctx.db
+      .query('sovereigntyState')
+      .withIndex('by_scope', (q) => q.eq('scope', appSlug))
+      .first();
+
+    if (!state) return;
+
+    if (success) {
+      // Reset consecutive failure tracking on success
+      const currentTrigger = state.lastTransition?.trigger || '';
+      if (currentTrigger.includes('consecutive_failures=')) {
+        await ctx.db.patch(state._id, {
+          lastTransition: {
+            from: state.tier,
+            to: state.tier,
+            timestamp: Date.now(),
+            trigger: 'consecutive_failures=0, same_error_count=0, last_error=',
+          },
+          updatedAt: Date.now(),
+        });
+      }
+      return;
+    }
+
+    // Track consecutive failures via sovereignty state
+    const currentTrigger = state.lastTransition?.trigger || '';
+    const failureMatch = currentTrigger.match(/consecutive_failures=(\d+)/);
+    const consecutiveFailures = failureMatch ? parseInt(failureMatch[1]) + 1 : 1;
+
+    // Check for same error 3x
+    const errorMatch = currentTrigger.match(/last_error=(.*?)(?:,|$)/);
+    const lastError = errorMatch ? errorMatch[1] : '';
+    const sameErrorMatch = currentTrigger.match(/same_error_count=(\d+)/);
+    const sameErrorCount =
+      errorMessage && errorMessage === lastError
+        ? (sameErrorMatch ? parseInt(sameErrorMatch[1]) + 1 : 2)
+        : 1;
+
+    // Circuit breaker: 5 consecutive failures OR same error 3x → halt
+    if (consecutiveFailures >= 5 || sameErrorCount >= 3) {
+      await ctx.db.patch(state._id, {
+        manualOverride: {
+          tier: 'constrained',
+          setBy: 'circuit_breaker',
+          reason:
+            consecutiveFailures >= 5
+              ? `Halted: ${consecutiveFailures} consecutive classification failures`
+              : `Halted: same error "${errorMessage?.slice(0, 100)}" repeated ${sameErrorCount}x`,
+        },
+        lastTransition: {
+          from: state.tier,
+          to: 'constrained',
+          timestamp: Date.now(),
+          trigger: `circuit_breaker, consecutive_failures=${consecutiveFailures}, same_error_count=${sameErrorCount}, last_error=${errorMessage?.slice(0, 100) || ''}`,
+        },
+        updatedAt: Date.now(),
+      });
+
+      // Alert Discord about circuit breaker trip
+      await ctx.scheduler.runAfter(0, internal.signals.alertPipelineError, {
+        appSlug,
+        errorType: 'circuit_breaker',
+        details:
+          consecutiveFailures >= 5
+            ? `${consecutiveFailures} consecutive classification failures`
+            : `Same error repeated ${sameErrorCount}x: ${errorMessage?.slice(0, 200)}`,
+      });
+    } else {
+      // Update failure tracking
+      await ctx.db.patch(state._id, {
+        lastTransition: {
+          from: state.tier,
+          to: state.tier,
+          timestamp: Date.now(),
+          trigger: `consecutive_failures=${consecutiveFailures}, same_error_count=${sameErrorCount}, last_error=${errorMessage?.slice(0, 100) || ''}`,
+        },
+        updatedAt: Date.now(),
+      });
+    }
+  },
+});
+
+export const isCircuitBroken = internalQuery({
+  args: { appSlug: v.string() },
+  handler: async (ctx, { appSlug }) => {
+    const state = await ctx.db
+      .query('sovereigntyState')
+      .withIndex('by_scope', (q) => q.eq('scope', appSlug))
+      .first();
+
+    return state?.manualOverride?.setBy === 'circuit_breaker';
+  },
+});
+
+export const resetCircuitBreaker = mutation({
+  args: {
+    writeKey: v.string(),
+    appSlug: v.string(),
+  },
+  handler: async (ctx, { writeKey, appSlug }) => {
+    const expectedKey = process.env.CONVEX_WRITE_KEY;
+    if (!expectedKey || writeKey !== expectedKey) {
+      throw new Error('unauthorized');
+    }
+
+    const state = await ctx.db
+      .query('sovereigntyState')
+      .withIndex('by_scope', (q) => q.eq('scope', appSlug))
+      .first();
+
+    if (!state) throw new Error(`No sovereignty state for ${appSlug}`);
+
+    if (state.manualOverride?.setBy !== 'circuit_breaker') {
+      throw new Error('Circuit breaker is not tripped for this app');
+    }
+
+    await ctx.db.patch(state._id, {
+      manualOverride: undefined,
+      lastTransition: {
+        from: 'constrained',
+        to: state.tier,
+        timestamp: Date.now(),
+        trigger: 'circuit_breaker_reset',
+      },
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+// --- Pipeline Error Alerting (SDD §3.7, Sprint 3.5) ---
+
+export const alertPipelineError = internalAction({
+  args: {
+    appSlug: v.string(),
+    errorType: v.string(),
+    details: v.string(),
+  },
+  handler: async (ctx, { appSlug, errorType, details }) => {
+    const webhookUrl = process.env.DISCORD_SIGNALS_WEBHOOK_URL;
+    if (!webhookUrl) return;
+
+    const color = errorType === 'circuit_breaker' ? 0xdc2626 : 0xf59e0b;
+    const title =
+      errorType === 'circuit_breaker'
+        ? `CIRCUIT BREAKER: ${appSlug}`
+        : errorType === 'linear_failure'
+          ? `LINEAR FAILURE: ${appSlug}`
+          : `PIPELINE ERROR: ${appSlug}`;
+
+    try {
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          embeds: [
+            {
+              title,
+              description: `**App**: ${appSlug}\n**Type**: ${errorType}\n**Details**: ${details}`,
+              color,
+              timestamp: new Date().toISOString(),
+              footer: { text: 'Ruggy Pipeline Health' },
+            },
+          ],
+        }),
+      });
+    } catch {
+      // Fire-and-forget — don't cascade pipeline errors
+    }
+  },
+});
+
+// Check for repeated Linear creation failures (SKP-003)
+export const checkLinearFailures = internalAction({
+  handler: async (ctx) => {
+    const signals = await ctx.runQuery(internal.signals.getLinearFailedSignals);
+
+    for (const signal of signals) {
+      if ((signal.linearCreationAttempts ?? 0) >= 3 && !signal.linearIssueId) {
+        await ctx.scheduler.runAfter(0, internal.signals.alertPipelineError, {
+          appSlug: signal.appSlug,
+          errorType: 'linear_failure',
+          details: `Signal ${signal._id} failed Linear creation ${signal.linearCreationAttempts ?? 0}x. Title: ${signal.title.slice(0, 100)}`,
+        });
+      }
+    }
+  },
+});
+
+export const getLinearFailedSignals = internalQuery({
+  handler: async (ctx) => {
+    const escalated = await ctx.db
+      .query('signals')
+      .withIndex('by_status', (q) => q.eq('status', 'new'))
+      .take(100);
+
+    return escalated.filter(
+      (s) =>
+        (s.linearCreationAttempts ?? 0) >= 3 &&
+        !s.linearIssueId &&
+        s.source !== 'heartbeat',
     );
   },
 });

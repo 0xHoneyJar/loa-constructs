@@ -122,4 +122,60 @@ export default defineSchema({
     windowStart: v.number(),
     count: v.number(),
   }).index('by_key_window', ['keyPrefix', 'windowStart']),
+
+  // --- Ruggy Ecosystem Intelligence (cycle-045) ---
+
+  signalOverrides: defineTable({
+    signalId: v.id('signals'),
+    appSlug: v.string(),
+    originalClassification: v.object({
+      level1Symptom: v.string(),
+      level2Want: v.string(),
+      level3Hypothesis: v.string(),
+      confidence: v.number(),
+      labels: v.array(v.string()),
+    }),
+    overriddenClassification: v.object({
+      level1Symptom: v.string(),
+      level2Want: v.string(),
+      level3Hypothesis: v.string(),
+      confidence: v.number(),
+      labels: v.array(v.string()),
+    }),
+    overriddenBy: v.string(),
+    reason: v.optional(v.string()),
+    timestamp: v.number(),
+  })
+    .index('by_app_timestamp', ['appSlug', 'timestamp'])
+    .index('by_signal', ['signalId']),
+
+  sovereigntyState: defineTable({
+    scope: v.string(), // "global" or app_slug
+    tier: v.union(
+      v.literal('constrained'),
+      v.literal('standard'),
+      v.literal('autonomous'),
+    ),
+    overrideRate: v.number(), // 0.0 - 1.0
+    signalCount: v.number(), // signals in window
+    overrideCount: v.number(), // overrides in window
+    windowDays: v.number(), // 7 or 30 (adaptive)
+    manualOverride: v.optional(
+      v.object({
+        tier: v.string(),
+        setBy: v.string(),
+        reason: v.string(),
+        expiresAt: v.optional(v.number()),
+      }),
+    ),
+    lastTransition: v.optional(
+      v.object({
+        from: v.string(),
+        to: v.string(),
+        timestamp: v.number(),
+        trigger: v.string(),
+      }),
+    ),
+    updatedAt: v.number(),
+  }).index('by_scope', ['scope']),
 });
