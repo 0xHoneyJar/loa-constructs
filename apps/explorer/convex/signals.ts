@@ -329,9 +329,11 @@ export const classify = internalAction({
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
+      const newAttempts = signal.classificationAttempts + 1;
       await ctx.runMutation(internal.signals.patchClassificationAttempt, {
         signalId,
-        attempts: signal.classificationAttempts + 1,
+        attempts: newAttempts,
+        ...(newAttempts >= 3 ? { status: 'classification_failed' } : {}),
       });
       return;
     }
@@ -418,9 +420,11 @@ export const classify = internalAction({
         success: true,
       });
     } catch (err) {
+      const newAttempts = signal.classificationAttempts + 1;
       await ctx.runMutation(internal.signals.patchClassificationAttempt, {
         signalId,
-        attempts: signal.classificationAttempts + 1,
+        attempts: newAttempts,
+        ...(newAttempts >= 3 ? { status: 'classification_failed' } : {}),
       });
 
       // Record failure for circuit breaker
@@ -513,9 +517,12 @@ export const patchClassificationAttempt = internalMutation({
   args: {
     signalId: v.id('signals'),
     attempts: v.number(),
+    status: v.optional(v.string()),
   },
-  handler: async (ctx, { signalId, attempts }) => {
-    await ctx.db.patch(signalId, { classificationAttempts: attempts });
+  handler: async (ctx, { signalId, attempts, status }) => {
+    const patch: Record<string, unknown> = { classificationAttempts: attempts };
+    if (status) patch.status = status;
+    await ctx.db.patch(signalId, patch);
   },
 });
 
@@ -1086,12 +1093,11 @@ export const recalculateSovereignty = internalMutation({
         .collect()
       ).filter((s) => s.source !== 'heartbeat');
 
-      // Count overrides in window
-      const overrides = await ctx.db
+      // Count overrides in window (use index range to avoid full scan)
+      const windowOverrides = await ctx.db
         .query('signalOverrides')
-        .withIndex('by_app_timestamp', (q) => q.eq('appSlug', repo))
+        .withIndex('by_app_timestamp', (q) => q.eq('appSlug', repo).gte('timestamp', windowStart))
         .collect();
-      const windowOverrides = overrides.filter((o) => o.timestamp > windowStart);
 
       const signalCount = windowSignals.length;
       const overrideCount = windowOverrides.length;

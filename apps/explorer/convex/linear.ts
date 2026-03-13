@@ -38,7 +38,10 @@ export const createLinearIssue = internalAction({
   args: { signalId: v.id('signals') },
   handler: async (ctx, { signalId }) => {
     const apiKey = process.env.LINEAR_API_KEY;
-    if (!apiKey) return;
+    if (!apiKey) {
+      console.error('[linear] LINEAR_API_KEY is not set — cannot create issues. Signal will be retried by check-linear-failures cron.');
+      throw new Error('LINEAR_API_KEY not configured');
+    }
 
     const signal = await ctx.runQuery(internal.signals.getById, { signalId });
     if (!signal) return;
@@ -50,7 +53,10 @@ export const createLinearIssue = internalAction({
     const teamKey =
       signal.data.type === 'error_report' ? 'LINEAR_TEAM_INFRASTRUCTURE' : 'LINEAR_TEAM_PRODUCT';
     const teamId = process.env[teamKey];
-    if (!teamId) return;
+    if (!teamId) {
+      console.error(`[linear] ${teamKey} is not set — cannot route issue. Signal will be retried.`);
+      throw new Error(`${teamKey} not configured`);
+    }
 
     const priority = PRIORITY_MAP[signal.severity] ?? 3;
 
