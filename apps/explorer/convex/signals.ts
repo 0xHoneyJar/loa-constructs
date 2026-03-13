@@ -1162,7 +1162,8 @@ export const sovereigntyGatedEscalate = internalAction({
 
     const shouldAutoEscalate =
       tier === 'autonomous' ||
-      (tier === 'standard' && (severity === 'high' || severity === 'critical'));
+      (tier === 'standard' && (severity === 'high' || severity === 'critical')) ||
+      (tier === 'constrained' && (severity === 'high' || severity === 'critical'));
 
     if (shouldAutoEscalate) {
       await ctx.scheduler.runAfter(0, internal.linear.createLinearIssue, {
