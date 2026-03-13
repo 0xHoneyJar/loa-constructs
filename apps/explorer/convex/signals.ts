@@ -259,7 +259,23 @@ export const getById = internalQuery({
 export const getByIdPublic = query({
   args: { signalId: v.id('signals') },
   handler: async (ctx, { signalId }) => {
-    return ctx.db.get(signalId);
+    const signal = await ctx.db.get(signalId);
+    if (!signal) return null;
+    // Strip sensitive fields from public response (SEC-003)
+    const { data, ...rest } = signal;
+    const sanitizedData = { ...data };
+    if ('stackTrace' in sanitizedData) {
+      sanitizedData.stackTrace = '[redacted]';
+    }
+    if ('userAgent' in sanitizedData) {
+      delete (sanitizedData as Record<string, unknown>).userAgent;
+    }
+    return {
+      ...rest,
+      data: sanitizedData,
+      // Validate linearIssueUrl scheme (SEC-002 XSS prevention)
+      linearIssueUrl: signal.linearIssueUrl?.startsWith('https://') ? signal.linearIssueUrl : undefined,
+    };
   },
 });
 
@@ -1062,14 +1078,13 @@ export const recalculateSovereignty = internalMutation({
       const windowMs = state.windowDays * 86_400_000;
       const windowStart = now - windowMs;
 
-      // Count signals in window
-      const signals = await ctx.db
+      // Count signals in window (PERF-3: use index range filter)
+      const windowStartISO = new Date(windowStart).toISOString();
+      const windowSignals = (await ctx.db
         .query('signals')
-        .withIndex('by_app', (q) => q.eq('appSlug', repo))
-        .collect();
-      const windowSignals = signals.filter(
-        (s) => new Date(s.timestamp).getTime() > windowStart && s.source !== 'heartbeat',
-      );
+        .withIndex('by_app', (q) => q.eq('appSlug', repo).gte('timestamp', windowStartISO))
+        .collect()
+      ).filter((s) => s.source !== 'heartbeat');
 
       // Count overrides in window
       const overrides = await ctx.db
@@ -1147,7 +1162,7 @@ export const sovereigntyGatedEscalate = internalAction({
 
     const shouldAutoEscalate =
       tier === 'autonomous' ||
-      (tier === 'standard' && (severity === 'low' || severity === 'medium'));
+      (tier === 'standard' && (severity === 'high' || severity === 'critical'));
 
     if (shouldAutoEscalate) {
       await ctx.scheduler.runAfter(0, internal.linear.createLinearIssue, {
@@ -1179,12 +1194,13 @@ export const isEscalationRateLimited = internalQuery({
     const oneDayAgo = new Date(Date.now() - 86_400_000).toISOString();
     const oneHourAgo = new Date(Date.now() - 3_600_000).toISOString();
 
-    const recentEscalated = await ctx.db
+    // Use index range filter instead of unbounded collect (PERF-2)
+    const recentSignals = await ctx.db
       .query('signals')
-      .withIndex('by_app', (q) => q.eq('appSlug', appSlug))
+      .withIndex('by_app', (q) => q.eq('appSlug', appSlug).gte('timestamp', oneDayAgo))
       .collect();
 
-    const escalatedToday = recentEscalated.filter(
+    const escalatedToday = recentSignals.filter(
       (s) => s.linearIssueId && s.linearSyncedAt && s.linearSyncedAt > oneDayAgo,
     );
 
@@ -1427,6 +1443,7 @@ export const setManualOverride = mutation({
     if (!state) throw new Error(`No sovereignty state for ${scope}`);
 
     await ctx.db.patch(state._id, {
+      tier: tier as 'constrained' | 'standard' | 'autonomous',
       manualOverride: { tier, setBy, reason, expiresAt },
       lastTransition: {
         from: state.tier,
@@ -1500,10 +1517,16 @@ export const checkLinearFailures = internalAction({
 
 export const getLinearFailedSignals = internalQuery({
   handler: async (ctx) => {
-    const escalated = await ctx.db
+    // Check both 'new' and 'triaged' statuses for Linear failures (COR-7)
+    const newSignals = await ctx.db
       .query('signals')
       .withIndex('by_status', (q) => q.eq('status', 'new'))
-      .take(100);
+      .take(50);
+    const triagedSignals = await ctx.db
+      .query('signals')
+      .withIndex('by_status', (q) => q.eq('status', 'triaged'))
+      .take(50);
+    const escalated = [...newSignals, ...triagedSignals];
 
     return escalated.filter(
       (s) =>
