@@ -16,6 +16,7 @@ const ALLOWED_ORIGINS: Record<string, string[]> = {
   'apdao-auction-house': ['https://apiology.xyz', 'http://localhost:3000'],
   'mcv-interface': ['https://moneycomb.xyz', 'http://localhost:3000'],
   'cubquests-interface': ['https://cubquests.xyz', 'http://localhost:3000'],
+  'rektdrop-interface': ['https://rektdrop.xyz', 'http://localhost:3000'],
 };
 
 function cacheKeyHash(rawKey: string): string {
