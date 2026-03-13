@@ -5,6 +5,21 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.0] — 2026-03-13 — Construct Discovery — API enrichment, browse-first explorer
+
+
+Full cycle-048 implementation: Construct Discovery — Browse-First Navigation, Search, Composability.
+
+### Sprint 1: API Enrichment (2 commits)
+- `domains[]`, `expertiseSummary[]`, `skillDetails[]`, `composeWith[]`, `dependedBy[]` in API response
+
+### Added
+
+- **cycle-048**: Construct Discovery — API enrichment, browse-first explorer (#165)
+
+_Source: PR #165_
+
+
 ## [2.9.0] - 2026-02-28
 
 ### Why This Release
