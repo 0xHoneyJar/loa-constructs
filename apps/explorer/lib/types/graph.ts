@@ -38,6 +38,12 @@ export interface ConstructNode {
   hasIdentity?: boolean;
   verificationTier?: string;
   visibility?: string;
+  /** Expertise domains from identity — used for domain tag pills */
+  domains?: string[];
+  /** Slugs this construct composes with — used for composition degree */
+  composesWith?: string[];
+  /** Skill slugs from manifest — used for Fuse.js search */
+  skillSlugs?: string[];
   position?: {
     x: number;
     y: number;
