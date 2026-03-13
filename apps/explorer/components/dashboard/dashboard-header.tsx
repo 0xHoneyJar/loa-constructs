@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { type CSSProperties } from 'react';
 import { useAuthStore } from '@/lib/stores/auth-store';
+import { DensityToggle } from '@/components/dashboard/density-toggle';
 
 function truncateAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
@@ -48,6 +49,7 @@ export function DashboardHeader() {
       </div>
 
       <div className="flex items-center gap-3">
+        <DensityToggle />
         {isOrgMember && (
           <span className="font-mono text-[var(--text-2xs)] text-cyan-base/70 border border-cyan-base/20 px-1.5 py-0.5 uppercase tracking-whisper" aria-hidden="true">
             org
