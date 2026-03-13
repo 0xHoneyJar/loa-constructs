@@ -72,13 +72,22 @@ export async function validateSignalKey(
 
 /**
  * Validate request origin against allowed origins for the app.
- * Returns true if origin is allowed (or if no origin header / server-side caller).
+ * Returns true if origin is allowed or if no origin header (server-side caller).
+ * Deny-by-default: apps not in ALLOWED_ORIGINS are rejected.
  */
 export function validateOrigin(appSlug: string, origin: string): boolean {
+  // Server-side callers (SDKs, cron jobs) legitimately omit Origin/Referer.
+  // API key is the primary auth; origin check is defense-in-depth for browser CSRF.
+  if (origin === '') return true;
+
   const allowedOrigins = ALLOWED_ORIGINS[appSlug];
-  if (!allowedOrigins) return true; // No origin restrictions for this app
-  if (origin === '') return true; // Server-side caller (no Origin header)
-  return allowedOrigins.some(
-    (allowed) => origin === allowed || origin.startsWith(allowed + '/'),
-  );
+  if (!allowedOrigins) return false; // Deny-by-default for unknown apps
+
+  // Parse to canonical origin to prevent prefix-matching bypasses
+  try {
+    const parsed = new URL(origin).origin;
+    return allowedOrigins.includes(parsed);
+  } catch {
+    return false;
+  }
 }
