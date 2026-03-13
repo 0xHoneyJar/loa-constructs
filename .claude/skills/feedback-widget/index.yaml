@@ -1,0 +1,21 @@
+name: feedback-widget
+version: 1.0.0
+description: Generate a themed feedback widget for any Next.js app that sends signals to the observability dashboard
+capabilities:
+  model_tier: sonnet
+  danger_level: safe
+  effort_hint: small
+  downgrade_allowed: true
+  execution_hint: sequential
+  requires:
+    native_runtime: false
+    tool_calling: true
+    thinking_traces: false
+    vision: false
+triggers:
+  - feedback-widget
+  - install-widget
+  - add-feedback
+domain:
+  - observability
+  - user-feedback

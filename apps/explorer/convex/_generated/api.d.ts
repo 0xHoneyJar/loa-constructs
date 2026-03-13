@@ -12,6 +12,8 @@ import type * as crons from "../crons.js";
 import type * as dashboardPresence from "../dashboardPresence.js";
 import type * as healthObservations from "../healthObservations.js";
 import type * as installEvents from "../installEvents.js";
+import type * as linear from "../linear.js";
+import type * as signals from "../signals.js";
 import type * as syncStatus from "../syncStatus.js";
 
 import type {
@@ -25,6 +27,8 @@ declare const fullApi: ApiFromModules<{
   dashboardPresence: typeof dashboardPresence;
   healthObservations: typeof healthObservations;
   installEvents: typeof installEvents;
+  linear: typeof linear;
+  signals: typeof signals;
   syncStatus: typeof syncStatus;
 }>;
 

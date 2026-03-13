@@ -1,144 +1,241 @@
-# Sprint Plan: Construct Short Description System
+# Sprint Plan: Ruggy — Autonomous Ecosystem Intelligence Agent
 
-**Cycle**: cycle-043
+**Cycle**: cycle-045
 **PRD**: `grimoires/loa/prd.md`
-**Created**: 2026-03-12
-**Team**: @janitooor (solo)
-**Sprint duration**: 1 day each
+**SDD**: `grimoires/loa/sdd.md`
+**Team**: 1 developer (@janitooor)
+**Sprint duration**: 2-3 days each
 
 ---
 
-## Sprint 1: Commit, Deploy, Verify (global sprint-50)
+## Sprint 1: Foundation — Dixie Fork + Convex Extensions
 
-**Goal**: Get handcrafted taglines visible on production constructs.network.
+**Goal**: Ruggy exists as a running service with sovereignty state tracking.
 
-**Precondition**: FR-1 through FR-5 are implemented in the working tree (31 files, 399 insertions). No code to write — this sprint is commit + deploy + verify.
+### Tasks
 
-### Task 1.1: Commit short_description pipeline
-**Description**: Stage and commit all short_description-related changes across the stack.
-**Files**:
-- `packages/shared/src/validation.ts` — Zod schema addition
-- `packages/shared/src/types.ts` — TypeScript type addition
-- `apps/api/src/db/schema.ts` — Drizzle column
-- `apps/api/src/db/migrations/0013_short_description.sql` — ALTER TABLE
-- `apps/api/src/routes/constructs.ts` — API response inclusion
-- `apps/api/src/services/constructs.ts` — service layer
-- `scripts/seed-forge-packs.ts` — override map + mapping logic
-- `apps/explorer/lib/data/fetch-constructs.ts` — fallback chain
-- `apps/explorer/components/constructs/auth-aware-construct-list.tsx` — field reference fix
+#### 1.1 Fork loa-dixie → construct-ruggy
+- Fork `loa-dixie` repo under 0xHoneyJar org
+- Replace `persona/oracle.md` → `persona/rugby.md` (BEAUVOIR identity from PRD §9)
+- Replace `knowledge/oracle-binding.yaml` → `knowledge/rugby-binding.yaml`
+- Replace `knowledge/sources.json` with Ruggy's 6-source corpus
+- Create knowledge source files: `product-repos.md`, `signal-taxonomy.md`, `observer-workflow.md`, `linear-config.md`
+- **Acceptance**: Fork boots, `bun run dev` starts without crash
 
-**Acceptance**:
-- [ ] Clean commit with only short_description-related changes
-- [ ] `bun run build --filter @loa-constructs/explorer` passes
-- [ ] `bun run build --filter @loa-constructs/api` passes
+#### 1.2 Oracle identity dehard-coding
+- `app/src/routes/identity.ts`: parameterize `'oracle'` (3 occurrences) from binding
+- `app/src/routes/chat.ts`: `agentId: 'oracle'` → read from binding
+- `app/src/services/corpus-meta.ts`: replace `KNOWN_REPOS` at line 265 with 6 Ruggy repos
+- **Acceptance**: `/api/health` returns Ruggy identity. Knowledge queries return Ruggy-domain results
 
-### Task 1.2: Commit explorer UI polish (if any unrelated changes)
-**Description**: Separate commit for any explorer typography/UI changes that are unrelated to short_description.
-**Acceptance**:
-- [ ] Unrelated UI changes in their own commit (not mixed with short_description)
+#### 1.3 Run test suite, fix identity breakage
+- Run `vitest run` — expect failures in Oracle-specific assertions
+- Fix tests that assert "Oracle" strings → "Ruggy"
+- If >50% break: timebox 4 hours, then write Ruggy-specific tests only
+- **Acceptance**: Test suite passes or Ruggy-specific tests cover new code paths
 
-### Task 1.3: Apply migration to production
-**Description**: Run `0013_short_description.sql` against production Supabase.
-**Method**: `bun -e` with `postgres` driver using `.env.railway` creds (no local `psql`).
-**Acceptance**:
-- [ ] `SELECT column_name FROM information_schema.columns WHERE table_name = 'packs' AND column_name = 'short_description'` returns a row
-- [ ] No data loss — existing rows unaffected (nullable column addition)
+#### 1.4 Convex schema extensions
+- Add `signalOverrides` table (SDD §3.2) to `apps/explorer/convex/schema.ts`
+- Add `sovereigntyState` table (SDD §3.2)
+- Add `recordOverride` mutation
+- Add `recalculateSovereignty` function + hourly cron
+- Initialize `sovereigntyState` with all 6 repos at `constrained` tier (apdao at `standard` per SDD §3.3)
+- **Acceptance**: `npx convex deploy` succeeds. Sovereignty state readable via Convex dashboard
 
-### Task 1.4: Deploy API to Railway
-**Description**: Push to main to trigger Railway deployment. Verify API is healthy.
-**Acceptance**:
-- [ ] `GET https://api.constructs.network/health` returns 200
-- [ ] `GET https://api.constructs.network/v1/constructs` response includes `short_description` field
+#### 1.5 Origin validation for signal ingestion
+- Add `ALLOWED_ORIGINS` map to `apps/explorer/app/api/signals/route.ts` (SDD §4.1)
+- Check `Origin`/`Referer` header after key validation
+- Allow `localhost:3000` for all repos in dev
+- **Acceptance**: Requests from unknown origins return 403. Known origins pass through
 
-### Task 1.5: Run seed script
-**Description**: `bun run seed` to populate all 17 `short_description` values from the override map.
-**Acceptance**:
-- [ ] All 17 constructs have non-null `short_description` in the database
-- [ ] `GET /v1/constructs` returns taglines (not null) for every construct
-- [ ] Taglines match the override map in the PRD
-
-### Task 1.6: Visual verification
-**Description**: Check production UI for clean tagline display.
-**Acceptance**:
-- [ ] `constructs.network/constructs` — no truncated descriptions, all 17 show full taglines
-- [ ] Leaderboard — taglines display without ellipsis or mid-word cuts
-- [ ] `/constructs/[slug]` detail pages — short_description visible if rendered
-
-### Task 1.7: Deploy explorer to Vercel
-**Description**: Push triggers Vercel deployment. Verify frontend renders new API field.
-**Acceptance**:
-- [ ] `constructs.network` loads without errors
-- [ ] Network tab: API response includes `short_description` for all constructs
+#### 1.6 Provision API keys for 6 product repos
+- Call `POST /v1/keys` with `scopes: ['write:signals']` and `appSlug` for each repo
+- Store keys securely for distribution to product repos
+- **Acceptance**: 6 keys created, each verified via `verifySignalKey`
 
 ---
 
-## Sprint 2: Ecosystem Propagation (global sprint-51)
+## Sprint 2: Widget Integration — Connect Product Repos
 
-**Goal**: Make `short_description` a first-class field across the construct ecosystem so the override map becomes unnecessary.
+**Goal**: User feedback from 4+ product repos flows into the Convex signal pipeline.
 
-**Precondition**: Sprint 1 complete — production serving taglines from override map.
+### Tasks
 
-### Task 2.1: Update construct-base template
-**Description**: Add `short_description` field to the template `construct.yaml` in `0xHoneyJar/construct-base`.
-**Change**:
-```yaml
-# construct.yaml
-short_description: "3-4 word tagline (max 80 chars)"  # Storefront display
+#### 2.1 set-and-forgetti fan-out integration
+- File: `apps/web/app/api/feedback/route.ts`
+- After `createFeedbackIssue()` succeeds, POST to `constructs.network/api/signals`
+- Map S&F feedback fields → signal schema (category, severity derivation, description)
+- Add `SIGNALS_API_KEY` env var to S&F deployment
+- Log fan-out failures (not silent)
+- **Acceptance**: Submit feedback in S&F → signal appears in Convex tagged `set-and-forgetti`
+
+#### 2.2 apdao-auction-house fan-out integration
+- File: `actions/create-feedback.ts`
+- After `createIssue()` succeeds, POST to signals API
+- Map apDAO feedback fields → signal schema
+- Add `SIGNALS_API_KEY` env var
+- **Acceptance**: Submit feedback in apDAO → signal in Convex tagged `apdao-auction-house`
+
+#### 2.3 midi-interface (mibera-dimensions) fan-out integration
+- File: `app/actions/feedback.ts`
+- After Supabase `score_feedback` insert, POST to signals API
+- Map pulse widget fields (bad/fine/good + note) → signal schema
+- Severity derivation: "bad" → high, "fine" → low, "good" → low (praise)
+- Add `SIGNALS_API_KEY` env var
+- **Acceptance**: Submit feedback in midi-interface → signal in Convex tagged `midi-interface`
+
+#### 2.4 mcv-interface Convex HTTP action
+- File: `convex/feedback.ts`
+- After `submit` mutation succeeds, schedule Convex HTTP action to POST to signals API
+- Map vault feedback fields (bad/fine/good + note) → signal schema
+- **Acceptance**: Submit vault feedback in mcv → signal in Convex tagged `mcv-interface`
+
+#### 2.5 cubquests-interface new widget
+- Create feedback button component in `components/layout/`
+- Mount in `navbar.tsx` (right side, before connect wallet)
+- On submit: POST directly to `constructs.network/api/signals`
+- Match cubquests design system (BoldenVan font, existing color tokens)
+- Add `SIGNALS_API_KEY` env var
+- **Acceptance**: Feedback widget visible in cubquests navbar. Submission creates signal tagged `cubquests-interface`
+
+#### 2.6 mibera-honeyroad new widget
+- Create floating feedback button component
+- Mount in `(main)/layout.tsx` (no persistent navbar exists)
+- On submit: POST directly to `constructs.network/api/signals`
+- Match honeyroad design system
+- Add `SIGNALS_API_KEY` env var
+- **Acceptance**: Feedback widget visible in honeyroad. Submission creates signal tagged `mibera-honeyroad`
+
+---
+
+## Sprint 3: Enhanced Classification + Sovereignty Logic
+
+**Goal**: Haiku classification is context-aware. Sovereignty tier system is operational.
+
+### Tasks
+
+#### 3.1 Enhanced classification prompt
+- Update `apps/explorer/convex/signals.ts:classify` function
+- Add per-app context snippets (what the app does, known issues)
+- Add `type` field to classification output (bug vs UTC)
+- Add `severity` and `category` fields to classification schema
+- Store app context snippets as Convex environment variable or inline map
+- **Acceptance**: Classification output includes `type`, `severity`, `category`. Context-appropriate for each app
+
+#### 3.2 Sovereignty-gated escalation
+- Modify escalation path: after classification, check `sovereigntyState` for app's tier
+- CONSTRAINED: mark signal as `needs_review`, don't auto-create Linear issue
+- STANDARD: auto-escalate LOW/MEDIUM, mark HIGH/CRITICAL as `needs_review`
+- AUTONOMOUS: auto-escalate all, circuit breaker active
+- **Acceptance**: Signal with `sovereigntyTierAtCreation` field set. CONSTRAINED signals require dashboard action to escalate
+
+#### 3.3 Circuit breaker implementation
+- Track consecutive failures per repo in Convex
+- 5 consecutive classification failures → set repo to `halted` state
+- Same error message 3× → halt
+- Add `/ruggy reset [repo]` Discord command to clear halt
+- **Acceptance**: Simulated failures trigger halt. Reset clears it
+
+#### 3.4 Override tracking integration
+- Modify `updateStatusFromDashboard` to detect classification changes
+- When human changes classification labels/severity → write to `signalOverrides`
+- Trigger `recalculateSovereignty` after override
+- **Acceptance**: Changing a signal's classification in dashboard creates override record. Sovereignty recalculation reflects it
+
+#### 3.5 Pipeline error alerting
+- After 3 failed `linearCreationAttempts`, alert Discord #ops channel
+- New Convex function: `alertPipelineError`
+- Include signal ID, app slug, error details in embed
+- **Acceptance**: Simulated Linear failure triggers Discord alert after 3rd attempt
+
+---
+
+## Sprint 4: Discord Slash Commands + E2E
+
+**Goal**: Team can query ecosystem health via Discord. Full pipeline tested end-to-end.
+
+### Tasks
+
+#### 4.1 Discord application setup
+- Create Discord application in developer portal
+- Configure slash commands: `/ruggy status`, `/ruggy signals`, `/ruggy escalations`, `/ruggy repos`
+- Set interactions endpoint URL to Dixie fork
+- **Acceptance**: Discord app exists with registered commands
+
+#### 4.2 Discord interactions endpoint
+- `construct-ruggy/app/src/routes/discord.ts`
+- Ed25519 signature verification
+- PING/PONG handler
+- Route to subcommand handlers
+- **Acceptance**: Discord verification succeeds. PING returns PONG
+
+#### 4.3 `/ruggy status` command
+- Query Convex `statusCounts()` + `sovereigntyState`
+- Return embed: health summary, signal volumes (24h/7d), tier per repo, active incidents
+- **Acceptance**: `/ruggy status` in Discord returns accurate ecosystem snapshot
+
+#### 4.4 `/ruggy signals [repo]` command
+- Query Convex `byApp(appSlug)` with limit
+- Return embed: recent signals with classification, severity color coding
+- **Acceptance**: `/ruggy signals set-and-forgetti` returns S&F signals
+
+#### 4.5 `/ruggy escalations` command
+- Query Convex for `status: 'escalated'` signals
+- Return embed: open Linear issues with links, severity, age
+- **Acceptance**: Shows current open escalations
+
+#### 4.6 `/ruggy repos` command
+- Query Convex `statusCounts()`
+- Return embed: all 6 repos with signal counts, tier, last signal timestamp
+- **Acceptance**: Shows all monitored repos with stats
+
+#### 4.7 Deploy Dixie fork to Railway
+- Configure Railway service with environment variables (SDD §7.1)
+- Set Discord interactions endpoint to Railway URL
+- Health check endpoint responds
+- **Acceptance**: Dixie fork running on Railway. Discord commands work via Railway endpoint
+
+#### 4.8 Deploy Convex changes
+- `npx convex deploy` from `apps/explorer/`
+- Verify new tables, functions, crons are active
+- **Acceptance**: Convex dashboard shows new tables. Sovereignty cron running
+
+#### 4.9 E2E integration test
+- Submit feedback from set-and-forgetti dev environment
+- Verify: signal in Convex → classified → sovereignty check → Linear issue → Discord alert
+- Test override: change classification in dashboard → override recorded → sovereignty recalculated
+- Test circuit breaker: simulate failures → halt triggered
+- **Acceptance**: Full pipeline works end-to-end. Override tracking functional. Circuit breaker operational
+
+---
+
+## Sprint Summary
+
+| Sprint | Focus | Repos Touched | Key Risk |
+|--------|-------|---------------|----------|
+| 1 | Foundation | construct-ruggy (new), loa-constructs | Dixie fork test breakage |
+| 2 | Widget Integration | 6 product repos | Cross-repo coordination, mcv Convex pattern |
+| 3 | Classification + Sovereignty | loa-constructs (Convex) | Sovereignty edge cases, low volume |
+| 4 | Discord + E2E | construct-ruggy, Discord | Discord API complexity, integration timing |
+
+## Dependencies
+
 ```
-**Acceptance**:
-- [ ] PR opened to `0xHoneyJar/construct-base`
-- [ ] `constructs create` generates YAML with `short_description` field
-- [ ] Comment explains the constraint (noun phrase, no articles, max 80 chars)
-
-### Task 2.2: Open PRs to construct repos (batch 1 — core 9)
-**Description**: Add `short_description` to `construct.yaml` for the 9 most active constructs.
-**Repos**: artisan, observer, protocol, k-hole, the-easel, hardening, herald, beacon, crucible
-**PR template**:
-```yaml
-short_description: "<tagline from override map>"
+Sprint 1 ──→ Sprint 2 (keys needed for widgets)
+Sprint 1 ──→ Sprint 3 (Convex tables needed for sovereignty)
+Sprint 3 ──→ Sprint 4.9 (sovereignty needed for E2E test)
+Sprint 1 ──→ Sprint 4.7 (Dixie fork needed for Railway deploy)
 ```
-**Acceptance**:
-- [ ] 9 PRs opened with correct taglines
-- [ ] Each PR is a single-field addition (minimal diff)
-- [ ] PRs assigned to @janitooor for review
 
-### Task 2.3: Open PRs to construct repos (batch 2 — remaining 8)
-**Description**: Add `short_description` to remaining construct repos.
-**Repos**: dynamic-auth, gecko, growthpages, gtm-collective, mibera-codex, social-oracle, the-arcade, webreel
-**Acceptance**:
-- [ ] 8 PRs opened with correct taglines
-- [ ] All 17 repos now have `short_description` in their `construct.yaml`
+Sprints 2 and 3 can run in parallel after Sprint 1 completes.
 
-### Task 2.4: Verify auto-sync picks up new field
-**Description**: After PRs merge, run `bun run seed` to confirm `construct.yaml` `short_description` overrides the seed script fallback map.
-**Acceptance**:
-- [ ] `bun run seed` with a construct that has `short_description` in YAML uses the YAML value (not the override map)
-- [ ] Fallback chain works: YAML → override map → derived
+## Success Criteria (Week 1 Close)
 
-### Task 2.5: Make field required in Zod schema (gate on 2.2 + 2.3)
-**Description**: After all 17 repos have `short_description`, change Zod from `.optional()` to required.
-**File**: `packages/shared/src/validation.ts:334`
-**Change**: `z.string().min(5).max(80).optional()` → `z.string().min(5).max(80)`
-**Acceptance**:
-- [ ] `bun run seed` still passes (all manifests provide the field)
-- [ ] `constructs publish` without `short_description` fails validation
-- [ ] TypeScript type updated to non-optional
-
----
-
-## Risk Mitigation
-
-| Risk | Sprint | Mitigation |
-|------|--------|------------|
-| Migration fails on production | 1.3 | Nullable ADD COLUMN is safe — test on staging first if available |
-| Seed script errors on new column | 1.5 | Verify migration applied before seeding |
-| Auto-sync breaks for repos without field | 2.5 | Gate on ALL 17 PRs merged before making required |
-| Tagline objections from maintainers | 2.2/2.3 | PRs are proposals — maintainers can edit before merge |
-
-## Definition of Done
-
-- [ ] All 17 constructs display handcrafted taglines on production
-- [ ] Zero truncated descriptions in the UI
-- [ ] `short_description` field in API response for all endpoints
-- [ ] construct-base template includes `short_description`
-- [ ] All 17 construct repos have `short_description` in `construct.yaml`
+- [ ] Ruggy Dixie fork deployed on Railway, health check passing
+- [ ] 4+ product repos forwarding feedback to Convex signal pipeline
+- [ ] Haiku classification includes type (bug/UTC), severity, category
+- [ ] Sovereignty state tracked for all 6 repos (5 CONSTRAINED, 1 STANDARD)
+- [ ] Override tracking operational (human changes → sovereignty recalculation)
+- [ ] Circuit breaker halts on failure patterns
+- [ ] `/ruggy status` returns ecosystem health in Discord
+- [ ] E2E test passes: widget → signal → classify → Linear → Discord alert

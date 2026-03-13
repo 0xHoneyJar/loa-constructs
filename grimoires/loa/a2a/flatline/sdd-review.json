@@ -1,14 +1,16 @@
 {
-  "consensus_summary": {
-    "high_consensus_count": 4,
-    "disputed_count": 1,
-    "low_value_count": 0,
-    "blocker_count": 5,
-    "model_agreement_percent": 90,
-    "confidence": "full"
-  },
   "phase": "sdd",
   "document": "grimoires/loa/sdd.md",
-  "timestamp": "2026-02-20T00:08:56Z",
-  "cycle": "cycle-030"
+  "timestamp": "2026-03-12T20:59:34Z",
+  "consensus_summary": {
+    "high_consensus_count": 6,
+    "disputed_count": 0,
+    "low_value_count": 0,
+    "blocker_count": 11,
+    "model_agreement_percent": 100,
+    "models": 3,
+    "confidence": "full"
+  },
+  "high_consensus_integrated": ["IMP-001", "IMP-002", "IMP-003", "IMP-004", "IMP-007", "IMP-008"],
+  "blockers_presented": true
 }

@@ -269,6 +269,7 @@ export const apiKeys = pgTable(
     keyHash: varchar('key_hash', { length: 255 }).notNull(),
     name: varchar('name', { length: 255 }).notNull(),
     scopes: text('scopes').array().default(['read:skills', 'write:installs']),
+    appSlug: varchar('app_slug', { length: 100 }), // cycle-044: for write:signals keys
     lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     revoked: boolean('revoked').default(false),
@@ -277,6 +278,7 @@ export const apiKeys = pgTable(
   (table) => ({
     userIdx: index('idx_api_keys_user').on(table.userId),
     prefixIdx: index('idx_api_keys_prefix').on(table.keyPrefix),
+    appSlugIdx: index('idx_api_keys_app_slug').on(table.appSlug),
   })
 );
 

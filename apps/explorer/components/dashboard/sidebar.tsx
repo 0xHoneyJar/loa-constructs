@@ -18,7 +18,12 @@ export function Sidebar() {
 
   const navItems = [
     ...baseNavItems,
-    ...(isAdmin ? [{ href: '/dashboard/health', label: 'Health' }] : []),
+    ...(isAdmin
+      ? [
+          { href: '/dashboard/signals', label: 'Signals' },
+          { href: '/dashboard/health', label: 'Health' },
+        ]
+      : []),
   ];
 
   return (
