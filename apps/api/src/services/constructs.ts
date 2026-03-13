@@ -89,6 +89,12 @@ export interface Construct {
   // Relevance fields (populated when ?q= present)
   relevanceScore?: number;
   matchReasons?: string[];
+  // Discovery enrichment (cycle-048)
+  domains?: string[];
+  expertiseSummary?: string[];
+  skillDetails?: Array<{ slug: string; description: string }>;
+  composeWith?: string[];
+  dependedBy?: string[];
 }
 
 export interface ConstructSummary {
@@ -170,6 +176,10 @@ export function calculateRelevanceScore(
     downloads: number;
     maturity: MaturityLevel;
     rating: number | null;
+    // cycle-048 enrichment
+    domains?: string[] | null;
+    expertiseSummary?: string[] | null;
+    skillSlugs?: string[] | null;
   },
   queryTerms: string[]
 ): { score: number; matchReasons: string[] } {
@@ -211,6 +221,33 @@ export function calculateRelevanceScore(
     if (useCaseMatch) {
       score += RELEVANCE_WEIGHTS.useCases;
       if (!matchReasons.includes('use_cases')) matchReasons.push('use_cases');
+    }
+  }
+
+  // Domain matching (cycle-048)
+  const domainsLower = (construct.domains || []).map(d => d.toLowerCase());
+  for (const term of lowerTerms) {
+    if (domainsLower.some(d => d.includes(term) || term.includes(d))) {
+      score += 0.8;
+      if (!matchReasons.includes('domains')) matchReasons.push('domains');
+    }
+  }
+
+  // Expertise matching (cycle-048) — highest signal
+  const expertiseLower = (construct.expertiseSummary || []).map(e => e.toLowerCase());
+  for (const term of lowerTerms) {
+    if (expertiseLower.some(e => e.includes(term) || term.includes(e))) {
+      score += 0.9;
+      if (!matchReasons.includes('expertise')) matchReasons.push('expertise');
+    }
+  }
+
+  // Skill slug matching (cycle-048)
+  const skillsLower = (construct.skillSlugs || []).map(s => s.toLowerCase().replace(/-/g, ' '));
+  for (const term of lowerTerms) {
+    if (skillsLower.some(s => s.includes(term) || term.includes(s))) {
+      score += 0.7;
+      if (!matchReasons.includes('skills')) matchReasons.push('skills');
     }
   }
 
@@ -362,6 +399,11 @@ function packToConstruct(
   const rating = calculateRating(pack.ratingSum || 0, pack.ratingCount || 0);
   const maturity = (pack.maturity || 'experimental') as MaturityLevel;
 
+  // Extract enrichment data for relevance scoring (cycle-048)
+  const domains = extractDomains(manifest, pack.category);
+  const expertiseSummary = extractExpertiseSummary(identityRow ?? null);
+  const skillSlugs = (manifest?.skills || []).map((s: any) => typeof s === 'string' ? s : s?.slug).filter(Boolean);
+
   // Calculate relevance if query terms provided
   let relevanceScore: number | undefined;
   let matchReasons: string[] | undefined;
@@ -375,6 +417,9 @@ function packToConstruct(
         downloads: pack.downloads || 0,
         maturity,
         rating,
+        domains,
+        expertiseSummary,
+        skillSlugs,
       },
       queryTerms
     );
@@ -439,7 +484,97 @@ function packToConstruct(
     // Relevance data (only when searching)
     relevanceScore,
     matchReasons,
+    // Discovery enrichment (cycle-048)
+    domains,
+    expertiseSummary,
+    skillDetails: extractSkillDetails(manifest),
+    composeWith: extractComposeWith(manifest),
+    dependedBy: undefined, // populated post-fetch by computeDependedByMap()
   };
+}
+
+// --- Discovery Enrichment Helpers (cycle-048) ---
+
+/**
+ * Extract domain tags from manifest, falling back to category
+ */
+function extractDomains(manifest: ConstructManifest | null, category: string | null): string[] {
+  const domains = (manifest as any)?.domain;
+  if (Array.isArray(domains) && domains.length > 0) return domains;
+  return category ? [category] : [];
+}
+
+/**
+ * Extract top expertise areas (depth >= 4) from identity
+ */
+function extractExpertiseSummary(identity: { expertiseDomains: unknown } | null): string[] {
+  if (!identity?.expertiseDomains) return [];
+  try {
+    const domains = identity.expertiseDomains as Array<{ name: string; depth?: number; includes?: string[] }>;
+    if (!Array.isArray(domains)) return [];
+    return domains
+      .filter(d => d && d.name && (d.depth ?? 0) >= 4)
+      .map(d => d.name);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Extract compose_with slugs from manifest
+ */
+function extractComposeWith(manifest: ConstructManifest | null): string[] {
+  const composeWith = (manifest as any)?.compose_with;
+  if (!Array.isArray(composeWith)) return [];
+  return composeWith.map((c: any) => typeof c === 'string' ? c : c?.slug).filter(Boolean);
+}
+
+/**
+ * Extract skill details (slug + description) from manifest
+ */
+function extractSkillDetails(manifest: ConstructManifest | null): Array<{ slug: string; description: string }> {
+  const skills = manifest?.skills;
+  if (!Array.isArray(skills)) return [];
+  return skills.map((s: any) => ({
+    slug: typeof s === 'string' ? s : s?.slug || '',
+    description: (s?.description as string) || '',
+  })).filter(s => s.slug);
+}
+
+/**
+ * Compute depended_by map from all constructs' pack_dependencies
+ */
+function computeDependedByMap(constructs: Construct[]): Map<string, string[]> {
+  const map = new Map<string, string[]>();
+  for (const c of constructs) {
+    const deps = extractAllDependencies(c.manifest);
+    for (const depSlug of deps) {
+      if (!map.has(depSlug)) map.set(depSlug, []);
+      map.get(depSlug)!.push(c.slug);
+    }
+  }
+  return map;
+}
+
+/**
+ * Extract all dependency slugs from pack_dependencies (handles multiple formats)
+ */
+function extractAllDependencies(manifest: ConstructManifest | null): string[] {
+  const deps = (manifest as any)?.pack_dependencies;
+  if (!deps) return [];
+  const slugs: string[] = [];
+  // Format: array of {slug: string}
+  if (Array.isArray(deps)) {
+    for (const d of deps) slugs.push(typeof d === 'string' ? d : d?.slug);
+  }
+  // Format: {required: [...], optional: [...]}
+  if (deps.required && Array.isArray(deps.required)) {
+    for (const d of deps.required) slugs.push(typeof d === 'string' ? d : d?.slug);
+  }
+  if (deps.optional && Array.isArray(deps.optional)) {
+    for (const d of deps.optional) slugs.push(typeof d === 'string' ? d : d?.slug);
+  }
+  return slugs.filter(Boolean);
 }
 
 /**
@@ -559,6 +694,12 @@ export async function listConstructs(
     allConstructs = allConstructs.slice(offset, offset + pageSize);
   } else {
     allConstructs = allConstructs.slice(0, pageSize);
+  }
+
+  // Compute dependedBy cross-reference (cycle-048)
+  const dependedByMap = computeDependedByMap(allConstructs);
+  for (const c of allConstructs) {
+    c.dependedBy = dependedByMap.get(c.slug) || [];
   }
 
   const total = skillsResult.count + packsResult.count;

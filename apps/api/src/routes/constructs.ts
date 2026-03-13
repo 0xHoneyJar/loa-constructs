@@ -40,6 +40,7 @@ const listConstructsSchema = z.object({
   type: z.enum(['skill', 'pack', 'bundle', 'skill-pack', 'tool-pack', 'codex', 'template']).optional(),
   tier: z.enum(['free', 'pro', 'team', 'enterprise']).optional(),
   category: z.string().optional(),
+  domain: z.string().optional(), // cycle-048: filter by domain tag
   featured: z.coerce.boolean().optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   per_page: z.coerce.number().int().positive().max(100).optional().default(20),
@@ -84,6 +85,12 @@ function formatConstruct(c: Construct) {
     visibility: c.visibility,
     created_at: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
     updated_at: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
+    // Discovery enrichment (cycle-048)
+    domains: c.domains || [],
+    expertise_summary: c.expertiseSummary || [],
+    skill_details: c.skillDetails || [],
+    compose_with: c.composeWith || [],
+    depended_by: c.dependedBy || [],
   };
 }
 
@@ -181,8 +188,17 @@ constructsRouter.get(
       'Constructs listed'
     );
 
+    // cycle-048: domain filter (post-fetch, filters on manifest domain[])
+    let constructs = result.constructs;
+    if (query.domain) {
+      const domainFilter = query.domain.toLowerCase();
+      constructs = constructs.filter(c =>
+        (c.domains || []).some(d => d.toLowerCase() === domainFilter)
+      );
+    }
+
     return c.json({
-      data: result.constructs.map(formatConstruct),
+      data: constructs.map(formatConstruct),
       pagination: {
         page: result.page,
         per_page: result.limit,
