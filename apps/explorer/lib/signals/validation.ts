@@ -1,5 +1,8 @@
 import { z } from 'zod';
 
+// Edge validation (Zod). Convex storage validators are in convex/signals.ts (ingest action args).
+// Both must agree on the signal shape — changes here require matching changes there.
+
 export const feedbackDataSchema = z.object({
   type: z.literal('feedback'),
   category: z.string().max(100),

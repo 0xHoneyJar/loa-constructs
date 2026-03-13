@@ -39,10 +39,10 @@ crons.interval(
   internal.signals.sendHeartbeat,
 );
 
-// Check heartbeat health every hour (offset by running both)
+// Check heartbeat health every 2 hours (offset from sendHeartbeat to avoid collision)
 crons.interval(
   'signals/heartbeat-check',
-  { hours: 1 },
+  { hours: 2 },
   internal.signals.checkHeartbeat,
 );
 
