@@ -13,7 +13,7 @@
 
 import postgres from 'postgres';
 import { randomUUID, randomBytes, createHash } from 'crypto';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { readdir, readFile, stat } from 'fs/promises';
 import { join, dirname, relative } from 'path';
 import { fileURLToPath } from 'url';
@@ -77,7 +77,12 @@ const SHORT_DESCRIPTION_OVERRIDES: Record<string, string> = {
   'the-arcade': 'Game design philosophy',
   'the-easel': 'Aesthetic direction studio',
   webreel: 'Cinematic web capture',
+  'vocabulary-bank': 'Vocabulary governance for products',
   'webgl-particles': 'WebGL particle system',
+  showcase: 'Landing page visual intelligence',
+  'vfx-playbook': 'VFX patterns and techniques',
+  'the-mint': 'Material transformation pipeline',
+  'the-speakers': 'Psychoacoustic engineering',
 };
 
 // Pack icons (not stored in manifest to keep manifests simple)
@@ -98,8 +103,13 @@ const PACK_ICONS: Record<string, string> = {
   gecko: '🦎',
   'social-oracle': '🔮',
   'mibera-codex': '📖',
+  'vocabulary-bank': '📖',
   webreel: '🎬',
   growthpages: '🌱',
+  showcase: '🖥️',
+  'vfx-playbook': '🎞️',
+  'the-mint': '⚒️',
+  'the-speakers': '🔊',
 };
 
 // Git source configurations for packs with registered repos
@@ -171,6 +181,30 @@ const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
   },
   growthpages: {
     gitUrl: 'https://github.com/0xHoneyJar/construct-growthpages.git',
+    gitRef: 'main',
+  },
+  gecko: {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-gecko.git',
+    gitRef: 'main',
+  },
+  showcase: {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-showcase.git',
+    gitRef: 'main',
+  },
+  'vfx-playbook': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-vfx-playbook.git',
+    gitRef: 'main',
+  },
+  'the-mint': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-the-mint.git',
+    gitRef: 'main',
+  },
+  'the-speakers': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-the-speakers.git',
+    gitRef: 'main',
+  },
+  'vocabulary-bank': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-vocabulary-bank.git',
     gitRef: 'main',
   },
 };

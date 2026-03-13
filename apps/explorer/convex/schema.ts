@@ -176,6 +176,10 @@ export default defineSchema({
         trigger: v.string(),
       }),
     ),
+    // Circuit breaker state (typed fields — replaces string-encoded state)
+    circuitBreakerTripped: v.optional(v.boolean()),
+    circuitBreakerTrippedAt: v.optional(v.number()),
+    consecutiveFailures: v.optional(v.number()),
     updatedAt: v.number(),
   }).index('by_scope', ['scope']),
 });

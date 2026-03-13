@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { getConvexClient } from '@/lib/convex/server';
 import { api } from '@/convex/_generated/api';
 import {
@@ -7,38 +6,7 @@ import {
   sanitizeStackTrace,
   computeIncidentGroupId,
 } from '@/lib/signals/validation';
-
-// In-memory key validation cache (SHA256 of full key → { appSlug, validatedAt })
-type KeyCacheEntry = { appSlug: string; validatedAt: number };
-const keyCache = new Map<string, KeyCacheEntry>();
-const KEY_CACHE_TTL_MS = 60_000; // 60s
-const KEY_CACHE_MAX_ENTRIES = 5_000;
-
-// Origin validation — allowed origins per app (SDD §4.1, Sprint 1.5)
-const ALLOWED_ORIGINS: Record<string, string[]> = {
-  'midi-interface': ['https://mibera.xyz', 'http://localhost:3000'],
-  'mibera-honeyroad': ['https://honeyroad.xyz', 'http://localhost:3000'],
-  'set-and-forgetti': ['https://setandforgetti.com', 'http://localhost:3000'],
-  'apdao-auction-house': ['https://apiology.xyz', 'http://localhost:3000'],
-  'mcv-interface': ['https://moneycomb.xyz', 'http://localhost:3000'],
-  'cubquests-interface': ['https://cubquests.xyz', 'http://localhost:3000'],
-};
-
-function cacheKeyHash(rawKey: string): string {
-  return crypto.createHash('sha256').update(rawKey).digest('hex');
-}
-
-function pruneKeyCache(now: number) {
-  for (const [k, v] of keyCache) {
-    if (now - v.validatedAt >= KEY_CACHE_TTL_MS) keyCache.delete(k);
-  }
-  if (keyCache.size > KEY_CACHE_MAX_ENTRIES) {
-    const oldest = [...keyCache.entries()]
-      .sort((a, b) => a[1].validatedAt - b[1].validatedAt)
-      .slice(0, keyCache.size - KEY_CACHE_MAX_ENTRIES);
-    for (const [k] of oldest) keyCache.delete(k);
-  }
-}
+import { validateSignalKey, validateOrigin } from '@/lib/signals/auth';
 
 export async function POST(req: NextRequest) {
   const convex = getConvexClient();
@@ -55,48 +23,24 @@ export async function POST(req: NextRequest) {
   const apiKey = authHeader;
   const prefix = apiKey.substring(0, 12);
 
-  // Validate key via Convex action — hash never leaves Convex (HIGH-004)
+  // Validate key via Convex (with in-memory SHA256 cache)
   let keyInfo: { appSlug: string } | null = null;
-
-  const now = Date.now();
-  pruneKeyCache(now);
-  const cacheKey = cacheKeyHash(apiKey);
-  const cached = keyCache.get(cacheKey);
-
-  if (cached && now - cached.validatedAt < KEY_CACHE_TTL_MS) {
-    keyInfo = { appSlug: cached.appSlug };
-  } else {
-    try {
-      const result = await convex.action(api.signals.verifySignalKey, {
-        keyPrefix: prefix,
-        rawKey: apiKey,
-      });
-      if (!result) {
-        return NextResponse.json({ error: 'invalid api key' }, { status: 403 });
-      }
-      keyInfo = { appSlug: result.appSlug };
-      keyCache.set(cacheKey, {
-        appSlug: result.appSlug,
-        validatedAt: now,
-      });
-    } catch {
-      return NextResponse.json({ error: 'key validation failed' }, { status: 500 });
+  try {
+    keyInfo = await validateSignalKey(convex, apiKey);
+    if (!keyInfo) {
+      return NextResponse.json({ error: 'invalid api key' }, { status: 403 });
     }
+  } catch {
+    return NextResponse.json({ error: 'key validation failed' }, { status: 500 });
   }
 
-  // Origin validation (SDD §4.1 — SKP-001 mitigation)
+  // Origin validation
   const origin = req.headers.get('origin') || req.headers.get('referer') || '';
-  const allowedOrigins = ALLOWED_ORIGINS[keyInfo.appSlug];
-  if (allowedOrigins) {
-    const originMatch = allowedOrigins.some(
-      (allowed) => origin === allowed || origin.startsWith(allowed + '/'),
+  if (!validateOrigin(keyInfo.appSlug, origin)) {
+    return NextResponse.json(
+      { error: 'origin not allowed for this key' },
+      { status: 403 },
     );
-    if (!originMatch && origin !== '') {
-      return NextResponse.json(
-        { error: 'origin not allowed for this key' },
-        { status: 403 },
-      );
-    }
   }
 
   // Parse and validate request body

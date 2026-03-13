@@ -104,6 +104,8 @@ export const insert = internalMutation({
 });
 
 // --- Ingest Action (Entry Point) ---
+// Convex storage validators. Edge validation (Zod) is in lib/signals/validation.ts.
+// Both must agree on the signal shape — changes here require matching changes there.
 
 export const ingest = action({
   args: {
@@ -196,19 +198,19 @@ export const byApp = query({
 
 export const statusCounts = query({
   handler: async (ctx) => {
-    // Query only active statuses via index instead of full table scan (HIGH-001)
+    // Query only active statuses via index with safety bounds
     const newSigs = await ctx.db
       .query('signals')
       .withIndex('by_status', (q) => q.eq('status', 'new'))
-      .collect();
+      .take(10000);
     const triaged = await ctx.db
       .query('signals')
       .withIndex('by_status', (q) => q.eq('status', 'triaged'))
-      .collect();
+      .take(10000);
     const escalated = await ctx.db
       .query('signals')
       .withIndex('by_status', (q) => q.eq('status', 'escalated'))
-      .collect();
+      .take(10000);
 
     const active = [...newSigs, ...triaged, ...escalated].filter(
       (s) => s.source !== 'heartbeat',
@@ -329,9 +331,11 @@ export const classify = internalAction({
 
     const apiKey = process.env.ANTHROPIC_API_KEY;
     if (!apiKey) {
+      const newAttempts = signal.classificationAttempts + 1;
       await ctx.runMutation(internal.signals.patchClassificationAttempt, {
         signalId,
-        attempts: signal.classificationAttempts + 1,
+        attempts: newAttempts,
+        ...(newAttempts >= 3 ? { status: 'classification_failed' } : {}),
       });
       return;
     }
@@ -418,9 +422,11 @@ export const classify = internalAction({
         success: true,
       });
     } catch (err) {
+      const newAttempts = signal.classificationAttempts + 1;
       await ctx.runMutation(internal.signals.patchClassificationAttempt, {
         signalId,
-        attempts: signal.classificationAttempts + 1,
+        attempts: newAttempts,
+        ...(newAttempts >= 3 ? { status: 'classification_failed' } : {}),
       });
 
       // Record failure for circuit breaker
@@ -513,9 +519,12 @@ export const patchClassificationAttempt = internalMutation({
   args: {
     signalId: v.id('signals'),
     attempts: v.number(),
+    status: v.optional(v.string()),
   },
-  handler: async (ctx, { signalId, attempts }) => {
-    await ctx.db.patch(signalId, { classificationAttempts: attempts });
+  handler: async (ctx, { signalId, attempts, status }) => {
+    const patch: Record<string, unknown> = { classificationAttempts: attempts };
+    if (status) patch.status = status;
+    await ctx.db.patch(signalId, patch);
   },
 });
 
@@ -1086,12 +1095,11 @@ export const recalculateSovereignty = internalMutation({
         .collect()
       ).filter((s) => s.source !== 'heartbeat');
 
-      // Count overrides in window
-      const overrides = await ctx.db
+      // Count overrides in window (use index range to avoid full scan)
+      const windowOverrides = await ctx.db
         .query('signalOverrides')
-        .withIndex('by_app_timestamp', (q) => q.eq('appSlug', repo))
+        .withIndex('by_app_timestamp', (q) => q.eq('appSlug', repo).gte('timestamp', windowStart))
         .collect();
-      const windowOverrides = overrides.filter((o) => o.timestamp > windowStart);
 
       const signalCount = windowSignals.length;
       const overrideCount = windowOverrides.length;
@@ -1299,51 +1307,34 @@ export const recordClassificationResult = internalMutation({
 
     if (success) {
       // Reset consecutive failure tracking on success
-      const currentTrigger = state.lastTransition?.trigger || '';
-      if (currentTrigger.includes('consecutive_failures=')) {
+      if (state.consecutiveFailures && state.consecutiveFailures > 0) {
         await ctx.db.patch(state._id, {
-          lastTransition: {
-            from: state.tier,
-            to: state.tier,
-            timestamp: Date.now(),
-            trigger: 'consecutive_failures=0, same_error_count=0, last_error=',
-          },
+          consecutiveFailures: 0,
           updatedAt: Date.now(),
         });
       }
       return;
     }
 
-    // Track consecutive failures via sovereignty state
-    const currentTrigger = state.lastTransition?.trigger || '';
-    const failureMatch = currentTrigger.match(/consecutive_failures=(\d+)/);
-    const consecutiveFailures = failureMatch ? parseInt(failureMatch[1]) + 1 : 1;
+    // Track consecutive failures via typed fields
+    const consecutiveFailures = (state.consecutiveFailures ?? 0) + 1;
 
-    // Check for same error 3x
-    const errorMatch = currentTrigger.match(/last_error=(.*?)(?:,|$)/);
-    const lastError = errorMatch ? errorMatch[1] : '';
-    const sameErrorMatch = currentTrigger.match(/same_error_count=(\d+)/);
-    const sameErrorCount =
-      errorMessage && errorMessage === lastError
-        ? (sameErrorMatch ? parseInt(sameErrorMatch[1]) + 1 : 2)
-        : 1;
-
-    // Circuit breaker: 5 consecutive failures OR same error 3x → halt
-    if (consecutiveFailures >= 5 || sameErrorCount >= 3) {
+    // Circuit breaker: 5 consecutive failures → halt
+    if (consecutiveFailures >= 5) {
       await ctx.db.patch(state._id, {
+        circuitBreakerTripped: true,
+        circuitBreakerTrippedAt: Date.now(),
+        consecutiveFailures,
         manualOverride: {
           tier: 'constrained',
           setBy: 'circuit_breaker',
-          reason:
-            consecutiveFailures >= 5
-              ? `Halted: ${consecutiveFailures} consecutive classification failures`
-              : `Halted: same error "${errorMessage?.slice(0, 100)}" repeated ${sameErrorCount}x`,
+          reason: `Halted: ${consecutiveFailures} consecutive classification failures`,
         },
         lastTransition: {
           from: state.tier,
           to: 'constrained',
           timestamp: Date.now(),
-          trigger: `circuit_breaker, consecutive_failures=${consecutiveFailures}, same_error_count=${sameErrorCount}, last_error=${errorMessage?.slice(0, 100) || ''}`,
+          trigger: `circuit_breaker, consecutive_failures=${consecutiveFailures}`,
         },
         updatedAt: Date.now(),
       });
@@ -1352,20 +1343,12 @@ export const recordClassificationResult = internalMutation({
       await ctx.scheduler.runAfter(0, internal.signals.alertPipelineError, {
         appSlug,
         errorType: 'circuit_breaker',
-        details:
-          consecutiveFailures >= 5
-            ? `${consecutiveFailures} consecutive classification failures`
-            : `Same error repeated ${sameErrorCount}x: ${errorMessage?.slice(0, 200)}`,
+        details: `${consecutiveFailures} consecutive classification failures`,
       });
     } else {
       // Update failure tracking
       await ctx.db.patch(state._id, {
-        lastTransition: {
-          from: state.tier,
-          to: state.tier,
-          timestamp: Date.now(),
-          trigger: `consecutive_failures=${consecutiveFailures}, same_error_count=${sameErrorCount}, last_error=${errorMessage?.slice(0, 100) || ''}`,
-        },
+        consecutiveFailures,
         updatedAt: Date.now(),
       });
     }
@@ -1380,7 +1363,8 @@ export const isCircuitBroken = internalQuery({
       .withIndex('by_scope', (q) => q.eq('scope', appSlug))
       .first();
 
-    return state?.manualOverride?.setBy === 'circuit_breaker';
+    // Check typed field first, fall back to legacy manualOverride check
+    return state?.circuitBreakerTripped === true || state?.manualOverride?.setBy === 'circuit_breaker';
   },
 });
 
@@ -1402,11 +1386,14 @@ export const resetCircuitBreaker = mutation({
 
     if (!state) throw new Error(`No sovereignty state for ${appSlug}`);
 
-    if (state.manualOverride?.setBy !== 'circuit_breaker') {
+    if (!state.circuitBreakerTripped && state.manualOverride?.setBy !== 'circuit_breaker') {
       throw new Error('Circuit breaker is not tripped for this app');
     }
 
     await ctx.db.patch(state._id, {
+      circuitBreakerTripped: false,
+      circuitBreakerTrippedAt: undefined,
+      consecutiveFailures: 0,
       manualOverride: undefined,
       lastTransition: {
         from: 'constrained',

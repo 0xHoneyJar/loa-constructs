@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "active_cycle": "cycle-045",
-  "global_sprint_counter": 59,
+  "active_cycle": "cycle-047",
+  "global_sprint_counter": 62,
   "cycles": [
     {
       "id": "cycle-025",
@@ -649,35 +649,100 @@
     {
       "id": "cycle-045",
       "label": "Ruggy — Autonomous Ecosystem Intelligence Agent",
-      "status": "active",
+      "status": "archived",
       "created_at": "2026-03-12T23:00:00Z",
-      "prd": "grimoires/loa/prd.md",
-      "sdd": "grimoires/loa/sdd.md",
-      "sprint_plan": "grimoires/loa/sprint.md",
+      "archived_at": "2026-03-13T00:00:00Z",
+      "archive_path": "grimoires/loa/archive/cycle-045-rugby-ecosystem-intelligence",
+      "prd": "grimoires/loa/archive/cycle-045-rugby-ecosystem-intelligence/prd.md",
+      "sdd": "grimoires/loa/archive/cycle-045-rugby-ecosystem-intelligence/sdd.md",
+      "sprint_plan": "grimoires/loa/archive/cycle-045-rugby-ecosystem-intelligence/sprint.md",
       "foundation": "cycle-044",
+      "note": "Build complete. Signal pipeline, sovereignty engine, API keys, 7 fan-out PRs, 8 review fixes. Deployment closeout moved to cycle-046.",
       "sprints": [
         {
           "local_id": "sprint-1",
           "global_id": "sprint-56",
           "label": "Foundation — Dixie Fork + Convex Extensions",
-          "status": "pending"
+          "status": "completed"
         },
         {
           "local_id": "sprint-2",
           "global_id": "sprint-57",
           "label": "Widget Integration — Connect Product Repos",
-          "status": "pending"
+          "status": "completed"
         },
         {
           "local_id": "sprint-3",
           "global_id": "sprint-58",
           "label": "Enhanced Classification + Sovereignty Logic",
-          "status": "pending"
+          "status": "completed"
         },
         {
           "local_id": "sprint-4",
           "global_id": "sprint-59",
           "label": "Discord Slash Commands + E2E",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "id": "cycle-046",
+      "label": "Rugby Deployment Closeout — Merge, Deploy, E2E",
+      "status": "archived",
+      "created_at": "2026-03-13T00:00:00Z",
+      "archived_at": "2026-03-13T12:00:00Z",
+      "prd": "grimoires/loa/context/cycle-045-closeout-plan.md",
+      "sdd": "grimoires/loa/sdd.md",
+      "sprint_plan": "grimoires/loa/sprint.md",
+      "foundation": "cycle-045",
+      "note": "Complete. All 6 fan-out PRs merged, env vars set, E2E verified (LAB-915 in Linear). Sovereignty fix deployed. Architecture docs created.",
+      "sprints": [
+        {
+          "local_id": "sprint-1",
+          "global_id": "sprint-60",
+          "label": "Commit, PR, and Merge",
+          "status": "completed"
+        },
+        {
+          "local_id": "sprint-2",
+          "global_id": "sprint-61",
+          "label": "Environment Configuration and E2E",
+          "status": "completed"
+        },
+        {
+          "local_id": "sprint-3",
+          "global_id": "sprint-62",
+          "label": "Fan-Out PR Merges",
+          "status": "completed"
+        }
+      ]
+    },
+    {
+      "id": "cycle-047",
+      "label": "Ruggy Structural Alignment — Documentation, Reliability, Consolidation",
+      "status": "active",
+      "created_at": "2026-03-13T12:00:00Z",
+      "prd": "grimoires/loa/prd.md",
+      "foundation": "cycle-046",
+      "sdd": "grimoires/loa/sdd.md",
+      "sprint_plan": "grimoires/loa/sprint.md",
+      "sprints": [
+        {
+          "local_id": "sprint-1",
+          "global_id": "sprint-63",
+          "label": "Documentation & Dashboard Visibility",
+          "status": "pending"
+        },
+        {
+          "local_id": "sprint-2",
+          "global_id": "sprint-64",
+          "label": "HIGH Reliability Fixes",
+          "status": "pending"
+        },
+        {
+          "local_id": "sprint-3",
+          "global_id": "sprint-65",
+          "label": "Consolidation",
           "status": "pending"
         }
       ]
