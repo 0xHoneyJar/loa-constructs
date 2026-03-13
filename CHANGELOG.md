@@ -5,6 +5,25 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.16.0] — 2026-03-13 — Ruggy ecosystem intelligence — signal pipeline, sovereignty engine, 6-repo fan-out
+
+
+Cycle-045: Rugby autonomous ecosystem intelligence agent. Connects the signal pipeline (cycle-044) to all 6 product repos with sovereignty-gated escalation.
+
+### What's New
+- **Sovereignty engine**: Override-rate-driven tier system (constrained/standard/autonomous) with adaptive window, minimum samples, manual overrides, circuit breaker
+
+### Added
+
+- **cycle-045**: Ruggy ecosystem intelligence — signal pipeline, sovereignty engine, 6-repo fan-out (#161)
+
+### Fixed
+
+- **api**: swap bcrypt → bcryptjs to eliminate Bun native addon segfault
+
+_Source: PR #161_
+
+
 ## [2.9.0] - 2026-02-28
 
 ### Why This Release
