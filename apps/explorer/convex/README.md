@@ -31,7 +31,7 @@ Convex deployment: dev `doting-jackal-397`, prod `quaint-anaconda-866`.
 | `signals/check-linear-failures` | 15m | `signals.checkLinearFailures` |
 | `signals/reconcile-linear` | 1h | `signals.reconcile` |
 | `signals/heartbeat` | 1h | `signals.sendHeartbeat` |
-| `signals/heartbeat-check` | 1h | `signals.checkHeartbeat` |
+| `signals/heartbeat-check` | 2h | `signals.checkHeartbeat` |
 | `signals/recalculate-sovereignty` | 1h | `signals.recalculateSovereignty` |
 | `signals/purge-expired` | 24h | `signals.purgeExpired` |
 

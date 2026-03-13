@@ -1392,6 +1392,7 @@ export const resetCircuitBreaker = mutation({
 
     await ctx.db.patch(state._id, {
       circuitBreakerTripped: false,
+      circuitBreakerTrippedAt: undefined,
       consecutiveFailures: 0,
       manualOverride: undefined,
       lastTransition: {
