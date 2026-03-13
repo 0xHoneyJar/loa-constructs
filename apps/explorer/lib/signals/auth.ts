@@ -8,15 +8,14 @@ const keyCache = new Map<string, KeyCacheEntry>();
 const KEY_CACHE_TTL_MS = 60_000; // 60s
 const KEY_CACHE_MAX_ENTRIES = 5_000;
 
-// Origin validation — allowed origins per app
+// Origin validation — allowed origins per app (no localhost: portless handles local dev)
 const ALLOWED_ORIGINS: Record<string, string[]> = {
-  'midi-interface': ['https://mibera.xyz', 'http://localhost:3000'],
-  'mibera-honeyroad': ['https://honeyroad.xyz', 'http://localhost:3000'],
-  'set-and-forgetti': ['https://setandforgetti.com', 'http://localhost:3000'],
-  'apdao-auction-house': ['https://apiology.xyz', 'http://localhost:3000'],
-  'mcv-interface': ['https://moneycomb.xyz', 'http://localhost:3000'],
-  'cubquests-interface': ['https://cubquests.xyz', 'http://localhost:3000'],
-  'rektdrop-interface': ['https://rektdrop.xyz', 'http://localhost:3000'],
+  'midi-interface': ['https://midi.0xhoneyjar.xyz'],
+  'mibera-honeyroad': ['https://honeyroad.xyz', 'https://mibera.0xhoneyjar.xyz'],
+  'set-and-forgetti': ['https://app.setandforgetti.io'],
+  'apdao-auction-house': ['https://apiologydao.0xhoneyjar.xyz'],
+  'mcv-interface': ['https://moneycomb.0xhoneyjar.xyz'],
+  'cubquests-interface': ['https://cubquests.com', 'https://cubquests.0xhoneyjar.xyz'],
 };
 
 function cacheKeyHash(rawKey: string): string {
@@ -72,13 +71,22 @@ export async function validateSignalKey(
 
 /**
  * Validate request origin against allowed origins for the app.
- * Returns true if origin is allowed (or if no origin header / server-side caller).
+ * Returns true if origin is allowed or if no origin header (server-side caller).
+ * Deny-by-default: apps not in ALLOWED_ORIGINS are rejected.
  */
 export function validateOrigin(appSlug: string, origin: string): boolean {
+  // Server-side callers (SDKs, cron jobs) legitimately omit Origin/Referer.
+  // API key is the primary auth; origin check is defense-in-depth for browser CSRF.
+  if (origin === '') return true;
+
   const allowedOrigins = ALLOWED_ORIGINS[appSlug];
-  if (!allowedOrigins) return true; // No origin restrictions for this app
-  if (origin === '') return true; // Server-side caller (no Origin header)
-  return allowedOrigins.some(
-    (allowed) => origin === allowed || origin.startsWith(allowed + '/'),
-  );
+  if (!allowedOrigins) return false; // Deny-by-default for unknown apps
+
+  // Parse to canonical origin to prevent prefix-matching bypasses
+  try {
+    const parsed = new URL(origin).origin;
+    return allowedOrigins.includes(parsed);
+  } catch {
+    return false;
+  }
 }

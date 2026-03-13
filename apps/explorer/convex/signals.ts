@@ -519,10 +519,12 @@ export const patchClassificationAttempt = internalMutation({
   args: {
     signalId: v.id('signals'),
     attempts: v.number(),
-    status: v.optional(v.string()),
+    status: v.optional(v.literal('classification_failed')),
   },
   handler: async (ctx, { signalId, attempts, status }) => {
-    const patch: Record<string, unknown> = { classificationAttempts: attempts };
+    const patch: { classificationAttempts: number; status?: string } = {
+      classificationAttempts: attempts,
+    };
     if (status) patch.status = status;
     await ctx.db.patch(signalId, patch);
   },
