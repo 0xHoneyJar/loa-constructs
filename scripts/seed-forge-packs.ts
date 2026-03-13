@@ -508,6 +508,29 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
         console.log(`     → parsed identity files for ${slug}`);
       }
 
+      // Extract skill descriptions from SKILL.md files (cycle-048)
+      if (manifest.skills) {
+        for (const skill of manifest.skills) {
+          const skillDir = join(repoDir, skill.path || `skills/${skill.slug}`);
+          const skillMdPath = join(skillDir, 'SKILL.md');
+          if (existsSync(skillMdPath)) {
+            try {
+              const content = await readFile(skillMdPath, 'utf-8');
+              const lines = content.split('\n');
+              let inFrontmatter = false;
+              for (const line of lines) {
+                if (line.trim() === '---') { inFrontmatter = !inFrontmatter; continue; }
+                if (inFrontmatter) continue;
+                if (line.trim() && !line.startsWith('#')) {
+                  (skill as any).description = line.trim().slice(0, 120);
+                  break;
+                }
+              }
+            } catch { /* skip if unreadable */ }
+          }
+        }
+      }
+
       const constructType = manifest.type || 'skill-pack';
 
       packs.push({
@@ -739,7 +762,7 @@ async function seedForgePacks() {
         // Step 4: Build manifest and collect files
         // Use full validated manifest when available, fall back to minimal 7-field
         const versionId = randomUUID();
-        const manifest = pack.fullManifest ?? {
+        const baseManifest = pack.fullManifest ?? {
           schema_version: pack.schema_version || 1,
           name: pack.name,
           slug: pack.slug,
@@ -749,6 +772,17 @@ async function seedForgePacks() {
           license: pack.license || 'MIT',
           skills: pack.skillSlugs.map((s) => ({ slug: s, path: `skills/${s}` })),
         };
+
+        // Merge skill descriptions from SKILL.md extraction (cycle-048)
+        if (pack.skills && Array.isArray((baseManifest as any).skills)) {
+          const descMap = new Map(pack.skills.map((s: any) => [s.slug, (s as any).description || '']));
+          for (const skill of (baseManifest as any).skills) {
+            if (descMap.has(skill.slug) && descMap.get(skill.slug)) {
+              skill.description = descMap.get(skill.slug);
+            }
+          }
+        }
+        const manifest = baseManifest;
 
         // Collect files first (needed for content hash)
         console.log(`     → collecting files from ${pack.packPath}...`);
