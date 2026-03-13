@@ -8,15 +8,14 @@ const keyCache = new Map<string, KeyCacheEntry>();
 const KEY_CACHE_TTL_MS = 60_000; // 60s
 const KEY_CACHE_MAX_ENTRIES = 5_000;
 
-// Origin validation — allowed origins per app
+// Origin validation — allowed origins per app (no localhost: portless handles local dev)
 const ALLOWED_ORIGINS: Record<string, string[]> = {
-  'midi-interface': ['https://mibera.xyz', 'http://localhost:3000'],
-  'mibera-honeyroad': ['https://honeyroad.xyz', 'http://localhost:3000'],
-  'set-and-forgetti': ['https://setandforgetti.com', 'http://localhost:3000'],
-  'apdao-auction-house': ['https://apiology.xyz', 'http://localhost:3000'],
-  'mcv-interface': ['https://moneycomb.xyz', 'http://localhost:3000'],
-  'cubquests-interface': ['https://cubquests.xyz', 'http://localhost:3000'],
-  'rektdrop-interface': ['https://rektdrop.xyz', 'http://localhost:3000'],
+  'midi-interface': ['https://midi.0xhoneyjar.xyz'],
+  'mibera-honeyroad': ['https://honeyroad.xyz', 'https://mibera.0xhoneyjar.xyz'],
+  'set-and-forgetti': ['https://app.setandforgetti.io'],
+  'apdao-auction-house': ['https://apiologydao.0xhoneyjar.xyz'],
+  'mcv-interface': ['https://moneycomb.0xhoneyjar.xyz'],
+  'cubquests-interface': ['https://cubquests.com', 'https://cubquests.0xhoneyjar.xyz'],
 };
 
 function cacheKeyHash(rawKey: string): string {
