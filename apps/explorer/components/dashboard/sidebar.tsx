@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { type CSSProperties } from 'react';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +26,21 @@ const adminNavItems = [
   { href: '/dashboard/health', label: 'Health', icon: PixelPulse },
 ];
 
+const SIDEBAR_TOKENS = {
+  '--sidebar-bg': 'var(--color-bg-void)',
+  '--sidebar-border': 'var(--color-border-subtle)',
+  '--sidebar-section-label': 'var(--color-text-ghost)',
+  '--sidebar-nav-text': 'var(--color-text-tertiary)',
+  '--sidebar-nav-text-hover': 'var(--color-text-primary)',
+  '--sidebar-nav-bg-hover': 'var(--color-bg-surface)',
+  '--sidebar-nav-active-text': 'var(--color-accent-primary)',
+  '--sidebar-nav-active-bg': 'var(--color-cyan-dim-tint-bg)',
+  '--sidebar-nav-active-border': 'var(--color-accent-primary)',
+  '--sidebar-nav-active-glow': 'inset 0 0 12px var(--color-glow-primary)',
+  '--sidebar-disconnect': 'var(--color-text-ghost)',
+  '--sidebar-disconnect-hover': 'var(--color-accent-warm)',
+} as CSSProperties;
+
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -34,15 +50,18 @@ export function Sidebar() {
     href === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(href);
 
   return (
-    <aside className="w-[200px] shrink-0 border-r border-sprawl-grid-line bg-void-base flex flex-col">
-      <div className="p-4 border-b border-sprawl-grid-line">
-        <Link href="/" className="font-mono text-[9px] text-bone-muted uppercase tracking-terminal hover:text-bone-base transition-colors">
+    <aside
+      style={SIDEBAR_TOKENS}
+      className="w-[200px] shrink-0 border-r border-[var(--sidebar-border)] bg-[var(--sidebar-bg)] flex flex-col"
+    >
+      <div className="p-4 border-b border-[var(--sidebar-border)]">
+        <Link href="/" className="font-mono text-[var(--text-xs)] text-[var(--sidebar-nav-text)] uppercase tracking-terminal hover:text-[var(--sidebar-nav-text-hover)] transition-colors">
           constructs.network
         </Link>
       </div>
 
       <div className="px-3 pt-4 pb-1">
-        <span className="font-mono text-[8px] text-bone-ghost uppercase tracking-whisper" aria-hidden="true">
+        <span className="font-mono text-[var(--text-2xs)] text-[var(--sidebar-section-label)] uppercase tracking-whisper" aria-hidden="true">
           sector::operations
         </span>
       </div>
@@ -55,10 +74,10 @@ export function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-2.5 px-3 py-2 font-mono text-[11px] uppercase tracking-wider transition-all ${
+              className={`flex items-center gap-2.5 px-3 py-2 font-mono text-[var(--text-sm)] uppercase tracking-wider transition-all ${
                 active
-                  ? 'text-cyan-base bg-cyan-dim/10 border-l-2 border-cyan-base shadow-[inset_0_0_12px_var(--color-glow-cyan)]'
-                  : 'text-bone-muted hover:text-bone-base hover:bg-void-raised border-l-2 border-transparent'
+                  ? 'text-[var(--sidebar-nav-active-text)] bg-[var(--sidebar-nav-active-bg)] border-l-2 border-[var(--sidebar-nav-active-border)] shadow-[var(--sidebar-nav-active-glow)]'
+                  : 'text-[var(--sidebar-nav-text)] hover:text-[var(--sidebar-nav-text-hover)] hover:bg-[var(--sidebar-nav-bg-hover)] border-l-2 border-transparent'
               }`}
             >
               <Icon className="w-4 h-4" />
@@ -70,8 +89,8 @@ export function Sidebar() {
 
       {isAdmin && (
         <>
-          <div className="px-3 pt-3 pb-1 border-t border-sprawl-grid-line">
-            <span className="font-mono text-[8px] text-bone-ghost uppercase tracking-whisper" aria-hidden="true">
+          <div className="px-3 pt-3 pb-1 border-t border-[var(--sidebar-border)]">
+            <span className="font-mono text-[var(--text-2xs)] text-[var(--sidebar-section-label)] uppercase tracking-whisper" aria-hidden="true">
               sector::admin
             </span>
           </div>
@@ -83,10 +102,10 @@ export function Sidebar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-2.5 px-3 py-2 font-mono text-[11px] uppercase tracking-wider transition-all ${
+                  className={`flex items-center gap-2.5 px-3 py-2 font-mono text-[var(--text-sm)] uppercase tracking-wider transition-all ${
                     active
-                      ? 'text-cyan-base bg-cyan-dim/10 border-l-2 border-cyan-base shadow-[inset_0_0_12px_var(--color-glow-cyan)]'
-                      : 'text-bone-muted hover:text-bone-base hover:bg-void-raised border-l-2 border-transparent'
+                      ? 'text-[var(--sidebar-nav-active-text)] bg-[var(--sidebar-nav-active-bg)] border-l-2 border-[var(--sidebar-nav-active-border)] shadow-[var(--sidebar-nav-active-glow)]'
+                      : 'text-[var(--sidebar-nav-text)] hover:text-[var(--sidebar-nav-text-hover)] hover:bg-[var(--sidebar-nav-bg-hover)] border-l-2 border-transparent'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -98,11 +117,11 @@ export function Sidebar() {
         </>
       )}
 
-      <div className="p-2 border-t border-sprawl-grid-line">
+      <div className="p-2 border-t border-[var(--sidebar-border)]">
         <Button
           variant="ghost"
           onClick={async () => { await logout(); router.replace('/'); }}
-          className="w-full justify-start px-3 py-1.5 font-mono text-[11px] text-bone-ghost hover:text-crimson-base uppercase tracking-wider"
+          className="w-full justify-start px-3 py-1.5 font-mono text-[var(--text-sm)] text-[var(--sidebar-disconnect)] hover:text-[var(--sidebar-disconnect-hover)] uppercase tracking-wider"
         >
           Disconnect
         </Button>
