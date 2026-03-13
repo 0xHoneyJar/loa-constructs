@@ -5,6 +5,25 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.17.0] — 2026-03-13 — Ruggy structural alignment — docs, reliability, consolidation
+
+
+Structural alignment for the Ruggy signal pipeline deployed in cycle-045/046. Addresses 14 architectural findings from the deployment audit.
+
+- **Sprint 1**: Dashboard signals link, rewrite Ruggy docs (remove Dixie fiction), replace Convex README boilerplate
+- **Sprint 2**: Classification terminal state at 3 retries, throw on missing Linear env vars, override query index optimization
+
+### Added
+
+- **cycle-047**: Ruggy structural alignment — docs, reliability, consolidation (#162)
+
+### Fixed
+
+- **signals**: constrained sovereignty tier now auto-escalates high+critical to Linear
+
+_Source: PR #162_
+
+
 ## [2.9.0] - 2026-02-28
 
 ### Why This Release
