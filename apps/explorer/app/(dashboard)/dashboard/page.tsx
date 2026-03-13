@@ -50,6 +50,9 @@ export default function DashboardOverview() {
           <h2 className="font-mono text-sm text-bone-dim uppercase tracking-wider">
             Admin
           </h2>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <QuickLink href="/dashboard/signals" label="Signals" />
+          </div>
           {analytics ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <StatCard label="Users" value={String(analytics.users.total)} />
