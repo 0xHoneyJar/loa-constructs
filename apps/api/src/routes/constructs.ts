@@ -40,6 +40,7 @@ const listConstructsSchema = z.object({
   type: z.enum(['skill', 'pack', 'bundle', 'skill-pack', 'tool-pack', 'codex', 'template']).optional(),
   tier: z.enum(['free', 'pro', 'team', 'enterprise']).optional(),
   category: z.string().optional(),
+  domain: z.string().optional(),
   featured: z.coerce.boolean().optional(),
   page: z.coerce.number().int().positive().optional().default(1),
   per_page: z.coerce.number().int().positive().max(100).optional().default(20),
@@ -84,6 +85,12 @@ function formatConstruct(c: Construct) {
     visibility: c.visibility,
     created_at: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
     updated_at: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
+    // Discovery enrichment (cycle-048)
+    domains: c.domains || [],
+    expertise_summary: c.expertiseSummary || [],
+    skill_details: c.skillDetails || [],
+    compose_with: c.composeWith || [],
+    depended_by: c.dependedBy || [],
   };
 }
 
@@ -165,6 +172,7 @@ constructsRouter.get(
       type: query.type,
       tier: query.tier,
       category: query.category,
+      domain: query.domain?.trim() || undefined,
       featured: query.featured,
       page: query.page,
       limit: query.per_page,

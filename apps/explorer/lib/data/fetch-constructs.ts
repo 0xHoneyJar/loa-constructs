@@ -75,6 +75,19 @@ function transformToNode(construct: APIConstruct): ConstructNode {
   // Category now comes from API (packs.category column, cycle-041)
   const category = normalizeCategory(construct.category || 'development');
 
+  // Extract expertise domains from identity (cycle-048: discovery enrichment)
+  const domains = construct.identity?.expertise_domains
+    ?.map((d: string | { name: string }) => typeof d === 'string' ? d : d.name)
+    .filter(Boolean) as string[] | undefined;
+
+  // Extract composes_with from manifest (cycle-048: composition degree)
+  const composesWith = construct.manifest?.composes_with || construct.manifest?.dependencies || [];
+
+  // Extract skill slugs for Fuse.js search (cycle-048)
+  const skillSlugs = (construct.manifest?.skills || [])
+    .filter((s): s is NonNullable<typeof s> => s !== null)
+    .map(s => s.slug);
+
   return {
     id: construct.id,
     slug: construct.slug,
@@ -93,6 +106,9 @@ function transformToNode(construct: APIConstruct): ConstructNode {
     rating: construct.rating ?? null,
     hasIdentity: construct.has_identity ?? false,
     verificationTier: construct.verification_tier ?? 'UNVERIFIED',
+    domains: domains && domains.length > 0 ? domains : undefined,
+    composesWith: composesWith.length > 0 ? composesWith : undefined,
+    skillSlugs: skillSlugs.length > 0 ? skillSlugs : undefined,
   };
 }
 

@@ -3,7 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { fetchDashboard, type AdminAnalytics } from '@/lib/api/dashboard';
-import Link from 'next/link';
+import { StatCard } from '@/components/dashboard/stat-card';
+import { QuickLink } from '@/components/dashboard/quick-link';
+import {
+  PixelGrid,
+  PixelNetwork,
+  PixelCube,
+  PixelKey,
+  PixelSignal,
+} from '@/components/icons/pixel';
 
 export default function DashboardOverview() {
   const { isAdmin } = useAuthStore();
@@ -32,73 +40,47 @@ export default function DashboardOverview() {
   }, [isAdmin]);
 
   return (
-    <div className="space-y-8 max-w-4xl">
-      <h1 className="font-mono text-lg text-bone-base">Overview</h1>
+    <div className="space-y-8 bg-grid-substrate min-h-full" data-dashboard-state="nominal">
+      <div className="flex items-center gap-2">
+        <PixelGrid className="w-4 h-4 text-bone-ghost" />
+        <h1 className="font-mono text-[9px] text-bone-muted uppercase tracking-terminal" aria-hidden="true">
+          sprawlos::overview
+        </h1>
+      </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <StatCard
           label="Constructs"
           value={constructCount !== null ? String(constructCount) : '...'}
+          variant="cyan"
+          icon={<PixelCube className="w-3.5 h-3.5" />}
         />
-        <QuickLink href="/dashboard/keys" label="API Keys" />
-        <QuickLink href="/dashboard/explore" label="Graph" />
-        <QuickLink href="/dashboard/constructs" label="Metrics" />
+        <QuickLink href="/dashboard/keys" label="API Keys" icon={<PixelKey className="w-3.5 h-3.5" />} />
+        <QuickLink href="/dashboard/explore" label="Graph" icon={<PixelNetwork className="w-3.5 h-3.5" />} />
+        <QuickLink href="/dashboard/constructs" label="Metrics" icon={<PixelCube className="w-3.5 h-3.5" />} />
       </div>
 
       {isAdmin && (
         <div className="space-y-4">
-          <h2 className="font-mono text-sm text-bone-dim uppercase tracking-wider">
-            Admin
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <QuickLink href="/dashboard/signals" label="Signals" />
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[8px] text-bone-ghost uppercase tracking-whisper" aria-hidden="true">
+              sector::admin
+            </span>
+            <div className="flex-1 h-px bg-sprawl-grid-line" />
           </div>
-          {analytics ? (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <StatCard label="Users" value={String(analytics.users.total)} />
-              <StatCard label="New Users" value={String(analytics.users.new)} />
-              <StatCard label="API Keys" value={String(analytics.apiKeys)} />
-              <StatCard label="Teams" value={String(analytics.teams)} />
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="border border-void-border bg-void-base p-4">
-                  <div className="animate-pulse bg-void-raised rounded-none h-3 w-16 mb-2" />
-                  <div className="animate-pulse bg-void-raised rounded-none h-6 w-10" />
-                </div>
-              ))}
-            </div>
-          )}
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <QuickLink href="/dashboard/signals" label="Signals" icon={<PixelSignal className="w-3.5 h-3.5" />} />
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <StatCard label="Users" value={analytics ? String(analytics.users.total) : '...'} variant="yellow" />
+            <StatCard label="New Users" value={analytics ? String(analytics.users.new) : '...'} variant="green" />
+            <StatCard label="API Keys" value={analytics ? String(analytics.apiKeys) : '...'} variant="cyan" />
+            <StatCard label="Teams" value={analytics ? String(analytics.teams) : '...'} variant="default" />
+          </div>
         </div>
       )}
     </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border border-void-border bg-void-base p-4">
-      <div className="font-mono text-[9px] text-bone-muted uppercase tracking-widest">
-        {label}
-      </div>
-      <div className="mt-1 font-mono text-xl text-bone-base">{value}</div>
-    </div>
-  );
-}
-
-function QuickLink({ href, label }: { href: string; label: string }) {
-  return (
-    <Link
-      href={href}
-      className="border border-void-border bg-void-base p-4 hover:bg-void-raised hover:border-cyan-dim/20 transition-colors group"
-    >
-      <div className="font-mono text-[11px] text-bone-dim group-hover:text-bone-base transition-colors uppercase tracking-wider">
-        {label}
-      </div>
-      <div className="mt-1 font-mono text-[9px] text-bone-ghost group-hover:text-cyan-dim group-hover:translate-x-0.5 transition-all">
-        &rarr;
-      </div>
-    </Link>
   );
 }

@@ -508,6 +508,57 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
         console.log(`     → parsed identity files for ${slug}`);
       }
 
+      // Extract skill descriptions from SKILL.md files (cycle-048)
+      // Handles both object-form ({slug, path}) and string-form skills
+      if (Array.isArray(manifest.skills)) {
+        for (let i = 0; i < manifest.skills.length; i++) {
+          const raw = manifest.skills[i] as any;
+          const slug = typeof raw === 'string' ? raw : raw?.slug;
+          if (!slug || typeof slug !== 'string') continue;
+
+          const skillPath = typeof raw === 'object' && raw?.path ? raw.path : `skills/${slug}`;
+          const skillDir = join(repoDir, skillPath);
+          const skillMdPath = join(skillDir, 'SKILL.md');
+          if (!existsSync(skillMdPath)) continue;
+
+          try {
+            const content = await readFile(skillMdPath, 'utf-8');
+            const lines = content.split('\n');
+            let inFrontmatter = false;
+            let sawOpeningFrontmatter = false;
+            let description = '';
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed === '---') {
+                if (!sawOpeningFrontmatter) {
+                  sawOpeningFrontmatter = true;
+                  inFrontmatter = true;
+                } else if (inFrontmatter) {
+                  inFrontmatter = false;
+                }
+                continue;
+              }
+              if (inFrontmatter) continue;
+              if (trimmed && !trimmed.startsWith('#')) {
+                description = trimmed.slice(0, 120);
+                break;
+              }
+            }
+
+            if (description) {
+              // Normalize string-form skills back to object form with description
+              const normalized = typeof raw === 'string'
+                ? { slug, path: `skills/${slug}`, description }
+                : { ...raw, description };
+              manifest.skills[i] = normalized as any;
+            }
+          } catch {
+            // skip unreadable skill markdown
+          }
+        }
+      }
+
       const constructType = manifest.type || 'skill-pack';
 
       packs.push({
@@ -739,7 +790,7 @@ async function seedForgePacks() {
         // Step 4: Build manifest and collect files
         // Use full validated manifest when available, fall back to minimal 7-field
         const versionId = randomUUID();
-        const manifest = pack.fullManifest ?? {
+        const baseManifest = pack.fullManifest ?? {
           schema_version: pack.schema_version || 1,
           name: pack.name,
           slug: pack.slug,
@@ -749,6 +800,17 @@ async function seedForgePacks() {
           license: pack.license || 'MIT',
           skills: pack.skillSlugs.map((s) => ({ slug: s, path: `skills/${s}` })),
         };
+
+        // Merge skill descriptions from SKILL.md extraction (cycle-048)
+        if (pack.skills && Array.isArray((baseManifest as any).skills)) {
+          const descMap = new Map(pack.skills.map((s: any) => [s.slug, (s as any).description || '']));
+          for (const skill of (baseManifest as any).skills) {
+            if (descMap.has(skill.slug) && descMap.get(skill.slug)) {
+              skill.description = descMap.get(skill.slug);
+            }
+          }
+        }
+        const manifest = baseManifest;
 
         // Collect files first (needed for content hash)
         console.log(`     → collecting files from ${pack.packPath}...`);

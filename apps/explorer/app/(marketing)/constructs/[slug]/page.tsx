@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { fetchConstruct } from '@/lib/data/fetch-constructs';
+import { fetchConstruct, fetchAllConstructs } from '@/lib/data/fetch-constructs';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { GraduationBadge } from '@/components/ui/graduation-badge';
@@ -164,23 +164,8 @@ export default async function ConstructDetailPage({
         {/* Identity summary — archetype + expertise chips */}
         {construct.identity && <IdentitySummary identity={construct.identity} />}
 
-        {/* Composes with */}
-        {construct.composesWith.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-sm uppercase tracking-whisper text-bone-ghost">
-              Composes with
-            </span>
-            {construct.composesWith.map((dep) => (
-              <Link
-                key={dep}
-                href={`/constructs/${dep}`}
-                className="border border-void-border px-2 py-0.5 text-sm font-mono text-bone-dim hover:bg-void-surface hover:text-bone-base transition-colors"
-              >
-                {dep}
-              </Link>
-            ))}
-          </div>
-        )}
+        {/* Works with panel — composes_with + depended_by (cycle-048) */}
+        <WorksWithPanel slug={slug} composesWith={construct.composesWith} />
 
         {/* Commands */}
         {construct.commands.length > 0 && (
@@ -338,6 +323,70 @@ export default async function ConstructDetailPage({
               )}
             </Disclosure>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Works with panel (cycle-048) ── */
+
+async function WorksWithPanel({ slug, composesWith }: { slug: string; composesWith: string[] }) {
+  // Fetch all constructs to compute reverse dependencies
+  const allConstructs = await fetchAllConstructs();
+  const dependedBy = allConstructs
+    .filter(c => c.composesWith?.includes(slug) && c.slug !== slug)
+    .map(c => c.slug);
+
+  // Deduplicate: remove items in dependedBy that are already in composesWith
+  const uniqueDependedBy = dependedBy.filter(s => !composesWith.includes(s));
+
+  const hasForward = composesWith.length > 0;
+  const hasReverse = uniqueDependedBy.length > 0;
+
+  if (!hasForward && !hasReverse) return null;
+
+  return (
+    <div className="border border-void-border p-4 space-y-4">
+      <h3 className="font-mono text-sm uppercase tracking-whisper text-bone-ghost">
+        Works with
+      </h3>
+
+      {hasForward && (
+        <div>
+          <p className="font-mono text-xs uppercase tracking-terminal text-bone-ghost mb-2">
+            Composes with
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {composesWith.map((dep) => (
+              <Link
+                key={dep}
+                href={`/constructs/${dep}`}
+                className="border border-void-border px-2 py-0.5 text-sm font-mono text-bone-dim hover:bg-void-surface hover:text-bone-base transition-colors"
+              >
+                {dep}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {hasReverse && (
+        <div>
+          <p className="font-mono text-xs uppercase tracking-terminal text-bone-ghost mb-2">
+            Depended on by
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {uniqueDependedBy.map((dep) => (
+              <Link
+                key={dep}
+                href={`/constructs/${dep}`}
+                className="border border-void-border px-2 py-0.5 text-sm font-mono text-cyan-dim hover:bg-void-surface hover:text-cyan-base transition-colors"
+              >
+                {dep}
+              </Link>
+            ))}
+          </div>
         </div>
       )}
     </div>
