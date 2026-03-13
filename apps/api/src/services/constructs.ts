@@ -515,9 +515,18 @@ function extractDomains(manifest: ConstructManifest | null, category: string | n
 function extractExpertiseSummary(identity: { expertiseDomains: unknown } | null): string[] {
   if (!identity?.expertiseDomains) return [];
   try {
-    const domains = identity.expertiseDomains as Array<{ name: string; depth?: number }>;
-    if (!Array.isArray(domains)) return [];
-    return domains.filter(d => d && d.name && (d.depth ?? 0) >= 4).map(d => d.name);
+    let raw = identity.expertiseDomains;
+    // Handle JSON string (DB stores as string sometimes)
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch { return []; }
+    }
+    if (!Array.isArray(raw)) return [];
+    // Format 1: string[] (flat list of domain names)
+    if (raw.length > 0 && typeof raw[0] === 'string') {
+      return raw.filter((d): d is string => typeof d === 'string' && d.trim() !== '');
+    }
+    // Format 2: Array<{ name, depth }> (structured with depth scores)
+    return raw.filter(d => d && d.name && (d.depth ?? 0) >= 4).map(d => d.name);
   } catch { return []; }
 }
 
