@@ -226,6 +226,31 @@
   --density-gap: var(--space-100);
 }
 
+/* =================================================================== */
+/* CONTEXT OVERRIDES                                                    */
+/* data-context on layout containers drives per-section token overrides */
+/* =================================================================== */
+
+/* Dashboard — identity context (inherits :root defaults) */
+[data-context="dashboard"] {
+  /* Dashboard is the origin context — all :root tokens are dashboard-native */
+}
+
+/* Marketing — public-facing, elevated readability */
+[data-context="marketing"] {
+  --color-text-primary: var(--color-bone-bright);
+  --color-text-secondary: var(--color-bone-base);
+  --color-bg-panel: var(--color-void-raised);
+}
+
+/* Site — documentation, construct browsing, comfortable density */
+[data-context="site"] {
+  --color-bg-panel: var(--color-void-raised);
+  --density-row-height: 40px;
+  --density-cell-padding: var(--space-400);
+  --density-gap: var(--space-300);
+}
+
 * {
   box-sizing: border-box;
   padding: 0;
