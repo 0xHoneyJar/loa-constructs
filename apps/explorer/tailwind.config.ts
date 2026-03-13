@@ -99,6 +99,19 @@ const config: Config = {
         },
         input: 'var(--input)',
         ring: 'var(--ring)',
+
+        // SprawlOS — dashboard design system tokens
+        sprawl: {
+          'grid-line': 'var(--color-grid-line)',
+          'glow-cyan': 'var(--color-glow-cyan)',
+          'glow-crimson': 'var(--color-glow-crimson)',
+          'surface-panel': 'var(--color-surface-panel)',
+          'node-green': 'var(--color-node-green)',
+          'token-yellow': 'var(--color-token-yellow)',
+        },
+      },
+      backgroundImage: {
+        'grid-substrate': `repeating-linear-gradient(0deg, var(--color-grid-line) 0px, transparent 1px, transparent 40px), repeating-linear-gradient(90deg, var(--color-grid-line) 0px, transparent 1px, transparent 40px)`,
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -125,10 +138,20 @@ const config: Config = {
           from: { opacity: '0', transform: 'scale(0.95)' },
           to: { opacity: '1', transform: 'scale(1)' },
         },
+        'sprawl-fade-in': {
+          '0%': { opacity: '0', transform: 'translateY(4px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'sprawl-scale-in': {
+          '0%': { opacity: '0', transform: 'scale(0.95)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.2s ease-out',
         'scale-in': 'scale-in 0.15s ease-out',
+        'sprawl-fade-in': 'sprawl-fade-in 83ms steps(4)',
+        'sprawl-scale-in': 'sprawl-scale-in 83ms steps(4)',
       },
     },
   },
