@@ -16,42 +16,53 @@ export default function AboutPage() {
           <div className="mt-8 space-y-6 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
             <p>
               Named expertise you install into your AI coding agent.
-              Identity, skills, and boundaries in a single package.
+              Identity, skills, and boundaries. One package.
             </p>
             <p>
-              Install Artisan and your agent decomposes design requests
-              into feel, motion, and material. Install Observer and it
-              captures user feedback as hypothesis-first research.
-              Same agent. Different expertise installed.
-            </p>
-          </div>
-        </section>
-
-        <section>
-          <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-display text-bone-bright leading-[0.95]">
-            Composition
-          </h2>
-          <div className="mt-8 space-y-6 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
-            <p>
-              Observer captures feedback. Artisan turns it into design tokens.
-              Protocol audits the contracts. Bridgebuilder reviews the code.
-              Each one does its part.
-            </p>
-            <p>
-              Constructs declare what they compose with. The network
-              surfaces these connections.
+              Install Artisan — your agent decomposes design into
+              feel, motion, and material. Install Observer — it captures
+              user feedback as hypothesis-first research. Install both —
+              they compose. Observer surfaces what users do. Artisan
+              turns it into what the interface should feel like.
             </p>
           </div>
         </section>
 
         <section>
           <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-display text-bone-bright leading-[0.95]">
-            Create
+            The Bazaar
           </h2>
           <div className="mt-8 space-y-6 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
             <p>
-              Three files. Push. CI validates.
-              Your methodology becomes installable.
+              This is not a marketplace. There is no algorithm
+              deciding what you see. No featured placement. No ranking
+              by popularity.
+            </p>
+            <p>
+              Every construct is a stall. You walk through. Something
+              catches your eye — or it doesn&apos;t. Each construct
+              declares what it composes with. Those connections
+              are the person at the next stall pointing you
+              three stalls down.
+            </p>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-display text-bone-bright leading-[0.95]">
+            Build a Stall
+          </h2>
+          <div className="mt-8 space-y-6 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
+            <p>
+              A construct is a repo. Three files define it:
+              a manifest, a skill definition, and an identity.
+              Push it. CI validates the schema. The network
+              picks it up.
+            </p>
+            <p>
+              Your methodology becomes something others can install.
+              Design expertise. Security auditing. Research depth.
+              Whatever you&apos;ve built that works — package it.
             </p>
           </div>
           <div className="mt-8 border border-void-border bg-void-raised px-5 py-4">
