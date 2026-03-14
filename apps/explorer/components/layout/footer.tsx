@@ -93,7 +93,7 @@ export function Footer() {
             maskRepeat: 'no-repeat',
             WebkitMaskRepeat: 'no-repeat',
             aspectRatio: '455 / 155',
-            backgroundColor: 'oklch(0.4 0.005 80)',
+            backgroundColor: 'var(--color-bone-ghost)',
           }}
           role="img"
           aria-label="Loa"
