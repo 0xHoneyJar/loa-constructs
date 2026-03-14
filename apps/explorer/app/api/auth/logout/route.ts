@@ -10,15 +10,17 @@ export async function POST(request: NextRequest) {
   const accessToken = request.headers.get('authorization')?.replace('Bearer ', '');
   const refreshToken = request.cookies.get('refresh_token')?.value;
 
-  // Best-effort server-side logout — must include refresh_token so the API blacklists it
-  if (accessToken && refreshToken) {
+  // Best-effort server-side logout — blacklist the refresh token
+  if (refreshToken) {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
     try {
       await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers,
         body: JSON.stringify({ refresh_token: refreshToken }),
       });
     } catch {
