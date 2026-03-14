@@ -19,6 +19,11 @@ const config: NextConfig = {
   // Disable x-powered-by header
   poweredByHeader: false,
 
+  // Biome handles linting — skip Next.js built-in ESLint
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   // Image optimization
   images: {
     formats: ['image/avif', 'image/webp'],

@@ -5,7 +5,6 @@ import {
   ReactFlow,
   Handle,
   Position,
-  type Node,
   type Edge,
   type ColorMode,
   type NodeProps,
