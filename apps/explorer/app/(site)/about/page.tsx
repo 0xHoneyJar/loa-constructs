@@ -6,7 +6,7 @@ import { ComposeDiagram } from '@/components/graph/compose-diagram';
 import { fetchAllConstructs } from '@/lib/data/fetch-constructs';
 
 export const metadata: Metadata = {
-  title: 'What are Constructs? | Constructs Network',
+  title: 'About | Constructs Network',
   description: 'Skills for AI coding agents. Deploy, browse, compose.',
 };
 
@@ -63,7 +63,7 @@ export default async function AboutPage() {
               Deploy.
             </h2>
             <p className="mt-8 font-mono text-base leading-relaxed text-bone-dim max-w-2xl">
-              One command installs expertise. Then use it.
+              One command. Then use it.
             </p>
 
             {/* Terminal — lines stagger in like a buffer dump */}
@@ -117,7 +117,7 @@ export default async function AboutPage() {
               Browse.
             </h2>
             <p className="mt-8 font-mono text-base leading-relaxed text-bone-dim max-w-2xl">
-              The roster. Each construct is a specialist — the best at
+              The roster. Each construct is a specialist — deep in
               its domain.
             </p>
 
