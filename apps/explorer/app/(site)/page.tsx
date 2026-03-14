@@ -113,11 +113,6 @@ export default async function HomePage({
                               >
                                 {construct.name}
                               </Link>
-                              {construct.constructType !== 'skill-pack' && (
-                                <Badge variant="cyan" className="relative z-10 hidden sm:inline-flex">
-                                  {construct.constructType.replace(/-/g, ' ')}
-                                </Badge>
-                              )}
                               {construct.visibility === 'internal' && (
                                 <Badge variant="internal" className="relative z-10 hidden sm:inline-flex">
                                   internal

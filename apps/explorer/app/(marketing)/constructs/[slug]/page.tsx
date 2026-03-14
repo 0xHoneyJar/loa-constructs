@@ -95,11 +95,6 @@ export default async function ConstructDetailPage({
           <h1 className="font-display text-4xl sm:text-6xl uppercase tracking-display text-bone-bright leading-[0.95]">
             {construct.name}
           </h1>
-          {construct.constructType && construct.constructType !== 'skill-pack' && (
-            <Badge variant="cyan">
-              {construct.constructType.replace(/-/g, ' ')}
-            </Badge>
-          )}
           {verificationBadge}
         </div>
 

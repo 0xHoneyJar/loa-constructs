@@ -179,11 +179,6 @@ function AuthConstructTable({ constructs }: { constructs: ConstructNode[] }) {
                       >
                         {construct.name}
                       </a>
-                      {construct.constructType !== 'skill-pack' && (
-                        <Badge variant="cyan" className="relative z-10 hidden sm:inline-flex">
-                          {construct.constructType.replace(/-/g, ' ')}
-                        </Badge>
-                      )}
                       {construct.visibility === 'internal' && (
                         <Badge variant="internal" className="relative z-10 hidden sm:inline-flex">
                           internal
