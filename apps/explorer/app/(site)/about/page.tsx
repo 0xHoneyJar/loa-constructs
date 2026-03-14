@@ -12,10 +12,13 @@ export const metadata: Metadata = {
 // ISR — revalidate hourly (matches homepage)
 export const revalidate = 3600;
 
-/** Ghost mark placeholder — dashed square suggesting a logo will exist */
-function GhostMark() {
+/** Redaction bar — a construct exists here but isn't revealed yet.
+ *  Varying widths suggest different-length names. The bar IS the information. */
+function RedactedSlot({ width = 'w-32' }: { width?: string }) {
   return (
-    <span className="inline-block w-5 h-5 border border-dashed border-void-border shrink-0" />
+    <div className="py-6 border-b border-void-border">
+      <div className={`${width} h-7 sm:h-9`} style={{ backgroundColor: 'oklch(0.12 0.005 250)' }} />
+    </div>
   );
 }
 
@@ -166,17 +169,10 @@ export default async function AboutPage() {
                 </p>
               </div>
 
-              {/* Ghost slots — dashed placeholder marks, the roster is growing */}
-              <div className="py-3 border-b border-dashed border-void-border flex items-center gap-4 slot-waiting">
-                <GhostMark />
-                <span className="font-mono text-sm text-bone-ghost">&mdash;</span>
-              </div>
-              <div className="py-3 border-b border-dashed border-void-border flex items-center gap-4 slot-waiting">
-                <GhostMark />
-              </div>
-              <div className="py-3 border-b border-dashed border-void-border flex items-center gap-4 slot-waiting">
-                <GhostMark />
-              </div>
+              {/* Redacted slots — constructs exist here, not yet revealed */}
+              <RedactedSlot width="w-40" />
+              <RedactedSlot width="w-28" />
+              <RedactedSlot width="w-52" />
             </ScrollReveal>
           </section>
         </ScrollReveal>
@@ -190,12 +186,7 @@ export default async function AboutPage() {
             <h2 className="mt-3 font-display text-3xl sm:text-4xl lg:text-5xl uppercase tracking-display text-bone-bright leading-[0.95]">
               Compose.
             </h2>
-            <p className="mt-8 font-mono text-base leading-relaxed text-bone-dim max-w-2xl">
-              Deploy several — they share context through your project.
-              Each construct declares what it works with.
-            </p>
-
-            {/* Network glimpse — nodes + edges */}
+            {/* Network glimpse — nodes + edges. No explanation. The network speaks. */}
             <ScrollReveal animation="draw" className="mt-10 border border-void-border relative overflow-hidden" style={{ height: 280 }}>
               {/* Edge lines — SVG for clean diagonals */}
               <svg className="absolute inset-0 w-full h-full" aria-hidden="true">
@@ -212,44 +203,49 @@ export default async function AboutPage() {
                 <line x1="60%" y1="72%" x2="82%" y2="85%" className="stroke-void-border" strokeWidth={1} strokeDasharray="4 6" />
               </svg>
 
-              {/* Nodes — logomark + name, positioned loosely */}
-              <div className="absolute flex items-center gap-2 font-mono text-sm text-bone-base border border-void-border px-3 py-1.5 bg-void-base" style={{ left: '6%', top: '22%' }}>
+              {/* Nodes — wordmarks only, no text labels */}
+              <div className="absolute border border-void-border px-3 py-2 bg-void-base" style={{ left: '6%', top: '20%' }}>
                 {marks['artisan'] ? (
-                  <span className="shrink-0 [&_svg]:h-3 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['artisan'] }} />
-                ) : null}
-                artisan
+                  <div className="text-bone-base [&_svg]:h-4 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['artisan'] }} />
+                ) : (
+                  <span className="font-mono text-xs text-bone-base">artisan</span>
+                )}
               </div>
-              <div className="absolute flex items-center gap-2 font-mono text-sm text-bone-base border border-void-border px-3 py-1.5 bg-void-base" style={{ left: '44%', top: '26%' }}>
+              <div className="absolute border border-void-border px-3 py-2 bg-void-base" style={{ left: '42%', top: '25%' }}>
                 {marks['observer'] ? (
-                  <span className="shrink-0 [&_svg]:h-3 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['observer'] }} />
-                ) : null}
-                observer
+                  <div className="text-bone-base [&_svg]:h-4 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['observer'] }} />
+                ) : (
+                  <span className="font-mono text-xs text-bone-base">observer</span>
+                )}
               </div>
-              <div className="absolute flex items-center gap-2 font-mono text-sm text-bone-base border border-void-border px-3 py-1.5 bg-void-base" style={{ left: '70%', top: '52%' }}>
+              <div className="absolute border border-void-border px-3 py-2 bg-void-base" style={{ left: '68%', top: '50%' }}>
                 {marks['crucible'] ? (
-                  <span className="shrink-0 [&_svg]:h-3 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['crucible'] }} />
-                ) : null}
-                crucible
+                  <div className="text-bone-base [&_svg]:h-4 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['crucible'] }} />
+                ) : (
+                  <span className="font-mono text-xs text-bone-base">crucible</span>
+                )}
               </div>
-              <div className="absolute flex items-center gap-2 font-mono text-sm text-bone-base border border-void-border px-3 py-1.5 bg-void-base" style={{ left: '18%', top: '59%' }}>
+              <div className="absolute border border-void-border px-3 py-2 bg-void-base" style={{ left: '16%', top: '58%' }}>
                 {marks['k-hole'] ? (
-                  <span className="shrink-0 [&_svg]:h-3 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['k-hole'] }} />
-                ) : null}
-                k-hole
+                  <div className="text-bone-base [&_svg]:h-4 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['k-hole'] }} />
+                ) : (
+                  <span className="font-mono text-xs text-bone-base">k-hole</span>
+                )}
               </div>
-              <div className="absolute flex items-center gap-2 font-mono text-sm text-bone-base border border-void-border px-3 py-1.5 bg-void-base" style={{ left: '50%', top: '66%' }}>
+              <div className="absolute border border-void-border px-3 py-2 bg-void-base" style={{ left: '48%', top: '65%' }}>
                 {marks['mibera-codex'] ? (
-                  <span className="shrink-0 [&_svg]:h-3 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['mibera-codex'] }} />
-                ) : null}
-                mibera-codex
+                  <div className="text-bone-base [&_svg]:h-4 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['mibera-codex'] }} />
+                ) : (
+                  <span className="font-mono text-xs text-bone-base">mibera-codex</span>
+                )}
               </div>
 
-              {/* Ghost nodes — dashed placeholder marks, the network extends */}
-              <div className="absolute flex items-center gap-2 border border-dashed border-void-border px-3 py-1.5 slot-waiting" style={{ left: '88%', top: '42%', minWidth: 48 }}>
-                <GhostMark />
+              {/* Ghost nodes — redaction bars, the network extends beyond */}
+              <div className="absolute px-3 py-2" style={{ left: '86%', top: '40%' }}>
+                <div className="w-16 h-4" style={{ backgroundColor: 'oklch(0.12 0.005 250)' }} />
               </div>
-              <div className="absolute flex items-center gap-2 border border-dashed border-void-border px-3 py-1 slot-waiting" style={{ left: '76%', top: '80%', minWidth: 40 }}>
-                <GhostMark />
+              <div className="absolute px-3 py-2" style={{ left: '74%', top: '78%' }}>
+                <div className="w-10 h-4" style={{ backgroundColor: 'oklch(0.12 0.005 250)' }} />
               </div>
             </ScrollReveal>
           </section>
