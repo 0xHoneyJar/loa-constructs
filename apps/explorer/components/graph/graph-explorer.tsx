@@ -10,6 +10,7 @@ import { CategoryFilter } from './category-filter';
 import { HoverTooltip } from './hover-tooltip';
 import { GraphFallback } from './fallback';
 import { StackComposerHud } from './stack-composer-hud';
+import { EdgeLegend } from './edge-legend';
 import type { GraphData } from '@/lib/types/graph';
 
 // Dynamic import for R3F components to avoid SSR issues
@@ -71,8 +72,13 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
           <GraphFallback data={data} />
         </div>
 
-        <div className="absolute bottom-4 left-4 z-10 font-mono text-xs text-bone-ghost">
-          <span>Click to view • <kbd className="border border-void-border bg-void-raised px-1">{modKey}K</kbd> search</span>
+        <div className="absolute bottom-4 left-4 z-10 space-y-1.5">
+          <div className="hidden sm:block">
+            <EdgeLegend />
+          </div>
+          <div className="font-mono text-xs text-bone-ghost">
+            <span>Click to view • <kbd className="border border-void-border bg-void-raised px-1">{modKey}K</kbd> search</span>
+          </div>
         </div>
 
         <StackComposerHud nodes={data.nodes} />
@@ -101,9 +107,14 @@ export function GraphExplorer({ data }: GraphExplorerProps) {
 
       <HoverTooltip nodes={data.nodes} />
 
-      <div className="absolute bottom-4 left-4 z-10 font-mono text-xs text-bone-ghost">
-        <span className="hidden sm:inline">Scroll to zoom • Drag to pan • Click to add to stack • <kbd className="border border-void-border bg-void-raised px-1">{modKey}K</kbd> search</span>
-        <span className="sm:hidden">Pinch to zoom • Drag to pan • Tap to add to stack</span>
+      <div className="absolute bottom-4 left-4 z-10 space-y-1.5">
+        <div className="hidden sm:block">
+          <EdgeLegend />
+        </div>
+        <div className="font-mono text-xs text-bone-ghost">
+          <span className="hidden sm:inline">Scroll to zoom • Drag to pan • Click to add to stack • <kbd className="border border-void-border bg-void-raised px-1">{modKey}K</kbd> search</span>
+          <span className="sm:hidden">Pinch to zoom • Drag to pan • Tap to add to stack</span>
+        </div>
       </div>
 
       <StackComposerHud nodes={data.nodes} />
