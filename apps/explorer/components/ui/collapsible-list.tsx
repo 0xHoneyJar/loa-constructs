@@ -13,11 +13,11 @@ export function CollapsibleList({ children, initialCount, label }: CollapsibleLi
   const total = children.length;
 
   if (total <= initialCount) {
-    return <div className="space-y-2">{children}</div>;
+    return <div className="space-y-3">{children}</div>;
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {expanded ? children : children.slice(0, initialCount)}
       <button
         type="button"

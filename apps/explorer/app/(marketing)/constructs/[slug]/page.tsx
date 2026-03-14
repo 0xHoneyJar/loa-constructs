@@ -149,8 +149,13 @@ export default async function ConstructDetailPage({
       </div>
 
       {/* ── TIER 2: The Scan ── */}
-      {/* Composition trails, commands, skills. The bazaar navigation. */}
+      {/* Identity first (context), then composition trails, then capabilities. */}
       <div className="mt-24 space-y-12">
+        {/* Identity — who this construct is. Context for everything below. */}
+        {construct.identity && hasIdentityContent(construct.identity) && (
+          <IdentityFull identity={construct.identity} />
+        )}
+
         {/* Composes with — the person at the next stall (TDR-007) */}
         {construct.composesWith.length > 0 && (
           <div>
@@ -210,7 +215,6 @@ export default async function ConstructDetailPage({
       {(construct.longDescription ||
         construct.skillProse ||
         construct.accuracy ||
-        construct.identity ||
         construct.showcases.length > 0 ||
         construct.forkCount > 0) && (
         <div className="mt-24 space-y-10">
@@ -232,13 +236,6 @@ export default async function ConstructDetailPage({
               <div className="text-base font-mono text-bone-dim leading-relaxed whitespace-pre-wrap">
                 {construct.skillProse}
               </div>
-            </Disclosure>
-          )}
-
-          {/* Identity — archetype, domains, cognitive frame, voice. All in one place. */}
-          {construct.identity && hasIdentityContent(construct.identity) && (
-            <Disclosure title="Identity">
-              <IdentityFull identity={construct.identity} />
             </Disclosure>
           )}
 
