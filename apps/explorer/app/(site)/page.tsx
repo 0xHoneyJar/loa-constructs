@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { fetchAllConstructs, searchConstructs } from '@/lib/data/fetch-constructs';
 import { AuthAwareConstructList } from '@/components/constructs/auth-aware-construct-list';
-import { SearchTrigger } from '@/components/layout/search-trigger';
+
 import { RotatingInstall } from '@/components/ui/rotating-install';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -70,11 +70,6 @@ export default async function HomePage({
       {/* Catalog */}
       <section className="px-4 pb-16">
         <div className="mx-auto max-w-5xl">
-          {/* Search bar */}
-          <div className="mb-4">
-            <SearchTrigger />
-          </div>
-
           {/* Auth-aware construct list */}
           <AuthAwareConstructList publicConstructs={constructs}>
             <div className="mt-6">
@@ -106,15 +101,15 @@ export default async function HomePage({
                         key={construct.id}
                         className="border-void-border hover:bg-void-raised group relative cursor-pointer"
                       >
-                        <TableCell className="py-3 sm:py-5 text-xl sm:text-2xl text-center align-middle">
+                        <TableCell className="py-5 sm:py-8 text-xl sm:text-2xl text-center align-middle">
                           {construct.icon || ''}
                         </TableCell>
-                        <TableCell className="py-3 sm:py-5">
+                        <TableCell className="py-5 sm:py-8">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <Link
                                 href={`/constructs/${construct.slug}`}
-                                className="font-mono text-base sm:text-xl font-bold text-bone-base group-hover:text-bone-bright transition-colors after:absolute after:inset-0"
+                                className="font-display text-base sm:text-xl uppercase tracking-display text-bone-base group-hover:text-bone-bright transition-colors after:absolute after:inset-0"
                               >
                                 {construct.name}
                               </Link>
@@ -144,10 +139,10 @@ export default async function HomePage({
                             </p>
                           </div>
                         </TableCell>
-                        <TableCell className="py-3 sm:py-5 text-right font-mono text-base text-bone-dim hidden sm:table-cell align-middle">
+                        <TableCell className="py-5 sm:py-8 text-right font-mono text-base text-bone-dim hidden sm:table-cell align-middle">
                           {construct.skillsCount}
                         </TableCell>
-                        <TableCell className="py-3 sm:py-5 text-right font-mono text-sm sm:text-lg text-bone-base align-middle">
+                        <TableCell className="py-5 sm:py-8 text-right font-mono text-sm sm:text-lg text-bone-base align-middle">
                           {formatInstalls(construct.downloads)}
                         </TableCell>
                       </TableRow>
