@@ -4,6 +4,8 @@ How construct scripts communicate with agents, handle credentials, and manage ou
 
 These conventions are extracted from `construct-k-hole/scripts/dig-search.ts` — the reference implementation that other constructs should follow.
 
+**See also**: `scripts/MANIFEST.yaml` in each construct — machine-readable tool declarations that let agents discover scripts without reading source code. Template at [construct-base](https://github.com/0xHoneyJar/construct-base/blob/main/scripts/MANIFEST.yaml).
+
 ## The Nakamoto Protocol: stdout / stderr / file
 
 Construct scripts produce three kinds of output. Each has exactly one destination.
