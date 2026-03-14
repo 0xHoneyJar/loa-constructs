@@ -43,21 +43,7 @@ export default async function HomePage({
     <div>
       {/* Hero — left-aligned, compact, horse watermark */}
       <section className="relative px-4 pt-16 pb-10 sm:pt-20 sm:pb-12 overflow-hidden">
-        {/* Horse watermark — fixed to left side of viewport */}
-        <div
-          className="fixed left-0 top-1/3 -translate-y-1/2 -translate-x-1/2 sm:-translate-x-1/3 pointer-events-none select-none w-48 sm:w-64 lg:w-80 z-0"
-          aria-hidden="true"
-          style={{
-            maskImage: 'url(/horse-mark.svg)',
-            WebkitMaskImage: 'url(/horse-mark.svg)',
-            maskSize: 'contain',
-            WebkitMaskSize: 'contain',
-            maskRepeat: 'no-repeat',
-            WebkitMaskRepeat: 'no-repeat',
-            aspectRatio: '319 / 250',
-            backgroundColor: 'oklch(0.18 0.003 80)',
-          }}
-        />
+        {/* Sigil particle background is rendered by the (site) layout */}
 
         <div className="relative mx-auto max-w-5xl">
           <div>

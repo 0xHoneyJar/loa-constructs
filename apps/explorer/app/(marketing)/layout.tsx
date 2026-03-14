@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Header } from '@/components/layout/header';
 import { GlobalSearch } from '@/components/search/global-search';
+import { SigilBackground } from '@/components/logo/sigil-background';
 
 function MarketingFooter() {
   return (
@@ -65,9 +66,13 @@ function MarketingFooter() {
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div data-context="marketing" className="min-h-screen flex flex-col">
+    <div data-context="marketing" className="min-h-screen flex flex-col relative">
+      {/* Desktop: Loa sigil — CRT burn-in at z-20 (TDR-006, TDR-010) */}
+      <div className="hidden lg:block fixed inset-0 opacity-[0.6]" aria-hidden="true">
+        <SigilBackground />
+      </div>
       <Header />
-      <main className="flex-1 max-w-6xl mx-auto w-full px-6 py-8">
+      <main className="relative z-10 flex-1 max-w-6xl mx-auto w-full px-6 py-8">
         {children}
       </main>
       <MarketingFooter />
