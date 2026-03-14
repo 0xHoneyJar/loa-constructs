@@ -1,6 +1,6 @@
 # Constructs Network
 
-Named expertise for AI coding agents.
+Skills for AI coding agents.
 
 ```bash
 # Install a construct
@@ -69,21 +69,21 @@ Start here: **[construct-base](https://github.com/0xHoneyJar/construct-base)**
 | **Distribution** | Install with a single command, stay current with upstream |
 | **Composition** | Combine constructs from different experts into unified workflows |
 | **Identity** | Every construct carries its creator's name, methodology, and version |
-| **Licensing** | Create once, distribute infinitely, earn continuously |
+| **Licensing** | Create once, distribute to anyone who installs |
 
 ---
 
 ## Development
 
 ```bash
-pnpm install
-pnpm --filter api dev           # API on localhost:3000
-pnpm --filter explorer dev      # Marketplace on localhost:3001
+bun install
+bun --filter api dev            # API on localhost:3000
+bun --filter explorer dev       # Explorer on localhost:3001
 ```
 
 ## Links
 
-- [constructs.network](https://constructs.network) — Marketplace
+- [constructs.network](https://constructs.network) — Browse & install
 - [Loa](https://github.com/0xHoneyJar/loa) — Framework
 - [construct-base](https://github.com/0xHoneyJar/construct-base) — Start here
 - [CHANGELOG.md](CHANGELOG.md)

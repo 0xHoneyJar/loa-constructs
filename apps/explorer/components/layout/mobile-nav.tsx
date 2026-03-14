@@ -52,7 +52,7 @@ export function MobileNav() {
               onClick={() => setOpen(false)}
               className="font-mono text-base uppercase tracking-terminal text-bone-muted hover:text-bone-base transition-colors"
             >
-              What
+              About
             </Link>
             <div className="border-t border-void-border pt-4">
               <AuthNav />

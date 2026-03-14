@@ -57,7 +57,7 @@ export default async function HomePage({
               Constructs
             </h1>
             <p className="mt-3 font-mono text-sm uppercase tracking-terminal sm:tracking-whisper text-cyan-dim">
-              The Open Agent Expertise Network
+              Skills for AI coding agents.
             </p>
             <div className="mt-4 flex items-center gap-4 font-mono text-sm uppercase tracking-terminal sm:tracking-whisper text-bone-ghost">
               <span>{allConstructs.length} constructs</span>

@@ -8,7 +8,7 @@ export const revalidate = 3600;
 
 export const metadata = {
   title: 'Constructs',
-  description: 'Browse AI agent constructs — named expertise you install into your coding agent.',
+  description: 'Browse AI agent constructs — skills you install into your coding agent.',
 };
 
 export default async function ConstructsCatalogPage({

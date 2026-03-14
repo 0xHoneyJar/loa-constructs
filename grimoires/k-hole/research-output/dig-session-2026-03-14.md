@@ -378,3 +378,87 @@ There is also a clear alignment between **Christopher Alexander’s Pattern Lang
 ### Sources
 
 ---
+
+## Dig: How do AI agent platforms describe their skills marketplaces and tool registries? Anthropic MCP marketplace, OpenAI GPT store, Composio, Smithery MCP, LangChain hub — what exact taglines and category words do they use? marketplace vs store vs registry vs hub
+_2026-03-14T19:59:55.318Z | 0 sources | 38.0s | depth: +_
+
+### Findings
+
+The AI agent ecosystem is undergoing a violent structural shift from **"Plugins"** (proprietary mall kiosks) to **"Protocols"** (the shared physics of the bazaar). While OpenAI’s **GPT Store** maintains the "Mall" aesthetic—focusing on "discovery," "trending" charts, and "custom versions"—the momentum has shifted toward Anthropic’s **Model Context Protocol (MCP)** and **Smithery**, which position themselves as the **"USB-C for AI"** and **"Package Managers."** This echoes the **bazaar over mall** anchor; where the Store seeks to capture the user in a curated enclosure, the Protocol seeks to provide a "universal standard" or "open standard" that allows agents to navigate any data habitat.
+
+A significant discovery is the emergence of the **"Grimoire"** within the **LangChain Hub**. By categorizing expert prompt libraries as grimoires, LangChain uses a **load-bearing metaphor** that connects to our **depth as its own reward** anchor. It frames prompt engineering not as a "thin wrapper" but as a craft—a collection of "artifacts" to be pulled, forked, and managed like code. Meanwhile, **Smithery** is attempting to solve the problem of "the loudest person in the bazaar knowing the least" by introducing the **"Smithery Score."** This acts as a burgeoning **reputation system**, ranking MCP servers by metadata quality and trust signals, mirroring the **vouch systems and portable trust** found in underground forums like **Sythe or SilkRoad**.
+
+The engineering tradeoffs reveal that **constraint is a creative catalyst**. Anthropic’s documentation on **"Code Execution with MCP"** suggests that agents should write code to call tools rather than loading all tool definitions at once, reducing context bloat by 98.7%. This mirrors **Dark Souls’** design philosophy: by limiting the agent’s "vision" (context window), developers are forced to build more efficient, "soul-like" systems where every token must earn its place. The transition from **"Marketplace"** (commercial/B2B) to **"Registry"** (technical DNS) suggests we are building **Freeside**—a constructed habitat with shared physics where agents and humans face the same friction of discovery.
+
+### Pull Threads
+
+*   **"Smithery Score" vs. "SilkRoad Vouch Systems"** — How do decentralized registries establish "portable trust" without a central mall cop?
+*   **"Code Execution with MCP" and context engineering** — How does the "constraint" of token limits drive the move from "Direct Tool Calling" to "Generated Logic"?
+*   **"Grimoires" and the "Prompt Registry"** — Exploring the aesthetic of "expert prompt libraries" as artifacts of deep craft rather than disposable instructions.
+*   **"API Package Managers" (APM) and Lenny Burdette** — Can the "npm" model for APIs solve the "M x N problem" of agent-tool integration?
+*   **"NANDA Index" and Internet-scale discovery** — How do we scale the "Marrakech souk" model to millions of autonomous agents without losing the "eyes on the street"?
+
+### Emergence
+
+A pattern is emerging where the **naming of the space** dictates the **behavior of the agent**. 
+- **"Stores"** produce "thin wrappers" and consumer-grade "apps" (OpenAI). 
+- **"Hubs"** produce "artifacts" and "collaborative forking" (LangChain). 
+- **"Protocols"** produce "universal connectors" and "shared physics" (Anthropic). 
+
+The shift from **"Store" to "Registry"** signals a transition from AI-as-product to AI-as-infrastructure. We are seeing the birth of the **"Agentic Web,"** where the primary friction is no longer "how do I build this?" but "how do I find a tool I can trust?" The "Smithery Score" and "LangChain Hub" suggest that **reputation and versioning** are becoming the load-bearing pillars of the ecosystem, moving away from the "loud arrival" of new models toward the "persistent presence" of reliable tools. This is **Wabi-sabi** for code: the focus is shifting to the imperfect, evolving, and interconnected nature of tools that "were always there, waiting to be found."
+
+### Sources
+
+---
+
+## Dig: What do developers search for when looking for AI coding agent plugins extensions skills? What terminology is standard in the agent ecosystem 2025 2026? Claude Code skills, Cursor rules, agent tools, MCP servers — what words do users actually use?
+_2026-03-14T20:00:31.398Z | 0 sources | 35.6s | depth: +_
+
+### Findings
+
+The 2025–2026 ecosystem has abandoned the "Mall" model of centralized plugin stores in favor of a **"Bazaar" of primitives**—specifically **MCP (Model Context Protocol) servers** and **Agent Skills (`SKILL.md`)**. This shift echoes the **bazaar over mall** resonance anchor; developers are no longer "shopping" for features, but are instead wiring together decentralized, portable capabilities that function like the "USB-C for AI." Andrej Karpathy’s **"Vibe Coding"** and Geoffrey Huntley’s **"Ralph Wiggum Pattern"** (autonomous looping until success) represent a move toward "behavior over belief," where the developer acts as a high-level director of a "Dark Factory" of parallel agents.
+
+Trust in this automated sprawl is being rebuilt through **Progressive Disclosure** and **Constraint as Creative Catalyst**. To combat "context bloat," agents now use metadata-heavy discovery, only loading full logic when a task demands it—a direct manifestation of **progressive disclosure through state not time**. Furthermore, the rise of **"Linter Skills"** and **"Architecture Rules"** (`.cursorrules`, `CLAUDE.md`) shows that developers are intentionally introducing friction to prevent "functional shallow-fixes" (as identified by METR researchers). This echoes the **Dark Souls** anchor: the friction and the "bloodstains" of failed test runs are the only way to forge emergent trust in an autonomous system.
+
+The "Parallel Coding Agent Lifestyle" popularized by Simon Willison—using **Git worktrees** to manage a fleet of agents—treats the codebase like **Jane Jacobs’ "eyes on the street."** Each agent operates in its own "neighborhood" (vertical slice), and the developer’s role has shifted from writer to **Editor-in-Chief**, supervising the social ritual of the pull request. This move toward **Vertical Slicing** over horizontal layers is a structural response to the agent’s context window, proving that the architecture of the "habitat" (the repo) must change to accommodate its new non-human inhabitants.
+
+### Pull Threads
+
+*   **"Ralph Wiggum pattern bash wrapper"** — Exploring the "underground" utility scripts that force agents into autonomous loops until they "stop being fail."
+*   **"MCP server vs. direct code execution token cost"** — Investigating the friction between standardized protocols (the Bazaar) and the raw efficiency of agents writing their own API clients.
+*   **"Vertical Slicing for AI context management"** — How the architectural "physics" of a repository are being redesigned to reduce noise for agents, echoing **Freeside as a constructed habitat**.
+*   **"Portable reputation for agents in multi-agent sagas"** — If agents are "walking the same streets" as humans, how do we port their "vouch" or reliability score across different harnesses (Claude Code to Cursor)?
+*   **"Vibe Kanban and Git worktree orchestration"** — The specific mechanics of managing a "fleet" of agents without creating a merge-conflict nightmare.
+
+### Emergence
+
+A clear pattern is emerging where **Software Architecture is becoming a sub-branch of HCI (Human-Computer Interaction)**. We are no longer organizing code for human readability alone, but for "Agentic Legibility." The transition from the "Autocomplete Era" to the "Agentic Era" has turned the codebase into a **Marrakech souk**: a high-density, high-friction environment where trust is not granted by a central authority (the Mall/IDE provider) but is earned through the "social ritual" of passing tests and adhering to `.cursorrules`. The developer has become a **Systems-Architect of Constraints**, realizing that the only way to get "greatness" out of an agent is to build a "habitat" that makes it impossible for the agent to fail quietly.
+
+### Sources
+
+---
+
+## Dig: What are the EXACT taglines used by these platforms right now: Smithery.ai homepage tagline, Composio.dev homepage tagline, OpenAI GPT Store page title, LangChain Hub page title, mcp.run tagline, glama.ai tagline, mcpmarket.com tagline. I need the literal words on each homepage, not interpretations.
+_2026-03-14T20:01:28.386Z | 0 sources | 47.4s | depth: ++_
+
+### Findings
+The "Agent Economy" is rapidly pivoting from a **Mall** (OpenAI’s centralized GPT Store) to a **Bazaar** (the fragmented MCP ecosystem). While OpenAI and LangChain maintain clinical, brand-first titles ("GPTs" and "LangChain Hub"), the emergent MCP players are competing on "plumbing" and "frictionless execution." **Steve Manuel (mcp.run)** and **Paul Shaburov (glama.ai)** are building the "USB-C for AI," moving the industry toward a world where tools are modular and portable. This echoes **reputation as portable trust** because the value is no longer locked in a single platform’s ecosystem; instead, it resides in the standardized capability of the server to be summoned into any client (Claude, Cursor, or a custom agent).
+
+However, this bazaar is currently in a "Wild West" phase. Research by **Guo & Cheng (Shandong University)** reveals a "dependency monoculture" where over half of the available MCP projects are inactive forks or placeholders. This echoes **wabi-sabi**—the ecosystem is currently characterized by its incompleteness and imperfection. The "Land Grab" is happening, but the **eyes on the street** (Jane Jacobs) are not yet fully present to police the quality of these tools. We see the "underground forum" energy in the way these servers are being built: raw, functional, and often lacking the "mall-like" polish of the GPT Store.
+
+The most profound shift is the move from "Chat" to "Action." **Soham Ganatra (Composio)** and **Henry Mao (Smithery)** are documenting a transition where agents no longer "talk" to users but "execute" via JIT (Just-in-Time) tool calls. This echoes **Gibson’s Sprawl as architecture**—we are building a machine-readable habitat where the UI is deprecated in favor of secure, sandboxed execution environments. The tagline for Smithery ("Connect to 100K+ tools") vs. Composio ("Just-in-time tool calls") highlights a tension between **depth (specialized skills)** and **breadth (the massive catalog)**.
+
+### Pull Threads
+- **"MCPCrawler dependency monocultures"** — This has pull because it reveals the structural fragility of the "Bazaar." If the majority of the ecosystem is built on a few unmaintained forks, the "portable trust" we are relying on might be built on sand.
+- **"Firecracker VM vs. Wasm for agent sandboxing"** — This has pull because it explores **constraint as a creative catalyst**. The technical choice between micro-VMs (glama.ai) and WebAssembly (mcp.run) dictates the "physics" of the habitat and how much friction/latency an agent must face to be "secure."
+- **"JIT tool calls and progressive disclosure of capabilities"** — This has pull because it connects to **progressive disclosure through state not time**. Instead of overwhelming an agent with 100 tools in a context window, how do we "disclose" the right tool at the exact moment of need based on the agent's current state?
+- **"Vouch systems for MCP server quality"** — This has pull because as the "Land Grab" fades, the ecosystem will need **Sythe/SilkRoad-style reputation systems**. How do agents (and humans) know which MCP servers are "safe" or "high-reputation" without a central authority?
+
+### Emergence
+A pattern is emerging where the **Tagline War** is shifting from "What can I do?" to "How securely can I do it?" Early taglines focused on the *number* of tools (the Mall mentality), while the newest taglines (mcp.run, Composio) focus on *containers, auth, and sandboxing* (the Infrastructure mentality). 
+
+We are seeing the birth of a **"Social Ritual of Execution."** It is no longer enough for a tool to exist; it must be "vetted" by the infrastructure it runs on. The "Standardization Tax" of MCP is the price of admission to the Bazaar. The "loudest person in the bazaar" (the platforms claiming 100k+ tools) may currently know the least about the actual reliability of those tools, while the practitioners focusing on "sandboxed workbenches" are the ones building the actual "eyes on the street."
+
+### Sources
+
+---

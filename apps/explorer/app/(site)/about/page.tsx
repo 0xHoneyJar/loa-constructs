@@ -7,7 +7,7 @@ import { fetchAllConstructs } from '@/lib/data/fetch-constructs';
 
 export const metadata: Metadata = {
   title: 'What are Constructs? | Constructs Network',
-  description: 'Named expertise for AI coding agents. Browse, compose, deploy.',
+  description: 'Skills for AI coding agents. Deploy, browse, compose.',
 };
 
 // ISR — revalidate hourly (matches homepage)
@@ -47,7 +47,7 @@ export default async function AboutPage() {
               Constructs?
             </h1>
             <p className="mt-8 font-mono text-base sm:text-lg leading-relaxed text-bone-dim max-w-2xl">
-              Named expertise you deploy into your AI coding agent.
+              Skills you install into your AI coding agent.
               One command. Your agent sees problems differently.
             </p>
           </section>
@@ -101,7 +101,7 @@ export default async function AboutPage() {
                 href="/constructs"
                 className="font-mono text-sm text-cyan-dim hover:text-bone-bright transition-colors"
               >
-                See what&apos;s on the network &rarr;
+                See what&apos;s available &rarr;
               </Link>
             </div>
           </section>
@@ -187,6 +187,9 @@ export default async function AboutPage() {
             <h2 className="mt-3 font-display text-3xl sm:text-4xl lg:text-5xl uppercase tracking-display text-bone-bright leading-[0.95]">
               Compose.
             </h2>
+            <p className="mt-8 font-mono text-base leading-relaxed text-bone-dim max-w-2xl">
+              Constructs share paths. Install two and they read each other&apos;s work.
+            </p>
             {/* Network — React Flow mini graph. Lines actually connect. */}
             <div className="mt-10">
               <ComposeDiagram constructs={allConstructs} />

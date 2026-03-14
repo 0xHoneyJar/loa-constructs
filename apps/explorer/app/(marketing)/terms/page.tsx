@@ -23,8 +23,8 @@ export default function TermsPage() {
         <section>
           <h2 className="text-sm text-bone-base mb-2">2. Service Description</h2>
           <p>
-            The Constructs Network is a marketplace for AI agent constructs — skills, packs, and bundles
-            that provide preserved expertise for AI agents.
+            The Constructs Network is a registry for AI agent constructs — skills and packs
+            that you install into your AI coding agent.
           </p>
         </section>
 

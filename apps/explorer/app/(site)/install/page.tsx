@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export const metadata = {
   title: 'Install | Constructs Network',
-  description: 'Install named expertise into your AI coding agent',
+  description: 'Install skills into your AI coding agent',
 };
 
 function CodeBlock({ children }: { children: string }) {
@@ -43,7 +43,7 @@ export default function InstallPage() {
         Install
       </h1>
       <p className="mb-10 font-mono text-lg text-bone-muted">
-        Named expertise for your AI coding agent. No account required for free constructs.
+        Skills for your AI coding agent. No account required.
       </p>
 
       {/* CLI */}
@@ -110,7 +110,7 @@ export default function InstallPage() {
         </h2>
         <p className="mb-4 text-lg text-bone-muted">
           Name your repo <code className="text-bone-dim">construct-*</code> in your GitHub org
-          and it auto-discovers on the network.
+          and it auto-discovers.
         </p>
         <CodeBlock>{`gh repo create my-org/construct-my-expertise \\
   --template 0xHoneyJar/construct-base --clone`}</CodeBlock>

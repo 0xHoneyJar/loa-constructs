@@ -20,7 +20,7 @@ export default function NotFound() {
           variant="outline"
           className="border-cyan-dim text-cyan-dim hover:bg-void-raised hover:text-cyan-base"
         >
-          <Link href="/">Explore Network</Link>
+          <Link href="/">Browse Constructs</Link>
         </Button>
         <Button asChild variant="secondary">
           <Link href="/install">Install Guide</Link>
