@@ -18,9 +18,9 @@ const GhostNode = memo(function GhostNode(props: NodeProps) {
   const w = (props.data as { w?: number })?.w ?? 64;
   return (
     <>
-      {/* @ts-expect-error React 19 type mismatch */}
+      {/* @ts-ignore React 19 type mismatch */}
       <Handle type="target" position={Position.Top} className="!bg-transparent !border-0 !w-0 !h-0" />
-      {/* @ts-expect-error React 19 type mismatch */}
+      {/* @ts-ignore React 19 type mismatch */}
       <Handle type="source" position={Position.Bottom} className="!bg-transparent !border-0 !w-0 !h-0" />
       <div style={{ width: w, height: 40, backgroundColor: 'oklch(0.12 0.005 250)' }} />
     </>

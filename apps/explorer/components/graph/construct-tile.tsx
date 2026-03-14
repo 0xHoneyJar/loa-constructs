@@ -39,9 +39,9 @@ function ConstructTileComponent(props: NodeProps) {
 
   return (
     <>
-      {/* @ts-expect-error React 19 type mismatch with xyflow memo components */}
+      {/* @ts-ignore React 19 type mismatch with xyflow memo components */}
       <Handle type="target" position={Position.Top} className="!bg-transparent !border-0 !w-0 !h-0" />
-      {/* @ts-expect-error React 19 type mismatch with xyflow memo components */}
+      {/* @ts-ignore React 19 type mismatch with xyflow memo components */}
       <Handle type="source" position={Position.Bottom} className="!bg-transparent !border-0 !w-0 !h-0" />
 
       <div
