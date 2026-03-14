@@ -113,9 +113,14 @@ export default async function ConstructDetailPage({
           </div>
         )}
 
-        <p className="mt-8 text-base sm:text-lg font-mono text-bone-dim leading-relaxed max-w-2xl">
+        <p className="mt-8 font-display text-xl sm:text-2xl uppercase tracking-display text-bone-base max-w-2xl leading-[1.1]">
           {construct.description}
         </p>
+        {construct.longDescription && (
+          <p className="mt-4 text-sm sm:text-base font-mono text-bone-muted leading-relaxed max-w-2xl">
+            {construct.longDescription}
+          </p>
+        )}
 
         {construct.forkedFrom && (
           <Link
@@ -133,7 +138,7 @@ export default async function ConstructDetailPage({
         {construct.showcases.length > 0 && (
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-6">
             {construct.showcases.filter((s) => !s.url.includes('rektdrop')).map((showcase) => {
-              const imageSlug = showcaseImageSlug(showcase.url);
+              const ogImage = showcaseOgImage(showcase.url);
               return (
                 <a
                   key={showcase.id}
@@ -142,16 +147,19 @@ export default async function ConstructDetailPage({
                   rel="noopener noreferrer"
                   className="border border-void-border hover:border-bone-ghost transition-colors group block overflow-hidden"
                 >
-                  {imageSlug ? (
-                    <div className="aspect-[16/9] relative bg-void-raised border-b border-void-border overflow-hidden">
+                  {ogImage ? (
+                    <div className="aspect-[16/9] relative border-b border-void-border overflow-hidden" style={{ backgroundColor: 'oklch(0.06 0.005 250)' }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={`/showcases/${imageSlug}.png`}
+                        src={ogImage}
                         alt={showcase.title}
-                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                        className="w-full h-full object-cover"
+                        style={{ opacity: 0.8 }}
+                        loading="lazy"
                       />
                     </div>
                   ) : (
-                    <div className="aspect-[16/9] bg-void-raised border-b border-void-border flex items-center justify-center">
+                    <div className="aspect-[16/9] border-b border-void-border flex items-center justify-center" style={{ backgroundColor: 'oklch(0.06 0.005 250)' }}>
                       <span className="font-display text-2xl uppercase tracking-display text-bone-ghost group-hover:text-bone-dim transition-colors">
                         {showcase.title}
                       </span>
@@ -323,17 +331,15 @@ export default async function ConstructDetailPage({
 
 /* ── Identity helpers ── */
 
-/** Map showcase URL to a static image slug in /public/showcases/ */
-function showcaseImageSlug(url: string): string | null {
+/** Map showcase URL to OG image from the live site */
+function showcaseOgImage(url: string): string | null {
   const map: Record<string, string> = {
-    'moneycomb.0xhoneyjar.xyz': 'mcv-interface',
-    'moneycombvaults.honeycomb.fyi': 'mcv-interface',
-    'midi.0xhoneyjar.xyz': 'mibera-dimensions',
-    'mibera.honeycomb.fyi': 'mibera-dimensions',
-    'setandforgetti.0xhoneyjar.xyz': 'set-and-forgetti',
-    'setandforgetti.honeycomb.fyi': 'set-and-forgetti',
-    'rektdrop.0xhoneyjar.xyz': 'rektdrop-interface',
-    'rektdrop.honeycomb.fyi': 'rektdrop-interface',
+    'moneycomb.0xhoneyjar.xyz': 'https://moneycomb.0xhoneyjar.xyz/opengraph-image',
+    'moneycombvaults.honeycomb.fyi': 'https://moneycomb.0xhoneyjar.xyz/opengraph-image',
+    'midi.0xhoneyjar.xyz': 'https://midi.0xhoneyjar.xyz/og.png',
+    'mibera.honeycomb.fyi': 'https://midi.0xhoneyjar.xyz/og.png',
+    'setandforgetti.0xhoneyjar.xyz': 'https://setandforgetti.0xhoneyjar.xyz/brand/og.png',
+    'setandforgetti.honeycomb.fyi': 'https://setandforgetti.0xhoneyjar.xyz/brand/og.png',
   };
   try {
     const hostname = new URL(url).hostname;
