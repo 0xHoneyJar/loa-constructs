@@ -1,326 +1,203 @@
-# PRD: SprawlOS Design System — Semantic Architecture
+# PRD: Construct Composability Infrastructure — Grimoire Paths, Governance, Implicit Composition
 
-**Cycle**: cycle-050
+**Cycle**: cycle-051
 **Created**: 2026-03-13
 **Status**: Draft
-**Foundation**: cycle-049 (SprawlOS Dashboard — Design System Foundation)
-**Architecture Doc**: `grimoires/loa/context/design-system-architecture.md` (933 lines, 57+ sources)
+**Foundation**: Composability diagnostic (400+ lines, 5 Gemini dig sessions, 130+ queries)
+**Context**:
+- `grimoires/loa/context/construct-composability-diagnostic.md` (primary)
+- `grimoires/loa/archive/constructs-feedback-rfcs.md` (RFC-1 through RFC-8)
+- `grimoires/bridgebuilder/STRATEGIC-GAP.md` (3-cycle strategic plan)
+- `grimoires/loa/context/construct-network-cohesion.md` (filesystem inference principles)
+- `grimoires/gecko/construct-discovery-design.md` (surface analysis, composability graph)
 
 ---
 
 ## 1. Problem Statement
 
-Cycle-049 established the SprawlOS visual foundation: 54 OKLCH tokens, pixel icons, extracted dashboard components, shell retheme, and a Gemini embedding moodboard tool. The dashboard now *looks* like SprawlOS. But the token system remains flat — every component references primitive tokens directly (`var(--color-bone-base)`), spacing is ad-hoc Tailwind classes (`p-4`, `gap-2`), and there's no way to vary the feel per-context (dashboard vs marketing vs construct detail) without touching every component file.
+23 constructs on the network. **15 are islands** — no declared relationships to anything else. The 8 connected constructs compose through grimoire files (observer writes canvases, artisan reads them), but this piping is **undeclared**. The `compose_with` field has 4 edges total. The event bus has 45 declared event types and **zero runtime emissions**. 8 constructs have `consumes: ['?']` placeholder data.
 
-The architecture research across Linear's Orbiter, Riot's Hextech/Play, Vercel's Geist, Adobe Spectrum, Shopify Polaris, Dub.co, Cal.com, and Resend confirms a universal pattern: **every design system that scales past 50 components adopts a three-tier token hierarchy** (primitive → semantic → component). We have 54 tokens and ~18 shadcn components. We're at the inflection point.
+The constructs compose. They just don't know they do.
 
-**The gap**: We have the right primitives. We're missing the semantic layer that makes them composable, the spacing/motion scales that eliminate ad-hoc values, and the context-scoping mechanism that lets the same component feel different in different contexts.
+**The gap**: Implicit composition through grimoire paths is invisible to the platform. Users can't discover what works together. The explorer graph shows 15 disconnected nodes. New construct authors have no guidance on where to connect. Cross-cutting constructs (vocabulary-bank, taste tokens) have no composition primitive that describes "governance" — they're neither dependencies nor affinities.
 
-> Sources: `design-system-architecture.md` §1 (Where We Are), §2 (Elite Patterns), §12 (Synthesis)
+**The opportunity**: The grimoire filesystem IS the composition layer (confirmed by deep research into stigmergy, Plan 9, Kubernetes reconciliation loops). The platform needs to make this visible, not replace it.
+
+> Source: construct-composability-diagnostic.md, production API analysis (2026-03-13)
 
 ---
 
 ## 2. Goals & Success Metrics
 
-### Primary Goal
+### Goals
+1. **Make implicit composition visible** — grimoire paths that constructs already use become declared and discoverable
+2. **Model governance relationships** — vocabulary-bank, taste tokens, and design constraints have a proper composition primitive
+3. **Reduce islands from 15 to ≤5** — through auditing actual relationships and declaring them
+4. **Enable composition validation** — catch ghost wires (declared consumers with no producer)
+5. **Surface composition in the explorer** — "Connected via" grimoire paths alongside "Works with"
 
-Build the semantic architecture layer on top of cycle-049's visual foundation: three-tier tokens, formalized spacing/motion/typography scales, component token scoping, and `data-context` attribute system for per-context overrides.
+### Success Metrics
 
-### Success Criteria
-
-| Metric | Target | Verification |
-|--------|--------|--------------|
-| Semantic token layer | ~35 semantic tokens aliasing existing primitives | `globals.css` audit — semantic tokens reference primitives via `var()` |
-| Spacing scale | 12-step numeric scale (space-0 through space-1600) | `globals.css` audit — no magic px values in new components |
-| Motion token scale | 6 durations + 5 easings formalized | `globals.css` audit — motion tokens match material-feel research |
-| Typography token scale | 7 text sizes + 3 line heights | `globals.css` audit — strict scale, monospace-first |
-| Elevation system | 5 glow-based elevation tokens | `globals.css` audit — no `box-shadow` outside token system |
-| Icon size tokens | 5-step scale (xs through xl) | `globals.css` audit |
-| Component token scoping | StatCard, QuickLink, Sidebar declare own token scopes | Component CSS uses `--stat-card-*`, `--sidebar-*`, not primitives |
-| Context overrides | `data-context` attribute on dashboard + marketing layouts | Token values change when context attribute changes |
-| Density modes | Compact/comfortable via `data-density` attribute | Dashboard supports toggle between two density modes |
-| shadcn bridge upgrade | shadcn aliases route through semantic layer | `--primary` → semantic → primitive (two hops, not one) |
-| Tailwind v4 bridge | `@theme inline` directives for custom tokens | Custom tokens available as native Tailwind utilities |
-| Token count | ~120-150 (from ~54) | Comparable to Cal.com / early Linear |
-| Zero breaking changes | Existing pages render identically | Visual regression — before/after screenshots |
-
-### Non-Goals (Deferred)
-
-- Per-construct identity theming (`data-construct` attributes) — Phase 5 of architecture roadmap
-- Moodboard synthesis pipeline (cluster analysis, gap detection) — Phase 6
-- DTCG JSON token source format / Style Dictionary build pipeline — premature at <200 tokens
-- Storybook / Ladle component documentation
-- Visual regression testing infrastructure (Playwright/Lost Pixel)
-- Multi-platform token output (iOS, Android, Figma)
-- Publishing SprawlOS as an npm design system package
+| Metric | Current | Target |
+|--------|---------|--------|
+| Constructs with zero composition edges | 15 (65%) | ≤5 (22%) |
+| `compose_with` edges | 4 | 15+ |
+| `paths.writes` populated | 0 | 23 |
+| `paths.reads` populated | 0 | 15+ |
+| `events.consumes` with placeholder '?' | 8 | 0 |
+| Governance relationships declared | 0 | 5+ |
+| Explorer shows grimoire-path connections | No | Yes |
 
 ---
 
 ## 3. User & Stakeholder Context
 
-### Primary Persona: Ecosystem Operator (@janitooor)
+### Primary: Construct Author
+- Building a new construct, wants to know: "what grimoire paths already exist that I should read from?"
+- Needs to declare what their construct produces and consumes without learning an event bus protocol
+- Wants composition to "just work" through conventions, not configuration
 
-- Built the 54-token OKLCH system and moodboard pipeline in cycle-049
-- Maintains 6 product repos — consistent design language across them is a multiplier
-- Aesthetic: Austere. Luminous. Precise. (§9 Taste DNA)
-- Reference: Linear for density, Vercel for dark craftsmanship, rektdrop for brutalist constraint
-- **Need**: Token system that lets new components "just work" with the SprawlOS feel without copying Tailwind classes from other components
+### Secondary: Construct Consumer (Loa user)
+- Installing constructs, wants to know: "what connects to what?"
+- Needs to see implicit composition (shared grimoire paths) alongside explicit composition (dependencies)
+- Should understand why observer + artisan pair — not just that they do
 
-### Secondary Persona: Construct Developer
-
-- Builds constructs that may want their own visual identity within the SprawlOS frame
-- Encounters component library when contributing to explorer
-- **Need**: Clear token API — "which token do I use for a panel background?" has one obvious answer (`--color-bg-panel`)
-
-> Sources: cycle-049 PRD §3, moodboard images, architecture doc §9
+### Tertiary: Network Maintainer
+- Needs validation: are all declared consumes backed by a producer?
+- Needs visibility: which grimoire paths are most trafficked?
+- Needs to detect composition drift: construct A reads from a path construct B stopped writing to
 
 ---
 
 ## 4. Functional Requirements
 
-### FR-1: Semantic Token Layer
+### FR-1: Grimoire Path Declarations (construct.yaml)
 
-Add a semantic tier between existing primitives and component usage. Non-breaking — semantic tokens reference existing primitives via `var()`.
+**Priority**: P0
 
-**Color semantics** (Dub.co 3-axis model adapted):
+| ID | Requirement | AC |
+|----|-------------|-----|
+| FR-1.1 | `paths.writes[]` in construct.yaml — directories the construct writes to | Validated by seed script, stored in manifest JSONB |
+| FR-1.2 | `paths.reads[]` in construct.yaml — directories the construct reads from | Validated, stored |
+| FR-1.3 | Seed script extracts paths from manifest, surfaces in API | `paths` field in construct list response |
+| FR-1.4 | Audit all 23 constructs' SKILL.md for actual grimoire reads/writes | Populate paths for all constructs that use grimoire files |
 
-| Category | Tokens | Source |
-|----------|--------|--------|
-| Backgrounds | `bg-void`, `bg-surface`, `bg-panel`, `bg-elevated`, `bg-overlay` | void-* family |
-| Text | `text-primary`, `text-secondary`, `text-tertiary`, `text-ghost` | bone-* family |
-| Accent | `accent-primary`, `accent-warm`, `accent-primary-dim`, `accent-warm-dim` | cyan-*, crimson-* |
-| Border | `border-default`, `border-subtle`, `border-active` | void-border, grid-line, glow-cyan |
-| Status | `status-success`, `status-warning`, `status-danger`, `status-info` | node-green, token-yellow, crimson, cyan |
-| Glow | `glow-primary`, `glow-danger` | glow-cyan, glow-crimson |
-| Interactive | `interactive-default`, `interactive-hover`, `interactive-active`, `interactive-disabled` | derived from accent + bone |
+### FR-2: Governance Composition Primitive
 
-**Naming convention**: `--color-[category]-[role]` (e.g., `--color-bg-surface`, `--color-text-primary`)
+**Priority**: P0
 
-### FR-2: Spacing Scale
+| ID | Requirement | AC |
+|----|-------------|-----|
+| FR-2.1 | Add `governs[]` to construct.yaml composition section | Array of slugs this construct constrains |
+| FR-2.2 | Add `governed_by[]` to construct.yaml composition section | Array of slugs that constrain this construct |
+| FR-2.3 | API surfaces governance relationships in construct response | `governs` and `governed_by` fields |
+| FR-2.4 | Explorer "Works with" panel shows governance as distinct edge type | Visual distinction from dependency/affinity |
 
-Formalize a 12-step numeric scale on a 4px base unit:
+### FR-3: Composition Audit (23 constructs)
 
-```
-space-0 (0) → space-025 (1px) → space-050 (2px) → space-100 (4px) → space-150 (6px) →
-space-200 (8px) → space-300 (12px) → space-400 (16px) → space-500 (20px) →
-space-600 (24px) → space-800 (32px) → space-1200 (48px) → space-1600 (64px)
-```
+**Priority**: P0
 
-Mapped to Tailwind utilities via `@theme inline` so `gap-space-200` compiles to `gap: var(--space-200)`.
+| ID | Requirement | AC |
+|----|-------------|-----|
+| FR-3.1 | Audit every construct's SKILL.md for actual compose relationships | Document in audit spreadsheet |
+| FR-3.2 | Populate `compose_with` based on audit findings | PRs to all construct repos with undeclared affinities |
+| FR-3.3 | Remove all `consumes: ['?']` placeholders | Replace with real consumed events or remove field |
+| FR-3.4 | Populate `governs`/`governed_by` for cross-cutting constructs | vocabulary-bank, artisan (taste), surveying-patterns |
 
-### FR-3: Motion Token Scale
+### FR-4: Composition Validation in Seed/Publish
 
-Formalize the duration and easing system from material-feel-tx-ux.md:
+**Priority**: P1
 
-**Durations**: `instant` (0ms), `quantum` (83ms), `fast` (100ms), `normal` (200ms), `slow` (400ms), `deliberate` (800ms)
+| ID | Requirement | AC |
+|----|-------------|-----|
+| FR-4.1 | Validate declared `events.consumes` have a matching producer | Warning if consumer has no matching emitter |
+| FR-4.2 | Validate declared `paths.reads` have a matching writer | Warning if read path has no known writer |
+| FR-4.3 | Detect orphan paths — writes with no readers | Advisory signal for unused output |
 
-**Easings**: `default` (sharp/dense), `in` (exits), `out` (entries), `spring` (emphasis), `quantum` (steps(4))
+### FR-5: Explorer Composition Panel
 
-Enforce: `steps()` or `linear` in dashboard context. `ease-out` permitted in marketing context only.
+**Priority**: P1
 
-### FR-4: Typography Token Scale
-
-Strict 7-step scale, monospace-first:
-
-```
-text-2xs (8px) → text-xs (9px) → text-sm (11px) → text-base (13px) →
-text-lg (16px) → text-xl (20px) → text-2xl (24px)
-```
-
-Line heights: `leading-tight` (1.2), `leading-normal` (1.5), `leading-relaxed` (1.75)
-
-### FR-5: Elevation System (Glow-Based)
-
-SprawlOS uses glow and border luminance instead of drop shadows:
-
-```
-elevation-0 (none) → elevation-1 (subtle edge) → elevation-2 (active glow) →
-elevation-3 (focused/hero glow) → elevation-danger (warning glow)
-```
-
-### FR-6: Icon Size Tokens
-
-5-step scale: `icon-xs` (12px) → `icon-sm` (14px) → `icon-md` (16px) → `icon-lg` (20px) → `icon-xl` (24px)
-
-### FR-7: Component Token Scoping
-
-Each major dashboard component declares its own token scope. Components read from their scoped tokens, which reference semantic tokens by default but can be overridden per-context.
-
-**Components to scope**: StatCard, QuickLink, Sidebar, Header, Table (dashboard variant), Badge (dashboard variant)
-
-**Pattern per component**:
-```css
---[component]-bg: var(--color-bg-[semantic]);
---[component]-border: var(--color-border-[semantic]);
---[component]-text: var(--color-text-[semantic]);
---[component]-padding: var(--space-[N]);
-```
-
-### FR-8: Context Override System
-
-Add `data-context` attribute support on layout containers:
-
-| Context | Applied To | Feel |
-|---------|-----------|------|
-| `dashboard` | Dashboard layout wrapper | Compact, terminal chrome, glow borders |
-| `marketing` | Site layout (public pages) | Generous spacing, brighter text |
-
-Context attribute drives token overrides — tighter density, different surface colors, different text brightness. Same components, different feel.
-
-### FR-9: Density Modes
-
-Dashboard supports two density modes via `data-density` attribute:
-
-| Mode | Row Height | Cell Padding | Gap |
-|------|-----------|-------------|-----|
-| `comfortable` | 36px | space-300 | space-200 |
-| `compact` | 28px | space-150 | space-100 |
-
-### FR-10: shadcn Bridge Upgrade
-
-Upgrade existing shadcn alias tokens to route through the semantic layer:
-
-```
-BEFORE: --primary: oklch(0.72 0.12 195)  (direct primitive)
-AFTER:  --primary: var(--color-accent-primary)  (through semantic)
-```
-
-All 14 shadcn aliases get this treatment. This ensures shadcn components automatically respond to context overrides.
-
-### FR-11: Tailwind v4 Bridge
-
-Register custom tokens via `@theme inline` directive so they're available as native Tailwind utilities without additional config:
-
-```css
-:root { --color-bg-surface: var(--color-void-raised); }
-@theme inline { --color-bg-surface: var(--color-bg-surface); }
-```
-
-This enables `bg-[--color-bg-surface]` or class-based utilities depending on Tailwind v4 adoption state.
+| ID | Requirement | AC |
+|----|-------------|-----|
+| FR-5.1 | "Connected via" section on detail page showing shared grimoire paths | When construct A writes to and construct B reads from same path, show connection |
+| FR-5.2 | Governance edges in graph visualization | Distinct visual (dashed line) for governs relationships |
+| FR-5.3 | Path-based composition in "Works with" panel | Show grimoire path connections alongside compose_with |
 
 ---
 
 ## 5. Technical & Non-Functional Requirements
 
-### Architecture
+### NFR-1: Schema Backwards Compatibility
+- `paths`, `governs`, `governed_by` are additive fields in construct.yaml
+- API new fields are optional — existing clients unaffected
+- Zod schema uses `.passthrough()` — non-breaking extension
 
-| Layer | Implementation | Notes |
-|-------|---------------|-------|
-| Primitive tokens | CSS custom properties in `globals.css` `:root` | Unchanged from cycle-049 |
-| Semantic tokens | CSS custom properties in `globals.css` `:root` | NEW — references primitives |
-| Component tokens | CSS custom properties in component CSS or `globals.css` | NEW — references semantics |
-| Context overrides | `[data-context]` attribute selectors in `globals.css` | NEW |
-| Density overrides | `[data-density]` attribute selectors in `globals.css` | NEW |
-| Tailwind bridge | `tailwind.config.ts` theme extension + `@theme inline` | Extended |
+### NFR-2: No New Runtime Infrastructure
+- No event bus, no message broker, no pubsub
+- All composition is declared in manifests and surfaced through the existing API
+- Grimoire filesystem remains the composition medium
 
-### Performance
-
-- All token resolution happens at CSS variable evaluation time — zero JS runtime cost
-- No additional CSS files — everything in `globals.css` and component-level styles
-- Context/density overrides via CSS attribute selectors — no React re-renders
-- Token count increase (~54 → ~150) adds negligible CSS size (~2KB uncompressed)
-
-### Migration Strategy
-
-Non-breaking, incremental migration:
-
-1. Semantic tokens are **additive** — existing primitive references continue working
-2. New components **must** use semantic tokens
-3. Existing components migrate **incrementally** (no big-bang rewrite)
-4. shadcn bridge upgrade is a find-and-replace operation
-
-### Compatibility
-
-- Dark mode only (SprawlOS is void-first)
-- `prefers-reduced-motion` must zero all motion tokens to `0ms` / `none`
-- All OKLCH values — no hex, no rgb, no hsl (TDR-001)
-- Zero border-radius (TDR: `--radius: 0px`)
+### NFR-3: Author Burden
+- Populating paths should take <5 minutes per construct (read SKILL.md, list grimoire dirs)
+- Governance declarations are opt-in — only cross-cutting constructs need them
+- Seed script validation is advisory (warnings), not blocking
 
 ---
 
 ## 6. Scope & Prioritization
 
-### MVP (This Cycle)
+### Sprint 1: Schema + Audit + Path Population
+- Add `paths.writes`, `paths.reads`, `governs`, `governed_by` to Zod schema + API
+- Audit all 23 constructs for actual grimoire paths and relationships
+- PRs to populate paths + compose_with + governance across all construct repos
+- Remove `consumes: ['?']` placeholders
 
-| Priority | Requirement | Phase |
-|----------|-------------|-------|
-| P0 | FR-1: Semantic token layer (~35 color semantics) | 1 |
-| P0 | FR-2: Spacing scale (12 steps) | 1 |
-| P0 | FR-3: Motion token scale (6 durations + 5 easings) | 1 |
-| P0 | FR-4: Typography token scale (7 sizes + 3 line heights) | 1 |
-| P0 | FR-5: Elevation system (5 glow tokens) | 1 |
-| P0 | FR-6: Icon size tokens (5 steps) | 1 |
-| P0 | FR-10: shadcn bridge upgrade | 1 |
-| P1 | FR-7: Component token scoping (6 components) | 2 |
-| P1 | FR-8: Context override system (dashboard + marketing) | 2 |
-| P1 | FR-9: Density modes (compact + comfortable) | 2 |
-| P2 | FR-11: Tailwind v4 bridge (`@theme inline`) | 3 |
+### Sprint 2: Validation + Explorer
+- Composition validation in seed script (consumer/producer matching)
+- "Connected via" grimoire paths on explorer detail page
+- Governance edges in graph visualization
+- Path-based composition data in API response
 
 ### Out of Scope
-
-- Per-construct identity theming (`data-construct` + domain → hue derivation)
-- DTCG JSON token source format
-- Style Dictionary / Cobalt build pipeline
-- Storybook / component documentation
-- Visual regression infrastructure
-- Token design Figma plugin / sync
-- Multi-platform token output
-- Published npm package
+- Event bus runtime (confirmed premature — zero events ever emitted)
+- File watcher / fswatch notifications (stage 2 graduation — deferred)
+- Co-installation analytics / "used together" signals (needs install volume)
+- Automatic path inference from SKILL.md parsing (manual audit is more accurate)
 
 ---
 
 ## 7. Risks & Dependencies
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Semantic naming bikeshed | Token names become inconsistent or verbose | Follow Dub.co's category × role model. Keep names under 4 segments. |
-| Over-tokenization | 150 tokens where 90 would suffice | Only create component tokens when semantic tokens are genuinely insufficient. Measure: if a token is used by exactly 1 component, it's a component token. If used by 3+, promote to semantic. |
-| Context override cascade conflicts | `[data-context]` and `[data-density]` interact unexpectedly | Density overrides only affect spacing/sizing tokens. Context overrides only affect color/surface tokens. No overlap. |
-| shadcn bridge regression | Updating `--primary` from direct value to `var()` reference breaks shadcn components | Test all 18 installed shadcn components after bridge upgrade. CSS variable resolution is spec-compliant for this pattern. |
-| Tailwind v4 migration timing | `@theme inline` requires Tailwind v4, which may not be our current version | FR-11 is P2. If still on v3, use existing `tailwind.config.ts` extension pattern instead. |
-| Spacing scale adoption friction | Contributors keep using `p-4` instead of `gap-space-200` | Existing Tailwind spacing continues working. Semantic spacing tokens are for new components and explicit refactors only. |
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| Construct repos owned by different maintainers | Medium | Delays path PRs | Batch PRs with clear descriptions, assign to @janitooor |
+| Grimoire paths vary across consumer repos | Medium | Paths not portable | Declare canonical paths, note that actual paths are project-specific |
+| Governance primitive is too abstract for authors | Low | Unused field | Only 3-5 constructs need it, document clearly |
+| Schema changes break downstream consumers | Low | API errors | All fields additive + optional, tested with existing clients |
 
 ### Dependencies
-
-| Dependency | Status | Required By |
-|------------|--------|-------------|
-| Cycle-049 complete | Done (PR #164) | All — builds on SprawlOS foundation |
-| Architecture research doc | Done (933 lines) | Token definitions, naming conventions |
-| `globals.css` OKLCH token system | Exists | FR-1 references these as primitives |
-| shadcn/ui installed (18 components) | Exists | FR-10 bridge upgrade |
-| Dashboard shell rethemed | Done (cycle-049 sprint 2) | FR-7, FR-8 context scoping |
+- Upstream Loa Zod schema update (for `paths`, `governs`, `governed_by`)
+- Access to all 23 construct repos for PRs
+- Cycle-048 explorer "Works with" panel as base for FR-5
 
 ---
 
-## Appendix: Token Inventory Target
+## 8. Design Philosophy (from deep research)
 
-| Category | Current | After This Cycle | Growth |
-|----------|---------|-----------------|--------|
-| Color primitives | 34 | 34 | — |
-| Color semantics | 0 | ~35 | +35 |
-| Spacing | 0 | 13 | +13 |
-| Motion (duration) | 1 | 6 | +5 |
-| Motion (easing) | 3 | 5 | +2 |
-| Typography (size) | 0 | 7 | +7 |
-| Typography (leading) | 0 | 3 | +3 |
-| Elevation | 0 | 5 | +5 |
-| Icon size | 0 | 5 | +5 |
-| Letter spacing | 5 | 5 | — |
-| Component tokens | 0 | ~30 | +30 |
-| Density tokens | 0 | 6 | +6 |
-| shadcn aliases | 14 | 14 | — (upgraded to semantic refs) |
-| **Total** | **~54** | **~150** | **+96** |
+### Stigmergy Over Orchestration
+Constructs coordinate through environmental traces (grimoire artifacts), not direct messages. The grimoire IS the pheromone trail. Making it visible is the platform's job. Replacing it is not.
 
-### Comparative Positioning After Cycle
+### Binding by Shape, Not by Name
+Constructs that write to `grimoires/laboratory/canvases/` and constructs that read from it are composed. The path shape IS the interface. No registration, no handshake.
 
-| System | Token Count | Our Position |
-|--------|-------------|-------------|
-| Resend | ~50 | Passed (cycle-049) |
-| Cal.com | ~120 | Matched |
-| Linear | ~150 | Matched |
-| Geist | ~200 | Within reach (Phase 5 construct theming) |
-| Polaris | ~800+ | Never needed |
+### Grammars Over Component Libraries
+Vocabulary-bank, taste tokens, and design rules are grammars — sets of rules for assembly. They CONSTRAIN other constructs. The `governs` primitive models this.
 
-> Architecture source: `grimoires/loa/context/design-system-architecture.md`
-> Research enrichment: K-Hole dig sessions (Linear 57 sources, Riot, shadcn, token architecture 2025)
-> Taste DNA: Austere. Luminous. Precise. — resonance-profile.yaml + moodboard synthesis
+### The Shim Era
+File watchers (fswatch on grimoire paths) give 90% of event bus value at 10% complexity. Deferred to future cycle.
+
+### The Environment as Mediator
+The grimoire filesystem isn't a limitation — it's the architecture. The platform makes mediation visible and efficient, not replaces it.
+
+> Sources: David Barbour (RDP), David Spivak (Applied Category Theory), Rob Pike (Plan 9), Martin Kleppmann (logs as streams), Sophia Prater (ORCA), Shabnam Shanyabi (Form-Based Codes), Gregor Hohpe (file→event graduation)
