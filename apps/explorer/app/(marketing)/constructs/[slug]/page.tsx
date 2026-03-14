@@ -166,7 +166,6 @@ export default async function ConstructDetailPage({
                 >
                   {imageSlug ? (
                     <div className="aspect-[16/9] relative bg-void-raised border-b border-void-border overflow-hidden">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={`/showcases/${imageSlug}.png`}
                         alt={showcase.title}
