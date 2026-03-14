@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CopyButton } from '@/components/ui/copy-button';
 
 interface RotatingInstallProps {
   slugs: string[];
@@ -11,9 +10,11 @@ export function RotatingInstall({ slugs }: RotatingInstallProps) {
   const [index, setIndex] = useState(0);
   const [displayed, setDisplayed] = useState(slugs[0] ?? 'observer');
   const [phase, setPhase] = useState<'visible' | 'fading' | 'typing'>('visible');
+  const [copied, setCopied] = useState(false);
 
   const currentSlug = slugs[index] ?? 'observer';
   const maxSlugLength = Math.max(...slugs.map((s) => s.length), 20);
+  const installCommand = `npx constructs install ${currentSlug}`;
 
   // visible → fading (after 3s hold)
   useEffect(() => {
@@ -49,11 +50,20 @@ export function RotatingInstall({ slugs }: RotatingInstallProps) {
     return () => clearTimeout(t);
   }, [phase, displayed, index, slugs]);
 
-  const installCommand = `npx constructs install ${currentSlug}`;
+  const handleCopy = async () => {
+    await navigator.clipboard.writeText(installCommand);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
-    <div className="border border-void-border bg-void-raised px-4 sm:px-6 py-3.5 font-mono text-sm sm:text-lg inline-flex items-center gap-3 max-w-full overflow-x-auto">
-      <div className="whitespace-nowrap">
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="w-full border border-void-border px-5 py-4 font-mono text-sm sm:text-lg flex items-center justify-between gap-3 cursor-pointer hover:border-bone-ghost transition-colors group text-left"
+      aria-label={copied ? 'Copied to clipboard' : 'Click to copy install command'}
+    >
+      <div className="whitespace-nowrap overflow-x-auto">
         <span className="text-bone-ghost">$ </span>
         <span className="text-cyan-base">npx constructs install </span>
         <span
@@ -72,7 +82,9 @@ export function RotatingInstall({ slugs }: RotatingInstallProps) {
           )}
         </span>
       </div>
-      <CopyButton text={installCommand} />
-    </div>
+      <span className="text-bone-ghost group-hover:text-bone-dim transition-colors shrink-0 text-xs font-mono uppercase tracking-terminal">
+        {copied ? 'Copied' : 'Copy'}
+      </span>
+    </button>
   );
 }

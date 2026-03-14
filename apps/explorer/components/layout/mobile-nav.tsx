@@ -36,21 +36,21 @@ export function MobileNav() {
             <Link
               href="/explore"
               onClick={() => setOpen(false)}
-              className="font-mono text-base text-bone-muted hover:text-bone-base transition-colors"
+              className="font-mono text-base uppercase tracking-terminal text-bone-muted hover:text-bone-base transition-colors"
             >
               Explore
             </Link>
             <Link
               href="/constructs"
               onClick={() => setOpen(false)}
-              className="font-mono text-base text-bone-muted hover:text-bone-base transition-colors"
+              className="font-mono text-base uppercase tracking-terminal text-bone-muted hover:text-bone-base transition-colors"
             >
               Catalog
             </Link>
             <Link
               href="/about"
               onClick={() => setOpen(false)}
-              className="font-mono text-base text-bone-muted hover:text-bone-base transition-colors"
+              className="font-mono text-base uppercase tracking-terminal text-bone-muted hover:text-bone-base transition-colors"
             >
               About
             </Link>

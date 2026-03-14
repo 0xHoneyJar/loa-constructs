@@ -321,3 +321,105 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── Construct row glass texture ── */
+/* Structural grid behind frosted glass — revealed by radial display-case light on hover */
+.construct-row {
+  position: relative;
+}
+
+.construct-row > td,
+.construct-row > * {
+  position: relative;
+  z-index: 1;
+}
+
+.construct-row::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  /* Grid texture: fine structural lines, invisible at rest (void-matching color) */
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      oklch(0.08 0.005 250) 0px,
+      transparent 1px,
+      transparent 24px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      oklch(0.08 0.005 250) 0px,
+      transparent 1px,
+      transparent 24px
+    );
+  background-size: 24px 24px;
+  /* Mask the grid with a radial gradient so it only appears where the glow hits */
+  mask-image: radial-gradient(
+    ellipse 70% 100% at 25% 50%,
+    black 0%,
+    transparent 70%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 70% 100% at 25% 50%,
+    black 0%,
+    transparent 70%
+  );
+  transition: background-image 200ms;
+}
+
+/* On hover: grid lines shift from void to faint cyan — light catching structural steel */
+.construct-row:hover::before {
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      oklch(0.22 0.04 195) 0px,
+      transparent 1px,
+      transparent 24px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      oklch(0.22 0.04 195) 0px,
+      transparent 1px,
+      transparent 24px
+    );
+}
+
+/* ── React Flow canvas overrides ── */
+/* Align React Flow's dark mode with the void aesthetic */
+.dark .react-flow {
+  --xy-background-color: var(--color-void-base);
+  --xy-node-border-radius: 0;
+  --xy-node-boxshadow-hover: none;
+  --xy-node-boxshadow-selected: none;
+}
+
+.dark .react-flow__node {
+  font-family: var(--font-mono);
+}
+
+/* Selection box */
+.dark .react-flow__selection {
+  background: oklch(0.65 0.12 195 / 0.08);
+  border: 1px solid oklch(0.65 0.12 195 / 0.3);
+}
+
+/* Edge defaults */
+.dark .react-flow__edge-path {
+  stroke-linecap: square;
+}
+
+/* MiniMap */
+.dark .react-flow__minimap {
+  border-radius: 0;
+}
+
+/* Controls */
+.dark .react-flow__controls {
+  border-radius: 0;
+}
+
+.dark .react-flow__controls button {
+  border-radius: 0;
+}

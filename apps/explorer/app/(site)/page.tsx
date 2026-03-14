@@ -3,24 +3,32 @@ import { fetchAllConstructs, searchConstructs } from '@/lib/data/fetch-construct
 import { AuthAwareConstructList } from '@/components/constructs/auth-aware-construct-list';
 
 import { RotatingInstall } from '@/components/ui/rotating-install';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 
 // ISR — revalidate hourly
 export const revalidate = 3600;
 
-function formatInstalls(n: number): string {
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
-  return n.toLocaleString();
-}
+/**
+ * Static mapping: construct slug → showcase OG images from live project websites.
+ * OG images are the web's standard preview — 1200x630, already optimized for sharing.
+ * Sourced from the actual projects each construct helped build.
+ */
+const CONSTRUCT_SHOWCASES: Record<string, { src: string; alt: string }[]> = {
+  artisan: [
+    { src: 'https://midi.0xhoneyjar.xyz/og.png', alt: 'Mibera Dimensions' },
+    { src: 'https://setandforgetti.0xhoneyjar.xyz/brand/og.png', alt: 'Set and Forgetti' },
+  ],
+  observer: [
+    { src: 'https://moneycomb.0xhoneyjar.xyz/opengraph-image', alt: 'Moneycomb Vaults' },
+    { src: 'https://midi.0xhoneyjar.xyz/og.png', alt: 'Mibera Dimensions' },
+  ],
+  'k-hole': [
+    { src: 'https://moneycomb.0xhoneyjar.xyz/opengraph-image', alt: 'Moneycomb Vaults' },
+  ],
+  'mibera-codex': [
+    { src: 'https://midi.0xhoneyjar.xyz/og.png', alt: 'Mibera Dimensions' },
+  ],
+};
 
 export default async function HomePage({
   searchParams,
@@ -41,10 +49,8 @@ export default async function HomePage({
 
   return (
     <div>
-      {/* Hero — left-aligned, compact, horse watermark */}
+      {/* Hero */}
       <section className="relative px-4 pt-16 pb-10 sm:pt-20 sm:pb-12 overflow-hidden">
-        {/* Sigil particle background is rendered by the (site) layout */}
-
         <div className="relative mx-auto max-w-5xl">
           <div>
             <h1 className="font-display text-4xl sm:text-6xl lg:text-7xl uppercase tracking-display text-bone-bright leading-[0.95]">
@@ -72,79 +78,62 @@ export default async function HomePage({
         <div className="mx-auto max-w-5xl">
           {/* Auth-aware construct list */}
           <AuthAwareConstructList publicConstructs={constructs}>
-            <div className="mt-6">
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-void-border hover:bg-transparent">
-                    <TableHead className="w-8 sm:w-12 font-mono text-sm uppercase tracking-whisper text-bone-ghost" />
-                    <TableHead className="font-mono text-sm uppercase tracking-whisper text-bone-ghost">
-                      Construct
-                    </TableHead>
-                    <TableHead className="w-28 text-right font-mono text-sm uppercase tracking-whisper text-bone-ghost hidden sm:table-cell">
-                      Skills
-                    </TableHead>
-                    <TableHead className="w-20 sm:w-36 text-right font-mono text-sm uppercase tracking-whisper text-bone-ghost">
-                      Installs
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {constructs.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="py-12 text-center font-mono text-sm text-bone-ghost">
-                        No constructs found.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    constructs.map((construct) => (
-                      <TableRow
-                        key={construct.id}
-                        className="border-void-border hover:bg-void-raised group relative cursor-pointer"
-                      >
-                        <TableCell className="py-5 sm:py-8 text-xl sm:text-2xl text-center align-middle">
-                          {construct.icon || ''}
-                        </TableCell>
-                        <TableCell className="py-5 sm:py-8">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <Link
-                                href={`/constructs/${construct.slug}`}
-                                className="font-display text-base sm:text-xl uppercase tracking-display text-bone-base group-hover:text-bone-bright transition-colors after:absolute after:inset-0"
-                              >
-                                {construct.name}
-                              </Link>
-                              {construct.visibility === 'internal' && (
-                                <Badge variant="internal" className="relative z-10 hidden sm:inline-flex">
-                                  internal
-                                </Badge>
-                              )}
-                              {construct.verificationTier === 'PROVEN' && (
-                                <Badge variant="proven" className="relative z-10 hidden sm:inline-flex">
-                                  proven
-                                </Badge>
-                              )}
-                              {construct.verificationTier === 'BACKTESTED' && (
-                                <Badge variant="backtested" className="relative z-10 hidden sm:inline-flex">
-                                  backtested
-                                </Badge>
-                              )}
+            <div className="mt-6 divide-y divide-void-border border-t border-void-border">
+              {constructs.length === 0 ? (
+                <p className="py-12 text-center font-mono text-sm text-bone-ghost">
+                  No constructs found.
+                </p>
+              ) : (
+                constructs.map((construct) => {
+                  const showcases = CONSTRUCT_SHOWCASES[construct.slug];
+                  return (
+                    <Link
+                      key={construct.id}
+                      href={`/constructs/${construct.slug}`}
+                      className="construct-row group relative flex items-center justify-between py-6 sm:py-10 cursor-pointer transition-[background] duration-200 hover:[background:radial-gradient(ellipse_80%_100%_at_20%_50%,oklch(0.14_0.03_195)_0%,transparent_70%)]"
+                    >
+                      <div className="min-w-0 flex-1">
+                        {construct.logoWordmark ? (
+                          <div
+                            className="text-bone-base group-hover:text-bone-bright transition-colors [&_svg]:h-12 sm:[&_svg]:h-16 [&_svg]:w-auto"
+                            dangerouslySetInnerHTML={{ __html: construct.logoWordmark }}
+                          />
+                        ) : (
+                          <span className="font-display text-2xl sm:text-3xl uppercase tracking-display text-bone-base group-hover:text-bone-bright transition-colors block">
+                            {construct.name}
+                          </span>
+                        )}
+                        <p className="font-mono text-sm sm:text-base text-bone-muted truncate mt-2">
+                          {construct.shortDescription}
+                        </p>
+                        <p className="font-mono text-xs text-bone-ghost mt-1.5">
+                          {construct.skillsCount} skills · {construct.downloads.toLocaleString()} installs
+                        </p>
+                      </div>
+                      {showcases && (
+                        <div className="hidden sm:flex gap-3 ml-8 shrink-0">
+                          {showcases.slice(0, 2).map((s) => (
+                            <div
+                              key={s.src}
+                              className="relative w-[180px] h-[95px] border border-void-border overflow-hidden group-hover:border-bone-ghost transition-colors"
+                              style={{ backgroundColor: 'oklch(0.06 0.005 250)' }}
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={s.src}
+                                alt={s.alt}
+                                className="w-full h-full object-cover"
+                                style={{ opacity: 0.7 }}
+                                loading="lazy"
+                              />
                             </div>
-                            <p className="font-mono text-sm sm:text-base text-bone-muted truncate mt-0.5">
-                              {construct.shortDescription}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-5 sm:py-8 text-right font-mono text-base text-bone-dim hidden sm:table-cell align-middle">
-                          {construct.skillsCount}
-                        </TableCell>
-                        <TableCell className="py-5 sm:py-8 text-right font-mono text-sm sm:text-lg text-bone-base align-middle">
-                          {formatInstalls(construct.downloads)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
+                          ))}
+                        </div>
+                      )}
+                    </Link>
+                  );
+                })
+              )}
             </div>
           </AuthAwareConstructList>
         </div>

@@ -4,6 +4,7 @@ import localFont from 'next/font/local';
 import { DynamicProvider } from '@/components/providers/dynamic-provider';
 import { ConvexProvider } from '@/components/providers/convex-provider';
 import { FeedbackWidget } from '@/components/feedback-widget';
+import { Agentation } from 'agentation';
 import './globals.css';
 
 const basementGrotesque = localFont({
@@ -77,6 +78,8 @@ export default function RootLayout({
           <ConvexProvider>
             {children}
             <FeedbackWidget />
+            {/* @ts-expect-error React 19 type mismatch with Agentation portal */}
+            {process.env.NODE_ENV === 'development' && <Agentation />}
           </ConvexProvider>
         </DynamicProvider>
       </body>

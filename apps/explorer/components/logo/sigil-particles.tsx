@@ -4,17 +4,19 @@ import { useRef, useMemo, useEffect, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
-// ─── TDR-006: CRT Burn-In Particle Treatment ───────────────────────
-// Hard square pixels. Grid-aligned. Phosphor flicker + drift.
-// Glitch displacement. Scanline sweep. Breathing pulse.
-// No rotation. The billboard was always there.
+// ─── LED Billboard — Clean, Sharp, Cyberpunk ─────────────────────
+// High-quality LED display. Tight pixel grid. Single cyan channel.
+// Visible module structure but CRISP — not degraded.
+// The sign is expensive hardware. It looks like it.
 
-function useSigilPositions(density = 2) {
-  const [data, setData] = useState<{
-    positions: Float32Array;
-    seeds: Float32Array;
-    count: number;
-  } | null>(null);
+interface SigilData {
+  positions: Float32Array;
+  seeds: Float32Array;
+  count: number;
+}
+
+function useSigilPositions(density = 3): SigilData | null {
+  const [data, setData] = useState<SigilData | null>(null);
 
   useEffect(() => {
     const img = new Image();
@@ -57,7 +59,6 @@ function useSigilPositions(density = 2) {
       const count = pts.length / 3;
       const positions = new Float32Array(pts);
 
-      // Deterministic seed from position hash
       const seeds = new Float32Array(count);
       for (let j = 0; j < count; j++) {
         const px = positions[j * 3];
@@ -80,73 +81,37 @@ const vertexShader = /* glsl */ `
   attribute float aSeed;
 
   varying float vAlpha;
-  varying float vHue;
+  varying float vSeed;
   varying vec2 vScreenPos;
-
-  // Hash function for deterministic pseudo-randomness
-  float hash(float n) {
-    return fract(sin(n) * 43758.5453);
-  }
 
   void main() {
     vec3 pos = position;
-
-    // ─── Phosphor Persistence Drift ───
-    // Particles slowly orbit around their home positions
-    // Like phosphor cells warming/cooling on a CRT
-    if (uReducedMotion < 0.5) {
-      float driftSpeed = 0.15 + aSeed * 0.1;
-      float driftRadius = 0.004 + aSeed * 0.003;
-      float driftPhase = aSeed * 6.2831;
-      pos.x += sin(uTime * driftSpeed + driftPhase) * driftRadius;
-      pos.y += cos(uTime * driftSpeed * 0.8 + driftPhase * 1.3) * driftRadius;
-    }
-
-    // ─── Glitch Displacement ───
-    // Occasional horizontal jitter on clusters of particles
-    // Triggered by a slow sawtooth — active ~5% of the time
-    if (uReducedMotion < 0.5) {
-      float glitchCycle = mod(uTime * 0.3 + aSeed * 17.0, 8.0);
-      // Glitch window: when cycle is between 0 and 0.15 (~2% of time)
-      if (glitchCycle < 0.15) {
-        // Horizontal displacement: 2-6 pixels worth
-        float displacement = hash(floor(uTime * 4.0) + aSeed * 100.0);
-        pos.x += (displacement - 0.5) * 0.03;
-      }
-    }
 
     vec4 mvPosition = modelViewMatrix * vec4(pos * uScale, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     vScreenPos = gl_Position.xy / gl_Position.w;
 
-    // Hard bloom: 15% of particles are the halo — 3px, dimmer
-    bool isHalo = aSeed > 0.85;
-    gl_PointSize = isHalo ? 3.0 : 2.0;
+    // ─── Module Size: 4px ───
+    // Tight enough to form a cohesive image, large enough to see the grid.
+    gl_PointSize = 5.0;
 
-    // ─── Phosphor Flicker ───
-    float period = 3.0 + aSeed * 5.0;
-    float phase = aSeed * 6.2831;
+    // ─── Clean LED Brightness ───
+    // High, consistent alpha. Subtle per-module variation for life,
+    // not dramatic flicker. This is an expensive display.
+    float variation = uReducedMotion > 0.5
+      ? 0.0
+      : 0.06 * sin(uTime * 0.8 + aSeed * 6.2831);
 
-    float flicker = uReducedMotion > 0.5
-      ? 0.25
-      : 0.15 + 0.20 * sin(uTime / period + phase);
+    float baseAlpha = 0.75 + variation;
 
-    // 8% of particles: binary on/off flicker
-    if (aSeed < 0.08 && uReducedMotion < 0.5) {
-      float binaryPhase = sin(uTime * 2.0 + phase * 3.0);
-      flicker = binaryPhase > 0.2 ? 0.35 : 0.02;
-    }
-
-    // ─── Breathing Pulse ───
-    // Whole-form brightness oscillation over 10 seconds
+    // ─── Breathing ───
+    // Very subtle whole-form pulse. Barely perceptible.
     float breath = uReducedMotion > 0.5
       ? 1.0
-      : 0.85 + 0.15 * sin(uTime * 0.628); // 0.628 = 2*PI/10
+      : 0.94 + 0.06 * sin(uTime * 0.5);
 
-    flicker *= breath;
-
-    vAlpha = isHalo ? flicker * 0.35 : flicker;
-    vHue = aSeed;
+    vAlpha = baseAlpha * breath;
+    vSeed = aSeed;
   }
 `;
 
@@ -155,41 +120,39 @@ const fragmentShader = /* glsl */ `
   uniform float uTime;
   uniform float uReducedMotion;
   varying float vAlpha;
-  varying float vHue;
+  varying float vSeed;
   varying vec2 vScreenPos;
 
   void main() {
-    // ─── Phosphor Color Variation ───
-    vec3 cyanGreen = vec3(0.35, 0.95, 0.85);
-    vec3 cyanBlue  = vec3(0.50, 0.85, 1.00);
-    vec3 cyanBase  = vec3(0.45, 0.92, 0.95);
+    // ─── Module Grid (Face Mask) ───
+    // Thin dark border on each module. Just enough to see the grid.
+    // Not thick — this is a premium display.
+    vec2 pc = gl_PointCoord;
+    float borderX = step(0.08, pc.x) * step(0.08, 1.0 - pc.x);
+    float borderY = step(0.08, pc.y) * step(0.08, 1.0 - pc.y);
+    float mask = borderX * borderY;
+    if (mask < 0.5) discard;
 
-    vec3 color;
-    if (vHue < 0.33) {
-      color = mix(cyanGreen, cyanBase, vHue / 0.33);
-    } else if (vHue < 0.66) {
-      color = cyanBase;
-    } else {
-      color = mix(cyanBase, cyanBlue, (vHue - 0.66) / 0.34);
-    }
-
-    // ─── Scanline Darkening ───
-    // Every other 2px band darkened by 20%
-    float scanline = mod(gl_FragCoord.y, 4.0) < 2.0 ? 0.80 : 1.0;
-    color *= scanline;
+    // ─── Color: Structural Cyan ───
+    // Not emissive — embossed. A mark pressed into the wall surface.
+    // Dark enough to read as architecture, light enough to see the form.
+    // oklch(0.22 0.06 195) — barely above void, cyan-tinted structural mark
+    vec3 color = vec3(0.08, 0.18, 0.20);
 
     // ─── Scanline Sweep ───
-    // A brighter band slowly moves down through the sigil
-    // like a CRT refresh beam — period ~6 seconds
+    // Clean horizontal brightness band moving down.
+    // LED mux artifact — wide, subtle, not a harsh line.
     if (uReducedMotion < 0.5) {
-      float sweepY = fract(uTime * 0.16); // 0-1 every ~6 seconds
-      // Map to screen space (-1 to 1)
-      float sweepPos = sweepY * 2.0 - 1.0;
-      // Narrow bright band — sharp, not blurred
-      float sweepDist = abs(vScreenPos.y - sweepPos);
-      float sweep = sweepDist < 0.06 ? 1.3 : 1.0;
+      float sweepPhase = fract(vScreenPos.y * 0.5 - uTime * 0.6);
+      float sweep = 1.0 + 0.15 * smoothstep(0.1, 0.0, abs(sweepPhase - 0.9));
       color *= sweep;
     }
+
+    // ─── Per-Row Brightness Modulation ───
+    // Very subtle: every other row of modules is ~3% dimmer.
+    // Creates the horizontal structure of an LED panel without being noisy.
+    float rowDim = 1.0 - 0.03 * step(0.5, fract(gl_FragCoord.y * 0.125));
+    color *= rowDim;
 
     gl_FragColor = vec4(color, vAlpha);
   }
@@ -204,7 +167,7 @@ interface SigilParticlesProps {
 export function SigilParticles({ scale = 0.5 }: SigilParticlesProps) {
   const pointsRef = useRef<THREE.Points>(null);
   const materialRef = useRef<THREE.ShaderMaterial>(null);
-  const data = useSigilPositions(2);
+  const data = useSigilPositions(2); // density 2: tight grid, maximum coverage
 
   const reducedMotion = useMemo(() => {
     if (typeof window === 'undefined') return false;
@@ -240,7 +203,7 @@ export function SigilParticles({ scale = 0.5 }: SigilParticlesProps) {
     <points
       ref={pointsRef}
       geometry={geometry}
-      position={[-2.1, 0.5, 0]}
+      position={[-2.4, 0.4, 0]}
       scale={[1, 1, 1]}
     >
       <shaderMaterial

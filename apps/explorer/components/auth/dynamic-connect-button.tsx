@@ -60,7 +60,7 @@ function DynamicConnectButtonEnabled({ className, label = 'Sign in' }: DynamicCo
     <Button
       variant="outline"
       onClick={() => setShowAuthFlow(true)}
-      className={`border-cyan-dim text-cyan-base hover:bg-void-raised hover:text-bone-bright ${className ?? ''}`}
+      className={`text-bone-base hover:bg-void-raised hover:text-bone-bright ${className ?? ''}`}
     >
       {label}
     </Button>

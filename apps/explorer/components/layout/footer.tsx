@@ -82,7 +82,7 @@ function FooterStats() {
 
 export function Footer() {
   return (
-    <footer className="border-t border-void-border bg-void-base">
+    <footer className="border-t border-void-border">
       <div className="mx-auto flex flex-col items-center justify-center gap-3 max-w-6xl px-4 py-6">
         <div
           className="h-5 sm:h-6"
@@ -100,7 +100,7 @@ export function Footer() {
           aria-label="Loa"
         />
         <FooterStats />
-        <div className="flex items-center gap-4 font-mono text-xs text-bone-ghost">
+        <div className="flex items-center gap-4 font-mono text-xs uppercase tracking-terminal text-bone-ghost">
           <Link href="/terms" className="hover:text-bone-dim transition-colors">Terms</Link>
           <Link href="/privacy" className="hover:text-bone-dim transition-colors">Privacy</Link>
           <a href="https://github.com/0xHoneyJar/loa-constructs" target="_blank" rel="noopener noreferrer" className="hover:text-bone-dim transition-colors">GitHub</a>

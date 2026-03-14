@@ -92,7 +92,8 @@ export default async function ConstructDetailPage({
         {construct.logoKnockout || construct.logoWordmark ? (
           <div className="flex items-center gap-4 flex-wrap">
             <div
-              className="text-bone-bright [&_svg]:h-16 sm:[&_svg]:h-24 [&_svg]:w-auto"
+              className="text-bone-bright [&_svg]:h-16 sm:[&_svg]:h-24 [&_svg]:w-auto [&_svg]:max-w-full"
+              style={{ color: 'var(--color-bone-bright, #F5F0E8)' }}
               dangerouslySetInnerHTML={{ __html: construct.logoKnockout || construct.logoWordmark! }}
             />
             {verificationBadge}
@@ -131,7 +132,7 @@ export default async function ConstructDetailPage({
         {/* Showcases — real products that shipped with this construct. Visual proof before metadata. */}
         {construct.showcases.length > 0 && (
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {construct.showcases.map((showcase) => {
+            {construct.showcases.filter((s) => !s.url.includes('rektdrop')).map((showcase) => {
               const imageSlug = showcaseImageSlug(showcase.url);
               return (
                 <a

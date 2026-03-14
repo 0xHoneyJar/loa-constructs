@@ -10,8 +10,8 @@ export default function SiteLayout({
 }) {
   return (
     <div data-context="site" className="flex min-h-screen flex-col relative">
-      {/* Desktop: Loa sigil — CRT burn-in at z-20 (TDR-006, TDR-010) */}
-      <div className="hidden lg:block fixed inset-0 opacity-[0.6]" aria-hidden="true">
+      {/* Desktop: void + horse. nothing else. */}
+      <div className="hidden lg:block fixed inset-0" aria-hidden="true">
         <SigilBackground />
       </div>
       <Header />

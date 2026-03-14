@@ -1,16 +1,40 @@
 'use client';
 
-import { Suspense } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Suspense, useEffect, useRef } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { SigilParticles } from './sigil-particles';
+import { AmbientDust } from './ambient-dust';
 
 /**
- * CRT Burn-In Sigil Scene (TDR-006)
+ * Sigil Scene — Horse mark embedded in the wall.
  *
- * Native resolution — the pixel aesthetic comes from the particles
- * themselves being hard 2px squares on a grid, not from canvas
- * downsampling. antialias: false keeps edges sharp.
+ * The mark is architectural, not decorative. It exists on the same surface
+ * as the content — scroll parallax proves they share a space.
+ * The dust is the air between you and the wall.
  */
+
+/** Subtle scroll parallax — the scene shifts with scroll to feel spatial */
+function ScrollParallax() {
+  const { camera } = useThree();
+  const scrollRef = useRef(0);
+
+  useEffect(() => {
+    const onScroll = () => {
+      scrollRef.current = window.scrollY;
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useFrame(() => {
+    // 3% of scroll applied as vertical camera offset — subtle depth cue
+    const target = scrollRef.current * 0.0003;
+    camera.position.y += (target * -1 - camera.position.y) * 0.1;
+  });
+
+  return null;
+}
+
 export default function SigilScene() {
   return (
     <Canvas
@@ -29,7 +53,9 @@ export default function SigilScene() {
       }}
     >
       <Suspense fallback={null}>
-        <SigilParticles scale={0.5} />
+        <ScrollParallax />
+        <AmbientDust />
+        <SigilParticles scale={0.75} />
       </Suspense>
     </Canvas>
   );
