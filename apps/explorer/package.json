@@ -48,7 +48,7 @@
     "react-hook-form": "^7.69.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "three": "^0.170.0",
+    "three": "^0.183.2",
     "viem": "^2.47.1",
     "wagmi": "^2.19.5",
     "zod": "^3.23.0",
