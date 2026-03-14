@@ -60,7 +60,7 @@ export default function ConstructMetricsPage() {
                     Name
                   </th>
                   <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
-                    Type
+                    Domain
                   </th>
                   <th className="px-4 py-2 text-right font-mono text-[9px] text-bone-muted uppercase tracking-widest">
                     Skills
@@ -108,7 +108,7 @@ export default function ConstructMetricsPage() {
                     Name
                   </th>
                   <th className="px-4 py-2 text-left font-mono text-[9px] text-bone-muted uppercase tracking-widest">
-                    Type
+                    Domain
                   </th>
                   <th className="px-4 py-2 text-right font-mono text-[9px] text-bone-muted uppercase tracking-widest">
                     Skills
@@ -134,7 +134,7 @@ export default function ConstructMetricsPage() {
                     </td>
                     <td className="px-4 py-2.5">
                       <span className="inline-block font-mono text-[9px] text-bone-muted border border-void-border px-1.5 py-0.5 uppercase">
-                        {c.constructType || 'pack'}
+                        {c.category || 'uncategorized'}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono text-[11px] text-bone-dim">

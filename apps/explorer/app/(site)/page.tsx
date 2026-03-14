@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { fetchAllConstructs, searchConstructs } from '@/lib/data/fetch-constructs';
 import { AuthAwareConstructList } from '@/components/constructs/auth-aware-construct-list';
-import { SearchTrigger } from '@/components/layout/search-trigger';
+
 import { RotatingInstall } from '@/components/ui/rotating-install';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
@@ -43,21 +43,7 @@ export default async function HomePage({
     <div>
       {/* Hero — left-aligned, compact, horse watermark */}
       <section className="relative px-4 pt-16 pb-10 sm:pt-20 sm:pb-12 overflow-hidden">
-        {/* Horse watermark — fixed to left side of viewport */}
-        <div
-          className="fixed left-0 top-1/3 -translate-y-1/2 -translate-x-1/2 sm:-translate-x-1/3 pointer-events-none select-none w-48 sm:w-64 lg:w-80 z-0"
-          aria-hidden="true"
-          style={{
-            maskImage: 'url(/horse-mark.svg)',
-            WebkitMaskImage: 'url(/horse-mark.svg)',
-            maskSize: 'contain',
-            WebkitMaskSize: 'contain',
-            maskRepeat: 'no-repeat',
-            WebkitMaskRepeat: 'no-repeat',
-            aspectRatio: '319 / 250',
-            backgroundColor: 'oklch(0.18 0.003 80)',
-          }}
-        />
+        {/* Sigil particle background is rendered by the (site) layout */}
 
         <div className="relative mx-auto max-w-5xl">
           <div>
@@ -84,11 +70,6 @@ export default async function HomePage({
       {/* Catalog */}
       <section className="px-4 pb-16">
         <div className="mx-auto max-w-5xl">
-          {/* Search bar */}
-          <div className="mb-4">
-            <SearchTrigger />
-          </div>
-
           {/* Auth-aware construct list */}
           <AuthAwareConstructList publicConstructs={constructs}>
             <div className="mt-6">
@@ -120,23 +101,18 @@ export default async function HomePage({
                         key={construct.id}
                         className="border-void-border hover:bg-void-raised group relative cursor-pointer"
                       >
-                        <TableCell className="py-3 sm:py-5 text-xl sm:text-2xl text-center align-middle">
+                        <TableCell className="py-5 sm:py-8 text-xl sm:text-2xl text-center align-middle">
                           {construct.icon || ''}
                         </TableCell>
-                        <TableCell className="py-3 sm:py-5">
+                        <TableCell className="py-5 sm:py-8">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
                               <Link
                                 href={`/constructs/${construct.slug}`}
-                                className="font-mono text-base sm:text-xl font-bold text-bone-base group-hover:text-bone-bright transition-colors after:absolute after:inset-0"
+                                className="font-display text-base sm:text-xl uppercase tracking-display text-bone-base group-hover:text-bone-bright transition-colors after:absolute after:inset-0"
                               >
                                 {construct.name}
                               </Link>
-                              {construct.constructType !== 'skill-pack' && (
-                                <Badge variant="cyan" className="relative z-10 hidden sm:inline-flex">
-                                  {construct.constructType.replace(/-/g, ' ')}
-                                </Badge>
-                              )}
                               {construct.visibility === 'internal' && (
                                 <Badge variant="internal" className="relative z-10 hidden sm:inline-flex">
                                   internal
@@ -158,10 +134,10 @@ export default async function HomePage({
                             </p>
                           </div>
                         </TableCell>
-                        <TableCell className="py-3 sm:py-5 text-right font-mono text-base text-bone-dim hidden sm:table-cell align-middle">
+                        <TableCell className="py-5 sm:py-8 text-right font-mono text-base text-bone-dim hidden sm:table-cell align-middle">
                           {construct.skillsCount}
                         </TableCell>
-                        <TableCell className="py-3 sm:py-5 text-right font-mono text-sm sm:text-lg text-bone-base align-middle">
+                        <TableCell className="py-5 sm:py-8 text-right font-mono text-sm sm:text-lg text-bone-base align-middle">
                           {formatInstalls(construct.downloads)}
                         </TableCell>
                       </TableRow>

@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { BackButton } from '@/components/layout/back-button';
 
 export const metadata: Metadata = {
   title: 'About | Constructs Network',
@@ -9,101 +8,78 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      {/* Back navigation */}
-      <div className="mb-8">
-        <BackButton />
-      </div>
-
-      {/* Content */}
-      <div className="space-y-12">
-        {/* What are Constructs */}
-        <section className="space-y-4">
-          <h1 className="font-mono text-lg font-semibold uppercase tracking-wider text-bone-base">
-            What are Constructs?
+    <div className="mx-auto max-w-2xl px-4 py-16 sm:py-24">
+      <div className="space-y-24">
+        {/* What it looks like to use one */}
+        <section>
+          <h1 className="font-display text-4xl sm:text-5xl uppercase tracking-display text-bone-bright leading-[0.95]">
+            Constructs
           </h1>
-
-          <div className="space-y-4 text-lg leading-relaxed text-bone-dim">
+          <p className="mt-8 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
+            Named expertise you install into your AI coding agent.
+          </p>
+          <div className="mt-10 border border-void-border bg-void-raised px-5 py-5 space-y-4 font-mono text-sm sm:text-base">
             <p>
-              A construct is a named unit of expertise — identity, skills, and
-              boundaries — that you install into your AI coding agent.
+              <span className="text-bone-ghost">$ </span>
+              <span className="text-cyan-base">npx constructs install observer</span>
             </p>
-
-            <p>
-              Your agent doesn&apos;t just get new capabilities. It gets a new
-              way of seeing problems.
+            <p className="text-bone-muted">
+              Installed Observer — 24 skills, 6 commands
             </p>
-
             <p>
-              Ask a generic agent for help with design. You get generic output.
-              Install a Craftsman construct — depth-5 design systems — and it
-              decomposes your request into feel, motion, and material.
-              Same agent. Different expertise installed.
+              <span className="text-bone-ghost">$ </span>
+              <span className="text-bone-base">/observe</span>
             </p>
-          </div>
-        </section>
-
-        {/* Divider */}
-        <div className="border-t border-void-border" />
-
-        {/* How They Compose */}
-        <section className="space-y-4">
-          <h2 className="font-mono text-lg font-semibold uppercase tracking-wider text-bone-base">
-            Composition
-          </h2>
-
-          <div className="space-y-4 text-lg leading-relaxed text-bone-dim">
-            <p>Constructs aren&apos;t solo. They compose.</p>
-
-            <p>
-              Observer captures user feedback. Artisan turns it into design
-              tokens. Protocol audits the contracts. Bridgebuilder reviews
-              the code. Each one does its part.
-            </p>
-
-            <p>
-              The graph shows these relationships. Constructs that work
-              together appear connected.
+            <p className="text-bone-muted">
+              Capturing user feedback as hypothesis-first research...
             </p>
           </div>
         </section>
 
-        {/* Divider */}
-        <div className="border-t border-void-border" />
-
-        {/* Create */}
-        <section className="space-y-4">
-          <h2 className="font-mono text-lg font-semibold uppercase tracking-wider text-bone-base">
-            Create Your Own
+        {/* How they compose — grounded in what actually exists */}
+        <section>
+          <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-display text-bone-bright leading-[0.95]">
+            Compose
           </h2>
+          <p className="mt-8 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
+            Each construct declares what it works with.
+            Install several — they share context through
+            your project. Your creativity determines
+            how they connect.
+          </p>
+        </section>
 
-          <div className="space-y-4 text-lg leading-relaxed text-bone-dim">
-            <p>
-              Edit three files. Push. CI validates automatically.
-            </p>
-
-            <p>
-              Your methodology becomes installable. Others
-              benefit from your expertise without you being in the room.
-            </p>
+        {/* How to create — name the files, close the gap */}
+        <section>
+          <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-display text-bone-bright leading-[0.95]">
+            Create
+          </h2>
+          <p className="mt-8 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
+            A construct is a repo with three files.
+          </p>
+          <div className="mt-10 border border-void-border bg-void-raised px-5 py-5 space-y-3 font-mono text-sm sm:text-base">
+            <p className="text-bone-base">construct.yaml</p>
+            <p className="text-bone-muted pl-4">name, domain, what it composes with</p>
+            <p className="text-bone-base mt-2">skills/your-skill/SKILL.md</p>
+            <p className="text-bone-muted pl-4">what it knows, how it works</p>
+            <p className="text-bone-base mt-2">identity/persona.yaml</p>
+            <p className="text-bone-muted pl-4">voice, cognitive frame, expertise</p>
           </div>
-
-          <div className="border border-void-border bg-void-raised/50 p-4">
-            <code className="font-mono text-lg text-bone-base">
+          <div className="mt-6 border border-void-border bg-void-raised px-5 py-4">
+            <code className="font-mono text-sm sm:text-base text-bone-base">
               gh repo create my-org/construct-my-expertise \<br />
               {'  '}--template 0xHoneyJar/construct-base --private --clone
             </code>
           </div>
         </section>
 
-        {/* Back link */}
-        <div className="pt-4">
+        {/* Path into the network */}
+        <div>
           <Link
-            href="/"
-            className="inline-flex items-center gap-2 font-mono text-base uppercase tracking-wider text-cyan-dim hover:text-bone-bright transition-colors"
+            href="/constructs"
+            className="font-display text-xl uppercase tracking-display text-cyan-dim hover:text-bone-bright transition-colors"
           >
-            <span>→</span>
-            <span>Explore the Network</span>
+            Browse the catalog &rarr;
           </Link>
         </div>
       </div>
