@@ -77,7 +77,7 @@ export default async function AboutPage() {
                   },
                   {
                     type: 'output',
-                    text: 'Deployed K-Hole — 5 skills, 5 commands',
+                    text: 'Installed K-Hole — 5 skills, 5 commands',
                   },
                   {
                     type: 'command',
