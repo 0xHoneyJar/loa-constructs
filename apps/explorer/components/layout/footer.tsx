@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
 
 const API_BASE =
@@ -99,6 +100,11 @@ export function Footer() {
           aria-label="Loa"
         />
         <FooterStats />
+        <div className="flex items-center gap-4 font-mono text-xs text-bone-ghost">
+          <Link href="/terms" className="hover:text-bone-dim transition-colors">Terms</Link>
+          <Link href="/privacy" className="hover:text-bone-dim transition-colors">Privacy</Link>
+          <a href="https://github.com/0xHoneyJar/loa-constructs" target="_blank" rel="noopener noreferrer" className="hover:text-bone-dim transition-colors">GitHub</a>
+        </div>
       </div>
     </footer>
   );
