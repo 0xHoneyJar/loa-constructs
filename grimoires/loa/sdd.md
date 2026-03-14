@@ -1,216 +1,425 @@
-# SDD: Ruggy Structural Alignment
+# SDD: Construct Composability Infrastructure — Grimoire Paths, Governance, Implicit Composition
 
-**Cycle**: cycle-047
-**PRD**: grimoires/loa/prd.md
+**Cycle**: cycle-051
 **Created**: 2026-03-13
-**Status**: Draft
+**PRD**: `grimoires/loa/prd.md`
+**Diagnostic**: `grimoires/loa/context/construct-composability-diagnostic.md`
 
 ---
 
-## 1. Architecture Overview
+## 1. Executive Summary
 
-No new systems or services. All changes are within the existing Convex signal pipeline (`apps/explorer/convex/`) and the explorer Next.js app. The architecture remains:
+Make grimoire-path composition visible in the API and explorer. Add a governance primitive for cross-cutting constructs (vocabulary-bank, artisan/taste). No new runtime infrastructure — no event bus, no message broker, no pubsub.
 
-```
-Product repos → POST /api/signals (Vercel) → Convex ingest → Haiku classify → sovereignty gate → Linear/Discord
-```
+**What changes**: Zod schema gains `paths.writes`, `paths.reads`, `governs`, `governed_by` fields. Seed script extracts these from construct.yaml manifests and stores them in the existing `pack_versions.manifest` JSONB column. API enrichment computes "connected via" overlapping paths across all constructs. Explorer gains a "Connected via" panel on detail pages and governance edges in the graph.
 
-This cycle addresses structural debt: documentation accuracy, dashboard visibility, and reliability gaps in error handling and failure recovery paths.
+**What does not change**: No new database columns. No new tables. No schema migrations. All new fields live inside the existing manifest JSONB. The grimoire filesystem remains the composition medium.
 
 ---
 
-## 2. Phase 1: Documentation & Visibility
+## 2. System Architecture
 
-### 2.1 Dashboard QuickLink
+### Data Flow: construct.yaml to Explorer
 
-**File**: `apps/explorer/app/(dashboard)/dashboard/page.tsx`
-
-Add `Signals` QuickLink inside the existing admin grid (lines 54-59, `isAdmin && (...)` block). Follows the existing `QuickLink` component pattern already used for API Keys, Graph, and Metrics.
-
-```tsx
-// Inside the admin grid, after existing StatCards
-<QuickLink href="/dashboard/signals" label="Signals" />
+```
+construct.yaml          seed-forge-packs.ts       pack_versions.manifest (JSONB)
+┌──────────────┐        ┌──────────────────┐      ┌────────────────────────────┐
+│ paths:       │        │ Zod validation   │      │ { ...,                     │
+│   writes:    │───────►│ packManifestSchema│─────►│   paths: {writes, reads},  │
+│     - grim/… │        │ (passthrough)    │      │   governs: [...],          │
+│   reads:     │        └──────────────────┘      │   governed_by: [...]       │
+│     - grim/… │                                  │ }                          │
+│ governs: []  │                                  └─────────┬──────────────────┘
+│ governed_by: │                                            │
+└──────────────┘                                            ▼
+                                                  API constructs service
+                                                  ┌────────────────────────────┐
+                                                  │ formatConstruct():         │
+                                                  │   manifest.paths → paths   │
+                                                  │   manifest.governs → gov   │
+                                                  │                            │
+                                                  │ computeConnectedVia():     │
+                                                  │   cross-reference all      │
+                                                  │   paths.writes/reads       │
+                                                  │   across constructs        │
+                                                  └─────────┬──────────────────┘
+                                                            │
+                                                            ▼
+                                                  Explorer
+                                                  ┌────────────────────────────┐
+                                                  │ Detail: "Connected via"    │
+                                                  │ Graph: governance edges    │
+                                                  │ Graph: path-based edges    │
+                                                  └────────────────────────────┘
 ```
 
-No new components. No new routes. The `/dashboard/signals` page already exists with 7 components.
+### Key Architectural Decision: JSONB, Not Columns
 
-### 2.2 Rewrite `ruggy-ecosystem-intelligence.md`
-
-**File**: `grimoires/loa/context/ruggy-ecosystem-intelligence.md`
-
-Full rewrite. Current doc claims Dixie fork with Hono/PostgreSQL/Redis/incur/cheval — none built. Replace with:
-- Actual stack: Convex-native pipeline, Claude Haiku 4.5 direct, 6 repos
-- Correct API path: `constructs.network/api/signals` (not `api.constructs.network/v1/signals`)
-- Preserve: metrics table, sovereignty model, identity section, phase 2 roadmap
-- Reference: `ruggy-signal-architecture.md` for Mermaid diagrams (already accurate)
-
-### 2.3 Replace Convex README
-
-**File**: `apps/explorer/convex/README.md`
-
-Replace 91-line generic Convex tutorial with project-specific reference covering:
-- Signal pipeline functions (ingest, classify, escalate, alertDiscord)
-- Cron jobs (8 total: presence cleanup, retry-classification, reconcile-linear, purge-expired, heartbeat, heartbeat-check, recalculate-sovereignty, check-linear-failures)
-- Schema tables (signals, signalKeys, signalRateLimits, sovereigntyState, dashboardPresence)
-- Required env vars (ANTHROPIC_API_KEY, CONVEX_WRITE_KEY, LINEAR_API_KEY, LINEAR_TEAM_PRODUCT, LINEAR_TEAM_INFRASTRUCTURE, DISCORD_SIGNALS_WEBHOOK_URL)
+All composability data lives in `pack_versions.manifest` (JSONB). Rationale:
+- These fields are already part of the manifest schema (Zod passthrough)
+- No queries filter BY paths or governance — they are display-only enrichment
+- Zero migration risk — the JSONB column already exists and stores the full manifest
+- The seed script already stores `fullManifest` including all validated fields
 
 ---
 
-## 3. Phase 2: HIGH Reliability Fixes
+## 3. Component Design
 
-### 3.1 Classification Terminal State (P2-1)
+### 3.1 Zod Schema Extension
 
-**File**: `apps/explorer/convex/signals.ts`
+**File**: `packages/shared/src/validation.ts`
 
-**Current behavior** (lines 322-434): `classify` action already increments `classificationAttempts` and guards at `>= 3`. But signals reaching 3 attempts stay at `status: "new"` forever — the `retryFailedClassifications` cron (lines 953-977) silently excludes them. No terminal status, no alerting, no manual re-queue path.
+The existing `constructPathsSchema` has `state`, `cache`, `output`. These are runtime directory paths (where the construct stores local state). The new `paths.writes` and `paths.reads` are composability paths (grimoire directories the construct produces to / consumes from). These are distinct concerns.
 
-**Change**: After incrementing `classificationAttempts` to 3 in the catch block, also set `status: "classification_failed"`.
+Add a new `compositionPathsSchema` alongside the existing `constructPathsSchema`:
 
 ```typescript
-// In classify action catch block, after incrementing classificationAttempts:
-const newAttempts = (signal.classificationAttempts ?? 0) + 1;
-await ctx.runMutation(internal.signals.patchClassificationAttempt, {
-  signalId: args.signalId,
-  attempts: newAttempts,
-  // NEW: set terminal status when max retries reached
-  ...(newAttempts >= 3 ? { status: 'classification_failed' } : {}),
+/** Grimoire composition paths — what this construct reads from and writes to */
+export const compositionPathsSchema = z.object({
+  writes: z.array(z.string().max(500)).max(50).optional(),
+  reads: z.array(z.string().max(500)).max(50).optional(),
 });
 ```
 
-**Also**: Same treatment for the missing-API-key early return path (currently increments attempts silently).
+Extend `packManifestSchema` with:
 
-**Schema note**: `classificationAttempts` already exists as a required number field. `status` is a plain string — no enum constraint. Adding `"classification_failed"` as a value requires no schema change.
-
-**Affected functions**: `patchClassificationAttempt` mutation needs a `status` parameter (currently only patches `classificationAttempts`).
-
-### 3.2 Escalation Failure Visibility (P2-2)
-
-**File**: `apps/explorer/convex/signals.ts` (lines 1139-1180)
-
-**Current behavior**: `sovereigntyGatedEscalate` schedules `internal.linear.createLinearIssue` via `ctx.scheduler.runAfter(0, ...)`. This is fire-and-forget — if `createLinearIssue` fails, the caller never knows.
-
-**Problem refinement**: The issue isn't in `sovereigntyGatedEscalate` itself (it just schedules) — it's in `createLinearIssue` (linear.ts lines 37-88). On failure, it increments `linearCreationAttempts` but does NOT update the signal's status. The signal may have been set to `escalated` before the Linear call actually succeeded.
-
-**Change in `linear.ts`**: On catch, set `escalationStatus` or equivalent field to indicate failure. Since the schema doesn't have an `escalationStatus` field, use the existing `status` field:
-- On successful Linear issue creation: status stays as-is (set by caller)
-- On failed Linear creation: leave status unchanged (don't mark as escalated). The `checkLinearFailures` cron (every 15m) already detects signals with `linearCreationAttempts > 0` and no `linearIssueId`.
-
-**Actual fix**: In `sovereigntyGatedEscalate`, do NOT update signal status to `escalated` before scheduling `createLinearIssue`. Instead, let `createLinearIssue` update status to `escalated` only on success. Current flow unclear — need to verify whether status is set before or after the schedule call.
-
-### 3.3 Linear Env Var Detection (P2-3)
-
-**File**: `apps/explorer/convex/linear.ts` (line ~45)
-
-**Current behavior**: `if (!apiKey) return;` — silent no-op. All signals that should escalate silently vanish. Same for missing `LINEAR_TEAM_*` env vars.
-
-**Change**:
 ```typescript
-const apiKey = process.env.LINEAR_API_KEY;
-if (!apiKey) {
-  console.error('[linear] LINEAR_API_KEY is not set — cannot create issues. Signal will be retried by check-linear-failures cron.');
-  throw new Error('LINEAR_API_KEY not configured');
+// Composability fields (cycle-051)
+composition_paths: compositionPathsSchema.optional(),
+governs: z.array(slugSchema).max(20).optional(),
+governed_by: z.array(slugSchema).max(20).optional(),
+```
+
+**Note on field naming**: The PRD says `paths.writes` / `paths.reads`. However, the existing `paths` field in the Zod schema (`constructPathsSchema`) serves a different purpose (runtime directories). To avoid collision and ambiguity, the manifest field is `composition_paths` with `writes` and `reads` sub-fields. In construct.yaml files, authors can use the more natural nesting:
+
+```yaml
+# construct.yaml — what authors write
+composition_paths:
+  writes:
+    - grimoires/laboratory/canvases/
+    - grimoires/laboratory/synthesis/
+  reads:
+    - grimoires/laboratory/canvases/
+```
+
+**Type exports** to add:
+
+```typescript
+export type CompositionPaths = z.infer<typeof compositionPathsSchema>;
+```
+
+### 3.2 Seed Script Path Extraction
+
+**File**: `scripts/seed-forge-packs.ts`
+
+The seed script already validates `construct.yaml` through `packManifestSchema` and stores the full validated manifest in `pack_versions.manifest` JSONB. Because the Zod schema uses `.passthrough()` and we are adding `composition_paths`, `governs`, `governed_by` as explicit schema fields, no seed script changes are needed for storage.
+
+The `normalizeForValidation()` function needs one addition — if a construct.yaml uses the shorthand `paths.writes` / `paths.reads` (which collides with the existing `constructPathsSchema`), normalize it to `composition_paths`:
+
+```typescript
+// In normalizeForValidation():
+// paths.writes/reads shorthand → composition_paths
+if (normalized.paths && typeof normalized.paths === 'object') {
+  const p = normalized.paths as Record<string, unknown>;
+  if (Array.isArray(p.writes) || Array.isArray(p.reads)) {
+    // This is a composition paths declaration, not runtime paths
+    normalized.composition_paths = {
+      writes: Array.isArray(p.writes) ? p.writes : undefined,
+      reads: Array.isArray(p.reads) ? p.reads : undefined,
+    };
+    // Preserve runtime paths (state, cache, output) if present
+    const runtimePaths: Record<string, unknown> = {};
+    if (p.state) runtimePaths.state = p.state;
+    if (p.cache) runtimePaths.cache = p.cache;
+    if (p.output) runtimePaths.output = p.output;
+    normalized.paths = Object.keys(runtimePaths).length > 0 ? runtimePaths : undefined;
+  }
 }
 ```
 
-This surfaces in Convex function logs and causes the `checkLinearFailures` cron to detect the signal (it checks `linearCreationAttempts > 0` with no `linearIssueId`). After 3 failures, Discord alert fires.
+**Dry-run enhancement**: The `--dry-run` output should log composition_paths and governance for each construct:
 
-**Same treatment for `LINEAR_TEAM_PRODUCT` / `LINEAR_TEAM_INFRASTRUCTURE`** — throw with descriptive error instead of silent return.
-
-### 3.4 Override Query Index (P2-4)
-
-**File**: `apps/explorer/convex/signals.ts` (recalculateSovereignty function) + `apps/explorer/convex/schema.ts`
-
-**Current behavior**: Sovereignty recalculation needs override rate data. The sovereignty state table has index `by_scope ([scope])` which is used for lookups. The override rate calculation reads from signals directly using `by_app` index (which already exists as `[appSlug, timestamp]`).
-
-**Assessment**: The `by_app` index on signals table already covers `[appSlug, timestamp]` — this is exactly what override rate calculation needs. If `recalculateSovereignty` is not using this index (doing a filter instead of `.withIndex()`), update the query to use it. If it already uses the index, this finding is resolved.
-
-**Action**: Verify the actual query in `recalculateSovereignty` and ensure it uses `.withIndex("by_app")` with appropriate range bounds rather than collecting and filtering in-memory.
-
----
-
-## 4. Phase 3: MEDIUM/LOW Consolidation
-
-### 4.1 Extract Auth Helper (P3-1)
-
-**Files**: `apps/explorer/app/api/signals/route.ts` → new `apps/explorer/lib/signals/auth.ts`
-
-Extract the in-memory key cache (SHA256, 60s TTL, 5K max) and validation logic into a shared module. The route handler currently inlines ~40 lines of cache management.
-
-### 4.2 Shared Validator (P3-2)
-
-**Files**: `apps/explorer/lib/signals/validation.ts`, `apps/explorer/convex/signals.ts`
-
-Signal schema is defined twice: Zod in the route handler (validation.ts) and Convex validators in signals.ts. For cycle-047, document the discrepancy rather than extract — the Convex validator is authoritative at storage time, and Zod catches malformed input at the edge. Dual validation is defense-in-depth, not a bug.
-
-**Downgrade to documentation task**: Add a comment in both files cross-referencing each other.
-
-### 4.3 Circuit Breaker Persistence (P3-3)
-
-**File**: `apps/explorer/convex/schema.ts`
-
-Currently piggybacked onto `sovereigntyState.manualOverride` (when `setBy === 'circuit_breaker'`) and failure counts encoded as parseable strings in `lastTransition.trigger`. This works but is fragile.
-
-**Change**: Add dedicated fields to `sovereigntyState`:
-```typescript
-circuitBreakerTripped: v.optional(v.boolean()),
-circuitBreakerTrippedAt: v.optional(v.string()),
-consecutiveFailures: v.optional(v.number()),
+```
+  ✓ VALID  observer (v3.2.0) — 29 skills, 45 manifest fields
+          → composition_paths: writes=3, reads=1
+          → governs: []  governed_by: [vocabulary-bank]
 ```
 
-Update `isCircuitBroken` and `tripCircuitBreaker` functions to use typed fields instead of string parsing.
+### 3.3 API Enrichment — Paths and Governance in Response
 
-### 4.4 Heartbeat Cron Offset (P3-4)
+**File**: `apps/api/src/routes/constructs.ts`
 
-**File**: `apps/explorer/convex/crons.ts`
+The `formatConstruct()` and `formatConstructDetail()` functions read from `c.manifest` which is the full JSONB manifest. The manifest already contains `composition_paths`, `governs`, `governed_by` after seed — they just need to be surfaced explicitly.
 
-Both `signals/heartbeat` and `signals/heartbeat-check` run at 1-hour intervals. Convex crons don't support offset configuration, but we can change `heartbeat-check` to run every 90 minutes instead of 60, creating natural drift that prevents same-tick collision. Alternatively, change `heartbeat-check` to 2 hours (less frequent but guaranteed separation).
+Update `formatConstructDetail()`:
 
-### 4.5 statusCounts Safety Bound (P3-5)
+```typescript
+function formatConstructDetail(c: Construct) {
+  const manifest = c.manifest as Record<string, unknown> | null;
+  return {
+    ...formatConstruct(c),
+    // ... existing fields ...
+    // Composability (cycle-051)
+    composition_paths: manifest?.composition_paths ?? null,
+    governs: manifest?.governs ?? null,
+    governed_by: manifest?.governed_by ?? null,
+  };
+}
+```
 
-**File**: `apps/explorer/convex/signals.ts` (lines 197-239)
+For the list endpoint (`formatConstruct`), add composition_paths to enable graph edge computation on the frontend without requiring N detail fetches:
 
-Currently does `.collect()` on `by_status` index for `new`, `triaged`, `escalated` — no limit. Add `.take(10000)` as safety bound. Also fix the dead `resolved`/`dismissed` counts (initialized but never populated from DB queries).
+```typescript
+function formatConstruct(c: Construct) {
+  const manifest = c.manifest as Record<string, unknown> | null;
+  return {
+    // ... existing fields ...
+    // Composability summary (cycle-051) — needed for graph edge computation
+    composition_paths: manifest?.composition_paths ?? null,
+    governs: manifest?.governs ?? null,
+    governed_by: manifest?.governed_by ?? null,
+  };
+}
+```
 
-### 4.6 Sovereignty Initialization Upsert (P3-6)
+### 3.4 Compute "Connected Via" from Overlapping Paths
 
-**File**: `apps/explorer/convex/signals.ts`
+**File**: `apps/explorer/lib/data/fetch-constructs.ts`
 
-First signal from a new app triggers sovereignty tier creation. Convex mutations are serialized per document, but two signals from a new app could each check "does tier exist?" before either creates one, resulting in duplicates. Use Convex's `db.query().withIndex("by_scope").unique()` + conditional insert pattern (idempotent upsert).
+Add a function that computes implicit composition edges by cross-referencing `composition_paths.writes` and `composition_paths.reads` across all constructs. This runs client-side in the explorer's data layer (not on the API) because it requires all constructs in memory — which the graph page already fetches.
+
+```typescript
+interface PathConnection {
+  sourceSlug: string;      // The writer
+  targetSlug: string;      // The reader
+  sharedPath: string;      // The grimoire path they share
+}
+
+function computePathConnections(constructs: APIConstruct[]): PathConnection[] {
+  const connections: PathConnection[] = [];
+
+  // Build writer index: path → [slugs that write to it]
+  const writerIndex = new Map<string, string[]>();
+  for (const c of constructs) {
+    const writes = c.manifest?.composition_paths?.writes;
+    if (!Array.isArray(writes)) continue;
+    for (const path of writes) {
+      if (!writerIndex.has(path)) writerIndex.set(path, []);
+      writerIndex.get(path)!.push(c.slug);
+    }
+  }
+
+  // For each reader, find matching writers
+  for (const c of constructs) {
+    const reads = c.manifest?.composition_paths?.reads;
+    if (!Array.isArray(reads)) continue;
+    for (const path of reads) {
+      const writers = writerIndex.get(path) || [];
+      for (const writerSlug of writers) {
+        if (writerSlug === c.slug) continue; // Skip self
+        connections.push({
+          sourceSlug: writerSlug,
+          targetSlug: c.slug,
+          sharedPath: path,
+        });
+      }
+    }
+  }
+
+  return connections;
+}
+```
+
+Integrate into `computeEdges()` to add `'connected_via'` edges alongside existing `'depends_on'` and `'composes_with'` edges.
+
+### 3.5 Composition Validation (Advisory)
+
+**File**: `scripts/validate-composition.ts` (new)
+
+A standalone validation script (not part of seed) that checks:
+
+1. **Ghost wires**: `composition_paths.reads` paths with no matching writer across the network
+2. **Orphan outputs**: `composition_paths.writes` paths with no matching reader
+3. **Governance consistency**: If A declares `governs: [B]`, then B should declare `governed_by: [A]`
+4. **Placeholder cleanup**: Any remaining `consumes: ['?']` entries
+
+Output format:
+
+```
+Composition Validation Report
+═══════════════════════════════
+
+Ghost Wires (reader with no writer):
+  ⚠ crucible reads grimoires/laboratory/canvases/ — no known writer
+
+Orphan Outputs (writer with no reader):
+  ℹ herald writes grimoires/comms/releases/ — no known reader
+
+Governance Mismatches:
+  ⚠ vocabulary-bank governs [artisan] but artisan does not declare governed_by: [vocabulary-bank]
+
+Placeholder Consumers:
+  ✗ hardening has consumes: ['?'] — replace with real events or remove
+
+Summary: 2 warnings, 1 info, 1 error
+```
+
+This script reads from the cloned repos in `.cache/construct-repos/` (same as seed). It is advisory — warnings do not block seed or publish.
+
+### 3.6 Explorer "Connected Via" Panel on Detail Page
+
+**File**: `apps/explorer/app/(marketing)/constructs/[slug]/page.tsx`
+
+Add a "Connected via" section in Tier 2 (The Scan), between "Composes with" and "Commands". This section shows grimoire paths this construct shares with others and governance relationships.
+
+**Data requirements**: The detail page already fetches the full construct via `fetchConstruct(slug)`. The new fields (`composition_paths`, `governs`, `governed_by`) come from the API detail response. To show "connected via" labels (which constructs share a path), the detail page also needs the graph data — or a lightweight API endpoint.
+
+**Approach**: Use the existing graph data fetcher (`fetchGraphData()`) on the detail page to get all constructs' `composition_paths`, then compute connections client-side. Cache the graph data (already has `revalidate = 3600`).
+
+**UI structure**:
+
+```
+┌─────────────────────────────────────────────────┐
+│ Connected via                                    │
+│                                                  │
+│ grimoires/laboratory/canvases/                   │
+│   ← reads from: observer                        │
+│   → writes to: (this construct)                  │
+│                                                  │
+│ Governs                                          │
+│   vocabulary-bank → constrains this construct    │
+│                                                  │
+│ Governed by                                      │
+│   this construct → constrains artisan, the-easel │
+└─────────────────────────────────────────────────┘
+```
+
+**Types update** in `apps/explorer/lib/types/graph.ts`:
+
+```typescript
+export type EdgeRelationship = 'contains' | 'depends_on' | 'composes_with' | 'connected_via' | 'governs';
+```
+
+Add to `ConstructDetail`:
+
+```typescript
+export interface ConstructDetail extends ConstructNode {
+  // ... existing fields ...
+  // Composability (cycle-051)
+  compositionPaths: { writes?: string[]; reads?: string[] } | null;
+  governs: string[];
+  governedBy: string[];
+  connectedVia: Array<{ slug: string; path: string; direction: 'reads' | 'writes' }>;
+}
+```
+
+### 3.7 Governance Edges in Graph Visualization
+
+**File**: `apps/explorer/components/graph/network-graph.tsx`
+
+Add governance edges as visually distinct lines in the 3D graph.
+
+**Edge styling**:
+
+| Edge Type | Color | Style | Opacity |
+|-----------|-------|-------|---------|
+| `depends_on` | `#4ecdc4` (cyan) | Solid | 0.6 |
+| `composes_with` | `#a8e6cf` (green) | Solid | 0.4 |
+| `connected_via` | `#ffd93d` (amber) | Dashed | 0.3 |
+| `governs` | `#ff6b6b` (coral) | Dashed | 0.5 |
+
+Governance edges are directional — from the governing construct to the governed construct. The `computeEdges()` function in `fetch-constructs.ts` adds them:
+
+```typescript
+// Extract governs relationships
+const governs = construct.manifest?.governs;
+if (Array.isArray(governs)) {
+  for (const governedSlug of governs) {
+    const targetId = slugToId.get(governedSlug);
+    if (targetId && targetId !== sourceId) {
+      edges.push({
+        id: `${sourceId}-gov-${targetId}`,
+        source: sourceId,
+        target: targetId,
+        relationship: 'governs',
+      });
+    }
+  }
+}
+```
+
+Path-based edges (`connected_via`) are computed by the `computePathConnections()` function from 3.4.
 
 ---
 
-## 5. Testing Strategy
+## 4. Data Architecture
 
-| Change | Test Method |
-|--------|-------------|
-| Dashboard QuickLink | Visual — navigate to `/dashboard` as admin |
-| Documentation rewrites | Manual read — no Dixie references, correct API paths |
-| Classification terminal state | Send signal with invalid data that fails classification 3 times → verify `status: "classification_failed"` in Convex DB |
-| Escalation failure visibility | Temporarily remove `LINEAR_API_KEY` → send HIGH signal → verify `linearCreationAttempts` increments, `checkLinearFailures` fires Discord alert |
-| Linear env var detection | Remove env var → send signal → verify error in Convex function logs |
-| Override query index | Check `recalculateSovereignty` uses `.withIndex()` in code review |
-| Circuit breaker fields | Trigger circuit breaker → verify typed fields populated (not string-encoded) |
-| Heartbeat offset | Check crons.ts shows different intervals |
-| statusCounts bound | Code review — `.take(10000)` present |
-| Sovereignty upsert | Send 2 signals from new appSlug simultaneously → verify single sovereignty row |
+### No Schema Changes
 
-## 6. Deployment
+All composability data is stored in the existing `pack_versions.manifest` JSONB column. The seed script already stores the full validated manifest. Adding `composition_paths`, `governs`, `governed_by` to the Zod schema means they get validated and included in the JSONB automatically.
 
-1. **Phase 1** (docs + dashboard): Commit to main → auto-deploy on Vercel. No Convex changes.
-2. **Phase 2** (reliability fixes): Commit to main → auto-deploy on Vercel. Push Convex functions: `CONVEX_DEPLOYMENT=prod:quaint-anaconda-866 npx convex deploy`. No schema migration needed (no new fields in Phase 2).
-3. **Phase 3** (consolidation): Same as Phase 2, but schema change needed for circuit breaker fields. Run `npx convex deploy` — Convex handles additive optional fields automatically.
+### Manifest JSONB Shape (after cycle-051)
+
+```jsonc
+{
+  // Existing fields (unchanged)
+  "name": "observer",
+  "slug": "observer",
+  "version": "3.2.0",
+  "composes_with": ["artisan", "crucible"],
+  // ...
+
+  // New fields (cycle-051)
+  "composition_paths": {
+    "writes": [
+      "grimoires/laboratory/canvases/",
+      "grimoires/laboratory/synthesis/"
+    ],
+    "reads": [
+      "grimoires/laboratory/journeys/"
+    ]
+  },
+  "governs": [],
+  "governed_by": ["vocabulary-bank"]
+}
+```
+
+### Backwards Compatibility
+
+- All new fields are optional in the Zod schema
+- The schema uses `.passthrough()` — existing manifests with unknown fields are unaffected
+- API responses include new fields as `null` when absent — existing frontend code ignores unknown keys
+- Explorer components conditionally render based on field presence
 
 ---
 
-## 7. Files Modified
+## 5. Sprint Mapping
 
-| File | Phase | Changes |
-|------|-------|---------|
-| `apps/explorer/app/(dashboard)/dashboard/page.tsx` | 1 | Add QuickLink |
-| `grimoires/loa/context/ruggy-ecosystem-intelligence.md` | 1 | Full rewrite |
-| `apps/explorer/convex/README.md` | 1 | Full rewrite |
-| `apps/explorer/convex/signals.ts` | 2, 3 | Terminal status, statusCounts bound, sovereignty upsert |
-| `apps/explorer/convex/linear.ts` | 2 | Throw on missing env vars |
-| `apps/explorer/convex/schema.ts` | 3 | Circuit breaker typed fields |
-| `apps/explorer/convex/crons.ts` | 3 | Heartbeat interval change |
-| `apps/explorer/lib/signals/auth.ts` | 3 | New: extracted auth helper |
+### Sprint 1: Schema + API + Audit (The Data Foundation)
+
+**Goal**: Every construct has declared composition_paths and governance. The API surfaces them.
+
+| Task | Component | Deliverable |
+|------|-----------|-------------|
+| T1.1 | Zod schema | Add `compositionPathsSchema`, `governs`, `governed_by` to `packManifestSchema` |
+| T1.2 | Seed normalization | Add `paths.writes/reads` → `composition_paths` normalization in `normalizeForValidation()` |
+| T1.3 | API formatters | Surface `composition_paths`, `governs`, `governed_by` in `formatConstruct()` and `formatConstructDetail()` |
+| T1.4 | Explorer types | Add `connected_via` and `governs` to `EdgeRelationship`, extend `ConstructDetail` and `APIConstruct` |
+| T1.5 | Construct audit | Audit all 23 constructs' SKILL.md for actual grimoire reads/writes, populate construct.yaml |
+| T1.6 | Governance audit | Identify and declare governance relationships (vocabulary-bank, artisan/taste, surveying-patterns) |
+| T1.7 | Placeholder cleanup | Remove all `consumes: ['?']` placeholders from construct repos |
+| T1.8 | Seed + verify | Run seed against production, verify JSONB contains composition data |
+
+### Sprint 2: Validation + Explorer (The Visible Payoff)
+
+**Goal**: Users see composition in the explorer. Authors get validation feedback.
+
+| Task | Component | Deliverable |
+|------|-----------|-------------|
+| T2.1 | Validation script | `scripts/validate-composition.ts` — ghost wires, orphan outputs, governance mismatches |
+| T2.2 | Path connections | `computePathConnections()` in explorer data layer |
+| T2.3 | Detail panel | "Connected via" section on construct detail page |
+| T2.4 | Graph edges | `connected_via` and `governs` edges in `computeEdges()` |
+| T2.5 | Graph styling | Dashed lines + distinct colors for new edge types in network-graph |
+| T2.6 | Edge type legend | Add edge type legend to graph UI |
+| T2.7 | Integration test | Verify end-to-end: seed → API → explorer detail → graph edges |

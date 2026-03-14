@@ -373,6 +373,25 @@ function normalizeForValidation(raw: Record<string, unknown>): Record<string, un
     }
   }
 
+  // paths.writes/reads shorthand → composition_paths (cycle-051)
+  // If paths contains writes/reads arrays, extract to composition_paths and preserve runtime paths
+  if (normalized.paths && typeof normalized.paths === 'object' && !Array.isArray(normalized.paths)) {
+    const p = normalized.paths as Record<string, unknown>;
+    if (Array.isArray(p.writes) || Array.isArray(p.reads)) {
+      // This is a composition paths declaration, not (only) runtime paths
+      normalized.composition_paths = {
+        ...(Array.isArray(p.writes) ? { writes: p.writes } : {}),
+        ...(Array.isArray(p.reads) ? { reads: p.reads } : {}),
+      };
+      // Preserve runtime paths (state, cache, output) if present
+      const runtimePaths: Record<string, unknown> = {};
+      if (p.state) runtimePaths.state = p.state;
+      if (p.cache) runtimePaths.cache = p.cache;
+      if (p.output) runtimePaths.output = p.output;
+      normalized.paths = Object.keys(runtimePaths).length > 0 ? runtimePaths : undefined;
+    }
+  }
+
   // runtime_requirements.external_tools: [{name: "foundry", ...}] → ["foundry"]
   if (normalized.runtime_requirements && typeof normalized.runtime_requirements === 'object') {
     const rt = { ...(normalized.runtime_requirements as Record<string, unknown>) };
@@ -607,6 +626,18 @@ async function seedForgePacks() {
         if (pack.fullManifest.workflow) console.log(`          → workflow: depth=${pack.fullManifest.workflow.depth}`);
         if (pack.fullManifest.domain) console.log(`          → domain: ${pack.fullManifest.domain.join(', ')}`);
         if (pack.fullManifest.hooks) console.log(`          → hooks: post_install=${!!pack.fullManifest.hooks.post_install}`);
+        // Composability data (cycle-051)
+        const compPaths = (pack.fullManifest as any)?.composition_paths;
+        if (compPaths) {
+          const writes = Array.isArray(compPaths.writes) ? compPaths.writes.length : 0;
+          const reads = Array.isArray(compPaths.reads) ? compPaths.reads.length : 0;
+          console.log(`          → composition_paths: writes=${writes}, reads=${reads}`);
+        }
+        const governs = (pack.fullManifest as any)?.governs;
+        const governedBy = (pack.fullManifest as any)?.governed_by;
+        if (governs || governedBy) {
+          console.log(`          → governs: [${(governs || []).join(', ')}]  governed_by: [${(governedBy || []).join(', ')}]`);
+        }
         if (pack.identity) {
           const domains = Array.isArray((pack.identity.expertise as Record<string, unknown>)?.domains)
             ? ((pack.identity.expertise as Record<string, unknown>).domains as Array<{ name: string }>).map(d => d.name)

@@ -1,4 +1,4 @@
-import type { ConstructArchetype, ConstructDetail, ConstructNode, GraduationLevel, GraphData, CategoryStats, Category, Showcase, AccuracyReport } from '@/lib/types/graph';
+import type { ConstructArchetype, ConstructDetail, ConstructNode, GraduationLevel, GraphData, CategoryStats, Category, Showcase, AccuracyReport, EdgeRelationship } from '@/lib/types/graph';
 import { fetchCategories, normalizeCategory } from './fetch-categories';
 import { resolveShortDescription } from '@/lib/utils/resolve-short-description';
 
@@ -43,12 +43,19 @@ interface APIConstruct {
   forked_from?: { slug: string; name: string } | null;
   fork_count?: number;
   skill_prose?: string | null;
+  // Composability fields (cycle-051)
+  composition_paths?: { writes?: string[]; reads?: string[] } | null;
+  governs?: string[] | null;
+  governed_by?: string[] | null;
   manifest?: {
     commands?: Array<{ name: string; description: string; usage?: string }>;
     skills?: Array<{ slug: string; name?: string; path?: string; description?: string } | null>;
     composes_with?: string[];
     dependencies?: string[];
     pack_dependencies?: Record<string, unknown>;
+    composition_paths?: { writes?: string[]; reads?: string[] };
+    governs?: string[];
+    governed_by?: string[];
   };
 }
 
@@ -204,6 +211,11 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
     // Populated by fetchConstruct via parallel API calls
     showcases: [],
     accuracy: null,
+    // Composability (cycle-051)
+    compositionPaths: construct.composition_paths ?? construct.manifest?.composition_paths ?? null,
+    governs: construct.governs ?? construct.manifest?.governs ?? [],
+    governedBy: construct.governed_by ?? construct.manifest?.governed_by ?? [],
+    connectedVia: [], // Populated by computePathConnections
   };
 }
 
@@ -279,14 +291,29 @@ export async function fetchConstruct(slug: string): Promise<ConstructDetail | nu
     const construct: APIConstruct = json.data || json;
     const detail = transformToDetail(construct);
 
-    // Fetch showcases and accuracy in parallel (non-blocking — failures return defaults)
-    const [showcases, accuracy] = await Promise.all([
+    // Fetch showcases, accuracy, and all constructs for path connections in parallel
+    const [showcases, accuracy, { raw: allConstructs }] = await Promise.all([
       fetchShowcases(slug),
       fetchAccuracy(slug),
+      fetchAllRaw(),
     ]);
 
     detail.showcases = showcases;
     detail.accuracy = accuracy;
+
+    // Compute connectedVia from path connections (cycle-051)
+    const pathConnections = computePathConnections(allConstructs);
+    const connectedVia: Array<{ slug: string; path: string; direction: 'reads' | 'writes' }> = [];
+    for (const conn of pathConnections) {
+      if (conn.sourceSlug === slug) {
+        // This construct writes, the target reads
+        connectedVia.push({ slug: conn.targetSlug, path: conn.sharedPath, direction: 'writes' });
+      } else if (conn.targetSlug === slug) {
+        // This construct reads from the source
+        connectedVia.push({ slug: conn.sourceSlug, path: conn.sharedPath, direction: 'reads' });
+      }
+    }
+    detail.connectedVia = connectedVia;
 
     return detail;
   } catch (error) {
@@ -378,64 +405,145 @@ export async function fetchGraphData(): Promise<{ graphData: GraphData; categori
   };
 }
 
+/** Path connection between two constructs via shared grimoire path */
+interface PathConnection {
+  sourceSlug: string;      // The writer
+  targetSlug: string;      // The reader
+  sharedPath: string;      // The grimoire path they share
+}
+
+/**
+ * Cross-reference composition_paths.writes and reads across all constructs
+ * to find implicit composition edges (cycle-051).
+ */
+export function computePathConnections(constructs: APIConstruct[]): PathConnection[] {
+  const connections: PathConnection[] = [];
+
+  // Build writer index: path -> [slugs that write to it]
+  const writerIndex = new Map<string, string[]>();
+  for (const c of constructs) {
+    const writes = c.composition_paths?.writes ?? c.manifest?.composition_paths?.writes;
+    if (!Array.isArray(writes)) continue;
+    for (const path of writes) {
+      if (!writerIndex.has(path)) writerIndex.set(path, []);
+      writerIndex.get(path)!.push(c.slug);
+    }
+  }
+
+  // For each reader, find matching writers
+  const seen = new Set<string>();
+  for (const c of constructs) {
+    const reads = c.composition_paths?.reads ?? c.manifest?.composition_paths?.reads;
+    if (!Array.isArray(reads)) continue;
+    for (const path of reads) {
+      const writers = writerIndex.get(path) || [];
+      for (const writerSlug of writers) {
+        if (writerSlug === c.slug) continue; // Skip self-references
+        const key = `${writerSlug}>${c.slug}>${path}`;
+        if (seen.has(key)) continue; // Deduplicate
+        seen.add(key);
+        connections.push({
+          sourceSlug: writerSlug,
+          targetSlug: c.slug,
+          sharedPath: path,
+        });
+      }
+    }
+  }
+
+  return connections;
+}
+
 function computeEdges(nodes: ConstructNode[], apiConstructs?: APIConstruct[]) {
-  const edges: Array<{ id: string; source: string; target: string; relationship: 'contains' | 'depends_on' | 'composes_with' }> = [];
+  const edges: Array<{ id: string; source: string; target: string; relationship: EdgeRelationship }> = [];
 
   if (!apiConstructs) return edges;
 
-  // Build slug→id lookup for edge resolution
+  // Build slug->id lookup for edge resolution
   const slugToId = new Map<string, string>();
   for (const node of nodes) {
     slugToId.set(node.slug, node.id);
   }
 
+  // Dedup set to prevent duplicate edges
+  const edgeKeys = new Set<string>();
+
   for (const construct of apiConstructs) {
     const sourceId = slugToId.get(construct.slug);
-    if (!sourceId || !construct.manifest) continue;
+    if (!sourceId) continue;
 
-    // Extract pack_dependencies — handles all manifest variants:
-    // [{slug}], {optional: [{slug}], required: [{slug}]}, or Record<string, unknown>
-    const deps = construct.manifest.pack_dependencies;
-    if (deps) {
-      let depSlugs: string[];
-      if (Array.isArray(deps)) {
-        depSlugs = deps.map((d: { slug?: string }) => d.slug).filter((s): s is string => !!s);
-      } else if (typeof deps === 'object') {
-        const obj = deps as Record<string, unknown>;
-        const required = Array.isArray(obj.required) ? obj.required : [];
-        const optional = Array.isArray(obj.optional) ? obj.optional : [];
-        depSlugs = [...required, ...optional]
-          .map((d: { slug?: string }) => d?.slug)
-          .filter((s): s is string => !!s);
-      } else {
-        depSlugs = [];
+    if (construct.manifest) {
+      // Extract pack_dependencies — handles all manifest variants:
+      // [{slug}], {optional: [{slug}], required: [{slug}]}, or Record<string, unknown>
+      const deps = construct.manifest.pack_dependencies;
+      if (deps) {
+        let depSlugs: string[];
+        if (Array.isArray(deps)) {
+          depSlugs = deps.map((d: { slug?: string }) => d.slug).filter((s): s is string => !!s);
+        } else if (typeof deps === 'object') {
+          const obj = deps as Record<string, unknown>;
+          const required = Array.isArray(obj.required) ? obj.required : [];
+          const optional = Array.isArray(obj.optional) ? obj.optional : [];
+          depSlugs = [...required, ...optional]
+            .map((d: { slug?: string }) => d?.slug)
+            .filter((s): s is string => !!s);
+        } else {
+          depSlugs = [];
+        }
+        for (const depSlug of depSlugs) {
+          const targetId = slugToId.get(depSlug);
+          if (targetId && targetId !== sourceId) {
+            const key = `${sourceId}-dep-${targetId}`;
+            if (!edgeKeys.has(key)) {
+              edgeKeys.add(key);
+              edges.push({ id: key, source: sourceId, target: targetId, relationship: 'depends_on' });
+            }
+          }
+        }
       }
-      for (const depSlug of depSlugs) {
-        const targetId = slugToId.get(depSlug);
-        if (targetId && targetId !== sourceId) {
-          edges.push({
-            id: `${sourceId}-dep-${targetId}`,
-            source: sourceId,
-            target: targetId,
-            relationship: 'depends_on',
-          });
+
+      // Extract composes_with
+      const composes = construct.manifest.composes_with;
+      if (Array.isArray(composes)) {
+        for (const composeSlug of composes) {
+          const targetId = slugToId.get(composeSlug);
+          if (targetId && targetId !== sourceId) {
+            const key = `${sourceId}-comp-${targetId}`;
+            if (!edgeKeys.has(key)) {
+              edgeKeys.add(key);
+              edges.push({ id: key, source: sourceId, target: targetId, relationship: 'composes_with' });
+            }
+          }
         }
       }
     }
 
-    // Extract composes_with
-    const composes = construct.manifest.composes_with;
-    if (Array.isArray(composes)) {
-      for (const composeSlug of composes) {
-        const targetId = slugToId.get(composeSlug);
+    // Governance edges (cycle-051)
+    const governs = construct.governs ?? construct.manifest?.governs;
+    if (Array.isArray(governs)) {
+      for (const governedSlug of governs) {
+        const targetId = slugToId.get(governedSlug);
         if (targetId && targetId !== sourceId) {
-          edges.push({
-            id: `${sourceId}-comp-${targetId}`,
-            source: sourceId,
-            target: targetId,
-            relationship: 'composes_with',
-          });
+          const key = `${sourceId}-gov-${targetId}`;
+          if (!edgeKeys.has(key)) {
+            edgeKeys.add(key);
+            edges.push({ id: key, source: sourceId, target: targetId, relationship: 'governs' });
+          }
         }
+      }
+    }
+  }
+
+  // Path-based edges (cycle-051)
+  const pathConnections = computePathConnections(apiConstructs);
+  for (const conn of pathConnections) {
+    const sourceId = slugToId.get(conn.sourceSlug);
+    const targetId = slugToId.get(conn.targetSlug);
+    if (sourceId && targetId) {
+      const key = `${sourceId}-via-${targetId}`;
+      if (!edgeKeys.has(key)) {
+        edgeKeys.add(key);
+        edges.push({ id: key, source: sourceId, target: targetId, relationship: 'connected_via' });
       }
     }
   }

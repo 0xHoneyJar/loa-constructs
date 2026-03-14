@@ -167,6 +167,73 @@ export default async function ConstructDetailPage({
         {/* Works with panel — composes_with + depended_by (cycle-048) */}
         <WorksWithPanel slug={slug} composesWith={construct.composesWith} />
 
+        {/* Connected via (cycle-051) */}
+        {(construct.connectedVia.length > 0 || construct.governs.length > 0 || construct.governedBy.length > 0) && (
+          <div className="border border-void-border p-4 space-y-3">
+            {construct.connectedVia.length > 0 && (
+              <div>
+                <span className="font-mono text-sm uppercase tracking-whisper text-bone-ghost">
+                  Connected via
+                </span>
+                <div className="mt-2 space-y-1.5">
+                  {construct.connectedVia.map((conn) => (
+                    <div key={`${conn.slug}-${conn.path}`} className="flex items-center gap-2 text-sm font-mono">
+                      <span className={conn.direction === 'reads' ? 'text-cyan-dim' : 'text-[#ffd93d]'}>
+                        {conn.direction === 'reads' ? '\u2190 reads from' : '\u2192 writes to'}
+                      </span>
+                      <Link
+                        href={`/constructs/${conn.slug}`}
+                        className="text-bone-dim hover:text-bone-base transition-colors"
+                      >
+                        {conn.slug}
+                      </Link>
+                      <span className="text-bone-ghost text-xs">{conn.path}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {construct.governs.length > 0 && (
+              <div>
+                <span className="font-mono text-sm uppercase tracking-whisper text-[#ff6b6b]">
+                  Governs
+                </span>
+                <div className="mt-1 flex items-center gap-2 flex-wrap">
+                  {construct.governs.map((gov) => (
+                    <Link
+                      key={gov}
+                      href={`/constructs/${gov}`}
+                      className="border border-[#ff6b6b]/30 px-2 py-0.5 text-sm font-mono text-bone-dim hover:bg-[#ff6b6b]/10 hover:text-bone-base transition-colors"
+                    >
+                      {gov}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {construct.governedBy.length > 0 && (
+              <div>
+                <span className="font-mono text-sm uppercase tracking-whisper text-bone-ghost">
+                  Governed by
+                </span>
+                <div className="mt-1 flex items-center gap-2 flex-wrap">
+                  {construct.governedBy.map((gov) => (
+                    <Link
+                      key={gov}
+                      href={`/constructs/${gov}`}
+                      className="border border-[#ff6b6b]/30 px-2 py-0.5 text-sm font-mono text-bone-dim hover:bg-[#ff6b6b]/10 hover:text-bone-base transition-colors"
+                    >
+                      {gov}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Commands */}
         {construct.commands.length > 0 && (
           <Disclosure title={`Commands (${construct.commands.length})`} defaultOpen>

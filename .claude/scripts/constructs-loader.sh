@@ -98,7 +98,7 @@ discover_skills() {
     fi
 
     # Find all directories that look like skills (have index.yaml or SKILL.md)
-    # Use -L to follow symlinks — installed skills are symlinked from packs
+    # -L follows symlinks so construct packs installed via symlink are discovered
     find -L "$skills_dir" -mindepth 2 -maxdepth 2 -type d 2>/dev/null | while read -r skill_dir; do
         # Check if it looks like a skill directory
         if [[ -f "$skill_dir/index.yaml" ]] || [[ -f "$skill_dir/SKILL.md" ]]; then
@@ -179,7 +179,7 @@ discover_packs() {
     fi
 
     # Find all directories with manifest.json or construct.yaml
-    # Use -L to follow symlinks (e.g. webgl-particles -> cache repo)
+    # -L follows symlinks so construct packs installed via symlink are discovered
     find -L "$packs_dir" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | while read -r pack_dir; do
         if [[ -f "$pack_dir/manifest.json" ]] || [[ -f "$pack_dir/construct.yaml" ]]; then
             basename "$pack_dir"
@@ -1209,46 +1209,7 @@ do_check_updates() {
                 ((updates_available++))
                 ;;
             0)
-                # Up to date — check content hash for fork-drift (cycle-037, FR-4.2)
-                local local_hash=""
-                local pack_slug_for_skill=""
-                # Derive pack slug from skill path (skills are under packs/<slug>/skills/)
-                if [[ -d "$skill_dir" ]]; then
-                    local skill_parent
-                    skill_parent=$(dirname "$(dirname "$skill_dir")")
-                    pack_slug_for_skill=$(basename "$skill_parent")
-                fi
-                if [[ -n "$pack_slug_for_skill" ]]; then
-                    local_hash=$(jq -r ".installed_packs[\"$pack_slug_for_skill\"].content_hash // \"\"" "$meta_path" 2>/dev/null)
-                fi
-
-                if [[ -n "$local_hash" ]]; then
-                    # Fetch registry hash for divergence detection
-                    local registry_url
-                    registry_url=$(get_registry_url 2>/dev/null || echo "")
-                    if [[ -n "$registry_url" ]]; then
-                        local hash_file
-                        hash_file=$(mktemp)
-                        chmod 600 "$hash_file"
-                        local hash_code
-                        hash_code=$(curl -s -w "%{http_code}" \
-                            --proto =https --tlsv1.2 --max-time 10 \
-                            "${registry_url}/packs/${pack_slug_for_skill}/hash" \
-                            -o "$hash_file" 2>/dev/null) || hash_code="000"
-                        local registry_hash=""
-                        if [[ "$hash_code" == "200" ]]; then
-                            registry_hash=$(jq -r '.data.hash // ""' "$hash_file" 2>/dev/null)
-                        fi
-                        rm -f "$hash_file"
-
-                        if [[ -n "$registry_hash" && "$local_hash" != "$registry_hash" ]]; then
-                            print_status "$icon_warning" "$skill_slug ($current_version) [DIVERGED] — local files modified"
-                            ((skills_checked++))
-                            continue
-                        fi
-                    fi
-                fi
-
+                # Up to date
                 print_status "$icon_valid" "$skill_slug ($current_version) [up to date]"
                 ;;
             -1)

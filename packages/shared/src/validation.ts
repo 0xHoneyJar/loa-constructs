@@ -270,6 +270,14 @@ export const workflowNextSchema = z.array(z.object({
   trigger: z.string().max(200).optional(),
 })).max(10).optional();
 
+// ── Composability schemas (cycle-051) ──────────────────────────────
+
+/** Grimoire composition paths — what this construct reads from and writes to */
+export const compositionPathsSchema = z.object({
+  writes: z.array(z.string().max(500)).max(50).optional(),
+  reads: z.array(z.string().max(500)).max(50).optional(),
+});
+
 // ── Construct Lifecycle schemas (cycle-032, FR-1) ──────────────────
 
 /** Construct archetype */
@@ -406,6 +414,11 @@ export const packManifestSchema = z.object({
   identity: identitySchema.optional(),
   hooks: lifecycleHooksSchema.optional(),
 
+  // Composability fields (cycle-051)
+  composition_paths: compositionPathsSchema.optional(),
+  governs: z.array(slugSchema).max(20).optional(),
+  governed_by: z.array(slugSchema).max(20).optional(),
+
   // Inter-construct relationships (used in actual construct.yaml files)
   // Accepts: [{slug}], {optional: [{slug}]}, or {required: [{slug}], optional: [{slug}]}
   pack_dependencies: z.union([
@@ -541,6 +554,9 @@ export type WorkflowVerification = z.infer<typeof workflowVerificationSchema>;
 export type Workflow = z.infer<typeof workflowSchema>;
 export type Methodology = z.infer<typeof methodologySchema>;
 export type Tier = z.infer<typeof tierSchema>;
+
+// Composability types (cycle-051)
+export type CompositionPaths = z.infer<typeof compositionPathsSchema>;
 
 // Construct Lifecycle types (cycle-032)
 export type ConstructType = z.infer<typeof constructTypeSchema>;
