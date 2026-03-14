@@ -89,6 +89,12 @@ export interface Construct {
   // Relevance fields (populated when ?q= present)
   relevanceScore?: number;
   matchReasons?: string[];
+  // Discovery enrichment (cycle-048)
+  domains?: string[];
+  expertiseSummary?: string[];
+  skillDetails?: Array<{ slug: string; description: string }>;
+  composeWith?: string[];
+  dependedBy?: string[];
 }
 
 export interface ConstructSummary {
@@ -104,6 +110,7 @@ export interface ListConstructsOptions {
   type?: ConstructType | ConstructArchetype;
   tier?: string;
   category?: string;
+  domain?: string;
   featured?: boolean;
   maturity?: MaturityLevel[];
   page?: number;
@@ -170,6 +177,10 @@ export function calculateRelevanceScore(
     downloads: number;
     maturity: MaturityLevel;
     rating: number | null;
+    // cycle-048 enrichment
+    domains?: string[] | null;
+    expertiseSummary?: string[] | null;
+    skillSlugs?: string[] | null;
   },
   queryTerms: string[]
 ): { score: number; matchReasons: string[] } {
@@ -211,6 +222,33 @@ export function calculateRelevanceScore(
     if (useCaseMatch) {
       score += RELEVANCE_WEIGHTS.useCases;
       if (!matchReasons.includes('use_cases')) matchReasons.push('use_cases');
+    }
+  }
+
+  // Domain matching (cycle-048)
+  const domainsLower = (construct.domains || []).map(d => d.toLowerCase());
+  for (const term of lowerTerms) {
+    if (domainsLower.some(d => d.includes(term) || term.includes(d))) {
+      score += 0.8;
+      if (!matchReasons.includes('domains')) matchReasons.push('domains');
+    }
+  }
+
+  // Expertise matching (cycle-048) — highest signal
+  const expertiseLower = (construct.expertiseSummary || []).map(e => e.toLowerCase());
+  for (const term of lowerTerms) {
+    if (expertiseLower.some(e => e.includes(term) || term.includes(e))) {
+      score += 0.9;
+      if (!matchReasons.includes('expertise')) matchReasons.push('expertise');
+    }
+  }
+
+  // Skill slug matching (cycle-048)
+  const skillsLower = (construct.skillSlugs || []).map(s => s.toLowerCase().replace(/-/g, ' '));
+  for (const term of lowerTerms) {
+    if (skillsLower.some(s => s.includes(term) || term.includes(s))) {
+      score += 0.7;
+      if (!matchReasons.includes('skills')) matchReasons.push('skills');
     }
   }
 
@@ -362,6 +400,10 @@ function packToConstruct(
   const rating = calculateRating(pack.ratingSum || 0, pack.ratingCount || 0);
   const maturity = (pack.maturity || 'experimental') as MaturityLevel;
 
+  const domains = extractDomains(manifest, pack.category);
+  const expertiseSummary = extractExpertiseSummary(identityRow ?? null);
+  const skillSlugs = (manifest?.skills || []).map((s: any) => typeof s === 'string' ? s : s?.slug).filter(Boolean);
+
   // Calculate relevance if query terms provided
   let relevanceScore: number | undefined;
   let matchReasons: string[] | undefined;
@@ -375,6 +417,9 @@ function packToConstruct(
         downloads: pack.downloads || 0,
         maturity,
         rating,
+        domains,
+        expertiseSummary,
+        skillSlugs,
       },
       queryTerms
     );
@@ -439,7 +484,107 @@ function packToConstruct(
     // Relevance data (only when searching)
     relevanceScore,
     matchReasons,
+    // Discovery enrichment (cycle-048)
+    domains,
+    expertiseSummary,
+    skillDetails: extractSkillDetails(manifest),
+    composeWith: extractComposeWith(manifest),
+    dependedBy: undefined,
   };
+}
+
+// --- Discovery Enrichment Helpers (cycle-048) ---
+
+function extractDomains(manifest: ConstructManifest | null, category: string | null): string[] {
+  const raw = (manifest as any)?.domains ?? (manifest as any)?.domain;
+  const values = Array.isArray(raw) ? raw : raw ? [raw] : [];
+
+  const normalized = values
+    .filter((d): d is string => typeof d === 'string')
+    .map((d) => d.trim())
+    .filter(Boolean);
+
+  if (normalized.length > 0) {
+    return [...new Set(normalized)];
+  }
+
+  const fallback = category?.trim();
+  return fallback ? [fallback] : [];
+}
+
+function extractExpertiseSummary(identity: { expertiseDomains: unknown } | null): string[] {
+  if (!identity?.expertiseDomains) return [];
+  try {
+    let raw = identity.expertiseDomains;
+    // Handle JSON string (DB stores as string sometimes)
+    if (typeof raw === 'string') {
+      try { raw = JSON.parse(raw); } catch { return []; }
+    }
+    if (!Array.isArray(raw)) return [];
+    // Format 1: string[] (flat list of domain names)
+    if (raw.length > 0 && typeof raw[0] === 'string') {
+      return raw.filter((d): d is string => typeof d === 'string' && d.trim() !== '');
+    }
+    // Format 2: Array<{ name, depth }> (structured with depth scores)
+    return raw.filter(d => d && d.name && (d.depth ?? 0) >= 4).map(d => d.name);
+  } catch { return []; }
+}
+
+function extractComposeWith(manifest: ConstructManifest | null): string[] {
+  const composeWith = (manifest as any)?.compose_with;
+  if (!Array.isArray(composeWith)) return [];
+  return composeWith.map((c: any) => typeof c === 'string' ? c : c?.slug).filter(Boolean);
+}
+
+function extractSkillDetails(manifest: ConstructManifest | null): Array<{ slug: string; description: string }> {
+  const skills = manifest?.skills;
+  if (!Array.isArray(skills)) return [];
+  return skills.map((s: any) => ({
+    slug: typeof s === 'string' ? s : s?.slug || '',
+    description: (s?.description as string) || '',
+  })).filter(s => s.slug);
+}
+
+function computeDependedByMap(constructs: Construct[]): Map<string, string[]> {
+  const map = new Map<string, Set<string>>();
+
+  for (const c of constructs) {
+    const deps = extractAllDependencies(c.manifest);
+    for (const depSlug of deps) {
+      if (depSlug === c.slug) continue; // ignore self-dependency noise
+      if (!map.has(depSlug)) map.set(depSlug, new Set<string>());
+      map.get(depSlug)!.add(c.slug);
+    }
+  }
+
+  return new Map(
+    [...map.entries()].map(([slug, dependents]) => [slug, [...dependents].sort()])
+  );
+}
+
+function extractAllDependencies(manifest: ConstructManifest | null): string[] {
+  const deps = (manifest as any)?.pack_dependencies;
+  if (!deps) return [];
+
+  const out = new Set<string>();
+
+  const add = (entry: unknown) => {
+    const slug = typeof entry === 'string' ? entry : (entry as any)?.slug;
+    if (typeof slug === 'string' && slug.trim()) out.add(slug.trim());
+  };
+
+  if (Array.isArray(deps)) {
+    for (const d of deps) add(d);
+  } else {
+    if (Array.isArray((deps as any).required)) {
+      for (const d of (deps as any).required) add(d);
+    }
+    if (Array.isArray((deps as any).optional)) {
+      for (const d of (deps as any).optional) add(d);
+    }
+  }
+
+  return [...out];
 }
 
 /**
@@ -473,15 +618,16 @@ export async function listConstructs(
   options: ListConstructsOptions = {},
   access?: PackAccessContext
 ): Promise<ListConstructsResult> {
-  const { query, type, tier, category, featured, maturity, page = 1, limit = DEFAULT_PAGE_SIZE } = options;
+  const { query, type, tier, category, domain, featured, maturity, page = 1, limit = DEFAULT_PAGE_SIZE } = options;
   const pageSize = Math.min(Math.max(1, limit), MAX_PAGE_SIZE);
   const offset = (Math.max(1, page) - 1) * pageSize;
 
   // Check cache for non-search queries — tier-segmented (cycle-038)
   const visTier = getCacheVisibilityTier(access);
   const maturityKey = maturity ? maturity.sort().join(',') : '';
+  const domainKey = domain?.trim().toLowerCase() || '';
   const cacheKey = !query
-    ? CACHE_KEYS.constructList(`${visTier}:${type}:${tier}:${category}:${featured}:${maturityKey}:${page}:${pageSize}`)
+    ? CACHE_KEYS.constructList(`${visTier}:${type}:${tier}:${category}:${domainKey}:${featured}:${maturityKey}:${page}:${pageSize}`)
     : null;
 
   if (cacheKey && isRedisConfigured()) {
@@ -553,15 +699,29 @@ export async function listConstructs(
     allConstructs.sort((a, b) => b.downloads - a.downloads);
   }
 
-  // For mixed queries, apply pagination after global sort
-  // For filtered queries, results are already correctly paginated
+  // Apply domain filter BEFORE pagination so total/total_pages are accurate (GPT review F1)
+  if (domain) {
+    const domainFilter = domain.trim().toLowerCase();
+    allConstructs = allConstructs.filter(c =>
+      (c.domains || []).some(d => d.toLowerCase() === domainFilter)
+    );
+  }
+
+  // Compute dependedBy cross-reference on full filtered set BEFORE pagination (GPT review F3)
+  const dependedByMap = computeDependedByMap(allConstructs);
+  for (const c of allConstructs) {
+    c.dependedBy = dependedByMap.get(c.slug) ?? [];
+  }
+
+  // Use filtered length for accurate pagination metadata
+  const total = domain ? allConstructs.length : skillsResult.count + packsResult.count;
+
+  // Apply pagination after domain filter and enrichment
   if (isMixedQuery) {
     allConstructs = allConstructs.slice(offset, offset + pageSize);
   } else {
     allConstructs = allConstructs.slice(0, pageSize);
   }
-
-  const total = skillsResult.count + packsResult.count;
 
   const result: ListConstructsResult = {
     constructs: allConstructs,
