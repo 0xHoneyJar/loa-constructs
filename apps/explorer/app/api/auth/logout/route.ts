@@ -8,16 +8,20 @@ export async function POST(request: NextRequest) {
   if (csrfError) return csrfError;
 
   const accessToken = request.headers.get('authorization')?.replace('Bearer ', '');
+  const refreshToken = request.cookies.get('refresh_token')?.value;
 
-  // Best-effort server-side logout
-  if (accessToken) {
+  // Best-effort server-side logout — blacklist the refresh token
+  if (refreshToken) {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
     try {
       await fetch(`${API_BASE}/auth/logout`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers,
+        body: JSON.stringify({ refresh_token: refreshToken }),
       });
     } catch {
       // Best-effort — don't block client-side cleanup

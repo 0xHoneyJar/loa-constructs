@@ -107,10 +107,9 @@ auditRouter.get('/admin', zValidator('query', auditQuerySchema), async (c) => {
   const requestId = c.get('requestId');
   const { action, resourceType, resourceId, startDate, endDate, limit, offset } = c.req.valid('query');
 
-  // Check if user is system admin (tier === 'admin' or special flag)
-  // For now, only allow users with specific admin role
-  // This will be expanded with proper RBAC in admin panel task
-  if (user.tier !== 'enterprise') {
+  // Require admin role — not tier. Enterprise users should NOT see all audit logs.
+  const ADMIN_ROLES = ['admin', 'super_admin'];
+  if (!ADMIN_ROLES.includes(user.role || 'user')) {
     throw Errors.Forbidden('Admin access required');
   }
 

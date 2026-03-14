@@ -108,12 +108,7 @@ health.get('/metrics', (c) => {
       heap_total_mb: Math.round(memUsage.heapTotal / 1024 / 1024),
       external_mb: Math.round(memUsage.external / 1024 / 1024),
     },
-    process: {
-      pid: process.pid,
-      node_version: process.version,
-      platform: process.platform,
-      arch: process.arch,
-    },
+    // Process fingerprinting data removed — aids reconnaissance (CVE targeting)
   });
 });
 
