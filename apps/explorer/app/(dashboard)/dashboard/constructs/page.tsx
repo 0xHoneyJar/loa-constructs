@@ -13,6 +13,7 @@ interface ApiConstruct {
   skills_count: number;
   type: string;
   construct_type: string | null;
+  category: string;
 }
 
 interface ConstructSummary {
@@ -22,6 +23,7 @@ interface ConstructSummary {
   downloads: number;
   skillsCount: number;
   constructType: string;
+  category: string;
 }
 
 export default function ConstructMetricsPage() {
@@ -38,6 +40,7 @@ export default function ConstructMetricsPage() {
           downloads: c.downloads,
           skillsCount: c.skills_count,
           constructType: c.construct_type || c.type,
+          category: c.category || 'uncategorized',
         }));
         const sorted = mapped.sort((a, b) => b.downloads - a.downloads);
         setConstructs(sorted);
