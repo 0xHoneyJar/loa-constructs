@@ -217,8 +217,10 @@ fetch_pack_info() {
         return 0
     fi
 
-    # Auth-related failure — retry without auth (public endpoint)
+    # Auth-related failure — retry without auth header
+    # The constructs detail endpoint is public and doesn't require auth
     if [[ -n "$api_key" ]] && [[ "$http_code" =~ ^(401|403|502|000)$ || -z "$http_code" ]]; then
+        echo "  Auth failed (HTTP $http_code), retrying without credentials..." >&2
         response=$(curl -s -f -w "\n%{http_code}" "${registry_url}/constructs/${slug}" 2>/dev/null) || true
         http_code=$(echo "$response" | tail -n1)
         response=$(echo "$response" | sed '$d')
@@ -328,26 +330,10 @@ cmd_list() {
     fi
 
     if [[ "$json_output" == true ]]; then
-        # Explicit --json flag always wins (backwards compat)
         format_packs_json "$packs_json"
     else
-        # Build flat tabular JSON for TOON/json modes
-        local toon_json
-        toon_json=$(echo "$packs_json" | jq '[
-            .data[]? | {
-                slug: .slug,
-                name: .name,
-                skills: (.skills_count // (.manifest.skills | length?) // 0),
-                version: (.latest_version.version // .version // "1.0.0"),
-                tier: (.tier_required // .tier // "free")
-            }
-        ]' 2>/dev/null)
-        # Route: toon→TOON encoder, json→raw JSON, md→format_packs_human
-        format_tabular_output "packs" "$toon_json" "$packs_json" "format_packs_human"
+        format_packs_human "$packs_json"
     fi
-
-    # Append CTAs if enabled
-    emit_cta "browse"
 }
 
 cmd_info() {

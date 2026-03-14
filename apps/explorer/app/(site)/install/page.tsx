@@ -39,8 +39,8 @@ export default function InstallPage() {
         ← Back
       </Link>
 
-      <h1 className="mb-2 font-mono text-4xl font-bold text-bone-base">
-        Install a Construct
+      <h1 className="mb-2 font-display text-4xl sm:text-5xl uppercase tracking-display text-bone-bright">
+        Install
       </h1>
       <p className="mb-10 font-mono text-lg text-bone-muted">
         Named expertise for your AI coding agent. No account required for free constructs.

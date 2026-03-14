@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { fetchAllConstructs, searchConstructs } from '@/lib/data/fetch-constructs';
-import { CatalogSearch } from './catalog-search';
+
 import { AuthAwareConstructList } from '@/components/constructs/auth-aware-construct-list';
 import { Badge } from '@/components/ui/badge';
 
-export const revalidate = 3600; // ISR: revalidate every hour
+export const revalidate = 3600;
 
 export const metadata = {
   title: 'Constructs',
@@ -19,7 +19,6 @@ export default async function ConstructsCatalogPage({
   const params = await searchParams;
   const allConstructs = await fetchAllConstructs();
 
-  // Use API search when query is present (server-side relevance scoring)
   let filtered = params.q
     ? await searchConstructs(params.q)
     : allConstructs;
@@ -39,15 +38,14 @@ export default async function ConstructsCatalogPage({
   const categories = [...new Set(allConstructs.map((c) => c.category))].sort();
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-12">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-4xl uppercase tracking-display text-bone-bright">Constructs</h1>
-          <p className="text-base font-mono text-bone-muted mt-1">
-            {allConstructs.length} constructs available
+          <h1 className="font-display text-4xl sm:text-5xl uppercase tracking-display text-bone-bright">Catalog</h1>
+          <p className="text-base font-mono text-bone-muted mt-3">
+            {allConstructs.length} constructs
           </p>
         </div>
-        <CatalogSearch defaultValue={params.q} />
       </div>
 
       {/* Category Filters */}
@@ -79,58 +77,36 @@ export default async function ConstructsCatalogPage({
         </div>
       )}
 
-      {/* Auth-aware construct grid — cycle-039 */}
+      {/* Construct grid — 2 columns, generous spacing */}
       <AuthAwareConstructList publicConstructs={filtered}>
         {filtered.length === 0 ? (
-          <p className="text-lg font-mono text-bone-ghost py-12 text-center">
+          <p className="text-lg font-mono text-bone-ghost py-16 text-center">
             No constructs found.
           </p>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-void-border">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {filtered.map((construct) => (
               <Link
                 key={construct.id}
                 href={`/constructs/${construct.slug}`}
-                className="bg-void-base p-5 hover:bg-void-raised transition-colors group"
+                className="border border-void-border p-6 sm:p-8 hover:border-bone-ghost transition-colors group"
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3">
-                    {construct.icon && (
-                      <span className="text-2xl shrink-0">{construct.icon}</span>
-                    )}
-                    <span className="font-mono text-xl font-bold text-bone-base group-hover:text-bone-bright transition-colors">
-                      {construct.name}
-                    </span>
-                    {construct.constructType !== 'skill-pack' && (
-                      <Badge variant="cyan">
-                        {construct.constructType.replace(/-/g, ' ')}
-                      </Badge>
-                    )}
-                    {construct.visibility === 'internal' && (
-                      <Badge variant="internal">
-                        internal
-                      </Badge>
-                    )}
-                    {construct.verificationTier === 'PROVEN' && (
-                      <Badge variant="proven">
-                        proven
-                      </Badge>
-                    )}
-                  </div>
-                  <span className="font-mono text-sm uppercase tracking-whisper text-bone-ghost mt-0.5">
-                    {construct.skillsCount > 0 && `${construct.skillsCount}s`}
+                <div className="flex items-center gap-3 mb-4">
+                  {construct.icon && (
+                    <span className="text-2xl shrink-0">{construct.icon}</span>
+                  )}
+                  <span className="font-display text-xl uppercase tracking-display text-bone-base group-hover:text-bone-bright transition-colors">
+                    {construct.name}
                   </span>
+                  {construct.verificationTier === 'PROVEN' && (
+                    <Badge variant="proven">proven</Badge>
+                  )}
                 </div>
-                <p className="font-mono text-base text-bone-muted line-clamp-2 mb-4 leading-relaxed">
+                <p className="font-mono text-base text-bone-dim leading-relaxed line-clamp-2">
                   {construct.shortDescription}
                 </p>
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-sm uppercase tracking-whisper text-bone-ghost">
-                    {construct.category}
-                  </span>
-                  <span className="font-mono text-sm text-bone-ghost">
-                    {construct.downloads.toLocaleString()} installs
-                  </span>
+                <div className="mt-6 font-mono text-sm uppercase tracking-whisper text-bone-ghost">
+                  {construct.category}
                 </div>
               </Link>
             ))}

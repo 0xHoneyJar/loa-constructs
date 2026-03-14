@@ -76,24 +76,179 @@
   --tracking-display: 0.02em;
   --tracking-impact: 0em;
 
-  /* shadcn/ui aliases — mapped to OKLCH system */
-  --primary: var(--color-cyan-base);
-  --primary-foreground: var(--color-void-base);
-  --secondary: var(--color-void-raised);
-  --secondary-foreground: var(--color-bone-base);
-  --muted: var(--color-void-raised);
-  --muted-foreground: var(--color-bone-muted);
-  --accent: var(--color-void-surface);
-  --accent-foreground: var(--color-bone-base);
-  --destructive: var(--color-crimson-base);
-  --destructive-foreground: var(--color-bone-bright);
-  --card: var(--color-void-base);
-  --card-foreground: var(--color-bone-base);
-  --popover: var(--color-void-raised);
-  --popover-foreground: var(--color-bone-base);
-  --input: var(--color-void-border);
-  --ring: var(--color-cyan-dim);
+  /* =================================================================== */
+  /* TIER 2: SEMANTIC TOKENS                                              */
+  /* Intent-based aliases. Components reference these, not primitives.    */
+  /* =================================================================== */
+
+  /* Backgrounds */
+  --color-bg-void: var(--color-void-base);
+  --color-bg-surface: var(--color-void-raised);
+  --color-bg-panel: var(--color-surface-panel);
+  --color-bg-elevated: var(--color-void-surface);
+  --color-bg-overlay: oklch(0.06 0.003 250 / 0.8);
+
+  /* Text */
+  --color-text-primary: var(--color-bone-base);
+  --color-text-secondary: var(--color-bone-dim);
+  --color-text-tertiary: var(--color-bone-muted);
+  --color-text-ghost: var(--color-bone-ghost);
+  --color-text-bright: var(--color-bone-bright);
+
+  /* Accent */
+  --color-accent-primary: var(--color-cyan-base);
+  --color-accent-primary-dim: var(--color-cyan-dim);
+  --color-accent-warm: var(--color-crimson-base);
+  --color-accent-warm-dim: var(--color-crimson-dim);
+
+  /* Borders */
+  --color-border-default: var(--color-void-border);
+  --color-border-subtle: var(--color-grid-line);
+  --color-border-active: var(--color-glow-cyan);
+
+  /* Status */
+  --color-status-success: var(--color-node-green);
+  --color-status-warning: var(--color-token-yellow);
+  --color-status-danger: var(--color-crimson-base);
+  --color-status-info: var(--color-cyan-dim);
+
+  /* Glow */
+  --color-glow-primary: var(--color-glow-cyan);
+  --color-glow-danger: var(--color-glow-crimson);
+
+  /* Interactive */
+  --color-interactive-default: var(--color-bone-dim);
+  --color-interactive-hover: var(--color-bone-base);
+  --color-interactive-active: var(--color-cyan-base);
+  --color-interactive-disabled: var(--color-bone-ghost);
+
+  /* =================================================================== */
+  /* SPACING SCALE — 4px base unit                                        */
+  /* =================================================================== */
+  --space-0: 0;
+  --space-025: 1px;
+  --space-050: 2px;
+  --space-100: 4px;
+  --space-150: 6px;
+  --space-200: 8px;
+  --space-300: 12px;
+  --space-400: 16px;
+  --space-500: 20px;
+  --space-600: 24px;
+  --space-800: 32px;
+  --space-1200: 48px;
+  --space-1600: 64px;
+
+  /* =================================================================== */
+  /* MOTION — durations + easings                                         */
+  /* =================================================================== */
+  --duration-instant: 0ms;
+  --duration-quantum: 83ms;
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 400ms;
+  --duration-deliberate: 800ms;
+
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-quantum: steps(4);
+
+  /* =================================================================== */
+  /* TYPOGRAPHY — rem for accessibility (WCAG 1.4.4)                      */
+  /* =================================================================== */
+  --text-2xs: 0.5rem;
+  --text-xs: 0.5625rem;
+  --text-sm: 0.6875rem;
+  --text-base: 0.8125rem;
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.75;
+
+  /* =================================================================== */
+  /* ELEVATION — glow-based, no drop shadows                              */
+  /* =================================================================== */
+  --elevation-0: none;
+  --elevation-1: 0 0 0 1px var(--color-border-subtle);
+  --elevation-2: 0 0 8px var(--color-glow-primary);
+  --elevation-3: 0 0 16px var(--color-glow-primary);
+  --elevation-danger: 0 0 8px var(--color-glow-danger);
+
+  /* =================================================================== */
+  /* ICON SIZES                                                           */
+  /* =================================================================== */
+  --icon-xs: 12px;
+  --icon-sm: 14px;
+  --icon-md: 16px;
+  --icon-lg: 20px;
+  --icon-xl: 24px;
+
+  /* =================================================================== */
+  /* DENSITY — default: comfortable                                       */
+  /* =================================================================== */
+  --density-row-height: 36px;
+  --density-cell-padding: var(--space-300);
+  --density-gap: var(--space-200);
+
+  /* =================================================================== */
+  /* shadcn/ui aliases — routed through semantic layer                    */
+  /* =================================================================== */
+  --primary: var(--color-accent-primary);
+  --primary-foreground: var(--color-bg-void);
+  --secondary: var(--color-bg-surface);
+  --secondary-foreground: var(--color-text-primary);
+  --muted: var(--color-bg-surface);
+  --muted-foreground: var(--color-text-tertiary);
+  --accent: var(--color-bg-elevated);
+  --accent-foreground: var(--color-text-primary);
+  --destructive: var(--color-status-danger);
+  --destructive-foreground: var(--color-text-bright);
+  --card: var(--color-bg-void);
+  --card-foreground: var(--color-text-primary);
+  --popover: var(--color-bg-surface);
+  --popover-foreground: var(--color-text-primary);
+  --input: var(--color-border-default);
+  --ring: var(--color-accent-primary-dim);
   --radius: 0px;
+}
+
+/* =================================================================== */
+/* DENSITY: COMPACT MODE                                                */
+/* =================================================================== */
+[data-density="compact"] {
+  --density-row-height: 28px;
+  --density-cell-padding: var(--space-150);
+  --density-gap: var(--space-100);
+}
+
+/* =================================================================== */
+/* CONTEXT OVERRIDES                                                    */
+/* data-context on layout containers drives per-section token overrides */
+/* =================================================================== */
+
+/* Dashboard — identity context (inherits :root defaults) */
+[data-context="dashboard"] {
+  /* Dashboard is the origin context — all :root tokens are dashboard-native */
+}
+
+/* Marketing — public-facing, elevated readability */
+[data-context="marketing"] {
+  --color-text-primary: var(--color-bone-bright);
+  --color-text-secondary: var(--color-bone-base);
+  --color-bg-panel: var(--color-void-raised);
+}
+
+/* Site — documentation, construct browsing, comfortable density */
+[data-context="site"] {
+  --color-bg-panel: var(--color-void-raised);
+  --density-row-height: 40px;
+  --density-cell-padding: var(--space-400);
+  --density-gap: var(--space-300);
 }
 
 * {
@@ -146,8 +301,18 @@ body {
   outline-offset: 2px;
 }
 
-/* Reduced motion */
+/* Reduced motion — zero all motion tokens + fallback for non-tokenized */
 @media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-quantum: 0ms;
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+    --duration-slow: 0ms;
+    --duration-deliberate: 0ms;
+    --ease-quantum: linear;
+    --ease-spring: linear;
+  }
+
   *,
   *::before,
   *::after {

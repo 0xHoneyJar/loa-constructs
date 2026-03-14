@@ -42,7 +42,7 @@ export function GlobalSearch() {
             type: c.type as string,
           }));
           setAllConstructs(data);
-          setResults(data.slice(0, 10));
+          setResults(data.slice(0, 8));
           setLoaded(true);
         })
         .catch(() => setLoaded(true));
@@ -52,7 +52,7 @@ export function GlobalSearch() {
   // Filter results when query changes
   useEffect(() => {
     if (!query.trim()) {
-      setResults(allConstructs.slice(0, 10));
+      setResults(allConstructs.slice(0, 8));
     } else {
       const q = query.toLowerCase();
       const filtered = allConstructs.filter(
@@ -61,7 +61,7 @@ export function GlobalSearch() {
           c.shortDescription.toLowerCase().includes(q) ||
           c.slug.toLowerCase().includes(q)
       );
-      setResults(filtered.slice(0, 10));
+      setResults(filtered.slice(0, 8));
     }
     setSelectedIndex(0);
   }, [query, allConstructs]);
@@ -129,14 +129,15 @@ export function GlobalSearch() {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh]">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]">
       <div
-        className="absolute inset-0 bg-void-base/80 backdrop-blur-sm"
+        className="absolute inset-0 bg-void-base/80"
         onClick={() => { setOpen(false); setQuery(''); }}
       />
 
-      <div className="relative w-full max-w-lg border border-void-border bg-void-raised shadow-2xl">
-        <div className="border-b border-void-border px-4 py-3">
+      <div className="relative w-full max-w-2xl mx-4 border border-void-border bg-void-base">
+        {/* Input */}
+        <div className="border-b border-void-border px-6 py-5">
           <input
             ref={inputRef}
             type="text"
@@ -144,52 +145,48 @@ export function GlobalSearch() {
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handlePaletteKeyDown}
             placeholder="Search constructs..."
-            className="w-full bg-transparent font-mono text-lg text-bone-base placeholder:text-bone-ghost focus:outline-none"
+            className="w-full bg-transparent font-mono text-xl text-bone-base placeholder:text-bone-ghost focus:outline-none"
           />
         </div>
 
-        <div className="max-h-72 overflow-y-auto">
+        {/* Results */}
+        <div className="max-h-[60vh] overflow-y-auto">
           {!loaded ? (
-            <div className="px-4 py-6 text-center">
+            <div className="px-6 py-12 text-center">
               <p className="font-mono text-base text-bone-ghost">Loading...</p>
             </div>
           ) : results.length === 0 ? (
-            <div className="px-4 py-6 text-center">
+            <div className="px-6 py-12 text-center">
               <p className="font-mono text-base text-bone-ghost">No constructs found</p>
             </div>
           ) : (
-            <ul className="py-1">
+            <ul>
               {results.map((result, index) => (
                 <li key={result.id}>
                   <button
                     type="button"
                     onClick={() => handleSelect(result)}
                     onMouseEnter={() => setSelectedIndex(index)}
-                    className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                      index === selectedIndex ? 'bg-void-surface' : ''
+                    className={`flex w-full items-center gap-4 px-6 py-4 text-left transition-colors ${
+                      index === selectedIndex ? 'bg-void-raised' : ''
                     }`}
                   >
                     {result.icon && (
-                      <span className="text-lg shrink-0">{result.icon}</span>
+                      <span className="text-xl shrink-0">{result.icon}</span>
                     )}
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-lg text-bone-base">
+                      <div className="flex items-center gap-3">
+                        <span className="font-display text-lg uppercase tracking-display text-bone-base">
                           {result.name}
                         </span>
-                        <span className="font-mono text-sm uppercase tracking-terminal text-bone-ghost">
+                        <span className="font-mono text-sm uppercase tracking-whisper text-bone-ghost">
                           {result.category}
                         </span>
                       </div>
-                      <p className="truncate font-mono text-base text-bone-muted">
+                      <p className="truncate font-mono text-base text-bone-muted mt-1">
                         {result.shortDescription}
                       </p>
                     </div>
-                    {index === selectedIndex && (
-                      <kbd className="shrink-0 border border-void-border px-1.5 py-0.5 font-mono text-sm text-bone-ghost">
-                        enter
-                      </kbd>
-                    )}
                   </button>
                 </li>
               ))}
@@ -197,11 +194,12 @@ export function GlobalSearch() {
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-void-border px-4 py-2">
-          <div className="flex items-center gap-3 font-mono text-sm text-bone-ghost">
-            <span><kbd className="border border-void-border px-1">↑↓</kbd> navigate</span>
-            <span><kbd className="border border-void-border px-1">↵</kbd> open</span>
-            <span><kbd className="border border-void-border px-1">esc</kbd> close</span>
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-void-border px-6 py-3">
+          <div className="flex items-center gap-4 font-mono text-sm text-bone-ghost">
+            <span><kbd className="border border-void-border px-1.5 py-0.5">↑↓</kbd> navigate</span>
+            <span><kbd className="border border-void-border px-1.5 py-0.5">↵</kbd> open</span>
+            <span><kbd className="border border-void-border px-1.5 py-0.5">esc</kbd> close</span>
           </div>
           <span className="font-mono text-sm text-bone-ghost">
             {results.length} results
