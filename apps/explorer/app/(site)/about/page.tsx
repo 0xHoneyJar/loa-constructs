@@ -1,6 +1,4 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import { BackButton } from '@/components/layout/back-button';
 
 export const metadata: Metadata = {
   title: 'About | Constructs Network',
@@ -9,103 +7,60 @@ export const metadata: Metadata = {
 
 export default function AboutPage() {
   return (
-    <div className="mx-auto max-w-2xl px-4 py-8">
-      {/* Back navigation */}
-      <div className="mb-8">
-        <BackButton />
-      </div>
-
-      {/* Content */}
-      <div className="space-y-12">
-        {/* What are Constructs */}
-        <section className="space-y-4">
-          <h1 className="font-mono text-lg font-semibold uppercase tracking-wider text-bone-base">
-            What are Constructs?
+    <div className="mx-auto max-w-2xl px-4 py-16 sm:py-24">
+      <div className="space-y-24">
+        <section>
+          <h1 className="font-display text-4xl sm:text-5xl uppercase tracking-display text-bone-bright leading-[0.95]">
+            Constructs
           </h1>
-
-          <div className="space-y-4 text-lg leading-relaxed text-bone-dim">
+          <div className="mt-8 space-y-6 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
             <p>
-              A construct is a named unit of expertise — identity, skills, and
-              boundaries — that you install into your AI coding agent.
+              Named expertise you install into your AI coding agent.
+              Identity, skills, and boundaries in a single package.
             </p>
-
             <p>
-              Your agent doesn&apos;t just get new capabilities. It gets a new
-              way of seeing problems.
-            </p>
-
-            <p>
-              Ask a generic agent for help with design. You get generic output.
-              Install a Craftsman construct — depth-5 design systems — and it
-              decomposes your request into feel, motion, and material.
+              Install Artisan and your agent decomposes design requests
+              into feel, motion, and material. Install Observer and it
+              captures user feedback as hypothesis-first research.
               Same agent. Different expertise installed.
             </p>
           </div>
         </section>
 
-        {/* Divider */}
-        <div className="border-t border-void-border" />
-
-        {/* How They Compose */}
-        <section className="space-y-4">
-          <h2 className="font-mono text-lg font-semibold uppercase tracking-wider text-bone-base">
+        <section>
+          <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-display text-bone-bright leading-[0.95]">
             Composition
           </h2>
-
-          <div className="space-y-4 text-lg leading-relaxed text-bone-dim">
-            <p>Constructs aren&apos;t solo. They compose.</p>
-
+          <div className="mt-8 space-y-6 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
             <p>
-              Observer captures user feedback. Artisan turns it into design
-              tokens. Protocol audits the contracts. Bridgebuilder reviews
-              the code. Each one does its part.
+              Observer captures feedback. Artisan turns it into design tokens.
+              Protocol audits the contracts. Bridgebuilder reviews the code.
+              Each one does its part.
             </p>
-
             <p>
-              The graph shows these relationships. Constructs that work
-              together appear connected.
+              Constructs declare what they compose with. The network
+              surfaces these connections.
             </p>
           </div>
         </section>
 
-        {/* Divider */}
-        <div className="border-t border-void-border" />
-
-        {/* Create */}
-        <section className="space-y-4">
-          <h2 className="font-mono text-lg font-semibold uppercase tracking-wider text-bone-base">
-            Create Your Own
+        <section>
+          <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-display text-bone-bright leading-[0.95]">
+            Create
           </h2>
-
-          <div className="space-y-4 text-lg leading-relaxed text-bone-dim">
+          <div className="mt-8 space-y-6 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
             <p>
-              Edit three files. Push. CI validates automatically.
-            </p>
-
-            <p>
-              Your methodology becomes installable. Others
-              benefit from your expertise without you being in the room.
+              Three files. Push. CI validates.
+              Your methodology becomes installable.
             </p>
           </div>
-
-          <div className="border border-void-border bg-void-raised/50 p-4">
-            <code className="font-mono text-lg text-bone-base">
+          <div className="mt-8 border border-void-border bg-void-raised px-5 py-4">
+            <code className="font-mono text-sm sm:text-base text-bone-base">
               gh repo create my-org/construct-my-expertise \<br />
               {'  '}--template 0xHoneyJar/construct-base --private --clone
             </code>
           </div>
         </section>
-
-        {/* Back link */}
-        <div className="pt-4">
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 font-mono text-base uppercase tracking-wider text-cyan-dim hover:text-bone-bright transition-colors"
-          >
-            <span>→</span>
-            <span>Explore the Network</span>
-          </Link>
-        </div>
       </div>
     </div>
   );
