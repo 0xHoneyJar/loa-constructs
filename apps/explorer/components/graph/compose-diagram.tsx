@@ -1,18 +1,35 @@
 'use client';
 
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import {
   ReactFlow,
+  Handle,
+  Position,
   type Node,
   type Edge,
   type ColorMode,
+  type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { ConstructTile } from './construct-tile';
 import type { ConstructNode } from '@/lib/types/graph';
 
+/** Ghost node — a redaction bar. No visible handles. The network extends. */
+const GhostNode = memo(function GhostNode(props: NodeProps) {
+  const w = (props.data as { w?: number })?.w ?? 64;
+  return (
+    <>
+      {/* @ts-expect-error React 19 type mismatch */}
+      <Handle type="target" position={Position.Top} className="!bg-transparent !border-0 !w-0 !h-0" />
+      {/* @ts-expect-error React 19 type mismatch */}
+      <Handle type="source" position={Position.Bottom} className="!bg-transparent !border-0 !w-0 !h-0" />
+      <div style={{ width: w, height: 40, backgroundColor: 'oklch(0.12 0.005 250)' }} />
+    </>
+  );
+});
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const nodeTypes: any = { constructTile: ConstructTile };
+const nodeTypes: any = { constructTile: ConstructTile, ghost: GhostNode };
 const COLOR_MODE: ColorMode = 'dark';
 
 /**
@@ -46,14 +63,32 @@ export function ComposeDiagram({ constructs }: { constructs: ConstructNode[] }) 
         selectable: false,
       }));
 
-    // Ghost nodes — redacted constructs, the network extends
-    // No ghost nodes — the void around the real nodes IS the ghost.
+    // Ghost nodes — redaction bars, the network extends beyond what's shown
+    flowNodes.push({
+      id: 'ghost-1',
+      type: 'ghost',
+      position: { x: 600, y: 40 },
+      data: { w: 72 },
+      draggable: false,
+      selectable: false,
+    });
+    flowNodes.push({
+      id: 'ghost-2',
+      type: 'ghost',
+      position: { x: 540, y: 180 },
+      data: { w: 52 },
+      draggable: false,
+      selectable: false,
+    });
 
     const flowEdges: Edge[] = [
       { id: 'e-art-obs', source: 'artisan', target: 'observer', type: 'smoothstep', style: { stroke: 'oklch(0.65 0.12 195)', strokeWidth: 1 } },
       { id: 'e-obs-cru', source: 'observer', target: 'crucible', type: 'smoothstep', style: { stroke: 'oklch(0.65 0.12 195)', strokeWidth: 1 } },
       { id: 'e-kh-mc', source: 'k-hole', target: 'mibera-codex', type: 'smoothstep', style: { stroke: 'oklch(0.65 0.12 195)', strokeWidth: 1 } },
       { id: 'e-obs-kh', source: 'observer', target: 'k-hole', type: 'smoothstep', style: { stroke: 'oklch(0.30 0.04 195)', strokeWidth: 1 } },
+      // Ghost edges — dashed, trailing off into the network
+      { id: 'e-cru-g1', source: 'crucible', target: 'ghost-1', type: 'smoothstep', style: { stroke: 'oklch(0.15 0.02 250)', strokeWidth: 1, strokeDasharray: '4 6' } },
+      { id: 'e-mc-g2', source: 'mibera-codex', target: 'ghost-2', type: 'smoothstep', style: { stroke: 'oklch(0.15 0.02 250)', strokeWidth: 1, strokeDasharray: '4 6' } },
     ];
 
     return { nodes: flowNodes, edges: flowEdges };
