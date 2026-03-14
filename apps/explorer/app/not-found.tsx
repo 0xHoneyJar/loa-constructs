@@ -6,7 +6,7 @@ export default function NotFound() {
     <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
       <div className="mb-6">
         <div className="mb-4 font-mono text-6xl text-crimson-base">404</div>
-        <h1 className="mb-2 font-mono text-xl font-semibold uppercase tracking-terminal text-bone-bright">
+        <h1 className="mb-2 font-display text-2xl uppercase tracking-display text-bone-bright">
           Construct Not Found
         </h1>
         <p className="mx-auto max-w-md text-sm text-bone-dim">

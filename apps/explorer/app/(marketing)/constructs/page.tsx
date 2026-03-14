@@ -102,7 +102,7 @@ export default async function ConstructsCatalogPage({
                     <Badge variant="proven">proven</Badge>
                   )}
                 </div>
-                <p className="font-mono text-base text-bone-muted leading-relaxed line-clamp-2">
+                <p className="font-mono text-base text-bone-dim leading-relaxed line-clamp-2">
                   {construct.shortDescription}
                 </p>
                 <div className="mt-6 font-mono text-sm uppercase tracking-whisper text-bone-ghost">
