@@ -154,31 +154,45 @@ export default async function ConstructDetailPage({
         {/* Showcases — real products that shipped with this construct */}
         {construct.showcases.length > 0 && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {construct.showcases.map((showcase) => (
-              <a
-                key={showcase.id}
-                href={showcase.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="border border-void-border hover:border-bone-ghost transition-colors group block"
-              >
-                <div className="aspect-[16/9] bg-void-raised border-b border-void-border flex items-center justify-center">
-                  <span className="font-display text-2xl uppercase tracking-display text-bone-ghost group-hover:text-bone-dim transition-colors">
-                    {showcase.title}
-                  </span>
-                </div>
-                <div className="p-5">
-                  <p className="font-display text-base uppercase tracking-display text-bone-base group-hover:text-bone-bright transition-colors">
-                    {showcase.title}
-                  </p>
-                  {showcase.description && (
-                    <p className="font-mono text-sm text-bone-muted mt-2 leading-relaxed">
-                      {showcase.description}
-                    </p>
+            {construct.showcases.map((showcase) => {
+              const imageSlug = showcaseImageSlug(showcase.url);
+              return (
+                <a
+                  key={showcase.id}
+                  href={showcase.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="border border-void-border hover:border-bone-ghost transition-colors group block overflow-hidden"
+                >
+                  {imageSlug ? (
+                    <div className="aspect-[16/9] relative bg-void-raised border-b border-void-border overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/showcases/${imageSlug}.png`}
+                        alt={showcase.title}
+                        className="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity"
+                      />
+                    </div>
+                  ) : (
+                    <div className="aspect-[16/9] bg-void-raised border-b border-void-border flex items-center justify-center">
+                      <span className="font-display text-2xl uppercase tracking-display text-bone-ghost group-hover:text-bone-dim transition-colors">
+                        {showcase.title}
+                      </span>
+                    </div>
                   )}
-                </div>
-              </a>
-            ))}
+                  <div className="p-5">
+                    <p className="font-display text-base uppercase tracking-display text-bone-base group-hover:text-bone-bright transition-colors">
+                      {showcase.title}
+                    </p>
+                    {showcase.description && (
+                      <p className="font-mono text-sm text-bone-muted mt-2 leading-relaxed">
+                        {showcase.description}
+                      </p>
+                    )}
+                  </div>
+                </a>
+              );
+            })}
           </div>
         )}
 
@@ -296,6 +310,24 @@ export default async function ConstructDetailPage({
 }
 
 /* ── Identity helpers ── */
+
+/** Map showcase URL to a static image slug in /public/showcases/ */
+function showcaseImageSlug(url: string): string | null {
+  const map: Record<string, string> = {
+    'moneycomb.0xhoneyjar.xyz': 'mcv-interface',
+    'moneycombvaults.honeycomb.fyi': 'mcv-interface',
+    'midi.0xhoneyjar.xyz': 'mibera-dimensions',
+    'mibera.honeycomb.fyi': 'mibera-dimensions',
+    'setandforgetti.0xhoneyjar.xyz': 'set-and-forgetti',
+    'setandforgetti.honeycomb.fyi': 'set-and-forgetti',
+  };
+  try {
+    const hostname = new URL(url).hostname;
+    return map[hostname] || null;
+  } catch {
+    return null;
+  }
+}
 
 function extractString(obj: Record<string, unknown>, ...keys: string[]): string | null {
   for (const key of keys) {

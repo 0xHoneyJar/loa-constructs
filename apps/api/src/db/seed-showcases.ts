@@ -22,31 +22,31 @@ const SHOWCASES: ShowcaseEntry[] = [
   {
     constructSlug: 'observer',
     title: 'Mibera Dimensions',
-    url: 'https://mibera.honeycomb.fyi',
+    url: 'https://midi.0xhoneyjar.xyz',
     description: '25 user research canvases, daily synthesis reports, 8 user journeys',
   },
   {
     constructSlug: 'observer',
     title: 'Set and Forgetti',
-    url: 'https://setandforgetti.honeycomb.fyi',
+    url: 'https://setandforgetti.0xhoneyjar.xyz',
     description: 'AI classifier routing user feedback to Linear with confidence scoring',
   },
   {
     constructSlug: 'artisan',
     title: 'MCV Interface',
-    url: 'https://moneycombvaults.honeycomb.fyi',
+    url: 'https://moneycomb.0xhoneyjar.xyz',
     description: 'Geological material system — OKLCH palette, motion language, generative pipeline',
   },
   {
     constructSlug: 'artisan',
     title: 'Mibera Dimensions',
-    url: 'https://mibera.honeycomb.fyi',
+    url: 'https://midi.0xhoneyjar.xyz',
     description: 'Shared visual DNA — OKLCH chromatic engine and typography system',
   },
   {
     constructSlug: 'k-hole',
     title: 'MCV Interface',
-    url: 'https://moneycombvaults.honeycomb.fyi',
+    url: 'https://moneycomb.0xhoneyjar.xyz',
     description: 'Depth research for design decisions and architectural direction',
   },
 ];
