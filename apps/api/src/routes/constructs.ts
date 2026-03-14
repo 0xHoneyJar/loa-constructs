@@ -50,6 +50,7 @@ const listConstructsSchema = z.object({
 
 function formatConstruct(c: Construct) {
   const manifestSummary = c.manifest ? formatManifestSummary(c.manifest) : null;
+  const manifest = c.manifest as Record<string, unknown> | null;
   return {
     id: c.id,
     type: c.type,
@@ -83,6 +84,10 @@ function formatConstruct(c: Construct) {
     has_identity: c.hasIdentity,
     verification_tier: c.verificationTier,
     visibility: c.visibility,
+    // Composability fields (cycle-051)
+    composition_paths: manifest?.composition_paths ?? null,
+    governs: manifest?.governs ?? null,
+    governed_by: manifest?.governed_by ?? null,
     created_at: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
     updated_at: c.updatedAt instanceof Date ? c.updatedAt.toISOString() : c.updatedAt,
     // Discovery enrichment (cycle-048)
@@ -95,10 +100,15 @@ function formatConstruct(c: Construct) {
 }
 
 function formatConstructDetail(c: Construct) {
+  const detailManifest = c.manifest as Record<string, unknown> | null;
   return {
     ...formatConstruct(c),
     long_description: c.longDescription,
     manifest: c.manifest, // Full manifest for detail view
+    // Composability fields (cycle-051) — override list-level with detail-level manifest
+    composition_paths: detailManifest?.composition_paths ?? null,
+    governs: detailManifest?.governs ?? null,
+    governed_by: detailManifest?.governed_by ?? null,
     owner: c.owner
       ? {
           name: c.owner.name,

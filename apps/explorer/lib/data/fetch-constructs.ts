@@ -43,12 +43,19 @@ interface APIConstruct {
   forked_from?: { slug: string; name: string } | null;
   fork_count?: number;
   skill_prose?: string | null;
+  // Composability fields (cycle-051)
+  composition_paths?: { writes?: string[]; reads?: string[] } | null;
+  governs?: string[] | null;
+  governed_by?: string[] | null;
   manifest?: {
     commands?: Array<{ name: string; description: string; usage?: string }>;
     skills?: Array<{ slug: string; name?: string; path?: string; description?: string } | null>;
     composes_with?: string[];
     dependencies?: string[];
     pack_dependencies?: Record<string, unknown>;
+    composition_paths?: { writes?: string[]; reads?: string[] };
+    governs?: string[];
+    governed_by?: string[];
   };
 }
 
@@ -204,6 +211,11 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
     // Populated by fetchConstruct via parallel API calls
     showcases: [],
     accuracy: null,
+    // Composability (cycle-051)
+    compositionPaths: construct.composition_paths ?? construct.manifest?.composition_paths ?? null,
+    governs: construct.governs ?? construct.manifest?.governs ?? [],
+    governedBy: construct.governed_by ?? construct.manifest?.governed_by ?? [],
+    connectedVia: [], // Populated by computePathConnections
   };
 }
 

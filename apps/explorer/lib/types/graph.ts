@@ -2,7 +2,7 @@ export type ConstructType = 'skill' | 'pack' | 'bundle';
 
 export type GraduationLevel = 'experimental' | 'beta' | 'stable' | 'deprecated';
 
-export type EdgeRelationship = 'contains' | 'depends_on' | 'composes_with';
+export type EdgeRelationship = 'contains' | 'depends_on' | 'composes_with' | 'connected_via' | 'governs';
 
 /**
  * Category from API
@@ -99,6 +99,11 @@ export interface ConstructDetail extends ConstructNode {
   showcases: Showcase[];
   // Accuracy report (cycle-035)
   accuracy: AccuracyReport | null;
+  // Composability (cycle-051)
+  compositionPaths: { writes?: string[]; reads?: string[] } | null;
+  governs: string[];
+  governedBy: string[];
+  connectedVia: Array<{ slug: string; path: string; direction: 'reads' | 'writes' }>;
 }
 
 export interface Showcase {
