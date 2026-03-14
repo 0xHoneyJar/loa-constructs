@@ -33,7 +33,7 @@ const SHOWCASES: ShowcaseEntry[] = [
   },
   {
     constructSlug: 'artisan',
-    title: 'MCV Interface',
+    title: 'Moneycomb Vaults',
     url: 'https://moneycomb.0xhoneyjar.xyz',
     description: 'Geological material system — OKLCH palette, motion language, generative pipeline',
   },
@@ -45,7 +45,7 @@ const SHOWCASES: ShowcaseEntry[] = [
   },
   {
     constructSlug: 'k-hole',
-    title: 'MCV Interface',
+    title: 'Moneycomb Vaults',
     url: 'https://moneycomb.0xhoneyjar.xyz',
     description: 'Depth research for design decisions and architectural direction',
   },
