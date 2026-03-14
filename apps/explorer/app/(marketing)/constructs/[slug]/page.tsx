@@ -151,6 +151,37 @@ export default async function ConstructDetailPage({
           <IdentityFull identity={construct.identity} />
         )}
 
+        {/* Showcases — real products that shipped with this construct */}
+        {construct.showcases.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {construct.showcases.map((showcase) => (
+              <a
+                key={showcase.id}
+                href={showcase.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="border border-void-border hover:border-bone-ghost transition-colors group block"
+              >
+                <div className="aspect-[16/9] bg-void-raised border-b border-void-border flex items-center justify-center">
+                  <span className="font-display text-2xl uppercase tracking-display text-bone-ghost group-hover:text-bone-dim transition-colors">
+                    {showcase.title}
+                  </span>
+                </div>
+                <div className="p-5">
+                  <p className="font-display text-base uppercase tracking-display text-bone-base group-hover:text-bone-bright transition-colors">
+                    {showcase.title}
+                  </p>
+                  {showcase.description && (
+                    <p className="font-mono text-sm text-bone-muted mt-2 leading-relaxed">
+                      {showcase.description}
+                    </p>
+                  )}
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
+
         {/* Composes with — the person at the next stall (TDR-007) */}
         {construct.composesWith.length > 0 && (
           <div>
@@ -210,7 +241,6 @@ export default async function ConstructDetailPage({
       {(construct.longDescription ||
         construct.skillProse ||
         construct.accuracy ||
-        construct.showcases.length > 0 ||
         construct.forkCount > 0) && (
         <div className="mt-24 space-y-10">
           {construct.longDescription && (
@@ -230,28 +260,6 @@ export default async function ConstructDetailPage({
             <Disclosure title="Documentation">
               <div className="text-base font-mono text-bone-dim leading-relaxed whitespace-pre-wrap">
                 {construct.skillProse}
-              </div>
-            </Disclosure>
-          )}
-
-          {construct.showcases.length > 0 && (
-            <Disclosure title={`Built With (${construct.showcases.length})`}>
-              <div className="space-y-3">
-                {construct.showcases.map((showcase) => (
-                  <div key={showcase.id} className="border border-void-border p-5">
-                    <a
-                      href={showcase.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono text-base text-cyan-dim hover:text-cyan-base transition-colors"
-                    >
-                      {showcase.title} &rarr;
-                    </a>
-                    {showcase.description && (
-                      <p className="font-mono text-sm text-bone-muted mt-2 leading-relaxed">{showcase.description}</p>
-                    )}
-                  </div>
-                ))}
               </div>
             </Disclosure>
           )}
