@@ -47,45 +47,13 @@ export function ComposeDiagram({ constructs }: { constructs: ConstructNode[] }) 
       }));
 
     // Ghost nodes — redacted constructs, the network extends
-    flowNodes.push({
-      id: 'ghost-1',
-      type: 'default',
-      position: { x: 600, y: 40 },
-      data: { label: '' },
-      draggable: false,
-      selectable: false,
-      style: {
-        width: 64,
-        height: 40,
-        backgroundColor: 'oklch(0.12 0.005 250)',
-        border: 'none',
-        borderRadius: 0,
-      },
-    });
-    flowNodes.push({
-      id: 'ghost-2',
-      type: 'default',
-      position: { x: 540, y: 180 },
-      data: { label: '' },
-      draggable: false,
-      selectable: false,
-      style: {
-        width: 48,
-        height: 40,
-        backgroundColor: 'oklch(0.12 0.005 250)',
-        border: 'none',
-        borderRadius: 0,
-      },
-    });
+    // No ghost nodes — the void around the real nodes IS the ghost.
 
     const flowEdges: Edge[] = [
       { id: 'e-art-obs', source: 'artisan', target: 'observer', type: 'smoothstep', style: { stroke: 'oklch(0.65 0.12 195)', strokeWidth: 1 } },
       { id: 'e-obs-cru', source: 'observer', target: 'crucible', type: 'smoothstep', style: { stroke: 'oklch(0.65 0.12 195)', strokeWidth: 1 } },
       { id: 'e-kh-mc', source: 'k-hole', target: 'mibera-codex', type: 'smoothstep', style: { stroke: 'oklch(0.65 0.12 195)', strokeWidth: 1 } },
       { id: 'e-obs-kh', source: 'observer', target: 'k-hole', type: 'smoothstep', style: { stroke: 'oklch(0.30 0.04 195)', strokeWidth: 1 } },
-      // Ghost edges trailing off
-      { id: 'e-cru-g1', source: 'crucible', target: 'ghost-1', type: 'smoothstep', style: { stroke: 'oklch(0.15 0.02 250)', strokeWidth: 1, strokeDasharray: '4 6' } },
-      { id: 'e-mc-g2', source: 'mibera-codex', target: 'ghost-2', type: 'smoothstep', style: { stroke: 'oklch(0.15 0.02 250)', strokeWidth: 1, strokeDasharray: '4 6' } },
     ];
 
     return { nodes: flowNodes, edges: flowEdges };
