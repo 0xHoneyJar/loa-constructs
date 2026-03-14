@@ -28,7 +28,7 @@ export function Header() {
             href="/about"
             className="font-mono text-base uppercase tracking-terminal text-bone-dim hover:text-bone-base transition-colors"
           >
-            About
+            What
           </Link>
           <AuthNav />
         </nav>
