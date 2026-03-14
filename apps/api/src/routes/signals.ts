@@ -324,7 +324,16 @@ signalsRouter.get(
     }
 
     const showcases = await db
-      .select()
+      .select({
+        id: constructShowcases.id,
+        packId: constructShowcases.packId,
+        title: constructShowcases.title,
+        url: constructShowcases.url,
+        description: constructShowcases.description,
+        approved: constructShowcases.approved,
+        createdAt: constructShowcases.createdAt,
+        // submittedBy intentionally excluded — user ID is PII
+      })
       .from(constructShowcases)
       .where(and(...conditions))
       .orderBy(desc(constructShowcases.createdAt));
