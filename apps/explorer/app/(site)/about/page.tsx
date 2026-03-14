@@ -13,58 +13,30 @@ export default function AboutPage() {
           <h1 className="font-display text-4xl sm:text-5xl uppercase tracking-display text-bone-bright leading-[0.95]">
             Constructs
           </h1>
-          <div className="mt-8 space-y-6 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
-            <p>
-              Named expertise you install into your AI coding agent.
-              Identity, skills, and boundaries. One package.
-            </p>
-            <p>
-              Install Artisan — your agent decomposes design into
-              feel, motion, and material. Install Observer — it captures
-              user feedback as hypothesis-first research. Install both —
-              they compose. Observer surfaces what users do. Artisan
-              turns it into what the interface should feel like.
-            </p>
-          </div>
+          <p className="mt-8 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
+            Named expertise you install into your AI coding agent.
+            Identity, skills, and boundaries. One package.
+          </p>
         </section>
 
         <section>
           <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-display text-bone-bright leading-[0.95]">
-            The Bazaar
+            Compose
           </h2>
-          <div className="mt-8 space-y-6 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
-            <p>
-              This is not a marketplace. There is no algorithm
-              deciding what you see. No featured placement. No ranking
-              by popularity.
-            </p>
-            <p>
-              Every construct is a stall. You walk through. Something
-              catches your eye — or it doesn&apos;t. Each construct
-              declares what it composes with. Those connections
-              are the person at the next stall pointing you
-              three stalls down.
-            </p>
-          </div>
+          <p className="mt-8 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
+            Constructs declare what they work with.
+            Install Observer and Artisan together — one captures
+            user feedback, the other turns it into design tokens.
+          </p>
         </section>
 
         <section>
           <h2 className="font-display text-3xl sm:text-4xl uppercase tracking-display text-bone-bright leading-[0.95]">
-            Build a Stall
+            Create
           </h2>
-          <div className="mt-8 space-y-6 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
-            <p>
-              A construct is a repo. Three files define it:
-              a manifest, a skill definition, and an identity.
-              Push it. CI validates the schema. The network
-              picks it up.
-            </p>
-            <p>
-              Your methodology becomes something others can install.
-              Design expertise. Security auditing. Research depth.
-              Whatever you&apos;ve built that works — package it.
-            </p>
-          </div>
+          <p className="mt-8 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
+            A construct is a repo. Three files. Push. CI validates.
+          </p>
           <div className="mt-8 border border-void-border bg-void-raised px-5 py-4">
             <code className="font-mono text-sm sm:text-base text-bone-base">
               gh repo create my-org/construct-my-expertise \<br />
