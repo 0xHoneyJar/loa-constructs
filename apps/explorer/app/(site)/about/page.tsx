@@ -16,15 +16,15 @@ export default function AboutPage() {
             Constructs
           </h1>
           <p className="mt-8 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
-            Named expertise you install into your AI coding agent.
+            Named expertise you deploy into your AI coding agent.
           </p>
-          <div className="mt-10 border border-void-border bg-void-raised px-5 py-5 space-y-4 font-mono text-sm sm:text-base">
+          <div className="mt-10 border border-void-border px-5 py-5 space-y-4 font-mono text-sm sm:text-base">
             <p>
               <span className="text-bone-ghost">$ </span>
               <span className="text-cyan-base">npx constructs install observer</span>
             </p>
             <p className="text-bone-muted">
-              Installed Observer — 24 skills, 6 commands
+              Deployed Observer — 29 skills, 6 commands
             </p>
             <p>
               <span className="text-bone-ghost">$ </span>
@@ -43,7 +43,7 @@ export default function AboutPage() {
           </h2>
           <p className="mt-8 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
             Each construct declares what it works with.
-            Install several — they share context through
+            Deploy several — they share context through
             your project. Your creativity determines
             how they connect.
           </p>
@@ -57,7 +57,7 @@ export default function AboutPage() {
           <p className="mt-8 font-mono text-base sm:text-lg leading-relaxed text-bone-dim">
             A construct is a repo with three files.
           </p>
-          <div className="mt-10 border border-void-border bg-void-raised px-5 py-5 space-y-3 font-mono text-sm sm:text-base">
+          <div className="mt-10 border border-void-border px-5 py-5 space-y-3 font-mono text-sm sm:text-base">
             <p className="text-bone-base">construct.yaml</p>
             <p className="text-bone-muted pl-4">name, domain, what it composes with</p>
             <p className="text-bone-base mt-2">skills/your-skill/SKILL.md</p>
@@ -65,7 +65,7 @@ export default function AboutPage() {
             <p className="text-bone-base mt-2">identity/persona.yaml</p>
             <p className="text-bone-muted pl-4">voice, cognitive frame, expertise</p>
           </div>
-          <div className="mt-6 border border-void-border bg-void-raised px-5 py-4">
+          <div className="mt-6 border border-void-border px-5 py-4">
             <code className="font-mono text-sm sm:text-base text-bone-base">
               gh repo create my-org/construct-my-expertise \<br />
               {'  '}--template 0xHoneyJar/construct-base --private --clone
@@ -79,7 +79,7 @@ export default function AboutPage() {
             href="/constructs"
             className="font-display text-xl uppercase tracking-display text-cyan-dim hover:text-bone-bright transition-colors"
           >
-            Browse the catalog &rarr;
+            Browse the roster &rarr;
           </Link>
         </div>
       </div>
