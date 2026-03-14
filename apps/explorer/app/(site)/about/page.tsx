@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { TerminalBlock } from '@/components/ui/terminal-block';
 import { ScrollReveal } from '@/components/ui/scroll-reveal';
+import { ComposeDiagram } from '@/components/graph/compose-diagram';
 import { fetchAllConstructs } from '@/lib/data/fetch-constructs';
 
 export const metadata: Metadata = {
@@ -186,68 +187,10 @@ export default async function AboutPage() {
             <h2 className="mt-3 font-display text-3xl sm:text-4xl lg:text-5xl uppercase tracking-display text-bone-bright leading-[0.95]">
               Compose.
             </h2>
-            {/* Network glimpse — nodes + edges. No explanation. The network speaks. */}
-            <ScrollReveal animation="draw" className="mt-10 border border-void-border relative overflow-hidden" style={{ height: 280 }}>
-              {/* Edge lines — SVG for clean diagonals */}
-              <svg className="absolute inset-0 w-full h-full" aria-hidden="true">
-                {/* artisan -> observer */}
-                <line x1="18%" y1="28%" x2="52%" y2="32%" className="stroke-cyan-dim" strokeWidth={1} />
-                {/* observer -> crucible */}
-                <line x1="52%" y1="32%" x2="78%" y2="58%" className="stroke-cyan-dim" strokeWidth={1} />
-                {/* k-hole -> mibera-codex */}
-                <line x1="30%" y1="65%" x2="60%" y2="72%" className="stroke-cyan-dim" strokeWidth={1} />
-                {/* observer -> k-hole (cross-link) */}
-                <line x1="52%" y1="32%" x2="30%" y2="65%" className="stroke-void-border" strokeWidth={1} />
-                {/* ghost edges — trailing off toward edges */}
-                <line x1="78%" y1="58%" x2="95%" y2="48%" className="stroke-void-border" strokeWidth={1} strokeDasharray="4 6" />
-                <line x1="60%" y1="72%" x2="82%" y2="85%" className="stroke-void-border" strokeWidth={1} strokeDasharray="4 6" />
-              </svg>
-
-              {/* Nodes — wordmarks only, no text labels */}
-              <div className="absolute border border-void-border px-3 py-2 bg-void-base" style={{ left: '6%', top: '20%' }}>
-                {marks['artisan'] ? (
-                  <div className="text-bone-base [&_svg]:h-4 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['artisan'] }} />
-                ) : (
-                  <span className="font-mono text-xs text-bone-base">artisan</span>
-                )}
-              </div>
-              <div className="absolute border border-void-border px-3 py-2 bg-void-base" style={{ left: '42%', top: '25%' }}>
-                {marks['observer'] ? (
-                  <div className="text-bone-base [&_svg]:h-4 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['observer'] }} />
-                ) : (
-                  <span className="font-mono text-xs text-bone-base">observer</span>
-                )}
-              </div>
-              <div className="absolute border border-void-border px-3 py-2 bg-void-base" style={{ left: '68%', top: '50%' }}>
-                {marks['crucible'] ? (
-                  <div className="text-bone-base [&_svg]:h-4 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['crucible'] }} />
-                ) : (
-                  <span className="font-mono text-xs text-bone-base">crucible</span>
-                )}
-              </div>
-              <div className="absolute border border-void-border px-3 py-2 bg-void-base" style={{ left: '16%', top: '58%' }}>
-                {marks['k-hole'] ? (
-                  <div className="text-bone-base [&_svg]:h-4 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['k-hole'] }} />
-                ) : (
-                  <span className="font-mono text-xs text-bone-base">k-hole</span>
-                )}
-              </div>
-              <div className="absolute border border-void-border px-3 py-2 bg-void-base" style={{ left: '48%', top: '65%' }}>
-                {marks['mibera-codex'] ? (
-                  <div className="text-bone-base [&_svg]:h-4 [&_svg]:w-auto" dangerouslySetInnerHTML={{ __html: marks['mibera-codex'] }} />
-                ) : (
-                  <span className="font-mono text-xs text-bone-base">mibera-codex</span>
-                )}
-              </div>
-
-              {/* Ghost nodes — redaction bars, the network extends beyond */}
-              <div className="absolute px-3 py-2" style={{ left: '86%', top: '40%' }}>
-                <div className="w-16 h-4" style={{ backgroundColor: 'oklch(0.12 0.005 250)' }} />
-              </div>
-              <div className="absolute px-3 py-2" style={{ left: '74%', top: '78%' }}>
-                <div className="w-10 h-4" style={{ backgroundColor: 'oklch(0.12 0.005 250)' }} />
-              </div>
-            </ScrollReveal>
+            {/* Network — React Flow mini graph. Lines actually connect. */}
+            <div className="mt-10">
+              <ComposeDiagram constructs={allConstructs} />
+            </div>
           </section>
         </ScrollReveal>
 
