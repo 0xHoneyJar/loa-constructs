@@ -78,7 +78,7 @@ export default function RootLayout({
           <ConvexProvider>
             {children}
             <FeedbackWidget />
-            {/* @ts-expect-error React 19 type mismatch with Agentation portal */}
+            {/* @ts-ignore React 19 type mismatch with Agentation portal */}
             {process.env.NODE_ENV === 'development' && <Agentation />}
           </ConvexProvider>
         </DynamicProvider>
