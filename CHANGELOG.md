@@ -5,6 +5,25 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.19.0] — 2026-03-14 — Construct Composability — grimoire paths, governance, 23-construct audit
+
+
+Makes implicit construct composition visible. The grimoire filesystem IS the composition layer — this PR declares it and surfaces it.
+
+### Sprint 1: Schema + API + Audit
+- `composition_paths` (writes/reads) + `governs`/`governed_by` in Zod schema + API
+
+### Added
+
+- **cycle-051**: Construct Composability — grimoire paths, governance, 23-construct audit (#167)
+
+### Fixed
+
+- **api**: handle string[] expertise format from DB
+
+_Source: PR #167_
+
+
 ## [2.9.0] - 2026-02-28
 
 ### Why This Release
