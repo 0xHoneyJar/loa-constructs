@@ -16,7 +16,7 @@ Construct scripts produce three kinds of output. Each has exactly one destinatio
 
 ### Rules
 
-1. **One `console.log(JSON.stringify(...))` at script exit.** This is the only thing that touches stdout. The agent parses this JSON to reason about the result.
+1. **One `writeSync(1, JSON.stringify(...))` at script exit.** This is the only thing that touches stdout. Use synchronous write to avoid truncation if followed by `process.exit()`. The agent parses this JSON to reason about the result.
 
 2. **All operational noise to stderr.** Use `process.stderr.write()` for progress, retries, model fallbacks, timing. Never `console.log()` for progress.
 
