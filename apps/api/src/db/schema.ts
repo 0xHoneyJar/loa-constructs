@@ -533,7 +533,10 @@ export const packs = pgTable(
     reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
 
     // Metadata
-    icon: varchar('icon', { length: 10 }), // Emoji icon for pack display
+    icon: varchar('icon', { length: 10 }), // Emoji icon for pack display (legacy)
+    logoMark: text('logo_mark'), // SVG path data for mark-only variant (favicon, small icons)
+    logoWordmark: text('logo_wordmark'), // Full SVG for horizontal lockup (mark + text, used in catalog rows)
+    logoKnockout: text('logo_knockout'), // Full SVG for knockout variant (mark with text cutout, used in hero/detail)
     repositoryUrl: text('repository_url'),
     homepageUrl: text('homepage_url'),
     documentationUrl: text('documentation_url'),

@@ -343,15 +343,29 @@ export function ConstructCatalog({ constructs }: ConstructCatalogProps) {
               href={`/constructs/${construct.slug}`}
               className="bg-void-base p-5 hover:bg-void-raised transition-colors group"
             >
-              {/* Row 1: icon + name + badges */}
+              {/* Row 1: logomark or icon + name + badges */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3 min-w-0">
-                  {construct.icon && (
-                    <span className="text-2xl shrink-0">{construct.icon}</span>
+                  {construct.logoWordmark ? (
+                    <span
+                      className="shrink-0 text-bone-base group-hover:text-bone-bright transition-colors [&_svg]:h-8 [&_svg]:w-auto"
+                      dangerouslySetInnerHTML={{ __html: construct.logoWordmark }}
+                    />
+                  ) : (
+                    <>
+                      {construct.logoMark ? (
+                        <span
+                          className="shrink-0 text-bone-base group-hover:text-bone-bright transition-colors [&_svg]:h-7 [&_svg]:w-7"
+                          dangerouslySetInnerHTML={{ __html: construct.logoMark }}
+                        />
+                      ) : construct.icon ? (
+                        <span className="text-2xl shrink-0">{construct.icon}</span>
+                      ) : null}
+                      <span className="font-mono text-xl font-bold text-bone-base group-hover:text-bone-bright transition-colors truncate">
+                        {construct.name}
+                      </span>
+                    </>
                   )}
-                  <span className="font-mono text-xl font-bold text-bone-base group-hover:text-bone-bright transition-colors truncate">
-                    {construct.name}
-                  </span>
                   {construct.constructType !== 'skill-pack' && (
                     <Badge variant="cyan">
                       {construct.constructType.replace(/-/g, ' ')}

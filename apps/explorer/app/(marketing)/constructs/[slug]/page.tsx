@@ -3,10 +3,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { fetchConstruct } from '@/lib/data/fetch-constructs';
 import { Badge } from '@/components/ui/badge';
-import { GraduationBadge } from '@/components/ui/graduation-badge';
 import { Separator } from '@/components/ui/separator';
-import { CopyButton } from '@/components/ui/copy-button';
-import { CollapsibleList } from '@/components/ui/collapsible-list';
+import { InstallBlock } from '@/components/ui/install-block';
 import { Disclosure } from '@/components/ui/disclosure';
 
 export const revalidate = 3600;
@@ -89,14 +87,30 @@ export default async function ConstructDetailPage({
       </nav>
 
       {/* ── TIER 1: The Glance ── */}
-      {/* Name, what it does, how to get it. Nothing else. */}
+      {/* Name, what it does, how to get it, what it built. Show the result before the mechanic. */}
       <div className="mt-16">
-        <div className="flex items-center gap-4 flex-wrap">
-          <h1 className="font-display text-4xl sm:text-6xl uppercase tracking-display text-bone-bright leading-[0.95]">
-            {construct.name}
-          </h1>
-          {verificationBadge}
-        </div>
+        {construct.logoKnockout || construct.logoWordmark ? (
+          <div className="flex items-center gap-4 flex-wrap">
+            <div
+              className="text-bone-bright [&_svg]:h-16 sm:[&_svg]:h-24 [&_svg]:w-auto"
+              dangerouslySetInnerHTML={{ __html: construct.logoKnockout || construct.logoWordmark! }}
+            />
+            {verificationBadge}
+          </div>
+        ) : (
+          <div className="flex items-center gap-4 flex-wrap">
+            {construct.logoMark && (
+              <div
+                className="text-bone-bright [&_svg]:h-14 sm:[&_svg]:h-20 [&_svg]:w-auto"
+                dangerouslySetInnerHTML={{ __html: construct.logoMark }}
+              />
+            )}
+            <h1 className="font-display text-4xl sm:text-6xl uppercase tracking-display text-bone-bright leading-[0.95]">
+              {construct.name}
+            </h1>
+            {verificationBadge}
+          </div>
+        )}
 
         <p className="mt-8 text-base sm:text-lg font-mono text-bone-dim leading-relaxed max-w-2xl">
           {construct.description}
@@ -111,49 +125,12 @@ export default async function ConstructDetailPage({
           </Link>
         )}
 
-        {/* Install */}
-        <div className="mt-10 border border-void-border bg-void-raised px-5 py-4 font-mono text-sm sm:text-lg flex items-center gap-3 max-w-full overflow-x-auto">
-          <div className="whitespace-nowrap">
-            <span className="text-bone-ghost">$ </span>
-            <span className="text-cyan-base">{construct.installCommand}</span>
-          </div>
-          <CopyButton text={construct.installCommand} />
-        </div>
+        {/* Install — full-width click-to-copy */}
+        <InstallBlock command={construct.installCommand} />
 
-        {/* Context — category, version, graduation, source */}
-        <div className="mt-8 flex items-center gap-4 flex-wrap font-mono text-sm uppercase tracking-whisper text-bone-ghost">
-          <span>{construct.category}</span>
-          <Separator orientation="vertical" className="h-3 self-center" />
-          <Badge>v{construct.version}</Badge>
-          <Separator orientation="vertical" className="h-3 self-center" />
-          <GraduationBadge level={construct.graduationLevel} showStable />
-          {sourceUrl && (
-            <>
-              <Separator orientation="vertical" className="h-3 self-center" />
-              <a
-                href={sourceUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-bone-dim transition-colors normal-case"
-              >
-                source &rarr;
-              </a>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* ── TIER 2: The Scan ── */}
-      {/* Identity first (context), then composition trails, then capabilities. */}
-      <div className="mt-24 space-y-12">
-        {/* Identity — who this construct is. Context for everything below. */}
-        {construct.identity && hasIdentityContent(construct.identity) && (
-          <IdentityFull identity={construct.identity} />
-        )}
-
-        {/* Showcases — real products that shipped with this construct */}
+        {/* Showcases — real products that shipped with this construct. Visual proof before metadata. */}
         {construct.showcases.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-6">
             {construct.showcases.map((showcase) => {
               const imageSlug = showcaseImageSlug(showcase.url);
               return (
@@ -195,6 +172,17 @@ export default async function ConstructDetailPage({
           </div>
         )}
 
+        {/* Context — category + version only. Graduation and source pushed to Tier 3. */}
+        <div className="mt-8 flex items-center gap-4 flex-wrap font-mono text-sm uppercase tracking-whisper text-bone-ghost">
+          <span>{construct.category}</span>
+          <Separator orientation="vertical" className="h-3 self-center" />
+          <Badge>v{construct.version}</Badge>
+        </div>
+      </div>
+
+      {/* ── TIER 2: The Scan ── */}
+      {/* Composition trails, then capabilities. Identity moved to Tier 3. */}
+      <div className="mt-24 space-y-12">
         {/* Composes with — the person at the next stall (TDR-007) */}
         {construct.composesWith.length > 0 && (
           <div>
@@ -215,47 +203,59 @@ export default async function ConstructDetailPage({
           </div>
         )}
 
-        {/* Commands */}
+        {/* Commands — flat grid, no disclosure */}
         {construct.commands.length > 0 && (
-          <Disclosure title={`Commands (${construct.commands.length})`} defaultOpen>
-            <CollapsibleList initialCount={5} label="commands">
+          <div>
+            <p className="font-mono text-sm uppercase tracking-whisper text-bone-ghost mb-4">
+              Commands
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {construct.commands.map((cmd) => (
-                <div key={cmd.name} className="border border-void-border p-5">
-                  <code className="font-mono text-base text-cyan-dim">{cmd.name}</code>
-                  <p className="font-mono text-sm text-bone-muted mt-2 leading-relaxed">{cmd.description}</p>
-                  {cmd.usage && (
-                    <code className="block font-mono text-sm text-bone-ghost mt-3">{cmd.usage}</code>
-                  )}
+                <div key={cmd.name} className="border border-void-border p-4 hover:border-bone-ghost transition-colors">
+                  <code className="font-mono text-sm text-cyan-dim">{cmd.name}</code>
+                  <p className="font-mono text-xs text-bone-muted mt-2 leading-relaxed line-clamp-2">{cmd.description}</p>
                 </div>
               ))}
-            </CollapsibleList>
-          </Disclosure>
+            </div>
+          </div>
         )}
 
-        {/* Skills */}
+        {/* Skills — flat grid, no disclosure */}
         {(construct.skills?.length ?? 0) > 0 && (
-          <Disclosure title={`Skills (${construct.skills!.length})`} defaultOpen={construct.skills!.length <= 8}>
-            <CollapsibleList initialCount={5} label="skills">
+          <div>
+            <p className="font-mono text-sm uppercase tracking-whisper text-bone-ghost mb-4">
+              Skills
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {construct.skills!.map((skill) => (
-                <div key={skill.slug} className="border border-void-border p-5">
-                  <p className="font-mono text-base text-bone-base">{skill.name}</p>
+                <div key={skill.slug} className="border border-void-border p-4 hover:border-bone-ghost transition-colors">
+                  <p className="font-mono text-sm text-bone-base">{skill.name}</p>
                   {skill.description && (
-                    <p className="font-mono text-sm text-bone-muted mt-2 leading-relaxed">{skill.description}</p>
+                    <p className="font-mono text-xs text-bone-muted mt-2 leading-relaxed line-clamp-2">{skill.description}</p>
                   )}
                 </div>
               ))}
-            </CollapsibleList>
-          </Disclosure>
+            </div>
+          </div>
         )}
       </div>
 
       {/* ── TIER 3: The Deep Read ── */}
-      {/* Only for those who want it. Everything behind disclosure. */}
-      {(construct.longDescription ||
+      {/* Identity, documentation, metadata. Only for those who want it. */}
+      {(construct.identity && hasIdentityContent(construct.identity)) ||
+        construct.longDescription ||
         construct.skillProse ||
         construct.accuracy ||
-        construct.forkCount > 0) && (
+        construct.forkCount > 0 ||
+        sourceUrl ? (
         <div className="mt-24 space-y-10">
+          {/* Identity — who this construct is. Metadata, not value prop. */}
+          {construct.identity && hasIdentityContent(construct.identity) && (
+            <Disclosure title="Identity">
+              <IdentityFull identity={construct.identity} />
+            </Disclosure>
+          )}
+
           {construct.longDescription && (
             <Disclosure title="About">
               <p className="text-base font-mono text-bone-dim leading-relaxed">
@@ -302,8 +302,20 @@ export default async function ConstructDetailPage({
               )}
             </Disclosure>
           )}
+
+          {/* Source — quiet link at the bottom for those who need it */}
+          {sourceUrl && (
+            <a
+              href={sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 font-mono text-sm text-bone-ghost hover:text-bone-dim transition-colors"
+            >
+              View source &rarr;
+            </a>
+          )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -319,6 +331,8 @@ function showcaseImageSlug(url: string): string | null {
     'mibera.honeycomb.fyi': 'mibera-dimensions',
     'setandforgetti.0xhoneyjar.xyz': 'set-and-forgetti',
     'setandforgetti.honeycomb.fyi': 'set-and-forgetti',
+    'rektdrop.0xhoneyjar.xyz': 'rektdrop-interface',
+    'rektdrop.honeycomb.fyi': 'rektdrop-interface',
   };
   try {
     const hostname = new URL(url).hostname;

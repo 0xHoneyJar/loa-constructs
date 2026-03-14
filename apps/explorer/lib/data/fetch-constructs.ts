@@ -16,6 +16,9 @@ interface APIConstruct {
   tier_required: string;
   is_featured: boolean;
   icon?: string | null;
+  logo_mark?: string | null;
+  logo_wordmark?: string | null;
+  logo_knockout?: string | null;
   skills_count?: number;
   maturity?: string;
   source_type?: string | null;
@@ -110,6 +113,9 @@ function transformToNode(construct: APIConstruct): ConstructNode {
     downloads: construct.downloads,
     version: construct.version || '1.0.0',
     icon: construct.icon ?? null,
+    logoMark: construct.logo_mark ?? null,
+    logoWordmark: construct.logo_wordmark ?? null,
+    logoKnockout: construct.logo_knockout ?? null,
     rating: construct.rating ?? null,
     hasIdentity: construct.has_identity ?? false,
     verificationTier: construct.verification_tier ?? 'UNVERIFIED',

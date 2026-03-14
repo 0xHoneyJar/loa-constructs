@@ -45,6 +45,9 @@ export interface Construct {
   name: string;
   slug: string;
   icon: string | null;
+  logoMark: string | null;
+  logoWordmark: string | null;
+  logoKnockout: string | null;
   description: string | null;
   shortDescription: string | null;
   longDescription: string | null;
@@ -340,6 +343,9 @@ function skillToConstruct(
     name: skill.name,
     slug: skill.slug,
     icon: null, // Skills don't have icons
+    logoMark: null,
+    logoWordmark: null,
+    logoKnockout: null,
     description: skill.description,
     shortDescription: null, // Skills derive shortDescription from description in the frontend fallback chain
     longDescription: skill.longDescription,
@@ -433,6 +439,9 @@ function packToConstruct(
     name: pack.name,
     slug: pack.slug,
     icon: pack.icon || null,
+    logoMark: pack.logoMark || null,
+    logoWordmark: pack.logoWordmark || null,
+    logoKnockout: pack.logoKnockout || null,
     description: pack.description,
     shortDescription: pack.shortDescription || null,
     longDescription: pack.longDescription,

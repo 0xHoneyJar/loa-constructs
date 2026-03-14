@@ -34,6 +34,9 @@ export interface ConstructNode {
   downloads: number;
   version: string;
   icon?: string | null;
+  logoMark?: string | null;
+  logoWordmark?: string | null;
+  logoKnockout?: string | null;
   rating?: number | null;
   hasIdentity?: boolean;
   verificationTier?: string;

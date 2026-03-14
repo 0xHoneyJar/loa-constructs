@@ -32,6 +32,18 @@ const SHOWCASES: ShowcaseEntry[] = [
     url: 'https://setandforgetti.0xhoneyjar.xyz',
     description: '11 user canvases, AI classifier routing feedback to Linear',
   },
+  {
+    constructSlug: 'observer',
+    title: 'Moneycomb Vaults',
+    url: 'https://moneycomb.0xhoneyjar.xyz',
+    description: 'User canvases, vault interaction feedback, journey optimization',
+  },
+  {
+    constructSlug: 'observer',
+    title: 'RektDrop',
+    url: 'https://rektdrop.0xhoneyjar.xyz',
+    description: 'User journey mapping, experience flow analysis, feedback canvases',
+  },
   // Artisan
   {
     constructSlug: 'artisan',
@@ -45,12 +57,30 @@ const SHOWCASES: ShowcaseEntry[] = [
     url: 'https://midi.0xhoneyjar.xyz',
     description: 'taste.md visual identity, feedback patterns, inspiration moodboard',
   },
+  {
+    constructSlug: 'artisan',
+    title: 'Set and Forgetti',
+    url: 'https://setandforgetti.0xhoneyjar.xyz',
+    description: 'taste.md design system, typography decisions, component feel',
+  },
+  {
+    constructSlug: 'artisan',
+    title: 'RektDrop',
+    url: 'https://rektdrop.0xhoneyjar.xyz',
+    description: '19 TDRs, taste.md, OKLCH palette, 83ms quantum, CRT material system',
+  },
   // K-Hole
   {
     constructSlug: 'k-hole',
     title: 'Moneycomb Vaults',
     url: 'https://moneycomb.0xhoneyjar.xyz',
     description: '40+ deep research sessions feeding vocabulary bank and design decisions',
+  },
+  {
+    constructSlug: 'k-hole',
+    title: 'RektDrop',
+    url: 'https://rektdrop.0xhoneyjar.xyz',
+    description: 'Deep research sessions — Neuromancer vocabulary, tier system, Sprawl world-building',
   },
   // The Mint
   {
@@ -77,6 +107,18 @@ const SHOWCASES: ShowcaseEntry[] = [
     title: 'Mibera Dimensions',
     url: 'https://midi.0xhoneyjar.xyz',
     description: '11 TDRs, KAIROS persona, vocabulary atlas, design research',
+  },
+  {
+    constructSlug: 'the-easel',
+    title: 'Set and Forgetti',
+    url: 'https://setandforgetti.0xhoneyjar.xyz',
+    description: 'Visual direction, icon system, asset pipeline',
+  },
+  {
+    constructSlug: 'the-easel',
+    title: 'RektDrop',
+    url: 'https://rektdrop.0xhoneyjar.xyz',
+    description: 'Visual direction — CRT treatment, sigil particles, LED billboard spec',
   },
   // Herald
   {
