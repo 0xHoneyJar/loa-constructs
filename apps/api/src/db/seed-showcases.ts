@@ -17,37 +17,80 @@ interface ShowcaseEntry {
   description: string;
 }
 
-// Grounded in ecosystem survey — only claims we can back with evidence
+// Grounded in 3-agent ecosystem audit (2026-03-14) — only claims backed by grimoire artifacts
 const SHOWCASES: ShowcaseEntry[] = [
+  // Observer
   {
     constructSlug: 'observer',
     title: 'Mibera Dimensions',
     url: 'https://midi.0xhoneyjar.xyz',
-    description: '25 user research canvases, daily synthesis reports, 8 user journeys',
+    description: '31 user canvases, 25 cognition profiles, 23 synthesis reports, 8 journeys',
   },
   {
     constructSlug: 'observer',
     title: 'Set and Forgetti',
     url: 'https://setandforgetti.0xhoneyjar.xyz',
-    description: 'AI classifier routing user feedback to Linear with confidence scoring',
+    description: '11 user canvases, AI classifier routing feedback to Linear',
   },
+  // Artisan
   {
     constructSlug: 'artisan',
     title: 'Moneycomb Vaults',
     url: 'https://moneycomb.0xhoneyjar.xyz',
-    description: 'Geological material system — OKLCH palette, motion language, generative pipeline',
+    description: 'taste.md constitution — OKLCH palette, motion laws, material tokens',
   },
   {
     constructSlug: 'artisan',
     title: 'Mibera Dimensions',
     url: 'https://midi.0xhoneyjar.xyz',
-    description: 'Shared visual DNA — OKLCH chromatic engine and typography system',
+    description: 'taste.md visual identity, feedback patterns, inspiration moodboard',
   },
+  // K-Hole
   {
     constructSlug: 'k-hole',
     title: 'Moneycomb Vaults',
     url: 'https://moneycomb.0xhoneyjar.xyz',
-    description: 'Depth research for design decisions and architectural direction',
+    description: '40+ deep research sessions feeding vocabulary bank and design decisions',
+  },
+  // The Mint
+  {
+    constructSlug: 'the-mint',
+    title: 'Moneycomb Vaults',
+    url: 'https://moneycomb.0xhoneyjar.xyz',
+    description: 'Generative asset pipeline — vault relics, textures, idle videos via Recraft + Kling',
+  },
+  {
+    constructSlug: 'the-mint',
+    title: 'Mibera Dimensions',
+    url: 'https://midi.0xhoneyjar.xyz',
+    description: 'Character generation pipeline and relic assets',
+  },
+  // The Easel
+  {
+    constructSlug: 'the-easel',
+    title: 'Moneycomb Vaults',
+    url: 'https://moneycomb.0xhoneyjar.xyz',
+    description: '19 TDRs — full design world from typography to vault envelope model',
+  },
+  {
+    constructSlug: 'the-easel',
+    title: 'Mibera Dimensions',
+    url: 'https://midi.0xhoneyjar.xyz',
+    description: '11 TDRs, KAIROS persona, vocabulary atlas, design research',
+  },
+  // Herald
+  {
+    constructSlug: 'herald',
+    title: 'Mibera Dimensions',
+    url: 'https://midi.0xhoneyjar.xyz',
+    description: '3 release announcements — v0.4, v0.5, v2.20.0',
+  },
+  // Mibera Codex
+  {
+    constructSlug: 'mibera-codex',
+    title: 'Mibera Dimensions',
+    url: 'https://midi.0xhoneyjar.xyz',
+    description: 'Chronicle archive (2024-2026), taxonomy schema, dimension registry',
   },
 ];
 
