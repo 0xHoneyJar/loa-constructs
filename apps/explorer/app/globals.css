@@ -322,6 +322,65 @@ body {
   }
 }
 
+/* =================================================================== */
+/* SCROLL REVEAL — viewport-triggered entrance animations               */
+/* Quantum timing: 83ms base, steps(4) easing. Mechanical, not floaty. */
+/* =================================================================== */
+
+/* ── Fade variant: translate-y + opacity ── */
+.scroll-reveal--fade[data-visible="false"] {
+  opacity: 0;
+  transform: translateY(12px);
+}
+
+.scroll-reveal--fade[data-visible="true"] {
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity calc(var(--duration-quantum) * 4) var(--ease-quantum),
+    transform calc(var(--duration-quantum) * 4) var(--ease-quantum);
+}
+
+/* ── Stagger variant: children enter sequentially ── */
+.scroll-reveal--stagger[data-visible="false"] > * {
+  opacity: 0;
+  transform: translateX(-8px);
+}
+
+.scroll-reveal--stagger[data-visible="true"] > * {
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity calc(var(--duration-quantum) * 3) var(--ease-quantum),
+    transform calc(var(--duration-quantum) * 3) var(--ease-quantum);
+  transition-delay: calc(var(--stagger-idx, 0) * var(--stagger-delay, 83ms));
+}
+
+/* ── Draw variant: clip-path reveal (connection lines) ── */
+.scroll-reveal--draw[data-visible="false"] > * {
+  opacity: 0;
+  clip-path: inset(0 100% 0 0);
+}
+
+.scroll-reveal--draw[data-visible="true"] > * {
+  opacity: 1;
+  clip-path: inset(0 0 0 0);
+  transition:
+    opacity calc(var(--duration-quantum) * 2) var(--ease-quantum),
+    clip-path calc(var(--duration-quantum) * 6) var(--ease-quantum);
+  transition-delay: calc(var(--stagger-idx, 0) * calc(var(--duration-quantum) * 2));
+}
+
+/* ── Waiting pulse: ghost slots ── */
+@keyframes slot-waiting {
+  0%, 100% { border-color: var(--color-void-border); }
+  50% { border-color: var(--color-bone-ghost); }
+}
+
+.slot-waiting {
+  animation: slot-waiting 5s steps(2) infinite;
+}
+
 /* ── Construct row glass texture ── */
 /* Structural grid behind frosted glass — revealed by radial display-case light on hover */
 .construct-row {
