@@ -1,5 +1,5 @@
 import { fetchGraphData } from '@/lib/data/fetch-constructs';
-import { GraphExplorer } from '@/components/graph/graph-explorer';
+import { CanvasExplorer } from '@/components/graph/canvas-explorer';
 
 export const revalidate = 3600;
 
@@ -8,7 +8,7 @@ export default async function DashboardExplorePage() {
 
   return (
     <div className="h-[calc(100vh-7rem)]">
-      <GraphExplorer data={graphData} />
+      <CanvasExplorer data={graphData} />
     </div>
   );
 }

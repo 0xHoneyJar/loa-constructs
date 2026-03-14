@@ -14,23 +14,25 @@ interface LayoutConfig {
   categoryGravity: number;
 }
 
-// Category cluster centers - arranged in an octagonal pattern for 8 categories
+// Category cluster centers — octagonal arrangement.
+// Base values are for the default 1000×700 layout.
+// The canvas layout (4000×3000) passes a larger config which scales these via the width/height ratio.
 const CATEGORY_CENTERS: Record<string, Vector2> = {
   // Primary categories (outer ring)
   marketing: { x: -320, y: 140 },
   development: { x: 320, y: 140 },
   security: { x: 0, y: -280 },
-  operations: { x: 320, y: -140 },
-  documentation: { x: -320, y: -140 },
+  operations: { x: 380, y: -100 },
+  documentation: { x: -380, y: -100 },
   analytics: { x: 0, y: 280 },
-  // New categories (fill gaps)
-  design: { x: -200, y: 0 },
-  infrastructure: { x: 200, y: 0 },
-  // Legacy slug mappings (for backwards compatibility)
+  // New categories (wider spread)
+  design: { x: -220, y: 30 },
+  infrastructure: { x: 220, y: 30 },
+  // Legacy slug mappings
   gtm: { x: -320, y: 140 },
   dev: { x: 320, y: 140 },
-  ops: { x: 320, y: -140 },
-  docs: { x: -320, y: -140 },
+  ops: { x: 380, y: -100 },
+  docs: { x: -380, y: -100 },
 };
 
 const DEFAULT_CONFIG: LayoutConfig = {

@@ -9,6 +9,7 @@
  * and fetches the full construct list for authenticated org members.
  */
 
+import Image from 'next/image';
 import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import { useAuthStore } from '@/lib/stores/auth-store';
 import { Badge } from '@/components/ui/badge';
@@ -22,6 +23,38 @@ import {
 } from '@/components/ui/table';
 import type { ConstructNode } from '@/lib/types/graph';
 import { resolveShortDescription } from '@/lib/utils/resolve-short-description';
+
+/**
+ * Static mapping: construct slug → showcase images in /public/showcases/.
+ * Must stay in sync with the server-side copy in (site)/page.tsx.
+ */
+const CONSTRUCT_SHOWCASES: Record<string, { src: string; alt: string }[]> = {
+  observer: [
+    { src: '/showcases/mcv-interface.png', alt: 'Moneycomb Vaults' },
+    { src: '/showcases/mibera-dimensions.png', alt: 'Mibera Dimensions' },
+  ],
+  artisan: [
+    { src: '/showcases/mcv-interface.png', alt: 'Moneycomb Vaults' },
+    { src: '/showcases/set-and-forgetti.png', alt: 'Set and Forgetti' },
+  ],
+  'k-hole': [
+    { src: '/showcases/mcv-interface.png', alt: 'Moneycomb Vaults' },
+  ],
+  'the-mint': [
+    { src: '/showcases/mcv-interface.png', alt: 'Moneycomb Vaults' },
+    { src: '/showcases/mibera-dimensions.png', alt: 'Mibera Dimensions' },
+  ],
+  'the-easel': [
+    { src: '/showcases/mibera-dimensions.png', alt: 'Mibera Dimensions' },
+    { src: '/showcases/set-and-forgetti.png', alt: 'Set and Forgetti' },
+  ],
+  herald: [
+    { src: '/showcases/mibera-dimensions.png', alt: 'Mibera Dimensions' },
+  ],
+  'mibera-codex': [
+    { src: '/showcases/mibera-dimensions.png', alt: 'Mibera Dimensions' },
+  ],
+};
 
 interface AuthAwareConstructListProps {
   /** Constructs from ISR (may be empty since all are internal) */
@@ -142,72 +175,91 @@ function AuthConstructTable({ constructs }: { constructs: ConstructNode[] }) {
       <Table>
         <TableHeader>
           <TableRow className="border-void-border hover:bg-transparent">
-            <TableHead className="w-12 font-mono text-sm uppercase tracking-whisper text-bone-ghost" />
+            <TableHead className="w-8 sm:w-12 font-mono text-sm uppercase tracking-whisper text-bone-ghost" />
             <TableHead className="font-mono text-sm uppercase tracking-whisper text-bone-ghost">
               Construct
             </TableHead>
-            <TableHead className="w-28 text-right font-mono text-sm uppercase tracking-whisper text-bone-ghost hidden sm:table-cell">
-              Skills
-            </TableHead>
-            <TableHead className="w-36 text-right font-mono text-sm uppercase tracking-whisper text-bone-ghost">
-              Installs
+            <TableHead className="w-[280px] font-mono text-sm uppercase tracking-whisper text-bone-ghost text-right hidden sm:table-cell">
+              Shipped
             </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {constructs.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={4} className="py-12 text-center font-mono text-sm text-bone-ghost">
+              <TableCell colSpan={3} className="py-12 text-center font-mono text-sm text-bone-ghost">
                 No constructs found.
               </TableCell>
             </TableRow>
           ) : (
-            constructs.map((construct) => (
-              <TableRow
-                key={construct.id}
-                className="border-void-border hover:bg-void-raised group relative cursor-pointer"
-              >
-                <TableCell className="py-5 text-2xl text-center align-middle">
-                  {construct.icon || ''}
-                </TableCell>
-                <TableCell className="py-5">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={`/constructs/${construct.slug}`}
-                        className="font-mono text-xl font-bold text-bone-base group-hover:text-bone-bright transition-colors after:absolute after:inset-0"
-                      >
-                        {construct.name}
-                      </a>
-                      {construct.visibility === 'internal' && (
-                        <Badge variant="internal" className="relative z-10 hidden sm:inline-flex">
-                          internal
-                        </Badge>
-                      )}
-                      {construct.verificationTier === 'PROVEN' && (
-                        <Badge variant="proven" className="relative z-10 hidden sm:inline-flex">
-                          proven
-                        </Badge>
-                      )}
-                      {construct.verificationTier === 'BACKTESTED' && (
-                        <Badge variant="backtested" className="relative z-10 hidden sm:inline-flex">
-                          backtested
-                        </Badge>
-                      )}
+            constructs.map((construct) => {
+              const showcases = CONSTRUCT_SHOWCASES[construct.slug];
+              return (
+                <TableRow
+                  key={construct.id}
+                  className="construct-row border-void-border group relative cursor-pointer transition-[background] duration-200 hover:[background:radial-gradient(ellipse_80%_100%_at_30%_50%,oklch(0.14_0.03_195)_0%,transparent_70%)]"
+                >
+                  <TableCell className="py-5 sm:py-8 text-xl sm:text-2xl text-center align-middle">
+                    {construct.icon || ''}
+                  </TableCell>
+                  <TableCell className="py-5 sm:py-8">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`/constructs/${construct.slug}`}
+                          className="font-display text-base sm:text-xl uppercase tracking-display text-bone-base group-hover:text-bone-bright transition-colors after:absolute after:inset-0"
+                        >
+                          {construct.name}
+                        </a>
+                        {construct.visibility === 'internal' && (
+                          <Badge variant="internal" className="relative z-10 hidden sm:inline-flex">
+                            internal
+                          </Badge>
+                        )}
+                        {construct.verificationTier === 'PROVEN' && (
+                          <Badge variant="proven" className="relative z-10 hidden sm:inline-flex">
+                            proven
+                          </Badge>
+                        )}
+                        {construct.verificationTier === 'BACKTESTED' && (
+                          <Badge variant="backtested" className="relative z-10 hidden sm:inline-flex">
+                            backtested
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="font-mono text-sm sm:text-base text-bone-muted truncate mt-0.5 max-w-xl">
+                        {construct.shortDescription}
+                      </p>
+                      <p className="font-mono text-xs text-bone-ghost mt-1.5">
+                        {construct.skillsCount} skills · {construct.downloads.toLocaleString()} installs
+                      </p>
                     </div>
-                    <p className="font-mono text-base text-bone-muted truncate mt-0.5 max-w-xl">
-                      {construct.shortDescription}
-                    </p>
-                  </div>
-                </TableCell>
-                <TableCell className="py-5 text-right font-mono text-base text-bone-dim hidden sm:table-cell align-middle">
-                  {construct.skillsCount}
-                </TableCell>
-                <TableCell className="py-5 text-right font-mono text-lg text-bone-base align-middle">
-                  {construct.downloads >= 1000 ? `${(construct.downloads / 1000).toFixed(1)}K` : construct.downloads.toLocaleString()}
-                </TableCell>
-              </TableRow>
-            ))
+                  </TableCell>
+                  <TableCell className="py-5 sm:py-8 align-middle hidden sm:table-cell">
+                    {showcases ? (
+                      <div className="flex gap-2 justify-end">
+                        {showcases.slice(0, 2).map((s) => (
+                          <div
+                            key={s.src}
+                            className="relative w-[120px] h-[80px] border border-void-border overflow-hidden bg-void-raised group-hover:border-bone-ghost transition-colors"
+                          >
+                            <Image
+                              src={s.src}
+                              alt={s.alt}
+                              fill
+                              className="object-cover opacity-60 group-hover:opacity-90 transition-opacity"
+                              sizes="120px"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="font-mono text-xs text-bone-ghost text-right block">--</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })
           )}
         </TableBody>
       </Table>
