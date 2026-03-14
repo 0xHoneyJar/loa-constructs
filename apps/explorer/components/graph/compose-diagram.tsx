@@ -39,13 +39,11 @@ const COLOR_MODE: ColorMode = 'dark';
  */
 export function ComposeDiagram({ constructs }: { constructs: ConstructNode[] }) {
   const { nodes, edges } = useMemo(() => {
-    // Position a subset of constructs in a loose organic layout
+    // Position constructs in a loose organic layout — only public ones + compose pairs
     const slugPositions: Record<string, { x: number; y: number }> = {
-      artisan: { x: 40, y: 20 },
-      observer: { x: 280, y: 10 },
-      crucible: { x: 480, y: 80 },
-      'k-hole': { x: 120, y: 150 },
-      'mibera-codex': { x: 360, y: 160 },
+      artisan: { x: 30, y: 15 },
+      'k-hole': { x: 240, y: 120 },
+      'mibera-codex': { x: 440, y: 30 },
     };
 
     const showSlugs = Object.keys(slugPositions);
@@ -67,7 +65,7 @@ export function ComposeDiagram({ constructs }: { constructs: ConstructNode[] }) 
     flowNodes.push({
       id: 'ghost-1',
       type: 'ghost',
-      position: { x: 600, y: 40 },
+      position: { x: 30, y: 140 },
       data: { w: 72 },
       draggable: false,
       selectable: false,
@@ -75,19 +73,18 @@ export function ComposeDiagram({ constructs }: { constructs: ConstructNode[] }) 
     flowNodes.push({
       id: 'ghost-2',
       type: 'ghost',
-      position: { x: 540, y: 180 },
+      position: { x: 520, y: 150 },
       data: { w: 52 },
       draggable: false,
       selectable: false,
     });
 
     const flowEdges: Edge[] = [
-      { id: 'e-art-obs', source: 'artisan', target: 'observer', type: 'smoothstep', style: { stroke: 'oklch(0.65 0.12 195)', strokeWidth: 1 } },
-      { id: 'e-obs-cru', source: 'observer', target: 'crucible', type: 'smoothstep', style: { stroke: 'oklch(0.65 0.12 195)', strokeWidth: 1 } },
+      { id: 'e-art-kh', source: 'artisan', target: 'k-hole', type: 'smoothstep', style: { stroke: 'oklch(0.65 0.12 195)', strokeWidth: 1 } },
       { id: 'e-kh-mc', source: 'k-hole', target: 'mibera-codex', type: 'smoothstep', style: { stroke: 'oklch(0.65 0.12 195)', strokeWidth: 1 } },
-      { id: 'e-obs-kh', source: 'observer', target: 'k-hole', type: 'smoothstep', style: { stroke: 'oklch(0.30 0.04 195)', strokeWidth: 1 } },
-      // Ghost edges — dashed, trailing off into the network
-      { id: 'e-cru-g1', source: 'crucible', target: 'ghost-1', type: 'smoothstep', style: { stroke: 'oklch(0.15 0.02 250)', strokeWidth: 1, strokeDasharray: '4 6' } },
+      { id: 'e-art-mc', source: 'artisan', target: 'mibera-codex', type: 'smoothstep', style: { stroke: 'oklch(0.30 0.04 195)', strokeWidth: 1 } },
+      // Ghost edges — dashed, trailing off
+      { id: 'e-art-g1', source: 'artisan', target: 'ghost-1', type: 'smoothstep', style: { stroke: 'oklch(0.15 0.02 250)', strokeWidth: 1, strokeDasharray: '4 6' } },
       { id: 'e-mc-g2', source: 'mibera-codex', target: 'ghost-2', type: 'smoothstep', style: { stroke: 'oklch(0.15 0.02 250)', strokeWidth: 1, strokeDasharray: '4 6' } },
     ];
 
