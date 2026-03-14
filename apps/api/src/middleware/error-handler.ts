@@ -54,7 +54,11 @@ export const errorHandler = (): MiddlewareHandler => {
         },
         extra: {
           url: c.req.url,
-          headers: Object.fromEntries(c.req.raw.headers.entries()),
+          headers: Object.fromEntries(
+            [...c.req.raw.headers.entries()].filter(
+              ([k]) => !['authorization', 'cookie', 'x-api-key'].includes(k.toLowerCase())
+            )
+          ),
         },
       });
 

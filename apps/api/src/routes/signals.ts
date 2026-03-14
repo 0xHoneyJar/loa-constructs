@@ -99,7 +99,9 @@ signalsRouter.post(
         recordedBy: userId,
       });
 
-      return c.json({ data: outcome }, 201);
+      // Strip PII (recordedBy is user UUID) before returning
+      const { recordedBy: _, ...safeOutcome } = outcome;
+      return c.json({ data: safeOutcome }, 201);
     } catch (err: unknown) {
       if (err instanceof Error && err.message?.includes('unique_signal_evaluation')) {
         throw Errors.Conflict(
@@ -156,7 +158,9 @@ signalsRouter.patch(
       evaluatedBy: userId,
     });
 
-    return c.json({ data: updated });
+    // Strip PII (recordedBy, evaluatedBy are user UUIDs)
+    const { recordedBy: _r, evaluatedBy: _e, ...safeUpdated } = updated;
+    return c.json({ data: safeUpdated });
   }
 );
 

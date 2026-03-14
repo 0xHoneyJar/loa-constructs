@@ -1,4 +1,6 @@
 # Key material — prevent accidental commits (cycle-028 FR-1)
+*.pem
+*.key
 tests/fixtures/*.pem
 tests/fixtures/*.key
 
