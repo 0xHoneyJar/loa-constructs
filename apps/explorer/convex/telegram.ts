@@ -129,20 +129,28 @@ export const sendDigest = internalAction({
       return;
     }
 
-    // Pull metrics, baseline, and traffic in parallel
-    const [metrics, baseline, traffic] = await Promise.all([
-      ctx.runQuery(internal.analytics.getDigestMetrics),
-      ctx.runQuery(internal.analytics.getDailyBaseline),
-      ctx.runAction(internal.analytics.fetchUmamiTraffic),
-    ]);
+    try {
+      const [metrics, baseline, traffic] = await Promise.all([
+        ctx.runQuery(internal.analytics.getDigestMetrics),
+        ctx.runQuery(internal.analytics.getDailyBaseline),
+        ctx.runAction(internal.analytics.fetchUmamiTraffic),
+      ]);
 
-    const message = formatDigest(metrics, baseline, traffic);
+      const message = formatDigest(metrics, baseline, traffic);
 
-    const result = await sendMessage(botToken, chatId, message);
-    if (result.ok) {
-      console.log('[telegram] Daily digest sent successfully');
-    } else {
-      console.error('[telegram] Failed to send digest:', result.description);
+      const result = await sendMessage(botToken, chatId, message);
+      if (result.ok) {
+        console.log('[telegram] Daily digest sent successfully');
+      } else {
+        console.error('[telegram] Failed to send digest:', result.description);
+      }
+    } catch (error) {
+      console.error('[telegram] Digest pipeline error:', (error as Error).message);
+      await sendMessage(
+        botToken,
+        chatId,
+        '\uD83D\uDC3B oops something went wrong, try again?',
+      );
     }
   },
 });
