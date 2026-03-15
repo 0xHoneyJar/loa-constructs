@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mibera Dimensions — Festival Map</title>
+<style>
+  :root {
+    --bone-50: oklch(0.95 0.01 75);
+    --bone-100: oklch(0.90 0.015 75);
+    --bone-400: oklch(0.72 0.025 75);
+    --bone-900: oklch(0.20 0.02 60);
+    --void-950: oklch(0.12 0.015 260);
+    --void-900: oklch(0.16 0.015 260);
+    --void-800: oklch(0.22 0.015 260);
+
+    --stone-accent: oklch(0.72 0.04 70);
+    --cave-accent: oklch(0.30 0.03 55);
+    --gold-accent: oklch(0.75 0.10 80);
+    --lab-accent: oklch(0.58 0.02 75);
+
+    --font-mono: 'Geist Mono', 'SF Mono', 'Fira Code', monospace;
+    --font-display: 'Geist', system-ui, sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--void-950);
+    color: var(--bone-100);
+    font-family: var(--font-mono);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    cursor: grab;
+    user-select: none;
+  }
+
+  body:active { cursor: grabbing; }
+
+  #map-container {
+    position: relative;
+    width: 1600px;
+    height: 1040px;
+    transform-origin: 0 0;
+    will-change: transform;
+  }
+
+  #map-image {
+    width: 1600px;
+    height: 1040px;
+    display: block;
+    pointer-events: none;
+  }
+
+  #zone-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 1600px;
+    height: 1040px;
+    pointer-events: none;
+  }
+
+  #zone-overlay polygon {
+    pointer-events: all;
+    cursor: pointer;
+    transition: fill-opacity 0.3s ease, stroke-opacity 0.3s ease;
+  }
+
+  #zone-overlay polygon:hover {
+    fill-opacity: 0.25 !important;
+    stroke-opacity: 0.8 !important;
+  }
+
+  /* Labels */
+  .zone-label {
+    position: absolute;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+
+  .zone-label.visible {
+    opacity: 1;
+  }
+
+  .zone-label .name {
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--bone-50);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+    white-space: nowrap;
+  }
+
+  .zone-label .count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--bone-400);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  }
+
+  .zone-label .lore {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.05em;
+    color: var(--bone-400);
+    opacity: 0.7;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    font-style: italic;
+    max-width: 180px;
+    text-align: center;
+  }
+
+  /* Tooltip */
+  .zone-tooltip {
+    position: absolute;
+    background: var(--void-900);
+    border: 1px solid var(--void-800);
+    padding: 12px 16px;
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    max-width: 280px;
+    z-index: 100;
+    backdrop-filter: blur(8px);
+  }
+
+  .zone-tooltip.visible {
+    opacity: 1;
+  }
+
+  .zone-tooltip .tt-name {
+    font-family: var(--font-display);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .zone-tooltip .tt-count {
+    font-size: 11px;
+    color: var(--bone-400);
+    margin-bottom: 8px;
+  }
+
+  .zone-tooltip .tt-lore {
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--bone-400);
+    font-style: italic;
+  }
+
+  /* Zoom controls */
+  #controls {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 50;
+  }
+
+  #controls button {
+    width: 36px;
+    height: 36px;
+    background: var(--void-900);
+    border: 1px solid var(--void-800);
+    color: var(--bone-400);
+    font-family: var(--font-mono);
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+  }
+
+  #controls button:hover {
+    background: var(--void-800);
+    color: var(--bone-100);
+  }
+
+  /* Info bar */
+  #info {
+    position: fixed;
+    top: 16px;
+    left: 16px;
+    font-size: 11px;
+    color: var(--bone-400);
+    letter-spacing: 0.1em;
+    z-index: 50;
+  }
+</style>
+</head>
+<body>
+
+<div id="info">MIBERA DIMENSIONS — 626 MIBERAS — 4 BIRTHPLACES</div>
+
+<div id="map-container">
+  <img id="map-image" src="../../../../../../Desktop/Map/festival_map_v10_textured.png" alt="Festival Map">
+
+  <svg id="zone-overlay" viewBox="0 0 1600 1040" xmlns="http://www.w3.org/2000/svg">
+    <!-- Stonehenge zone -->
+    <polygon
+      data-zone="stonehenge"
+      points="583,706 1016,706 1016,362 583,362"
+      fill="oklch(0.72 0.04 70)"
+      fill-opacity="0.08"
+      stroke="oklch(0.72 0.04 70)"
+      stroke-width="1.5"
+      stroke-opacity="0.3"
+    />
+
+    <!-- Bear Cave zone -->
+    <polygon
+      data-zone="bear-cave"
+      points="500,319 1050,319 1050,40 500,40"
+      fill="oklch(0.30 0.03 55)"
+      fill-opacity="0.08"
+      stroke="oklch(0.45 0.03 55)"
+      stroke-width="1.5"
+      stroke-opacity="0.3"
+    />
+
+    <!-- El Dorado zone -->
+    <polygon
+      data-zone="el-dorado"
+      points="1016,577 1350,577 1350,250 1016,250"
+      fill="oklch(0.75 0.10 80)"
+      fill-opacity="0.08"
+      stroke="oklch(0.75 0.10 80)"
+      stroke-width="1.5"
+      stroke-opacity="0.3"
+    />
+
+    <!-- Owsley Lab zone -->
+    <polygon
+      data-zone="owsley-lab"
+      points="950,900 1300,900 1300,650 950,650"
+      fill="oklch(0.58 0.02 75)"
+      fill-opacity="0.08"
+      stroke="oklch(0.58 0.02 75)"
+      stroke-width="1.5"
+      stroke-opacity="0.3"
+    />
+  </svg>
+
+  <!-- Zone labels -->
+  <div class="zone-label visible" style="left: 800px; top: 534px;" data-zone="stonehenge">
+    <span class="name">Stonehenge</span>
+    <span class="count">202 Miberas</span>
+    <span class="lore">Where the solstice gatherings began</span>
+  </div>
+
+  <div class="zone-label visible" style="left: 800px; top: 180px;" data-zone="bear-cave">
+    <span class="name">Bear Cave</span>
+    <span class="count">175 Miberas</span>
+    <span class="lore">Shadows on a bear cave wall</span>
+  </div>
+
+  <div class="zone-label visible" style="left: 1180px; top: 400px;" data-zone="el-dorado">
+    <span class="name">El Dorado</span>
+    <span class="count">219 Miberas</span>
+    <span class="lore">The golden one</span>
+  </div>
+
+  <div class="zone-label visible" style="left: 1120px; top: 770px;" data-zone="owsley-lab">
+    <span class="name">Owsley Lab</span>
+    <span class="count">30 Miberas</span>
+    <span class="lore">Where chemistry becomes culture</span>
+  </div>
+
+  <!-- Tooltip (positioned by JS) -->
+  <div id="tooltip" class="zone-tooltip">
+    <div class="tt-name"></div>
+    <div class="tt-count"></div>
+    <div class="tt-lore"></div>
+  </div>
+</div>
+
+<div id="controls">
+  <button id="zoom-in" title="Zoom in">+</button>
+  <button id="zoom-out" title="Zoom out">−</button>
+  <button id="zoom-fit" title="Fit to view">◻</button>
+</div>
+
+<script>
+  // Zone data
+  const ZONES = {
+    'stonehenge': {
+      name: 'Stonehenge',
+      count: 202,
+      color: 'oklch(0.72 0.04 70)',
+      lore: 'Site of the legendary free festivals of the 1970s-80s. The solstice gatherings here represent the ancient roots of communal celebration that rave culture inherits.',
+    },
+    'bear-cave': {
+      name: 'Bear Cave',
+      count: 175,
+      color: 'oklch(0.30 0.03 55)',
+      lore: 'Where Beras hibernate, dream, and transform. "The visible world of particular things is a shifting exhibition, like shadows cast on a bear cave wall."',
+    },
+    'el-dorado': {
+      name: 'El Dorado',
+      count: 219,
+      color: 'oklch(0.75 0.10 80)',
+      lore: 'The mythical city of gold. Originating from Muisca rituals where a chief covered in gold dust made offerings in Lake Guatavita, Colombia.',
+    },
+    'owsley-lab': {
+      name: 'Owsley Lab',
+      count: 30,
+      color: 'oklch(0.58 0.02 75)',
+      lore: 'Augustus Owsley Stanley III — "Bear." Over a million doses of pure LSD, Grateful Dead sound engineer, designer of the dancing bear logo. Where chemistry becomes culture.',
+    },
+  };
+
+  // Pan/zoom state
+  let scale = 1;
+  let translateX = 0;
+  let translateY = 0;
+  let isDragging = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+
+  const container = document.getElementById('map-container');
+  const tooltip = document.getElementById('tooltip');
+
+  function updateTransform() {
+    container.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+  }
+
+  function fitToView() {
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const scaleX = vw / 1600;
+    const scaleY = vh / 1040;
+    scale = Math.min(scaleX, scaleY) * 0.95;
+    translateX = (vw - 1600 * scale) / 2;
+    translateY = (vh - 1040 * scale) / 2;
+    updateTransform();
+  }
+
+  // Initial fit
+  fitToView();
+
+  // Mouse pan
+  document.addEventListener('mousedown', (e) => {
+    if (e.target.closest('#controls')) return;
+    isDragging = true;
+    dragStartX = e.clientX - translateX;
+    dragStartY = e.clientY - translateY;
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isDragging) return;
+    translateX = e.clientX - dragStartX;
+    translateY = e.clientY - dragStartY;
+    updateTransform();
+  });
+
+  document.addEventListener('mouseup', () => { isDragging = false; });
+
+  // Scroll zoom
+  document.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const mouseX = e.clientX;
+    const mouseY = e.clientY;
+
+    // Zoom toward cursor
+    const newScale = Math.max(0.2, Math.min(3, scale * delta));
+    const ratio = newScale / scale;
+    translateX = mouseX - (mouseX - translateX) * ratio;
+    translateY = mouseY - (mouseY - translateY) * ratio;
+    scale = newScale;
+    updateTransform();
+  }, { passive: false });
+
+  // Touch support
+  let touchStartDist = 0;
+  let touchStartScale = 1;
+
+  document.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 1) {
+      isDragging = true;
+      dragStartX = e.touches[0].clientX - translateX;
+      dragStartY = e.touches[0].clientY - translateY;
+    } else if (e.touches.length === 2) {
+      isDragging = false;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      touchStartDist = Math.sqrt(dx * dx + dy * dy);
+      touchStartScale = scale;
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isDragging) {
+      translateX = e.touches[0].clientX - dragStartX;
+      translateY = e.touches[0].clientY - dragStartY;
+      updateTransform();
+    } else if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      scale = Math.max(0.2, Math.min(3, touchStartScale * (dist / touchStartDist)));
+      updateTransform();
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchend', () => { isDragging = false; });
+
+  // Controls
+  document.getElementById('zoom-in').addEventListener('click', () => {
+    scale = Math.min(3, scale * 1.2);
+    updateTransform();
+  });
+  document.getElementById('zoom-out').addEventListener('click', () => {
+    scale = Math.max(0.2, scale * 0.8);
+    updateTransform();
+  });
+  document.getElementById('zoom-fit').addEventListener('click', fitToView);
+
+  // Zone hover tooltips
+  document.querySelectorAll('#zone-overlay polygon').forEach(poly => {
+    poly.addEventListener('mouseenter', (e) => {
+      const zone = ZONES[poly.dataset.zone];
+      if (!zone) return;
+      tooltip.querySelector('.tt-name').textContent = zone.name;
+      tooltip.querySelector('.tt-name').style.color = zone.color;
+      tooltip.querySelector('.tt-count').textContent = `${zone.count} Miberas born here`;
+      tooltip.querySelector('.tt-lore').textContent = zone.lore;
+      tooltip.classList.add('visible');
+    });
+
+    poly.addEventListener('mousemove', (e) => {
+      // Position tooltip near cursor
+      const x = (e.clientX - translateX) / scale + 20;
+      const y = (e.clientY - translateY) / scale - 10;
+      tooltip.style.left = x + 'px';
+      tooltip.style.top = y + 'px';
+    });
+
+    poly.addEventListener('mouseleave', () => {
+      tooltip.classList.remove('visible');
+    });
+  });
+
+  // Keyboard
+  document.addEventListener('keydown', (e) => {
+    if (e.key === '=' || e.key === '+') { scale = Math.min(3, scale * 1.15); updateTransform(); }
+    if (e.key === '-') { scale = Math.max(0.2, scale * 0.85); updateTransform(); }
+    if (e.key === '0') fitToView();
+  });
+
+  // Window resize
+  window.addEventListener('resize', fitToView);
+</script>
+</body>
+</html>

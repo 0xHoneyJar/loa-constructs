@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mibera Dimensions — Festival Map v2</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap');
+
+  :root {
+    --void-950: oklch(0.12 0.015 260);
+    --void-900: oklch(0.16 0.015 260);
+    --void-800: oklch(0.22 0.015 260);
+    --void-700: oklch(0.28 0.015 260);
+    --bone-50: oklch(0.95 0.01 75);
+    --bone-100: oklch(0.90 0.015 75);
+    --bone-400: oklch(0.72 0.025 75);
+    --bone-900: oklch(0.20 0.02 60);
+    --font: 'Geist Mono', 'SF Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--void-950);
+    color: var(--bone-100);
+    font-family: var(--font);
+    overflow: hidden;
+    height: 100vh;
+    cursor: grab;
+    user-select: none;
+  }
+  body.dragging { cursor: grabbing; }
+
+  #viewport {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #map {
+    position: absolute;
+    transform-origin: 0 0;
+    will-change: transform;
+  }
+
+  #map img {
+    display: block;
+    pointer-events: none;
+  }
+
+  #map svg {
+    position: absolute;
+    top: 0; left: 0;
+    pointer-events: none;
+  }
+
+  #map svg polygon {
+    pointer-events: all;
+    cursor: pointer;
+    transition: fill-opacity 0.25s, stroke-opacity 0.25s, stroke-width 0.25s;
+  }
+
+  #map svg polygon:hover {
+    fill-opacity: 0.3 !important;
+    stroke-opacity: 1 !important;
+    stroke-width: 2.5 !important;
+  }
+
+  .label {
+    position: absolute;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    transform: translate(-50%, -50%);
+    transition: opacity 0.2s;
+  }
+
+  .label .name {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--bone-50);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.8), 0 0 12px rgba(0,0,0,0.4);
+    white-space: nowrap;
+  }
+
+  .label .meta {
+    font-size: 8px;
+    letter-spacing: 0.08em;
+    color: var(--bone-400);
+    text-shadow: 0 1px 3px rgba(0,0,0,0.7);
+    white-space: nowrap;
+  }
+
+  #tooltip {
+    position: fixed;
+    background: var(--void-900);
+    border: 1px solid var(--void-700);
+    padding: 12px 16px;
+    border-radius: 3px;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    max-width: 260px;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  #tooltip.show { opacity: 1; }
+  #tooltip .t-name { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 2px; }
+  #tooltip .t-stage { font-size: 10px; color: var(--bone-400); margin-bottom: 6px; }
+  #tooltip .t-count { font-size: 10px; color: var(--bone-400); margin-bottom: 6px; }
+  #tooltip .t-lore { font-size: 10px; line-height: 1.5; color: var(--bone-400); font-style: italic; }
+
+  #hud {
+    position: fixed;
+    top: 12px; left: 12px;
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--bone-400);
+    text-transform: uppercase;
+    z-index: 50;
+    line-height: 1.6;
+  }
+
+  #controls {
+    position: fixed;
+    bottom: 16px; right: 16px;
+    display: flex;
+    gap: 2px;
+    z-index: 50;
+  }
+  #controls button {
+    width: 32px; height: 32px;
+    background: var(--void-900);
+    border: 1px solid var(--void-800);
+    color: var(--bone-400);
+    font-family: var(--font);
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #controls button:hover { background: var(--void-800); color: var(--bone-50); }
+</style>
+</head>
+<body>
+
+<div id="hud">
+  Mibera Dimensions<br>
+  14 venues / 5 stages / 626 miberas
+</div>
+
+<div id="viewport">
+  <div id="map"></div>
+</div>
+
+<div id="tooltip">
+  <div class="t-name"></div>
+  <div class="t-stage"></div>
+  <div class="t-count"></div>
+  <div class="t-lore"></div>
+</div>
+
+<div id="controls">
+  <button onclick="zoomBy(1.2)" title="Zoom in">+</button>
+  <button onclick="zoomBy(0.8)" title="Zoom out">−</button>
+  <button onclick="fitView()" title="Fit">◻</button>
+</div>
+
+<script>
+const MAP_W = 1600, MAP_H = 1040;
+let scale = 1, tx = 0, ty = 0, dragging = false, sx = 0, sy = 0;
+const map = document.getElementById('map');
+const tooltip = document.getElementById('tooltip');
+
+// Load zone data and build the map
+fetch('../stage-3-overlay/zones.json')
+  .then(r => r.json())
+  .then(data => buildMap(data))
+  .catch(() => {
+    // Fallback: inline minimal zone data
+    console.warn('zones.json not found, using inline data');
+    buildMap(null);
+  });
+
+function buildMap(data) {
+  // Map image
+  const img = document.createElement('img');
+  img.src = 'map-render.png';
+  img.width = MAP_W;
+  img.height = MAP_H;
+  map.appendChild(img);
+
+  if (!data) { fitView(); return; }
+
+  // SVG overlay
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${MAP_W} ${MAP_H}`);
+  svg.setAttribute('width', MAP_W);
+  svg.setAttribute('height', MAP_H);
+  map.appendChild(svg);
+
+  // Build zones
+  data.zones.forEach(zone => {
+    // Polygon
+    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    const points = zone.polygon.map(p => p.join(',')).join(' ');
+    poly.setAttribute('points', points);
+    poly.setAttribute('fill', zone.accent);
+    poly.setAttribute('fill-opacity', '0.1');
+    poly.setAttribute('stroke', zone.accent);
+    poly.setAttribute('stroke-width', '1.5');
+    poly.setAttribute('stroke-opacity', '0.4');
+    poly.dataset.zone = zone.id;
+
+    poly.addEventListener('mouseenter', () => {
+      tooltip.querySelector('.t-name').textContent = zone.display_name;
+      tooltip.querySelector('.t-name').style.color = zone.accent;
+      tooltip.querySelector('.t-stage').textContent = zone.stage || '';
+      tooltip.querySelector('.t-count').textContent = zone.miberas ? `${zone.miberas} miberas born here` : '';
+      tooltip.querySelector('.t-lore').textContent = zone.lore;
+      tooltip.classList.add('show');
+    });
+    poly.addEventListener('mousemove', e => {
+      tooltip.style.left = (e.clientX + 16) + 'px';
+      tooltip.style.top = (e.clientY - 8) + 'px';
+    });
+    poly.addEventListener('mouseleave', () => tooltip.classList.remove('show'));
+
+    svg.appendChild(poly);
+
+    // Label
+    const label = document.createElement('div');
+    label.className = 'label';
+    label.style.left = zone.center.x + 'px';
+    label.style.top = zone.center.y + 'px';
+    label.innerHTML = `
+      <span class="name" style="color: ${zone.accent}">${zone.display_name}</span>
+      <span class="meta">${zone.stage || ''} ${zone.miberas ? '· ' + zone.miberas : ''}</span>
+    `;
+    map.appendChild(label);
+  });
+
+  fitView();
+}
+
+function updateTransform() {
+  map.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
+}
+
+function fitView() {
+  const vw = innerWidth, vh = innerHeight;
+  scale = Math.min(vw / MAP_W, vh / MAP_H) * 0.92;
+  tx = (vw - MAP_W * scale) / 2;
+  ty = (vh - MAP_H * scale) / 2;
+  updateTransform();
+}
+
+function zoomBy(f) {
+  const cx = innerWidth / 2, cy = innerHeight / 2;
+  const ns = Math.max(0.15, Math.min(4, scale * f));
+  const r = ns / scale;
+  tx = cx - (cx - tx) * r;
+  ty = cy - (cy - ty) * r;
+  scale = ns;
+  updateTransform();
+}
+
+// Pan
+document.addEventListener('mousedown', e => {
+  if (e.target.closest('#controls')) return;
+  dragging = true; sx = e.clientX - tx; sy = e.clientY - ty;
+  document.body.classList.add('dragging');
+});
+document.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  tx = e.clientX - sx; ty = e.clientY - sy;
+  updateTransform();
+});
+document.addEventListener('mouseup', () => {
+  dragging = false;
+  document.body.classList.remove('dragging');
+});
+
+// Zoom
+document.addEventListener('wheel', e => {
+  e.preventDefault();
+  const f = e.deltaY > 0 ? 0.92 : 1.08;
+  const ns = Math.max(0.15, Math.min(4, scale * f));
+  const r = ns / scale;
+  tx = e.clientX - (e.clientX - tx) * r;
+  ty = e.clientY - (e.clientY - ty) * r;
+  scale = ns;
+  updateTransform();
+}, { passive: false });
+
+// Keys
+document.addEventListener('keydown', e => {
+  if (e.key === '=' || e.key === '+') zoomBy(1.15);
+  if (e.key === '-') zoomBy(0.85);
+  if (e.key === '0') fitView();
+});
+
+window.addEventListener('resize', fitView);
+</script>
+</body>
+</html>
