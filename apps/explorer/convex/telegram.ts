@@ -72,70 +72,44 @@ function formatDigest(
   const hasTraffic = traffic && traffic.visitors > 0;
   const hasActivity = installs.total > 0 || signals.total > 0 || hasTraffic;
 
-  // Quiet day — one line
+  // Quiet day
   if (!hasActivity) {
-    return `\uD83D\uDC3B <b>Ruggy \u2014 ${dateStr}</b> \u2014 quiet day`;
+    return `\uD83D\uDC3B\n\nquiet day`;
   }
 
-  const lines: string[] = [
-    `\uD83D\uDC3B <b>Ruggy \u2014 ${dateStr}</b>`,
-    '',
-  ];
+  const lines: string[] = ['\uD83D\uDC3B', ''];
 
   // --- Traffic ---
   if (hasTraffic) {
+    lines.push(`<b>${traffic.visitors}</b> visitor${traffic.visitors === 1 ? '' : 's'}`);
+    lines.push(`<b>${traffic.pageviews}</b> views`);
+    lines.push('');
+
     if (traffic.sites && traffic.sites.length > 1) {
-      // Multi-site: show network total + per-site breakdown
-      lines.push(`\uD83C\uDF10 <b>Network \u2014 ${traffic.visitors} visitors</b>`);
       for (const site of traffic.sites) {
-        lines.push(`\u2022 ${site.name} \u2014 ${site.visitors}`);
+        lines.push(`${site.name}  ${site.visitors > 0 ? site.visitors : '\u2013'}`);
       }
-    } else {
-      // Single site (legacy or only one site in UMAMI_SITE_IDS)
-      lines.push(`\uD83C\uDF10 <b>${traffic.visitors} visitors</b> \u00B7 ${traffic.pageviews} views`);
     }
 
     if (traffic.topReferrers.length > 0) {
-      const total = traffic.topReferrers.reduce((s, r) => s + r.value, 0);
-      if (total > 0) {
-        const refs = traffic.topReferrers.slice(0, 3).map((r) => {
-          const pct = Math.round((r.value / total) * 100);
-          return `${r.name || 'direct'} ${pct}%`;
-        });
-        lines.push(refs.join(' \u00B7 '));
-      }
+      const refs = traffic.topReferrers.slice(0, 3).map((r) => r.name || 'direct');
+      lines.push('');
+      lines.push(`via ${refs.join(' \u00B7 ')}`);
     }
   }
 
   // --- Installs ---
   if (installs.total > 0) {
-    const spike = installAnomaly ? ' \uD83D\uDD25' : '';
     lines.push('');
-    lines.push(`\uD83D\uDCE6 <b>${installs.total} install${installs.total === 1 ? '' : 's'}</b>${spike}`);
-
     const sorted = Object.entries(installs.byPack).sort((a, b) => b[1] - a[1]);
-    const packs = sorted.map(([slug, count]) => `\u2022 ${slug} \u00D7${count}`);
-    lines.push(packs.join('\n'));
+    const packs = sorted.map(([slug]) => slug).join(' \u00B7 ');
+    lines.push(`${packs} installed`);
   }
 
   // --- Signals ---
   if (signals.total > 0) {
-    const spike = signalAnomaly ? ' \u26A0\uFE0F' : '';
     lines.push('');
-    lines.push(`\uD83D\uDCAC <b>${signals.total} signal${signals.total === 1 ? '' : 's'}</b>${spike}`);
-    for (const s of signals.items.slice(0, 3)) {
-      lines.push(`\u2022 ${s.title} <i>(${s.severity})</i>`);
-    }
-  }
-
-  // --- Health ---
-  if (health) {
-    const bar = health.score >= 80 ? '\u2588\u2588\u2588\u2588\u2591' :
-                health.score >= 60 ? '\u2588\u2588\u2588\u2591\u2591' :
-                health.score >= 40 ? '\u2588\u2588\u2591\u2591\u2591' : '\u2588\u2591\u2591\u2591\u2591';
-    const arrow = health.delta > 2 ? '\u2197' : health.delta < -2 ? '\u2198' : '\u2192';
-    lines.push('');
-    lines.push(`${bar} ${health.score}/100 ${arrow}`);
+    lines.push(`${signals.total} signal${signals.total === 1 ? '' : 's'}`);
   }
 
   return lines.join('\n');
