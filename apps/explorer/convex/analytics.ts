@@ -117,11 +117,19 @@ export const getDailyBaseline = internalQuery({
 
 const UMAMI_API_BASE = 'https://api.umami.is/v1';
 
+export interface UmamiSiteStats {
+  name: string;
+  visitors: number;
+  pageviews: number;
+}
+
 export interface UmamiTrafficStats {
   visitors: number;
   pageviews: number;
   topReferrers: { name: string; value: number }[];
   topPages: { name: string; value: number }[];
+  /** Per-site breakdown when UMAMI_SITE_IDS is configured */
+  sites?: UmamiSiteStats[];
 }
 
 async function umamiGet(
@@ -148,23 +156,121 @@ async function umamiGet(
   }
 }
 
+async function fetchSingleSiteStats(
+  websiteId: string,
+  apiKey: string,
+  startAt: string,
+  endAt: string,
+): Promise<{ visitors: number; pageviews: number } | null> {
+  const statsRaw = await umamiGet(`/websites/${websiteId}/stats`, apiKey, { startAt, endAt });
+  if (!statsRaw) return null;
+  const stats = statsRaw as {
+    visitors: { value: number };
+    pageviews: { value: number };
+  };
+  return {
+    visitors: stats.visitors?.value ?? 0,
+    pageviews: stats.pageviews?.value ?? 0,
+  };
+}
+
 /**
  * Fetch last-24h traffic stats from Umami Cloud.
- * Returns null when UMAMI_API_KEY or UMAMI_WEBSITE_ID are not configured.
+ * Supports multi-site via UMAMI_SITE_IDS (JSON map of name→websiteId).
+ * Falls back to single UMAMI_WEBSITE_ID when UMAMI_SITE_IDS is not set.
+ * Returns null when no Umami credentials are configured.
  */
 export const fetchUmamiTraffic = internalAction({
   handler: async (): Promise<UmamiTrafficStats | null> => {
     const apiKey = process.env.UMAMI_API_KEY;
+    const siteIdsRaw = process.env.UMAMI_SITE_IDS;
     const websiteId = process.env.UMAMI_WEBSITE_ID;
 
-    if (!apiKey || !websiteId) {
-      console.warn('[umami] UMAMI_API_KEY or UMAMI_WEBSITE_ID not set — skipping traffic');
+    if (!apiKey) {
+      console.warn('[umami] UMAMI_API_KEY not set — skipping traffic');
       return null;
     }
 
     const now = Date.now();
     const startAt = String(now - DAY_MS);
     const endAt = String(now);
+
+    // Multi-site mode: UMAMI_SITE_IDS is a JSON map of { displayName: websiteId }
+    if (siteIdsRaw) {
+      let siteMap: Record<string, string>;
+      try {
+        siteMap = JSON.parse(siteIdsRaw);
+      } catch {
+        console.error('[umami] UMAMI_SITE_IDS is not valid JSON — skipping traffic');
+        return null;
+      }
+
+      const entries = Object.entries(siteMap);
+      if (entries.length === 0) {
+        console.warn('[umami] UMAMI_SITE_IDS is empty — skipping traffic');
+        return null;
+      }
+
+      // Fetch stats for all sites in parallel
+      const siteResults = await Promise.all(
+        entries.map(async ([name, id]) => {
+          const stats = await fetchSingleSiteStats(id, apiKey, startAt, endAt);
+          return { name, stats };
+        }),
+      );
+
+      // Build per-site breakdown
+      const sites: UmamiSiteStats[] = [];
+      let totalVisitors = 0;
+      let totalPageviews = 0;
+
+      for (const { name, stats } of siteResults) {
+        if (stats) {
+          sites.push({ name, visitors: stats.visitors, pageviews: stats.pageviews });
+          totalVisitors += stats.visitors;
+          totalPageviews += stats.pageviews;
+        }
+      }
+
+      if (sites.length === 0) return null;
+
+      // Sort sites by visitors descending
+      sites.sort((a, b) => b.visitors - a.visitors);
+
+      // Fetch referrers and top pages for the highest-traffic site only
+      const topSiteId = siteMap[sites[0].name];
+      const [referrersRaw, pagesRaw] = await Promise.all([
+        umamiGet(`/websites/${topSiteId}/metrics`, apiKey, {
+          startAt,
+          endAt,
+          type: 'referrer',
+          limit: '5',
+        }),
+        umamiGet(`/websites/${topSiteId}/metrics`, apiKey, {
+          startAt,
+          endAt,
+          type: 'url',
+          limit: '5',
+        }),
+      ]);
+
+      const referrers = (referrersRaw as { x: string; y: number }[] | null) ?? [];
+      const pages = (pagesRaw as { x: string; y: number }[] | null) ?? [];
+
+      return {
+        visitors: totalVisitors,
+        pageviews: totalPageviews,
+        topReferrers: referrers.map((r) => ({ name: r.x || 'direct', value: r.y })),
+        topPages: pages.map((p) => ({ name: p.x, value: p.y })),
+        sites,
+      };
+    }
+
+    // Single-site fallback: UMAMI_WEBSITE_ID
+    if (!websiteId) {
+      console.warn('[umami] UMAMI_WEBSITE_ID not set — skipping traffic');
+      return null;
+    }
 
     // Fetch stats and top referrers in parallel
     const [statsRaw, referrersRaw, pagesRaw] = await Promise.all([

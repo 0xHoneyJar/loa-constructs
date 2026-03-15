@@ -61,6 +61,7 @@ function formatDigest(
     pageviews: number;
     topReferrers: { name: string; value: number }[];
     topPages: { name: string; value: number }[];
+    sites?: { name: string; visitors: number; pageviews: number }[];
   } | null,
 ): string {
   const dateStr = formatDate(new Date());
@@ -83,7 +84,16 @@ function formatDigest(
 
   // --- Traffic ---
   if (hasTraffic) {
-    lines.push(`\uD83C\uDF10 <b>${traffic.visitors} visitors</b> \u00B7 ${traffic.pageviews} views`);
+    if (traffic.sites && traffic.sites.length > 1) {
+      // Multi-site: show network total + per-site breakdown
+      lines.push(`\uD83C\uDF10 <b>Network \u2014 ${traffic.visitors} visitors</b>`);
+      for (const site of traffic.sites) {
+        lines.push(`\u2022 ${site.name} \u2014 ${site.visitors}`);
+      }
+    } else {
+      // Single site (legacy or only one site in UMAMI_SITE_IDS)
+      lines.push(`\uD83C\uDF10 <b>${traffic.visitors} visitors</b> \u00B7 ${traffic.pageviews} views`);
+    }
 
     if (traffic.topReferrers.length > 0) {
       const total = traffic.topReferrers.reduce((s, r) => s + r.value, 0);
