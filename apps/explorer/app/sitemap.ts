@@ -27,7 +27,7 @@ export default async function sitemap(): Promise<SitemapEntry[]> {
 
   const constructPages: SitemapEntry[] = constructs.map((c) => ({
     url: `${BASE_URL}/constructs/${c.slug}`,
-    lastModified: new Date(),
+    lastModified: c.updatedAt ? new Date(c.updatedAt) : new Date(),
     changeFrequency: 'weekly' as const,
     priority: 0.8,
   }));

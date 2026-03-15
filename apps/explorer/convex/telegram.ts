@@ -56,6 +56,12 @@ function formatDigest(
     avgDailySignals: number;
     avgHealthScore: number | null;
   },
+  traffic: {
+    visitors: number;
+    pageviews: number;
+    topReferrers: { name: string; value: number }[];
+    topPages: { name: string; value: number }[];
+  } | null,
 ): string {
   const dateStr = formatDate(new Date());
   const { installs, signals, health } = metrics;
@@ -63,15 +69,31 @@ function formatDigest(
   // Detect anomalies — anything notably above baseline
   const installAnomaly = installs.total > 0 && installs.total >= baseline.avgDailyInstalls * 1.5;
   const signalAnomaly = signals.total > 0 && signals.total >= baseline.avgDailySignals * 1.5;
-  const hasActivity = installs.total > 0 || signals.total > 0;
+  const hasActivity = installs.total > 0 || signals.total > 0 || (traffic && traffic.visitors > 0);
 
-  // Steady state — no installs, no signals, health unchanged
+  // Steady state — no installs, no signals, no traffic, health unchanged
   if (!hasActivity) {
     const healthSuffix = health ? `, health ${health.score}/100` : '';
     return `<b>constructs.network \u2014 ${dateStr}</b> \u2014 steady state, 0 installs${healthSuffix}`;
   }
 
   const lines: string[] = [`<b>constructs.network \u2014 ${dateStr}</b>`, ''];
+
+  // Traffic (Umami)
+  if (traffic && traffic.visitors > 0) {
+    // Build referrer breakdown — show top sources as percentages
+    let referrerSuffix = '';
+    if (traffic.topReferrers.length > 0) {
+      const totalReferrerHits = traffic.topReferrers.reduce((s, r) => s + r.value, 0);
+      if (totalReferrerHits > 0) {
+        const parts = traffic.topReferrers
+          .slice(0, 3)
+          .map((r) => `${r.name} ${Math.round((r.value / totalReferrerHits) * 100)}%`);
+        referrerSuffix = ` | ${parts.join(', ')}`;
+      }
+    }
+    lines.push(`\u26A1 ${traffic.visitors} visitors${referrerSuffix}`);
+  }
 
   // Installs
   if (installs.total > 0) {
@@ -131,13 +153,14 @@ export const sendDigest = internalAction({
       return;
     }
 
-    // Pull metrics and baseline in parallel
-    const [metrics, baseline] = await Promise.all([
+    // Pull metrics, baseline, and traffic in parallel
+    const [metrics, baseline, traffic] = await Promise.all([
       ctx.runQuery(internal.analytics.getDigestMetrics),
       ctx.runQuery(internal.analytics.getDailyBaseline),
+      ctx.runAction(internal.analytics.fetchUmamiTraffic),
     ]);
 
-    const message = formatDigest(metrics, baseline);
+    const message = formatDigest(metrics, baseline, traffic);
 
     const result = await sendMessage(botToken, chatId, message);
     if (result.ok) {

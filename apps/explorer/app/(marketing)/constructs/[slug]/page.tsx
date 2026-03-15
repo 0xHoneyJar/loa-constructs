@@ -1,13 +1,18 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { fetchConstruct } from '@/lib/data/fetch-constructs';
+import { fetchConstruct, fetchAllConstructs } from '@/lib/data/fetch-constructs';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { InstallBlock } from '@/components/ui/install-block';
 import { Disclosure } from '@/components/ui/disclosure';
 
 export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  const constructs = await fetchAllConstructs();
+  return constructs.map((c) => ({ slug: c.slug }));
+}
 
 export async function generateMetadata({
   params,
@@ -61,9 +66,8 @@ export default async function ConstructDetailPage({
     },
     url: `https://constructs.network/constructs/${slug}`,
     ...(construct.version && { version: construct.version }),
-    ...(construct.verifiedAt
-      ? { datePublished: construct.verifiedAt }
-      : { datePublished: '2025-01-01' }),
+    ...(construct.createdAt && { datePublished: construct.createdAt }),
+    ...(construct.updatedAt && { dateModified: construct.updatedAt }),
   };
 
   const verificationBadge = (() => {
