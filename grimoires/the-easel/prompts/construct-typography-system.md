@@ -105,7 +105,7 @@ Based on each construct's persona, domain, and emotional identity:
 
 | Construct | Register | Font Direction |
 |-----------|----------|----------------|
-| **Beehive** | EXTENDED SANS | Eurostile Extended or Microgramma — the surveillance institution. Wide, authoritative, hardware-label feel. |
+| **Beehive** | HUMANIST SERIF | Lora — the field journal. Warm, transitional serif for the keeper who records what they observe. Not institutional, not cold. The serif IS the warmth. |
 | **Herald** | CONDENSED GROTESQUE | Knockout or Dharma Gothic — the signal corps. Tall, urgent, broadcast energy. |
 | **Crucible** | STENCIL / MILITARY | Halyard Stencil or PF Din Stencil — field-grade testing. Stamped, deployed, industrial. |
 | **Beacon** | GEOMETRIC SANS | Futura or Avenir — steady, reliable, the navigation instrument. Clean and trustworthy. |
