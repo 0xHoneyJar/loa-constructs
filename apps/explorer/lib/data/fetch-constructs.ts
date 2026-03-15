@@ -43,6 +43,8 @@ interface APIConstruct {
   construct_type?: string;
   verification_tier?: string;
   verified_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
   forked_from?: { slug: string; name: string } | null;
   fork_count?: number;
   skill_prose?: string | null;
@@ -119,6 +121,8 @@ function transformToNode(construct: APIConstruct): ConstructNode {
     rating: construct.rating ?? null,
     hasIdentity: construct.has_identity ?? false,
     verificationTier: construct.verification_tier ?? 'UNVERIFIED',
+    createdAt: construct.created_at ?? null,
+    updatedAt: construct.updated_at ?? null,
     domains: domains && domains.length > 0 ? domains : undefined,
     composesWith: composesWith.length > 0 ? composesWith : undefined,
     skillSlugs: skillSlugs.length > 0 ? skillSlugs : undefined,

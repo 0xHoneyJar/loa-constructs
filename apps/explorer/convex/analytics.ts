@@ -1,4 +1,4 @@
-import { internalQuery } from './_generated/server';
+import { internalAction, internalQuery } from './_generated/server';
 
 const DAY_MS = 86_400_000;
 
@@ -109,6 +109,94 @@ export const getDailyBaseline = internalQuery({
       avgDailyInstalls: Math.round(avgInstalls * 10) / 10,
       avgDailySignals: Math.round(avgSignals * 10) / 10,
       avgHealthScore,
+    };
+  },
+});
+
+// --- Umami Cloud Traffic ---
+
+const UMAMI_API_BASE = 'https://api.umami.is/v1';
+
+export interface UmamiTrafficStats {
+  visitors: number;
+  pageviews: number;
+  topReferrers: { name: string; value: number }[];
+  topPages: { name: string; value: number }[];
+}
+
+async function umamiGet(
+  path: string,
+  apiKey: string,
+  params: Record<string, string>,
+): Promise<unknown | null> {
+  const url = new URL(`${UMAMI_API_BASE}${path}`);
+  for (const [k, v] of Object.entries(params)) {
+    url.searchParams.set(k, v);
+  }
+  try {
+    const response = await fetch(url.toString(), {
+      headers: { 'x-umami-api-key': apiKey },
+    });
+    if (!response.ok) {
+      console.error(`[umami] ${path} HTTP ${response.status}`);
+      return null;
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('[umami] fetch error:', (error as Error).message);
+    return null;
+  }
+}
+
+/**
+ * Fetch last-24h traffic stats from Umami Cloud.
+ * Returns null when UMAMI_API_KEY or UMAMI_WEBSITE_ID are not configured.
+ */
+export const fetchUmamiTraffic = internalAction({
+  handler: async (): Promise<UmamiTrafficStats | null> => {
+    const apiKey = process.env.UMAMI_API_KEY;
+    const websiteId = process.env.UMAMI_WEBSITE_ID;
+
+    if (!apiKey || !websiteId) {
+      console.warn('[umami] UMAMI_API_KEY or UMAMI_WEBSITE_ID not set — skipping traffic');
+      return null;
+    }
+
+    const now = Date.now();
+    const startAt = String(now - DAY_MS);
+    const endAt = String(now);
+
+    // Fetch stats and top referrers in parallel
+    const [statsRaw, referrersRaw, pagesRaw] = await Promise.all([
+      umamiGet(`/websites/${websiteId}/stats`, apiKey, { startAt, endAt }),
+      umamiGet(`/websites/${websiteId}/metrics`, apiKey, {
+        startAt,
+        endAt,
+        type: 'referrer',
+        limit: '5',
+      }),
+      umamiGet(`/websites/${websiteId}/metrics`, apiKey, {
+        startAt,
+        endAt,
+        type: 'url',
+        limit: '5',
+      }),
+    ]);
+
+    if (!statsRaw) return null;
+
+    const stats = statsRaw as {
+      visitors: { value: number };
+      pageviews: { value: number };
+    };
+    const referrers = (referrersRaw as { x: string; y: number }[] | null) ?? [];
+    const pages = (pagesRaw as { x: string; y: number }[] | null) ?? [];
+
+    return {
+      visitors: stats.visitors?.value ?? 0,
+      pageviews: stats.pageviews?.value ?? 0,
+      topReferrers: referrers.map((r) => ({ name: r.x || 'direct', value: r.y })),
+      topPages: pages.map((p) => ({ name: p.x, value: p.y })),
     };
   },
 });

@@ -41,6 +41,8 @@ export interface ConstructNode {
   hasIdentity?: boolean;
   verificationTier?: string;
   visibility?: string;
+  createdAt?: string | null;
+  updatedAt?: string | null;
   /** Expertise domains from identity — used for domain tag pills */
   domains?: string[];
   /** Slugs this construct composes with — used for composition degree */
