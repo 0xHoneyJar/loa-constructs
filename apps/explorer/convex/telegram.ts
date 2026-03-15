@@ -71,49 +71,40 @@ function formatDigest(
   const hasTraffic = traffic && traffic.visitors > 0;
   const hasActivity = installs.total > 0 || signals.total > 0 || hasTraffic;
 
-  // Quiet day — one line, no noise
+  // Quiet day — one line
   if (!hasActivity) {
-    return `\uD83D\uDC41 <b>Ruggy \u2014 ${dateStr}</b> \u2014 quiet day across the network`;
+    return `\uD83D\uDC3B <b>Ruggy \u2014 ${dateStr}</b> \u2014 quiet day`;
   }
 
   const lines: string[] = [
-    `\uD83D\uDC41 <b>Ruggy \u2014 ${dateStr}</b>`,
+    `\uD83D\uDC3B <b>Ruggy \u2014 ${dateStr}</b>`,
     '',
   ];
 
   // --- Traffic ---
   if (hasTraffic) {
-    lines.push(`\u{1F310} <b>${traffic.visitors} visitors</b> \u00B7 ${traffic.pageviews} pageviews`);
+    lines.push(`\uD83C\uDF10 <b>${traffic.visitors} visitors</b> \u00B7 ${traffic.pageviews} views`);
 
     if (traffic.topReferrers.length > 0) {
       const total = traffic.topReferrers.reduce((s, r) => s + r.value, 0);
       if (total > 0) {
         const refs = traffic.topReferrers.slice(0, 3).map((r) => {
           const pct = Math.round((r.value / total) * 100);
-          const name = r.name || 'direct';
-          return `<code>${name}</code> ${pct}%`;
+          return `${r.name || 'direct'} ${pct}%`;
         });
-        lines.push(`  \u2514 ${refs.join(' \u00B7 ')}`);
+        lines.push(refs.join(' \u00B7 '));
       }
-    }
-
-    if (traffic.topPages.length > 0) {
-      const pages = traffic.topPages.slice(0, 3).map((p) => {
-        const path = p.name.length > 25 ? `${p.name.slice(0, 24)}\u2026` : p.name;
-        return `<code>${path}</code> ${p.value}`;
-      });
-      lines.push(`  \u2514 ${pages.join(' \u00B7 ')}`);
     }
   }
 
   // --- Installs ---
   if (installs.total > 0) {
-    const spike = installAnomaly ? ' \u{1F525}' : '';
+    const spike = installAnomaly ? ' \uD83D\uDD25' : '';
     lines.push('');
-    lines.push(`\u{1F4E6} <b>${installs.total} install${installs.total === 1 ? '' : 's'}</b>${spike}`);
+    lines.push(`\uD83D\uDCE6 <b>${installs.total} install${installs.total === 1 ? '' : 's'}</b>${spike}`);
 
     const sorted = Object.entries(installs.byPack).sort((a, b) => b[1] - a[1]);
-    const packs = sorted.map(([slug, count]) => `\u2022 <code>${slug}</code> \u00D7${count}`);
+    const packs = sorted.map(([slug, count]) => `\u2022 ${slug} \u00D7${count}`);
     lines.push(packs.join('\n'));
   }
 
@@ -121,7 +112,7 @@ function formatDigest(
   if (signals.total > 0) {
     const spike = signalAnomaly ? ' \u26A0\uFE0F' : '';
     lines.push('');
-    lines.push(`\u{1F4AC} <b>${signals.total} signal${signals.total === 1 ? '' : 's'}</b>${spike}`);
+    lines.push(`\uD83D\uDCAC <b>${signals.total} signal${signals.total === 1 ? '' : 's'}</b>${spike}`);
     for (const s of signals.items.slice(0, 3)) {
       lines.push(`\u2022 ${s.title} <i>(${s.severity})</i>`);
     }
