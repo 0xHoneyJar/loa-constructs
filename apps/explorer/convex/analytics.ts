@@ -164,13 +164,17 @@ async function fetchSingleSiteStats(
 ): Promise<{ visitors: number; pageviews: number } | null> {
   const statsRaw = await umamiGet(`/websites/${websiteId}/stats`, apiKey, { startAt, endAt });
   if (!statsRaw) return null;
-  const stats = statsRaw as {
-    visitors: { value: number };
-    pageviews: { value: number };
+  // Umami API returns { visitors: N } (cloud) or { visitors: { value: N } } (self-hosted)
+  const s = statsRaw as Record<string, unknown>;
+  const extract = (key: string): number => {
+    const v = s[key];
+    if (typeof v === 'number') return v;
+    if (v && typeof v === 'object' && 'value' in v) return (v as { value: number }).value;
+    return 0;
   };
   return {
-    visitors: stats.visitors?.value ?? 0,
-    pageviews: stats.pageviews?.value ?? 0,
+    visitors: extract('visitors'),
+    pageviews: extract('pageviews'),
   };
 }
 
