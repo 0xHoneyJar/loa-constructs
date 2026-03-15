@@ -274,7 +274,7 @@ describe('Backward compatibility', () => {
 // ── Workflow Gate Contract Tests (FR-3) ──────────────────
 
 describe('FR-3: Workflow gate contracts', () => {
-  it('Observer workflow gates are valid', () => {
+  it('Beehive workflow gates are valid', () => {
     const manifest = {
       ...MINIMAL_MANIFEST,
       workflow: {
@@ -718,7 +718,7 @@ describe('Construct Lifecycle: full manifest with all lifecycle fields', () => {
 
   it('backward compat: existing manifests still pass with no lifecycle fields', () => {
     const manifest = {
-      name: 'Observer',
+      name: 'Beehive',
       slug: 'observer',
       version: '1.0.0',
       description: 'User research and feedback collection',

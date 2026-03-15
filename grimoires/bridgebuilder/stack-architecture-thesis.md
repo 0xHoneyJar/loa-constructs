@@ -16,7 +16,7 @@ The construct ecosystem has a gap:
 | **Artisan** | Design physics, material, taste | "How should it *feel*?" |
 | **Protocol** | Verification, compliance, QA | "Is it *correct*?" |
 | **Beacon** | Developer tools, x402, discovery | "How do agents *find and pay* for it?" |
-| **Observer** | User research, empathy | "What do users *need*?" |
+| **Beehive** | User research, empathy | "What do users *need*?" |
 | **???** | Stack architecture, agent-optimized tooling | "What should you *build it with*?" |
 
 This thesis argues that the answer isn't a new construct — not yet. It's a cross-cutting

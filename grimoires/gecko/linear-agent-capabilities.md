@@ -130,12 +130,12 @@ Workspace: 0xHoneyJar
 
 ### Label Taxonomy (Workspace-level, shared across teams)
 
-Aligned with Observer's gap taxonomy:
+Aligned with Beehive's gap taxonomy:
 ```
 Type:     bug | feature-request | flow-issue | communication | strategy
 Severity: critical | high | medium | low
 Source:   user-feedback | error-tracking | uptime-monitor | agent-created | manual
-Signal:   [adapted from Observer signal weight classification]
+Signal:   [adapted from Beehive signal weight classification]
 ```
 
 ### Triage Flow

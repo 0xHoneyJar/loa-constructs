@@ -24,7 +24,7 @@ const loadProductionFixture = (name: string) =>
 const mockPacks = [
   {
     id: 'pack-1',
-    name: 'Observer',
+    name: 'Beehive',
     slug: 'observer',
     description: 'AI-powered user research observer',
     status: 'published',

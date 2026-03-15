@@ -141,11 +141,11 @@ exports[`Production Response Snapshots > documents expected /v1/constructs respo
   "data": [
     {
       "createdAt": "2026-01-15T00:00:00.000Z",
-      "description": "AI-powered user research observer",
+      "description": "Behavioral pattern recognition through patient observation and insightful probing. The keeper builds the hive — the colony thrives inside.",
       "icon": "eye",
       "id": "uuid-example",
       "maturity": "stable",
-      "name": "Observer",
+      "name": "Beehive",
       "slug": "observer",
       "status": "published",
       "updatedAt": "2026-01-20T00:00:00.000Z",

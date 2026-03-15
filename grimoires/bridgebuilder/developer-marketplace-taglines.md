@@ -56,7 +56,7 @@ Constraints born from 1990s hardware (80-column terminals) have survived as best
 1. **Noun phrases fit our constructs** — they're infrastructure (identity), not workflow apps (agency)
 2. **80 chars is the right ceiling** — our schema uses `max(80)`, aligning with the Debian/Homebrew lineage
 3. **Consider automated linting** — a `construct.yaml` validator could enforce tagline quality (no articles, no superlatives, noun-phrase preference)
-4. **The "S" Rule** is worth adopting for constructs that straddle identity and agency (Observer *does* research AND *is* a research tool)
+4. **The "S" Rule** is worth adopting for constructs that straddle identity and agency (Beehive *does* research AND *is* a research tool)
 5. **Front-load the differentiator** — NNG's F-shaped scanning research says value must land in the first 11 characters
 6. **Guard against metadata rot** — our override map in seed-forge-packs.ts is the first defense; construct.yaml `short_description` field is the long-term fix
 

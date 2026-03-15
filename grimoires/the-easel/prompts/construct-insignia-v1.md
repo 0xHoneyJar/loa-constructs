@@ -27,12 +27,12 @@ These five constructs are what people see on landing. Broadest appeal, strongest
 
 ---
 
-### C-001: Observer — "The Eye That Watches"
+### C-001: Beehive — "The Eye That Watches"
 
 **Identity**: 24 capabilities across surveillance, feedback capture, journey-shaping. The deepest construct — the instrument you jack in with. It sees everything. Composes with artisan (the canonical pairing — observe, then design). Radar sweep. Constant vigilance without menace.
 
 ```
-A 3x3 grid of 9 DIFFERENT emblem concepts for "Observer" — a surveillance and behavioral analysis operator. It watches user behavior, captures signals, shapes journeys. The deepest and most capable operator in the network. Each cell shows a completely different way to represent "the thing that watches everything." Flat vector, bone white on pure black, angular military insignia style.
+A 3x3 grid of 9 DIFFERENT emblem concepts for "Beehive" — a surveillance and behavioral analysis operator. It watches user behavior, captures signals, shapes journeys. The deepest and most capable operator in the network. Each cell shows a completely different way to represent "the thing that watches everything." Flat vector, bone white on pure black, angular military insignia style.
 
 Cell 1 — RADAR SWEEP: A circular radar display with a single sweep arm rotating from center. Concentric range rings (2-3) with the arm as a single angular line. The classic surveillance instrument reduced to emblem. Clean, circular, authoritative.
 
@@ -59,7 +59,7 @@ Style: flat vector, bone white on black, angular. This is the MOST CAPABLE opera
 
 ### C-002: Artisan — "The Hand That Shapes"
 
-**Identity**: 14 capabilities across design, feel, material systems. Governs 4 other constructs. The feel engine — warmth, weight, rhythm. Three base abstractions for material design. The canonical pair with Observer (observe first, then make it feel right). A master craftsman, not an artist.
+**Identity**: 14 capabilities across design, feel, material systems. Governs 4 other constructs. The feel engine — warmth, weight, rhythm. Three base abstractions for material design. The canonical pair with Beehive (observe first, then make it feel right). A master craftsman, not an artist.
 
 ```
 A 3x3 grid of 9 DIFFERENT emblem concepts for "Artisan" — a design and material systems operator. It defines how things FEEL — warmth, weight, rhythm. A master craftsman who shapes surfaces, materials, and interaction. Governs 4 other operators. Each cell shows a completely different tool or symbol from the craft tradition. Flat vector, bone white on pure black, angular military insignia style.
@@ -183,7 +183,7 @@ Style: flat vector, bone white on black, angular. This is a COLLECTIVE — multi
 
 ### C-006: Crucible — "The Fire That Tests"
 
-**Identity**: QA and testing operator. Autonomous quality enforcement. Has circular dependency with Observer — they need each other. The fire that burns away weakness. What survives the crucible is proven.
+**Identity**: QA and testing operator. Autonomous quality enforcement. Has circular dependency with Beehive — they need each other. The fire that burns away weakness. What survives the crucible is proven.
 
 ```
 A 3x3 grid of 9 DIFFERENT emblem concepts for "Crucible" — a quality assurance and testing operator. It subjects everything to fire and pressure to find what breaks. Autonomous, thorough, merciless in its testing. What survives the crucible is combat-proven. Each cell shows a different way to represent "the process that tests through destruction." Flat vector, bone white on pure black, angular military insignia style.

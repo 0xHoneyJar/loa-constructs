@@ -105,7 +105,7 @@ Based on each construct's persona, domain, and emotional identity:
 
 | Construct | Register | Font Direction |
 |-----------|----------|----------------|
-| **Observer** | EXTENDED SANS | Eurostile Extended or Microgramma — the surveillance institution. Wide, authoritative, hardware-label feel. |
+| **Beehive** | EXTENDED SANS | Eurostile Extended or Microgramma — the surveillance institution. Wide, authoritative, hardware-label feel. |
 | **Herald** | CONDENSED GROTESQUE | Knockout or Dharma Gothic — the signal corps. Tall, urgent, broadcast energy. |
 | **Crucible** | STENCIL / MILITARY | Halyard Stencil or PF Din Stencil — field-grade testing. Stamped, deployed, industrial. |
 | **Beacon** | GEOMETRIC SANS | Futura or Avenir — steady, reliable, the navigation instrument. Clean and trustworthy. |
@@ -245,7 +245,7 @@ For initial exploration, use free alternatives to test the register concept. Upg
 2. **Inter** (free) — the neo-grotesque baseline
 3. **Space Grotesk** (free) — geometric with personality
 
-### Observer (explore these)
+### Beehive (explore these)
 1. **Orbitron** (Google Fonts) — extended sci-fi sans
 2. **Exo 2** (Google Fonts) — geometric extended
 3. **Rajdhani** (Google Fonts) — technical extended

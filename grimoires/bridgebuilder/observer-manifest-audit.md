@@ -1,19 +1,19 @@
-# Observer Manifest Audit — Verification Metadata Formalization
+# Beehive Manifest Audit — Verification Metadata Formalization
 
 > **Date**: 2026-02-20
 > **Status**: Complete
-> **Source**: loa#379 addendum, loa-constructs#131 lifecycle RFC, registry Observer v1.0.0
-> **Purpose**: Document the gap between Observer's registry manifest and what its midi-interface deployment actually requires, then define the target manifest with formalized verification metadata.
+> **Source**: loa#379 addendum, loa-constructs#131 lifecycle RFC, registry Beehive v1.0.0
+> **Purpose**: Document the gap between Beehive's registry manifest and what its midi-interface deployment actually requires, then define the target manifest with formalized verification metadata.
 
 ---
 
-## 1. Current Observer Manifest (Registry v1.0.0)
+## 1. Current Beehive Manifest (Registry v1.0.0)
 
 Source: `.claude/constructs/packs/observer/construct.yaml`
 
 ```yaml
 schema_version: 3
-name: Observer
+name: Beehive
 slug: observer
 version: 1.0.0
 description: User truth capture skills for hypothesis-first research
@@ -92,7 +92,7 @@ quick_start:
 
 ## 2. midi-interface Reality (23 Skills, Provenance System)
 
-From issue #131 research and loa#379 addendum, Observer in midi-interface has evolved far beyond the registry version:
+From issue #131 research and loa#379 addendum, Beehive in midi-interface has evolved far beyond the registry version:
 
 ### Skill Inventory
 
@@ -117,13 +117,13 @@ From issue #131 research and loa#379 addendum, Observer in midi-interface has ev
 
 ---
 
-## 3. Target Observer Manifest (Per loa#379 Addendum)
+## 3. Target Beehive Manifest (Per loa#379 Addendum)
 
-This is what Observer's `construct.yaml` SHOULD declare to accurately represent the midi-interface deployment. All new fields are optional in the schema and backward-compatible.
+This is what Beehive's `construct.yaml` SHOULD declare to accurately represent the midi-interface deployment. All new fields are optional in the schema and backward-compatible.
 
 ```yaml
 schema_version: 3
-name: Observer
+name: Beehive
 slug: observer
 version: 1.1.0
 type: skill-pack
@@ -283,7 +283,7 @@ portability_score: 0.7
 
 ### Missing Skills (17 Cognition Layer)
 
-The registry Observer has 6 skills. midi-interface has 23. The 17 added skills are NOT enumerated here because they haven't been upstreamed to construct-observer. The migration plan (lifecycle design doc, Phase 2) calls for:
+The registry Beehive has 6 skills. midi-interface has 23. The 17 added skills are NOT enumerated here because they haven't been upstreamed to construct-observer. The migration plan (lifecycle design doc, Phase 2) calls for:
 
 1. **8 generic skills** → upstream to construct-observer v1.1.0
 2. **9 midi-specific skills** → remain as midi-interface variant additions
@@ -327,7 +327,7 @@ verification?: {
 };
 ```
 
-### Observer's Verification Checks (Target)
+### Beehive's Verification Checks (Target)
 
 ```yaml
 verification:
@@ -367,7 +367,7 @@ The `.passthrough()` on `packManifestSchema` means the verification checks will 
 
 | Data | Location | Format | Access Pattern |
 |------|----------|--------|----------------|
-| Observer manifest | `construct.yaml` | YAML | Read on install/sync |
+| Beehive manifest | `construct.yaml` | YAML | Read on install/sync |
 | Persona definition | `identity/persona.yaml` | YAML | Read for cognitive frame |
 | Expertise domains | `identity/expertise.yaml` | YAML | Read for MoE routing |
 | Verification status | `construct.yaml → workflow.verification.checks` | YAML | Read for trust signal |
@@ -389,10 +389,10 @@ The `construct_identities` table (schema.ts:1136-1155) already stores:
 
 ### Credential Handoff
 
-For Tobias to use Observer's cognition layer, he needs:
+For Tobias to use Beehive's cognition layer, he needs:
 1. `SCORE_API_KEY` — Declared in `credentials` stanza, user provides at install time
 2. `SUPABASE_URL` — Declared in `credentials` stanza, per-project configuration
-3. Both are `optional: true` — core Observer skills work without them, cognition layer degrades gracefully
+3. Both are `optional: true` — core Beehive skills work without them, cognition layer degrades gracefully
 
 ### Event Contract for Cross-Construct Communication
 
@@ -454,10 +454,10 @@ Both credential names pass validation. `optional: true` must be explicitly set s
 ### Cross-Construct Event Flow
 
 ```
-Observer ──emit──> forge.observer.canvas_created ──> Crucible (validates journey)
-Crucible ──emit──> forge.crucible.journey_validated ──> Observer (consumes)
-Observer ──emit──> forge.observer.provenance_verified ──> Echelon (trust signal)
-Observer ──emit──> forge.observer.canvas_enriched ──> Echelon (enrichment)
+Beehive ──emit──> forge.observer.canvas_created ──> Crucible (validates journey)
+Crucible ──emit──> forge.crucible.journey_validated ──> Beehive (consumes)
+Beehive ──emit──> forge.observer.provenance_verified ──> Echelon (trust signal)
+Beehive ──emit──> forge.observer.canvas_enriched ──> Echelon (enrichment)
 ```
 
 ---

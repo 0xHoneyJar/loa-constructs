@@ -56,11 +56,24 @@ See `docs/guides/context-slots.md` for topology parameterization and `docs/guide
 | Path | Purpose | Mutability |
 |------|---------|------------|
 | `grimoires/` | Project documentation and state | Read/Write |
-| `apps/sandbox/packs/` | Git-tracked pack source of truth | Read/Write |
 | `.claude/constructs/packs/` | Gitignored runtime installation | Read-only (generated) |
 | `.claude/` | System zone (framework-managed) | Never edit directly |
+| `.cache/construct-repos/` | Cached construct source repos | Read-only (fetched) |
 
 The `grimoires/` directory is the **immutable canonical path** for all project documentation, sprint artifacts, and state files. Do not make this configurable.
+
+### Operator OS
+
+Four cognitive modes for creative work, mapped to construct personas:
+
+| Mode | Persona | When |
+|------|---------|------|
+| FEEL | ALEXANDER (Artisan) | Zoomed into pixels, feel, polish |
+| ARCH | OSTROM (Arcade) | Zoomed out on structure, schemas, blast radius |
+| DIG | STAMETS (K-Hole) | Deep research, pulling threads |
+| SHIP | BARTH (Arcade) | Cutting scope, pressing deploy |
+
+See `grimoires/the-arcade/OPERATOR.md` for the full operating system.
 
 ### Runtime / Construct Boundary
 

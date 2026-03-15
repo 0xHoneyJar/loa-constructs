@@ -90,7 +90,7 @@ Signals flow FROM apps INTO the central store.
 | Deployment event | Vercel webhook | POST to central endpoint | P1 |
 | Build failure | Vercel/Railway webhook | POST to central endpoint | P1 |
 | Transaction failure | On-chain monitoring | POST to central endpoint | P2 |
-| Observer feedback | Existing Observer pipeline | Grimoire → ingest | P2 |
+| Beehive feedback | Existing Beehive pipeline | Grimoire → ingest | P2 |
 
 #### In-App Feedback Widget
 
@@ -186,7 +186,7 @@ Dashboard "Escalate" button
 | api, railway, dns | INF | Infrastructure |
 | All others | GEN | General |
 
-#### Taxonomy (aligned with Observer)
+#### Taxonomy (aligned with Beehive)
 
 Shared workspace-level labels:
 ```
@@ -240,7 +240,7 @@ Source:   user-feedback | error-tracking | uptime-monitor | agent-created | manu
 ### Phase 3: Intelligence Layer (3–4 weeks)
 
 - [ ] Linear Agent SDK integration (bidirectional sync)
-- [ ] Observer integration (signals → canvases, gap analysis)
+- [ ] Beehive integration (signals → canvases, gap analysis)
 - [ ] Gecko integration (network health → signals)
 - [ ] Automated triage rules (severity-based escalation)
 - [ ] Cross-app pattern detection (same bug in multiple apps)
@@ -260,7 +260,7 @@ Source:   user-feedback | error-tracking | uptime-monitor | agent-created | manu
 |---|---|
 | Convex in explorer (4 tables, provider wired) | Real-time subscriptions for dashboard |
 | Gecko health observations (Convex `healthObservations`) | Network health already flowing |
-| Observer gap taxonomy | Shared classification schema |
+| Beehive gap taxonomy | Shared classification schema |
 | Health dashboard page (`/dashboard/health`) | UI pattern to replicate |
 | Live install feed component | Real-time feed pattern to replicate |
 | `CONVEX_WRITE_KEY` auth pattern | Proven server-side write auth |

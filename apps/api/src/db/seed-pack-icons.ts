@@ -9,7 +9,7 @@ import { db, packs } from './index.js';
 import { eq } from 'drizzle-orm';
 
 const PACK_ICONS: Record<string, string> = {
-  observer: '👁️',
+  observer: '🐝',
   crucible: '🧪',
   artisan: '🎨',
   'gtm-collective': '🚀',

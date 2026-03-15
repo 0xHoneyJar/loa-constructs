@@ -27,7 +27,7 @@ The mark reads at 24px (card), 128px (detail), and building-scale (LED sign).
 
 Christopher Alexander proved beauty is not subjective magic but objective structural pattern. The artisan is his construct-form: the hand that transforms "this feels right" into an engineering specification. Three base abstractions — **warmth, weight, rhythm** — decompose any aesthetic into measurable tokens.
 
-Governs 4 constructs (the-easel, showcase, the-arcade, the-mint) for taste conformance. Canonical pair with Observer (user truth → taste synthesis). Voice: "the shadow is too heavy" means "increase oklch lightness from 0.18 to 0.22."
+Governs 4 constructs (the-easel, showcase, the-arcade, the-mint) for taste conformance. Canonical pair with Beehive (user truth → taste synthesis). Voice: "the shadow is too heavy" means "increase oklch lightness from 0.18 to 0.22."
 
 The artisan is a **craftsman**, not an artist. Structure before material. The artifact is the argument. Convergence is subtractive — you remove until what remains is correct.
 
@@ -239,18 +239,18 @@ Style: flat vector, bone white on black, angular. The Oracle is PLAIN. It doesn'
 
 ---
 
-## D-004: Observer — The Deepest Operator
+## D-004: Beehive — The Deepest Operator
 
 ### The Identity
 
-24 capabilities across surveillance, feedback capture, user research, journey-shaping. The deepest and most capable construct in the network. Combat-proven. Composes with artisan as the canonical pairing — observe first, then shape the feel. Observer sees the trees, Gecko sees the forest.
+24 capabilities across surveillance, feedback capture, user research, journey-shaping. The deepest and most capable construct in the network. Combat-proven. Composes with artisan as the canonical pairing — observe first, then shape the feel. Beehive sees the trees, Gecko sees the forest.
 
 The construct that watches without being seen. Captures signals. Shapes journeys. Not creepy — disciplined. The intelligence that makes good design possible.
 
 ### Exploration Prompt — Grid A: Intelligence Instruments
 
 ```
-A 3x3 grid of 9 DIFFERENT emblem concepts for "Observer" — the most capable operator in the network. 24 specializations across surveillance, feedback, journey-shaping. It watches user behavior and captures signals that inform design. The canonical intelligence operator. Each cell shows a different surveillance or intelligence instrument grounded in real technology. Flat vector, bone white on pure black, angular military insignia style.
+A 3x3 grid of 9 DIFFERENT emblem concepts for "Beehive" — the most capable operator in the network. 24 specializations across surveillance, feedback, journey-shaping. It watches user behavior and captures signals that inform design. The canonical intelligence operator. Each cell shows a different surveillance or intelligence instrument grounded in real technology. Flat vector, bone white on pure black, angular military insignia style.
 
 Cell 1 — GROUND STATION: A satellite ground station antenna — a large parabolic dish on a tracking mount, pointed at a specific angle. Not pointed at the sky randomly — TRACKING something specific. The construct that follows signals. Angular dish, precise elevation.
 
@@ -367,5 +367,5 @@ Quick reference for prompt refinement — the one-line essence of each construct
 | **Artisan** | "What starts as 'this feels right' becomes an engineering specification" | Christopher Alexander — beauty is structural pattern |
 | **K-Hole** | Seven thinkers in productive tension, no conductor — the mycelium is the architecture | Paul Stamets — underground connections between visible things |
 | **Mibera Codex** | Librarian of 10,000 time-travellers, 15,000 years, speaks plainly | The Oracle — institutional knowledge, not mystical performance |
-| **Observer** | 24 capabilities, combat-proven, sees everything, the canonical intelligence operator | Intelligence agency — total situational awareness |
+| **Beehive** | 24 capabilities, combat-proven, sees everything, the canonical intelligence operator | Intelligence agency — total situational awareness |
 | **Herald** | 3-layer signal filter, translates internal code-shipping into public signal | Signal Corps — clear transmission, zero noise |

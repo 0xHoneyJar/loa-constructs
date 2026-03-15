@@ -1,7 +1,7 @@
 # Observability Bundle — Multi-Construct Review Synthesis
 
 **Date**: 2026-03-12
-**Reviewers**: Observer, Protocol, Bridgebuilder, Artisan
+**Reviewers**: Beehive, Protocol, Bridgebuilder, Artisan
 **Status**: Ready for `/architect` with annotated constraints
 
 ---
@@ -27,19 +27,19 @@
 
 | Position | Advocate | Argument |
 |----------|----------|----------|
-| **Build the Convex signal store** | Observer, Protocol | Observer needs structured signals for canvas decomposition and pattern detection. Protocol says the three-layer architecture is sound and Convex is already proven in the explorer. The store enables the AI classifier, deduplication, and real-time dashboard — none of which work with pure aggregation. |
+| **Build the Convex signal store** | Beehive, Protocol | Beehive needs structured signals for canvas decomposition and pattern detection. Protocol says the three-layer architecture is sound and Convex is already proven in the explorer. The store enables the AI classifier, deduplication, and real-time dashboard — none of which work with pure aggregation. |
 | **Kill the store, aggregate from Better Stack + Sentry** | Bridgebuilder | Why build what existing services already do? The only unique element is the AI classifier. Build a thin aggregation dashboard that pulls from external APIs, not a replacement signal store. |
 
-**Resolution for architect**: Build the Convex signal store, but ONLY for feedback signals (user-generated, classified, long-lived). Uptime and error tracking should use Better Stack and Sentry respectively — don't rebuild these. The dashboard aggregates: Convex (feedback) + Better Stack API (uptime) + Sentry API (errors). This gives Observer its structured signals without reinventing monitoring.
+**Resolution for architect**: Build the Convex signal store, but ONLY for feedback signals (user-generated, classified, long-lived). Uptime and error tracking should use Better Stack and Sentry respectively — don't rebuild these. The dashboard aggregates: Convex (feedback) + Better Stack API (uptime) + Sentry API (errors). This gives Beehive its structured signals without reinventing monitoring.
 
-### Observer Materialization
+### Beehive Materialization
 
 | Position | Advocate | Argument |
 |----------|----------|----------|
-| **Centralize Observer in explorer, don't clone per-repo** | Observer | One set of canvases spanning all apps, fed by the Convex signal store. Avoids dangling symlinks. Needs a signal-to-canvas decomposition step. |
-| **Remove Observer from this bundle entirely** | Bridgebuilder | Observer is a 29-skill construct requiring daily crons and active curation. Installing it in repos with 0-2 maintainers creates 4 more dangling symlinks. Separate initiative. |
+| **Centralize Beehive in explorer, don't clone per-repo** | Beehive | One set of canvases spanning all apps, fed by the Convex signal store. Avoids dangling symlinks. Needs a signal-to-canvas decomposition step. |
+| **Remove Beehive from this bundle entirely** | Bridgebuilder | Beehive is a 29-skill construct requiring daily crons and active curation. Installing it in repos with 0-2 maintainers creates 4 more dangling symlinks. Separate initiative. |
 
-**Resolution for architect**: Bridgebuilder is right for Phase 1-2. Observer integration is Phase 3+ and should be a separate initiative. But Observer's recommendation to design the `userEntity` table now (even if empty) is correct — retrofitting longitudinal user identity later is painful. Add the table to the schema; populate it in Phase 3.
+**Resolution for architect**: Bridgebuilder is right for Phase 1-2. Beehive integration is Phase 3+ and should be a separate initiative. But Beehive's recommendation to design the `userEntity` table now (even if empty) is correct — retrofitting longitudinal user identity later is painful. Add the table to the schema; populate it in Phase 3.
 
 ### Widget Packaging
 
@@ -79,7 +79,7 @@
 - Ingest bronze-tier channels (forum threads, polls) into dashboard feed
 
 ### Phase 3: Intelligence Layer (separate initiative)
-- Observer integration: signal-to-canvas decomposition, centralized canvases
+- Beehive integration: signal-to-canvas decomposition, centralized canvases
 - `userEntity` population from signal history
 - Cross-signal pattern detection (semantic clustering)
 - Linear Agent SDK (upgrade from GraphQL API)
@@ -141,7 +141,7 @@ signals: defineTable({
   .index("by_incident", ["incidentGroupId", "timestamp"]),
 ```
 
-### Convex `userEntities` table (Observer R-1, schema-only in Phase 1)
+### Convex `userEntities` table (Beehive R-1, schema-only in Phase 1)
 ```typescript
 userEntities: defineTable({
   identifier: v.string(),
@@ -178,7 +178,7 @@ Chronological feed of all signals. Default collapsed to 3 rows. Uses `live-insta
 
 | Reviewer | Key Finding | Impact |
 |----------|-------------|--------|
-| **Observer** | Signal schema is lossy for research methodology. Needs Level 3 diagnostic output from classifier, user entity tracking, and signal-to-canvas decomposition. | Phase 3 design constraint |
+| **Beehive** | Signal schema is lossy for research methodology. Needs Level 3 diagnostic output from classifier, user entity tracking, and signal-to-canvas decomposition. | Phase 3 design constraint |
 | **Protocol** | `v.any()` type hole, HMAC broken client-side, store-then-classify pattern, reuse `/v1/keys`, reconciliation cron for webhooks. | Phase 1 implementation constraints |
 | **Bridgebuilder** | Scope explosion — 3 products masquerading as 1. Phase 0 (uptime) must ship before anything else. Kill custom store for uptime/errors, use Better Stack + Sentry. | Phasing and scope |
 | **Artisan** | 3-zone layout (status bar + triage inbox + feed), weight-of-consequence actions, severity-based real-time split, widget theming (warmth/weight/rhythm). | Dashboard UX spec |
@@ -194,4 +194,4 @@ Chronological feed of all signals. Default collapsed to 3 rows. Uses `live-insta
 | Claude Haiku vs GPT-4-turbo? | Claude Haiku. Cheaper, faster, already working in set-and-forgetti. | Bridgebuilder R-4 |
 | npm package vs construct skill? | Construct skill with theming. Graduate to npm only if external adoption. | Bridgebuilder F-6, Artisan #10 |
 | 9 Linear teams or fewer? | 2 teams: Product + Infrastructure. Split when volume justifies. | Bridgebuilder F-7 |
-| Feedback → Observer bridge? | Phase 3 separate initiative. Design `userEntities` table now (schema only). | Observer R-7, Bridgebuilder F-3 |
+| Feedback → Beehive bridge? | Phase 3 separate initiative. Design `userEntities` table now (schema only). | Beehive R-7, Bridgebuilder F-3 |

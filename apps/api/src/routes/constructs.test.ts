@@ -171,10 +171,10 @@ import { createMockUser } from '../../tests/helpers/fixtures.js';
 function mockPackRow(overrides?: Record<string, unknown>) {
   return {
     id: 'pack-1',
-    name: 'Observer',
+    name: 'Beehive',
     slug: 'observer',
     description: 'AI-powered user research observer',
-    longDescription: 'Full description of Observer pack',
+    longDescription: 'Full description of Beehive pack',
     status: 'published',
     visibility: 'public',
     maturity: 'stable',
@@ -459,7 +459,7 @@ describe('Constructs Routes', () => {
       expect(body).toHaveProperty('data');
       expect(body).toHaveProperty('request_id');
       expect(body.data).toHaveProperty('slug', 'observer');
-      expect(body.data).toHaveProperty('name', 'Observer');
+      expect(body.data).toHaveProperty('name', 'Beehive');
       expect(body.data).toHaveProperty('type', 'pack');
       expect(body.data).toHaveProperty('visibility', 'public');
     });

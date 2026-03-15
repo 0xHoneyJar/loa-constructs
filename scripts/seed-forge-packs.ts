@@ -71,7 +71,7 @@ const SHORT_DESCRIPTION_OVERRIDES: Record<string, string> = {
   herald: 'Grounded product comms',
   'k-hole': 'Depth engine for exploration',
   'mibera-codex': 'Mibera universe knowledge',
-  observer: 'Hypothesis-first user research',
+  observer: 'Behavioral pattern recognition through patient cultivation',
   protocol: 'On-chain verification',
   'social-oracle': 'GitHub-to-social content',
   'the-arcade': 'Game design philosophy',
@@ -87,7 +87,7 @@ const SHORT_DESCRIPTION_OVERRIDES: Record<string, string> = {
 
 // Pack icons (not stored in manifest to keep manifests simple)
 const PACK_ICONS: Record<string, string> = {
-  observer: '👁️',
+  observer: '🐝',
   crucible: '🧪',
   artisan: '🎨',
   beacon: '🔔',

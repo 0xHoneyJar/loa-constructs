@@ -140,7 +140,7 @@ Each construct maps to a typographic register based on its identity. The registe
 |----------|--------|-------|-----------|
 | **High-Contrast Serif** | Ancient soul, depth, the ghost | Bodoni Moda, Playfair Display, Cormorant Garamond | K-Hole, Mibera Codex, Vocabulary Bank |
 | **Geometric Sans** | Precision, measurement, the machine | Jost, Space Grotesk, Outfit | Artisan, Beacon, GrowthPages |
-| **Extended Sans** | Institutional authority, hardware | Eurostile Extended, Orbitron, Exo 2 | Observer |
+| **Extended Sans** | Institutional authority, hardware | Eurostile Extended, Orbitron, Exo 2 | Beehive |
 | **Condensed Grotesque** | Urgency, broadcast, density | Oswald, Barlow Condensed, Antonio | Herald, The Speakers, VFX Playbook |
 | **Stencil / Military** | Field-deployed, stamped, defensive | Halyard Stencil, PF Din Stencil | Crucible, Hardening, Dynamic Auth |
 | **Inktrap Brutalist** | Industrial force, the forge | Basement Grotesque, Druk, GT Flexa | The Mint, The Arcade |

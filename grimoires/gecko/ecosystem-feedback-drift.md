@@ -16,7 +16,7 @@ Two repos have the gold-standard pattern (AI-classified feedback -> Linear): **s
 
 ## Survey Matrix
 
-| Repo | Stack | Loa | Observer | Error Tracking | Product Analytics | In-App Feedback | Linear Integration |
+| Repo | Stack | Loa | Beehive | Error Tracking | Product Analytics | In-App Feedback | Linear Integration |
 |------|-------|-----|----------|---------------|-------------------|-----------------|-------------------|
 | **set-and-forgetti** | Next.js 15, React 19, Turborepo | v1.39.1 | Skill only (no construct) | NONE (console.error) | GA only | Popover + Dialog (Claude Haiku classifier) | YES (auto-routed) |
 | **cubquests-interface** | Next.js 15, React 18, Bun | v1.39.1 | NONE | NONE (stub endpoint) | GA + Datafast | Polls system (operator-initiated) | Via HivemindOS (agent-mediated) |
@@ -57,7 +57,7 @@ Pattern:
 
 Both have in-app feedback widgets with structured data (bad/fine/good + optional note), but feedback stays in its local database (Supabase or Convex). No classification, no routing to Linear, no alerting.
 
-mibera-dimensions is further ahead with version-aware feedback (links rating to scoring algorithm version) and the Observer construct running daily synthesis.
+mibera-dimensions is further ahead with version-aware feedback (links rating to scoring algorithm version) and the Beehive construct running daily synthesis.
 
 ### Tier 3: Unstructured / Absent
 **Repos**: cubquests-interface, mibera-honeyroad
@@ -66,16 +66,16 @@ cubquests has a polls system (operator-initiated, not user-initiated) and a veri
 
 ---
 
-## Observer Construct Deployment Status
+## Beehive Construct Deployment Status
 
 | Repo | Status | Detail |
 |------|--------|--------|
 | mibera-dimensions | **ACTIVE** | 25 canvases, 24 cognition profiles, 8 journeys, daily synthesis cron, 21 reports |
 | mcv-interface | **DANGLING** | Symlink to `.claude/constructs/packs/observer/` but pack never cloned |
 | set-and-forgetti | **SKILL ONLY** | `observing-users` Loa skill, 11 canvases in `grimoires/laboratory/`, no construct |
-| cubquests-interface | ABSENT | Zero Observer presence |
-| mibera-honeyroad | ABSENT | Zero Observer presence |
-| apdao-auction-house | ABSENT | Zero Observer presence |
+| cubquests-interface | ABSENT | Zero Beehive presence |
+| mibera-honeyroad | ABSENT | Zero Beehive presence |
+| apdao-auction-house | ABSENT | Zero Beehive presence |
 
 ---
 
@@ -90,7 +90,7 @@ cubquests has a polls system (operator-initiated, not user-initiated) and a veri
 | Supabase score_feedback | mibera-dimensions | PostgreSQL rows | Supabase realtime / polling |
 | Forum threads | mibera-honeyroad | Supabase rows | Polling |
 | Polls | cubquests-interface | Supabase rows | Polling |
-| Observer synthesis | mibera-dimensions | Grimoire markdown | Git webhook / file watch |
+| Beehive synthesis | mibera-dimensions | Grimoire markdown | Git webhook / file watch |
 | GitHub issues | All 6 | GitHub API | GitHub webhook |
 | Verification errors | cubquests-interface | JSON (currently console.error) | Needs endpoint wiring |
 
@@ -115,7 +115,7 @@ cubquests has a polls system (operator-initiated, not user-initiated) and a veri
 ### Phase 2: Connect (centralized)
 4. **Deploy feedback ingestion API** — Single endpoint on constructs network API that receives signals from all repos.
 5. **Wire Linear across all repos** — Extend the AI classifier pattern from 2 repos to all 6.
-6. **Materialize Observer** — Clone the construct pack into the 4 repos that lack it. Fix mcv-interface's dangling symlink.
+6. **Materialize Beehive** — Clone the construct pack into the 4 repos that lack it. Fix mcv-interface's dangling symlink.
 
 ### Phase 3: Dashboard (Convex + Explorer)
 7. **Build Convex signal tables** — `signals`, `uptimeChecks` (already designed in observability-architecture.md).
@@ -153,7 +153,7 @@ cubquests has a polls system (operator-initiated, not user-initiated) and a veri
 - Convex for real-time presence + oracle telemetry
 - Effect-TS, Agentation
 - External Score API
-- Observer construct with daily synthesis cron
+- Beehive construct with daily synthesis cron
 
 ### mcv-interface
 - Next.js 16 (newest in ecosystem)

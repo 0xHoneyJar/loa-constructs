@@ -2,9 +2,9 @@
   "data": [
     {
       "id": "uuid-example",
-      "name": "Observer",
+      "name": "Beehive",
       "slug": "observer",
-      "description": "AI-powered user research observer",
+      "description": "Behavioral pattern recognition through patient observation and insightful probing. The keeper builds the hive — the colony thrives inside.",
       "status": "published",
       "icon": "eye",
       "maturity": "stable",

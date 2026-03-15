@@ -393,7 +393,7 @@
     {
       "governor": "vocabulary-bank",
       "governed": ["observer", "artisan", "herald"],
-      "mechanism": "Vocabulary bank defines canonical product terms. Observer uses it for domain glossary, artisan for component naming, herald for announcement copy."
+      "mechanism": "Vocabulary bank defines canonical product terms. Beehive uses it for domain glossary, artisan for component naming, herald for announcement copy."
     },
     {
       "governor": "artisan",

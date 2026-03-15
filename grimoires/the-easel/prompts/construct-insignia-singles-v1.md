@@ -159,7 +159,7 @@ A single emblem centered on pure black background. Flat vector logo, bone white 
 
 ---
 
-## Observer
+## Beehive
 
 ### OB-1: Compound Lens
 

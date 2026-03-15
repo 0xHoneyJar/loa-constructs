@@ -71,10 +71,10 @@
 
 ## Week 1 Deliverable — LOCKED
 
-**Goal**: Ruggy is live. Watching 5 product repos. Reporting issues to Linear via Observer workflow. Discord commands for ecosystem status.
+**Goal**: Ruggy is live. Watching 5 product repos. Reporting issues to Linear via Beehive workflow. Discord commands for ecosystem status.
 
 ### Feedback → Triage → Linear Pipeline
-Following Observer's established workflow:
+Following Beehive's established workflow:
 1. **Feedback ingestion** from product repo widgets → signals API
 2. **Classification**: bug vs UTC (user-to-creator feedback) via Haiku
 3. **Labelling**: severity, category, product repo source

@@ -107,8 +107,8 @@ When composing multiple constructs, the view becomes a mission briefing:
 ### Three Logo Reads
 
 The same bone SVG insignia reads three ways depending on context:
-1. **Brand mark** (shop window / roster entry) — "this is a construct called Observer"
-2. **Operator insignia** (dossier / mission planning) — "this is the surveillance specialist, callsign OBSERVER"
+1. **Brand mark** (shop window / roster entry) — "this is a construct called Beehive"
+2. **Operator insignia** (dossier / mission planning) — "this is the surveillance specialist, callsign BEEHIVE"
 3. **Reputation seal** (deployment history / certificates) — "this mark means 29 capabilities across 8 theaters, combat-proven"
 
 ---

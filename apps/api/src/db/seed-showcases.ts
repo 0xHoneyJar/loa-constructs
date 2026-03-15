@@ -19,7 +19,7 @@ interface ShowcaseEntry {
 
 // Grounded in 3-agent ecosystem audit (2026-03-14) — only claims backed by grimoire artifacts
 const SHOWCASES: ShowcaseEntry[] = [
-  // Observer
+  // Beehive
   {
     constructSlug: 'observer',
     title: 'Mibera Dimensions',

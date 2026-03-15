@@ -144,7 +144,7 @@ Current problems: hex-alpha colors, backdrop-blur, graduation badge, stale layou
 New design:
 ```
 ┌──────────────────────────────┐
-│  Observer                     │  ← name in bone-bright
+│  Beehive                      │  ← name in bone-bright
 │  User truth capture skills    │  ← description in bone-dim
 │                              │
 │  ANALYTICS · v2.0.0          │  ← category + version

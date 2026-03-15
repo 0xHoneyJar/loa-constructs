@@ -9,11 +9,11 @@
 
 ## 1. Executive Summary
 
-The Loa ecosystem is a **remarkably ambitious attempt to digitize and scale human "Taste"** through a Shared Execution Engine, and significant infrastructure has been built. The Construct Layer is the most mature — 5 packs containing 39 skills with genuine distilled intuition (Observer's cultural context decoder, Artisan's motion philosophy, Crucible's reality extraction model). The framework layer (`.claude/`) is impressively engineered: 53 protocols, ~180 scripts, 23 schemas, 8 CI workflows, and a functional Construct Registry with license enforcement. The **Observer pack stands as the gold standard** for Methodology/Topology separation, demonstrating the base/overlay/compose architecture that all other packs should adopt.
+The Loa ecosystem is a **remarkably ambitious attempt to digitize and scale human "Taste"** through a Shared Execution Engine, and significant infrastructure has been built. The Construct Layer is the most mature — 5 packs containing 39 skills with genuine distilled intuition (Beehive's cultural context decoder, Artisan's motion philosophy, Crucible's reality extraction model). The framework layer (`.claude/`) is impressively engineered: 53 protocols, ~180 scripts, 23 schemas, 8 CI workflows, and a functional Construct Registry with license enforcement. The **Beehive pack stands as the gold standard** for Methodology/Topology separation, demonstrating the base/overlay/compose architecture that all other packs should adopt.
 
 **The most critical structural gap is the complete absence of the Routing Layer (Hounfour) and the incomplete Critique Layer (Bridgebuilder).** The Intuition Stack's three-layer model — Constructs teach, Hounfour routes, Bridgebuilder critiques — is currently a one-layer system. All 25 construct pack skills lack model assignment, danger level, effort hints, and downgrade protection. There is no mechanism to prevent a "Taste" task (Artisan's motion philosophy, styling material) from running on a model incapable of visual nuance. Bridgebuilder v2.1 is merged and operational in midi-interface but has zero presence in loa-constructs, and 3 of 5 packs have no corresponding critique persona.
 
-**The single highest-leverage action is implementing Topology extraction from the Crucible and Beacon packs** using Observer's proven base/overlay/compose pattern, followed by adding capability metadata (model, danger_level, effort_hint, downgrade_allowed) to all 25 construct pack skill index.yaml files. These two actions would make every Construct portable and every routing decision enforceable — unlocking the Hounfour and Bridgebuilder layers when they arrive.
+**The single highest-leverage action is implementing Topology extraction from the Crucible and Beacon packs** using Beehive's proven base/overlay/compose pattern, followed by adding capability metadata (model, danger_level, effort_hint, downgrade_allowed) to all 25 construct pack skill index.yaml files. These two actions would make every Construct portable and every routing decision enforceable — unlocking the Hounfour and Bridgebuilder layers when they arrive.
 
 ---
 
@@ -35,9 +35,9 @@ The Loa ecosystem is a **remarkably ambitious attempt to digitize and scale huma
 ├──────────────────────────────────────────────────────────────────┤
 │  CONSTRUCT LAYER (Packs)                                         │
 │  Status: IMPLEMENTED (mature)                                    │
-│  Packs: Artisan(10/14), Crucible(5), Observer(6),                │
+│  Packs: Artisan(10/14), Crucible(5), Beehive(6),                 │
 │          Beacon(6, sandbox), GTM-Collective(8, sandbox)          │
-│  Distillation: Artisan=HIGH, Observer=HIGH, Crucible=MED,        │
+│  Distillation: Artisan=HIGH, Beehive=HIGH, Crucible=MED,         │
 │                Beacon=MED, GTM=HIGH, Framework=HIGH              │
 └──────────────────────────────────────────────────────────────────┘
 ```
@@ -100,9 +100,9 @@ The entire Beacon pack is a **topology monolith**. Every SKILL.md, template, and
 | **Crucible — validating-journeys** | ✅ | ❌ | ❌ | MEDIUM | Missing "Near Miss" (e.g., Cypress-style assertions that look right but break) |
 | **Crucible — walking-through** | ✅ | ❌ | ❌ | LOW-MED | Mostly binary rules, no nuance about when to deviate |
 | **Crucible — other (3 skills)** | ✅ | ❌ | ❌ | LOW-MED | Formulaic methodology without error distribution |
-| **Observer — observing-users** | ✅ | ✅ | ✅ | **HIGH** | **Gold standard** — "Wrong Interpretation" vs "Correct Stance" table |
-| **Observer — analyzing-gaps** | ✅ | Partial | ❌ | MEDIUM | Has type indicators but no counterfactual analysis |
-| **Observer — other (4 skills)** | ✅ | ❌ | ❌ | LOW-MED | Follow the pattern of Observer without the cultural context richness |
+| **Beehive — observing-users** | ✅ | ✅ | ✅ | **HIGH** | **Gold standard** — "Wrong Interpretation" vs "Correct Stance" table |
+| **Beehive — analyzing-gaps** | ✅ | Partial | ❌ | MEDIUM | Has type indicators but no counterfactual analysis |
+| **Beehive — other (4 skills)** | ✅ | ❌ | ❌ | LOW-MED | Follow the pattern of Beehive without the cultural context richness |
 | **Beacon — accepting-payments** | ✅ | ✅ | ❌ | MEDIUM | "Never store private keys" but no category error framing |
 | **Beacon — other (5 skills)** | ✅ | Partial | ❌ | MEDIUM | Consistent but topology-contaminated examples |
 | **GTM-Collective — analyzing-market** | ✅ | ✅ | ❌ | **HIGH** | Grounded vs ungrounded examples with `[ASSUMPTION]` prefix |
@@ -169,14 +169,14 @@ The `thinking_traces` capability field referenced in CLAUDE.md documentation **d
 |------|--------|----------------------|----------|------------|
 | **Artisan** (10) | Taste, motion, styling, components | `default` (Quality), `architecture` (patterns) | **Partial** | No persona tuned for aesthetic/taste enforcement |
 | **Crucible** (5) | Testing, state diagrams, reality extraction | `security`, `default` | **Adequate** | Well-covered |
-| **Observer** (6) | User research, cultural context, gap analysis | None | **GAP** | No persona critiques research methodology quality |
+| **Beehive** (6) | User research, cultural context, gap analysis | None | **GAP** | No persona critiques research methodology quality |
 | **Beacon** (6) | Payments, content audit, endpoints, docs | `dx` (partial) | **Partial** | No persona for communication/narrative quality |
 | **GTM-Collective** (8) | Market analysis, pricing, positioning, devrel | None | **GAP** | No persona critiques business/GTM deliverables |
 
 ### Missing Personas Needed
 
 1. **`taste.md`** — Critiques Artisan output for aesthetic fidelity, design token correctness, motion philosophy adherence. Should enforce the Counterfactual Method: "Is this the Target, a Near Miss, or a Category Error?"
-2. **`research.md`** — Critiques Observer output for methodology rigor (Mom Test compliance, confidence calibration, hypothesis-first framing). Detects when conclusions are drawn from single canvases.
+2. **`research.md`** — Critiques Beehive output for methodology rigor (Mom Test compliance, confidence calibration, hypothesis-first framing). Detects when conclusions are drawn from single canvases.
 3. **`strategy.md`** — Critiques GTM-Collective output for factual grounding, competitive analysis rigor, pricing model validity. Detects `[ASSUMPTION]` violations.
 
 ### The Missing Taste Loop
@@ -253,7 +253,7 @@ Bridgebuilder v2.1 is merged and operational **only in midi-interface**. It has 
 ### midi-interface Divergence
 
 midi-interface has evolved **significantly beyond** loa-constructs:
-- Observer: 15 skills (vs 6) — added batch ops, staleness detection, drift detection, daily synthesis, DM ingestion
+- Beehive: 15 skills (vs 6) — added batch ops, staleness detection, drift detection, daily synthesis, DM ingestion
 - Framework: `synthesizing-feedback`, `bridgebuilder-review`, `rtfm-testing` (unique)
 - GTM-Collective: installed in `.claude/constructs/` (only in `apps/sandbox/` in loa-constructs)
 - Beacon: installed in `.claude/constructs/` (only in `apps/sandbox/` in loa-constructs)
@@ -275,7 +275,7 @@ Ordered by leverage (highest impact on "Taste" enforcement first):
 - **Recommendation:**
   - Artisan skills: `model: sonnet`, `danger_level: moderate`, `effort_hint: medium`, `downgrade_allowed: false`
   - Crucible skills: `model: sonnet`, `danger_level: moderate`, `effort_hint: medium`
-  - Observer skills: `model: sonnet`, `danger_level: moderate`, `effort_hint: medium`
+  - Beehive skills: `model: sonnet`, `danger_level: moderate`, `effort_hint: medium`
   - Beacon/GTM: same pattern, tuned per skill
 
 **2. Extract Topology from Crucible pack (wallet addresses, URLs, paths)**
@@ -291,7 +291,7 @@ Ordered by leverage (highest impact on "Taste" enforcement first):
 ### Tier 2: Immune System Activation
 
 **4. Create 3 missing Bridgebuilder personas: `taste.md`, `research.md`, `strategy.md`**
-- **Why:** 3 of 5 packs have blind spots in the critique layer. Observer and GTM-Collective outputs are never adversarially reviewed.
+- **Why:** 3 of 5 packs have blind spots in the critique layer. Beehive and GTM-Collective outputs are never adversarially reviewed.
 - **Effort:** Medium — follow the pattern established by `security.md` and `dx.md`.
 - **Layer:** Critique.
 
@@ -330,7 +330,7 @@ Ordered by leverage (highest impact on "Taste" enforcement first):
 - **Layer:** Ecosystem.
 
 **11. Sync loa-constructs and midi-interface**
-- **Why:** midi-interface has 9 additional Observer skills, 3 additional framework skills, and different pack installations. No sync mechanism exists.
+- **Why:** midi-interface has 9 additional Beehive skills, 3 additional framework skills, and different pack installations. No sync mechanism exists.
 - **Effort:** Large — requires deciding which direction learnings flow and building a sync protocol.
 - **Layer:** Ecosystem.
 
@@ -348,9 +348,9 @@ Ordered by leverage (highest impact on "Taste" enforcement first):
 
 ## 9. The Methodology/Topology Refactor Plan
 
-### Architecture: The Observer Pattern
+### Architecture: The Beehive Pattern
 
-The Observer pack demonstrates the correct architecture. Every other pack should adopt it:
+The Beehive pack demonstrates the correct architecture. Every other pack should adopt it:
 
 ```
 pack/
@@ -478,10 +478,10 @@ This allows the registry to validate at install time: "Does this repo provide th
 | Issue | Details | Impact |
 |-------|---------|--------|
 | Schema version mismatch | `.claude/constructs/` = v1, `apps/sandbox/` = v2 | Confusion about source of truth |
-| No standard persona format | GTM uses `<persona>` XML, deploying-infra uses prose, Observer has none | Inconsistent instruction patterns |
+| No standard persona format | GTM uses `<persona>` XML, deploying-infra uses prose, Beehive has none | Inconsistent instruction patterns |
 | No standard resource structure | Framework: `resources/BIBLIOGRAPHY.md`, packs: ad hoc | Discovery friction |
 | Command namespace collision | Beacon uses `beacon-` prefix, others don't | No namespace convention |
-| Output path inconsistency | Observer → `grimoires/observer/`, GTM → `gtm-grimoire/` | Not `grimoires/{pack}/` uniformly |
+| Output path inconsistency | Beehive → `grimoires/observer/`, GTM → `gtm-grimoire/` | Not `grimoires/{pack}/` uniformly |
 | Missing READMEs | Artisan and Crucible (installed) lack README.md | Onboarding friction |
 
 ## Appendix B: Files Audited
@@ -511,12 +511,12 @@ The routing-auditor's supplementary analysis revealed that **15 of 21 pack skill
 |------|-------|----------------|
 | Artisan | `inscribing-taste` | `grimoires/taste.md`, `contexts/taste/taste.md` |
 | Artisan | `synthesizing-taste` | `grimoires/taste.md` |
-| Observer | `observing-users` | `grimoires/observer/canvas/`, `grimoires/artisan/observations/`, `grimoires/observer/state.yaml` |
-| Observer | `shaping-journeys` | `grimoires/observer/canvas/*.md`, `grimoires/observer/state.yaml` |
-| Observer | `filing-gaps` | `grimoires/crucible/gaps/` |
-| Observer | `analyzing-gaps` | `grimoires/observer/journeys/`, `grimoires/observer/canvas/`, `grimoires/crucible/gaps/` |
-| Observer | `importing-research` | `grimoires/pub/research/users/*.md` → `grimoires/observer/canvas/*.md` |
-| Observer | `level-3-diagnostic` | `grimoires/artisan/observations/user-insights.md` |
+| Beehive | `observing-users` | `grimoires/observer/canvas/`, `grimoires/artisan/observations/`, `grimoires/observer/state.yaml` |
+| Beehive | `shaping-journeys` | `grimoires/observer/canvas/*.md`, `grimoires/observer/state.yaml` |
+| Beehive | `filing-gaps` | `grimoires/crucible/gaps/` |
+| Beehive | `analyzing-gaps` | `grimoires/observer/journeys/`, `grimoires/observer/canvas/`, `grimoires/crucible/gaps/` |
+| Beehive | `importing-research` | `grimoires/pub/research/users/*.md` → `grimoires/observer/canvas/*.md` |
+| Beehive | `level-3-diagnostic` | `grimoires/artisan/observations/user-insights.md` |
 | Crucible | `grounding-code` | `grimoires/crucible/reality/`, `grimoires/crucible/state.yaml` |
 | Crucible | `diagramming-states` | `grimoires/observer/journeys/`, `grimoires/crucible/diagrams/`, `grimoires/crucible/state.yaml` |
 | Crucible | `validating-journeys` | `grimoires/crucible/diagrams/`, `grimoires/crucible/tests/`, `grimoires/crucible/results/` |
@@ -552,7 +552,7 @@ A "distillation temperature" measures how much project-specific knowledge is bak
 | `surveying-patterns` | WARM (0.4) | Stack-locked to Tailwind + motion/react + Base UI |
 | `crafting-physics` | WARM (0.4) | Good methodology but crypto keywords embedded |
 
-### Observer Pack
+### Beehive Pack
 
 | Skill | Temperature | Rationale |
 |-------|-------------|-----------|

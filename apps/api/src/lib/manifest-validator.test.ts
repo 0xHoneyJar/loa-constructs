@@ -45,8 +45,8 @@ describe('validateConstructManifest', () => {
         },
         directories: ['grimoires/observer', 'research/'],
         hooks: {
-          post_install: 'echo "Observer installed!"',
-          post_update: 'echo "Observer updated!"',
+          post_install: 'echo "Beehive installed!"',
+          post_update: 'echo "Beehive updated!"',
         },
         unix: {
           inputs: [],

@@ -152,9 +152,9 @@ CREATE TABLE construct_access_grants (
 - `private`: Requires `construct_access_grants` entry
 - `unlisted`: Public but not in search/browse
 
-### 5. MiDi Observer Hybrid Model Decision
+### 5. MiDi Beehive Hybrid Model Decision
 
-**Context**: MiDi Observer (23 skills) vs Canonical Observer (6 skills) have **ZERO name overlap**.
+**Context**: MiDi Beehive (23 skills) vs Canonical Beehive (6 skills) have **ZERO name overlap**.
 
 **Decision**: **Hybrid Model with Optional Dependency**
 
@@ -172,10 +172,10 @@ dependencies:
 - No file conflicts (zero skill name overlap)
 - Allows standalone operation OR alongside canonical
 - Event/state interop at runtime (not file-level)
-- Clear provenance: "observer-midi is an extended Observer implementation"
+- Clear provenance: "observer-midi is an extended Beehive implementation"
 - Avoids fork confusion while maintaining independence
 
-**Migration Path**: MiDi Observer can be packaged immediately with no construct name conflicts.
+**Migration Path**: MiDi Beehive can be packaged immediately with no construct name conflicts.
 
 ## Implementation Phases
 
@@ -419,7 +419,7 @@ Link back to user's installation (optional telemetry)
 **Questions for Reviewer**:
 1. Is patch-package model appropriate for this use case?
 2. Should we implement all phases before public launch, or can some defer?
-3. Any concerns with MiDi Observer hybrid model approach?
+3. Any concerns with MiDi Beehive hybrid model approach?
 4. Preferred conflict resolution strategy?
 5. Should construct contribution require CLA/DCO?
 

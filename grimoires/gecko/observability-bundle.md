@@ -31,7 +31,7 @@ All 6 live product repos surveyed in parallel. Every repo has Loa v1.39.1. Zero 
 - **Performance monitoring**: 0/6 repos have Web Vitals or APM
 - **Alerting**: 0/6 repos alert on anything
 
-### Observer Construct Deployment
+### Beehive Construct Deployment
 
 | Repo | Status |
 |------|--------|
@@ -76,7 +76,7 @@ In-app widget → POST /api/signals → Convex signal table
 | GPT-4 triage pipeline | apdao-auction-house (`actions/create-feedback.ts`) | Alternative classifier to benchmark |
 | Health dashboard page | explorer (`/dashboard/health`) | UI pattern to extend |
 | Live install feed | explorer component | Real-time feed pattern |
-| Observer gap taxonomy | mibera-dimensions grimoires | Classification schema |
+| Beehive gap taxonomy | mibera-dimensions grimoires | Classification schema |
 | Gecko health observations | Convex `healthObservations` table | Already flowing |
 
 ## 4. Linear Integration Architecture
@@ -107,11 +107,11 @@ Full research: `grimoires/gecko/linear-agent-capabilities.md` (131 web searches)
 - `@0xhoneyjar/feedback-widget` npm package (extracting mcv-interface + set-and-forgetti patterns)
 - Install across top 3 apps first
 - Wire Linear across all 6 repos (standardize on Claude Haiku classifier)
-- Materialize Observer in 4 missing repos
+- Materialize Beehive in 4 missing repos
 
 ### Phase 3: Intelligence Layer
 - Linear Agent SDK integration (bidirectional sync)
-- Observer integration (signals → canvases, automated gap analysis)
+- Beehive integration (signals → canvases, automated gap analysis)
 - Cross-app pattern detection
 - Automated severity escalation rules
 
@@ -122,7 +122,7 @@ Full research: `grimoires/gecko/linear-agent-capabilities.md` (131 web searches)
 3. **Classifier standardization**: Claude Haiku (set-and-forgetti) vs GPT-4-turbo (apdao) — pick one or A/B?
 4. **Widget packaging**: npm package vs. construct skill vs. both?
 5. **Linear workspace**: Create all teams upfront or start with one team + labels?
-6. **Feedback → Observer bridge**: How do Convex signals feed into Observer canvases? Manual grimoire import or automated pipeline?
+6. **Feedback → Beehive bridge**: How do Convex signals feed into Beehive canvases? Manual grimoire import or automated pipeline?
 
 ## 7. Artifact Index
 
@@ -142,5 +142,5 @@ Full research: `grimoires/gecko/linear-agent-capabilities.md` (131 web searches)
 | Repos with error tracking | 0/6 | 6/6 |
 | Repos with feedback widget | 2/6 (non-standard) | 6/6 (standardized) |
 | Repos with Linear routing | 2/6 | 6/6 |
-| Observer construct deployed | 1/6 active | 6/6 active |
+| Beehive construct deployed | 1/6 active | 6/6 active |
 | Cross-app signal visibility | None | Real-time dashboard |
