@@ -62,4 +62,13 @@ crons.interval(
   internal.signals.checkLinearFailures,
 );
 
+// --- Analytics Digest ---
+
+// Daily digest to Telegram at 14:00 UTC
+crons.cron(
+  'analytics/daily-digest',
+  '0 14 * * *',
+  internal.telegram.sendDigest,
+);
+
 export default crons;

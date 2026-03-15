@@ -1,202 +1,144 @@
-# PRD: SprawlOS Design System — Semantic Architecture
+# PRD: Analytics Pipeline + GEO Optimization
 
-**Cycle**: cycle-050
-**Created**: 2026-03-13
+**Cycle**: cycle-051
+**Created**: 2026-03-15
 **Status**: Draft
-**Foundation**: cycle-049 (SprawlOS Dashboard — Design System Foundation)
-**Architecture Doc**: `grimoires/loa/context/design-system-architecture.md` (933 lines, 57+ sources)
+**Context**: `grimoires/loa/context/analytics-architecture/` (5 files, 917 lines of pre-built research)
 
 ---
 
 ## 1. Problem Statement
 
-Cycle-049 established the SprawlOS visual foundation: 54 OKLCH tokens, pixel icons, extracted dashboard components, shell retheme, and a Gemini embedding moodboard tool. The dashboard now *looks* like SprawlOS. But the token system remains flat — every component references primitive tokens directly (`var(--color-bone-base)`), spacing is ad-hoc Tailwind classes (`p-4`, `gap-2`), and there's no way to vary the feel per-context (dashboard vs marketing vs construct detail) without touching every component file.
+> Sources: situation-analysis.md, gtm-site-audit.md, Discord conversation (2026-03-14)
 
-The architecture research across Linear's Orbiter, Riot's Hextech/Play, Vercel's Geist, Adobe Spectrum, Shopify Polaris, Dub.co, Cal.com, and Resend confirms a universal pattern: **every design system that scales past 50 components adopts a three-tier token hierarchy** (primitive → semantic → component). We have 54 tokens and ~18 shadcn components. We're at the inflection point.
+constructs.network launched publicly on X (2026-03-14). 46 web apps exist across 0xHoneyJar. **Zero analytics exist on the primary GTM site (constructs.network).** Two other sites use OpenPanel, one uses GA4 — three different tools with no unified view.
 
-**The gap**: We have the right primitives. We're missing the semantic layer that makes them composable, the spacing/motion scales that eliminate ad-hoc values, and the context-scoping mechanism that lets the same component feel different in different contexts.
+The team (2 people, different timezones) is too busy for dashboards. Analytics signal must be pushed to Telegram — pre-digested, anomaly-first — or it doesn't exist.
 
-> Sources: `design-system-architecture.md` §1 (Where We Are), §2 (Elite Patterns), §12 (Synthesis)
+Compounding the problem: **every audited site fails AI/LLM readiness**. Zero JSON-LD structured data across all 4 audited sites. The constructs.network catalog page renders nothing to crawlers without JavaScript execution. The about page has 2/10 citability — AI systems have nothing to cite about what constructs.network is.
+
+Lily's GEO research (beacon issue #3) provides the optimization framework: content enrichment (citations, statistics, quotations) can improve AI visibility up to 40% (GEO paper, KDD 2024, peer-reviewed). But without analytics, you can't measure if optimizations work. Both analytics AND GEO optimization are needed to close the loop.
+
+### Why Now
+
+- Public launch happened. Traffic is flowing (or not) and you can't see it.
+- Lily is actively researching GEO optimization (beacon issue #3, filed 2026-03-12).
+- Analytics fragmentation across the org (3 tools, 4 sites) will get worse without standardization now.
+- The analytics → GEO → optimization feedback loop requires both halves to function.
 
 ---
 
 ## 2. Goals & Success Metrics
 
-### Primary Goal
+### Business Objectives
 
-Build the semantic architecture layer on top of cycle-049's visual foundation: three-tier tokens, formalized spacing/motion/typography scales, component token scoping, and `data-context` attribute system for per-context overrides.
+| Objective | Metric | Target |
+|-----------|--------|--------|
+| Traffic visibility | constructs.network has working analytics | Week 1 |
+| Signal delivery | Daily digest arrives in Telegram | Week 1 |
+| GEO baseline | JSON-LD on all construct detail pages | Week 2 |
+| Crawlability | Catalog page server-renders content for crawlers | Week 2 |
+| Citability | About page citability score ≥ 6/10 (currently 2/10) | Week 2 |
+| Unified analytics | Top 5 apps on same analytics platform | Week 4 |
 
-### Success Criteria
+### Non-Goals (Explicit)
 
-| Metric | Target | Verification |
-|--------|--------|--------------|
-| Semantic token layer | ~35 semantic tokens aliasing existing primitives | `globals.css` audit — semantic tokens reference primitives via `var()` |
-| Spacing scale | 12-step numeric scale (space-0 through space-1600) | `globals.css` audit — no magic px values in new components |
-| Motion token scale | 6 durations + 5 easings formalized | `globals.css` audit — motion tokens match material-feel research |
-| Typography token scale | 7 text sizes + 3 line heights | `globals.css` audit — strict scale, monospace-first |
-| Elevation system | 5 glow-based elevation tokens | `globals.css` audit — no `box-shadow` outside token system |
-| Icon size tokens | 5-step scale (xs through xl) | `globals.css` audit |
-| Component token scoping | StatCard, QuickLink, Sidebar declare own token scopes | Component CSS uses `--stat-card-*`, `--sidebar-*`, not primitives |
-| Context overrides | `data-context` attribute on dashboard + marketing layouts | Token values change when context attribute changes |
-| Density modes | Compact/comfortable via `data-density` attribute | Dashboard supports toggle between two density modes |
-| shadcn bridge upgrade | shadcn aliases route through semantic layer | `--primary` → semantic → primitive (two hops, not one) |
-| Tailwind v4 bridge | `@theme inline` directives for custom tokens | Custom tokens available as native Tailwind utilities |
-| Token count | ~120-150 (from ~54) | Comparable to Cal.com / early Linear |
-| Zero breaking changes | Existing pages render identically | Visual regression — before/after screenshots |
-
-### Non-Goals (Deferred)
-
-- Per-construct identity theming (`data-construct` attributes) — Phase 5 of architecture roadmap
-- Moodboard synthesis pipeline (cluster analysis, gap detection) — Phase 6
-- DTCG JSON token source format / Style Dictionary build pipeline — premature at <200 tokens
-- Storybook / Ladle component documentation
-- Visual regression testing infrastructure (Playwright/Lost Pixel)
-- Multi-platform token output (iOS, Android, Figma)
-- Publishing SprawlOS as an npm design system package
+- No real-time analytics dashboard (Telegram digest is the interface)
+- No session recordings or heatmaps (Phase 2 with PostHog if needed)
+- No analytics on all 46 apps (start with top 5)
+- No custom event tracking beyond pageviews (Phase 2)
+- No billing/monetization of analytics data
 
 ---
 
 ## 3. User & Stakeholder Context
 
-### Primary Persona: Ecosystem Operator (@janitooor)
+### Primary Users
 
-- Built the 54-token OKLCH system and moodboard pipeline in cycle-049
-- Maintains 6 product repos — consistent design language across them is a multiplier
-- Aesthetic: Austere. Luminous. Precise. (§9 Taste DNA)
-- Reference: Linear for density, Vercel for dark craftsmanship, rektdrop for brutalist constraint
-- **Need**: Token system that lets new components "just work" with the SprawlOS feel without copying Tailwind classes from other components
+**User A: soju (builder, primary maintainer)**
+- Works across multiple repos, timezones, and contexts simultaneously
+- Does not open dashboards — signal must come to him (Telegram preferred)
+- Needs: "did anyone visit? where from? what did they look at?"
+- Mobile-first consumption pattern
 
-### Secondary Persona: Construct Developer
+**User B: Lily (@Inkiy, marketing/GEO)**
+- Researching AI discoverability and GEO optimization
+- Needs: traffic data to validate GEO hypotheses
+- Prefers Telegram for async review
+- Filed comprehensive GEO research in beacon issue #3
 
-- Builds constructs that may want their own visual identity within the SprawlOS frame
-- Encounters component library when contributing to explorer
-- **Need**: Clear token API — "which token do I use for a panel background?" has one obvious answer (`--color-bg-panel`)
+### Secondary Stakeholders
 
-> Sources: cycle-049 PRD §3, moodboard images, architecture doc §9
+- **AI crawlers** (GPTBot, ClaudeBot, Googlebot) — need crawlable content + structured data
+- **Potential users** discovering constructs via AI search — need citable, enriched content
 
 ---
 
 ## 4. Functional Requirements
 
-### FR-1: Semantic Token Layer
+### FR-1: Analytics Collection (Umami Cloud)
 
-Add a semantic tier between existing primitives and component usage. Non-breaking — semantic tokens reference existing primitives via `var()`.
+> Source: situation-analysis.md (research-backed), adversarial-review.md (revised recommendation)
 
-**Color semantics** (Dub.co 3-axis model adapted):
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-1.1 | Set up Umami Cloud account (free tier, 1M events/month) | P0 |
+| FR-1.2 | Add Umami tracking script to `apps/explorer/app/layout.tsx` | P0 |
+| FR-1.3 | Configure Umami website for `constructs.network` | P0 |
+| FR-1.4 | Store Umami API credentials in Convex environment variables | P0 |
+| FR-1.5 | Add tracking to top 5 GTM sites (0xhoneyjar.xyz, setandforgetti.io, cubquests, + 2 more) | P1 |
 
-| Category | Tokens | Source |
-|----------|--------|--------|
-| Backgrounds | `bg-void`, `bg-surface`, `bg-panel`, `bg-elevated`, `bg-overlay` | void-* family |
-| Text | `text-primary`, `text-secondary`, `text-tertiary`, `text-ghost` | bone-* family |
-| Accent | `accent-primary`, `accent-warm`, `accent-primary-dim`, `accent-warm-dim` | cyan-*, crimson-* |
-| Border | `border-default`, `border-subtle`, `border-active` | void-border, grid-line, glow-cyan |
-| Status | `status-success`, `status-warning`, `status-danger`, `status-info` | node-green, token-yellow, crimson, cyan |
-| Glow | `glow-primary`, `glow-danger` | glow-cyan, glow-crimson |
-| Interactive | `interactive-default`, `interactive-hover`, `interactive-active`, `interactive-disabled` | derived from accent + bone |
+**Decision**: Umami Cloud over self-hosted (adversarial review Finding 1-3: Prisma/PgBouncer conflict, schema migration blast radius, hosting unused dashboard). Over GA4 (adversarial review Finding 10: migration debt from dual-tracking).
 
-**Naming convention**: `--color-[category]-[role]` (e.g., `--color-bg-surface`, `--color-text-primary`)
+### FR-2: Telegram Digest Bot
 
-### FR-2: Spacing Scale
+> Source: telegram-digest-spec.md, adversarial-review.md Finding 4
 
-Formalize a 12-step numeric scale on a 4px base unit:
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-2.1 | Create Telegram bot via @BotFather | P0 |
+| FR-2.2 | Create Telegram group (soju + Lily + bot) | P0 |
+| FR-2.3 | Add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to Convex env vars | P0 |
+| FR-2.4 | Build Convex `internalAction` for Telegram message delivery (raw `fetch()`, no library) | P0 |
+| FR-2.5 | Build Convex cron for daily digest (14:00 UTC) | P0 |
+| FR-2.6 | Anomaly-first digest format: lead with changes, one-liner if steady state | P0 |
+| FR-2.7 | Merge with existing Convex data (installEvents, signals, healthObservations) | P1 |
+| FR-2.8 | Weekly summary with QuickChart.io sparkline (Sunday 14:00 UTC) | P2 |
+| FR-2.9 | Heartbeat monitoring — alert to Discord if digest not sent in 25 hours | P2 |
 
-```
-space-0 (0) → space-025 (1px) → space-050 (2px) → space-100 (4px) → space-150 (6px) →
-space-200 (8px) → space-300 (12px) → space-400 (16px) → space-500 (20px) →
-space-600 (24px) → space-800 (32px) → space-1200 (48px) → space-1600 (64px)
-```
+### FR-3: GEO Optimization — Structured Data
 
-Mapped to Tailwind utilities via `@theme inline` so `gap-space-200` compiles to `gap: var(--space-200)`.
+> Source: gtm-site-audit.md, geo-research-lily-beacon-3.md
 
-### FR-3: Motion Token Scale
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-3.1 | Add `SoftwareApplication` JSON-LD to all construct detail pages (name, description, version, datePublished, author, applicationCategory, operatingSystem, offers) | P0 |
+| FR-3.2 | Add `WebSite` JSON-LD to constructs.network homepage | P0 |
+| FR-3.3 | Add `Organization` JSON-LD to about page (name, foundingDate, sameAs for Twitter/GitHub) | P1 |
+| FR-3.4 | Add `FAQPage` JSON-LD to about page answering "What is a construct?", "How do I install?", "What AI agents are supported?" | P1 |
+| FR-3.5 | Add `Organization` JSON-LD to 0xhoneyjar.xyz | P2 |
 
-Formalize the duration and easing system from material-feel-tx-ux.md:
+### FR-4: GEO Optimization — Crawlable Content
 
-**Durations**: `instant` (0ms), `quantum` (83ms), `fast` (100ms), `normal` (200ms), `slow` (400ms), `deliberate` (800ms)
+> Source: gtm-site-audit.md ("catalog page is invisible to AI crawlers"), Lily's beacon issue #3 Section 3.1
 
-**Easings**: `default` (sharp/dense), `in` (exits), `out` (entries), `spring` (emphasis), `quantum` (steps(4))
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-4.1 | Server-render construct catalog page — names + descriptions as crawlable HTML (not behind `AuthAwareConstructList` JS gate) | P0 |
+| FR-4.2 | Enrich about page: founding date, team info, construct count, total skills, "why we built this" narrative | P0 |
+| FR-4.3 | Add statistics to about page: "23 constructs, 150+ skills" (GEO enrichment — up to 40% AI visibility improvement per KDD 2024 paper) | P0 |
+| FR-4.4 | Add `datePublished` and `dateModified` to construct detail pages | P1 |
+| FR-4.5 | Ensure sitemap includes all 23 public constructs (currently only 3) | P1 |
 
-Enforce: `steps()` or `linear` in dashboard context. `ease-out` permitted in marketing context only.
+### FR-5: Analytics Standardization
 
-### FR-4: Typography Token Scale
+> Source: gtm-site-audit.md (3 different tools across 4 sites)
 
-Strict 7-step scale, monospace-first:
-
-```
-text-2xs (8px) → text-xs (9px) → text-sm (11px) → text-base (13px) →
-text-lg (16px) → text-xl (20px) → text-2xl (24px)
-```
-
-Line heights: `leading-tight` (1.2), `leading-normal` (1.5), `leading-relaxed` (1.75)
-
-### FR-5: Elevation System (Glow-Based)
-
-SprawlOS uses glow and border luminance instead of drop shadows:
-
-```
-elevation-0 (none) → elevation-1 (subtle edge) → elevation-2 (active glow) →
-elevation-3 (focused/hero glow) → elevation-danger (warning glow)
-```
-
-### FR-6: Icon Size Tokens
-
-5-step scale: `icon-xs` (12px) → `icon-sm` (14px) → `icon-md` (16px) → `icon-lg` (20px) → `icon-xl` (24px)
-
-### FR-7: Component Token Scoping
-
-Each major dashboard component declares its own token scope. Components read from their scoped tokens, which reference semantic tokens by default but can be overridden per-context.
-
-**Components to scope**: StatCard, QuickLink, Sidebar, Header, Table (dashboard variant), Badge (dashboard variant)
-
-**Pattern per component**:
-```css
---[component]-bg: var(--color-bg-[semantic]);
---[component]-border: var(--color-border-[semantic]);
---[component]-text: var(--color-text-[semantic]);
---[component]-padding: var(--space-[N]);
-```
-
-### FR-8: Context Override System
-
-Add `data-context` attribute support on layout containers:
-
-| Context | Applied To | Feel |
-|---------|-----------|------|
-| `dashboard` | Dashboard layout wrapper | Compact, terminal chrome, glow borders |
-| `marketing` | Site layout (public pages) | Generous spacing, brighter text |
-
-Context attribute drives token overrides — tighter density, different surface colors, different text brightness. Same components, different feel.
-
-### FR-9: Density Modes
-
-Dashboard supports two density modes via `data-density` attribute:
-
-| Mode | Row Height | Cell Padding | Gap |
-|------|-----------|-------------|-----|
-| `comfortable` | 36px | space-300 | space-200 |
-| `compact` | 28px | space-150 | space-100 |
-
-### FR-10: shadcn Bridge Upgrade
-
-Upgrade existing shadcn alias tokens to route through the semantic layer:
-
-```
-BEFORE: --primary: oklch(0.72 0.12 195)  (direct primitive)
-AFTER:  --primary: var(--color-accent-primary)  (through semantic)
-```
-
-All 14 shadcn aliases get this treatment. This ensures shadcn components automatically respond to context overrides.
-
-### FR-11: Tailwind v4 Bridge
-
-Register custom tokens via `@theme inline` directive so they're available as native Tailwind utilities without additional config:
-
-```css
-:root { --color-bg-surface: var(--color-void-raised); }
-@theme inline { --color-bg-surface: var(--color-bg-surface); }
-```
-
-This enables `bg-[--color-bg-surface]` or class-based utilities depending on Tailwind v4 adoption state.
+| ID | Requirement | Priority |
+|----|-------------|----------|
+| FR-5.1 | Document Umami as the standard analytics tool for all 0xHoneyJar web properties | P1 |
+| FR-5.2 | Add Umami to 0xhoneyjar.xyz, setandforgetti.io (replace OpenPanel) | P2 |
+| FR-5.3 | Add Umami to cubquests (can coexist with GA4 during transition) | P2 |
 
 ---
 
@@ -204,123 +146,148 @@ This enables `bg-[--color-bg-surface]` or class-based utilities depending on Tai
 
 ### Architecture
 
-| Layer | Implementation | Notes |
-|-------|---------------|-------|
-| Primitive tokens | CSS custom properties in `globals.css` `:root` | Unchanged from cycle-049 |
-| Semantic tokens | CSS custom properties in `globals.css` `:root` | NEW — references primitives |
-| Component tokens | CSS custom properties in component CSS or `globals.css` | NEW — references semantics |
-| Context overrides | `[data-context]` attribute selectors in `globals.css` | NEW |
-| Density overrides | `[data-density]` attribute selectors in `globals.css` | NEW |
-| Tailwind bridge | `tailwind.config.ts` theme extension + `@theme inline` | Extended |
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Collection Layer                          │
+│  [constructs.network] ──umami.js──► Umami Cloud (1M events) │
+│  [0xhoneyjar.xyz]     ──umami.js──►                         │
+│  [setandforgetti.io]  ──umami.js──►                         │
+│  [cubquests.com]      ──umami.js──►                         │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ Umami REST API (daily pull)
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                  Aggregation Layer (Convex)                   │
+│  Convex cron (daily 14:00 UTC)                               │
+│  ├── Pull Umami stats per site                               │
+│  ├── Pull installEvents (existing)                           │
+│  ├── Pull signals (existing)                                 │
+│  ├── Pull healthObservations (existing)                      │
+│  ├── Compute anomalies (vs 7-day avg)                        │
+│  └── Format anomaly-first digest                             │
+└─────────────────────┬───────────────────────────────────────┘
+                      │ Telegram Bot API (sendMessage)
+                      ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Delivery Layer                            │
+│  Telegram group chat (soju + Lily + bot)                     │
+│  ├── Daily: anomaly-first digest (<800 chars)                │
+│  ├── Weekly: summary + QuickChart sparkline                  │
+│  └── Heartbeat: Discord fallback if 25h silence              │
+└─────────────────────────────────────────────────────────────┘
+```
 
 ### Performance
 
-- All token resolution happens at CSS variable evaluation time — zero JS runtime cost
-- No additional CSS files — everything in `globals.css` and component-level styles
-- Context/density overrides via CSS attribute selectors — no React re-renders
-- Token count increase (~54 → ~150) adds negligible CSS size (~2KB uncompressed)
+| Metric | Target |
+|--------|--------|
+| Tracking script load impact | <10KB gzipped (Umami ~2KB) |
+| Digest delivery latency | <5 seconds from cron trigger |
+| Convex cron reliability | 99.9% (Convex SLA) |
 
-### Migration Strategy
+### Privacy
 
-Non-breaking, incremental migration:
+- No cookies (Umami is cookieless)
+- No PII stored
+- Country-level geo only (no city/IP)
+- Current privacy policy ("no third-party tracking cookies") remains accurate
+- GDPR/CCPA compliant — no consent banner needed
 
-1. Semantic tokens are **additive** — existing primitive references continue working
-2. New components **must** use semantic tokens
-3. Existing components migrate **incrementally** (no big-bang rewrite)
-4. shadcn bridge upgrade is a find-and-replace operation
+### Security
 
-### Compatibility
-
-- Dark mode only (SprawlOS is void-first)
-- `prefers-reduced-motion` must zero all motion tokens to `0ms` / `none`
-- All OKLCH values — no hex, no rgb, no hsl (TDR-001)
-- Zero border-radius (TDR: `--radius: 0px`)
+- `TELEGRAM_BOT_TOKEN` stored in Convex dashboard (not in code)
+- Umami API key stored in Convex dashboard
+- `disable_web_page_preview: true` on all Telegram messages (prevents bot inflating own pageviews)
+- Digest cron is `internalAction` (not publicly callable)
 
 ---
 
 ## 6. Scope & Prioritization
 
-### MVP (This Cycle)
+### Sprint 1 (P0 — Ship this week)
 
-| Priority | Requirement | Phase |
-|----------|-------------|-------|
-| P0 | FR-1: Semantic token layer (~35 color semantics) | 1 |
-| P0 | FR-2: Spacing scale (12 steps) | 1 |
-| P0 | FR-3: Motion token scale (6 durations + 5 easings) | 1 |
-| P0 | FR-4: Typography token scale (7 sizes + 3 line heights) | 1 |
-| P0 | FR-5: Elevation system (5 glow tokens) | 1 |
-| P0 | FR-6: Icon size tokens (5 steps) | 1 |
-| P0 | FR-10: shadcn bridge upgrade | 1 |
-| P1 | FR-7: Component token scoping (6 components) | 2 |
-| P1 | FR-8: Context override system (dashboard + marketing) | 2 |
-| P1 | FR-9: Density modes (compact + comfortable) | 2 |
-| P2 | FR-11: Tailwind v4 bridge (`@theme inline`) | 3 |
+| Task | Area | Estimate |
+|------|------|----------|
+| Set up Umami Cloud + add tracking to explorer | Analytics | Small |
+| Create Telegram bot + group | Delivery | Small |
+| Build Convex digest cron (daily, anomaly-first) | Delivery | Medium |
+| Add JSON-LD to construct detail pages | GEO | Medium |
+| Fix catalog page SSR (crawlable HTML) | GEO | Medium |
+| Enrich about page (dates, stats, narrative) | GEO | Medium |
+| Add WebSite JSON-LD to homepage | GEO | Small |
+
+### Sprint 2 (P1 — Next week)
+
+| Task | Area | Estimate |
+|------|------|----------|
+| Merge digest with installEvents + signals data | Analytics | Medium |
+| Add Organization JSON-LD to about page | GEO | Small |
+| Add FAQPage JSON-LD to about page | GEO | Small |
+| Expand sitemap to all 23 public constructs | GEO | Small |
+| Add datePublished/dateModified to detail pages | GEO | Small |
+| Add Umami to 0xhoneyjar.xyz + setandforgetti | Analytics | Small |
+
+### Sprint 3 (P2 — Phase 2)
+
+| Task | Area | Estimate |
+|------|------|----------|
+| Weekly summary with QuickChart sparklines | Delivery | Medium |
+| Heartbeat monitoring (Discord fallback) | Delivery | Small |
+| Add Umami to remaining GTM sites | Analytics | Medium |
+| Implement Lily's citability tagging (beacon issue #3 §1.3) | GEO | Large |
+| Organization JSON-LD for 0xhoneyjar.xyz | GEO | Small |
 
 ### Out of Scope
 
-- Per-construct identity theming (`data-construct` + domain → hue derivation)
-- DTCG JSON token source format
-- Style Dictionary / Cobalt build pipeline
-- Storybook / component documentation
-- Visual regression infrastructure
-- Token design Figma plugin / sync
-- Multi-platform token output
-- Published npm package
+- Session recordings / heatmaps (future PostHog consideration)
+- Custom event tracking beyond pageviews
+- A/B testing infrastructure
+- Analytics for all 46 apps (start with top 5)
+- Beacon construct code changes (separate construct repo)
+- Real-time alerting (spike detection is Phase 2)
 
 ---
 
 ## 7. Risks & Dependencies
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| Semantic naming bikeshed | Token names become inconsistent or verbose | Follow Dub.co's category × role model. Keep names under 4 segments. |
-| Over-tokenization | 150 tokens where 90 would suffice | Only create component tokens when semantic tokens are genuinely insufficient. Measure: if a token is used by exactly 1 component, it's a component token. If used by 3+, promote to semantic. |
-| Context override cascade conflicts | `[data-context]` and `[data-density]` interact unexpectedly | Density overrides only affect spacing/sizing tokens. Context overrides only affect color/surface tokens. No overlap. |
-| shadcn bridge regression | Updating `--primary` from direct value to `var()` reference breaks shadcn components | Test all 18 installed shadcn components after bridge upgrade. CSS variable resolution is spec-compliant for this pattern. |
-| Tailwind v4 migration timing | `@theme inline` requires Tailwind v4, which may not be our current version | FR-11 is P2. If still on v3, use existing `tailwind.config.ts` extension pattern instead. |
-| Spacing scale adoption friction | Contributors keep using `p-4` instead of `gap-space-200` | Existing Tailwind spacing continues working. Semantic spacing tokens are for new components and explicit refactors only. |
+| Risk | Likelihood | Impact | Mitigation |
+|------|-----------|--------|------------|
+| Umami Cloud free tier limits (1M events/month) | Low | Medium | 5 sites × 200 views/day = ~30K events/month. Nowhere near limit. |
+| Telegram bot token leak | Low | High | Store only in Convex dashboard, never in code. Rotate if compromised. |
+| Ad blockers blocking Umami script (~20-40% for dev audience) | High | Medium | Accept undercount. Proxy script through own domain in Phase 2. |
+| Bot traffic inflating pageviews | Medium | Medium | Umami has built-in bot filtering. Accept noisy baseline for 2 weeks. |
+| Catalog SSR change breaks existing functionality | Low | High | Test thoroughly. The current page already shows a loading state to crawlers. |
+| Digest becomes noise (Week 3 attention decay) | Medium | Medium | Anomaly-first design. One-liner if nothing notable. |
 
 ### Dependencies
 
-| Dependency | Status | Required By |
-|------------|--------|-------------|
-| Cycle-049 complete | Done (PR #164) | All — builds on SprawlOS foundation |
-| Architecture research doc | Done (933 lines) | Token definitions, naming conventions |
-| `globals.css` OKLCH token system | Exists | FR-1 references these as primitives |
-| shadcn/ui installed (18 components) | Exists | FR-10 bridge upgrade |
-| Dashboard shell rethemed | Done (cycle-049 sprint 2) | FR-7, FR-8 context scoping |
+| Dependency | Owner | Status |
+|-----------|-------|--------|
+| Umami Cloud account | soju | Not created |
+| Telegram bot (@BotFather) | soju | Not created |
+| Telegram group with Lily | soju + Lily | Not created |
+| Convex deployment (prod: quaint-anaconda-866) | soju | Existing |
+| Construct data in Convex (installEvents, signals) | — | Existing + live |
 
 ---
 
-## Appendix: Token Inventory Target
+## Appendix A: Related Artifacts
 
-| Category | Current | After This Cycle | Growth |
-|----------|---------|-----------------|--------|
-| Color primitives | 34 | 34 | — |
-| Color semantics | 0 | ~35 | +35 |
-| Spacing | 0 | 13 | +13 |
-| Motion (duration) | 1 | 6 | +5 |
-| Motion (easing) | 3 | 5 | +2 |
-| Typography (size) | 0 | 7 | +7 |
-| Typography (leading) | 0 | 3 | +3 |
-| Elevation | 0 | 5 | +5 |
-| Icon size | 0 | 5 | +5 |
-| Letter spacing | 5 | 5 | — |
-| Component tokens | 0 | ~30 | +30 |
-| Density tokens | 0 | 6 | +6 |
-| shadcn aliases | 14 | 14 | — (upgraded to semantic refs) |
-| **Total** | **~54** | **~150** | **+96** |
+| Artifact | Location | Content |
+|----------|----------|---------|
+| Analytics Platform Research | `grimoires/loa/context/analytics-architecture/situation-analysis.md` | 7 platforms compared, 4 eliminated, recommendation |
+| Telegram Digest Spec | `grimoires/loa/context/analytics-architecture/telegram-digest-spec.md` | Bot API research, message format, Convex cron pattern |
+| Adversarial Review | `grimoires/loa/context/analytics-architecture/adversarial-review.md` | 11 findings, revised to Umami Cloud |
+| GTM Site Audit | `grimoires/loa/context/analytics-architecture/gtm-site-audit.md` | Live audit of 4 sites + GEO assessment |
+| GEO Research (Lily) | `grimoires/loa/context/analytics-architecture/geo-research-lily-beacon-3.md` | Beacon issue #3 digested |
+| Beacon Issue #3 | `github.com/0xHoneyJar/construct-beacon/issues/3` | Lily's comprehensive GEO research |
 
-### Comparative Positioning After Cycle
+## Appendix B: Analytics Landscape Discovery
 
-| System | Token Count | Our Position |
-|--------|-------------|-------------|
-| Resend | ~50 | Passed (cycle-049) |
-| Cal.com | ~120 | Matched |
-| Linear | ~150 | Matched |
-| Geist | ~200 | Within reach (Phase 5 construct theming) |
-| Polaris | ~800+ | Never needed |
-
-> Architecture source: `grimoires/loa/context/design-system-architecture.md`
-> Research enrichment: K-Hole dig sessions (Linear 57 sources, Riot, shadcn, token architecture 2025)
-> Taste DNA: Austere. Luminous. Precise. — resonance-profile.yaml + moodboard synthesis
+| Site | Current Analytics | Target |
+|------|------------------|--------|
+| constructs.network | None | Umami Cloud |
+| 0xhoneyjar.xyz | OpenPanel | Umami Cloud (replace) |
+| setandforgetti.io | OpenPanel | Umami Cloud (replace) |
+| cubquests.com | GA4 (G-G7RZD7SNKH) | Umami Cloud (coexist) |
+| All others (42 apps) | Unknown | Future phases |
