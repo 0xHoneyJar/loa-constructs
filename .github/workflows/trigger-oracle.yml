@@ -1,0 +1,30 @@
+name: Trigger Oracle
+
+on:
+  pull_request:
+    types: [closed]
+  release:
+    types: [published]
+
+jobs:
+  trigger:
+    if: >
+      (github.event_name == 'release') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Oracle pipeline
+        env:
+          GH_TOKEN: ${{ secrets.ORACLE_PAT }}
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            gh api repos/0xHoneyJar/construct-social-oracle/dispatches \
+              -f event_type=oracle-trigger \
+              -f 'client_payload[repo]=${{ github.repository }}' \
+              -f 'client_payload[release_tag]=${{ github.event.release.tag_name }}'
+          else
+            gh api repos/0xHoneyJar/construct-social-oracle/dispatches \
+              -f event_type=oracle-trigger \
+              -f 'client_payload[repo]=${{ github.repository }}' \
+              -f 'client_payload[pr_number]=${{ github.event.pull_request.number }}'
+          fi
