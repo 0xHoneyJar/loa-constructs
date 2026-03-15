@@ -66,74 +66,75 @@ function formatDigest(
   const dateStr = formatDate(new Date());
   const { installs, signals, health } = metrics;
 
-  // Detect anomalies — anything notably above baseline
   const installAnomaly = installs.total > 0 && installs.total >= baseline.avgDailyInstalls * 1.5;
   const signalAnomaly = signals.total > 0 && signals.total >= baseline.avgDailySignals * 1.5;
-  const hasActivity = installs.total > 0 || signals.total > 0 || (traffic && traffic.visitors > 0);
+  const hasTraffic = traffic && traffic.visitors > 0;
+  const hasActivity = installs.total > 0 || signals.total > 0 || hasTraffic;
 
-  // Steady state — no installs, no signals, no traffic, health unchanged
+  // Quiet day — one line, no noise
   if (!hasActivity) {
-    const healthSuffix = health ? `, health ${health.score}/100` : '';
-    return `<b>constructs.network \u2014 ${dateStr}</b> \u2014 steady state, 0 installs${healthSuffix}`;
+    return `\uD83D\uDC41 <b>Ruggy \u2014 ${dateStr}</b> \u2014 quiet day across the network`;
   }
 
-  const lines: string[] = [`<b>constructs.network \u2014 ${dateStr}</b>`, ''];
+  const lines: string[] = [
+    `\uD83D\uDC41 <b>Ruggy \u2014 ${dateStr}</b>`,
+    '',
+  ];
 
-  // Traffic (Umami)
-  if (traffic && traffic.visitors > 0) {
-    // Build referrer breakdown — show top sources as percentages
-    let referrerSuffix = '';
+  // --- Traffic ---
+  if (hasTraffic) {
+    lines.push(`\u{1F310} <b>${traffic.visitors} visitors</b> \u00B7 ${traffic.pageviews} pageviews`);
+
     if (traffic.topReferrers.length > 0) {
-      const totalReferrerHits = traffic.topReferrers.reduce((s, r) => s + r.value, 0);
-      if (totalReferrerHits > 0) {
-        const parts = traffic.topReferrers
-          .slice(0, 3)
-          .map((r) => `${r.name} ${Math.round((r.value / totalReferrerHits) * 100)}%`);
-        referrerSuffix = ` | ${parts.join(', ')}`;
+      const total = traffic.topReferrers.reduce((s, r) => s + r.value, 0);
+      if (total > 0) {
+        const refs = traffic.topReferrers.slice(0, 3).map((r) => {
+          const pct = Math.round((r.value / total) * 100);
+          const name = r.name || 'direct';
+          return `<code>${name}</code> ${pct}%`;
+        });
+        lines.push(`  \u2514 ${refs.join(' \u00B7 ')}`);
       }
     }
-    lines.push(`\u26A1 ${traffic.visitors} visitors${referrerSuffix}`);
+
+    if (traffic.topPages.length > 0) {
+      const pages = traffic.topPages.slice(0, 3).map((p) => {
+        const path = p.name.length > 25 ? `${p.name.slice(0, 24)}\u2026` : p.name;
+        return `<code>${path}</code> ${p.value}`;
+      });
+      lines.push(`  \u2514 ${pages.join(' \u00B7 ')}`);
+    }
   }
 
-  // Installs
+  // --- Installs ---
   if (installs.total > 0) {
-    const avgNote =
-      installAnomaly || baseline.avgDailyInstalls > 0
-        ? ` (avg: ${Math.round(baseline.avgDailyInstalls)})`
-        : '';
-    const emoji = installAnomaly ? '\u26A1' : '\uD83D\uDCE6';
-    lines.push(`${emoji} <b>${installs.total} install${installs.total === 1 ? '' : 's'} today</b>${avgNote}`);
-
-    // Top packs breakdown
-    const sorted = Object.entries(installs.byPack).sort((a, b) => b[1] - a[1]);
-    const packList = sorted.map(([slug, count]) => `${slug} \u00D7${count}`).join(', ');
-    lines.push(`\uD83D\uDCE6 ${packList}`);
-  }
-
-  // Signals
-  if (signals.total > 0) {
-    const severities = signals.items.map((s) => s.severity);
-    const topSeverity = severities.includes('critical')
-      ? 'critical'
-      : severities.includes('high')
-        ? 'high'
-        : severities.includes('medium')
-          ? 'medium'
-          : 'low';
-    const types = signals.items.map((s) => s.type);
-    const primaryType = types[0] ?? 'signal';
-    const emoji = signalAnomaly ? '\u26A0\uFE0F' : '\uD83D\uDCAC';
-    lines.push(
-      `${emoji} ${signals.total} new signal${signals.total === 1 ? '' : 's'} (${primaryType}, ${topSeverity})`,
-    );
-  }
-
-  // Health
-  if (health) {
-    const trend =
-      health.delta > 2 ? 'improving' : health.delta < -2 ? 'declining' : 'steady';
+    const spike = installAnomaly ? ' \u{1F525}' : '';
     lines.push('');
-    lines.push(`<code>Health</code> ${health.score}/100 (${trend})`);
+    lines.push(`\u{1F4E6} <b>${installs.total} install${installs.total === 1 ? '' : 's'}</b>${spike}`);
+
+    const sorted = Object.entries(installs.byPack).sort((a, b) => b[1] - a[1]);
+    const packs = sorted.map(([slug, count]) => `\u2022 <code>${slug}</code> \u00D7${count}`);
+    lines.push(packs.join('\n'));
+  }
+
+  // --- Signals ---
+  if (signals.total > 0) {
+    const spike = signalAnomaly ? ' \u26A0\uFE0F' : '';
+    lines.push('');
+    lines.push(`\u{1F4AC} <b>${signals.total} signal${signals.total === 1 ? '' : 's'}</b>${spike}`);
+    for (const s of signals.items.slice(0, 3)) {
+      lines.push(`\u2022 ${s.title} <i>(${s.severity})</i>`);
+    }
+  }
+
+  // --- Health ---
+  if (health) {
+    const bar = health.score >= 80 ? '\u2588\u2588\u2588\u2588\u2591' :
+                health.score >= 60 ? '\u2588\u2588\u2588\u2591\u2591' :
+                health.score >= 40 ? '\u2588\u2588\u2591\u2591\u2591' : '\u2588\u2591\u2591\u2591\u2591';
+    const arrow = health.delta > 2 ? '\u2197' : health.delta < -2 ? '\u2198' : '\u2192';
+    lines.push('');
+    lines.push(`${bar} ${health.score}/100 ${arrow}`);
   }
 
   return lines.join('\n');
