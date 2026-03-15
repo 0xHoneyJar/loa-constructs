@@ -128,11 +128,11 @@ export default async function ConstructDetailPage({
         )}
 
         <p className="mt-8 font-display text-xl sm:text-2xl uppercase tracking-display text-bone-base max-w-2xl leading-[1.1]">
-          {construct.description}
+          {construct.shortDescription || construct.description}
         </p>
-        {construct.longDescription && (
+        {construct.description && (
           <p className="mt-4 text-sm sm:text-base font-mono text-bone-muted leading-relaxed max-w-2xl">
-            {construct.longDescription}
+            {construct.description}
           </p>
         )}
 
