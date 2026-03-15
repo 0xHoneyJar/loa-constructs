@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "active_cycle": "cycle-050",
+  "active_cycle": "cycle-051",
   "global_sprint_counter": 65,
   "cycles": [
     {
@@ -818,13 +818,26 @@
     {
       "id": "cycle-050",
       "label": "SprawlOS Design System \u2014 Semantic Architecture",
-      "status": "active",
+      "status": "archived",
       "created_at": "2026-03-13T23:50:00Z",
       "prd": "grimoires/loa/prd.md",
       "sdd": "grimoires/loa/sdd.md",
       "sprint_plan": "grimoires/loa/sprint.md",
       "foundation": "cycle-049",
       "design_doc": "grimoires/loa/context/design-system-architecture.md",
+      "sprints": [],
+      "archived_at": "2026-03-15T05:14:34.160394Z"
+    },
+    {
+      "id": "cycle-051",
+      "label": "Analytics Pipeline + GEO Optimization",
+      "status": "active",
+      "created_at": "2026-03-15T05:14:34.160556Z",
+      "prd": "grimoires/loa/prd.md",
+      "sdd": null,
+      "sprint_plan": null,
+      "foundation": "cycle-050",
+      "context": "grimoires/loa/context/analytics-architecture/",
       "sprints": []
     }
   ]

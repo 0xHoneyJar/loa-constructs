@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as analytics from "../analytics.js";
 import type * as crons from "../crons.js";
 import type * as dashboardPresence from "../dashboardPresence.js";
 import type * as healthObservations from "../healthObservations.js";
@@ -15,6 +16,7 @@ import type * as installEvents from "../installEvents.js";
 import type * as linear from "../linear.js";
 import type * as signals from "../signals.js";
 import type * as syncStatus from "../syncStatus.js";
+import type * as telegram from "../telegram.js";
 
 import type {
   ApiFromModules,
@@ -23,6 +25,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  analytics: typeof analytics;
   crons: typeof crons;
   dashboardPresence: typeof dashboardPresence;
   healthObservations: typeof healthObservations;
@@ -30,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   linear: typeof linear;
   signals: typeof signals;
   syncStatus: typeof syncStatus;
+  telegram: typeof telegram;
 }>;
 
 /**

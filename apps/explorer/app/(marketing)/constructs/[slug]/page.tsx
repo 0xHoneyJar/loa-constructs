@@ -54,6 +54,16 @@ export default async function ConstructDetailPage({
       price: '0',
       priceCurrency: 'USD',
     },
+    author: {
+      '@type': 'Organization',
+      name: 'Constructs Network',
+      url: 'https://constructs.network',
+    },
+    url: `https://constructs.network/constructs/${slug}`,
+    ...(construct.version && { version: construct.version }),
+    ...(construct.verifiedAt
+      ? { datePublished: construct.verifiedAt }
+      : { datePublished: '2025-01-01' }),
   };
 
   const verificationBadge = (() => {

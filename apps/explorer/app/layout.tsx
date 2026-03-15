@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { GeistMono } from 'geist/font/mono';
 import localFont from 'next/font/local';
 import { DynamicProvider } from '@/components/providers/dynamic-provider';
@@ -64,6 +65,19 @@ export const metadata: Metadata = {
   },
 };
 
+const websiteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Constructs Network',
+  url: 'https://constructs.network',
+  description: 'Skills for AI coding agents. Install a construct — your agent sees problems differently.',
+  publisher: {
+    '@type': 'Organization',
+    name: 'Constructs Network',
+    url: 'https://constructs.network',
+  },
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -71,9 +85,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        {process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
+          <Script
+            src="https://cloud.umami.is/script.js"
+            data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
+            strategy="afterInteractive"
+          />
+        )}
+      </head>
       <body
         className={`${GeistMono.variable} ${basementGrotesque.variable} min-h-screen bg-void-base font-mono text-bone-base antialiased`}
       >
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(websiteJsonLd).replace(/</g, '\\u003c'),
+          }}
+        />
         <DynamicProvider>
           <ConvexProvider>
             {children}

@@ -7,7 +7,7 @@ import { fetchAllConstructs } from '@/lib/data/fetch-constructs';
 
 export const metadata: Metadata = {
   title: 'About | Constructs Network',
-  description: 'Skills for AI coding agents. Deploy, browse, compose.',
+  description: 'Skills for AI coding agents. 23 constructs, 150+ skills. Install a construct — your agent sees problems differently. Built by 0xHoneyJar.',
 };
 
 // ISR — revalidate hourly (matches homepage)
@@ -23,8 +23,46 @@ function RedactedSlot({ width = 'w-32' }: { width?: string }) {
   );
 }
 
+function AboutJsonLd({ constructCount, skillCount }: { constructCount: number; skillCount: number }) {
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebSite',
+        name: 'Constructs Network',
+        url: 'https://constructs.network',
+        description: `Skills for AI coding agents. ${constructCount} constructs, ${skillCount}+ skills.`,
+      },
+      {
+        '@type': 'Organization',
+        name: 'Constructs Network',
+        url: 'https://constructs.network',
+        foundingDate: '2026-02',
+        description: 'The open agent expertise network. Skills you install into your AI coding agent.',
+        sameAs: [
+          'https://x.com/zksoju',
+          'https://github.com/0xHoneyJar',
+        ],
+        parentOrganization: {
+          '@type': 'Organization',
+          name: '0xHoneyJar',
+          url: 'https://www.0xhoneyjar.xyz',
+        },
+      },
+    ],
+  };
+
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+    />
+  );
+}
+
 export default async function AboutPage() {
   const allConstructs = await fetchAllConstructs();
+  const totalSkills = allConstructs.reduce((sum, c) => sum + (c.skillsCount || 0), 0);
 
   // Build a slug→logoWordmark map for constructs shown on this page
   const marks: Record<string, string | null> = {};
@@ -36,6 +74,7 @@ export default async function AboutPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-16 sm:py-24">
+      <AboutJsonLd constructCount={allConstructs.length} skillCount={totalSkills} />
       <div className="space-y-32 sm:space-y-40">
 
         {/* Hero */}
@@ -50,6 +89,10 @@ export default async function AboutPage() {
               Skills you install into your AI coding agent.
               One command. Your agent sees problems differently.
             </p>
+            <div className="mt-6 font-mono text-sm text-bone-ghost">
+              {allConstructs.length} constructs · {totalSkills}+ skills · Open source · Built by{' '}
+              <a href="https://www.0xhoneyjar.xyz" className="text-bone-muted hover:text-bone-base transition-colors" target="_blank" rel="noopener noreferrer">0xHoneyJar</a>
+            </div>
           </section>
         </ScrollReveal>
 
