@@ -7,8 +7,10 @@
  * Run with: DATABASE_URL="..." pnpm tsx scripts/seed-forge-packs.ts
  *
  * Flags:
- *   --dry-run         Validate manifests without DB writes
- *   --auto-discover   Scan org for construct-* repos instead of hardcoded list (requires gh CLI)
+ *   --dry-run                       Validate manifests without DB writes
+ *   --auto-discover                 Scan org for construct-* repos instead of hardcoded list (requires gh CLI)
+ *   --only slug1,slug2              Seed only the specified constructs (comma-separated slugs)
+ *   --visibility-override <value>   Force all seeded packs to this visibility (public|internal|unlisted)
  */
 
 import postgres from 'postgres';
@@ -29,6 +31,22 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLONE_DIR = join(__dirname, '../.cache/construct-repos');
 const AUTO_DISCOVER = process.argv.includes('--auto-discover');
 const CONSTRUCTS_ORG = process.env.CONSTRUCTS_ORG || '0xHoneyJar';
+
+// --only slug1,slug2 — limit seeding to specific constructs
+const ONLY_FLAG_INDEX = process.argv.indexOf('--only');
+const ONLY_SLUGS: Set<string> | null = ONLY_FLAG_INDEX !== -1 && process.argv[ONLY_FLAG_INDEX + 1]
+  ? new Set(process.argv[ONLY_FLAG_INDEX + 1].split(',').map(s => s.trim()).filter(Boolean))
+  : null;
+
+// --visibility-override <value> — force all seeded packs to a specific visibility
+const VIS_FLAG_INDEX = process.argv.indexOf('--visibility-override');
+const VISIBILITY_OVERRIDE: string | null = VIS_FLAG_INDEX !== -1 && process.argv[VIS_FLAG_INDEX + 1]
+  ? process.argv[VIS_FLAG_INDEX + 1]
+  : null;
+if (VISIBILITY_OVERRIDE && !['public', 'internal', 'unlisted'].includes(VISIBILITY_OVERRIDE)) {
+  console.error(`ERROR: --visibility-override must be one of: public, internal, unlisted (got "${VISIBILITY_OVERRIDE}")`);
+  process.exit(1);
+}
 
 interface PackFile {
   path: string;
@@ -449,11 +467,33 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
   const configs = AUTO_DISCOVER ? discoverFromOrg() : GIT_CONFIGS;
   const source = AUTO_DISCOVER ? `${CONSTRUCTS_ORG} org (auto-discover)` : 'GIT_CONFIGS (hardcoded)';
   console.log(`📂 Discovering packs from ${source}...\n`);
+
+  if (ONLY_SLUGS) {
+    const slugList = Array.from(ONLY_SLUGS).join(', ');
+    console.log(`🔒 --only flag active: seeding only [${slugList}]\n`);
+    // Warn about slugs not found in configs
+    for (const s of ONLY_SLUGS) {
+      if (!(s in configs)) {
+        console.warn(`   ⚠️  "${s}" not found in ${AUTO_DISCOVER ? 'org repos' : 'GIT_CONFIGS'} — will be skipped`);
+      }
+    }
+  } else {
+    console.warn(`⚠️  Seeding ALL constructs. Use --only slug1,slug2 to limit scope.\n`);
+  }
+
+  if (VISIBILITY_OVERRIDE) {
+    console.log(`🛡️  --visibility-override active: all packs will be set to "${VISIBILITY_OVERRIDE}"\n`);
+  }
+
   ensureCloneDir();
 
   const packs: DiscoveredPack[] = [];
 
   for (const [slug, config] of Object.entries(configs)) {
+    // Skip constructs not in --only list
+    if (ONLY_SLUGS && !ONLY_SLUGS.has(slug)) {
+      continue;
+    }
     try {
       const repoDir = cloneOrPull(slug, config.gitUrl, config.gitRef);
 
@@ -736,9 +776,11 @@ async function seedForgePacks() {
         const category = rawCategory ? normalizeCategory(rawCategory) : 'development';
 
         // Visibility deny-by-default: only explicit manifest opt-in makes a construct public (GPT review F5)
+        // --visibility-override takes precedence over manifest-declared visibility
         const VALID_VISIBILITY = ['public', 'internal', 'unlisted'] as const;
         const rawVis = (pack.fullManifest as any)?.visibility;
-        const packVisibility = VALID_VISIBILITY.includes(rawVis) ? rawVis : 'internal';
+        const manifestVisibility = VALID_VISIBILITY.includes(rawVis) ? rawVis : 'internal';
+        const packVisibility = VISIBILITY_OVERRIDE ?? manifestVisibility;
 
         const packResult = await tx`
           INSERT INTO packs (
