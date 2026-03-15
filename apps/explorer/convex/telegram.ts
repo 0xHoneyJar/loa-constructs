@@ -130,11 +130,25 @@ export const sendDigest = internalAction({
     }
 
     try {
-      const [metrics, baseline, traffic] = await Promise.all([
+      // Convex-native data — always available, never fails
+      const [metrics, baseline] = await Promise.all([
         ctx.runQuery(internal.analytics.getDigestMetrics),
         ctx.runQuery(internal.analytics.getDailyBaseline),
-        ctx.runAction(internal.analytics.fetchUmamiTraffic),
       ]);
+
+      // External dependency — isolated. Umami failure must not block the digest.
+      let traffic: {
+        visitors: number;
+        pageviews: number;
+        topReferrers: { name: string; value: number }[];
+        topPages: { name: string; value: number }[];
+        sites?: { name: string; visitors: number; pageviews: number }[];
+      } | null = null;
+      try {
+        traffic = await ctx.runAction(internal.analytics.fetchUmamiTraffic);
+      } catch (e) {
+        console.warn('[telegram] Umami fetch failed, sending digest without traffic:', (e as Error).message);
+      }
 
       const message = formatDigest(metrics, baseline, traffic);
 
