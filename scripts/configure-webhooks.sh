@@ -12,7 +12,7 @@ set -euo pipefail
 ORG="0xHoneyJar"
 WEBHOOK_URL="https://api.constructs.network/v1/webhooks/github"
 REPOS=(
-  "construct-observer"
+  "construct-beehive"
   "construct-crucible"
   "construct-artisan"
   "construct-beacon"

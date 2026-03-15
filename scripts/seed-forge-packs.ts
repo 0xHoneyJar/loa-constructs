@@ -128,7 +128,7 @@ const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
     gitRef: 'main',
   },
   observer: {
-    gitUrl: 'https://github.com/0xHoneyJar/construct-observer.git',
+    gitUrl: 'https://github.com/0xHoneyJar/construct-beehive.git',
     gitRef: 'main',
   },
   crucible: {
