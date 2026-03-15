@@ -10,23 +10,33 @@ async function sendMessage(
   chatId: string,
   text: string,
 ): Promise<{ ok: boolean; description?: string }> {
-  const url = `${TELEGRAM_API}/bot${botToken}/sendMessage`;
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      parse_mode: 'HTML',
-      disable_web_page_preview: true,
-    }),
-  });
+  try {
+    const response = await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      }),
+    });
 
-  const result = await response.json();
-  if (!result.ok) {
-    console.error('[telegram] sendMessage failed:', result.description);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'unknown');
+      console.error('[telegram] sendMessage HTTP error:', response.status, errorText);
+      return { ok: false, description: `HTTP ${response.status}` };
+    }
+
+    const result = await response.json();
+    if (!result.ok) {
+      console.error('[telegram] sendMessage API error:', result.description);
+    }
+    return result as { ok: boolean; description?: string };
+  } catch (error) {
+    console.error('[telegram] sendMessage network error:', (error as Error).message);
+    return { ok: false, description: 'Network error' };
   }
-  return result as { ok: boolean; description?: string };
 }
 
 // --- Digest Formatting ---

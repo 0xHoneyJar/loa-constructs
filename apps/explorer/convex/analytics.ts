@@ -10,17 +10,17 @@ export const getDigestMetrics = internalQuery({
     const now = Date.now();
     const cutoff24h = new Date(now - DAY_MS).toISOString();
 
-    // Install events in last 24h
+    // Install events in last 24h (capped to prevent runaway queries)
     const installs = await ctx.db
       .query('installEvents')
       .withIndex('by_created', (q) => q.gte('timestamp', cutoff24h))
-      .collect();
+      .take(1000);
 
     // Signals in last 24h
     const signals = await ctx.db
       .query('signals')
       .withIndex('by_timestamp', (q) => q.gte('timestamp', cutoff24h))
-      .collect();
+      .take(1000);
 
     // Latest health observation
     const latestHealth = await ctx.db
@@ -75,24 +75,31 @@ export const getDailyBaseline = internalQuery({
     const installs7d = await ctx.db
       .query('installEvents')
       .withIndex('by_created', (q) => q.gte('timestamp', cutoff7d).lt('timestamp', cutoff24h))
-      .collect();
+      .take(5000);
 
     // Signals in last 7 days (excluding last 24h)
     const signals7d = await ctx.db
       .query('signals')
       .withIndex('by_timestamp', (q) => q.gte('timestamp', cutoff7d).lt('timestamp', cutoff24h))
-      .collect();
+      .take(5000);
 
-    // Health observations in last 7 days
+    // Health observations in last 7 days (sample last 50 for average)
     const health7d = await ctx.db
       .query('healthObservations')
       .withIndex('by_timestamp', (q) => q.gte('timestamp', cutoff7d))
-      .collect();
+      .take(200);
 
-    // Calculate daily averages (6 days excluding today)
-    const days = 6; // 7d window minus today
-    const avgInstalls = days > 0 ? installs7d.length / days : 0;
-    const avgSignals = days > 0 ? signals7d.length / days : 0;
+    // Calculate daily averages based on actual data span
+    const oldestInstall = installs7d.length > 0 ? installs7d[0].timestamp : null;
+    const oldestSignal = signals7d.length > 0 ? signals7d[0].timestamp : null;
+    const oldest = oldestInstall && oldestSignal
+      ? (oldestInstall < oldestSignal ? oldestInstall : oldestSignal)
+      : oldestInstall || oldestSignal;
+    const actualDays = oldest
+      ? Math.max(1, Math.ceil((new Date(cutoff24h).getTime() - new Date(oldest).getTime()) / DAY_MS))
+      : 1;
+    const avgInstalls = installs7d.length / actualDays;
+    const avgSignals = signals7d.length / actualDays;
     const avgHealthScore =
       health7d.length > 0
         ? Math.round(health7d.reduce((sum, h) => sum + h.healthScore, 0) / health7d.length)

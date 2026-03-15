@@ -5,10 +5,14 @@ import { ScrollReveal } from '@/components/ui/scroll-reveal';
 import { ComposeDiagram } from '@/components/graph/compose-diagram';
 import { fetchAllConstructs } from '@/lib/data/fetch-constructs';
 
-export const metadata: Metadata = {
-  title: 'About | Constructs Network',
-  description: 'Skills for AI coding agents. 23 constructs, 150+ skills. Install a construct — your agent sees problems differently. Built by 0xHoneyJar.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const constructs = await fetchAllConstructs();
+  const totalSkills = constructs.reduce((sum, c) => sum + (c.skillsCount || 0), 0);
+  return {
+    title: 'About | Constructs Network',
+    description: `Skills for AI coding agents. ${constructs.length} constructs, ${totalSkills}+ skills. Install a construct — your agent sees problems differently.`,
+  };
+}
 
 // ISR — revalidate hourly (matches homepage)
 export const revalidate = 3600;
@@ -26,36 +30,26 @@ function RedactedSlot({ width = 'w-32' }: { width?: string }) {
 function AboutJsonLd({ constructCount, skillCount }: { constructCount: number; skillCount: number }) {
   const jsonLd = {
     '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': 'WebSite',
-        name: 'Constructs Network',
-        url: 'https://constructs.network',
-        description: `Skills for AI coding agents. ${constructCount} constructs, ${skillCount}+ skills.`,
-      },
-      {
-        '@type': 'Organization',
-        name: 'Constructs Network',
-        url: 'https://constructs.network',
-        foundingDate: '2026-02',
-        description: 'The open agent expertise network. Skills you install into your AI coding agent.',
-        sameAs: [
-          'https://x.com/zksoju',
-          'https://github.com/0xHoneyJar',
-        ],
-        parentOrganization: {
-          '@type': 'Organization',
-          name: '0xHoneyJar',
-          url: 'https://www.0xhoneyjar.xyz',
-        },
-      },
+    '@type': 'Organization',
+    name: 'Constructs Network',
+    url: 'https://constructs.network',
+    foundingDate: '2026-02',
+    description: `The open agent expertise network. ${constructCount} constructs, ${skillCount}+ skills for AI coding agents.`,
+    sameAs: [
+      'https://x.com/zksoju',
+      'https://github.com/0xHoneyJar',
     ],
+    parentOrganization: {
+      '@type': 'Organization',
+      name: '0xHoneyJar',
+      url: 'https://www.0xhoneyjar.xyz',
+    },
   };
 
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
     />
   );
 }

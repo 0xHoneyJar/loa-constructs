@@ -85,15 +85,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
-      <head>
-        {process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
-          <Script
-            src="https://cloud.umami.is/script.js"
-            data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
-            strategy="afterInteractive"
-          />
-        )}
-      </head>
       <body
         className={`${GeistMono.variable} ${basementGrotesque.variable} min-h-screen bg-void-base font-mono text-bone-base antialiased`}
       >
@@ -111,6 +102,13 @@ export default function RootLayout({
             {process.env.NODE_ENV === 'development' && <Agentation />}
           </ConvexProvider>
         </DynamicProvider>
+        {process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID && (
+          <Script
+            src="https://cloud.umami.is/script.js"
+            data-website-id={process.env.NEXT_PUBLIC_UMAMI_WEBSITE_ID}
+            strategy="afterInteractive"
+          />
+        )}
       </body>
     </html>
   );
