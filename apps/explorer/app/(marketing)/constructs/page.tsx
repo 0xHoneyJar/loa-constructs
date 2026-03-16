@@ -92,12 +92,22 @@ export default async function ConstructsCatalogPage({
                 className="border border-void-border p-6 sm:p-8 hover:border-bone-ghost transition-colors group"
               >
                 <div className="flex items-center gap-3 mb-4">
-                  {construct.icon && (
-                    <span className="text-2xl shrink-0">{construct.icon}</span>
+                  {construct.logoWordmark ? (
+                    <div
+                      className="text-bone-base group-hover:text-bone-bright transition-colors [&_svg]:h-8 sm:[&_svg]:h-10 [&_svg]:w-auto [&_svg]:max-w-full"
+                      style={{ color: 'currentColor' }}
+                      dangerouslySetInnerHTML={{ __html: construct.logoWordmark }}
+                    />
+                  ) : (
+                    <>
+                      {construct.icon && (
+                        <span className="text-2xl shrink-0">{construct.icon}</span>
+                      )}
+                      <span className="font-display text-xl uppercase tracking-display text-bone-base group-hover:text-bone-bright transition-colors">
+                        {construct.name}
+                      </span>
+                    </>
                   )}
-                  <span className="font-display text-xl uppercase tracking-display text-bone-base group-hover:text-bone-bright transition-colors">
-                    {construct.name}
-                  </span>
                   {construct.verificationTier === 'PROVEN' && (
                     <Badge variant="proven">proven</Badge>
                   )}
