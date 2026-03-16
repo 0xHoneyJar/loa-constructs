@@ -102,27 +102,27 @@ MCV got the highest score because it has:
 
 Other repos should adopt MCV's pattern.
 
-## Remediation Priority
+## Remediation Status (updated 2026-03-15)
 
-### P0 — This week
-- Lock honey-interface OpenAI proxies
-- Lock honeyroad admin routes
-- Fix community-interface OG metadata
+### P0 — DONE
+- [x] Lock honey-interface OpenAI proxies (`6f1e3e2c`)
+- [x] Lock honeyroad admin routes (`f858912`)
+- [x] Fix community-interface OG metadata (`d7231b3`)
 
-### P1 — This sprint
-- Replace hardcoded APYs in set-and-forgetti
-- Replace fabricated heatmap in midi-interface
-- Fix interest rate mismatch in apdao
-- Add robots.txt to all 8 repos
+### P1 — DONE
+- [x] Replace hardcoded APYs in set-and-forgetti (`abb91c04`)
+- [x] Delete fabricated heatmap in midi-interface (`f6c9187c`) — was dead code, real component already existed
+- [x] Fix interest rate mismatch in apdao (`96b65ec`)
+- [x] Add robots.txt to 7 repos (all except set-and-forgetti which already had one)
+- [x] Add llms.txt to 4 more repos (community, cubquests, midi, apdao)
 
 ### P2 — Next sprint
-- Add llms.txt to remaining 6 repos
-- Add JSON-LD to remaining 7 repos
-- Add rate limiting to remaining 5 repos
-- Add security headers to honey-interface
-- Add sitemap.ts to all repos without one
+- Add JSON-LD structured data to remaining 7 repos (mcv is the reference)
+- Add rate limiting to remaining 5 repos (set-and-forgetti, cubquests, midi have it)
+- Add sitemap.ts to repos without one
+- Regenerate stale BUTTERFREEZONE in honeyroad and set-and-forgetti (currently generic Loa template)
+- Generate BUTTERFREEZONE for thj-envio
 
 ### P3 — Backlog
 - x402 payment endpoints (when ready)
-- AI crawler-specific robots.txt rules
-- BUTTERFREEZONE generation for thj-envio and all product repos
+- AI crawler-specific robots.txt rules (currently allowing all AI bots)
