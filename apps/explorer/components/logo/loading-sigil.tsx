@@ -36,16 +36,19 @@ export function LoadingSigil({ size = 160 }: { size?: number }) {
           WebkitMaskPosition: 'center',
         }}
       >
-        {/* L1: LED module grid base — dark structural substrate */}
+        {/* L1: LED module grid base — visible pixel structure */}
+        {/* At 148px, 7px cells = ~21 modules across. Each module is a lit square
+            separated by dark face mask. The mask should be VISIBLE — this is
+            what makes it read as an LED billboard, not a flat icon. */}
         <div
           className="absolute inset-0"
           style={{
-            backgroundColor: 'oklch(0.14 0.03 195)',
+            backgroundColor: 'oklch(0.06 0.01 195)',
             backgroundImage: `
-              linear-gradient(0deg, transparent 75%, oklch(0.08 0.01 195) 75%),
-              linear-gradient(90deg, transparent 75%, oklch(0.08 0.01 195) 75%)
+              linear-gradient(0deg, transparent 60%, oklch(0.03 0.005 195) 60%),
+              linear-gradient(90deg, transparent 60%, oklch(0.03 0.005 195) 60%)
             `,
-            backgroundSize: `${Math.max(3, Math.round(size / 40))}px ${Math.max(3, Math.round(size / 40))}px`,
+            backgroundSize: `${Math.max(5, Math.round(size / 20))}px ${Math.max(5, Math.round(size / 20))}px`,
           }}
         />
 
@@ -55,27 +58,27 @@ export function LoadingSigil({ size = 160 }: { size?: number }) {
           style={{
             background: `linear-gradient(
               0deg,
-              oklch(0.25 0.07 195) 0%,
-              oklch(0.22 0.06 195) 30%,
-              oklch(0.16 0.04 195) 60%,
+              oklch(0.30 0.10 195) 0%,
+              oklch(0.26 0.08 195) 25%,
+              oklch(0.18 0.05 195) 55%,
               transparent 100%
             )`,
             backgroundSize: '100% 200%',
           }}
         />
 
-        {/* L3: Scan beam — single bright band sweeping up through the mark */}
+        {/* L3: Scan beam — bright band sweeping up, wider and more visible */}
         <div
           className="absolute inset-0 loading-sigil-scan"
           style={{
             background: `linear-gradient(
               0deg,
               transparent 0%,
-              transparent 38%,
-              oklch(0.35 0.10 195) 46%,
-              oklch(0.30 0.08 195 / 0.8) 50%,
-              oklch(0.35 0.10 195) 54%,
-              transparent 62%,
+              transparent 32%,
+              oklch(0.40 0.12 195) 42%,
+              oklch(0.45 0.14 195) 50%,
+              oklch(0.40 0.12 195) 58%,
+              transparent 68%,
               transparent 100%
             )`,
             backgroundSize: '100% 400%',
@@ -91,17 +94,27 @@ export function LoadingSigil({ size = 160 }: { size?: number }) {
           }}
         />
 
-        {/* L5: Cabinet seam overlay — horizontal panel divisions */}
+        {/* L5: Cabinet seam overlay — panel divisions, both axes */}
+        {/* Bolder seams every ~24px. Visible structural grid on top of module grid. */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage: `repeating-linear-gradient(
-              0deg,
-              transparent 0px,
-              transparent ${Math.round(size / 5) - 1}px,
-              oklch(0.06 0.005 195 / 0.5) ${Math.round(size / 5) - 1}px,
-              oklch(0.06 0.005 195 / 0.5) ${Math.round(size / 5)}px
-            )`,
+            backgroundImage: `
+              repeating-linear-gradient(
+                0deg,
+                transparent 0px,
+                transparent ${Math.round(size / 6) - 2}px,
+                oklch(0.02 0.003 195 / 0.7) ${Math.round(size / 6) - 2}px,
+                oklch(0.02 0.003 195 / 0.7) ${Math.round(size / 6)}px
+              ),
+              repeating-linear-gradient(
+                90deg,
+                transparent 0px,
+                transparent ${Math.round(size / 4) - 2}px,
+                oklch(0.02 0.003 195 / 0.5) ${Math.round(size / 4) - 2}px,
+                oklch(0.02 0.003 195 / 0.5) ${Math.round(size / 4)}px
+              )
+            `,
           }}
         />
       </div>
@@ -126,19 +139,23 @@ export function LoadingSigil({ size = 160 }: { size?: number }) {
         @keyframes loading-sigil-poweron {
           0% {
             background-position: 0% 100%;
-            opacity: 0.6;
+            opacity: 0.5;
           }
-          60% {
+          40% {
+            background-position: 0% 0%;
+            opacity: 0.9;
+          }
+          70% {
             background-position: 0% 0%;
             opacity: 1;
           }
-          80% {
+          85% {
             background-position: 0% 0%;
             opacity: 1;
           }
           100% {
             background-position: 0% 100%;
-            opacity: 0.6;
+            opacity: 0.5;
           }
         }
 
@@ -149,28 +166,30 @@ export function LoadingSigil({ size = 160 }: { size?: number }) {
 
         @keyframes loading-sigil-breath {
           0%, 100% { opacity: 0; }
-          50% { opacity: 0.12; }
+          40% { opacity: 0.10; }
+          60% { opacity: 0.10; }
         }
 
         @keyframes loading-sigil-glow {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 1; }
+          0%, 100% { opacity: 0.4; }
+          40% { opacity: 0.9; }
+          60% { opacity: 0.9; }
         }
 
         .loading-sigil-poweron {
-          animation: loading-sigil-poweron 3.2s ease-in-out infinite;
+          animation: loading-sigil-poweron 8s steps(12) infinite;
         }
 
         .loading-sigil-scan {
-          animation: loading-sigil-scan 2.8s linear infinite;
+          animation: loading-sigil-scan 6s linear infinite;
         }
 
         .loading-sigil-breath {
-          animation: loading-sigil-breath 6.18s ease-in-out infinite;
+          animation: loading-sigil-breath 9.7s ease-in-out infinite;
         }
 
         .loading-sigil-glow {
-          animation: loading-sigil-glow 6.18s ease-in-out infinite;
+          animation: loading-sigil-glow 9.7s ease-in-out infinite;
         }
 
         @media (prefers-reduced-motion: reduce) {

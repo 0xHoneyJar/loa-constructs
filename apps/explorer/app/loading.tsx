@@ -40,7 +40,7 @@ export default function Loading() {
 
       {/* The mark — large, centered, commanding */}
       <div className="relative flex flex-col items-center gap-6">
-        <LoadingSigil size={148} />
+        <LoadingSigil size={280} />
         <p
           className="font-mono uppercase"
           style={{
