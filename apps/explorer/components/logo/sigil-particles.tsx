@@ -93,10 +93,11 @@ const vertexShader = /* glsl */ `
     gl_Position = projectionMatrix * mvPosition;
     vModelY = pos.y;
 
-    // ─── Module Size: 6px ───
-    // LED billboard modules — visible grid structure at this size.
-    // Matches the materials spec target (6-8px modules).
-    gl_PointSize = 6.0;
+    // ─── Module Size: 5px ───
+    // At 0.81 scale, 5px gives tight cohesive modules with visible grid.
+    // The gap between points (from sampling density) provides the grid structure.
+    // Bigger modules fragment at small scale; smaller ones blur together.
+    gl_PointSize = 5.0;
 
     // ─── Clean LED Brightness (PHI-ratio irrational) ───
     // 3-layer golden-ratio sine. Never repeats — always alive.
@@ -135,13 +136,19 @@ const fragmentShader = /* glsl */ `
 
   void main() {
     // ─── Module Grid (Face Mask) ───
-    // Thin dark border on each module. Just enough to see the grid.
-    // Not thick — this is a premium display.
+    // At 5px modules, 10% border = 0.5px gap per side.
+    // Crisp enough to read the grid, tight enough to hold the form.
     vec2 pc = gl_PointCoord;
-    float borderX = step(0.08, pc.x) * step(0.08, 1.0 - pc.x);
-    float borderY = step(0.08, pc.y) * step(0.08, 1.0 - pc.y);
+    float borderX = step(0.10, pc.x) * step(0.10, 1.0 - pc.x);
+    float borderY = step(0.10, pc.y) * step(0.10, 1.0 - pc.y);
     float mask = borderX * borderY;
     if (mask < 0.5) discard;
+
+    // ─── Cabinet Seam (Panel Grid) ───
+    // Model-space seam tied to vertex position, not screen pixels.
+    // Every ~0.25 units in model space = a panel boundary.
+    float cabinetSeamX = 1.0 - 0.06 * step(0.9, fract(vModelY * 4.0));
+    float cabinetSeamY = 1.0 - 0.06 * step(0.9, fract(vSeed * 8.0));
 
     // ─── Color: Structural Cyan ───
     // Not emissive — embossed. A mark pressed into the wall surface.
@@ -164,6 +171,9 @@ const fragmentShader = /* glsl */ `
     // Creates the horizontal structure of an LED panel without being noisy.
     float rowDim = 1.0 - 0.03 * step(0.5, fract(gl_FragCoord.y * 0.125));
     color *= rowDim;
+
+    // ─── Cabinet Seam Darkening ───
+    color *= cabinetSeamX * cabinetSeamY;
 
     // ─── PMA output ───
     float alpha = vAlpha;
@@ -216,8 +226,8 @@ export function SigilParticles({ scale = 0.5 }: SigilParticlesProps) {
     <points
       ref={pointsRef}
       geometry={geometry}
-      position={[-2.4, 0.4, 0]}
-      scale={[1.15, 1.15, 1]}
+      position={[-2.05, 0.35, 0]}
+      scale={[0.81, 0.81, 1]}
     >
       <shaderMaterial
         ref={materialRef}
