@@ -335,7 +335,7 @@ export async function fetchConstruct(slug: string): Promise<ConstructDetail | nu
 async function fetchShowcases(slug: string): Promise<Showcase[]> {
   try {
     const response = await fetchWithTimeout(`${API_BASE}/constructs/${slug}/showcases`, {
-      next: { revalidate: 3600 },
+      next: { revalidate: 60 },
     });
     if (!response.ok) return [];
     const json = await response.json();
