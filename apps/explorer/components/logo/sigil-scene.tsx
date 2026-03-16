@@ -44,7 +44,7 @@ export default function SigilScene() {
         powerPreference: 'default',
       }}
       dpr={[1, 1]}
-      camera={{ position: [0, 0, 3], fov: 50 }}
+      camera={{ position: [-1.2, 0, 3], fov: 50 }}
       style={{
         position: 'absolute',
         inset: 0,

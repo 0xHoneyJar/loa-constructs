@@ -75,6 +75,8 @@ function useSigilPositions(density = 3): SigilData | null {
 
 // ─── Vertex Shader ──────────────────────────────────────────────────
 const vertexShader = /* glsl */ `
+  #define PHI 1.61803398875
+
   uniform float uTime;
   uniform float uScale;
   uniform float uReducedMotion;
@@ -82,33 +84,41 @@ const vertexShader = /* glsl */ `
 
   varying float vAlpha;
   varying float vSeed;
-  varying vec2 vScreenPos;
+  varying float vModelY;
 
   void main() {
     vec3 pos = position;
 
     vec4 mvPosition = modelViewMatrix * vec4(pos * uScale, 1.0);
     gl_Position = projectionMatrix * mvPosition;
-    vScreenPos = gl_Position.xy / gl_Position.w;
+    vModelY = pos.y;
 
-    // ─── Module Size: 4px ───
-    // Tight enough to form a cohesive image, large enough to see the grid.
-    gl_PointSize = 5.0;
+    // ─── Module Size: 6px ───
+    // LED billboard modules — visible grid structure at this size.
+    // Matches the materials spec target (6-8px modules).
+    gl_PointSize = 6.0;
 
-    // ─── Clean LED Brightness ───
-    // High, consistent alpha. Subtle per-module variation for life,
-    // not dramatic flicker. This is an expensive display.
+    // ─── Clean LED Brightness (PHI-ratio irrational) ───
+    // 3-layer golden-ratio sine. Never repeats — always alive.
+    // Spatial variation via pos.y — different rows breathe differently.
+    float v1 = sin(uTime * 0.8 + aSeed * 6.2831);
+    float v2 = sin(uTime * 0.8 * PHI + aSeed * 6.2831 + 1.5);
+    float v3 = sin(uTime * 0.8 * PHI * PHI + aSeed * 6.2831 + pos.y * 2.0);
     float variation = uReducedMotion > 0.5
       ? 0.0
-      : 0.06 * sin(uTime * 0.8 + aSeed * 6.2831);
+      : 0.10 * mix(mix(v1, v2, 0.4), v3, 0.3);
 
-    float baseAlpha = 0.75 + variation;
+    float baseAlpha = 0.82 + variation;
 
-    // ─── Breathing ───
-    // Very subtle whole-form pulse. Barely perceptible.
+    // ─── Breathing (PHI-ratio irrational) ───
+    // 3-layer golden-ratio pulse. Subperceptual but alive.
+    // thj-surface: 0.2-0.5% amplitude is the sweet spot. We use 10%.
+    float b1 = sin(uTime * 0.13) * 0.5 + 0.5;
+    float b2 = sin(uTime * 0.13 * PHI) * 0.5 + 0.5;
+    float b3 = sin(uTime * 0.13 * PHI * PHI + pos.x * 1.5) * 0.5 + 0.5;
     float breath = uReducedMotion > 0.5
       ? 1.0
-      : 0.94 + 0.06 * sin(uTime * 0.5);
+      : 0.90 + 0.10 * mix(mix(b1, b2, 0.4), b3, 0.3);
 
     vAlpha = baseAlpha * breath;
     vSeed = aSeed;
@@ -121,7 +131,7 @@ const fragmentShader = /* glsl */ `
   uniform float uReducedMotion;
   varying float vAlpha;
   varying float vSeed;
-  varying vec2 vScreenPos;
+  varying float vModelY;
 
   void main() {
     // ─── Module Grid (Face Mask) ───
@@ -139,11 +149,12 @@ const fragmentShader = /* glsl */ `
     // oklch(0.22 0.06 195) — barely above void, cyan-tinted structural mark
     vec3 color = vec3(0.08, 0.18, 0.20);
 
-    // ─── Scanline Sweep ───
+    // ─── Scanline Sweep (model-space) ───
     // Clean horizontal brightness band moving down.
     // LED mux artifact — wide, subtle, not a harsh line.
+    // Uses model Y so the sweep is locked to the sigil, not the viewport.
     if (uReducedMotion < 0.5) {
-      float sweepPhase = fract(vScreenPos.y * 0.5 - uTime * 0.6);
+      float sweepPhase = fract(vModelY * 0.5 - uTime * 0.6);
       float sweep = 1.0 + 0.15 * smoothstep(0.1, 0.0, abs(sweepPhase - 0.9));
       color *= sweep;
     }
@@ -154,7 +165,9 @@ const fragmentShader = /* glsl */ `
     float rowDim = 1.0 - 0.03 * step(0.5, fract(gl_FragCoord.y * 0.125));
     color *= rowDim;
 
-    gl_FragColor = vec4(color, vAlpha);
+    // ─── PMA output ───
+    float alpha = vAlpha;
+    gl_FragColor = vec4(color * alpha, alpha);
   }
 `;
 
@@ -204,7 +217,7 @@ export function SigilParticles({ scale = 0.5 }: SigilParticlesProps) {
       ref={pointsRef}
       geometry={geometry}
       position={[-2.4, 0.4, 0]}
-      scale={[1, 1, 1]}
+      scale={[1.15, 1.15, 1]}
     >
       <shaderMaterial
         ref={materialRef}
@@ -213,7 +226,9 @@ export function SigilParticles({ scale = 0.5 }: SigilParticlesProps) {
         uniforms={uniforms}
         transparent
         depthWrite={false}
-        blending={THREE.NormalBlending}
+        blending={THREE.CustomBlending}
+        blendSrc={THREE.OneFactor}
+        blendDst={THREE.OneMinusSrcAlphaFactor}
       />
     </points>
   );

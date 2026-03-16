@@ -83,7 +83,7 @@ function FooterStats() {
 export function Footer() {
   return (
     <footer className="border-t border-void-border">
-      <div className="mx-auto flex flex-col items-center justify-center gap-3 max-w-6xl px-4 py-6">
+      <div className="mx-auto flex flex-col items-start gap-3 max-w-6xl px-4 py-6">
         <div
           className="h-5 sm:h-6"
           style={{
