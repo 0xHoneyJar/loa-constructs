@@ -2,7 +2,7 @@
 # validate-topology.sh — Topology contamination regression prevention
 # SDD Reference: §6.1 (Constructs Network Phase 2)
 #
-# 7-check validation script that prevents topology contamination in skill packs.
+# 8-check validation script that prevents topology contamination in skill packs.
 # Runs in --strict mode (CI, no allowlist) or --relaxed mode (local, with allowlist).
 #
 # Exit codes:
@@ -17,6 +17,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 
 CONSTRUCTS_DIR=".claude/constructs/packs"
+CACHE_DIR=".cache/construct-repos"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
@@ -412,6 +413,137 @@ check_overlay_security() {
 }
 
 # ---------------------------------------------------------------------------
+# Check 8: Governance Reciprocity Check
+# ---------------------------------------------------------------------------
+
+check_governance_reciprocity() {
+  log "Check 8: Governance reciprocity check..."
+  local count=0
+  local cache_path="$ROOT_DIR/$CACHE_DIR"
+
+  if [[ ! -d "$cache_path" ]]; then
+    log "  Skipping: $CACHE_DIR not found"
+    return
+  fi
+
+  # Build lookup of all construct.yaml files by slug
+  declare -A slug_to_file
+  while IFS= read -r -d '' file; do
+    local slug
+    if command -v yq &>/dev/null; then
+      slug=$(yq -r '.slug // ""' "$file" 2>/dev/null)
+    else
+      slug=$(grep -m1 '^slug:' "$file" 2>/dev/null | sed 's/^slug:[[:space:]]*//' | tr -d '"' | tr -d "'")
+    fi
+    # Validate slug format (a-z, 0-9, hyphens only) to prevent injection
+    if [[ -n "$slug" ]] && [[ "$slug" =~ ^[a-z][a-z0-9-]*$ ]]; then
+      slug_to_file["$slug"]="$file"
+    fi
+  done < <(find "$cache_path" -maxdepth 2 -name "construct.yaml" -print0 2>/dev/null)
+
+  # Check A: For every governs entry, verify the governed construct has governed_by pointing back
+  for slug in "${!slug_to_file[@]}"; do
+    local file="${slug_to_file[$slug]}"
+    local governs_list
+
+    if command -v yq &>/dev/null; then
+      governs_list=$(yq -r '(.governs // []).[] | (.slug // .)' "$file" 2>/dev/null)
+    else
+      # Fallback: extract slug values from both simple (- foo) and structured (- slug: foo) formats
+      governs_list=$(sed -n '/^governs:/,/^[^ ]/{
+        /^  - slug:/{ s/.*slug:[[:space:]]*//; s/[[:space:]]*$//; s/^"//; s/"$//; p; b; }
+        /^  - [^[:space:]]/{  s/^  - //; s/[[:space:]]*$//; s/^"//; s/"$//; p; }
+      }' "$file" 2>/dev/null)
+    fi
+
+    for governed in $governs_list; do
+      [[ -z "$governed" ]] && continue
+      local governed_file="${slug_to_file[$governed]:-}"
+
+      if [[ -z "$governed_file" ]]; then
+        add_warning "governance-reciprocity" "$slug" "Governs '$governed' but no construct.yaml found for it"
+        count=$((count + 1))
+        continue
+      fi
+
+      # Check if the governed construct has governed_by that includes this slug
+      local has_backref=false
+      if command -v yq &>/dev/null; then
+        if yq -e "(.governed_by // []).[] | (.slug // .) | select(. == \"$slug\")" "$governed_file" &>/dev/null; then
+          has_backref=true
+        fi
+      else
+        if grep -qF "governed_by:" "$governed_file" 2>/dev/null; then
+          if sed -n '/^governed_by:/,/^[^ ]/{
+            /^  - slug:/{ s/.*slug:[[:space:]]*//; s/[[:space:]]*$//; s/^"//; s/"$//; p; b; }
+            /^  - [^[:space:]]/{  s/^  - //; s/[[:space:]]*$//; s/^"//; s/"$//; p; }
+          }' "$governed_file" 2>/dev/null | grep -qF "$slug"; then
+            has_backref=true
+          fi
+        fi
+      fi
+
+      if [[ "$has_backref" == false ]]; then
+        local rel_path="${governed_file#"$ROOT_DIR/"}"
+        add_warning "governance-reciprocity" "$rel_path" "'$slug' governs '$governed' but '$governed' lacks governed_by: $slug"
+        count=$((count + 1))
+      fi
+    done
+  done
+
+  # Check B: For every governed_by entry, verify the governor has the construct in its governs list
+  for slug in "${!slug_to_file[@]}"; do
+    local file="${slug_to_file[$slug]}"
+    local governed_by_list
+
+    if command -v yq &>/dev/null; then
+      governed_by_list=$(yq -r '(.governed_by // []).[] | (.slug // .)' "$file" 2>/dev/null)
+    else
+      governed_by_list=$(sed -n '/^governed_by:/,/^[^ ]/{
+        /^  - slug:/{ s/.*slug:[[:space:]]*//; s/[[:space:]]*$//; s/^"//; s/"$//; p; b; }
+        /^  - [^[:space:]]/{  s/^  - //; s/[[:space:]]*$//; s/^"//; s/"$//; p; }
+      }' "$file" 2>/dev/null)
+    fi
+
+    for governor in $governed_by_list; do
+      [[ -z "$governor" ]] && continue
+      local governor_file="${slug_to_file[$governor]:-}"
+
+      if [[ -z "$governor_file" ]]; then
+        add_warning "governance-reciprocity" "$slug" "governed_by '$governor' but no construct.yaml found for it"
+        count=$((count + 1))
+        continue
+      fi
+
+      # Check if the governor construct has governs that includes this slug
+      local has_forwardref=false
+      if command -v yq &>/dev/null; then
+        if yq -e "(.governs // []).[] | (.slug // .) | select(. == \"$slug\")" "$governor_file" &>/dev/null; then
+          has_forwardref=true
+        fi
+      else
+        if grep -qF "governs:" "$governor_file" 2>/dev/null; then
+          if sed -n '/^governs:/,/^[^ ]/{
+            /^  - slug:/{ s/.*slug:[[:space:]]*//; s/[[:space:]]*$//; p; b; }
+            /^  - [^[:space:]]/{  s/^  - //; s/[[:space:]]*$//; s/^"//; s/"$//; p; }
+          }' "$governor_file" 2>/dev/null | grep -qF "$slug"; then
+            has_forwardref=true
+          fi
+        fi
+      fi
+
+      if [[ "$has_forwardref" == false ]]; then
+        local rel_path="${file#"$ROOT_DIR/"}"
+        add_warning "governance-reciprocity" "$rel_path" "'$slug' has governed_by '$governor' but '$governor' lacks governs: $slug"
+        count=$((count + 1))
+      fi
+    done
+  done
+
+  log "  Found $count governance reciprocity warnings"
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -431,6 +563,7 @@ main() {
   check_manifest_v3
   check_context_slots
   check_overlay_security
+  check_governance_reciprocity
 
   # Output results
   if [[ "$JSON_OUTPUT" == true ]]; then
@@ -449,7 +582,7 @@ main() {
     echo "=== Results ==="
 
     if [[ ${#VIOLATIONS[@]} -eq 0 ]]; then
-      echo -e "${GREEN}All 7 checks passed${NC}"
+      echo -e "${GREEN}All 8 checks passed${NC}"
     else
       echo -e "${RED}${#VIOLATIONS[@]} violation(s) found:${NC}"
       echo ""
