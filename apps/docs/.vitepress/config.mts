@@ -7,12 +7,13 @@ const DATA_FILE = resolve(__dirname, "data/constructs.json");
 
 const CATEGORY_ORDER = [
   "design", "analytics", "security", "marketing",
-  "operations", "documentation", "development",
+  "operations", "documentation", "development", "infrastructure",
 ];
 const CATEGORY_LABELS: Record<string, string> = {
   design: "Design", analytics: "Analytics", security: "Security",
   marketing: "Marketing", operations: "Operations",
   documentation: "Documentation", development: "Development",
+  infrastructure: "Infrastructure",
 };
 
 function buildConstructSidebar() {

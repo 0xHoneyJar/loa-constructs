@@ -67,9 +67,12 @@ function yamlNestedList(content: string, parent: string, key: string): string[] 
 }
 
 function normalizeCategory(cat: string): string {
+  // Keep in sync with packages/shared/src/categories.ts LEGACY_SLUG_MAPPINGS
   const map: Record<string, string> = {
     gtm: 'marketing', web3: 'development', observability: 'analytics',
     'game-design': 'design', aesthetics: 'design', communication: 'documentation',
+    'visual-direction': 'design', dev: 'development', docs: 'documentation',
+    ops: 'operations', data: 'analytics', devops: 'operations', infra: 'infrastructure',
   };
   return map[cat] || cat;
 }
@@ -124,20 +127,21 @@ function readConstructFromCache(slug: string): ConstructSummary | null {
   const domain = yamlList(content, 'domain');
   const category = normalizeCategory(domain[0] || 'development');
 
-  // Extract skills — use directory scan (most reliable), fallback to YAML parsing
+  // Extract skills — use YAML declaration as source of truth, fallback to directory scan
+  // YAML declares all skills (including those without index.yaml yet);
+  // directory scan only finds skills with index.yaml.
   const skills: Array<{ slug: string; description: string }> = [];
-  if (skillSlugs.length > 0) {
+  const skillsBlock = content.match(/^skills:\s*\n([\s\S]*?)(?=\n[a-z]|\n$)/m);
+  if (skillsBlock) {
+    const slugMatches = skillsBlock[1].matchAll(/slug:\s*(.+)/g);
+    for (const m of slugMatches) {
+      skills.push({ slug: m[1].trim(), description: '' });
+    }
+  }
+  // Fallback to directory scan if YAML parsing found nothing
+  if (skills.length === 0 && skillSlugs.length > 0) {
     for (const s of skillSlugs) {
       skills.push({ slug: s, description: '' });
-    }
-  } else {
-    // Fallback: parse all slug: lines under skills: block
-    const skillsBlock = content.match(/^skills:\s*\n([\s\S]*?)(?=\n[a-z]|\n$)/m);
-    if (skillsBlock) {
-      const slugMatches = skillsBlock[1].matchAll(/slug:\s*(.+)/g);
-      for (const m of slugMatches) {
-        skills.push({ slug: m[1].trim(), description: '' });
-      }
     }
   }
 
