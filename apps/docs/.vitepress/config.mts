@@ -76,6 +76,7 @@ export default defineConfig({
   title: "Constructs",
   description: "Documentation for the construct ecosystem",
   appearance: "dark",
+  ignoreDeadLinks: true, // API may have fewer constructs than structural docs reference
 
   vite: {
     ssr: {
