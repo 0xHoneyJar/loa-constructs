@@ -13,7 +13,15 @@ const c = construct
 
 <template>
   <div v-if="c" class="vp-doc">
-    <h1>{{ c.name }}</h1>
+    <h1>
+      {{ c.name }}
+      <Badge v-if="c.verification_tier === 'PROVEN'" type="tip" text="Proven" />
+      <Badge v-if="c.verification_tier === 'BACKTESTED'" type="info" text="Backtested" />
+    </h1>
+
+    <p v-if="c.short_description" class="construct-short-desc">
+      {{ c.short_description }}
+    </p>
 
     <blockquote v-if="c.description">
       <p>{{ c.description }}</p>
@@ -98,7 +106,10 @@ const c = construct
 
     <h2>Source</h2>
     <ul>
-      <li>Repo: <code>0xHoneyJar/construct-{{ c.slug }}</code></li>
+      <li v-if="c.repository_url">
+        Repo: <a :href="c.repository_url" target="_blank" rel="noopener noreferrer">{{ c.repository_url.replace('https://github.com/', '') }}</a>
+      </li>
+      <li v-else>Repo: <code>0xHoneyJar/construct-{{ c.slug }}</code></li>
       <li>Grimoire: <code>grimoires/{{ c.slug }}/</code></li>
     </ul>
 
@@ -112,6 +123,12 @@ const c = construct
 </template>
 
 <style scoped>
+.construct-short-desc {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: oklch(0.78 0.01 95);
+  margin: 0.5rem 0 1rem;
+}
 .construct-meta {
   color: oklch(0.68 0.008 95);
   font-size: 0.875rem;
