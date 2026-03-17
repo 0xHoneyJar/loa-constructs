@@ -410,6 +410,26 @@ function normalizeForValidation(raw: Record<string, unknown>): Record<string, un
     }
   }
 
+  // slug: derive from name if missing (external constructs may omit)
+  if (!normalized.slug && typeof normalized.name === 'string') {
+    normalized.slug = (normalized.name as string).toLowerCase().replace(/\s+/g, '-');
+  }
+
+  // type: normalize non-standard values (e.g., "construct" → "skill-pack")
+  if (normalized.type === 'construct' || !normalized.type) {
+    normalized.type = 'skill-pack';
+  }
+
+  // skills: string[] → {slug, path}[] (external constructs may use bare strings)
+  if (Array.isArray(normalized.skills) && normalized.skills.length > 0 && typeof normalized.skills[0] === 'string') {
+    normalized.skills = (normalized.skills as string[]).map(s => ({ slug: s, path: `skills/${s}` }));
+  }
+
+  // commands: string[] → {name, slug, path}[] (external constructs may use bare strings)
+  if (Array.isArray(normalized.commands) && normalized.commands.length > 0 && typeof normalized.commands[0] === 'string') {
+    normalized.commands = (normalized.commands as string[]).map(c => ({ name: `/${c}`, slug: c, path: `commands/${c}` }));
+  }
+
   // runtime_requirements.external_tools: [{name: "foundry", ...}] → ["foundry"]
   if (normalized.runtime_requirements && typeof normalized.runtime_requirements === 'object') {
     const rt = { ...(normalized.runtime_requirements as Record<string, unknown>) };
