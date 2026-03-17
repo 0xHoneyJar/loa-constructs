@@ -2,3 +2,4 @@
 .vitepress/dist
 .vitepress/data
 node_modules
+.vitepress/.temp
