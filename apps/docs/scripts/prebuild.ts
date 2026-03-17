@@ -228,18 +228,73 @@ function computeGraph(constructs: ConstructSummary[]): { nodes: GraphNode[]; edg
   return { nodes, edges };
 }
 
-// Main
-const repos = readdirSync(CACHE_DIR)
-  .filter(d => d.startsWith('construct-'))
-  .map(d => d.replace('construct-', ''));
+// API fetch for CI/Vercel (no local cache available)
+const API_BASE = process.env.CONSTRUCTS_API_URL || 'https://api.constructs.network/v1';
 
-console.log(`[prebuild] Reading ${repos.length} constructs from ${CACHE_DIR}`);
+async function fetchFromAPI(): Promise<ConstructSummary[]> {
+  console.log(`[prebuild] Fetching from ${API_BASE}/constructs?per_page=100`);
+  const res = await fetch(`${API_BASE}/constructs?per_page=100`);
+  if (!res.ok) throw new Error(`API ${res.status}: ${res.statusText}`);
+  const json = await res.json();
+  const apiConstructs = json.data || [];
 
-const constructs: ConstructSummary[] = [];
-for (const slug of repos) {
-  const c = readConstructFromCache(slug);
-  if (c) constructs.push(c);
-  else console.warn(`  SKIP: ${slug}`);
+  return apiConstructs.map((c: any) => ({
+    slug: c.slug,
+    name: c.name,
+    description: c.description || '',
+    short_description: c.short_description || '',
+    version: c.version || '1.0.0',
+    category: normalizeCategory(c.category || 'development'),
+    construct_type: c.construct_type || 'skill-pack',
+    skills_count: c.skills_count || 0,
+    verification_tier: c.verification_tier || 'UNVERIFIED',
+    skills: (c.manifest?.skills || [])
+      .filter((s: any) => s !== null)
+      .map((s: any) => ({ slug: s.slug, description: s.description || '' })),
+    commands: (c.manifest?.commands || []).map((cmd: any) => ({
+      name: cmd.name, description: cmd.description || '',
+    })),
+    governs: c.governs || c.manifest?.governs || [],
+    governed_by: c.governed_by || c.manifest?.governed_by || [],
+    composes_with: c.manifest?.composes_with || [],
+    depends_on: extractDeps(c.manifest?.pack_dependencies),
+    composition_paths: c.composition_paths || c.manifest?.composition_paths || null,
+    repository_url: c.repository_url || `https://github.com/0xHoneyJar/construct-${c.slug}`,
+  }));
+}
+
+function extractDeps(packDeps: unknown): string[] {
+  if (!packDeps) return [];
+  if (Array.isArray(packDeps)) {
+    return packDeps.map((d: any) => d?.slug).filter(Boolean) as string[];
+  }
+  if (typeof packDeps === 'object') {
+    const obj = packDeps as Record<string, unknown>;
+    const required = Array.isArray(obj.required) ? obj.required : [];
+    const optional = Array.isArray(obj.optional) ? obj.optional : [];
+    return [...required, ...optional].map((d: any) => d?.slug).filter(Boolean) as string[];
+  }
+  return [];
+}
+
+// Main — use local cache if available, otherwise API
+let constructs: ConstructSummary[] = [];
+
+if (existsSync(CACHE_DIR)) {
+  const repos = readdirSync(CACHE_DIR)
+    .filter(d => d.startsWith('construct-'))
+    .map(d => d.replace('construct-', ''));
+
+  console.log(`[prebuild] Reading ${repos.length} constructs from ${CACHE_DIR}`);
+
+  for (const slug of repos) {
+    const c = readConstructFromCache(slug);
+    if (c) constructs.push(c);
+    else console.warn(`  SKIP: ${slug}`);
+  }
+} else {
+  console.log(`[prebuild] No local cache — fetching from API`);
+  constructs = await fetchFromAPI();
 }
 
 constructs.sort((a, b) => a.slug.localeCompare(b.slug));
