@@ -1880,7 +1880,7 @@ packsRouter.post(
     }
 
     // Authorization: pack owner OR platform verifier (cycle-echelon)
-    const user = c.get('user' as never) as { isVerifier?: boolean } | undefined;
+    const user = c.get('user');
     const isOwner = await isPackOwner(pack.id, userId);
     const isVerifier = user?.isVerifier ?? false;
     if (!isOwner && !isVerifier) {
@@ -1889,39 +1889,66 @@ packsRouter.post(
       );
     }
 
-    // Rate limit: 10 verifications per pack per day
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const [recentCount] = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(constructVerifications)
-      .where(
-        and(
-          eq(constructVerifications.packId, pack.id),
-          sql`${constructVerifications.createdAt} > ${oneDayAgo}`
-        )
-      );
+    // Tier rank for monotonic enforcement (verifiers cannot downgrade)
+    const tierRank: Record<string, number> = { BACKTESTED: 1, PROVEN: 2 };
 
-    if ((recentCount?.count ?? 0) >= 10) {
-      throw new AppError(
-        'RATE_LIMITED',
-        'Maximum 10 verification submissions per pack per day.',
-        429
-      );
-    }
+    // Atomic rate limit + tier enforcement + insert in a single transaction
+    const verification = await db.transaction(async (tx) => {
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    // Insert verification record (append-only)
-    const [verification] = await db
-      .insert(constructVerifications)
-      .values({
-        packId: pack.id,
-        verificationTier: body.verification_tier,
-        certificateJson: body.certificate_json,
-        issuedBy: body.issued_by,
-        issuedAt: new Date(body.issued_at),
-        expiresAt: body.expires_at ? new Date(body.expires_at) : null,
-        submittedBy: userId,
-      })
-      .returning();
+      const [recentCount] = await tx
+        .select({ count: sql<number>`count(*)::int` })
+        .from(constructVerifications)
+        .where(
+          and(
+            eq(constructVerifications.packId, pack.id),
+            sql`${constructVerifications.createdAt} > ${oneDayAgo}`
+          )
+        );
+
+      if ((recentCount?.count ?? 0) >= 10) {
+        throw new AppError(
+          'RATE_LIMITED',
+          'Maximum 10 verification submissions per pack per day.',
+          429
+        );
+      }
+
+      // Prevent verifiers from downgrading an existing tier
+      if (!isOwner) {
+        const [latest] = await tx
+          .select({ verificationTier: constructVerifications.verificationTier })
+          .from(constructVerifications)
+          .where(eq(constructVerifications.packId, pack.id))
+          .orderBy(desc(constructVerifications.createdAt))
+          .limit(1);
+
+        if (latest) {
+          const incoming = tierRank[body.verification_tier] ?? 0;
+          const existing = tierRank[latest.verificationTier] ?? 0;
+          if (incoming < existing) {
+            throw Errors.Forbidden(
+              'Verifiers cannot downgrade an existing verification tier.'
+            );
+          }
+        }
+      }
+
+      const [inserted] = await tx
+        .insert(constructVerifications)
+        .values({
+          packId: pack.id,
+          verificationTier: body.verification_tier,
+          certificateJson: body.certificate_json,
+          issuedBy: body.issued_by,
+          issuedAt: new Date(body.issued_at),
+          expiresAt: body.expires_at ? new Date(body.expires_at) : null,
+          submittedBy: userId,
+        })
+        .returning();
+
+      return inserted;
+    });
 
     logger.info(
       {
@@ -1944,7 +1971,7 @@ packsRouter.post(
           issued_by: verification.issuedBy,
           issued_at: verification.issuedAt,
           created_at: verification.createdAt,
-          self_attested: isOwner && !isVerifier, // false when submitted by external verifier
+          self_attested: isOwner, // true when pack owner submits, regardless of verifier status
         },
         request_id: requestId,
       },
