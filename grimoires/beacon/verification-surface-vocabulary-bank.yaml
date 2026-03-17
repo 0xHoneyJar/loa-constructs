@@ -1,0 +1,177 @@
+# Verification Surface: Vocabulary Bank
+# Vocabulary governance construct — tiered lexicons, register-aware channels
+#
+# Vocabulary Bank's core promise: words earn their place through use, not decree.
+# Verification = does the copy respect the vocabulary constraints? Does the
+# governance layer actually catch violations before they reach users?
+#
+# These checks can be run against any vocabulary-bank.md + target copy pair.
+
+schema_version: 1
+construct: vocabulary-bank
+construct_version: 0.1.0
+domain: communication
+verification_philosophy: |
+  Vocabulary Bank is a Lexicographer — structural constraint, not grammar police.
+  Verification is not about prose quality. It is about governance: are the right
+  words in the right places at the right register? The vocabulary bank is the
+  source of truth. The UI copy is the artifact under test.
+
+checks:
+  - id: VOCAB-001
+    name: Lexicon Adherence
+    description: >
+      Output copy uses the correct tier vocabulary for its context.
+      Tier 1 (chain-standard) terms are never renamed to custom alternatives
+      in operational contexts. Tier 2 (earned) terms are only used where
+      they've been established. Tier 3 (reserved) terms never appear in
+      production copy.
+    severity: critical
+    category: governance
+    what_it_measures: >
+      Whether each term in the target copy is used at the correct tier
+      and in the correct context per the vocabulary bank definition.
+    how_to_verify:
+      - Load the vocabulary bank (grimoires/*/vocabulary-bank.md)
+      - Extract all terms from target copy (UI strings, toasts, labels, errors)
+      - For each term, check tier classification
+      - Tier 1 terms in operational contexts = PASS
+      - Tier 2 Established terms in any context = PASS
+      - Tier 2 Emerging terms in discovery contexts only = PASS
+      - Tier 2 Candidate terms in production = FAIL (cold-deployed)
+      - Tier 3 terms in any production surface = FAIL (cold-deployed, V1 violation)
+    passing_criteria: "Zero cold-deployed terms (T3 in production). Zero T2 Candidate terms in production. T1 terms never replaced by custom synonyms in operational UI."
+    failure_example: >
+      Copy uses "conviction forge" (Tier 3 reserved) in a confirmation
+      toast. The term hasn't been introduced through a discovery moment —
+      it's cold-deployed into an operational context.
+    ground_truth: vocabulary-bank.md tier tables
+
+  - id: VOCAB-002
+    name: Banned Word Detection
+    description: >
+      The vocabulary gate catches and rejects terms that are explicitly
+      banned in the vocabulary bank or voice profile. This includes
+      hype words, corporate hedging, anthropomorphism, and terms
+      retired from the product vocabulary.
+    severity: high
+    category: governance
+    what_it_measures: >
+      Whether banned terms from the vocabulary bank's banned/avoided
+      list appear in the target copy. Includes both explicit bans
+      (specific words) and pattern bans (anthropomorphism, hedging).
+    how_to_verify:
+      - Load banned words from vocabulary bank + voice.md
+      - Grep target copy for exact matches of banned terms
+      - Scan for anthropomorphism patterns (system + feeling verb)
+      - Scan for hedging patterns (unfortunately, we regret, at this time)
+      - Scan for hype patterns (exciting, revolutionary, game-changing)
+    passing_criteria: "Zero banned terms in output. Zero anthropomorphism. Zero hedging in operational copy."
+    failure_example: >
+      Error toast says "The system is sorry it couldn't process your
+      request." — anthropomorphism (system + feeling verb) and hedging
+      ("sorry" in operational context). Should be: "Transaction failed.
+      Check your balance and retry."
+    ground_truth: vocabulary-bank.md banned words, voice.md avoided terms
+
+  - id: VOCAB-003
+    name: Cross-Channel Term Consistency
+    description: >
+      The same concept uses the same term across all channels. If the
+      product calls it "deposit" in the UI, Herald shouldn't call it
+      "fund" in the announcement, and Discord shouldn't call it "add."
+    severity: high
+    category: consistency
+    what_it_measures: >
+      Whether the same operational concept is expressed with the same
+      vocabulary term across UI copy, announcements, documentation,
+      and community channels. Divergence creates user confusion.
+    how_to_verify:
+      - Identify core operational concepts (deposit, withdraw, stake, claim, etc.)
+      - For each concept, extract the term used in each channel (UI, Herald output, docs, Discord)
+      - Flag concepts where different channels use different terms
+      - Check channel-registry.md for sanctioned per-channel variants
+      - Unsanctioned divergence = violation
+    passing_criteria: "All core operational terms are consistent across channels, or divergence is explicitly declared in channel-registry.md with rationale."
+    failure_example: >
+      UI says "Withdraw", Herald announcement says "Remove liquidity",
+      docs say "Exit position". All three refer to the same on-chain
+      action. User doesn't know they're the same thing.
+    ground_truth: vocabulary-bank.md term definitions, channel-registry.md
+
+  - id: VOCAB-004
+    name: Register-Moment Alignment
+    description: >
+      Vocabulary register (L1 operational vs L2 world) matches the
+      moment type (discovery, action, confirmation, error, idle).
+      World vocabulary in error moments is disorienting. Operational
+      vocabulary in discovery moments is lifeless.
+    severity: medium
+    category: register
+    what_it_measures: >
+      Whether the vocabulary register used in a given UI moment matches
+      the register prescribed by the channel registry and vocabulary
+      bank for that moment type.
+    how_to_verify:
+      - Classify each copy instance by moment type (discovery/action/confirmation/error/idle)
+      - Check the register of terms used (L1 operational vs L2 world)
+      - Error + confirmation moments should be predominantly L1
+      - Discovery + idle moments may include L2 if terms are Established
+      - Flag L2 terms in error/confirmation that aren't marked Established
+    passing_criteria: "Error and confirmation moments use L1 vocabulary exclusively (unless L2 term is Established for that moment type). Discovery moments may use L2 freely."
+    failure_example: >
+      Error toast says "Your conviction forge has encountered turbulence"
+      instead of "Transaction failed." World vocabulary in an error moment
+      adds confusion when the user needs clarity.
+    ground_truth: vocabulary-bank.md register mappings, moment-type classification
+
+  - id: VOCAB-005
+    name: Tonal Symmetry
+    description: >
+      The warmth and register level of error/failure messaging is
+      proportional to success/feature messaging in the same product
+      surface. A cold error register next to a warm feature register
+      signals that error states were an afterthought.
+    severity: medium
+    category: consistency
+    what_it_measures: >
+      The vocabulary ceiling gap between the warmest feature/success
+      copy and the coldest error/failure copy within the same component
+      tree or product surface.
+    how_to_verify:
+      - Within a component tree, collect all success-moment copy and error-moment copy
+      - Score vocabulary ceiling (number of L2 terms, adjectives, qualifiers)
+      - Compare the two scores
+      - Flag surfaces where success copy has 3x+ more warmth markers than error copy
+    passing_criteria: "Vocabulary ceiling ratio between success and error copy within same surface stays below 3:1. Error copy should feel written, not generated."
+    failure_example: >
+      Feature card uses rich L2 vocabulary ("forge your conviction, shape
+      the colony") but the error state is a raw string: "Error: 0x3f2a".
+      The tonal gap signals error states are not part of the design.
+    ground_truth: component tree analysis, vocabulary ceiling scoring
+
+  - id: VOCAB-006
+    name: Gravity Validation
+    description: >
+      Terms marked as "Established" in the vocabulary bank actually
+      appear in 3+ distinct contexts in the codebase. Terms marked
+      "Emerging" appear in 1-2. The tier status reflects reality,
+      not aspiration.
+    severity: medium
+    category: governance
+    what_it_measures: >
+      Whether the usage count of each Tier 2 term in the codebase
+      matches its declared status (Established >= 3 contexts,
+      Emerging = 1-2, Candidate = 0).
+    how_to_verify:
+      - For each Tier 2 term in the vocabulary bank, grep the codebase for usage
+      - Count distinct file contexts (not raw occurrences — different components)
+      - Compare against declared status
+      - Established with < 3 contexts = over-promoted
+      - Candidate with >= 1 context = under-promoted or cold-deployed
+    passing_criteria: "All Established terms appear in 3+ distinct UI contexts. All Candidate terms appear in 0 production contexts. No status/reality mismatches."
+    failure_example: >
+      "Sigil" is marked Established in the vocabulary bank but only
+      appears in one tooltip. It hasn't earned Established status —
+      it should be Emerging at best.
+    ground_truth: codebase grep for term occurrences, vocabulary-bank.md status

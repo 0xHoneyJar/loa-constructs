@@ -1,0 +1,236 @@
+# The Arcade — Verification Surface
+# What does it mean for game design recommendations to be "correct"?
+#
+# The invariant: the system teaches without telling.
+# Every Arcade output must preserve this property: users learn through
+# participation, not instruction. If a recommendation requires a tooltip
+# to function, the recommendation is wrong regardless of structural soundness.
+#
+# Blast radius of wrong verification: experience-level damage that compounds
+# silently. Players don't crash — they churn. They leave before telling you why.
+# A dead loop looks like engagement on dashboards until it doesn't.
+#
+# ONE metric (BARTH): tooltip-free task completion. Did a new user accomplish
+# the core action without being told how?
+
+construct: the-arcade
+version: "1.0.0"
+invariant: "The system teaches without telling. Learning happens through participation, consequence, and spatial design — never through instruction overlays."
+
+verification_checks:
+
+  - check_id: ARC-001
+    name: "Progressive Disclosure Actually Discloses"
+    axis: arcade
+    question: "Did a new user learn the core mechanic without being told?"
+    what_it_catches: >
+      Progression designs that look good on paper but still require tooltips,
+      modals, or documentation to function. The gap between "we designed
+      progressive disclosure" and "the system actually taught."
+    oracle: observation
+    method: >
+      Silent playtest. New user. No preamble. No hints. Observe:
+      (1) Do they discover the core action within the first 5 minutes?
+      (2) Do they perform it correctly without reading instructions?
+      (3) Do they discover the second-layer mechanic within 15 minutes?
+      If they need to ask "what do I do?" — the disclosure failed.
+    evidence_type: playtest_report
+    evidence_schema:
+      required_fields:
+        - tester_context       # What they knew going in (ideally nothing)
+        - time_to_core_action  # Seconds until first successful core action
+        - tooltip_dependency   # Boolean: did they need instruction to proceed?
+        - discovery_sequence   # Ordered list of mechanics discovered
+        - friction_points      # Where they hesitated, failed, or stopped
+    pass_condition: "tooltip_dependency == false AND time_to_core_action < 300s"
+    fail_severity: high
+    fail_consequence: >
+      The system is not teaching — it's hiding. Users who can't discover
+      the core action organically will either bounce (mobile) or develop
+      cargo-cult behaviors (clicking randomly until something works).
+      Neither produces learning.
+    references:
+      - "Miyamoto — BotW Shrine of Resurrection: walled space forces discovery"
+      - "Hanson — Sequelitis: Mega Man X teaches wall-jump by making it the only way forward"
+      - "Beachum — Outer Wilds: entire game is one progressive disclosure"
+
+  - check_id: ARC-002
+    name: "Core Loop Produces Predicted Engagement Pattern"
+    axis: arcade
+    question: "Does the designed loop actually loop — or does it dead-end into grind?"
+    what_it_catches: >
+      Core loops that produce engagement on paper but resolve to linear
+      treadmills in practice. The difference between a loop (action → reward
+      → better action) and a line (action → reward → same action).
+      Also catches mastery loops misidentified as core loops.
+    oracle: behavioral_data
+    method: >
+      Measure the loop's behavioral signature over 10+ sessions:
+      (1) Session duration curve — does it plateau (loop) or decline (line)?
+      (2) Return rate without external triggers — do users come back without
+          notifications, emails, or "you left items in your cart"?
+      (3) Skill expression variance — do experienced users play differently
+          from beginners? (If everyone plays the same, there's no mastery loop.)
+      (4) Voluntary challenge-seeking — do users seek harder content
+          without being gated into it?
+    evidence_type: behavioral_metrics
+    evidence_schema:
+      required_fields:
+        - session_duration_curve   # Array of session lengths over time
+        - organic_return_rate      # Return rate excluding push notifications
+        - skill_expression_delta   # Behavioral difference: new vs. veteran users
+        - voluntary_escalation     # Did users self-select harder challenges?
+    pass_condition: "organic_return_rate > 30% at day 7 AND skill_expression_delta is measurable"
+    fail_severity: high
+    fail_consequence: >
+      A dead loop is the most expensive failure in game design because it
+      looks like success on engagement dashboards until day 30. By then you've
+      built retention features on top of a foundation that doesn't retain.
+      The Zynga pattern: metrics up, soul gone, collapse follows.
+    references:
+      - "Koster — Theory of Fun: play IS pattern recognition. No new patterns = no fun"
+      - "Cook — Skill atoms: the smallest unit of a loop is action → feedback → model update"
+      - "Sid Meier — 'one more turn': the loop pulls you forward, not the content"
+
+  - check_id: ARC-003
+    name: "Consequence Teaches — Stakes Are Absorbable"
+    axis: forum
+    question: "Does failure teach, or does it just punish?"
+    what_it_catches: >
+      Systems where consequence is either absent (paper trading, zero-stakes
+      practice modes that teach nothing because the amygdala never fires)
+      or catastrophic (losing everything on one mistake, destroying the learner).
+      The Arcade operates at "quarter scale" — real enough to learn from,
+      small enough to survive.
+    oracle: observation
+    method: >
+      After a user fails (loses currency, gets a bad trade, dies in-game):
+      (1) Do they understand WHY they failed without being told?
+      (2) Do they change their behavior on the next attempt?
+      (3) Is the recovery path clear and achievable?
+      (4) Does the failure cost feel proportional — neither trivial nor devastating?
+      If (1) is no: the consequence didn't communicate.
+      If (2) is no: the consequence was noise, not signal.
+      If (3) is no: the system is punitive, not pedagogical.
+      If (4) is no: the stakes are miscalibrated.
+    evidence_type: failure_analysis
+    evidence_schema:
+      required_fields:
+        - failure_event            # What happened
+        - user_diagnosis_accuracy  # Did they understand why? (observed, not asked)
+        - behavioral_change        # Did next attempt differ from previous?
+        - recovery_time            # How long to get back to pre-failure state
+        - emotional_read           # Frustration / determination / indifference / despair
+    pass_condition: "user_diagnosis_accuracy == true AND behavioral_change == true AND emotional_read != despair"
+    fail_severity: critical
+    fail_consequence: >
+      Miscalibrated stakes are the root cause of both "boring" and "hostile"
+      systems. Too low: users develop no intuition (paper trading teaches nothing).
+      Too high: users quit and never return (catastrophic loss destroys the learner).
+      Crypto products fail here constantly — real money but no absorbable scale.
+      The failure is silent because churned users don't file bug reports.
+    references:
+      - "Miyazaki — FromSoft: difficulty-as-respect, bloodstains as communal learning"
+      - "Foddy — Getting Over It: deliberate friction that teaches persistence"
+      - "Taleb — Skin in the Game: learning requires real stakes, antifragility requires survivable ones"
+
+  - check_id: ARC-004
+    name: "Shipped Version Retains Core Loop"
+    axis: organism
+    question: "After scope cuts, does the shipped product still contain the game?"
+    what_it_catches: >
+      The BARTH failure mode: scope is cut so aggressively that the shipped
+      version loses the core loop. What ships is a fragment that can't teach,
+      can't loop, can't retain. The quarter went in but the game didn't start.
+      Also catches the inverse: scope NOT cut enough, shipping a bloated v1
+      that collapses under its own complexity.
+    oracle: structural_analysis
+    method: >
+      Compare the shipped version against the designed system:
+      (1) Is the core loop present and completable end-to-end?
+      (2) Can a user experience the full loop in one session?
+      (3) Were cut features from the mastery/retention layer, NOT the core layer?
+      (4) Does the shipped version have a clear "quarter moment" — one interaction
+          that demonstrates the entire game's promise?
+      The rule: cut features, cut content, cut polish. Never cut the loop.
+    evidence_type: scope_audit
+    evidence_schema:
+      required_fields:
+        - designed_loops          # All loops from the system design
+        - shipped_loops           # Which loops survived scope cuts
+        - core_loop_completable   # Boolean: can a user complete the core loop?
+        - quarter_moment_exists   # Boolean: is there one interaction that sells the promise?
+        - cut_inventory           # What was cut and from which layer
+    pass_condition: "core_loop_completable == true AND quarter_moment_exists == true AND core_loop not in cut_inventory"
+    fail_severity: critical
+    fail_consequence: >
+      Shipping without the core loop is shipping nothing. A DeFi product
+      without the swap is a landing page. A card game without the play loop
+      is a gallery. The difference between a shipped game and an unshipped
+      game is infinite — but only if the shipped version IS a game.
+      This is the constraint BARTH must respect: ship fast, but ship the loop.
+    references:
+      - "Barth (Zachtronics) — 15+ shipped games. Ship the constraint, not the content."
+      - "Ismail (Vlambeer) — 'your game is never ready, you just stop working on it'. But you stop AFTER the loop works."
+      - "RuneScape — survived 20+ years because the core loop (gather, craft, trade, fight) never changed. Everything else evolved."
+
+  - check_id: ARC-005
+    name: "System Survives Adversarial Players"
+    axis: forum
+    question: "What happens when someone tries to break it on purpose?"
+    what_it_catches: >
+      Systems designed for cooperative best-case behavior that collapse when
+      real humans arrive. Whales who distort economies. Bots that farm rewards.
+      Griefers who exploit social systems. Cartels that coordinate extraction.
+      Every multiplayer system IS a trust market — verification means the
+      trust mechanisms hold under adversarial conditions.
+    oracle: adversarial_simulation
+    method: >
+      For each system mechanic, ask the three adversary questions:
+      (1) WHALE: What if someone has 100x the resources of a normal user?
+          Does the system still function for everyone else?
+      (2) BOT: What if this action is automated at 1000x human speed?
+          Does the economy/system survive?
+      (3) CARTEL: What if 10 users coordinate to exploit this mechanic?
+          Is the exploit profitable? Is it detectable? Is it recoverable?
+      If any answer is "the system breaks and we can't recover" — the design
+      needs adversarial guardrails BEFORE shipping, not after.
+    evidence_type: threat_model
+    evidence_schema:
+      required_fields:
+        - mechanic_under_test     # Which mechanic is being stress-tested
+        - whale_scenario          # Concentrated resource attack
+        - bot_scenario            # Automation attack
+        - cartel_scenario         # Coordinated exploitation
+        - mitigation_present      # Boolean: does the design address this?
+        - recovery_possible       # Boolean: can the system heal after exploitation?
+    pass_condition: "mitigation_present == true for all high-impact scenarios AND recovery_possible == true"
+    fail_severity: high
+    fail_consequence: >
+      Unverified systems attract adversarial players within days of launch.
+      EVE Online survived because CCP hired economists. Axie Infinity collapsed
+      because SLP had infinite faucets and no adversarial modeling. The forum
+      axis teaches: trust is structural, not assumed. Verification of adversarial
+      resilience IS verification of system design quality.
+    references:
+      - "Ostrom — 8 design principles: graduated sanctions, conflict resolution mechanisms"
+      - "CCP Games / EVE — real economist on staff, adversarial behavior treated as emergent gameplay"
+      - "Gambetta — costly signaling: trust mechanisms must be expensive to fake"
+
+# Meta: How These Checks Compose
+#
+# ARC-001 (disclosure) feeds ARC-002 (loop): if disclosure fails, users never
+# reach the core loop, so loop metrics are meaningless.
+#
+# ARC-003 (consequence) validates ARC-002 (loop): a loop without consequence
+# produces engagement without learning. The loop spins but teaches nothing.
+#
+# ARC-004 (scope) gates everything: if the core loop was cut during shipping,
+# ARC-001 through ARC-003 are testing a fragment, not a game.
+#
+# ARC-005 (adversarial) stress-tests ARC-002 and ARC-003: a loop that works
+# for cooperative players but breaks under adversarial conditions is unverified.
+#
+# Execution order: ARC-004 first (is the loop present?), then ARC-001 (does
+# disclosure work?), then ARC-002 (does the loop loop?), then ARC-003 (do
+# stakes teach?), then ARC-005 (does it survive hostility?).

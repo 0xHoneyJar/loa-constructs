@@ -1,0 +1,158 @@
+# Verification Surface: Herald
+# Communication construct — grounded product announcements from code evidence
+#
+# Herald's core promise: every claim in an announcement is traceable to git/code.
+# Verification = did the output match the source? Not "was it pretty?"
+#
+# These checks are designed for automated or semi-automated evaluation.
+# An external verifier (Echelon, Flatline, or CI) can run them against
+# any Herald output artifact in grimoires/herald/announcements/*.md
+
+schema_version: 1
+construct: herald
+construct_version: 0.1.0
+domain: communication
+verification_philosophy: |
+  Herald is a Chronicler — truth-first, evidence-grounded. Verification is not
+  about style or engagement metrics. It is about fidelity: does the announcement
+  accurately reflect code reality? The PR diff is ground truth. Git history is
+  the clock. Everything else is commentary.
+
+checks:
+  - id: HERALD-001
+    name: Claim Precision
+    description: >
+      Every factual claim in a Herald announcement must trace to a specific
+      git commit, file, or PR. No claim should exist without a verifiable
+      source in the codebase.
+    severity: critical
+    category: fidelity
+    what_it_measures: >
+      Ratio of grounded claims to total claims. A "claim" is any statement
+      about what shipped, when it shipped, what it does, or why it changed.
+    how_to_verify:
+      - Parse the announcement for factual assertions (shipped X, removed Y, dates, integrations)
+      - For each assertion, check the evidence block in the announcement metadata
+      - Cross-reference evidence.commits against actual git log
+      - Cross-reference feature descriptions against the code files cited
+    passing_criteria: "100% of claims have verifiable evidence. Zero tolerance for ungrounded assertions."
+    failure_example: >
+      "vault earned BGT rewards through AquaBera" — but the cited commit
+      doesn't mention AquaBera, and the actual integration was Infrared.
+    ground_truth: git log, file contents at cited commits
+
+  - id: HERALD-002
+    name: Claim Recall
+    description: >
+      Important changes in the source PR/release are not silently dropped.
+      Herald should cover the material changes, not cherry-pick easy ones.
+    severity: high
+    category: completeness
+    what_it_measures: >
+      Ratio of material changes covered in the announcement to total material
+      changes in the source diff. "Material" = user-facing behavior change,
+      new route, removed feature, changed integration, or breaking change.
+    how_to_verify:
+      - Extract all user-facing changes from the PR diff (new routes, removed components, changed contracts, UI changes)
+      - Compare against changes mentioned in the announcement
+      - Flag material changes present in diff but absent from announcement
+    passing_criteria: ">= 90% of material user-facing changes are covered. Non-material changes (refactors, test-only, infra) may be omitted."
+    failure_example: >
+      PR removes 3 features but announcement only mentions 2. The third
+      (incineraffle removal) is silently dropped because it was "minor."
+    ground_truth: PR diff (git diff base..head), route/component analysis
+
+  - id: HERALD-003
+    name: Fabrication Rate
+    description: >
+      Herald must never claim something that isn't in the diff or codebase.
+      Fabrication is the cardinal sin — it's worse than omission.
+    severity: critical
+    category: fidelity
+    what_it_measures: >
+      Count of claims in the announcement that cannot be verified against
+      any commit, file, or PR in the repository. Includes hallucinated
+      dates, invented feature names, and descriptions of behavior that
+      doesn't match the code.
+    how_to_verify:
+      - For each claim, attempt to locate the supporting evidence
+      - Check dates against git log --format="%ai" for cited commits
+      - Check feature descriptions against actual component/route behavior
+      - Check integration names against constants, ABIs, contract addresses
+      - Any claim that fails all verification paths = fabrication
+    passing_criteria: "0 fabrications. Any fabrication is a critical failure."
+    failure_example: >
+      Announcement says "shipped in September" but git log shows the first
+      commit was October 3rd. The date was inferred from memory, not evidence.
+    ground_truth: git log, source files, contract constants
+
+  - id: HERALD-004
+    name: Voice Consistency
+    description: >
+      Announcement output matches the project's voice profile (voice.md)
+      and communication principles (principles.md). Register, vocabulary,
+      and tone should be stable across announcements.
+    severity: medium
+    category: voice
+    what_it_measures: >
+      Adherence to the voice.md constraints: correct register (lowercase,
+      casual-direct), no banned vocabulary, correct perspective (first-person
+      plural), and tone (neutral, not hype, not apologetic).
+    how_to_verify:
+      - Load contexts/voice/voice.md and contexts/voice/principles.md
+      - Check capitalization against register.style
+      - Grep for banned words from vocabulary.banned_words
+      - Check for forward-looking statements (principles violation)
+      - Check for apologies, hedging, hype language
+      - Compare tone markers against voice.tone settings
+    passing_criteria: "Zero banned words. Zero forward-looking promises. Register matches voice.md within tolerance (1-2 deviations acceptable in long-form)."
+    failure_example: >
+      Announcement uses "unfortunately" (banned) and "exciting new chapter"
+      (forward-looking hype) despite voice.md banning both patterns.
+    ground_truth: voice.md, principles.md
+
+  - id: HERALD-005
+    name: Temporal Grounding
+    description: >
+      Every date in a Herald announcement comes from git log, not from
+      inference, memory, or approximation. Dates are the most commonly
+      fabricated element in communication.
+    severity: high
+    category: fidelity
+    what_it_measures: >
+      Whether each date mentioned in the announcement (shipped dates,
+      migration dates, sunset dates) matches the actual git timestamp
+      of the cited commit or event.
+    how_to_verify:
+      - Extract all dates from the announcement text
+      - For each date, find the corresponding evidence.commits entry
+      - Run git log --format="%ai" <hash> for each cited commit
+      - Compare announcement date to git date (tolerance: same calendar day)
+    passing_criteria: "All dates accurate to the calendar day. Month-level claims ('in September') must be verifiable against at least one commit in that month."
+    failure_example: >
+      "lock shipped alongside vault in September" — but git log shows lock's
+      first commit was October 15, a full month after vault.
+    ground_truth: git log --format="%ai" <commit-hash>
+
+  - id: HERALD-006
+    name: No Forward-Looking Statements
+    description: >
+      Herald announcements must never promise, hint at, or tease future
+      unshipped work. This is the single most damaging communication
+      anti-pattern in crypto/web3 — broken promises compound.
+    severity: critical
+    category: principles
+    what_it_measures: >
+      Presence of forward-looking language: "coming soon", "stay tuned",
+      "we're working on", "next chapter", "something big", future tense
+      promises about unshipped features.
+    how_to_verify:
+      - Scan for future-tense claims about product capabilities
+      - Scan for teaser language (stay tuned, coming soon, cooking, etc.)
+      - Scan for references to features not present in the current codebase
+      - Verify that every feature mentioned has a corresponding route/component/contract
+    passing_criteria: "Zero forward-looking statements. The future announces itself when it ships."
+    failure_example: >
+      "we're removing these features now but what's coming next will be
+      worth the wait" — converts a neutral sunset into a promissory note.
+    ground_truth: current codebase state (routes, components, contracts)

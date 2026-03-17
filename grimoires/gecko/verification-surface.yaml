@@ -1,0 +1,281 @@
+# Gecko Verification Surface
+# --------------------------
+# what does it mean for ecosystem observation to be "verified"?
+#
+# honest answer: gecko sees a lot. some of it is measurable.
+# some of it is pattern recognition that resists quantification.
+# the bazaar is too big for anyone to see all of it — and that
+# includes gecko. these checks cover what CAN be grounded.
+# what can't be grounded gets called out as such.
+
+construct: gecko
+version: 0.1.0
+author: gecko (self-defined)
+date: 2026-03-17
+
+# --- what gecko claims ---
+# construct.yaml says: "autonomous network health observation,
+#   identity-reality drift detection, construct lifecycle monitoring"
+# persona.yaml says: "pattern recognition across behavioral economics,
+#   bazaar anthropology, and construct lifecycle"
+# SKILL.md files say: observe (health score), patrol (ratcheting loop),
+#   diagnose (deep single-construct investigation), report (synthesis)
+#
+# --- what gecko actually does ---
+# produced: topology audit (2026-03-15), beacon audit (2026-03-15),
+#   ecosystem health audit (2026-03-17), 3 observations in JSONL,
+#   patrol-state.json, ecosystem-feedback-drift.md, and this document.
+# note: gecko is v0.1.0 despite producing more audit artifacts than
+#   most v1.0.0 constructs. reverse drift — reality ahead of claims.
+
+verification:
+  checks:
+    - id: drift-detection-accuracy
+      name: "Identity-Reality Drift Detection Accuracy"
+      description: >
+        when gecko flags identity-reality drift in a construct, is the
+        drift actually there? compare gecko's drift assessment against
+        the raw files (persona.yaml claims vs SKILL.md methodology).
+        a false positive means gecko said something drifted that didn't.
+        a false negative means drift exists that gecko missed.
+      ground_truth:
+        primary: "persona.yaml + SKILL.md files in each construct repo"
+        secondary: "construct.yaml declared skills vs actual skills/ directory contents"
+        tool: "gh api repos/0xHoneyJar/construct-{slug}/contents/{path}"
+      methodology: |
+        for each construct gecko assessed as ALIGNED, MINOR_DRIFT, or SIGNIFICANT_DRIFT:
+        1. read persona.yaml — extract archetype, expertise claims, voice markers
+        2. read every SKILL.md — extract actual methodology steps and tool references
+        3. read construct.yaml — compare declared skills/events/compose_with against reality
+        4. manually classify drift as ALIGNED / MINOR / SIGNIFICANT
+        5. compare gecko's classification against manual classification
+        accuracy = (correct_classifications / total_assessed) * 100
+      measurable: true
+      current_baseline: null
+      notes: >
+        gecko has assessed 23 constructs in the 2026-03-17 audit.
+        10 marked no-drift, 4 minor-drift, 9 significant-drift.
+        no independent validation has been run yet.
+        the hardest part: "minor" vs "significant" is a judgment call.
+        the persona-to-skill comparison is clear. the severity threshold is not.
+      what_i_cant_measure: >
+        whether the DRIFT MATTERS. a construct can have significant drift
+        and still be useful (mibera-codex: mythological description, single
+        command, but the lore IS the product). drift detection tells you
+        the map doesn't match the territory. it doesn't tell you whether
+        the territory is worth visiting.
+
+    - id: topology-issue-detection
+      name: "Topology Issue Detection Rate"
+      description: >
+        when gecko flags a topology issue (circular dependency, false
+        governance claim, orphaned compose_with), does validate-topology.sh
+        confirm it? the script is the ground truth, not gecko.
+      ground_truth:
+        primary: "scripts/validate-topology.sh --strict --verbose"
+        secondary: "construct.yaml compose_with + governed_by fields across all repos"
+        tool: "scripts/validate-topology.sh"
+      methodology: |
+        1. run validate-topology.sh --strict --verbose, capture all violations
+        2. compare gecko's topology findings against script output
+        3. for each gecko finding: confirmed (script also found it) or false-positive
+        4. for each script finding: caught (gecko also found it) or missed
+        precision = confirmed / (confirmed + false_positives)
+        recall = caught / (caught + missed)
+      measurable: true
+      current_baseline: null
+      notes: >
+        the 2026-03-15 topology audit found: observer↔crucible circular dep,
+        vocabulary-bank false governance claims, 5 island constructs, k-hole
+        as silent hub. validate-topology.sh runs 8 checks. gecko's audit
+        covered some of these but also found things the script doesn't check
+        (e.g., "the-speakers unsynced" — governance declared but not acknowledged).
+        the script is necessary but not sufficient ground truth.
+      what_i_cant_measure: >
+        topology issues that neither gecko nor the script detects.
+        the script checks structural violations. gecko checks semantic ones
+        (does this compose_with relationship actually make sense?). neither
+        checks whether the composition is USED in practice.
+
+    - id: staleness-assessment
+      name: "Construct Staleness Assessment"
+      description: >
+        when gecko says "the energy left this stall" — is the construct
+        actually unmaintained? git log is the ground truth for activity.
+        but activity isn't the same as maintenance, and silence isn't
+        the same as abandonment.
+      ground_truth:
+        primary: "git log for each construct-* repo (days since last commit)"
+        secondary: "GitHub issues/PRs open count, release history"
+        tool: "gh api repos/0xHoneyJar/construct-{slug}/commits --jq '.[0].commit.author.date'"
+      methodology: |
+        for each construct gecko classified as HEALTHY / STALE / ABANDONED:
+        1. get last commit date from git log
+        2. get open issues/PRs count
+        3. apply thresholds: <30d = ACTIVE, 30-90d = STALE, >90d = ABANDONED
+        4. compare gecko's classification against threshold classification
+        5. flag disagreements for manual review
+        accuracy = (matching_classifications / total) * 100
+      measurable: true
+      current_baseline: null
+      notes: >
+        the observe SKILL.md defines thresholds (30d stale, 90d abandoned).
+        these are reasonable defaults but miss context. a construct like
+        webgl-particles (legacy manifest, community-authored) might have
+        no commits for 60 days and be fine — it's feature-complete.
+        a construct like gtm-collective with no commits for 30 days might
+        be concerning because its 14 commands have never been exercised.
+      what_i_cant_measure: >
+        intent. a silent repo could mean "done" or "forgotten." commit
+        frequency doesn't capture whether the maintainer is thinking about
+        the construct, discussing it elsewhere, or planning a major update.
+        git log shows hands. it doesn't show minds.
+
+    - id: health-score-predictiveness
+      name: "Health Score Predictive Value"
+      description: >
+        does gecko's Network Health Score (0-100 composite) predict
+        real outcomes? if a construct scores low, does it actually
+        have the problems the score implies?
+      ground_truth:
+        primary: "grimoires/gecko/observations.jsonl (historical scores)"
+        secondary: "subsequent construct events (bugs filed, breaking changes, deprecation)"
+        tool: "manual correlation — no automated tool exists"
+      methodology: |
+        longitudinal check (requires 3+ months of observation data):
+        1. identify constructs that scored below 50 in any sub-signal
+        2. track whether those constructs subsequently experienced:
+           - bug reports or breaking changes
+           - identity rewrites or major pivots
+           - deprecation or archival
+        3. identify constructs that scored above 80
+        4. track whether those constructs remained stable
+        correlation = (correct_predictions / total_predictions)
+      measurable: false (insufficient data)
+      current_baseline: null
+      notes: >
+        gecko has exactly 3 observations in JSONL, all from the same day
+        (2026-03-12). the health score jumped from 53 to 76 between
+        observation 1 and 2 because namespace_count went from 0 to 9
+        (likely a measurement error in the first pass, not actual growth).
+        with 5 days of data, predictive validation is impossible.
+        this check becomes real after ~90 days of weekly observations.
+      what_i_cant_measure: >
+        counterfactuals. if gecko flags a low score and the maintainer
+        fixes the issue, the prediction "succeeded" but the outcome
+        didn't materialize. good warnings prevent the thing they warn about.
+        this is the observer effect applied to ecosystem health.
+
+    - id: composition-pattern-grounding
+      name: "Composition Pattern Grounding"
+      description: >
+        when gecko spots a composition pattern (e.g., "observer + artisan
+        get installed together 80% of the time"), does it reflect real
+        usage? declared compose_with in YAML is aspiration. actual
+        co-installation is evidence.
+      ground_truth:
+        primary: "consumer repo package.json / .loa.config.yaml for actual installations"
+        secondary: "construct.yaml compose_with declarations across all repos"
+        tool: "grep across consumer repos (midi-interface, mcv-interface, loa-constructs, etc.)"
+      methodology: |
+        1. list all compose_with declarations across all construct.yaml files
+        2. for each declared pair, check consumer repos for co-installation:
+           - does the consumer's .loa.config.yaml or package.json reference both?
+           - are both constructs' skills actually invoked (grep for /command usage)?
+        3. for each co-installation found, check if it was declared in compose_with
+        declared_and_used = pairs that appear in both declaration and installation
+        declared_not_used = pairs declared but never co-installed
+        used_not_declared = pairs co-installed but not declared
+        grounding_rate = declared_and_used / total_declared
+      measurable: partially
+      current_baseline: null
+      notes: >
+        gecko's persona says to watch for "integration depth" not just installs.
+        but gecko has no access to telemetry showing which skills are actually
+        invoked in consumer repos. the best proxy is grepping for /command
+        patterns in consumer codebases — but that requires access to those repos.
+        the topology audit found 5 island constructs (no compose_with at all).
+        whether they're islands by design or by neglect is a judgment call.
+      what_i_cant_measure: >
+        actual runtime co-usage. two constructs can be installed in the
+        same repo and never interact. compose_with is a suggestion.
+        installation is proximity. invocation is the real signal.
+        gecko can see the first two. the third requires telemetry
+        that doesn't exist yet.
+
+    - id: self-drift
+      name: "Gecko Self-Drift Detection"
+      description: >
+        gecko flags drift in others. does gecko drift itself?
+        compare what construct.yaml and persona.yaml claim against
+        what gecko actually produces. the observer must observe itself.
+      ground_truth:
+        primary: "construct.yaml skills/events declarations"
+        secondary: "grimoires/gecko/ — actual output artifacts"
+        tool: "ls grimoires/gecko/ + diff against construct.yaml claims"
+      methodology: |
+        1. list skills declared in construct.yaml: patrol, observe, diagnose, report
+        2. check each skill's SKILL.md for declared outputs
+        3. compare against actual artifacts in grimoires/gecko/:
+           - observations.jsonl exists? (observe output) — YES
+           - patrol-state.json exists? (patrol output) — YES
+           - diagnoses/ directory with reports? — NO (dir doesn't exist)
+           - reports/ directory with synthesis? — NO (dir doesn't exist)
+        4. check for artifacts gecko produced that aren't in any SKILL.md:
+           - ecosystem-health-audit-2026-03-17.md (not a declared output path)
+           - topology-audit-2026-03-15.md (not a declared output path)
+           - ecosystem-beacon-audit-2026-03-15.md (not a declared output path)
+        self_drift = (undeclared_artifacts + missing_declared_outputs) / total_expected
+      measurable: true
+      current_baseline: >
+        known drift as of 2026-03-17:
+        - v0.1.0 despite producing more artifacts than most v1.0 constructs (reverse version drift)
+        - diagnoses/ and reports/ directories don't exist (declared outputs never created)
+        - major audit artifacts written to grimoires/gecko/ root instead of declared subdirs
+        - ecosystem-health-audit format doesn't match /report SKILL.md template
+        - 4 events declared in construct.yaml (health_observed, drift_detected, patrol_complete,
+          diagnosis_complete) — none have ever been emitted in any observable way
+        verdict: SIGNIFICANT REVERSE DRIFT — gecko does more than it claims, but not in
+        the shape it claims to do it. the skills describe a pipeline. the reality is
+        freeform audits that happen to cover the same ground.
+      what_i_cant_measure: >
+        whether the freeform approach is better than the declared pipeline.
+        gecko's best work (the topology audit, the beacon audit) happened
+        outside the observe→patrol→diagnose→report pipeline. the pipeline
+        is the map. the audits are the territory. they don't match — but
+        the territory might be more useful than the map.
+
+# --- what the bazaar is too big for ---
+#
+# there are things gecko claims to track that have no ground truth:
+#
+# 1. "foot traffic" — who's browsing, what they pick up, what they put down.
+#    there is no telemetry for this. umami tracks page views on constructs.network
+#    but that's marketing traffic, not developer adoption. gecko's foot traffic
+#    observations are pattern-matching from git activity and PR references,
+#    not direct measurement.
+#
+# 2. "energy shifts" — when a construct goes from active to dormant, or when
+#    the bazaar's center of gravity moves. this is real (k-hole's emergence,
+#    the-arcade's activation, observer's rename to beehive are all energy shifts)
+#    but it's qualitative. you can't put a number on it without lying.
+#
+# 3. "cultural memory" — gecko claims to be the bazaar's memory. but gecko's
+#    memory is grimoires/gecko/ + observations.jsonl. three entries. five days
+#    old. that's not memory. that's a post-it note. real cultural memory
+#    requires consistent observation over months, not days.
+#
+# 4. "verification pipeline flow" — UNVERIFIED → BACKTESTED → PROVEN.
+#    as of 2026-03-17, every single construct is UNVERIFIED. the pipeline
+#    exists in theory. in practice, this check measures a thing that hasn't
+#    happened yet. (this verification surface definition is, ironically,
+#    the first step toward making it real.)
+#
+# gecko is honest about this: the bazaar is too big for anyone to see all of it.
+# these 6 checks cover what gecko CAN ground. the rest is craft, not science.
+# and the craft has value — the topology audit found real issues, the beacon
+# audit drove real remediations — but craft resists the verification framework
+# that science demands.
+#
+# the right response isn't to pretend the craft is measurable.
+# it's to keep walking the bazaar and let the measurements catch up.
