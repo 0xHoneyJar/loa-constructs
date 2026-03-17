@@ -279,7 +279,7 @@ function toPackManifest(validated: ValidatedPackManifest): PackManifest {
  */
 const ALLOWED_DIRS = ['skills', 'commands', 'contexts', 'identity', 'scripts', 'templates'];
 const ALLOWED_ROOT_FILES = [
-  'construct.yaml', 'manifest.json', 'manifest.yaml',
+  'construct.yaml', 'construct.json', 'manifest.json', 'manifest.yaml',
   'README.md', 'LICENSE', 'CHANGELOG.md',
 ];
 const MAX_FILES = 500;
@@ -463,10 +463,40 @@ function discoverFromOrg(): Record<string, { gitUrl: string; gitRef: string; git
   return configs;
 }
 
+/**
+ * Load external construct sources from registry-sources.yaml.
+ * Merges with org-discovered or hardcoded configs.
+ */
+function loadExternalSources(): Record<string, { gitUrl: string; gitRef: string }> {
+  const sourcesPath = join(__dirname, '../registry-sources.yaml');
+  if (!existsSync(sourcesPath)) return {};
+
+  try {
+    const raw = require('fs').readFileSync(sourcesPath, 'utf-8');
+    const parsed = yaml.load(raw) as { external?: Record<string, { git_url: string; git_ref: string }> };
+    if (!parsed?.external) return {};
+
+    const configs: Record<string, { gitUrl: string; gitRef: string }> = {};
+    for (const [slug, source] of Object.entries(parsed.external)) {
+      configs[slug] = { gitUrl: source.git_url, gitRef: source.git_ref || 'main' };
+    }
+
+    if (Object.keys(configs).length > 0) {
+      console.log(`🌐 Loaded ${Object.keys(configs).length} external source(s): ${Object.keys(configs).join(', ')}`);
+    }
+    return configs;
+  } catch (err) {
+    console.warn('⚠️  Failed to load registry-sources.yaml:', (err as Error).message);
+    return {};
+  }
+}
+
 async function discoverPacks(): Promise<DiscoveredPack[]> {
-  const configs = AUTO_DISCOVER ? discoverFromOrg() : GIT_CONFIGS;
+  const orgConfigs = AUTO_DISCOVER ? discoverFromOrg() : GIT_CONFIGS;
+  const externalConfigs = loadExternalSources();
+  const configs = { ...orgConfigs, ...externalConfigs };
   const source = AUTO_DISCOVER ? `${CONSTRUCTS_ORG} org (auto-discover)` : 'GIT_CONFIGS (hardcoded)';
-  console.log(`📂 Discovering packs from ${source}...\n`);
+  console.log(`📂 Discovering packs from ${source}${Object.keys(externalConfigs).length > 0 ? ' + external sources' : ''}...\n`);
 
   if (ONLY_SLUGS) {
     const slugList = Array.from(ONLY_SLUGS).join(', ');
@@ -497,8 +527,9 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
     try {
       const repoDir = cloneOrPull(slug, config.gitUrl, config.gitRef);
 
-      // Prefer construct.yaml (schema v3), fall back to manifest.json (legacy)
+      // Prefer construct.yaml (schema v3), fall back to construct.json/manifest.json (legacy/external)
       const manifestJsonPath = join(repoDir, 'manifest.json');
+      const constructJsonPath = join(repoDir, 'construct.json');
       const constructYamlPath = join(repoDir, 'construct.yaml');
       let manifest: PackManifest;
 
@@ -532,21 +563,23 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
               : undefined,
           };
         }
-      } else if (existsSync(manifestJsonPath)) {
-        const content = await readFile(manifestJsonPath, 'utf-8');
+      } else if (existsSync(constructJsonPath) || existsSync(manifestJsonPath)) {
+        const jsonPath = existsSync(constructJsonPath) ? constructJsonPath : manifestJsonPath;
+        const jsonName = existsSync(constructJsonPath) ? 'construct.json' : 'manifest.json';
+        const content = await readFile(jsonPath, 'utf-8');
         const raw = JSON.parse(content);
         const result = packManifestSchema.safeParse(normalizeForValidation(raw));
         if (result.success) {
           fullManifest = result.data;
           manifest = toPackManifest(result.data);
-          console.log(`     → validated manifest.json for ${slug} (full manifest captured)`);
+          console.log(`     → validated ${jsonName} for ${slug} (full manifest captured)`);
         } else {
-          console.warn(`     → manifest.json for ${slug} failed Zod validation, using raw fields`);
+          console.warn(`     → ${jsonName} for ${slug} failed Zod validation, using raw fields`);
           console.warn(`       Errors: ${result.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(', ')}`);
           manifest = raw as PackManifest;
         }
       } else {
-        console.warn(`   Skipping ${slug}: no construct.yaml or manifest.json found`);
+        console.warn(`   Skipping ${slug}: no construct.yaml, construct.json, or manifest.json found`);
         continue;
       }
 

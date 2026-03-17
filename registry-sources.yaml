@@ -1,0 +1,15 @@
+# External construct sources — repos outside the 0xHoneyJar namespace
+# These are merged with org-discovered repos during seed/sync.
+# Format: slug → git URL + branch
+#
+# To add an external construct:
+# 1. Add entry here with the repo URL and branch
+# 2. Run: bun run seed:auto (or bun run seed --only <slug>)
+# 3. The construct syncs into the registry alongside org constructs
+
+external:
+  hypha:
+    git_url: https://github.com/0xElCapitan/hypha.git
+    git_ref: main
+    author: "El Capitan (apDAO)"
+    # Note: uses construct.json not construct.yaml — seed script handles both
