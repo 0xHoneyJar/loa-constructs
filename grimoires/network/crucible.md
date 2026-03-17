@@ -20,9 +20,6 @@ tags:
 
 ## Relationships
 
-### Depends On
-- [[observer]]
-
 ### Composes With
 - [[observer]]
 ## Composition Paths

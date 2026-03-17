@@ -1879,11 +1879,13 @@ packsRouter.post(
       throw Errors.NotFound('Pack not found');
     }
 
-    // Authorization: pack owner only (MVP)
+    // Authorization: pack owner OR platform verifier (cycle-echelon)
+    const user = c.get('user' as never) as { isVerifier?: boolean } | undefined;
     const isOwner = await isPackOwner(pack.id, userId);
-    if (!isOwner) {
+    const isVerifier = user?.isVerifier ?? false;
+    if (!isOwner && !isVerifier) {
       throw Errors.Forbidden(
-        'Only pack owners can submit verifications. Verifier role support coming soon.'
+        'Only pack owners or verified platform verifiers can submit verifications.'
       );
     }
 
@@ -1917,6 +1919,7 @@ packsRouter.post(
         issuedBy: body.issued_by,
         issuedAt: new Date(body.issued_at),
         expiresAt: body.expires_at ? new Date(body.expires_at) : null,
+        submittedBy: userId,
       })
       .returning();
 
@@ -1941,7 +1944,7 @@ packsRouter.post(
           issued_by: verification.issuedBy,
           issued_at: verification.issuedAt,
           created_at: verification.createdAt,
-          self_attested: true, // MVP: only pack owners can submit — always self-attested
+          self_attested: isOwner && !isVerifier, // false when submitted by external verifier
         },
         request_id: requestId,
       },

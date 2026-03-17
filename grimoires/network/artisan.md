@@ -27,6 +27,7 @@ tags:
 - [[showcase]]
 - [[the-arcade]]
 - [[the-mint]]
+- [[the-speakers]]
 
 ### Composes With
 - [[observer]]

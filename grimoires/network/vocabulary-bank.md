@@ -27,8 +27,6 @@ tags:
 - [[social-oracle]]
 - [[gtm-collective]]
 - [[growthpages]]
-- [[observer]]
-- [[artisan]]
 ## Source
 
 - Repo: `0xHoneyJar/construct-vocabulary-bank`

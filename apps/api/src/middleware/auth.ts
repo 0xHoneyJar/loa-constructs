@@ -21,6 +21,7 @@ export interface AuthUser {
   tier: 'free' | 'pro' | 'team' | 'enterprise';
   role?: 'user' | 'admin' | 'super_admin';
   isOrgMember: boolean; // cycle-038: GitHub org membership
+  isVerifier: boolean; // cycle-echelon: external verifier role
   walletAddress: string | null; // cycle-040: dashboard
 }
 
@@ -68,6 +69,7 @@ async function getUserById(userId: string): Promise<AuthUser | null> {
       name: users.name,
       emailVerified: users.emailVerified,
       isAdmin: users.isAdmin,
+      isVerifier: users.isVerifier, // cycle-echelon
       githubOrgMember: users.githubOrgMember, // cycle-038
       walletAddress: users.walletAddress, // cycle-040
     })
@@ -90,6 +92,7 @@ async function getUserById(userId: string): Promise<AuthUser | null> {
     tier: effectiveTier.tier,
     role: user.isAdmin ? 'admin' : 'user',
     isOrgMember: user.githubOrgMember ?? false, // cycle-038
+    isVerifier: user.isVerifier ?? false, // cycle-echelon
     walletAddress: user.walletAddress ?? null, // cycle-040
   };
 }

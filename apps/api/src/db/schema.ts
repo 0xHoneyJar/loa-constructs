@@ -151,6 +151,7 @@ export const users = pgTable(
     ),
     payoutThresholdCents: integer('payout_threshold_cents').default(5000), // $50 minimum
     isAdmin: boolean('is_admin').default(false),
+    isVerifier: boolean('is_verifier').default(false), // cycle-echelon: external verifier role (Tobias)
 
     // GitHub org membership — cycle-038
     // @see sdd.md §2.4 Users Table: Add Org Membership Columns
@@ -1254,6 +1255,7 @@ export const constructVerifications = pgTable(
     issuedBy: varchar('issued_by', { length: 100 }).notNull(),
     issuedAt: timestamp('issued_at', { withTimezone: true }).notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
+    submittedBy: uuid('submitted_by').references(() => users.id), // who called the endpoint (null for legacy rows)
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => ({
