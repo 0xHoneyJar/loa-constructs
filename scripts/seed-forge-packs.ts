@@ -849,6 +849,14 @@ async function seedForgePacks() {
         }
         console.log(`     → visibility: ${packVisibility} (manifest=${pack.rawVisibility ?? 'none'}, registry=${registryVis ?? 'none'})`);
 
+        // Logo: read from logos/<slug>.svg if it exists
+        const logoPath = join(__dirname, '../logos', `${pack.slug}.svg`);
+        let logoKnockout: string | null = null;
+        if (existsSync(logoPath)) {
+          logoKnockout = require('fs').readFileSync(logoPath, 'utf-8');
+          console.log(`     → logo: loaded from logos/${pack.slug}.svg (${logoKnockout.length} bytes)`);
+        }
+
         const packResult = await tx`
           INSERT INTO packs (
             id, name, slug, description, short_description, long_description, icon, owner_id, owner_type,
@@ -857,6 +865,7 @@ async function seedForgePacks() {
             visibility, submission_source,
             repository_url, homepage_url, documentation_url,
             search_keywords, search_use_cases,
+            logo_knockout,
             created_at, updated_at
           ) VALUES (
             ${packId},
@@ -881,6 +890,7 @@ async function seedForgePacks() {
             ${docUrl},
             ${searchKeywords},
             ${searchUseCases},
+            ${logoKnockout},
             NOW(),
             NOW()
           )
@@ -899,6 +909,7 @@ async function seedForgePacks() {
             documentation_url = EXCLUDED.documentation_url,
             search_keywords = EXCLUDED.search_keywords,
             search_use_cases = EXCLUDED.search_use_cases,
+            logo_knockout = COALESCE(EXCLUDED.logo_knockout, packs.logo_knockout),
             updated_at = NOW()
           RETURNING id
         `;
