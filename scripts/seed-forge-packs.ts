@@ -852,20 +852,20 @@ async function seedForgePacks() {
         }
         console.log(`     → visibility: ${packVisibility} (manifest=${pack.rawVisibility ?? 'none'}, registry=${registryVis ?? 'none'})`);
 
-        // Logos: logos/<slug>-mark.svg for cards, logos/<slug>.svg for full lockup/knockout
-        const logoMarkPath = join(__dirname, '../logos', `${pack.slug}-mark.svg`);
-        const logoKnockoutPath = join(__dirname, '../logos', `${pack.slug}.svg`);
-        let logoMark: string | null = null;
-        let logoKnockout: string | null = null;
-        if (existsSync(logoMarkPath)) {
-          logoMark = require('fs').readFileSync(logoMarkPath, 'utf-8');
-          console.log(`     → logo_mark: loaded from logos/${pack.slug}-mark.svg (${logoMark.length} bytes)`);
-        }
-        if (existsSync(logoKnockoutPath)) {
-          logoKnockout = require('fs').readFileSync(logoKnockoutPath, 'utf-8');
-          console.log(`     → logo_knockout: loaded from logos/${pack.slug}.svg (${logoKnockout.length} bytes)`);
-          // If no separate mark file, use the full lockup as mark too
-          if (!logoMark) logoMark = logoKnockout;
+        // Logos: -mark.svg (icon), -wordmark.svg (horizontal text lockup), .svg (full knockout)
+        const logoDir = join(__dirname, '../logos');
+        const readLogo = (filename: string) => {
+          const p = join(logoDir, filename);
+          return existsSync(p) ? require('fs').readFileSync(p, 'utf-8') as string : null;
+        };
+        let logoMark = readLogo(`${pack.slug}-mark.svg`);
+        let logoWordmark = readLogo(`${pack.slug}-wordmark.svg`);
+        let logoKnockout = readLogo(`${pack.slug}.svg`);
+        // Fallback: if only one file exists, use it for all slots
+        if (!logoMark && logoKnockout) logoMark = logoKnockout;
+        if (!logoWordmark && logoKnockout) logoWordmark = logoKnockout;
+        if (logoMark || logoWordmark || logoKnockout) {
+          console.log(`     → logos: mark=${logoMark ? 'yes' : 'no'} wordmark=${logoWordmark ? 'yes' : 'no'} knockout=${logoKnockout ? 'yes' : 'no'}`);
         }
 
         const packResult = await tx`
@@ -876,7 +876,7 @@ async function seedForgePacks() {
             visibility, submission_source,
             repository_url, homepage_url, documentation_url,
             search_keywords, search_use_cases,
-            logo_mark, logo_knockout,
+            logo_mark, logo_wordmark, logo_knockout,
             created_at, updated_at
           ) VALUES (
             ${packId},
@@ -902,6 +902,7 @@ async function seedForgePacks() {
             ${searchKeywords},
             ${searchUseCases},
             ${logoMark},
+            ${logoWordmark},
             ${logoKnockout},
             NOW(),
             NOW()
@@ -922,6 +923,7 @@ async function seedForgePacks() {
             search_keywords = EXCLUDED.search_keywords,
             search_use_cases = EXCLUDED.search_use_cases,
             logo_mark = COALESCE(EXCLUDED.logo_mark, packs.logo_mark),
+            logo_wordmark = COALESCE(EXCLUDED.logo_wordmark, packs.logo_wordmark),
             logo_knockout = COALESCE(EXCLUDED.logo_knockout, packs.logo_knockout),
             updated_at = NOW()
           RETURNING id
