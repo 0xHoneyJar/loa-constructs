@@ -101,6 +101,7 @@ const SHORT_DESCRIPTION_OVERRIDES: Record<string, string> = {
   'vfx-playbook': 'VFX patterns and techniques',
   'the-mint': 'Material transformation pipeline',
   'the-speakers': 'Psychoacoustic engineering',
+  hypha: 'Berachain PoL historian',
 };
 
 // Pack icons (not stored in manifest to keep manifests simple)
@@ -128,6 +129,7 @@ const PACK_ICONS: Record<string, string> = {
   'vfx-playbook': '🎞️',
   'the-mint': '⚒️',
   'the-speakers': '🔊',
+  hypha: '🍄',
 };
 
 // Git source configurations for packs with registered repos
@@ -252,7 +254,7 @@ interface DiscoveredPack extends PackManifest {
   identity?: IdentityData;
   fullManifest: ValidatedPackManifest | null;
   rawVisibility?: string; // Pre-Zod visibility from manifest file (NOT the Zod default)
-  gitConfig?: { gitUrl: string; gitRef: string; githubRepoId?: number; visibility?: string };
+  gitConfig?: { gitUrl: string; gitRef: string; githubRepoId?: number; visibility?: string; category?: string; short_description?: string };
 }
 
 /**
@@ -488,18 +490,18 @@ function discoverFromOrg(): Record<string, { gitUrl: string; gitRef: string; git
  * Load external construct sources from registry-sources.yaml.
  * Merges with org-discovered or hardcoded configs.
  */
-function loadExternalSources(): Record<string, { gitUrl: string; gitRef: string; visibility?: string }> {
+function loadExternalSources(): Record<string, { gitUrl: string; gitRef: string; visibility?: string; category?: string; short_description?: string }> {
   const sourcesPath = join(__dirname, '../registry-sources.yaml');
   if (!existsSync(sourcesPath)) return {};
 
   try {
     const raw = require('fs').readFileSync(sourcesPath, 'utf-8');
-    const parsed = yaml.load(raw) as { external?: Record<string, { git_url: string; git_ref: string; visibility?: string }> };
+    const parsed = yaml.load(raw) as { external?: Record<string, { git_url: string; git_ref: string; visibility?: string; category?: string; short_description?: string }> };
     if (!parsed?.external) return {};
 
-    const configs: Record<string, { gitUrl: string; gitRef: string; visibility?: string }> = {};
+    const configs: Record<string, { gitUrl: string; gitRef: string; visibility?: string; category?: string; short_description?: string }> = {};
     for (const [slug, source] of Object.entries(parsed.external)) {
-      configs[slug] = { gitUrl: source.git_url, gitRef: source.git_ref || 'main', visibility: source.visibility };
+      configs[slug] = { gitUrl: source.git_url, gitRef: source.git_ref || 'main', visibility: source.visibility, category: source.category, short_description: source.short_description };
     }
 
     if (Object.keys(configs).length > 0) {
@@ -821,6 +823,7 @@ async function seedForgePacks() {
         // Short description: manifest > override map > derive from description
         const shortDesc = pack.fullManifest?.short_description
           ?? SHORT_DESCRIPTION_OVERRIDES[pack.slug]
+          ?? pack.gitConfig?.short_description
           ?? (pack.description ? pack.description.split('.')[0].slice(0, 80) || null : null);
         const longDesc = pack.fullManifest?.long_description ?? null;
         const repoUrl = pack.fullManifest?.repository ?? null;
@@ -830,7 +833,7 @@ async function seedForgePacks() {
         const searchUseCases = pack.fullManifest?.domain ?? [];
 
         // Derive category from domain[0] via shared normalizeCategory (cycle-041)
-        const rawCategory = pack.fullManifest?.domain?.[0] ?? null;
+        const rawCategory = pack.fullManifest?.domain?.[0] ?? pack.gitConfig?.category ?? null;
         const category = rawCategory ? normalizeCategory(rawCategory) : 'development';
 
         // Visibility deny-by-default: only explicit manifest opt-in makes a construct public
@@ -865,7 +868,7 @@ async function seedForgePacks() {
             visibility, submission_source,
             repository_url, homepage_url, documentation_url,
             search_keywords, search_use_cases,
-            logo_knockout,
+            logo_mark, logo_knockout,
             created_at, updated_at
           ) VALUES (
             ${packId},
@@ -891,6 +894,7 @@ async function seedForgePacks() {
             ${searchKeywords},
             ${searchUseCases},
             ${logoKnockout},
+            ${logoKnockout},
             NOW(),
             NOW()
           )
@@ -909,6 +913,7 @@ async function seedForgePacks() {
             documentation_url = EXCLUDED.documentation_url,
             search_keywords = EXCLUDED.search_keywords,
             search_use_cases = EXCLUDED.search_use_cases,
+            logo_mark = COALESCE(EXCLUDED.logo_mark, packs.logo_mark),
             logo_knockout = COALESCE(EXCLUDED.logo_knockout, packs.logo_knockout),
             updated_at = NOW()
           RETURNING id

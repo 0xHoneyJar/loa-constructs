@@ -13,4 +13,6 @@ external:
     git_ref: main
     author: "El Capitan (apDAO)"
     visibility: public
+    category: analytics
+    short_description: "Berachain PoL historian"
     # Note: uses construct.json not construct.yaml — seed script handles both
