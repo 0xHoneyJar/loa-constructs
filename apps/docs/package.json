@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "vitepress dev",
-    "build": "vitepress build",
+    "prebuild": "bun run scripts/prebuild.ts",
+    "dev": "bun run prebuild && vitepress dev",
+    "build": "bun run prebuild && vitepress build",
     "preview": "vitepress preview"
   },
   "dependencies": {
