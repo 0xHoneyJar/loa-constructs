@@ -251,7 +251,7 @@ interface DiscoveredPack extends PackManifest {
   constructType: string;
   identity?: IdentityData;
   fullManifest: ValidatedPackManifest | null;
-  gitConfig?: { gitUrl: string; gitRef: string; githubRepoId?: number };
+  gitConfig?: { gitUrl: string; gitRef: string; githubRepoId?: number; visibility?: string };
 }
 
 /**
@@ -487,18 +487,18 @@ function discoverFromOrg(): Record<string, { gitUrl: string; gitRef: string; git
  * Load external construct sources from registry-sources.yaml.
  * Merges with org-discovered or hardcoded configs.
  */
-function loadExternalSources(): Record<string, { gitUrl: string; gitRef: string }> {
+function loadExternalSources(): Record<string, { gitUrl: string; gitRef: string; visibility?: string }> {
   const sourcesPath = join(__dirname, '../registry-sources.yaml');
   if (!existsSync(sourcesPath)) return {};
 
   try {
     const raw = require('fs').readFileSync(sourcesPath, 'utf-8');
-    const parsed = yaml.load(raw) as { external?: Record<string, { git_url: string; git_ref: string }> };
+    const parsed = yaml.load(raw) as { external?: Record<string, { git_url: string; git_ref: string; visibility?: string }> };
     if (!parsed?.external) return {};
 
-    const configs: Record<string, { gitUrl: string; gitRef: string }> = {};
+    const configs: Record<string, { gitUrl: string; gitRef: string; visibility?: string }> = {};
     for (const [slug, source] of Object.entries(parsed.external)) {
-      configs[slug] = { gitUrl: source.git_url, gitRef: source.git_ref || 'main' };
+      configs[slug] = { gitUrl: source.git_url, gitRef: source.git_ref || 'main', visibility: source.visibility };
     }
 
     if (Object.keys(configs).length > 0) {
@@ -829,10 +829,13 @@ async function seedForgePacks() {
         const category = rawCategory ? normalizeCategory(rawCategory) : 'development';
 
         // Visibility deny-by-default: only explicit manifest opt-in makes a construct public (GPT review F5)
-        // --visibility-override takes precedence over manifest-declared visibility
+        // Priority: --visibility-override > registry-sources.yaml > manifest > 'internal'
         const VALID_VISIBILITY = ['public', 'internal', 'unlisted'] as const;
         const rawVis = (pack.fullManifest as any)?.visibility;
-        const manifestVisibility = VALID_VISIBILITY.includes(rawVis) ? rawVis : 'internal';
+        const registryVis = pack.gitConfig?.visibility;
+        const manifestVisibility = VALID_VISIBILITY.includes(rawVis) ? rawVis
+          : (registryVis && VALID_VISIBILITY.includes(registryVis as any)) ? registryVis
+          : 'internal';
         const packVisibility = VISIBILITY_OVERRIDE ?? manifestVisibility;
 
         const packResult = await tx`
