@@ -133,7 +133,7 @@ function buildLocalGraph() {
       d.id === props.slug ? "oklch(0.92 0.01 95)" : "oklch(0.65 0.01 95)"
     )
     .attr("font-size", (d) => (d.id === props.slug ? "11px" : "10px"))
-    .attr("font-family", "'Space Grotesk', sans-serif")
+    .attr("font-family", "'Geist Mono', monospace")
     .attr("font-weight", (d) => (d.id === props.slug ? "600" : "400"))
     .attr("pointer-events", "none");
 

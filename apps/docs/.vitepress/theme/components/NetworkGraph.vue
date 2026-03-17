@@ -157,7 +157,7 @@ function buildGraph(width: number, height: number) {
     .attr("dy", "0.35em")
     .attr("fill", "oklch(0.85 0.01 95)")
     .attr("font-size", "11px")
-    .attr("font-family", "'Space Grotesk', sans-serif")
+    .attr("font-family", "'Geist Mono', monospace")
     .attr("font-weight", "500")
     .attr("opacity", 0)
     .attr("pointer-events", "none");
