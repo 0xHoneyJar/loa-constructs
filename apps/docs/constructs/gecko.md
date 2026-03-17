@@ -29,19 +29,19 @@ loa install gecko
 
 | Skill | What it does |
 |-------|-------------|
-| `/scan` | Ecosystem health scan across all repos |
-| `/audit` | Deep audit of a specific construct or repo |
-| `/diagnose` | Diagnose identity-reality drift |
-| `/declare` | Declare findings and fan out to remediation |
+| `/patrol` | Autonomous loop — time-boxed observation cycles with ratcheting health score |
+| `/observe` | Single-pass — check all constructs, produce JSONL observations |
+| `/diagnose` | Deep investigation — one construct, full identity-reality analysis |
+| `/report` | Synthesis — aggregate observations into network health report |
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `gecko scan` | Run ecosystem scan |
-| `gecko audit` | Deep audit a target |
-| `gecko status` | Network health summary |
-| `gecko drift` | Check for identity-reality drift |
+| `patrol` | Run autonomous observation loop |
+| `observe` | Single-pass health check |
+| `diagnose` | Deep investigation of one construct |
+| `report` | Generate network health report |
 
 ## Relationships
 

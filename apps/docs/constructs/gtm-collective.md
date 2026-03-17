@@ -28,14 +28,14 @@ loa install gtm-collective
 
 | Skill | What it does |
 |-------|-------------|
-| `/gtm` | Full go-to-market planning |
-| `/positioning` | Product positioning and messaging |
-| `/launch-plan` | Create launch plan with timeline |
-| `/dev-relations` | Developer relations strategy |
-| `/competitor-map` | Map competitive landscape |
-| `/pricing` | Pricing strategy analysis |
-| `/onboarding-flow` | Design onboarding experience |
-| `/retention` | Retention and engagement strategy |
+| `/analyzing-market` | Analyze market landscape, competitors, and opportunities |
+| `/building-partnerships` | Plan and evaluate strategic partnerships |
+| `/crafting-narratives` | Create compelling product stories and messaging |
+| `/educating-developers` | Design developer education content and DX strategy |
+| `/positioning-product` | Define product positioning and value propositions |
+| `/pricing-strategist` | Design pricing models and revenue strategies |
+| `/reviewing-gtm` | Audit and review go-to-market plans |
+| `/translating-for-stakeholders` | Translate technical details for executive audiences |
 
 ## Relationships
 

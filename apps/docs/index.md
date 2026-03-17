@@ -2,7 +2,7 @@
 layout: doc
 ---
 
-# Construct Network
+# Network
 
 > 23 constructs. 2 governance roots. 5 islands. 160 skills. 61 commands.
 
@@ -58,7 +58,7 @@ layout: doc
 
 | Construct | Category | Skills | Description |
 |-----------|----------|--------|-------------|
-| [observer](/constructs/observer) | analytics | 23 | Beehive — builds the hive so the colony thrives |
+| [observer](/constructs/observer) | analytics | 17 | Beehive — builds the hive so the colony thrives |
 | [crucible](/constructs/crucible) | security | 5 | Validation and testing (circular dep with observer) |
 | [protocol](/constructs/protocol) | web3 | 10 | Reads the chain so users don't hit reverts |
 | [hardening](/constructs/hardening) | security | 11 | Finds the holes before someone else does |
@@ -78,8 +78,8 @@ layout: doc
 
 ## By Category
 
-### design (8)
-[artisan](/constructs/artisan) · [the-easel](/constructs/the-easel) · [showcase](/constructs/showcase) · [the-arcade](/constructs/the-arcade) · [the-mint](/constructs/the-mint) · [the-speakers](/constructs/the-speakers) · [webgl-particles](/constructs/webgl-particles) · [webreel](/constructs/webreel)
+### design (9)
+[artisan](/constructs/artisan) · [the-easel](/constructs/the-easel) · [showcase](/constructs/showcase) · [the-arcade](/constructs/the-arcade) · [the-mint](/constructs/the-mint) · [the-speakers](/constructs/the-speakers) · [vfx-playbook](/constructs/vfx-playbook) · [webgl-particles](/constructs/webgl-particles) · [webreel](/constructs/webreel)
 
 ### analytics (3)
 [observer](/constructs/observer) · [k-hole](/constructs/k-hole) · [gecko](/constructs/gecko)
@@ -98,9 +98,6 @@ layout: doc
 
 ### development (1)
 [protocol](/constructs/protocol)
-
-### vfx (1)
-[vfx-playbook](/constructs/vfx-playbook)
 
 <style>
 .graph-container {

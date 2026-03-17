@@ -30,20 +30,20 @@ loa install artisan
 
 | Skill | What it does |
 |-------|-------------|
-| `/synthesize` | Decompose interface feel into structured taste tokens |
-| `/inscribe` | Write taste tokens into component specifications |
-| `/feel` | Analyze interface feel — structure, motion, material |
-| `/analyzing-feedback` | Turn user feedback into design actions |
-| `/animating-motion` | Define spring constants and motion language |
-| `/comparing-references` | Compare design references for pattern extraction |
-| `/defining-taste-tokens` | Create the taste vocabulary for a project |
-| `/evaluating-mockup` | Review mockup against taste specifications |
-| `/feedback-synthesis` | Synthesize feedback across multiple sources |
-| `/inscribing-artifacts` | Write design decisions into grimoire artifacts |
-| `/mapping-structure` | Map information architecture and layout |
-| `/material-specification` | Specify oklch colors, spacing, typography |
-| `/reviewing-implementation` | Compare shipped code against design spec |
-| `/voice-direction` | Set visual voice: weight, rhythm, temperature |
+| `/analyzing-feedback` | Analyze design feedback and prioritize refinements |
+| `/animating-motion` | Design UI animations with timing and easing |
+| `/applying-behavior` | Apply interaction behavior patterns to components |
+| `/crafting-physics` | Design physics-based motion (springs, inertia) |
+| `/decomposing-feel` | Break down UI feel into measurable properties |
+| `/distilling-components` | Extract reusable components from designs |
+| `/envisioning-direction` | Establish visual direction and design language |
+| `/inscribing-taste` | Document and codify aesthetic decisions |
+| `/iterating-visuals` | Iterate on visual designs with systematic critique |
+| `/styling-material` | Apply material properties (texture, depth, weight) |
+| `/surveying-patterns` | Survey and catalog UI patterns across the system |
+| `/synthesizing-taste` | Compound taste preferences into design guidelines |
+| `/rams` | Run Dieter Rams-inspired design audit |
+| `/next-best-practices` | Apply Next.js and React best practices |
 
 ## Relationships
 

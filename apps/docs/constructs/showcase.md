@@ -29,12 +29,12 @@ loa install showcase
 
 | Skill | What it does |
 |-------|-------------|
-| `/showcase` | Generate landing page section designs |
-| `/card-system` | Design card components with semantic shapes |
+| `/storytelling-layout` | Structure page narrative flow and layout |
+| `/visual-metaphor` | Choose visual metaphors for product concepts |
 | `/data-encoding` | Encode data into visual representations |
-| `/metaphor-select` | Choose visual metaphors for product concepts |
-| `/narrative-layout` | Structure page narrative flow |
-| `/section-audit` | Audit existing landing page sections |
+| `/visual-semiotics` | Analyze shape meaning, motion semantics, embodied metaphor |
+| `/auditing-sections` | Audit existing landing page sections |
+| `/researching-showcase` | Deep dive into visual communication sub-domains |
 
 ## Relationships
 

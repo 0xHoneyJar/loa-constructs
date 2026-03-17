@@ -29,10 +29,10 @@ loa install the-easel
 
 | Skill | What it does |
 |-------|-------------|
-| `/envision` | Visual exploration and direction setting |
-| `/capture` | Capture and archive visual results |
-| `/ground` | Ground aesthetic vocabulary in project context |
-| `/decide` | Make taste decisions with evidence |
+| `/grounding-creative` | Review vocabulary and TDRs for a design area |
+| `/exploring-visuals` | Generate visual prompts grounded in vocabulary |
+| `/capturing-results` | Annotate generation results with vocabulary terms |
+| `/recording-taste` | Create or update a Taste Decision Record |
 
 ## Relationships
 

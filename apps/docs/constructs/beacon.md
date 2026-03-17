@@ -29,12 +29,12 @@ loa install beacon
 
 | Skill | What it does |
 |-------|-------------|
-| `/beacon` | Generate AI discoverability layer for a project |
-| `/llms-txt` | Generate llms.txt for AI agent consumption |
-| `/robots-audit` | Audit robots.txt and crawl configuration |
-| `/trust-signals` | Add structured trust signals (JSON-LD, meta) |
-| `/sitemap` | Generate or audit XML sitemap |
-| `/x402` | Configure x402 payment endpoints |
+| `/auditing-content` | Audit content for SEO and discoverability issues |
+| `/generating-markdown` | Generate optimized markdown documentation |
+| `/optimizing-chunks` | Optimize content chunking for AI and search |
+| `/discovering-endpoints` | Discover and document API endpoints with schema markup |
+| `/defining-actions` | Define schema.org actions for interactive features |
+| `/accepting-payments` | Add payment-related structured data and schemas |
 
 ## Relationships
 

@@ -11,7 +11,7 @@ tags:
   - construct
   - category/analytics
   - type/skill-pack
-  - topology/island
+  - topology/silent-hub
 ---
 
 # K-Hole
@@ -30,22 +30,22 @@ loa install k-hole
 
 | Skill | What it does |
 |-------|-------------|
-| `/dig` | Pair-research — deep grounded search with seven voices |
-| `/forge` | Batch research synthesis across multiple threads |
-| `/k-hole-review` | Visual review of research artifacts |
-| `/resonance-map` | Map connections across research threads |
-| `/source-verify` | Verify cited sources exist and match claims |
-| `/thread-pull` | Follow a single thread to its deepest grounding |
+| `/dig` | Interactive pair-research — deep grounded search with seven voices |
+| `/orchestrator` | Batch research pipeline — discover, config, research, review |
+| `/domain-discovery` | Map the landscape before descent |
+| `/config-generator` | Generate research config from discovery |
+| `/deep-research` | Execute the multi-phase research pipeline |
+| `/visual-review` | Visual analysis of research artifacts (multimodal) |
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `k-hole search` | Search with grounded citations |
-| `k-hole verify` | Verify source chain for a claim |
-| `k-hole threads` | List active research threads |
-| `k-hole forge` | Run batch synthesis |
-| `k-hole status` | Check research pipeline state |
+| `dig` | Interactive depth search |
+| `forge` | Run batch synthesis pipeline |
+| `discover` | Map domain landscape |
+| `config` | Generate research configuration |
+| `research` | Execute multi-phase research |
 
 ## Relationships
 

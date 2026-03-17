@@ -30,9 +30,16 @@ loa install dynamic-auth
 
 | Skill | What it does |
 |-------|-------------|
-| `/dynamic-auth` | Configure wallet group identity for Dynamic SDK |
-| `/primary-wallet` | Enforce primary wallet resolution |
-| `/group-identity` | Map wallet groups to user identity |
+| `/resolving-wallet-identity` | Set up 3-tier wallet resolution with write-through |
+| `/enforcing-primary-wallet` | Block linked-wallet logins with mismatch guard |
+| `/backfilling-identity-links` | One-time audit and fix of dynamic_user_id assignments |
+
+## Commands
+
+| Command | What it does |
+|---------|-------------|
+| `resolve-wallet` | Resolve a linked wallet to its canonical profile address |
+| `enforce-primary` | Enforce primary wallet for a user |
 
 ## Relationships
 

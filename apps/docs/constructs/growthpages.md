@@ -5,7 +5,7 @@ version: "1.0.0"
 category: marketing
 type: untyped
 schema_version: 3
-skills: 0
+skills: 5
 commands: 3
 tags:
   - construct
@@ -16,7 +16,7 @@ tags:
 
 > Multi-phase article generation pipeline — educational and launch content with brand voice control, GitHub research, and interactive editing.
 
-**Version**: 1.0.0 · **Category**: marketing · **Commands**: 3
+**Version**: 1.0.0 · **Category**: marketing · **Skills**: 5 · **Commands**: 3
 
 ## Install
 
@@ -24,13 +24,23 @@ tags:
 loa install growthpages
 ```
 
+## Skills
+
+| Skill | What it does |
+|-------|-------------|
+| `/generate` | Generate article through multi-phase pipeline |
+| `/research` | Research phase with GitHub integration |
+| `/brief` | Create content brief |
+| `/edit` | Interactive editing with voice control |
+| `/configure-project` | Configure project for content generation |
+
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `growthpages generate` | Generate article through multi-phase pipeline |
-| `growthpages research` | Research phase with GitHub integration |
-| `growthpages edit` | Interactive editing with voice control |
+| `growthpages` | Generate an educational article |
+| `growthpages-launch` | Generate launch content |
+| `growthpages-configure` | Configure project settings |
 
 ## Relationships
 

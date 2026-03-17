@@ -39,7 +39,7 @@ loa install <slug>
 | Construct | Version | Skills | Cmd | What it does |
 |-----------|---------|--------|-----|-------------|
 | [Crucible](/constructs/crucible) | 1.0.0 | 5 | — | Validation and testing |
-| [Hardening](/constructs/hardening) | 0.2.0 | 6 | — | Finds the holes before someone else does |
+| [Hardening](/constructs/hardening) | 0.2.0 | 11 | — | Finds the holes before someone else does |
 | [Dynamic Auth](/constructs/dynamic-auth) | 1.0.0 | 3 | 2 | Wallet group identity for Dynamic SDK |
 
 ## Marketing (3)

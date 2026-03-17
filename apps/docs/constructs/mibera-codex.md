@@ -5,7 +5,7 @@ version: "1.0.0"
 category: documentation
 type: codex
 schema_version: 3
-skills: 0
+skills: 3
 commands: 1
 tags:
   - construct
@@ -18,7 +18,7 @@ tags:
 
 > Canonical source of truth for 10,000 time-travelling Beras and 15,000 years of lore. Traits are signals, not scripts — it synthesizes identity that breathes. The oracle that remembers what the chain cannot.
 
-**Version**: 1.0.0 · **Category**: documentation · **Type**: codex · **Commands**: 1
+**Version**: 1.0.0 · **Category**: documentation · **Type**: codex · **Skills**: 3 · **Commands**: 1
 
 ## Install
 
@@ -26,11 +26,19 @@ tags:
 loa install mibera-codex
 ```
 
+## Skills
+
+| Skill | What it does |
+|-------|-------------|
+| `/browse-codex` | Navigate the codex by dimension — archetype, ancestor, element, era, tarot |
+| `/query-entity` | Look up any mibera, trait, drug, ancestor, grail, or tarot card |
+| `/cross-reference` | Find connections across entity types — pairings, clusters, rarity |
+
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `codex query` | Query the lore database |
+| `codex` | Query the Mibera knowledge base |
 
 ## Relationships
 

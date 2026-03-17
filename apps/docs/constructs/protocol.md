@@ -2,14 +2,14 @@
 name: Protocol
 slug: protocol
 version: "2.0.0"
-category: development
+category: web3
 type: skill-pack
 schema_version: 3
 skills: 10
 commands: 2
 tags:
   - construct
-  - category/development
+  - category/web3
   - type/skill-pack
 ---
 
@@ -17,7 +17,7 @@ tags:
 
 > Reads the chain so your users don't hit reverts. Verifies that what your frontend shows matches what the contract enforces — prices, allowances, proxy implementations, the whole wallet boundary. If cast can read it, Protocol already checked it.
 
-**Version**: 2.0.0 · **Category**: development · **Type**: skill-pack · **Skills**: 10 · **Commands**: 2
+**Version**: 2.0.0 · **Category**: web3 · **Type**: skill-pack · **Skills**: 10 · **Commands**: 2
 
 ## Install
 
@@ -29,19 +29,23 @@ loa install protocol
 
 | Skill | What it does |
 |-------|-------------|
-| `/protocol` | Full chain verification pass |
-| `/verify-contract` | Compare frontend state against on-chain truth |
-| `/revert-paths` | Map all revert paths a user could hit |
-| `/allowance-check` | Verify token allowance flows |
-| `/proxy-audit` | Check proxy implementation slots |
-| + 5 more | Price feeds, wallet boundary, gas estimation |
+| `/contract-verify` | Read deployed contract state via cast, compare against frontend constants |
+| `/tx-forensics` | Decode revert reasons, trace internal calls, decode Safe/multicall payloads |
+| `/abi-audit` | Compare frontend ABI usage against deployed contract |
+| `/proxy-inspect` | Read EIP-1967 slots, identify implementation, check upgrade patterns |
+| `/simulate-flow` | Simulate user flows via cast call to catch reverts before users hit them |
+| `/dapp-lint` | Web3-specific linting — BigInt safety, wei handling, address checksums |
+| `/dapp-typecheck` | Verify wagmi/viem type generation matches deployed ABIs |
+| `/dapp-test` | Execute test suites with contract mock patterns |
+| `/dapp-e2e` | Agent-browser QA — connect wallet, submit tx, verify state changes |
+| `/gpt-contract-review` | Cross-model review of frontend-to-contract consistency |
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `protocol verify` | Run verification against live chain |
-| `protocol cast` | Execute cast read against contract |
+| `verify` | Run verification against live chain |
+| `debug-tx` | Decode and debug a failing transaction |
 
 ## Relationships
 

@@ -29,12 +29,12 @@ loa install the-arcade
 
 | Skill | What it does |
 |-------|-------------|
-| `/systems` | Analyze system design through game design lens |
-| `/core-loop` | Design and audit core interaction loops |
-| `/progressive-disclosure` | Map information disclosure curves |
-| `/game-feel` | Analyze interface feel through game feel principles |
-| `/trust-market` | Design trust/reputation mechanics |
-| `/ecs-design` | Apply ECS architecture patterns |
+| `/referencing-games` | Find structural game design parallels for your problem |
+| `/designing-progression` | Design progressive disclosure systems that teach through play |
+| `/prototyping-mechanics` | Rapid mechanic prototyping with feel parameters |
+| `/designing-systems` | Design economic/social systems with core loops |
+| `/playtesting-loops` | Structure playtests for feel and learning validation |
+| `/crafting-feel` | Tune the phenomenology of an interaction |
 
 ## Relationships
 

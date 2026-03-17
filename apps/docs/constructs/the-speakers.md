@@ -28,14 +28,24 @@ loa install the-speakers
 
 | Skill | What it does |
 |-------|-------------|
-| `/stems` | Design sonic identity stems |
-| `/sonic-architecture` | Map the sound architecture of a product |
-| `/psychoacoustic` | Apply psychoacoustic engineering principles |
-| `/audio-pipeline` | Design audio processing pipeline |
-| `/sound-palette` | Create a sound palette for a project |
-| `/interaction-audio` | Design interaction sounds (clicks, transitions) |
-| `/ambient-design` | Design ambient soundscapes |
-| `/audio-brand` | Build sonic brand identity |
+| `/grounding-sonic` | Review sonic vocabulary, identify gaps |
+| `/exploring-sound` | Generate audio prompts from genre DNA |
+| `/capturing-audio` | Evaluate and score audio outputs |
+| `/scoring-experience` | Map sonic parameters across experience timeline |
+| `/making-beats` | Build REAPER sessions via file watcher bridge |
+| `/suno-prompt` | Generate prompts for Suno audio generation |
+| `/taste-map` | Map sonic taste preferences |
+| `/gemini-ear` | Audio review via Gemini multimodal |
+
+## Commands
+
+| Command | What it does |
+|---------|-------------|
+| `ground-sonic` | Review sonic vocabulary |
+| `explore-sound` | Generate audio prompts |
+| `capture-audio` | Evaluate audio outputs |
+| `score-experience` | Map sonic parameters to timeline |
+| `make-beats` | Build REAPER sessions |
 
 ## Relationships
 

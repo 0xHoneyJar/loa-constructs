@@ -28,14 +28,27 @@ loa install the-mint
 
 | Skill | What it does |
 |-------|-------------|
-| `/mint` | Forge a digital material or asset |
-| `/cellini` | Asset minting — gemstones, characters, textures |
-| `/murage` | Spatial environment design with physics |
-| `/material-forge` | Create new material definitions |
-| `/texture-gen` | Generate texture specifications |
-| `/chrome-design` | Design UI chrome and decorative elements |
-| `/spatial-layout` | Design spatial environments |
-| `/on-chain-material` | Materialize assets on-chain |
+| `/mint` | Generate material variations |
+| `/curate` | Review and select from candidates |
+| `/animate` | Create idle/showcase animations |
+| `/produce` | Full production pipeline |
+| `/character` | Character-specific generation pipeline |
+| `/texture` | Structural texture generation |
+| `/environment` | Design spatial environments |
+| `/materialize` | On-chain artifact design |
+
+## Commands
+
+| Command | What it does |
+|---------|-------------|
+| `mint` | Generate material variations |
+| `curate` | Review and select candidates |
+| `animate` | Create animations |
+| `produce` | Full production pipeline |
+| `character` | Character pipeline |
+| `texture` | Texture generation |
+| `environment` | Environment design |
+| `materialize` | On-chain materialization |
 
 ## Relationships
 

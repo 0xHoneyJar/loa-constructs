@@ -29,19 +29,19 @@ loa install webreel
 
 | Skill | What it does |
 |-------|-------------|
-| `/reel` | Record a cinematic video of a web page |
-| `/scroll-physics` | Configure cinematic scroll parameters |
-| `/capture-config` | Set capture resolution and encoding |
-| `/webgl-capture` | Capture WebGL canvas content |
+| `/capture` | Full recording pipeline — browser, spring-scroll, capture, encode |
+| `/encoder` | Re-encode existing captures for specific platforms |
+| `/preview` | Quick low-res test run to check scroll timing |
+| `/configure` | Generate or edit webreel.config.json |
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `webreel record` | Start recording a page |
-| `webreel config` | Configure recording parameters |
-| `webreel export` | Export recorded video |
-| `webreel preview` | Preview recording setup |
+| `record` | Full quality capture |
+| `optimize` | Re-encode for specific platforms |
+| `preview` | Preview recording setup |
+| `wr-config` | Configure recording parameters |
 
 ## Relationships
 

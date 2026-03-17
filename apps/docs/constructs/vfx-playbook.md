@@ -28,19 +28,19 @@ loa install vfx-playbook
 
 | Skill | What it does |
 |-------|-------------|
-| `/vfx` | Apply VFX principles to UI |
-| `/particle-design` | Design particle systems for web |
-| `/effect-catalog` | Browse curated VFX patterns |
-| `/timing-curves` | Design animation timing from game VFX |
+| `/research` | Deep dive into a VFX technique, compounds into the playbook |
+| `/apply` | Apply playbook principles to a real component |
+| `/review` | Audit UI against playbook principles |
+| `/playbook` | View current playbook state and open threads |
 
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `vfx-playbook search` | Search VFX pattern catalog |
-| `vfx-playbook analyze` | Analyze existing VFX for improvements |
-| `vfx-playbook reference` | Pull reference from GDC/game sources |
-| `vfx-playbook export` | Export VFX spec for implementation |
+| `vfx-dig` | Deep dive research into VFX technique |
+| `vfx-apply` | Apply playbook principles to component |
+| `vfx-review` | Audit UI against playbook |
+| `vfx-playbook` | View playbook state |
 
 ## Relationships
 

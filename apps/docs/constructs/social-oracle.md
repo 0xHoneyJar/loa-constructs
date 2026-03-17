@@ -5,7 +5,7 @@ version: "1.0.0"
 category: marketing
 type: untyped
 schema_version: 3
-skills: 0
+skills: 5
 commands: 3
 tags:
   - construct
@@ -16,7 +16,7 @@ tags:
 
 > Converts GitHub PR/Release activity into platform-specific social media content via 3-layer signal filter and per-project voice grimoires.
 
-**Version**: 1.0.0 · **Category**: marketing · **Commands**: 3
+**Version**: 1.0.0 · **Category**: marketing · **Skills**: 5 · **Commands**: 3
 
 ## Install
 
@@ -24,13 +24,23 @@ tags:
 loa install social-oracle
 ```
 
+## Skills
+
+| Skill | What it does |
+|-------|-------------|
+| `/filter` | Apply 3-layer signal filter to content |
+| `/generate-x` | Generate X/Twitter content from PR/release |
+| `/generate-discord` | Generate Discord content from PR/release |
+| `/generate-telegram` | Generate Telegram content from PR/release |
+| `/configure-project` | Configure project voice and settings |
+
 ## Commands
 
 | Command | What it does |
 |---------|-------------|
-| `social-oracle generate` | Generate social content from PR/release |
-| `social-oracle filter` | Apply 3-layer signal filter to content |
-| `social-oracle voice` | Load project voice grimoire |
+| `oracle` | Generate social content from latest PR or release |
+| `oracle-filter` | Apply signal filter to content |
+| `oracle-configure` | Configure project settings |
 
 ## Relationships
 

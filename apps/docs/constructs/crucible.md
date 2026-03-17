@@ -28,11 +28,11 @@ loa install crucible
 
 | Skill | What it does |
 |-------|-------------|
-| `/validate` | Run validation pass against journey evidence |
-| `/test-journey` | Verify a user journey maps to reality |
-| `/crucible-review` | Review validation results |
-| `/gap-check` | Find gaps between observation and implementation |
-| `/evidence-chain` | Trace evidence from observation through to code |
+| `/validating-journeys` | Generate and run Playwright tests from state diagrams |
+| `/grounding-code` | Extract code reality into structured documentation |
+| `/iterating-feedback` | Trace test failures back to upstream artifacts |
+| `/walking-through` | Guided interactive browser walkthrough with gap discovery |
+| `/diagramming-states` | Generate Mermaid state diagrams from journey definitions |
 
 ## Relationships
 

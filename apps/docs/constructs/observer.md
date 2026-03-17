@@ -5,7 +5,7 @@ version: "3.0.0"
 category: analytics
 type: skill-pack
 schema_version: 3
-skills: 17
+skills: 24
 commands: 0
 tags:
   - construct
@@ -17,7 +17,7 @@ tags:
 
 > Builds the hive so the colony can thrive. Watches how people actually use your product, asks the questions they didn't know they needed to answer, and reads the signals a living system gives off — without ever extracting from the people you're learning from.
 
-**Version**: 3.0.0 · **Category**: analytics · **Type**: skill-pack · **Skills**: 17
+**Version**: 3.0.0 · **Category**: analytics · **Type**: skill-pack · **Skills**: 24
 
 ## Install
 
@@ -29,11 +29,25 @@ loa install observer
 
 | Skill | What it does |
 |-------|-------------|
-| `/observe` | Create user truth canvases from real observation |
-| `/journey` | Map user journeys with evidence grounding |
-| `/canvas-enrich` | Enrich existing canvases with new signal |
-| `/synthesis` | Synthesize across canvases for patterns |
-| + 13 more | Provenance tracking, gap analysis, signal routing |
+| `/observing-users` | Capture user feedback as hypothesis-first research canvases |
+| `/ingesting-dms` | Ingest direct messages as observation data |
+| `/batch-observing` | Batch observation processing |
+| `/feedback-observing` | Observe and structure feedback signals |
+| `/concierge-testing` | Run concierge tests with users |
+| `/shaping-journeys` | Synthesize canvas patterns into journey definitions |
+| `/daily-synthesis` | Daily synthesis across canvases |
+| `/shaping` | Shape observations into actionable patterns |
+| `/level-3-diagnostic` | Diagnostic-first analysis reaching user goals before code |
+| `/analyzing-gaps` | Compare user expectations with code reality |
+| `/detecting-drift` | Detect drift in user behavior patterns |
+| `/detecting-staleness` | Detect stale observation data |
+| `/filing-gaps` | Create issues from gap reports |
+| `/batch-filing-gaps` | Batch file gap reports as issues |
+| `/generating-followups` | Generate follow-up questions from observations |
+| `/importing-research` | Bulk convert legacy profiles to UTC format |
+| `/refreshing-artifacts` | Refresh observation artifacts |
+| `/snapshotting` | Snapshot observation state |
+| + 6 inner processes | thinking, listening, seeing, speaking, distilling, growing |
 
 ## Relationships
 

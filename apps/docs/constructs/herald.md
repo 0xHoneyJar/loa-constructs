@@ -28,9 +28,9 @@ loa install herald
 
 | Skill | What it does |
 |-------|-------------|
-| `/announce` | Generate grounded announcement from code evidence |
-| `/release-notes` | Write release notes from git diff |
-| `/changelog` | Generate changelog entries |
+| `/grounding-announcements` | Draft announcements from code reality with evidence citations |
+| `/synthesizing-voice` | Extract or refine voice profile from content analysis |
+| `/chronicling-changes` | Produce structured change timeline from git evidence |
 
 ## Relationships
 

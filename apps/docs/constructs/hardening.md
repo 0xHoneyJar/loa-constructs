@@ -5,7 +5,7 @@ version: "0.2.0"
 category: security
 type: untyped
 schema_version: 3
-skills: 6
+skills: 11
 commands: 0
 tags:
   - construct
@@ -16,7 +16,7 @@ tags:
 
 > The one that finds the holes before someone else does. Full-stack security across auth flows, data privacy, env secrets, and API surfaces. Pre-share audits prevent the breach. Post-incident defense contains the blast. 21-scan convergence — nothing slips through.
 
-**Version**: 0.2.0 · **Category**: security · **Skills**: 6
+**Version**: 0.2.0 · **Category**: security · **Skills**: 11
 
 ## Install
 
@@ -28,12 +28,17 @@ loa install hardening
 
 | Skill | What it does |
 |-------|-------------|
-| `/harden` | Full security audit — 21 scan convergence |
-| `/auth-audit` | Audit authentication and authorization flows |
-| `/env-scan` | Scan for exposed environment secrets |
-| `/api-surface` | Map and audit API attack surface |
-| `/privacy-check` | Check data privacy compliance |
-| `/incident-defense` | Post-incident containment playbook |
+| `/postmortem` | Create a structured PMR from an incident |
+| `/triage` | Quick severity assessment connecting user reports to code |
+| `/blast-radius` | Map impact surface of a change or regression |
+| `/harden` | Generate defensive measures from a postmortem |
+| `/regression-check` | Verify past hardening measures still hold |
+| `/signal-audit` | Audit monitoring, test, and type coverage |
+| `/audit-api` | Map and audit API attack surface |
+| `/audit-data-privacy` | Check data privacy compliance |
+| `/audit-env` | Scan for exposed environment secrets |
+| `/audit-auth` | Audit authentication and authorization flows |
+| `/correlating` | Correlate signals across incident data (inner process) |
 
 ## Relationships
 

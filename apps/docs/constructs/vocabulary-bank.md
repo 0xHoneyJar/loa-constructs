@@ -30,8 +30,8 @@ loa install vocabulary-bank
 
 | Skill | What it does |
 |-------|-------------|
-| `/vocab` | Define and manage product vocabulary |
-| `/register-map` | Map vocabulary registers to channels |
+| `/auditing-vocabulary` | Audit existing copy against the installed vocabulary bank |
+| `/synthesizing-vocabulary` | Extract vocabulary from existing copy into tiered lexicons |
 
 ## Relationships
 
