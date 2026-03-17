@@ -50,8 +50,9 @@ jobs:
           CONSTRUCTS_ORG: '0xHoneyJar'
         run: |
           FLAGS=""
-          # Schedule and repository_dispatch events should auto-discover by default
-          AUTO_DISCOVER="${{ github.event.inputs.auto_discover || 'true' }}"
+          # Auto-discover requires a PAT with org:read scope (not available with GITHUB_TOKEN)
+          # Default to hardcoded GIT_CONFIGS + registry-sources.yaml (external builders)
+          AUTO_DISCOVER="${{ github.event.inputs.auto_discover || 'false' }}"
           if [ "$AUTO_DISCOVER" = "true" ]; then
             FLAGS="--auto-discover"
           fi
