@@ -35,7 +35,7 @@ function buildGraph(width: number, height: number) {
     .append("svg")
     .attr("width", width)
     .attr("height", height)
-    .style("background", "oklch(0.12 0.005 240)");
+    .style("background", "oklch(0.12 0.008 250)");
 
   // Glow filter for nodes
   const defs = svg.append("defs");
@@ -139,8 +139,8 @@ function buildGraph(width: number, height: number) {
       const count = getConnectionCount(d.id);
       return Math.max(5, Math.min(14, 4 + count * 1.5));
     })
-    .attr("fill", (d) => categoryColors[d.category] ?? "oklch(0.50 0.05 240)")
-    .attr("stroke", (d) => categoryColors[d.category] ?? "oklch(0.50 0.05 240)")
+    .attr("fill", (d) => categoryColors[d.category] ?? "oklch(0.50 0.05 250)")
+    .attr("stroke", (d) => categoryColors[d.category] ?? "oklch(0.50 0.05 250)")
     .attr("stroke-width", 1.5)
     .attr("stroke-opacity", 0.4)
     .attr("fill-opacity", 0.85)
@@ -155,7 +155,7 @@ function buildGraph(width: number, height: number) {
       return Math.max(5, Math.min(14, 4 + count * 1.5)) + 6;
     })
     .attr("dy", "0.35em")
-    .attr("fill", "oklch(0.85 0.01 240)")
+    .attr("fill", "oklch(0.85 0.01 95)")
     .attr("font-size", "11px")
     .attr("font-family", "'Space Grotesk', sans-serif")
     .attr("font-weight", "500")
@@ -272,7 +272,7 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   min-height: 500px;
-  border-radius: 8px;
+  border-radius: 0;
   overflow: hidden;
   position: relative;
 }

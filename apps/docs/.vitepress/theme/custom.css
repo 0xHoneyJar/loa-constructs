@@ -2,14 +2,64 @@
  * Constructs Network — docs theme
  * Derived from explorer's Chromatic Engine (globals.css)
  * Palette: void (hue 250), bone (hue 95), cyan (hue 195), crimson (hue 25)
- * Typography: Geist Mono body, Space Grotesk headings
+ * Typography: Basement Grotesque headings (uppercase), Geist Mono body
  */
+
+/* Self-hosted fonts — matching explorer's font stack */
+@font-face {
+  font-family: "Basement Grotesque";
+  src: url("/fonts/BasementGrotesque-Black.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/GeistMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   --vp-font-family-base: "Geist Mono", "JetBrains Mono", "Fira Code", "Menlo",
     "Monaco", "Consolas", monospace;
   --vp-font-family-mono: "Geist Mono", "JetBrains Mono", "Fira Code", "Menlo",
     "Monaco", "Consolas", monospace;
+
+  /* Prevent white flash — set light-mode vars to void so initial paint is dark */
+  --vp-c-bg: oklch(0.08 0.005 250);
+  --vp-c-bg-alt: oklch(0.08 0.005 250);
+  --vp-c-bg-elv: oklch(0.16 0.01 250);
+  --vp-c-bg-soft: oklch(0.12 0.008 250);
+  --vp-c-text-1: oklch(0.88 0.01 95);
+  --vp-c-text-2: oklch(0.68 0.008 95);
+  --vp-c-text-3: oklch(0.48 0.006 95);
 }
 
 /* Dark theme overrides — mapped to explorer's Chromatic Engine */
@@ -61,16 +111,15 @@
   );
 }
 
-/* Space Grotesk for headings — display face for docs
-   (Explorer uses Basement Grotesque, a black-weight display face.
-    Space Grotesk is the docs equivalent: geometric, structured, readable.) */
+/* Basement Grotesque for logo + all headings — matches explorer's display font */
 .VPNavBarTitle .title,
 .VPHero .name,
 .VPHero .text,
 h1,
 h2,
 h3 {
-  font-family: "Space Grotesk", var(--vp-font-family-base) !important;
+  font-family: "Basement Grotesque", "Arial Black", sans-serif !important;
+  text-transform: uppercase;
   letter-spacing: 0.02em;
 }
 
@@ -105,11 +154,11 @@ h3 {
 }
 
 .vp-doc th {
-  font-family: "Space Grotesk", var(--vp-font-family-base);
-  font-weight: 600;
+  font-family: "Basement Grotesque", "Arial Black", sans-serif;
+  font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   color: oklch(0.68 0.008 95);
 }
 
@@ -163,4 +212,63 @@ h3 {
 .VPButton.alt:hover {
   background-color: oklch(0.16 0.01 250) !important;
   border-color: oklch(0.65 0.12 195) !important;
+}
+
+/* Blockquote — cyan left border on void-raised, bone-dim text */
+.vp-doc blockquote {
+  border-left: 2px solid oklch(0.65 0.12 195);
+  background-color: oklch(0.10 0.006 250);
+  color: oklch(0.68 0.008 95);
+  padding: 12px 16px;
+  margin: 16px 0;
+  font-style: normal;
+}
+
+.vp-doc blockquote p {
+  color: oklch(0.68 0.008 95);
+}
+
+/* Frontmatter badge/tag suppression — VitePress renders frontmatter tags as badges */
+.vp-doc .header-anchor + .badge,
+.vp-doc .VPBadge {
+  background-color: oklch(0.12 0.008 250);
+  color: oklch(0.68 0.008 95);
+  border: 1px solid oklch(0.22 0.012 250);
+}
+
+/* Graph containers — sharp corners (matching explorer --radius: 0px) */
+.graph-container,
+.network-graph,
+.local-graph {
+  border-radius: 0 !important;
+}
+
+/* Mobile graph — reduce height on narrow viewports */
+@media (max-width: 768px) {
+  .graph-container {
+    height: 360px !important;
+  }
+}
+
+/* VitePress content spacing — slightly relaxed line height for readability */
+.vp-doc {
+  line-height: 1.75;
+}
+
+/* Search dialog — void theme */
+.VPLocalSearchBox .shell {
+  background-color: oklch(0.08 0.005 250) !important;
+}
+
+/* Ensure no light backgrounds leak through VitePress components */
+.VPContent,
+.VPDoc,
+.VPPage {
+  background-color: oklch(0.08 0.005 250) !important;
+}
+
+/* Footer — void bg */
+.VPFooter {
+  background-color: oklch(0.08 0.005 250) !important;
+  border-top-color: oklch(0.22 0.012 250) !important;
 }

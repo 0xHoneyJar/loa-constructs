@@ -127,5 +127,5 @@ export const edgeColors: Record<GraphEdge["type"], string> = {
   governs: "oklch(0.72 0.14 85)", // amber/gold
   depends_on: "oklch(0.60 0.12 250)", // blue
   composes_with: "oklch(0.60 0.12 155)", // green
-  connected_via: "oklch(0.35 0.02 240)", // dim gray
+  connected_via: "oklch(0.35 0.02 250)", // dim gray
 };

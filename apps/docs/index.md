@@ -1,36 +1,12 @@
 ---
-layout: home
-hero:
-  name: "Constructs Network"
-  text: "Skills for AI coding agents."
-  tagline: "23 constructs. 160 skills. Install one, compose many."
-  actions:
-    - theme: brand
-      text: Browse All Constructs
-      link: /constructs/
-    - theme: alt
-      text: How It Works
-      link: /architecture/ecs
+layout: doc
 ---
 
-<div style="margin: 3rem auto; max-width: 900px; padding: 0 1.5rem;">
+# Construct Network
 
-## What Are Constructs?
+> 23 constructs. 2 governance roots. 5 islands. 160 skills. 61 commands.
 
-A construct is a self-contained skill pack for AI coding agents. Each one carries domain expertise — design systems, security audits, research synthesis, go-to-market — that an agent can install and invoke.
-
-Constructs compose laterally. They don't import each other. They share state through grimoire paths and communicate through typed events. Add a construct to your project and it works alongside everything else without rewiring.
-
-```bash
-# Install a construct
-loa install artisan
-
-# Use its skills
-/inscribe    # decompose a design into taste tokens
-/feel        # analyze interface feel
-```
-
-## Network Topology
+## Network Graph
 
 <div class="graph-container">
 <ClientOnly>
@@ -38,38 +14,93 @@ loa install artisan
 </ClientOnly>
 </div>
 
-</div>
+## Quick Links
 
-<div style="margin: 3rem auto; max-width: 900px; padding: 0 1.5rem;">
+- [Topology](/architecture/topology) — Governance graph, dependency chains, composition paths
+- [Network Health](/network/health) — Network health diagnostic, open issues, remediation status
+- [Operator Modes](/network/operator) — FEEL/ARCH/DIG/SHIP mode map
+- [Personas](/network/personas) — All personas across 5 layers
+- [Echelon](/verification/echelon) — Verification platform: data flows, endpoints, blockers
+- [ECS Architecture](/architecture/ecs) — Constructs as ECS entities
+- [Network Audit](/network/audit-2026-03-17) — Three-persona review (composite: 5.9/10)
 
-## How Constructs Compose
+---
 
-The network uses **ECS composition** — entities carry components, systems run blind. [Read the full architecture &rarr;](/architecture/ecs)
+## Governance Root: Artisan (taste/feel)
 
-| Pattern | Status | How It Works |
-|---------|--------|-------------|
-| **Skill Attachment** | Working | Add skills to any construct — no other construct needs to know |
-| **Pipeline Composition** | Working | Constructs read/write shared grimoire paths — the path IS the interface |
-| **Recursive Composition** | Working | Constructs invoke other constructs' skills via dependencies |
-| **Event Composition** | Spec Only | 40+ forge events declared, zero dispatch mechanism |
+| Construct | Category | Skills | Description |
+|-----------|----------|--------|-------------|
+| [artisan](/constructs/artisan) | design | 14 | Turns "this feels off" into engineering specs |
+| → [the-easel](/constructs/the-easel) | design | 4 | Creative studio for aesthetic direction |
+| → [showcase](/constructs/showcase) | design | 6 | Landing page visual intelligence |
+| → [the-arcade](/constructs/the-arcade) | design | 6 | Game design as operating philosophy |
+| → [the-mint](/constructs/the-mint) | design | 8 | Forges digital materials — CELLINI + MURAGE |
+| → [the-speakers](/constructs/the-speakers) | design | 8 | Psychoacoustic engineering, sonic identity |
 
-## Verification
+## Governance Root: Vocabulary Bank (voice/copy)
 
-Every construct self-defines what "correct" means. [Echelon](/verification/echelon) runs those checks against reality. [Read the guide &rarr;](/verification/verification-guide)
+| Construct | Category | Skills | Description |
+|-----------|----------|--------|-------------|
+| [vocabulary-bank](/constructs/vocabulary-bank) | comms | 2 | Per-product vocabulary governance |
+| → [herald](/constructs/herald) | operations | 3 | Grounded product communication |
+| → [social-oracle](/constructs/social-oracle) | marketing | 5 | GitHub PR → social media content |
+| → [gtm-collective](/constructs/gtm-collective) | marketing | 8 | Go-to-market skills for launches |
+| → [growthpages](/constructs/growthpages) | marketing | 5 | Multi-phase article generation |
 
-`UNVERIFIED` &rarr; `BACKTESTED` &rarr; `PROVEN`
+## Silent Hub: K-Hole
 
-## Start Here
+| Construct | Category | Skills | Description |
+|-----------|----------|--------|-------------|
+| [k-hole](/constructs/k-hole) | analytics | 6 | Seven voices, grounded search, depth over breadth |
+| ← referenced by: [showcase](/constructs/showcase), [vfx-playbook](/constructs/vfx-playbook), [the-mint](/constructs/the-mint), [the-speakers](/constructs/the-speakers), [the-arcade](/constructs/the-arcade), [growthpages](/constructs/growthpages), [gecko](/constructs/gecko) |
 
-| If you want to... | Go to |
-|-------------------|-------|
-| Browse all 23 constructs | [Constructs overview](/constructs/) |
-| Understand the composition model | [ECS Architecture](/architecture/ecs) |
-| See governance and dependency chains | [Topology](/architecture/topology) |
-| Find the right construct for your task | [Operator Modes](/network/operator) |
-| Check network health and open issues | [Network Health](/network/health) |
+## Core Infrastructure
 
-</div>
+| Construct | Category | Skills | Description |
+|-----------|----------|--------|-------------|
+| [observer](/constructs/observer) | analytics | 23 | Beehive — builds the hive so the colony thrives |
+| [crucible](/constructs/crucible) | security | 5 | Validation and testing (circular dep with observer) |
+| [protocol](/constructs/protocol) | web3 | 10 | Reads the chain so users don't hit reverts |
+| [hardening](/constructs/hardening) | security | 11 | Finds the holes before someone else does |
+| [gecko](/constructs/gecko) | observability | 4 | Ecosystem intelligence — the quiet one on the wall |
+
+## Islands (zero declared relationships)
+
+| Construct | Category | Skills | Description |
+|-----------|----------|--------|-------------|
+| [beacon](/constructs/beacon) | operations | 6 | AI-retrievable content + trust signals |
+| [dynamic-auth](/constructs/dynamic-auth) | security | 3 | Wallet group identity for Dynamic SDK |
+| [mibera-codex](/constructs/mibera-codex) | documentation | 3 | 10,000 Beras, 15,000 years of lore |
+| [webgl-particles](/constructs/webgl-particles) | design | 9 | WebGL particle systems from 229 sources |
+| [webreel](/constructs/webreel) | design | 4 | Broadcast-quality web page video recorder |
+
+---
+
+## By Category
+
+### design (8)
+[artisan](/constructs/artisan) · [the-easel](/constructs/the-easel) · [showcase](/constructs/showcase) · [the-arcade](/constructs/the-arcade) · [the-mint](/constructs/the-mint) · [the-speakers](/constructs/the-speakers) · [webgl-particles](/constructs/webgl-particles) · [webreel](/constructs/webreel)
+
+### analytics (3)
+[observer](/constructs/observer) · [k-hole](/constructs/k-hole) · [gecko](/constructs/gecko)
+
+### security (3)
+[crucible](/constructs/crucible) · [hardening](/constructs/hardening) · [dynamic-auth](/constructs/dynamic-auth)
+
+### marketing (3)
+[gtm-collective](/constructs/gtm-collective) · [social-oracle](/constructs/social-oracle) · [growthpages](/constructs/growthpages)
+
+### operations (2)
+[beacon](/constructs/beacon) · [herald](/constructs/herald)
+
+### documentation (2)
+[mibera-codex](/constructs/mibera-codex) · [vocabulary-bank](/constructs/vocabulary-bank)
+
+### development (1)
+[protocol](/constructs/protocol)
+
+### vfx (1)
+[vfx-playbook](/constructs/vfx-playbook)
 
 <style>
 .graph-container {

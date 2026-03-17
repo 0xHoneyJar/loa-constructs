@@ -1,7 +1,7 @@
 import { defineConfig } from "vitepress";
 
 export default defineConfig({
-  title: "Constructs Network",
+  title: "Constructs",
   description: "Documentation for the construct ecosystem",
   appearance: "dark",
 
@@ -31,18 +31,17 @@ export default defineConfig({
       "link",
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
       },
     ],
   ],
 
   themeConfig: {
     nav: [
-      { text: "Home", link: "/" },
+      { text: "Network", link: "/" },
       { text: "Constructs", link: "/constructs/" },
       { text: "Architecture", link: "/architecture/ecs" },
       { text: "Verification", link: "/verification/echelon" },
-      { text: "Network", link: "/network/" },
     ],
 
     sidebar: {
@@ -120,14 +119,49 @@ export default defineConfig({
       ],
       "/architecture/": [
         {
+          text: "Network",
+          items: [
+            { text: "Overview", link: "/" },
+            { text: "Health", link: "/network/health" },
+            { text: "Operator Modes", link: "/network/operator" },
+            { text: "Personas", link: "/network/personas" },
+          ],
+        },
+        {
           text: "Architecture",
           items: [
             { text: "ECS Frame", link: "/architecture/ecs" },
             { text: "Topology", link: "/architecture/topology" },
           ],
         },
+        {
+          text: "Verification",
+          items: [
+            { text: "Echelon", link: "/verification/echelon" },
+            {
+              text: "Verification Guide",
+              link: "/verification/verification-guide",
+            },
+          ],
+        },
       ],
       "/verification/": [
+        {
+          text: "Network",
+          items: [
+            { text: "Overview", link: "/" },
+            { text: "Health", link: "/network/health" },
+            { text: "Operator Modes", link: "/network/operator" },
+            { text: "Personas", link: "/network/personas" },
+          ],
+        },
+        {
+          text: "Architecture",
+          items: [
+            { text: "ECS Frame", link: "/architecture/ecs" },
+            { text: "Topology", link: "/architecture/topology" },
+          ],
+        },
         {
           text: "Verification",
           items: [
@@ -143,13 +177,62 @@ export default defineConfig({
         {
           text: "Network",
           items: [
-            { text: "Overview", link: "/network/" },
+            { text: "Overview", link: "/" },
             { text: "Health", link: "/network/health" },
             { text: "Operator Modes", link: "/network/operator" },
             { text: "Personas", link: "/network/personas" },
             {
               text: "Audit (2026-03-17)",
               link: "/network/audit-2026-03-17",
+            },
+          ],
+        },
+        {
+          text: "Architecture",
+          items: [
+            { text: "ECS Frame", link: "/architecture/ecs" },
+            { text: "Topology", link: "/architecture/topology" },
+          ],
+        },
+        {
+          text: "Verification",
+          items: [
+            { text: "Echelon", link: "/verification/echelon" },
+            {
+              text: "Verification Guide",
+              link: "/verification/verification-guide",
+            },
+          ],
+        },
+      ],
+      "/": [
+        {
+          text: "Network",
+          items: [
+            { text: "Overview", link: "/" },
+            { text: "Health", link: "/network/health" },
+            { text: "Operator Modes", link: "/network/operator" },
+            { text: "Personas", link: "/network/personas" },
+            {
+              text: "Audit (2026-03-17)",
+              link: "/network/audit-2026-03-17",
+            },
+          ],
+        },
+        {
+          text: "Architecture",
+          items: [
+            { text: "ECS Frame", link: "/architecture/ecs" },
+            { text: "Topology", link: "/architecture/topology" },
+          ],
+        },
+        {
+          text: "Verification",
+          items: [
+            { text: "Echelon", link: "/verification/echelon" },
+            {
+              text: "Verification Guide",
+              link: "/verification/verification-guide",
             },
           ],
         },

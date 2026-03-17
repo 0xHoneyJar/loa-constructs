@@ -62,7 +62,7 @@ function buildLocalGraph() {
     .append("svg")
     .attr("width", width)
     .attr("height", height)
-    .style("background", "oklch(0.12 0.005 240)");
+    .style("background", "oklch(0.12 0.008 250)");
 
   // Glow filter
   const defs = svg.append("defs");
@@ -116,8 +116,8 @@ function buildLocalGraph() {
   nodeGroup
     .append("circle")
     .attr("r", (d) => (d.id === props.slug ? 8 : 5))
-    .attr("fill", (d) => categoryColors[d.category] ?? "oklch(0.50 0.05 240)")
-    .attr("stroke", (d) => categoryColors[d.category] ?? "oklch(0.50 0.05 240)")
+    .attr("fill", (d) => categoryColors[d.category] ?? "oklch(0.50 0.05 250)")
+    .attr("stroke", (d) => categoryColors[d.category] ?? "oklch(0.50 0.05 250)")
     .attr("stroke-width", 1)
     .attr("stroke-opacity", (d) => (d.id === props.slug ? 0.6 : 0.3))
     .attr("fill-opacity", (d) => (d.id === props.slug ? 1 : 0.7))
@@ -130,7 +130,7 @@ function buildLocalGraph() {
     .attr("dx", (d) => (d.id === props.slug ? 12 : 9))
     .attr("dy", "0.35em")
     .attr("fill", (d) =>
-      d.id === props.slug ? "oklch(0.92 0.01 240)" : "oklch(0.65 0.01 240)"
+      d.id === props.slug ? "oklch(0.92 0.01 95)" : "oklch(0.65 0.01 95)"
     )
     .attr("font-size", (d) => (d.id === props.slug ? "11px" : "10px"))
     .attr("font-family", "'Space Grotesk', sans-serif")
@@ -175,7 +175,7 @@ onUnmounted(() => {
 .local-graph {
   width: 100%;
   height: 200px;
-  border-radius: 6px;
+  border-radius: 0;
   overflow: hidden;
 }
 
