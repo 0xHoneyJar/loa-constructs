@@ -829,17 +829,20 @@ async function seedForgePacks() {
         const category = rawCategory ? normalizeCategory(rawCategory) : 'development';
 
         // Visibility deny-by-default: only explicit manifest opt-in makes a construct public (GPT review F5)
-        // Priority: --visibility-override > registry-sources.yaml > manifest > 'internal'
-        const VALID_VISIBILITY = ['public', 'internal', 'unlisted'] as const;
-        const rawVis = (pack.fullManifest as any)?.visibility;
-        const registryVis = pack.gitConfig?.visibility;
-        const manifestVisibility = VALID_VISIBILITY.includes(rawVis) ? rawVis
-          : (registryVis && VALID_VISIBILITY.includes(registryVis as any)) ? registryVis
-          : 'internal';
-        const packVisibility = VISIBILITY_OVERRIDE ?? manifestVisibility;
-        if (packVisibility !== 'internal') {
-          console.log(`     → visibility: ${packVisibility} (raw=${rawVis}, registry=${registryVis}, override=${VISIBILITY_OVERRIDE})`);
+        // Priority: --visibility-override > manifest > registry-sources.yaml > 'internal'
+        const VALID_VIS = ['public', 'internal', 'unlisted'];
+        const rawVis = (pack.fullManifest as any)?.visibility as string | undefined;
+        const registryVis = pack.gitConfig?.visibility as string | undefined;
+
+        let packVisibility = 'internal'; // default
+        if (VISIBILITY_OVERRIDE && VALID_VIS.includes(VISIBILITY_OVERRIDE)) {
+          packVisibility = VISIBILITY_OVERRIDE;
+        } else if (rawVis && VALID_VIS.includes(rawVis)) {
+          packVisibility = rawVis;
+        } else if (registryVis && VALID_VIS.includes(registryVis)) {
+          packVisibility = registryVis;
         }
+        console.log(`     → visibility: ${packVisibility} (manifest=${rawVis ?? 'none'}, registry=${registryVis ?? 'none'})`);
 
         const packResult = await tx`
           INSERT INTO packs (
