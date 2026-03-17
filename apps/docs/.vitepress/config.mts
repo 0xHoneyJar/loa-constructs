@@ -5,6 +5,12 @@ export default defineConfig({
   description: "Documentation for the construct ecosystem",
   appearance: "dark",
 
+  vite: {
+    ssr: {
+      noExternal: ["d3", "d3-array", "d3-axis", "d3-brush", "d3-chord", "d3-color", "d3-contour", "d3-delaunay", "d3-dispatch", "d3-drag", "d3-dsv", "d3-ease", "d3-fetch", "d3-force", "d3-format", "d3-geo", "d3-hierarchy", "d3-interpolate", "d3-path", "d3-polygon", "d3-quadtree", "d3-random", "d3-scale", "d3-scale-chromatic", "d3-selection", "d3-shape", "d3-time", "d3-time-format", "d3-timer", "d3-transition", "d3-zoom", "delaunator", "internmap", "robust-predicates"],
+    },
+  },
+
   head: [
     [
       "link",
@@ -25,7 +31,7 @@ export default defineConfig({
       "link",
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap",
       },
     ],
   ],
@@ -33,41 +39,83 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: "Home", link: "/" },
-      { text: "Constructs", link: "/constructs/artisan" },
+      { text: "Constructs", link: "/constructs/" },
       { text: "Architecture", link: "/architecture/ecs" },
       { text: "Verification", link: "/verification/echelon" },
-      { text: "About", link: "/network/index" },
+      { text: "Network", link: "/network/" },
     ],
 
     sidebar: {
       "/constructs/": [
         {
-          text: "Constructs",
+          text: "Overview",
+          link: "/constructs/",
+        },
+        {
+          text: "Design",
+          collapsed: false,
           items: [
             { text: "Artisan", link: "/constructs/artisan" },
-            { text: "Beacon", link: "/constructs/beacon" },
-            { text: "Crucible", link: "/constructs/crucible" },
-            { text: "Dynamic Auth", link: "/constructs/dynamic-auth" },
-            { text: "Gecko", link: "/constructs/gecko" },
-            { text: "Growthpages", link: "/constructs/growthpages" },
-            { text: "GTM Collective", link: "/constructs/gtm-collective" },
-            { text: "Hardening", link: "/constructs/hardening" },
-            { text: "Herald", link: "/constructs/herald" },
-            { text: "K-Hole", link: "/constructs/k-hole" },
-            { text: "Mibera Codex", link: "/constructs/mibera-codex" },
-            { text: "Observer", link: "/constructs/observer" },
-            { text: "Protocol", link: "/constructs/protocol" },
-            { text: "Showcase", link: "/constructs/showcase" },
-            { text: "Social Oracle", link: "/constructs/social-oracle" },
-            { text: "The Arcade", link: "/constructs/the-arcade" },
             { text: "The Easel", link: "/constructs/the-easel" },
+            { text: "Showcase", link: "/constructs/showcase" },
+            { text: "The Arcade", link: "/constructs/the-arcade" },
             { text: "The Mint", link: "/constructs/the-mint" },
             { text: "The Speakers", link: "/constructs/the-speakers" },
-            { text: "VFX Playbook", link: "/constructs/vfx-playbook" },
-            { text: "Vocabulary Bank", link: "/constructs/vocabulary-bank" },
             { text: "WebGL Particles", link: "/constructs/webgl-particles" },
-            { text: "Webreel", link: "/constructs/webreel" },
+            { text: "WebReel", link: "/constructs/webreel" },
+            { text: "VFX Playbook", link: "/constructs/vfx-playbook" },
           ],
+        },
+        {
+          text: "Analytics",
+          collapsed: false,
+          items: [
+            { text: "Beehive", link: "/constructs/observer" },
+            { text: "K-Hole", link: "/constructs/k-hole" },
+            { text: "Gecko", link: "/constructs/gecko" },
+          ],
+        },
+        {
+          text: "Security",
+          collapsed: false,
+          items: [
+            { text: "Crucible", link: "/constructs/crucible" },
+            { text: "Hardening", link: "/constructs/hardening" },
+            { text: "Dynamic Auth", link: "/constructs/dynamic-auth" },
+          ],
+        },
+        {
+          text: "Marketing",
+          collapsed: false,
+          items: [
+            { text: "GTM Collective", link: "/constructs/gtm-collective" },
+            { text: "Social Oracle", link: "/constructs/social-oracle" },
+            { text: "GrowthPages", link: "/constructs/growthpages" },
+          ],
+        },
+        {
+          text: "Operations",
+          collapsed: false,
+          items: [
+            { text: "Beacon", link: "/constructs/beacon" },
+            { text: "Herald", link: "/constructs/herald" },
+          ],
+        },
+        {
+          text: "Documentation",
+          collapsed: false,
+          items: [
+            { text: "Mibera Codex", link: "/constructs/mibera-codex" },
+            {
+              text: "Vocabulary Bank",
+              link: "/constructs/vocabulary-bank",
+            },
+          ],
+        },
+        {
+          text: "Development",
+          collapsed: false,
+          items: [{ text: "Protocol", link: "/constructs/protocol" }],
         },
       ],
       "/architecture/": [
@@ -95,9 +143,9 @@ export default defineConfig({
         {
           text: "Network",
           items: [
-            { text: "Overview", link: "/network/index" },
+            { text: "Overview", link: "/network/" },
             { text: "Health", link: "/network/health" },
-            { text: "Operator", link: "/network/operator" },
+            { text: "Operator Modes", link: "/network/operator" },
             { text: "Personas", link: "/network/personas" },
             {
               text: "Audit (2026-03-17)",

@@ -18,17 +18,40 @@ tags:
 
 > Canonical source of truth for 10,000 time-travelling Beras and 15,000 years of lore. Traits are signals, not scripts — it synthesizes identity that breathes. The oracle that remembers what the chain cannot.
 
-**Version**: 1.0.0 · **Category**: documentation · **Skills**: 0 · **Commands**: 1
+**Version**: 1.0.0 · **Category**: documentation · **Type**: codex · **Commands**: 1
+
+## Install
+
+```bash
+loa install mibera-codex
+```
+
+## Commands
+
+| Command | What it does |
+|---------|-------------|
+| `codex query` | Query the lore database |
 
 ## Relationships
 
-No declared relationships. See [Topology](/architecture/topology) Islands section.
+### Island
+
+Mibera Codex has no declared relationships. It could compose with [K-Hole](/constructs/k-hole) (research draws on lore). See [Topology &rarr; Islands](/architecture/topology#islands).
+
+## Operator Mode
+
+Mibera Codex maps to **DIG mode** (persona: STAMETS) — deep research into canonical lore. [See Operator Modes &rarr;](/network/operator)
+
+## Verification Archetype
+
+**Depth construct** — output claims to be canonical lore. Verification checks source fidelity against the trait database. [Verification guide &rarr;](/verification/verification-guide#_3-depth-constructs-sources-are-real-and-grounded)
+
 ## Source
 
-- Repo: `0xHoneyJar/construct-mibera-codex`
-- Cache: `.cache/construct-repos/construct-mibera-codex/`
-- Grimoire: `grimoires/mibera-codex/` (if exists)
+- **Repo**: `0xHoneyJar/construct-mibera-codex`
+- **Cache**: `.cache/construct-repos/construct-mibera-codex/`
+- **Grimoire**: `grimoires/mibera-codex/`
 
-## Navigation
+---
 
-← [Index](/network/) · [Topology](/architecture/topology) · [Network Health](/network/health)
+[All Constructs](/constructs/) · [Topology](/architecture/topology) · [Network Health](/network/health)

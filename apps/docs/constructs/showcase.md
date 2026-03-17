@@ -17,23 +17,59 @@ tags:
 
 > Landing page visual intelligence — how to present products, data, offerings, and achievements through cards and sections. Visual metaphor selection, narrative layout, data encoding, and semantic shape language for premium dark-theme marketing pages.
 
-**Version**: 1.0.0 · **Category**: design · **Skills**: 6 · **Commands**: 6
+**Version**: 1.0.0 · **Category**: design · **Type**: skill-pack · **Skills**: 6 · **Commands**: 6
+
+## Install
+
+```bash
+loa install showcase
+```
+
+## Skills
+
+| Skill | What it does |
+|-------|-------------|
+| `/showcase` | Generate landing page section designs |
+| `/card-system` | Design card components with semantic shapes |
+| `/data-encoding` | Encode data into visual representations |
+| `/metaphor-select` | Choose visual metaphors for product concepts |
+| `/narrative-layout` | Structure page narrative flow |
+| `/section-audit` | Audit existing landing page sections |
 
 ## Relationships
 
+### Governed By
+
+- [Artisan](/constructs/artisan) — inherits taste tokens and design standards
+
+### Depends On
+
+- [K-Hole](/constructs/k-hole) — research depth for visual pattern sourcing
+
 ### Composes With
-- [artisan](/constructs/artisan)
-- [the-easel](/constructs/the-easel)
-## Composition Paths
+
+- [Artisan](/constructs/artisan)
+- [The Easel](/constructs/the-easel)
+
+### Composition Paths
 
 **Reads from:**
-- `grimoires/`
+- `grimoires/` (broad — draws on multiple grimoire sources)
+
+## Operator Mode
+
+Showcase is a **FEEL mode** construct (persona: ALEXANDER). [See Operator Modes &rarr;](/network/operator)
+
+## Verification Archetype
+
+**Taste construct** — verification checks whether visual output matches the design specification. [Verification guide &rarr;](/verification/verification-guide#_2-taste-constructs-output-matches-the-spec)
+
 ## Source
 
-- Repo: `0xHoneyJar/construct-showcase`
-- Cache: `.cache/construct-repos/construct-showcase/`
-- Grimoire: `grimoires/showcase/` (if exists)
+- **Repo**: `0xHoneyJar/construct-showcase`
+- **Cache**: `.cache/construct-repos/construct-showcase/`
+- **Grimoire**: `grimoires/showcase/`
 
-## Navigation
+---
 
-← [Index](/network/) · [Topology](/architecture/topology) · [Network Health](/network/health)
+[All Constructs](/constructs/) · [Topology](/architecture/topology) · [Network Health](/network/health)

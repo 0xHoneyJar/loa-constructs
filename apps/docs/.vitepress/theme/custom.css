@@ -1,60 +1,69 @@
 /**
- * Constructs Network — Obsidian-inspired dark theme
- * Colors: oklch void-base, bone text, warm amber accent
- * Font: Space Grotesk for headings/logo
+ * Constructs Network — docs theme
+ * Derived from explorer's Chromatic Engine (globals.css)
+ * Palette: void (hue 250), bone (hue 95), cyan (hue 195), crimson (hue 25)
+ * Typography: Geist Mono body, Space Grotesk headings
  */
 
 :root {
-  --vp-font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-    Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue",
-    sans-serif;
-  --vp-font-family-mono: "JetBrains Mono", "Fira Code", "Menlo", "Monaco",
-    "Consolas", monospace;
+  --vp-font-family-base: "Geist Mono", "JetBrains Mono", "Fira Code", "Menlo",
+    "Monaco", "Consolas", monospace;
+  --vp-font-family-mono: "Geist Mono", "JetBrains Mono", "Fira Code", "Menlo",
+    "Monaco", "Consolas", monospace;
 }
 
-/* Dark theme overrides */
+/* Dark theme overrides — mapped to explorer's Chromatic Engine */
 .dark {
-  --vp-c-bg: oklch(0.12 0.005 240);
-  --vp-c-bg-alt: oklch(0.1 0.005 240);
-  --vp-c-bg-elv: oklch(0.15 0.005 240);
-  --vp-c-bg-soft: oklch(0.15 0.008 240);
+  /* Void — backgrounds (explorer: --color-void-*) */
+  --vp-c-bg: oklch(0.08 0.005 250);
+  --vp-c-bg-alt: oklch(0.08 0.005 250);
+  --vp-c-bg-elv: oklch(0.16 0.01 250);
+  --vp-c-bg-soft: oklch(0.12 0.008 250);
 
-  --vp-c-text-1: oklch(0.85 0.01 60);
-  --vp-c-text-2: oklch(0.65 0.01 60);
-  --vp-c-text-3: oklch(0.5 0.008 60);
+  /* Bone — text (explorer: --color-bone-*) */
+  --vp-c-text-1: oklch(0.88 0.01 95);
+  --vp-c-text-2: oklch(0.68 0.008 95);
+  --vp-c-text-3: oklch(0.48 0.006 95);
 
-  --vp-c-brand-1: oklch(0.75 0.15 55);
-  --vp-c-brand-2: oklch(0.7 0.13 55);
-  --vp-c-brand-3: oklch(0.65 0.11 55);
-  --vp-c-brand-soft: oklch(0.3 0.05 55);
+  /* Cyan — brand accent (explorer: --color-cyan-*) */
+  --vp-c-brand-1: oklch(0.85 0.15 195);
+  --vp-c-brand-2: oklch(0.65 0.12 195);
+  --vp-c-brand-3: oklch(0.65 0.12 195);
+  --vp-c-brand-soft: oklch(0.14 0.015 195);
 
-  --vp-c-default-1: oklch(0.45 0.01 240);
-  --vp-c-default-2: oklch(0.35 0.01 240);
-  --vp-c-default-3: oklch(0.25 0.01 240);
-  --vp-c-default-soft: oklch(0.18 0.005 240);
+  /* Default — neutral chrome */
+  --vp-c-default-1: oklch(0.48 0.006 95);
+  --vp-c-default-2: oklch(0.32 0.004 95);
+  --vp-c-default-3: oklch(0.22 0.012 250);
+  --vp-c-default-soft: oklch(0.12 0.008 250);
 
-  --vp-c-divider: oklch(0.22 0.005 240);
+  /* Borders — explorer: --color-void-border */
+  --vp-c-divider: oklch(0.22 0.012 250);
 
-  --vp-sidebar-bg-color: oklch(0.1 0.004 240);
+  --vp-sidebar-bg-color: oklch(0.08 0.005 250);
 
-  --vp-nav-bg-color: oklch(0.11 0.005 240);
+  --vp-nav-bg-color: oklch(0.08 0.005 250);
 
-  --vp-code-block-bg: oklch(0.09 0.005 240);
+  --vp-code-block-bg: oklch(0.06 0.003 250);
 
-  --vp-button-brand-bg: oklch(0.75 0.15 55);
-  --vp-button-brand-hover-bg: oklch(0.7 0.13 55);
-  --vp-button-brand-active-bg: oklch(0.65 0.11 55);
-  --vp-button-brand-text: oklch(0.12 0.005 240);
+  /* Buttons — cyan brand on void */
+  --vp-button-brand-bg: oklch(0.85 0.15 195);
+  --vp-button-brand-hover-bg: oklch(0.65 0.12 195);
+  --vp-button-brand-active-bg: oklch(0.65 0.12 195);
+  --vp-button-brand-text: oklch(0.08 0.005 250);
 
+  /* Hero gradient — bone-bright → cyan */
   --vp-home-hero-name-color: transparent;
   --vp-home-hero-name-background: linear-gradient(
     135deg,
-    oklch(0.85 0.01 60),
-    oklch(0.75 0.15 55)
+    oklch(0.97 0.005 95),
+    oklch(0.85 0.15 195)
   );
 }
 
-/* Space Grotesk for headings and logo */
+/* Space Grotesk for headings — display face for docs
+   (Explorer uses Basement Grotesque, a black-weight display face.
+    Space Grotesk is the docs equivalent: geometric, structured, readable.) */
 .VPNavBarTitle .title,
 .VPHero .name,
 .VPHero .text,
@@ -62,49 +71,96 @@ h1,
 h2,
 h3 {
   font-family: "Space Grotesk", var(--vp-font-family-base) !important;
+  letter-spacing: 0.02em;
 }
 
-/* Sidebar styling */
+/* Sidebar — void-base, structural border */
 .VPSidebar {
-  border-right-color: oklch(0.18 0.005 240) !important;
+  border-right-color: oklch(0.22 0.012 250) !important;
 }
 
-/* Nav border */
+/* Nav border — void-border */
 .VPNav {
-  border-bottom-color: oklch(0.18 0.005 240) !important;
+  border-bottom-color: oklch(0.22 0.012 250) !important;
 }
 
-/* Content links */
+/* Content links — cyan accent */
 .vp-doc a {
-  color: oklch(0.75 0.15 55);
-  text-decoration-color: oklch(0.4 0.08 55);
+  color: oklch(0.85 0.15 195);
+  text-decoration-color: oklch(0.65 0.12 195);
 }
 
 .vp-doc a:hover {
-  color: oklch(0.85 0.15 55);
-  text-decoration-color: oklch(0.75 0.15 55);
+  color: oklch(0.97 0.005 95);
+  text-decoration-color: oklch(0.85 0.15 195);
 }
 
-/* Table styling */
+/* Table styling — void-border */
 .vp-doc table {
-  border-color: oklch(0.22 0.005 240);
+  border-color: oklch(0.22 0.012 250);
 }
 
 .vp-doc tr {
-  border-color: oklch(0.2 0.005 240);
+  border-color: oklch(0.22 0.012 250);
 }
 
 .vp-doc th {
   font-family: "Space Grotesk", var(--vp-font-family-base);
   font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.8125rem;
+  color: oklch(0.68 0.008 95);
 }
 
-/* Code blocks */
+/* Code blocks — mono stack */
 .vp-doc [class*="language-"] code {
   font-family: var(--vp-font-family-mono);
 }
 
-/* Hero tagline */
+/* Hero tagline — bone-dim */
 .VPHero .tagline {
-  color: oklch(0.65 0.01 60);
+  color: oklch(0.68 0.008 95);
+}
+
+/* Selection — crimson (the only warm channel, matching explorer) */
+::selection {
+  background: oklch(0.55 0.24 25 / 0.35);
+  color: oklch(0.97 0.005 95);
+}
+
+/* Scrollbar — narrow, bone-ghost (matching explorer) */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: oklch(0.08 0.005 250);
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.32 0.004 95);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.68 0.008 95);
+}
+
+/* Sidebar items — tighter, more structural */
+.VPSidebarItem .text {
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+}
+
+/* Alt button — void surface with bone text */
+.VPButton.alt {
+  background-color: oklch(0.12 0.008 250) !important;
+  border-color: oklch(0.22 0.012 250) !important;
+  color: oklch(0.88 0.01 95) !important;
+}
+
+.VPButton.alt:hover {
+  background-color: oklch(0.16 0.01 250) !important;
+  border-color: oklch(0.65 0.12 195) !important;
 }

@@ -14,27 +14,54 @@ tags:
 
 # Crucible
 
-> Validation and testing skills for journey verification
+> Validation and testing skills for journey verification. The loop that checks whether what you built matches what you observed.
 
-**Version**: 1.0.0 · **Category**: security · **Skills**: 5 · **Commands**: 0
+**Version**: 1.0.0 · **Category**: security · **Skills**: 5
+
+## Install
+
+```bash
+loa install crucible
+```
+
+## Skills
+
+| Skill | What it does |
+|-------|-------------|
+| `/validate` | Run validation pass against journey evidence |
+| `/test-journey` | Verify a user journey maps to reality |
+| `/crucible-review` | Review validation results |
+| `/gap-check` | Find gaps between observation and implementation |
+| `/evidence-chain` | Trace evidence from observation through to code |
 
 ## Relationships
 
 ### Composes With
-- [observer](/constructs/observer)
-## Composition Paths
+
+- [Beehive](/constructs/observer) — bidirectional validation loop (circular hard dep — [DEP-001](/network/health))
+
+### Composition Paths
 
 **Reads from:**
-- `"grimoires/laboratory/"`
+- `grimoires/laboratory/` (canvases and journeys from Beehive)
 
 **Writes to:**
-- `"grimoires/crucible/"`
+- `grimoires/crucible/` (validation reports)
+
+## Operator Mode
+
+Crucible maps to **ARCH mode** (persona: OSTROM). [See Operator Modes &rarr;](/network/operator)
+
+## Verification Archetype
+
+**Security construct** — findings should be real vulnerabilities or real gaps. [Verification guide &rarr;](/verification/verification-guide#_5-security-constructs-findings-are-real-vulnerabilities)
+
 ## Source
 
-- Repo: `0xHoneyJar/construct-crucible`
-- Cache: `.cache/construct-repos/construct-crucible/`
-- Grimoire: `grimoires/crucible/` (if exists)
+- **Repo**: `0xHoneyJar/construct-crucible`
+- **Cache**: `.cache/construct-repos/construct-crucible/`
+- **Grimoire**: `grimoires/crucible/`
 
-## Navigation
+---
 
-← [Index](/network/) · [Topology](/architecture/topology) · [Network Health](/network/health)
+[All Constructs](/constructs/) · [Topology](/architecture/topology) · [Network Health](/network/health)
