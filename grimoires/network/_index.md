@@ -1,7 +1,7 @@
 ---
 name: Construct Network Map
 type: index
-description: Routing hub for the 23-construct ecosystem. Open graph view to see topology.
+description: Routing hub for the 24-construct ecosystem. Open graph view to see topology.
 updated: 2026-03-17
 tags:
   - network
@@ -10,7 +10,7 @@ tags:
 
 # Construct Network Map
 
-> 23 constructs. 2 governance roots. 5 islands. 160 skills. 61 commands.
+> 24 constructs. 2 governance roots. 5 islands. 165 skills. 66 commands.
 > Open **Graph View** (Cmd+G) to see the topology. Filter by tag to isolate clusters.
 
 ## Quick Links
@@ -63,6 +63,12 @@ tags:
 | [[hardening]] | security | 11 | Finds the holes before someone else does |
 | [[gecko]] | observability | 4 | Ecosystem intelligence — the quiet one on the wall |
 
+## External Builders
+
+| Construct | Category | Skills | Builder | Description |
+|-----------|----------|--------|---------|-------------|
+| [[hypha]] | analytics | 5 | El Capitan (apDAO) | Berachain PoL historian — maps flows, governance, protocol interconnections |
+
 ## Islands (zero declared relationships)
 
 | Construct | Category | Skills | Description |
@@ -80,8 +86,8 @@ tags:
 ### #category/design (8)
 [[artisan]] · [[the-easel]] · [[showcase]] · [[the-arcade]] · [[the-mint]] · [[the-speakers]] · [[webgl-particles]] · [[webreel]]
 
-### #category/analytics (3)
-[[observer]] · [[k-hole]] · [[gecko]]
+### #category/analytics (4)
+[[observer]] · [[k-hole]] · [[gecko]] · [[hypha]]
 
 ### #category/security (3)
 [[crucible]] · [[hardening]] · [[dynamic-auth]]
