@@ -852,12 +852,20 @@ async function seedForgePacks() {
         }
         console.log(`     → visibility: ${packVisibility} (manifest=${pack.rawVisibility ?? 'none'}, registry=${registryVis ?? 'none'})`);
 
-        // Logo: read from logos/<slug>.svg if it exists
-        const logoPath = join(__dirname, '../logos', `${pack.slug}.svg`);
+        // Logos: logos/<slug>-mark.svg for cards, logos/<slug>.svg for full lockup/knockout
+        const logoMarkPath = join(__dirname, '../logos', `${pack.slug}-mark.svg`);
+        const logoKnockoutPath = join(__dirname, '../logos', `${pack.slug}.svg`);
+        let logoMark: string | null = null;
         let logoKnockout: string | null = null;
-        if (existsSync(logoPath)) {
-          logoKnockout = require('fs').readFileSync(logoPath, 'utf-8');
-          console.log(`     → logo: loaded from logos/${pack.slug}.svg (${logoKnockout.length} bytes)`);
+        if (existsSync(logoMarkPath)) {
+          logoMark = require('fs').readFileSync(logoMarkPath, 'utf-8');
+          console.log(`     → logo_mark: loaded from logos/${pack.slug}-mark.svg (${logoMark.length} bytes)`);
+        }
+        if (existsSync(logoKnockoutPath)) {
+          logoKnockout = require('fs').readFileSync(logoKnockoutPath, 'utf-8');
+          console.log(`     → logo_knockout: loaded from logos/${pack.slug}.svg (${logoKnockout.length} bytes)`);
+          // If no separate mark file, use the full lockup as mark too
+          if (!logoMark) logoMark = logoKnockout;
         }
 
         const packResult = await tx`
@@ -893,7 +901,7 @@ async function seedForgePacks() {
             ${docUrl},
             ${searchKeywords},
             ${searchUseCases},
-            ${logoKnockout},
+            ${logoMark},
             ${logoKnockout},
             NOW(),
             NOW()
