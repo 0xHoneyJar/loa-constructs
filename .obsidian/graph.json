@@ -1,0 +1,86 @@
+{
+  "collapse-filter": false,
+  "search": "path:grimoires/network",
+  "showTags": true,
+  "showAttachments": false,
+  "hideUnresolved": false,
+  "showOrphans": true,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "query": "tag:#category/design",
+      "color": {
+        "a": 1,
+        "rgb": 16743324
+      }
+    },
+    {
+      "query": "tag:#category/analytics",
+      "color": {
+        "a": 1,
+        "rgb": 16768324
+      }
+    },
+    {
+      "query": "tag:#category/security",
+      "color": {
+        "a": 1,
+        "rgb": 16746564
+      }
+    },
+    {
+      "query": "tag:#category/marketing",
+      "color": {
+        "a": 1,
+        "rgb": 16729343
+      }
+    },
+    {
+      "query": "tag:#category/operations",
+      "color": {
+        "a": 1,
+        "rgb": 4491519
+      }
+    },
+    {
+      "query": "tag:#category/documentation",
+      "color": {
+        "a": 1,
+        "rgb": 4513023
+      }
+    },
+    {
+      "query": "tag:#category/development",
+      "color": {
+        "a": 1,
+        "rgb": 4521864
+      }
+    },
+    {
+      "query": "tag:#governance/root",
+      "color": {
+        "a": 1,
+        "rgb": 16776960
+      }
+    },
+    {
+      "query": "tag:#topology/island",
+      "color": {
+        "a": 1,
+        "rgb": 8421504
+      }
+    }
+  ],
+  "collapse-display": false,
+  "showArrow": true,
+  "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1.2,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": true,
+  "centerStrength": 0.5,
+  "repelStrength": 10,
+  "linkStrength": 1,
+  "linkDistance": 250,
+  "scale": 1,
+  "close": false
+}

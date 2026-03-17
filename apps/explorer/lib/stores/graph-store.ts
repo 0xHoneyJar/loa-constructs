@@ -12,6 +12,7 @@ interface GraphState {
   // Data
   graphData: GraphData | null;
   categories: (Category | CategoryStats)[];
+  fuseIndex: Fuse<ConstructNode> | null;
 
   // UI State
   hoveredNodeId: string | null;
@@ -52,6 +53,7 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   // Initial state
   graphData: null,
   categories: [],
+  fuseIndex: null,
   hoveredNodeId: null,
   stackNodeIds: new Set(),
   isStackHudOpen: true,
@@ -61,7 +63,14 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   stackHint: 'none',
 
   // Actions
-  setGraphData: (data) => set({ graphData: data }),
+  setGraphData: (data) => {
+    const fuseIndex = new Fuse<ConstructNode>(data.nodes, {
+      keys: ['name', 'description', 'shortDescription', 'skillSlugs'],
+      threshold: 0.4,
+      ignoreLocation: true,
+    });
+    set({ graphData: data, fuseIndex });
+  },
 
   setCategories: (categories) => {
     // Initialize all categories as active
@@ -129,20 +138,13 @@ export const useGraphStore = create<GraphState>((set, get) => ({
   },
 
   setSearchQuery: (query) => {
-    const { graphData } = get();
-    if (!graphData || !query.trim()) {
+    const { fuseIndex } = get();
+    if (!fuseIndex || !query.trim()) {
       set({ searchQuery: query, searchResults: [] });
       return;
     }
 
-    // Use Fuse.js for fuzzy search
-    const fuse = new Fuse<ConstructNode>(graphData.nodes, {
-      keys: ['name', 'description', 'shortDescription'],
-      threshold: 0.4,
-      ignoreLocation: true,
-    });
-
-    const results = fuse.search(query).map((result) => result.item.id);
+    const results = fuseIndex.search(query).map((result) => result.item.id);
     set({ searchQuery: query, searchResults: results });
   },
 

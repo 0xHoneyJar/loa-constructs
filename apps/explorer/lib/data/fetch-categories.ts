@@ -5,12 +5,10 @@
 
 import type { Category } from '@/lib/types/graph';
 import { normalizeCategory, CATEGORIES } from '@loa-constructs/shared';
+import { API_BASE, fetchWithTimeout } from '@/lib/config';
 
 // Re-export for use by fetch-constructs.ts
 export { normalizeCategory };
-
-const API_BASE = process.env.CONSTRUCTS_API_URL || process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network/v1';
-const FETCH_TIMEOUT_MS = 15_000;
 
 /**
  * Default categories for fallback when API is unavailable.
@@ -31,13 +29,9 @@ export const DEFAULT_CATEGORIES: Category[] = CATEGORIES.map((cat, index) => ({
  */
 export async function fetchCategories(): Promise<Category[]> {
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-    const response = await fetch(`${API_BASE}/categories`, {
+    const response = await fetchWithTimeout(`${API_BASE}/categories`, {
       next: { revalidate: 3600 }, // ISR: 1 hour
-      signal: controller.signal,
     });
-    clearTimeout(timer);
 
     if (!response.ok) {
       console.warn('Failed to fetch categories, using defaults');

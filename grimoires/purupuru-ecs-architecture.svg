@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 3825.8500000000004 1256" width="3825.8500000000004" height="1256" style="--bg:#1a1b26;--fg:#a9b1d6;--line:#3d59a1;--accent:#7aa2f7;--muted:#565f89;background:var(--bg)">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap');
+  text { font-family: 'Inter', system-ui, sans-serif; }
+  svg {
+    /* Derived from --bg and --fg (overridable via --line, --accent, etc.) */
+    --_text:          var(--fg);
+    --_text-sec:      var(--muted, color-mix(in srgb, var(--fg) 60%, var(--bg)));
+    --_text-muted:    var(--muted, color-mix(in srgb, var(--fg) 40%, var(--bg)));
+    --_text-faint:    color-mix(in srgb, var(--fg) 25%, var(--bg));
+    --_line:          var(--line, color-mix(in srgb, var(--fg) 30%, var(--bg)));
+    --_arrow:         var(--accent, color-mix(in srgb, var(--fg) 50%, var(--bg)));
+    --_node-fill:     var(--surface, color-mix(in srgb, var(--fg) 3%, var(--bg)));
+    --_node-stroke:   var(--border, color-mix(in srgb, var(--fg) 20%, var(--bg)));
+    --_group-fill:    var(--bg);
+    --_group-hdr:     color-mix(in srgb, var(--fg) 5%, var(--bg));
+    --_inner-stroke:  color-mix(in srgb, var(--fg) 12%, var(--bg));
+    --_key-badge:     color-mix(in srgb, var(--fg) 10%, var(--bg));
+  }
+</style>
+<defs>
+  <marker id="arrowhead" markerWidth="8" markerHeight="4.8" refX="8" refY="2.4" orient="auto">
+    <polygon points="0 0, 8 2.4, 0 4.8" fill="var(--_arrow)" />
+  </marker>
+  <marker id="arrowhead-start" markerWidth="8" markerHeight="4.8" refX="0" refY="2.4" orient="auto-start-reverse">
+    <polygon points="8 0, 0 2.4, 8 4.8" fill="var(--_arrow)" />
+  </marker>
+</defs>
+<rect x="1777.2500000000002" y="40" width="271.35" height="396" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="1777.2500000000002" y="40" width="271.35" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="1789.2500000000002" y="54" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;ENTITIES (data objects)&quot;</text>
+<rect x="1820.15" y="440" width="185.55" height="456" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="1820.15" y="440" width="185.55" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="1832.15" y="454" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;COMPONENTS (state slices)&quot;</text>
+<rect x="40" y="900" width="3745.8500000000004" height="96" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="40" y="900" width="3745.8500000000004" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="52" y="914" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;SYSTEMS (independent logic — blind to each other)&quot;</text>
+<rect x="1727.2000000000003" y="1000" width="371.45000000000005" height="216" rx="0" ry="0" fill="var(--_group-fill)" stroke="var(--_node-stroke)" stroke-width="1" />
+<rect x="1727.2000000000003" y="1000" width="371.45000000000005" height="28" rx="0" ry="0" fill="var(--_group-hdr)" stroke="var(--_node-stroke)" stroke-width="1" />
+<text x="1739.2000000000003" y="1014" dy="0.35em" font-size="12" font-weight="600" fill="var(--_text-sec)">&quot;⏸ KAIRONIC HOLDS&quot;</text>
+<polyline points="1912.9250000000002,436 1912.9250000000002,476" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="1912.9250000000002,896 1912.9250000000002,936" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="1912.9250000000002,996 1912.9250000000002,1036" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="495.55,966 623.6300000000001,966" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="1077.48,966 1199.8400000000001,966" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="1682.29,966 1821.81,966" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="2261.36,966 2406.6000000000004,966" fill="none" stroke="var(--_line)" stroke-width="0.75" marker-end="url(#arrowhead)" />
+<polyline points="2924.8,966 3258.8,966" fill="none" stroke="var(--_line)" stroke-width="0.75" stroke-dasharray="4 4" marker-end="url(#arrowhead)" />
+<rect x="511.55" y="952.5" width="96.08" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="559.59" y="966" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">&quot;pack created&quot;</text>
+<rect x="1093.48" y="952.5" width="90.36" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="1138.66" y="966" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">&quot;cards exist&quot;</text>
+<rect x="1698.29" y="952.5" width="107.52000000000001" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="1752.05" y="966" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">&quot;5 same element&quot;</text>
+<rect x="2277.36" y="952.5" width="113.24000000000001" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="2333.98" y="966" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">&quot;behavior logged&quot;</text>
+<rect x="2940.8" y="952.5" width="302" height="27" rx="4" ry="4" fill="var(--bg)" stroke="var(--_inner-stroke)" stroke-width="0.5" />
+<text x="3091.8" y="966" text-anchor="middle" dy="0.35em" font-size="11" font-weight="400" fill="var(--_text-muted)">&quot;affinity shapes XP&lt;br/&gt;(read-only, never writes)&quot;</text>
+<rect x="1857.6000000000001" y="88" width="110.65" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1864.7500000000002" y="148" width="96.35000000000001" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1793.2500000000002" y="208" width="239.35000000000002" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1864.7500000000002" y="268" width="96.35000000000001" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1857.6000000000001" y="328" width="110.65" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1861.1750000000002" y="388" width="103.5" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1857.6000000000001" y="488" width="110.65" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1864.75" y="548" width="96.35000000000001" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1868.325" y="608" width="89.2" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1868.325" y="668" width="89.2" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1861.1750000000002" y="728" width="103.5" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1836.15" y="788" width="153.55" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1839.7250000000001" y="848" width="146.4" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="56" y="948" width="439.55" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="623.6300000000001" y="948" width="453.85" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1199.8400000000001" y="948" width="482.45000000000005" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1821.81" y="948" width="439.55" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="2406.6000000000004" y="948" width="518.2" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="3258.8" y="948" width="511.05" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1757.5000000000002" y="1048" width="310.85" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1761.0750000000003" y="1108" width="303.70000000000005" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<rect x="1743.2000000000003" y="1168" width="339.45000000000005" height="36" rx="0" ry="0" fill="var(--_node-fill)" stroke="var(--_node-stroke)" stroke-width="0.75" />
+<text x="1912.9250000000002" y="106" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;🎮 Player&quot;</text>
+<text x="1912.9250000000002" y="166" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;🃏 Card&quot;</text>
+<text x="1912.9250000000002" y="226" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;🫧 Pack&lt;br/&gt;&lt;i&gt;Puruhani&lt;/i&gt;&quot;</text>
+<text x="1912.9250000000002" y="286" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;📚 Deck&quot;</text>
+<text x="1912.9250000000002" y="346" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;☯ Element&quot;</text>
+<text x="1912.9250000000002" y="406" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;📊 Score&quot;</text>
+<text x="1912.9250000000002" y="506" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Ownership&quot;</text>
+<text x="1912.925" y="566" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Element&quot;</text>
+<text x="1912.925" y="626" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Rarity&quot;</text>
+<text x="1912.925" y="686" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Visual&quot;</text>
+<text x="1912.9250000000002" y="746" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;Affinity&quot;</text>
+<text x="1912.9250000000002" y="806" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;BehaviorHistory&quot;</text>
+<text x="1912.9250000000002" y="866" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;AnimationState&quot;</text>
+<text x="275.775" y="966" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;MintSystem&lt;br/&gt;&lt;i&gt;creates packs&lt;/i&gt;&lt;br/&gt;&lt;i&gt;ERC-1155&lt;/i&gt;&quot;</text>
+<text x="850.5550000000001" y="966" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;RevealSystem&lt;br/&gt;&lt;i&gt;burns pack&lt;/i&gt;&lt;br/&gt;&lt;i&gt;mints cards&lt;/i&gt;&quot;</text>
+<text x="1441.065" y="966" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;CollectSystem&lt;br/&gt;&lt;i&gt;indexes owned&lt;/i&gt;&lt;br/&gt;&lt;i&gt;tracks sets&lt;/i&gt;&quot;</text>
+<text x="2041.585" y="966" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;CraftSystem&lt;br/&gt;&lt;i&gt;burns 5&lt;/i&gt;&lt;br/&gt;&lt;i&gt;mints special&lt;/i&gt;&quot;</text>
+<text x="2665.7000000000003" y="966" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;ScoreSystem&lt;br/&gt;&lt;i&gt;reads behavior&lt;/i&gt;&lt;br/&gt;&lt;i&gt;surfaces affinity&lt;/i&gt;&quot;</text>
+<text x="3514.3250000000003" y="966" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;DisplaySystem&lt;br/&gt;&lt;i&gt;renders cards&lt;/i&gt;&lt;br/&gt;&lt;i&gt;puruhani wobble&lt;/i&gt;&quot;</text>
+<text x="1912.9250000000002" y="1066" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;after reveal:&lt;br/&gt;sit with your cards&quot;</text>
+<text x="1912.9250000000002" y="1126" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;after craft:&lt;br/&gt;weight of sacrifice&quot;</text>
+<text x="1912.9250000000002" y="1186" text-anchor="middle" dy="0.35em" font-size="13" font-weight="500" fill="var(--_text)">&quot;after affinity:&lt;br/&gt;self-discovery moment&quot;</text>
+</svg>

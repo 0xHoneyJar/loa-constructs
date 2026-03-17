@@ -291,7 +291,7 @@ export function CanvasExplorer({ data }: CanvasExplorerProps) {
         zoomOnPinch
         className="!bg-void-base"
       >
-        {/* @ts-ignore React 19 type mismatch with xyflow memo components */}
+        {/* @ts-expect-error React 19 type mismatch with xyflow memo components */}
         <Background
           id="minor"
           variant={BackgroundVariant.Lines}
@@ -299,7 +299,7 @@ export function CanvasExplorer({ data }: CanvasExplorerProps) {
           color="oklch(0.18 0.005 240)"
           lineWidth={0.5}
         />
-        {/* @ts-ignore React 19 type mismatch with xyflow memo components */}
+        {/* @ts-expect-error React 19 type mismatch with xyflow memo components */}
         <Background
           id="major"
           variant={BackgroundVariant.Lines}
@@ -308,7 +308,7 @@ export function CanvasExplorer({ data }: CanvasExplorerProps) {
           lineWidth={1}
         />
 
-        {/* @ts-ignore React 19 type mismatch with xyflow memo components */}
+        {/* @ts-expect-error React 19 type mismatch with xyflow memo components */}
         <Controls
           showInteractive={false}
           className="!bg-void-raised !border-void-border !shadow-none [&>button]:!bg-void-raised [&>button]:!border-void-border [&>button]:!text-bone-ghost [&>button:hover]:!text-bone-dim"

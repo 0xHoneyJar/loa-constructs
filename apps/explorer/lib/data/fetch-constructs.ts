@@ -1,6 +1,7 @@
 import type { ConstructArchetype, ConstructDetail, ConstructNode, GraduationLevel, GraphData, CategoryStats, Category, Showcase, AccuracyReport, EdgeRelationship } from '@/lib/types/graph';
 import { fetchCategories, normalizeCategory } from './fetch-categories';
 import { resolveShortDescription } from '@/lib/utils/resolve-short-description';
+import { API_BASE, fetchWithTimeout } from '@/lib/config';
 
 /** API response shape for a single construct */
 interface APIConstruct {
@@ -129,19 +130,7 @@ function transformToNode(construct: APIConstruct): ConstructNode {
   };
 }
 
-const API_BASE = process.env.CONSTRUCTS_API_URL || 'https://api.constructs.network/v1';
-const FETCH_TIMEOUT_MS = 15_000;
-
-/** Fetch with an AbortController timeout to prevent hung requests during build */
-async function fetchWithTimeout(url: string, init?: RequestInit): Promise<Response> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-  try {
-    return await fetch(url, { ...init, signal: controller.signal });
-  } finally {
-    clearTimeout(timer);
-  }
-}
+// API_BASE and fetchWithTimeout imported from @/lib/config
 
 interface APIResponse {
   data: APIConstruct[];
@@ -245,6 +234,14 @@ async function fetchAllRaw(): Promise<{ nodes: ConstructNode[]; raw: APIConstruc
     }
 
     const data: APIResponse = await response.json();
+
+    if (data.pagination.total_pages > 1) {
+      console.warn(
+        `[fetchAllRaw] Catalog has ${data.pagination.total} constructs across ${data.pagination.total_pages} pages. ` +
+        `Only page 1 (${data.data.length} constructs) was fetched. Graph and path connections are incomplete.`
+      );
+    }
+
     return { nodes: data.data.map(transformToNode), raw: data.data };
   } catch (error) {
     console.error('Error fetching constructs:', error);
