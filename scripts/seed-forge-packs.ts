@@ -837,6 +837,9 @@ async function seedForgePacks() {
           : (registryVis && VALID_VISIBILITY.includes(registryVis as any)) ? registryVis
           : 'internal';
         const packVisibility = VISIBILITY_OVERRIDE ?? manifestVisibility;
+        if (packVisibility !== 'internal') {
+          console.log(`     → visibility: ${packVisibility} (raw=${rawVis}, registry=${registryVis}, override=${VISIBILITY_OVERRIDE})`);
+        }
 
         const packResult = await tx`
           INSERT INTO packs (
