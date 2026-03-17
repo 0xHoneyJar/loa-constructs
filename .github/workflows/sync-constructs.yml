@@ -55,7 +55,7 @@ jobs:
           if [ "$AUTO_DISCOVER" = "true" ]; then
             FLAGS="--auto-discover"
           fi
-          bun run seed:forge $FLAGS
+          bun scripts/seed-forge-packs.ts $FLAGS
 
       - name: Summary
         if: always()
