@@ -3,11 +3,11 @@ outline: [2, 3]
 ---
 
 <script setup>
-import { useRoute } from 'vitepress'
+import { useData } from 'vitepress'
 import ConstructPage from '../.vitepress/theme/components/ConstructPage.vue'
 
-const { params } = useRoute().data
-const slug = params?.slug || ''
+const { params } = useData()
+const slug = params.value?.slug || ''
 </script>
 
 <ConstructPage :slug="slug" />

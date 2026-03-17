@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import data from '../../data/constructs.json'
 
 const props = defineProps<{ slug: string }>()
 
-const construct = computed(() =>
-  data.constructs.find((c: any) => c.slug === props.slug) || null
+const c = computed(() =>
+  data.constructs.find((item: any) => item.slug === props.slug) || null
 )
 
-const c = construct
+const copied = ref(false)
+
+function copyInstall() {
+  navigator.clipboard.writeText(`loa install ${props.slug}`)
+  copied.value = true
+  setTimeout(() => { copied.value = false }, 2000)
+}
 </script>
 
 <template>
@@ -40,7 +46,11 @@ const c = construct
     </p>
 
     <h2>Install</h2>
-    <div class="language-bash vp-adaptive-theme"><button title="Copy Code" class="copy"></button><span class="lang">bash</span><pre class="shiki shiki-themes" tabindex="0"><code><span class="line"><span>loa install {{ c.slug }}</span></span></code></pre></div>
+    <div class="language-bash vp-adaptive-theme">
+      <button title="Copy Code" class="copy" :class="{ copied }" @click="copyInstall"></button>
+      <span class="lang">bash</span>
+      <pre class="shiki shiki-themes" tabindex="0"><code><span class="line"><span>loa install {{ c.slug }}</span></span></code></pre>
+    </div>
 
     <template v-if="c.skills.length">
       <h2>Skills</h2>

@@ -27,7 +27,8 @@ const totalSkills = data.constructs.reduce((s: number, c: any) => s + (c.skills_
     </blockquote>
 
     <div class="language-bash vp-adaptive-theme">
-      <pre><code><span class="line"><span>loa install &lt;slug&gt;</span></span></code></pre>
+      <span class="lang">bash</span>
+      <pre class="shiki shiki-themes" tabindex="0"><code><span class="line"><span>loa install &lt;slug&gt;</span></span></code></pre>
     </div>
 
     <div v-for="group in grouped" :key="group.label">

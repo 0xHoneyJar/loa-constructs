@@ -131,7 +131,8 @@ function readConstructFromCache(slug: string): ConstructSummary | null {
   // YAML declares all skills (including those without index.yaml yet);
   // directory scan only finds skills with index.yaml.
   const skills: Array<{ slug: string; description: string }> = [];
-  const skillsBlock = content.match(/^skills:\s*\n([\s\S]*?)(?=\n[a-z]|\n$)/m);
+  // Match skills block until the next top-level key (line starting with non-space, non-#)
+  const skillsBlock = content.match(/^skills:\s*\n([\s\S]*?)(?=\n[a-z_][\w]*:)/m);
   if (skillsBlock) {
     const slugMatches = skillsBlock[1].matchAll(/slug:\s*(.+)/g);
     for (const m of slugMatches) {
@@ -147,7 +148,7 @@ function readConstructFromCache(slug: string): ConstructSummary | null {
 
   // Extract commands
   const commands: Array<{ name: string; description: string }> = [];
-  const cmdBlock = content.match(/^commands:\s*\n([\s\S]*?)(?=\n[a-z]|\n$)/m);
+  const cmdBlock = content.match(/^commands:\s*\n([\s\S]*?)(?=\n[a-z_][\w]*:)/m);
   if (cmdBlock) {
     const nameMatches = cmdBlock[1].matchAll(/name:\s*(.+)/g);
     for (const m of nameMatches) {
