@@ -124,23 +124,28 @@ function readConstructFromCache(slug: string): ConstructSummary | null {
   const domain = yamlList(content, 'domain');
   const category = normalizeCategory(domain[0] || 'development');
 
-  // Extract skills from construct.yaml skills list (more accurate than directory)
-  const yamlSkills = content.match(/^skills:\s*\n((?:  - .+\n)*)/m);
+  // Extract skills — use directory scan (most reliable), fallback to YAML parsing
   const skills: Array<{ slug: string; description: string }> = [];
-  if (yamlSkills) {
-    const skillLines = yamlSkills[1].split('\n');
-    for (const line of skillLines) {
-      const slugMatch = line.match(/slug:\s*(.+)/);
-      if (slugMatch) skills.push({ slug: slugMatch[1].trim(), description: '' });
+  if (skillSlugs.length > 0) {
+    for (const s of skillSlugs) {
+      skills.push({ slug: s, description: '' });
+    }
+  } else {
+    // Fallback: parse all slug: lines under skills: block
+    const skillsBlock = content.match(/^skills:\s*\n([\s\S]*?)(?=\n[a-z]|\n$)/m);
+    if (skillsBlock) {
+      const slugMatches = skillsBlock[1].matchAll(/slug:\s*(.+)/g);
+      for (const m of slugMatches) {
+        skills.push({ slug: m[1].trim(), description: '' });
+      }
     }
   }
 
   // Extract commands
   const commands: Array<{ name: string; description: string }> = [];
-  const cmdMatch = content.match(/^commands:\s*\n((?:  - .+\n)*)/m);
-  if (cmdMatch) {
-    const cmdBlock = cmdMatch[1];
-    const nameMatches = cmdBlock.matchAll(/name:\s*(.+)/g);
+  const cmdBlock = content.match(/^commands:\s*\n([\s\S]*?)(?=\n[a-z]|\n$)/m);
+  if (cmdBlock) {
+    const nameMatches = cmdBlock[1].matchAll(/name:\s*(.+)/g);
     for (const m of nameMatches) {
       commands.push({ name: m[1].trim(), description: '' });
     }
