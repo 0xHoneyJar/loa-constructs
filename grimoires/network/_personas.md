@@ -143,11 +143,17 @@ YAML metadata for model tier routing, capability matching, and the `construct_id
 |----|-------|----------|-----|
 | PER-001 | beauvoir_hash "pending" on all 3 BEAUVOIR-series personas | LOW | Compute SHA-256 of each file, set hash |
 | PER-002 | STAMETS uses `stamets_hash` instead of `beauvoir_hash` | LOW | Normalize to `beauvoir_hash` for consistency |
-| PER-003 | KEEPER (observer) has no narrative .md file — only persona.yaml | MEDIUM | Write `construct-observer/identity/KEEPER.md` |
+| PER-003 | KEEPER (observer) has narrative KEEPER.md (confirmed exists) | RESOLVED | — |
 | PER-004 | ALEXANDER.md has no beauvoir_hash field at all | LOW | Add header with hash |
 | PER-005 | Two naming conventions coexist (BEAUVOIR series vs non-BEAUVOIR) | LOW | Document convention, don't enforce yet |
 | PER-006 | Installed k-hole pack references "five voices" (stale) — STAMETS has seven | HIGH | Re-sync installed pack from source |
-| PER-007 | No persona narrative files for 17 constructs (only persona.yaml) | INFO | These don't all need one — only constructs with deep identity |
+| PER-007 | 18/24 constructs have NO narrative persona files | INFO | Only 6 have them (artisan, k-hole, observer, the-arcade, the-mint, the-speakers) |
+| PER-008 | Only 1/24 constructs has matching model_tier at persona + construct level | HIGH | vocabulary-bank is the only MATCH. 5 constructs have persona-level sonnet but no construct-level capabilities |
+| PER-009 | Two cognitiveFrame schemas coexist: camelCase (14) vs underscore (4) | MEDIUM | Standardize to one format |
+| PER-010 | 2 constructs have zero identity infrastructure (hypha, webgl-particles) | LOW | Legacy/third-party, may not need it |
+| PER-011 | 2 constructs missing expertise.yaml (growthpages, social-oracle) | MEDIUM | Create or declare not applicable |
+| PER-012 | Observer skills use `model_tier: standard` instead of canonical taxonomy | HIGH | Should be `sonnet` to match persona.yaml |
+| PER-013 | the-mint has CELLINI.md + MURAGE.md sub-personas, the-speakers has TANDY.md + GECKO.md | INFO | Multi-persona constructs — richer than most |
 
 ---
 

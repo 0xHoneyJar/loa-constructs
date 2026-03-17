@@ -3,3 +3,4 @@
 .vitepress/data
 node_modules
 .vitepress/.temp
+.vercel
