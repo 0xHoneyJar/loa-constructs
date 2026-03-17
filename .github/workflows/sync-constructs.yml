@@ -21,6 +21,11 @@ on:
         options:
           - 'false'
           - 'true'
+      only:
+        description: 'Sync only specific constructs (comma-separated slugs). Leave empty for all.'
+        required: false
+        default: ''
+        type: string
   repository_dispatch:
     types: [construct-updated]
 
@@ -51,11 +56,21 @@ jobs:
         run: |
           FLAGS=""
           # Auto-discover requires a PAT with org:read scope (not available with GITHUB_TOKEN)
-          # Default to hardcoded GIT_CONFIGS + registry-sources.yaml (external builders)
           AUTO_DISCOVER="${{ github.event.inputs.auto_discover || 'false' }}"
           if [ "$AUTO_DISCOVER" = "true" ]; then
-            FLAGS="--auto-discover"
+            FLAGS="$FLAGS --auto-discover"
           fi
+          # --only scoping: when set, ONLY sync the specified constructs
+          ONLY="${{ github.event.inputs.only || '' }}"
+          if [ -n "$ONLY" ]; then
+            FLAGS="$FLAGS --only $ONLY"
+          fi
+          # repository_dispatch from a specific construct: scope to that slug
+          DISPATCH_SLUG="${{ github.event.client_payload.slug || '' }}"
+          if [ -n "$DISPATCH_SLUG" ] && [ -z "$ONLY" ]; then
+            FLAGS="$FLAGS --only $DISPATCH_SLUG"
+          fi
+          echo "Running: bun scripts/seed-forge-packs.ts $FLAGS"
           bun scripts/seed-forge-packs.ts $FLAGS
 
       - name: Summary
@@ -64,5 +79,6 @@ jobs:
           echo "## Construct Sync Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "- **Trigger**: ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Auto-discover**: ${{ github.event.inputs.auto_discover || 'true' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Auto-discover**: ${{ github.event.inputs.auto_discover || 'false' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Only**: ${{ github.event.inputs.only || 'all' }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Time**: $(date -u '+%Y-%m-%d %H:%M UTC')" >> $GITHUB_STEP_SUMMARY
