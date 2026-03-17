@@ -251,6 +251,7 @@ interface DiscoveredPack extends PackManifest {
   constructType: string;
   identity?: IdentityData;
   fullManifest: ValidatedPackManifest | null;
+  rawVisibility?: string; // Pre-Zod visibility from manifest file (NOT the Zod default)
   gitConfig?: { gitUrl: string; gitRef: string; githubRepoId?: number; visibility?: string };
 }
 
@@ -554,10 +555,12 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
       let manifest: PackManifest;
 
       let fullManifest: ValidatedPackManifest | null = null;
+      let rawVisibility: string | undefined; // Track pre-Zod visibility (before defaults inject)
 
       if (existsSync(constructYamlPath)) {
         const content = await readFile(constructYamlPath, 'utf-8');
         const parsed = yaml.load(content, { schema: yaml.JSON_SCHEMA }) as Record<string, unknown>;
+        rawVisibility = typeof parsed.visibility === 'string' ? parsed.visibility : undefined;
         const result = packManifestSchema.safeParse(normalizeForValidation(parsed));
         if (result.success) {
           fullManifest = result.data;
@@ -588,6 +591,7 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
         const jsonName = existsSync(constructJsonPath) ? 'construct.json' : 'manifest.json';
         const content = await readFile(jsonPath, 'utf-8');
         const raw = JSON.parse(content);
+        rawVisibility = typeof raw.visibility === 'string' ? raw.visibility : undefined;
         const result = packManifestSchema.safeParse(normalizeForValidation(raw));
         if (result.success) {
           fullManifest = result.data;
@@ -681,6 +685,7 @@ async function discoverPacks(): Promise<DiscoveredPack[]> {
         constructType,
         identity,
         fullManifest,
+        rawVisibility,
         gitConfig: config,
       });
 
@@ -828,21 +833,21 @@ async function seedForgePacks() {
         const rawCategory = pack.fullManifest?.domain?.[0] ?? null;
         const category = rawCategory ? normalizeCategory(rawCategory) : 'development';
 
-        // Visibility deny-by-default: only explicit manifest opt-in makes a construct public (GPT review F5)
-        // Priority: --visibility-override > manifest > registry-sources.yaml > 'internal'
+        // Visibility deny-by-default: only explicit manifest opt-in makes a construct public
+        // Priority: --visibility-override > raw manifest field > registry-sources.yaml > 'internal'
+        // CRITICAL: use rawVisibility (pre-Zod), NOT fullManifest.visibility (Zod injects default 'internal')
         const VALID_VIS = ['public', 'internal', 'unlisted'];
-        const rawVis = (pack.fullManifest as any)?.visibility as string | undefined;
         const registryVis = pack.gitConfig?.visibility as string | undefined;
 
         let packVisibility = 'internal'; // default
         if (VISIBILITY_OVERRIDE && VALID_VIS.includes(VISIBILITY_OVERRIDE)) {
           packVisibility = VISIBILITY_OVERRIDE;
-        } else if (rawVis && VALID_VIS.includes(rawVis)) {
-          packVisibility = rawVis;
+        } else if (pack.rawVisibility && VALID_VIS.includes(pack.rawVisibility)) {
+          packVisibility = pack.rawVisibility;
         } else if (registryVis && VALID_VIS.includes(registryVis)) {
           packVisibility = registryVis;
         }
-        console.log(`     → visibility: ${packVisibility} (manifest=${rawVis ?? 'none'}, registry=${registryVis ?? 'none'})`);
+        console.log(`     → visibility: ${packVisibility} (manifest=${pack.rawVisibility ?? 'none'}, registry=${registryVis ?? 'none'})`);
 
         const packResult = await tx`
           INSERT INTO packs (
