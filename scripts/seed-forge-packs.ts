@@ -916,7 +916,13 @@ async function seedForgePacks() {
             status = 'published',
             construct_type = EXCLUDED.construct_type,
             category = EXCLUDED.category,
-            visibility = EXCLUDED.visibility,
+            -- VIS-001: never auto-promote on re-seed. Visibility only set on INSERT.
+            -- Use CASE to allow demotion (more restrictive) but block promotion.
+            visibility = CASE
+              WHEN EXCLUDED.visibility = 'unlisted' THEN 'unlisted'
+              WHEN EXCLUDED.visibility = 'internal' AND packs.visibility != 'unlisted' THEN 'internal'
+              ELSE packs.visibility
+            END,
             repository_url = EXCLUDED.repository_url,
             homepage_url = EXCLUDED.homepage_url,
             documentation_url = EXCLUDED.documentation_url,

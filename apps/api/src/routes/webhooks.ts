@@ -25,6 +25,7 @@ import {
 import { requireAuth } from '../middleware/auth.js';
 import { getPackBySlug, getAccessContext, isPackOwner } from '../services/packs.js';
 import { Errors } from '../lib/errors.js';
+import { guardVisibilityTransition } from '../lib/visibility-guard.js';
 import { logger } from '../lib/logger.js';
 import { getRedis, isRedisConfigured } from '../services/redis.js';
 
@@ -468,7 +469,7 @@ webhooksRouter.post('/github', async (c) => {
 
   // Match pack by github_repo_id (primary) or normalized git_url (fallback)
   const matchedPacks = await db
-    .select({ id: packs.id, slug: packs.slug, gitUrl: packs.gitUrl, submissionSource: packs.submissionSource, status: packs.status })
+    .select({ id: packs.id, slug: packs.slug, gitUrl: packs.gitUrl, submissionSource: packs.submissionSource, status: packs.status, visibility: packs.visibility })
     .from(packs)
     .where(
       or(
@@ -570,8 +571,8 @@ webhooksRouter.post('/github', async (c) => {
             lastSyncCommit: syncResult.commit,
             lastSyncedAt: new Date(),
             updatedAt: new Date(),
-            // cycle-038: always write visibility from manifest (defaults to 'internal')
-            visibility: syncResult.visibility,
+            // VIS-001: directional guard — sync can demote but never promote
+            visibility: guardVisibilityTransition(pack.visibility ?? 'internal', syncResult.visibility),
           })
           .where(eq(packs.id, pack.id));
 

@@ -47,6 +47,7 @@ import {
   isStorageConfigured,
 } from '../services/storage.js';
 import { Errors, AppError } from '../lib/errors.js';
+import { guardVisibilityTransition } from '../lib/visibility-guard.js';
 import { logger } from '../lib/logger.js';
 import { createHash, randomUUID } from 'crypto';
 import { skillsRateLimiter, submissionRateLimiter, uploadRateLimiter } from '../middleware/rate-limiter.js';
@@ -1035,8 +1036,8 @@ packsRouter.post(
           updatedAt: new Date(),
           ...(syncedConstructType && { constructType: syncedConstructType }),
           skillProse,
-          // cycle-038: always write visibility from manifest (defaults to 'internal')
-          visibility: syncResult.visibility,
+          // VIS-001: directional guard — sync can demote but never promote
+          visibility: guardVisibilityTransition(pack.visibility ?? 'internal', syncResult.visibility),
         })
         .where(eq(packs.id, pack.id));
 
