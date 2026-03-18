@@ -19,6 +19,9 @@
     "discover": "tsx scripts/discover-constructs.ts",
     "seed": "tsx scripts/seed-forge-packs.ts",
     "seed:auto": "tsx scripts/seed-forge-packs.ts --auto-discover",
+    "populate": "scripts/populate-global-store.sh",
+    "populate:dry": "scripts/populate-global-store.sh --dry-run",
+    "seed:full": "tsx scripts/seed-forge-packs.ts --auto-discover && scripts/populate-global-store.sh",
     "constructs": "tsx packages/loa-registry/bin/constructs.ts"
   },
   "devDependencies": {
