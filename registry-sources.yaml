@@ -16,3 +16,15 @@ external:
     category: analytics
     short_description: "Berachain PoL historian"
     # Note: uses construct.json not construct.yaml — seed script handles both
+
+  # w3ga — Web3 analytics SDK
+  # Thread: shape affinity with ruggy (agent query layer), complementary to beehive (quantitative)
+  # Weight map: grimoires/bridgebuilder/weight-maps/w3ga.yaml
+  # Status: candidate — needs construct.yaml before sync will work
+  # w3ga:
+  #   git_url: https://github.com/0xHoneyJar/w3ga.git
+  #   git_ref: main
+  #   author: "0xHoneyJar"
+  #   visibility: public
+  #   category: analytics
+  #   short_description: "Privacy-first Web3 analytics — event taxonomy, segmentation, AI query layer"

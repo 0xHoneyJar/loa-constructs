@@ -1,0 +1,150 @@
+# Weight Map: Ruggy
+# Assessed by: WEAVER
+# Date: 2026-03-17
+# Level: 3 (Position)
+
+subject: ruggy
+type: construct
+repo: 0xHoneyJar/construct-ruggy
+slug: ruggy
+construct_status: identity swapped, not registered in constructs database
+
+weights:
+  domain:
+    infrastructure: heavy  # inherited from dixie — 47 endpoints, 66 services, 2431 tests
+    triage: heavy (declared) / absent (actual)  # persona says triage, skills don't exist
+    analytics: light  # aspiration — wants to read analytics, can't yet
+    security: medium  # inherited from ruggy-security lineage (100+ vuln patterns)
+    product_health: heavy (declared) / light (actual)  # domain is product health, capability isn't built
+
+  surface:
+    exposes:
+      - full dixie BFF API (47 endpoints across 16 route modules)
+      - 15-position middleware pipeline (constitutional ordering)
+      - 4 governed resources (fleet, sovereignty, reputation, scoring)
+      - 5-tier conviction system
+      - 3 knowledge management scripts (corpus-diff, knowledge-coverage, knowledge-drift)
+    consumes:
+      - knowledge corpus (20 sources, all infrastructure-focused — zero product repo knowledge)
+      - persona binding (ruggy.md, hand-crafted identity)
+      - loa framework (25 skills, all generic — zero domain-specific)
+
+  motivation: >
+    diagnostic intelligence for the honeyjar product ecosystem. ruggy wants to
+    close the gap between "something broke" and "someone knows." time-to-awareness
+    (TTA) is the core metric. but the domain expertise — the thing that makes
+    ruggy ruggy — hasn't been built. ruggy is a bear wearing dixie's suit,
+    waiting for its own instincts to develop.
+
+  affinity:
+    - target: w3ga
+      pattern: shape_affinity
+      description: >
+        w3ga's agent query layer (hono + claude + data API) has the same
+        architectural shape as ruggy's empty domain-skill slot. ruggy already
+        has hono. ruggy already has claude access. ruggy needs the query patterns
+        and the data sources. w3ga's architecture is the template.
+    - target: beehive
+      pattern: complementary_gap
+      description: >
+        beehive captures user signals (qualitative). ruggy captures system signals
+        (error traces, deployment logs, health checks). together: "the user said
+        it's broken" + "here's the error trace that confirms it." diagnostic meets
+        diagnostic — one for people, one for systems.
+    - target: beacon
+      pattern: motivation_convergence
+      description: >
+        both reach toward "make the ecosystem's health visible." beacon provides
+        dashboard infrastructure. ruggy provides diagnostic intelligence. the
+        convergence: beacon shows you the numbers, ruggy tells you what they mean.
+    - target: gecko
+      pattern: attention_overlap
+      description: >
+        gecko watches ecosystem patterns (namespace health, construct adoption,
+        identity drift). ruggy watches product patterns (error trends, deployment
+        health, user-reported bugs). same attention type, different altitude.
+        gecko is 30,000 feet. ruggy is on the ground.
+
+  attention:
+    reads:
+      - deployment logs (intended, not wired)
+      - error traces (intended, not wired)
+      - user-reported bugs (intended, not wired)
+      - product repo health signals (intended, not wired)
+      - knowledge corpus freshness (wired — knowledge-drift.sh)
+    blind_to:
+      - client-side user behavior (no analytics integration)
+      - agent traffic patterns (no classification)
+      - construct install/compose events (not connected to constructs API)
+      - qualitative user feedback (beehive's domain)
+      - on-chain events (protocol construct's domain)
+
+  gravity:
+    app: high (potential)  # every product needs error triage. 0/6 have it.
+    construct: medium  # declared in artisan governance orbit, but actual composition untested
+    notes: >
+      ruggy's gravity is misdirected. the infrastructure weight (dixie inheritance)
+      pulls toward "look at this massive API" but the actual need is lightweight
+      diagnostic intelligence. the gravity should come from ruggy's domain expertise
+      (triage, signal classification, product health), not from its API surface.
+
+  maintenance:
+    state: nascent
+    recent_commits: 2 since 2026-03-01
+    identity_swap: completed (oracle → ruggy)
+    domain_skills: 0 built
+    knowledge_gap: zero product repo sources (the 6 repos ruggy is supposed to monitor)
+
+threads_detected:
+  - target: w3ga
+    pattern: shape_affinity
+    priority: high
+    action: extract agent query architecture from w3ga, adapt for ruggy's data sources
+    description: >
+      ruggy's first real domain skill: ecosystem query agent. pattern from
+      w3ga (hono + claude + structured queries), data from constructs postgres
+      + convex + umami. queries: install funnel, agent-vs-human classification,
+      construct health, creator activity, search effectiveness.
+
+  - target: product_repos
+    pattern: complementary_gap
+    priority: high
+    action: create knowledge sources for the 6 product repos
+    description: >
+      ruggy's knowledge corpus has 20 sources, all about loa/dixie/finn/hounfour
+      infrastructure. zero about the 6 products ruggy is supposed to triage.
+      the gap is fundamental — ruggy can't triage what it doesn't know.
+
+  - target: constructs_api
+    pattern: complementary_gap
+    priority: medium
+    action: connect ruggy to install/analytics data
+    description: >
+      the constructs API tracks pack_installations (postgres) and installEvents
+      (convex). ruggy has no connection to either. for ruggy to monitor construct
+      ecosystem health, it needs to read this data. the agent query pattern
+      (from w3ga thread) is the mechanism.
+
+  - target: beehive
+    pattern: complementary_gap
+    priority: medium
+    action: ruggy system signals + beehive user signals = full diagnostic picture
+    description: >
+      when a user reports a bug (captured in beehive canvas), ruggy should be
+      the one that traces it to the error, the deployment, the root cause.
+      beehive says "someone is hurting." ruggy says "here's why."
+
+notes: |
+  ruggy is the most important construct that doesn't exist yet.
+
+  the identity is written. the infrastructure is inherited (and oversized).
+  the domain expertise — the actual ruggy — is an empty room.
+
+  priority order for making ruggy real:
+  1. knowledge sources for the 6 product repos (without these, ruggy is blind)
+  2. agent query skill (the w3ga shape — query construct/product health data)
+  3. agent-vs-human classification on install events (unique signal)
+  4. connect to beehive for user signal context
+
+  ruggy should NOT be registered as a construct until it has at least one
+  domain-specific skill. the registry should reflect reality, not aspiration.

@@ -1,0 +1,137 @@
+# Weight Map: Artisan
+# Assessed by: WEAVER
+# Date: 2026-03-17
+# Level: 3 (Position)
+
+subject: artisan
+type: construct
+repo: 0xHoneyJar/construct-artisan
+slug: artisan
+construct_status: registered, stable, governance root (taste/feel axis)
+
+weights:
+  domain:
+    design_system: heavy  # warmth, weight, rhythm — three base abstractions
+    sensory_language: heavy  # ALEXANDER persona — beauty is measurable, sensory words ARE technical specs
+    taste_governance: heavy  # one of two parallel governance roots (alongside vocabulary-bank)
+    product_polish: heavy  # the thing that makes shipped work feel intentional
+    infrastructure: absent  # artisan is pure feel — zero backend surface
+    analytics: absent  # doesn't measure, doesn't track
+
+  surface:
+    exposes:
+      - taste tokens (taste.md) — the shared vocabulary for feel
+      - material system (oklch bone scale, per-construct typography)
+      - three base abstractions: warmth (color temperature), weight (consequence timing), rhythm (interaction cadence)
+      - ALEXANDER persona (Christopher Alexander — pattern language for beauty)
+      - feel decomposition methodology (vague feedback → specific actionable fixes)
+      - Operator OS FEEL mode anchor
+    consumes:
+      - user feedback about feel (from beehive canvases)
+      - design references and direction (from the-easel)
+      - existing component state (reads before refining)
+
+  motivation: >
+    "remove everything. what's left is the signal." artisan exists to make
+    the gap between "it works" and "it feels right" crossable. not through
+    opinion — through measurement. warmth has a color temperature. weight
+    has a timing function. rhythm has a cadence. if you can name it in
+    sensory language, you can build toward it.
+
+  affinity:
+    - target: beehive
+      pattern: motivation_convergence
+      description: >
+        the canonical pairing. observer reaches toward "understand what users
+        feel." artisan reaches toward "make it feel right." they converge on
+        the user's felt experience. observation feeds taste. this is the most
+        natural composition in the network.
+    - target: the-easel
+      pattern: attention_overlap
+      description: >
+        both work with visual design, but at different altitudes. the-easel
+        is the canvas (Recraft, Figma, logo pipeline). artisan is the
+        language for talking about what the canvas produces. the-easel
+        makes things. artisan says whether they feel right.
+    - target: vocabulary-bank
+      pattern: shape_affinity
+      description: >
+        parallel governance roots. vocabulary-bank governs voice/copy.
+        artisan governs taste/feel. same structural role, different domain.
+        together they define the "how it sounds" and "how it feels" of
+        everything in the network.
+    - target: k-hole
+      pattern: attention_overlap
+      description: >
+        artisan's "weight" and k-hole's "resonance" are the same signal
+        read through different senses. artisan feels the weight of a button's
+        easing function. k-hole feels the weight of a question. both trust
+        felt density over measured quantity.
+
+  attention:
+    reads:
+      - sensory gaps (the distance between "what it IS" and "what it should FEEL LIKE")
+      - material properties (oklch values, timing curves, spacing rhythm)
+      - user feedback about feel (beehive canvases tagged FEEL)
+      - design reference materials (mood boards, taste synthesis)
+    blind_to:
+      - data architecture (ARCH mode's domain)
+      - error states and system health (ruggy's domain)
+      - research depth (k-hole's domain)
+      - analytics and metrics (beacon/w3ga domain)
+      - structural composition (OSTROM's domain)
+
+  gravity:
+    app: high  # every product needs feel/polish. taste tokens are universal vocabulary.
+    construct: high  # one of two governance roots. canonical pairing with observer.
+                     # 5 constructs in governance orbit (4 reciprocated + the-speakers unsynced).
+    notes: >
+      artisan is the second-highest gravity construct after beehive. its pull
+      operates through taste tokens — the shared vocabulary that every product
+      in the ecosystem can reference. "warmth 0.7, weight: medium, rhythm:
+      breathing" is a sentence every product understands.
+
+      the gravity is self-reinforcing: the more products adopt taste tokens,
+      the more valuable they become as a shared language. this is network
+      effect gravity — rare in the construct ecosystem.
+
+  maintenance:
+    state: active
+    identity: ALEXANDER (Christopher Alexander)
+    logo: shipped (one of first 3)
+    governance: active root (taste/feel axis)
+
+threads_detected:
+  - target: w3ga
+    pattern: complementary_gap
+    priority: low
+    description: >
+      w3ga tracks rage clicks, dead clicks, CWV. these are quantitative
+      signals about feel — "something feels wrong enough to rage-click."
+      artisan knows HOW to fix the feel. w3ga knows WHERE the feel is broken.
+      the thread is narrow but real: behavioral analytics → feel refinement.
+
+  - target: product_repos
+    pattern: complementary_gap
+    priority: high
+    description: >
+      artisan's taste tokens should be the shared design language across
+      all products. currently adopted inconsistently. the barrier is
+      awareness, not capability.
+
+notes: |
+  artisan is the construct that proves cultural gravity can become structural.
+
+  k-hole's influence is philosophical — felt but not wired. artisan's influence
+  is linguistic — the taste tokens ARE the wiring. when a product uses
+  "warmth: 0.7" in its design decisions, it's structurally connected to
+  artisan's vocabulary without declaring a dependency.
+
+  this is the middle path between k-hole's pure cultural gravity and
+  observer↔crucible's hard structural coupling. artisan composes through
+  shared language, not through dependency graphs. the language IS the API.
+
+  this pattern — composition through vocabulary, not through dependency —
+  is what WEAVER should watch for across the network. it's the most
+  resilient form of integration because cutting the thread doesn't break
+  either side.

@@ -1,0 +1,137 @@
+# Weight Map: w3ga
+# Assessed by: WEAVER
+# Date: 2026-03-17
+# Level: 3 (Position)
+
+subject: w3ga
+type: tool
+repo: 0xHoneyJar/w3ga
+construct_status: not a construct (candidate for registry-sources.yaml)
+
+weights:
+  domain:
+    analytics: heavy
+    privacy: medium
+    web3: heavy
+    infrastructure: light
+    agent_intelligence: light-medium  # has agent query package, but query-only
+    ux_observability: medium  # web events, rage clicks, CWV — but no session replay
+
+  surface:
+    exposes:
+      - 87-event taxonomy (w3_ prefixed) across 6 categories
+      - react hooks (W3GAProvider, useW3GA, usePageTracking, useWalletTracking, useSegmentSync, useJourneySummary)
+      - wagmi v2 watcher (createWagmiWatcher — auto wallet/chain tracking)
+      - viem tracker (createViemTracker — contract calls, tx receipts)
+      - 7-segment user classification engine (engagement, lifecycle, defi persona, nft persona, risk, multi-chain, chain preference)
+      - 6-level activation funnel (page_view → wallet_connect → first_approval → first_tx → repeat_tx → first_yield)
+      - multi-touch attribution (first/last/sequence, web3-native sources)
+      - privacy pipeline (address hashing, balance tiers, amount tiers, PII scrubbing)
+      - GA4 configuration templates (dimensions, audiences, funnels, reports)
+      - AI agent query server (13 prebuilt queries, natural language routing)
+    consumes:
+      - window.gtag / window.dataLayer (GA4 transport — hard dependency)
+      - localStorage (segmentation, activation, identity, journey, attribution)
+      - Google Analytics Data API v1 (agent package only)
+      - Anthropic Claude API (agent package only)
+
+  motivation: >
+    unified web3 observability through existing analytics infrastructure (GA4).
+    the unrealized reach: construct ecosystem observability. the event taxonomy
+    and privacy pipeline are the DNA. the GA4 transport is the limiting factor.
+
+  affinity:
+    - target: ruggy
+      pattern: shape_affinity
+      description: >
+        w3ga's agent query pattern (hono + claude + data API with 13 prebuilt queries)
+        has the same shape as ruggy's empty domain-skill slot. the architecture transfers
+        even though w3ga queries GA4 and ruggy would query postgres/convex.
+    - target: beehive
+      pattern: complementary_gap
+      description: >
+        beehive is heavy-qualitative (user truth canvases, Level 3 diagnostic, Mom Test).
+        w3ga is heavy-quantitative (87 events, funnels, segmentation). together they
+        give both sides of the signal: what users say AND what users do.
+    - target: beacon
+      pattern: attention_overlap
+      description: >
+        both live in the analytics category. beacon provides dashboard infrastructure
+        (Umami wiring, daily digest). w3ga provides event intelligence (what to track,
+        how to classify, how to query). complementary attention on the same domain.
+
+  attention:
+    reads:
+      - client-side web events (page views, scroll depth, rage clicks, dead clicks, CWV)
+      - wallet lifecycle events (connect, disconnect, switch, chain events)
+      - DeFi transaction events (swaps, LP, lending, farming, bridges, governance)
+      - NFT events (mint, buy, list, transfer)
+      - user behavior signals (activation milestones, shares, referrals)
+    blind_to:
+      - server-side events (API calls, background jobs, cron executions)
+      - bot/agent traffic classification (treats all traffic as human)
+      - construct-specific events (install, compose, skill invocation)
+      - error tracking / crash reporting (not in scope)
+      - session replay / visual reproduction
+
+  gravity:
+    app: high (potential)  # fills the biggest universal gap: 0/6 products have client event tracking
+    construct: low  # not in the network, no composition edges, day-one nascent
+    notes: >
+      gravity is entirely potential. the pull exists because the gap exists.
+      the question is whether to bring w3ga into the network (as a construct or
+      registry entry) or to extract its DNA into existing constructs (ruggy, beacon).
+
+  maintenance:
+    state: nascent
+    commits: 5
+    age: 1 day
+    activity: active but brand new
+    risk: high churn potential — no users, no installs, no community
+
+threads_detected:
+  - target: ruggy
+    pattern: shape_affinity
+    priority: high
+    description: >
+      w3ga's agent package (hono server + claude analysis + data API queries)
+      is the architectural pattern ruggy needs for ecosystem triage queries.
+      extract the query-layer architecture, adapt for postgres/convex data sources,
+      populate with construct-ecosystem queries instead of GA4 queries.
+
+  - target: beehive
+    pattern: complementary_gap
+    priority: medium
+    description: >
+      beehive canvas ("user said install was confusing") + w3ga event
+      ("user rage-clicked install button 4 times") = gap with both qualitative
+      and quantitative signal. the thread is: enrich beehive canvases with
+      quantitative context from analytics events.
+
+  - target: beacon
+    pattern: attention_overlap
+    priority: medium
+    description: >
+      beacon already wires Umami + daily digest to Telegram. w3ga's event
+      taxonomy defines WHAT to track beyond pageviews. the thread is: beacon
+      provides the infrastructure, w3ga provides the event intelligence.
+
+  - target: product_repos
+    pattern: complementary_gap
+    priority: high
+    description: >
+      all 6 product repos have Umami (pageviews) and nothing else for client
+      events. w3ga's web event subset (rage_click, dead_click, scroll_depth, CWV)
+      + wallet events (connect/disconnect) fills the gap directly. stripped of
+      DeFi/NFT events, it's a lightweight product analytics SDK.
+
+notes: |
+  the hash function is djb2 claiming to be sha256 in the docs. privacy concern
+  for production use — djb2 is trivially reversible for known-format inputs
+  like ethereum addresses. fix before any production integration.
+
+  no SSR support — silently no-ops on server. next.js SSR pages won't track.
+  this matters for constructs.network (next.js) and all product repos (next.js).
+
+  the chinese PRD headers suggest this may have been originally designed for
+  a different audience/market. the english source code is clean.

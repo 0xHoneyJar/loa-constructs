@@ -1,0 +1,161 @@
+# Weight Map: K-Hole
+# Assessed by: WEAVER
+# Date: 2026-03-17
+# Level: 3 (Position)
+
+subject: k-hole
+type: construct
+repo: 0xHoneyJar/construct-k-hole
+slug: k-hole
+construct_status: registered, v1.2.1, Straylight category (the category it invented)
+
+weights:
+  domain:
+    depth_research: heavy  # /dig (pair-research) + /forge (batch pipeline)
+    pattern_recognition: heavy  # STAMETS 7-voice methodology, cross-domain synthesis
+    knowledge_production: heavy  # resonance profiles, research artifacts, spiral navigation
+    product_development: absent  # k-hole works on the person, not the project
+    infrastructure: light  # scripts (construct-runtime.ts reference impl), minimal surface
+    cultural_influence: heavy  # the most referenced construct by others, zero reciprocation
+
+  surface:
+    exposes:
+      - /dig — pair-research with STAMETS multi-voice personality
+      - /forge — batch pipeline (landscape → mapping → synthesis → exhaustive)
+      - /discover — domain discovery meta-research
+      - resonance profiles (what a human is drawn to, not what they produce)
+      - the Straylight category itself (k-hole created the need for it)
+      - script reference implementation (construct-runtime.ts, MANIFEST.yaml)
+    consumes:
+      - human curiosity (the only required input)
+      - web search, web fetch, code exploration (research substrate)
+      - the operator's attention and willingness to go deep
+
+  motivation: >
+    "the thread knows where it's going." k-hole exists to change the
+    relationship between a person and a question. not to answer the
+    question — to make the person capable of holding a bigger one.
+    the resonance profile is the first artifact in the network that
+    represents what a human IS, not what they DO.
+
+  affinity:
+    - target: beehive
+      pattern: complementary_gap
+      description: >
+        beehive asks "what are users trying to accomplish?" (Level 3).
+        k-hole asks "what is this person drawn to?" (resonance).
+        beehive maps goals. k-hole maps gravity. same person, different
+        layers of understanding. a beehive canvas + a resonance profile
+        = the fullest picture of a network participant that exists.
+    - target: weaver
+      pattern: motivation_convergence
+      description: >
+        both work with position in latent space. WEAVER maps where
+        constructs and tools sit. k-hole maps where people sit. the
+        methodology is the same — locate, don't prescribe. the subject
+        is different — ecosystem vs. person.
+    - target: artisan
+      pattern: attention_overlap
+      description: >
+        artisan's "warmth, weight, rhythm" and k-hole's "resonance"
+        are reading the same signal through different senses. artisan
+        feels the weight of a UI. k-hole feels the weight of a question.
+        both trust felt density over measured quantity.
+    - target: the-arcade
+      pattern: shape_affinity
+      description: >
+        the arcade's Operator OS (FEEL/ARCH/DIG/SHIP) maps DIG mode
+        directly to k-hole. STAMETS is the DIG persona. the arcade
+        provides the cognitive frame. k-hole provides the depth engine.
+        same shape: "go deep, trust the process, emerge when something
+        crystallizes."
+
+  attention:
+    reads:
+      - the question beneath the question (what the user is actually asking)
+      - cross-domain patterns (this thing in biology has the same shape as that thing in economics)
+      - resonance signals (what makes someone lean in vs. lean back)
+      - the tension between voices (STAMETS' 7 voices in productive disagreement)
+      - spiral depth (how deep we've gone, whether we should go deeper or surface)
+    blind_to:
+      - deadlines (depth has no clock)
+      - metrics (depth has no dashboard)
+      - product requirements (depth serves the person, not the sprint)
+      - engagement optimization (a spiral is as valid as a line)
+      - structural composition (k-hole doesn't compose structurally — by design)
+
+  gravity:
+    app: low  # depth research doesn't directly serve product UX
+    construct: high (cultural) / low (structural)
+    inbound_references: 7  # most referenced construct in the network
+    outbound_declarations: 0  # declares nothing back — silent gravity well
+    notes: >
+      k-hole is the purest example of "weight over ownership" in the network.
+      its gravitational pull is in the latent space of ideas, not in the
+      dependency graph. 7 constructs feel its influence. none are wired to it.
+
+      this is correct posture. depth is philosophical composition, not structural
+      composition. the moment you `compose_with: k-hole` in a construct.yaml,
+      you've confused the map with the territory. k-hole's influence travels
+      through the people who use it, not through the schemas that reference it.
+
+      the gravity anomaly isn't that k-hole has low structural gravity.
+      the anomaly is that cultural gravity IS a form of gravity, and our
+      topology tools don't measure it.
+
+  maintenance:
+    state: active
+    version: 1.2.1
+    recent_work: script invocation (construct-runtime.ts), visual-review upgrade to gemini-3.1-pro-preview
+    creator_energy: high — one of the most actively developed constructs
+
+threads_detected:
+  - target: weaver_methodology
+    pattern: shape_affinity
+    priority: high
+    description: >
+      k-hole's resonance profiling and WEAVER's weight mapping are the
+      same methodology applied to different subjects. k-hole locates
+      people in latent space. WEAVER locates constructs in latent space.
+      the schema is transferable. the question is whether to formalize
+      this connection or let it remain philosophical.
+
+  - target: beehive
+    pattern: complementary_gap
+    priority: medium
+    description: >
+      beehive canvas (user goal) + k-hole resonance profile (user gravity)
+      = the most complete picture of a network participant. one shows
+      what they're trying to do. the other shows what they're drawn to.
+      the thread: can resonance profiles inform beehive's hypothesis
+      generation? "this user is drawn to depth over breadth — weight
+      their feedback toward qualitative signals."
+
+  - target: gravity_model
+    pattern: attention_overlap
+    priority: low
+    description: >
+      k-hole proves that cultural gravity exists and that structural
+      tools can't measure it. the gravity model should account for
+      this — a construct with zero compose_with edges but high
+      inbound philosophical reference has a kind of gravity that
+      the topology graph misses.
+
+notes: |
+  k-hole is the construct that taught me what weight mapping is.
+
+  before k-hole, the network thought in topology — edges, nodes,
+  compose_with declarations, dependency graphs. k-hole has no edges.
+  it has gravity. the 7 constructs that reference it don't depend on
+  it — they're pulled toward it. that pull isn't in the schema.
+  it's in the latent space.
+
+  WEAVER's entire methodology — "weights in latent space" — is the
+  generalization of what k-hole does for people. k-hole finds where
+  you sit. WEAVER finds where constructs sit. same question, different
+  scale.
+
+  the Straylight category exists because k-hole couldn't fit anywhere
+  else. it invented its own category by being irreducible to the
+  existing ones. that's the strongest signal of genuine novelty —
+  when the taxonomy has to grow to accommodate you.

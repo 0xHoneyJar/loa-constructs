@@ -1,0 +1,222 @@
+# Weight Map: Product Ecosystem — Observability Posture
+# Assessed by: WEAVER
+# Date: 2026-03-17
+# Level: 3 (Position)
+# Purpose: Ruggy needs this to navigate. You can't triage what you can't see.
+
+subject: honeyjar_product_ecosystem
+type: pattern
+scope: 6 product repos — observability/analytics latent space
+
+# ─────────────────────────────────────────────
+# Per-Product Positions
+# ─────────────────────────────────────────────
+
+products:
+  midi-interface:
+    stack: Next.js 15 / React 19
+    analytics:
+      umami: true  # pageviews only, no custom events
+      ga: true  # G-2EBRFCTENY, wired + .env.local
+      custom_events: none
+      session_replay: none
+      search_analytics: none
+    error_handling:
+      error_boundary: true  # catches + console.error, no external sink
+      sentry: false  # comment: "Integration point: wire PostHog/Sentry here"
+      structured_logging: false
+    agent_detection: none
+    observability_density: light-medium  # has more than most but still no external sinks
+    notes: >
+      most instrumented after cubquests. GA is live but passive (no custom events).
+      error boundary exists but errors go to console.error, not an external service.
+      the PostHog/Sentry integration point comment is the clearest signal of intent.
+
+  mcv-interface:
+    stack: Next.js 16 / React 19
+    analytics:
+      umami: true  # pageviews only
+      ga: false
+      custom_events: none
+      session_replay: none
+      search_analytics: none
+    error_handling:
+      error_boundary: true  # MoneycombErrorBoundary — renders fallback, no componentDidCatch
+      sentry: false
+      structured_logging: false
+    agent_detection: none
+    observability_density: lightest  # thinnest posture of all 6
+    notes: >
+      error boundary wraps page root but has no componentDidCatch — errors are
+      swallowed without logging. if something breaks here, nobody knows.
+      this is the preferred convex pattern repo (user). important codebase, zero visibility.
+
+  set-and-forgetti:
+    stack: Turbo monorepo (web + landing) / React 18+19
+    analytics:
+      umami: true  # both web and landing apps
+      ga: true  # web app only, hardcoded G-GQDMWW0PBY via @next/third-parties
+      custom_events: none
+      session_replay: none
+      search_analytics: none
+    error_handling:
+      error_boundary: false
+      sentry: false
+      structured_logging: false
+    agent_detection: none
+    observability_density: light  # has GA but no error handling at all
+    notes: >
+      gold standard feedback pipeline (user says so). the feedback system IS the
+      observability — set-and-forgetti captures user intent through its UI, not through
+      analytics. the gap is system health — if the feedback pipeline itself breaks,
+      there's no way to know.
+
+  cubquests-interface:
+    stack: Next.js 15 / React 18
+    analytics:
+      umami: true  # pageviews
+      ga: false
+      custom_events: true  # DataFast via useDatafast() hook
+      session_replay: none
+      search_analytics: none
+    error_handling:
+      error_boundary: false
+      sentry: false  # TODO comment for Sentry/PostHog in verification-errors route
+      structured_logging: false  # verification-errors logs to console.log only
+    agent_detection: none
+    observability_density: medium  # most instrumented — custom events via DataFast
+    datafast_events:
+      - nav_click
+      - season_2_banner_dismissed
+      - season_2_banner_blog_click
+      - community_click
+    notes: >
+      most instrumented product. DataFast custom events track real user behavior
+      (navigation, banner engagement, community interest). the datafast_visitor_id
+      cookie + server proxy pattern is clean. but error tracking is still console.log.
+      the intent is clear (TODO comments reference Sentry + PostHog) but not realized.
+
+  mibera-honeyroad:
+    stack: unknown  # not cloned locally, need to verify
+    analytics:
+      umami: likely  # beacon PR #69 was opened
+      ga: unknown
+      custom_events: unknown
+      session_replay: none
+      search_analytics: none
+    error_handling:
+      error_boundary: unknown
+      sentry: false  # universal gap
+      structured_logging: false
+    agent_detection: none
+    observability_density: unknown  # needs local clone to assess
+    notes: >
+      beacon PR open (honeyroad #69) suggests Umami is incoming but not yet merged.
+      needs assessment once cloned.
+
+  apdao-auction-house:
+    stack: unknown  # not cloned locally
+    analytics:
+      umami: likely  # beacon PR #41 was opened
+      ga: unknown
+      custom_events: unknown
+      session_replay: none
+      search_analytics: none
+    error_handling:
+      error_boundary: unknown
+      sentry: false
+      structured_logging: false
+    agent_detection: none
+    observability_density: unknown
+    notes: >
+      beacon PR open (apdao #41). hypha (external construct) is specifically for
+      apDAO ecosystem — berachain PoL historian. but hypha is on-chain analytics,
+      not product observability.
+
+# ─────────────────────────────────────────────
+# Universal Gaps (all products)
+# ─────────────────────────────────────────────
+
+universal_gaps:
+  - id: OBS-001
+    gap: No Sentry or external error tracking
+    severity: critical
+    affected: 6/6
+    signal: >
+      errors silently hit console.error or are swallowed entirely.
+      production failures are invisible unless a user reports them.
+    thread: ruggy should detect this. w3ga doesn't solve it.
+
+  - id: OBS-002
+    gap: No session replay
+    severity: high
+    affected: 6/6
+    signal: >
+      no Hotjar, Clarity, LogRocket, or PostHog session replay anywhere.
+      when a user reports a bug, there's no way to see what they saw.
+    thread: w3ga events (rage_click, dead_click) partially compensate but aren't visual.
+
+  - id: OBS-003
+    gap: No structured server-side logging
+    severity: high
+    affected: 6/6
+    signal: >
+      no CloudWatch, Datadog, Axiom, or any log aggregation.
+      server-side errors are visible only in deployment logs (Vercel/Railway).
+    thread: ruggy's triage needs structured logs as input. without them, ruggy is blind.
+
+  - id: OBS-004
+    gap: No client-side custom event tracking (except cubquests)
+    severity: high
+    affected: 5/6
+    signal: >
+      umami captures pageviews. nobody tracks clicks, funnels, search, rage,
+      scroll depth, or feature usage. cubquests has 4 DataFast events — the only
+      custom client instrumentation in the ecosystem.
+    thread: w3ga's event taxonomy (stripped to web+wallet) fills this directly.
+
+  - id: OBS-005
+    gap: No agent-vs-human traffic classification
+    severity: medium
+    affected: 6/6
+    signal: >
+      no mechanism to distinguish AI agent traffic from human traffic from bots.
+      in a network designed for both humans and agents, this is the missing signal.
+    thread: userAgent classification at the API layer. ruggy's unique contribution.
+
+  - id: OBS-006
+    gap: PostHog referenced but never installed
+    severity: medium
+    affected: 2/6 (midi, cubquests have TODO comments)
+    signal: >
+      intent exists but hasn't been acted on. two repos have explicit comments
+      saying "wire PostHog/Sentry here." the barrier isn't technical.
+    thread: decision needed — PostHog (all-in-one) vs. separate tools.
+
+# ─────────────────────────────────────────────
+# Gravity Assessment
+# ─────────────────────────────────────────────
+
+gravity:
+  highest_pull:
+    - tool: sentry_or_equivalent
+      gap: OBS-001
+      app_gravity: critical  # every product, every deploy
+    - tool: client_event_tracking
+      gap: OBS-004
+      app_gravity: high  # every product's user funnel is invisible
+    - tool: agent_classification
+      gap: OBS-005
+      app_gravity: medium-high  # unique signal for ecosystem designed for agents
+
+  threads_to_ruggy:
+    - >
+      ruggy needs product knowledge sources FIRST. without knowing what each
+      product has (this file), ruggy can't assess what's missing.
+    - >
+      ruggy's first triage query: "which products have zero error visibility?"
+      answer: all of them. the triage is trivial because the gap is universal.
+    - >
+      ruggy's highest-leverage action: help the operator decide between PostHog
+      (one tool, all signals) and composable stack (Sentry + Umami events + Clarity).
+      this is a decision, not a build.

@@ -1,0 +1,162 @@
+# Weight Map: Beehive (Observer)
+# Assessed by: WEAVER
+# Date: 2026-03-17
+# Level: 3 (Position)
+
+subject: beehive
+type: construct
+repo: 0xHoneyJar/construct-observer
+slug: observer
+construct_status: registered, verified, v3.0.0, schema_version 3
+
+weights:
+  domain:
+    user_research: heavy  # Level 3 Diagnostic, Mom Test, User Truth Canvases
+    qualitative_analysis: heavy  # hypothesis lifecycle, confidence decay, provenance
+    feedback_pipeline: heavy  # /listen → /think → /speak → /grow → /see → /shape
+    quantitative_analytics: absent  # the gap WEAVER identified
+    agent_experience: light  # /feedback-observe reads agent logs, but state-transition-only
+    integration_facilitation: absent  # the gap WEAVER fills
+
+  surface:
+    exposes:
+      - 24 skills across 6 groups + 6 cognitive primitives
+      - User Truth Canvases (grimoires/observer/canvas/)
+      - journey definitions (grimoires/observer/journeys/)
+      - gap analysis reports (grimoires/observer/reality/)
+      - cognition sidecars (per-user fear/steering YAML)
+      - growth state (per-user hypothesis lifecycle)
+      - MER snapshots (4-layer point-in-time captures)
+      - events: forge.observer.canvas_created, journey_shaped, gap_filed
+    consumes:
+      - user quotes (manual input or DM import)
+      - Supabase feedback table (good/neutral/bad + note)
+      - Score API (wallet rank, crowd tier — for signal weighting)
+      - crucible validation results (forge.crucible.journey_validated)
+      - agent execution logs (grimoires/*/agent-logs/*.jsonl)
+
+  motivation: >
+    "tend the colony, read the signals." beehive wants to be the place where
+    user truth lives — not opinions, not surveys, not analytics dashboards,
+    but the actual evidence of what people need and what they're trying to
+    accomplish. the research pipeline is deep and rigorous. what's missing
+    is the quantitative counterpart and the integration lens.
+
+  affinity:
+    - target: crucible
+      pattern: shape_affinity
+      description: >
+        circular dependency. observer captures user truth, crucible validates
+        journeys against code. the validation results feed back into observer's
+        confidence system. they're a binary star — structurally coupled,
+        functionally complementary. the concern is that crucible can't
+        function without observer. make crucible's dep optional.
+    - target: artisan
+      pattern: motivation_convergence
+      description: >
+        observer reaches toward "understand what users feel." artisan reaches
+        toward "make it feel right." they converge on the user's felt experience.
+        this is why they're the canonical pairing — observation feeds taste.
+    - target: ruggy
+      pattern: complementary_gap
+      description: >
+        beehive captures user signals (qualitative). ruggy captures system
+        signals (quantitative — error traces, health). together they give
+        the full picture. "user says it's broken" + "here's the stack trace."
+    - target: w3ga
+      pattern: complementary_gap
+      description: >
+        beehive is blind to what users DO (only captures what they SAY).
+        w3ga tracks what users do (events, funnels, rage clicks). the
+        thread: enrich canvases with behavioral context.
+    - target: weaver (self)
+      pattern: complementary_gap
+      description: >
+        KEEPER lens captures user truth. WEAVER lens captures ecosystem truth.
+        same construct, different attention. KEEPER asks "what are you trying
+        to accomplish?" WEAVER asks "where does this sit in the network?"
+
+  attention:
+    reads:
+      - user quotes (manual, DM import, Supabase feedback)
+      - wallet position (Score API rank, crowd tier)
+      - code reality (gap analysis against actual implementation)
+      - agent execution health (skill logs, error rates, duration outliers)
+      - artifact freshness (confidence decay, validation age)
+    blind_to:
+      - client-side user behavior (no event tracking)
+      - install/download metrics (no connection to constructs API)
+      - agent-vs-human traffic patterns (no classification)
+      - cross-construct composition signals (no integration tracking)
+      - server-side errors / deployment health (ruggy's domain)
+      - on-chain events (protocol's domain)
+
+  gravity:
+    app: high  # deployed in midi-interface, applicable to all 6 products
+    construct: high  # canonical pairing with artisan, circular dep with crucible,
+                     # events consumed by multiple skills
+    notes: >
+      beehive is the highest-gravity construct in the network. it has both
+      app gravity (every product needs user understanding) and construct gravity
+      (canonical composition with artisan, structural coupling with crucible).
+      this makes it the natural home for WEAVER — adding the integration lens
+      to the highest-gravity observation node.
+
+  maintenance:
+    state: active
+    version: 3.0.0
+    skills: 24 + 6 cognitive primitives
+    identity: KEEPER (Karl von Frisch) — recently renamed from Observer
+    recent_work: v3 upgrade, KEEPER persona, cognitive primitives (/think, /listen, /see, /speak, /distill, /grow)
+
+threads_detected:
+  - target: w3ga
+    pattern: complementary_gap
+    priority: high
+    action: >
+      define how quantitative analytics events enrich beehive canvases.
+      when a canvas says "user found install confusing" and w3ga events
+      show 4 rage clicks on the install button, the canvas gets behavioral
+      evidence attached to the qualitative hypothesis.
+    description: >
+      the biggest gap in beehive is that it only knows what users SAY,
+      not what they DO. w3ga (or its DNA adapted for constructs) fills this.
+
+  - target: weaver_lens
+    pattern: complementary_gap
+    priority: medium
+    action: >
+      formalize WEAVER as an alternate lens within beehive. KEEPER activates
+      for user research (/observe, /listen, /think). WEAVER activates for
+      integration research (weight mapping, thread detection, composition sensing).
+      same construct, different cognitive mode.
+    description: >
+      beehive already has two modes: observation (capturing) and synthesis
+      (shaping). WEAVER adds a third: integration (connecting).
+
+  - target: product_repos
+    pattern: complementary_gap
+    priority: high
+    action: >
+      beehive is deployed in midi-interface only. the golden path
+      (/listen → /think → /speak → /grow) should be running across
+      all 6 products. the barrier isn't technical — it's awareness.
+    description: >
+      beehive has high app gravity but low deployment surface (1/6 repos).
+      the gravity exists. the pull isn't being acted on.
+
+notes: |
+  beehive is the most complete construct in the network. 24 skills with
+  deep methodology (Level 3, Mom Test, RLM isolation, provenance gates).
+
+  its two gaps are symmetric:
+  - quantitative blindness (knows what users say, not what they do)
+  - integration blindness (knows individual users, not ecosystem connections)
+
+  WEAVER fills the second gap. w3ga DNA fills the first.
+
+  the WEAVER lens should NOT replace KEEPER. they're complementary:
+  - KEEPER: "what is this user trying to accomplish?"
+  - WEAVER: "where does this construct sit in the network?"
+
+  same Beehive. different dances to decode.
