@@ -35,7 +35,7 @@ ONLY_SLUGS=()
 # Allowed directories to copy from construct repos
 ALLOWED_DIRS=(skills commands identity scripts templates contexts)
 # Allowed root files
-ALLOWED_ROOT_FILES=(construct.yaml CLAUDE.md manifest.json README.md)
+ALLOWED_ROOT_FILES=(construct.yaml construct.json CLAUDE.md manifest.json README.md)
 
 # =============================================================================
 # Argument Parsing
@@ -94,6 +94,8 @@ get_pack_version() {
 
     if [[ -f "$manifest" ]] && command -v yq &>/dev/null; then
         yq eval '.version // "unknown"' "$manifest" 2>/dev/null || echo "unknown"
+    elif [[ -f "${pack_dir}/construct.json" ]] && command -v jq &>/dev/null; then
+        jq -r '.version // "unknown"' "${pack_dir}/construct.json" 2>/dev/null || echo "unknown"
     elif [[ -f "${pack_dir}/manifest.json" ]] && command -v jq &>/dev/null; then
         jq -r '.version // "unknown"' "${pack_dir}/manifest.json" 2>/dev/null || echo "unknown"
     else
@@ -158,9 +160,9 @@ main() {
             [[ "$found" == "false" ]] && { skipped=$((skipped + 1)); continue; }
         fi
 
-        # Must have construct.yaml or manifest.json
-        if [[ ! -f "${repo_dir}/construct.yaml" ]] && [[ ! -f "${repo_dir}/manifest.json" ]]; then
-            log "  SKIP: ${slug} (no construct.yaml or manifest.json)"
+        # Must have construct.yaml, construct.json, or manifest.json
+        if [[ ! -f "${repo_dir}/construct.yaml" ]] && [[ ! -f "${repo_dir}/construct.json" ]] && [[ ! -f "${repo_dir}/manifest.json" ]]; then
+            log "  SKIP: ${slug} (no construct.yaml, construct.json, or manifest.json)"
             skipped=$((skipped + 1))
             continue
         fi
