@@ -213,6 +213,31 @@ main() {
         synced=$((synced + 1))
     done
 
+    # Sync persona files to grimoires/personas/ for @-mention access
+    # (Glob/CC file picker can't follow symlinks — need real copies)
+    local personas_dir="${REPO_ROOT}/grimoires/personas"
+    if [[ -d "${REPO_ROOT}/grimoires" ]] && [[ "$DRY_RUN" == "false" ]]; then
+        mkdir -p "$personas_dir"
+        local persona_map=(
+            "artisan:identity/ALEXANDER.md:ALEXANDER.md"
+            "k-hole:identity/STAMETS.md:STAMETS.md"
+            "observer:identity/KEEPER.md:KEEPER.md"
+            "the-arcade:identity/OSTROM.md:OSTROM.md"
+            "the-arcade:identity/BARTH.md:BARTH.md"
+            "the-arcade:identity/OPERATOR.md:OPERATOR.md"
+        )
+        local persona_synced=0
+        for entry in "${persona_map[@]}"; do
+            IFS=':' read -r p_slug p_src p_dest <<< "$entry"
+            local src="${GLOBAL_PACKS}/${p_slug}/${p_src}"
+            if [[ -f "$src" ]]; then
+                cp "$src" "${personas_dir}/${p_dest}"
+                persona_synced=$((persona_synced + 1))
+            fi
+        done
+        [[ $persona_synced -gt 0 ]] && log "Synced ${persona_synced} personas → grimoires/personas/"
+    fi
+
     # Write global.json manifest
     if [[ "$DRY_RUN" == "false" ]]; then
         local now
