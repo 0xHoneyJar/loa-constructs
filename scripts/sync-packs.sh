@@ -152,6 +152,40 @@ for local_entry in "$LOCAL_PACKS"/*/; do
 done
 
 # =============================================================================
+# Register pack commands in .claude/commands/
+# =============================================================================
+# Creates symlinks from .claude/commands/<name>.md → pack command files.
+# Framework commands (real files) take precedence — never overwritten.
+
+LOCAL_COMMANDS="${REPO_ROOT}/.claude/commands"
+cmd_registered=0
+cmd_skipped=0
+
+if [[ -d "$LOCAL_COMMANDS" ]]; then
+    for pack_dir in "$LOCAL_PACKS"/*/; do
+        [[ -d "$pack_dir" ]] || continue
+        slug=$(basename "$pack_dir")
+        cmd_dir="${pack_dir}commands"
+        [[ -d "$cmd_dir" ]] || continue
+
+        for cmd_file in "$cmd_dir"/*.md; do
+            [[ -f "$cmd_file" ]] || continue
+            cmd_name=$(basename "$cmd_file")
+            local_cmd="${LOCAL_COMMANDS}/${cmd_name}"
+
+            if [[ -e "$local_cmd" ]] || [[ -L "$local_cmd" ]]; then
+                # Already exists (framework command or another pack) — don't overwrite
+                cmd_skipped=$((cmd_skipped + 1))
+            else
+                # Register: symlink to pack command via relative path
+                ln -s "../constructs/packs/${slug}/commands/${cmd_name}" "$local_cmd"
+                cmd_registered=$((cmd_registered + 1))
+            fi
+        done
+    done
+fi
+
+# =============================================================================
 # Write sync state
 # =============================================================================
 
@@ -167,11 +201,13 @@ mkdir -p "$(dirname "$SYNC_STATE")"
 cat > "$SYNC_STATE" << EOF
 {
   "synced_at": "${now}",
-  "added": ${added},
-  "updated": ${updated},
-  "removed": ${removed},
-  "unchanged": ${unchanged},
-  "local_total": ${total},
+  "packs_added": ${added},
+  "packs_updated": ${updated},
+  "packs_removed": ${removed},
+  "packs_unchanged": ${unchanged},
+  "packs_total": ${total},
+  "commands_registered": ${cmd_registered},
+  "commands_skipped": ${cmd_skipped},
   "global_total": ${global_pack_count},
   "global_store": "${GLOBAL_PACKS}",
   "method": "symlink"
@@ -184,7 +220,9 @@ EOF
 
 if [[ "$JSON_OUTPUT" == "true" ]]; then
     cat "$SYNC_STATE"
-elif [[ $added -gt 0 ]] || [[ $updated -gt 0 ]] || [[ $removed -gt 0 ]]; then
+elif [[ $added -gt 0 ]] || [[ $updated -gt 0 ]] || [[ $removed -gt 0 ]] || [[ $cmd_registered -gt 0 ]]; then
     # Only report when changes happen (silent on no-op)
-    echo "packs synced: +${added} ~${updated} -${removed} (${total} total)" >&2
+    msg="packs synced: +${added} ~${updated} -${removed} (${total} total)"
+    [[ $cmd_registered -gt 0 ]] && msg+=", commands: +${cmd_registered}"
+    echo "$msg" >&2
 fi
