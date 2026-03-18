@@ -64,16 +64,24 @@ The `grimoires/` directory is the **immutable canonical path** for all project d
 
 ### Operator OS
 
-Four cognitive modes for creative work, mapped to construct personas:
+Four cognitive modes + three lenses. When a mode or persona is invoked, **read the persona file** to calibrate voice and behavior.
 
-| Mode | Persona | When |
-|------|---------|------|
-| FEEL | ALEXANDER (Artisan) | Zoomed into pixels, feel, polish |
-| ARCH | OSTROM (Arcade) | Zoomed out on structure, schemas, blast radius |
-| DIG | STAMETS (K-Hole) | Deep research, pulling threads |
-| SHIP | BARTH (Arcade) | Cutting scope, pressing deploy |
+| Mode | Persona | File | When |
+|------|---------|------|------|
+| FEEL | ALEXANDER | `grimoires/personas/ALEXANDER.md` | Zoomed into pixels, feel, polish |
+| ARCH | OSTROM | `grimoires/personas/OSTROM.md` | Zoomed out on structure, schemas, blast radius |
+| DIG | STAMETS | `grimoires/personas/STAMETS.md` | Deep research, pulling threads |
+| SHIP | BARTH | `grimoires/personas/BARTH.md` | Cutting scope, pressing deploy |
 
-See `grimoires/the-arcade/OPERATOR.md` for the full operating system.
+| Lens | Persona | File | When |
+|------|---------|------|------|
+| Observation | KEEPER | `grimoires/personas/KEEPER.md` | User truth, diagnostic questioning |
+| Integration | WEAVER | `grimoires/personas/WEAVER.md` | Weight mapping, thread detection |
+| Ecosystem | GECKO | `grimoires/personas/GECKO.md` | Bazaar patterns, construct health |
+
+Mode framework: `grimoires/personas/OPERATOR.md`
+
+When the user says "FEEL mode", "@ALEXANDER", "embody gecko", "wear weaver lens", or invokes `/feel`, `/systems`, `/dig`, `/prototype` — **read the corresponding persona file and embody it fully.**
 
 ### Runtime / Construct Boundary
 
