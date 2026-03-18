@@ -8,6 +8,7 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { getUserUsageStats, getCreatorStats, getSkillAnalytics } from '../services/analytics.js';
+import { getPackInstallAnalytics } from '../services/pack-analytics.js';
 import { getSkillById, isSkillOwner } from '../services/skills.js';
 import type { Variables } from '../app.js';
 
@@ -131,5 +132,30 @@ analyticsRouter.get('/creator/skills/:skillId/analytics', async (c) => {
     data: analytics,
   });
 });
+
+// --- Pack Analytics (public — ecosystem intelligence) ---
+
+const packAnalyticsQuerySchema = z.object({
+  period: z.enum(['7d', '30d', '90d']).default('30d'),
+  slug: z.string().optional(),
+});
+
+/**
+ * GET /v1/analytics/packs
+ * Ecosystem-level pack install analytics with client type breakdown.
+ * Public endpoint — this is ruggy's query surface.
+ */
+analyticsRouter.get(
+  '/analytics/packs',
+  zValidator('query', packAnalyticsQuerySchema),
+  async (c) => {
+    const { period, slug } = c.req.valid('query');
+    const periodDays = period === '7d' ? 7 : period === '90d' ? 90 : 30;
+
+    const analytics = await getPackInstallAnalytics({ periodDays, slug });
+
+    return c.json({ data: analytics });
+  }
+);
 
 export { analyticsRouter };

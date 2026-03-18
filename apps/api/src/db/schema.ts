@@ -83,6 +83,13 @@ export const packInstallActionEnum = pgEnum('pack_install_action', [
   'uninstall',
 ]);
 
+export const clientTypeEnum = pgEnum('client_type', [
+  'human',
+  'agent',
+  'bot',
+  'unknown',
+]);
+
 /**
  * Construct Maturity Enum
  * @see prd.md §4.1 Maturity Levels
@@ -728,12 +735,17 @@ export const packInstallations = pgTable(
     metadata: jsonb('metadata').default({}),
     ipAddress: inet('ip_address'),
     userAgent: text('user_agent'),
+    clientType: clientTypeEnum('client_type').default('unknown'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   },
   (table) => ({
     packIdx: index('idx_pack_installations_pack').on(table.packId),
     userIdx: index('idx_pack_installations_user').on(table.userId),
     createdIdx: index('idx_pack_installations_created').on(table.createdAt),
+    clientTypeIdx: index('idx_pack_installations_client_type').on(
+      table.clientType,
+      table.createdAt
+    ),
   })
 );
 

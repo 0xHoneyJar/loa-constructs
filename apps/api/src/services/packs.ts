@@ -15,6 +15,7 @@ import {
   teamMembers,
 } from '../db/index.js';
 import { logger } from '../lib/logger.js';
+import { classifyClient } from '../lib/classify-client.js';
 import type { InferSelectModel } from 'drizzle-orm';
 import type { Context } from 'hono';
 import type { AuthUser } from '../middleware/auth.js';
@@ -595,6 +596,8 @@ export async function trackPackInstallation(
   // PostgreSQL inet type only accepts a single IP address
   const cleanIpAddress = ipAddress?.split(',')[0]?.trim() || null;
 
+  const clientType = classifyClient(userAgent);
+
   await db.insert(packInstallations).values({
     packId,
     versionId,
@@ -604,6 +607,7 @@ export async function trackPackInstallation(
     metadata,
     ipAddress: cleanIpAddress,
     userAgent,
+    clientType,
   });
 
   // Update download count for installs
@@ -614,7 +618,10 @@ export async function trackPackInstallation(
       .where(eq(packs.id, packId));
   }
 
-  logger.info({ packId, versionId, action }, 'Pack installation tracked');
+  logger.info(
+    { packId, versionId, action, clientType },
+    'Pack installation tracked'
+  );
 }
 
 /**
