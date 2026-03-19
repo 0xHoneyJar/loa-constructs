@@ -1281,8 +1281,8 @@ packsRouter.get('/:slug/download', optionalAuth(), async (c) => {
     license = await generateAnonymousPackLicense(pack.slug, version.version);
   }
 
-  // Track installation (userId may be null for anonymous)
-  await trackPackInstallation(
+  // Track installation (non-blocking — tracking failure must never block download)
+  trackPackInstallation(
     pack.id,
     version.id,
     userId || null,
@@ -1291,11 +1291,15 @@ packsRouter.get('/:slug/download', optionalAuth(), async (c) => {
     { access_reason: accessReason, anonymous: !isAuthenticated },
     c.req.header('x-forwarded-for') || c.req.header('x-real-ip'),
     c.req.header('user-agent')
-  );
+  ).catch((err) => {
+    logger.error({ error: err, packSlug: slug, requestId }, 'Failed to track pack installation');
+  });
 
   // Track download attribution for revenue sharing (only for authenticated users on premium packs)
   if (isAuthenticated && tierRequired !== 'free') {
-    await trackDownloadAttribution(pack.id, userId, version.id, 'install');
+    trackDownloadAttribution(pack.id, userId, version.id, 'install').catch((err) => {
+      logger.error({ error: err, packSlug: slug, requestId }, 'Failed to track download attribution');
+    });
   }
 
   // cycle-040: Fire-and-forget webhook to explorer BFF for live Convex feed
