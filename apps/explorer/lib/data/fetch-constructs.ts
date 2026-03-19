@@ -177,7 +177,7 @@ function transformToDetail(construct: APIConstruct): ConstructDetail {
     })),
     skills,
     composesWith,
-    installCommand: `/constructs install ${construct.slug}`,
+    installCommand: `npx constructs install ${construct.slug}`,
     sourceType: construct.source_type,
     gitUrl: construct.git_url,
     longDescription: construct.long_description ?? null,

@@ -182,7 +182,7 @@ export function StackComposerHud({ nodes }: StackComposerHudProps) {
   const installCommand = useMemo(() => {
     if (stackNodes.length === 0) return '';
     const slugs = stackNodes.map((n) => n.slug).join(' ');
-    return `/constructs install ${slugs}`;
+    return `npx constructs install ${slugs}`;
   }, [stackNodes]);
 
   // Copy to clipboard
