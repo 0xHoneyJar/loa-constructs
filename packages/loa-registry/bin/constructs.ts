@@ -197,7 +197,7 @@ async function cmdInfo(slug: string) {
   console.log(`  Web:       https://constructs.network/constructs/${c.slug}`);
 
   // Install
-  console.log(`\n  Install:\n    /constructs install ${c.slug}\n`);
+  console.log(`\n  Install:\n    npx constructs install ${c.slug}\n`);
 }
 
 async function cmdSummary() {
