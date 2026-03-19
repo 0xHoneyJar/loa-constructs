@@ -836,21 +836,45 @@ async function seedForgePacks() {
         const rawCategory = pack.fullManifest?.domain?.[0] ?? pack.gitConfig?.category ?? null;
         const category = rawCategory ? normalizeCategory(rawCategory) : 'development';
 
-        // Visibility deny-by-default: only explicit manifest opt-in makes a construct public
-        // Priority: --visibility-override > raw manifest field > registry-sources.yaml > 'internal'
-        // CRITICAL: use rawVisibility (pre-Zod), NOT fullManifest.visibility (Zod injects default 'internal')
+        // VIS-002: Public visibility allowlist — manifest declarations are NOT sufficient.
+        // Only constructs explicitly listed here can be seeded as public.
+        // All others default to internal regardless of what their manifest declares.
+        // To make a construct public: add it here AND set visibility: public in its manifest.
+        const PUBLIC_ALLOWLIST = new Set([
+          'observer',
+          'k-hole',
+          'protocol',
+          'mibera-codex',
+          'artisan',
+          'hypha',
+        ]);
+
         const VALID_VIS = ['public', 'internal', 'unlisted'];
         const registryVis = pack.gitConfig?.visibility as string | undefined;
 
+        // Priority: --visibility-override > allowlist-gated manifest > registry-sources.yaml > 'internal'
+        // CRITICAL: use rawVisibility (pre-Zod), NOT fullManifest.visibility (Zod injects default 'internal')
         let packVisibility = 'internal'; // default
         if (VISIBILITY_OVERRIDE && VALID_VIS.includes(VISIBILITY_OVERRIDE)) {
           packVisibility = VISIBILITY_OVERRIDE;
-        } else if (pack.rawVisibility && VALID_VIS.includes(pack.rawVisibility)) {
+        } else if (pack.rawVisibility === 'public' && PUBLIC_ALLOWLIST.has(pack.slug)) {
+          packVisibility = 'public';
+        } else if (pack.rawVisibility && VALID_VIS.includes(pack.rawVisibility) && pack.rawVisibility !== 'public') {
+          // Non-public visibility from manifest (internal, unlisted) is always respected
           packVisibility = pack.rawVisibility;
-        } else if (registryVis && VALID_VIS.includes(registryVis)) {
+        } else if (registryVis && VALID_VIS.includes(registryVis) && registryVis !== 'public') {
+          // Non-public visibility from registry sources is always respected
           packVisibility = registryVis;
         }
-        console.log(`     → visibility: ${packVisibility} (manifest=${pack.rawVisibility ?? 'none'}, registry=${registryVis ?? 'none'})`);
+        // else: stays 'internal' (default)
+
+        const allowlisted = PUBLIC_ALLOWLIST.has(pack.slug);
+        const manifestWantsPublic = pack.rawVisibility === 'public';
+        if (manifestWantsPublic && !allowlisted) {
+          console.log(`     → visibility: internal (manifest says public but not in PUBLIC_ALLOWLIST)`);
+        } else {
+          console.log(`     → visibility: ${packVisibility} (manifest=${pack.rawVisibility ?? 'none'}, registry=${registryVis ?? 'none'})`);
+        }
 
         // Logos: -mark.svg (icon), -wordmark.svg (horizontal text lockup), .svg (full knockout)
         const logoDir = join(__dirname, '../logos');
