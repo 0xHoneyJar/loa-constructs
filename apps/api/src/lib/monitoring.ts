@@ -4,6 +4,7 @@
  * @see sdd.md §1.3 Technology Stack - Observability
  */
 
+import * as Sentry from '@sentry/node';
 import { env, isProduction } from '../config/env.js';
 import { logger } from './logger.js';
 
@@ -32,6 +33,8 @@ interface BreadcrumbData {
   level?: 'fatal' | 'error' | 'warning' | 'info' | 'debug';
 }
 
+let sentryEnabled = false;
+
 /**
  * Initialize monitoring - called at app startup
  */
@@ -41,11 +44,23 @@ export function initMonitoring(): void {
     return;
   }
 
-  // Note: In production, you would initialize Sentry here
-  // For now we use a lightweight approach with structured logging
+  Sentry.init({
+    dsn: env.SENTRY_DSN,
+    environment: env.NODE_ENV,
+    tracesSampleRate: 0, // errors only — no performance tracing
+    beforeSend(event) {
+      // Strip sensitive data
+      if (event.request?.headers) {
+        delete event.request.headers['authorization'];
+        delete event.request.headers['cookie'];
+      }
+      return event;
+    },
+  });
+
+  sentryEnabled = true;
   logger.info({
-    msg: 'Monitoring initialized',
-    sentry_configured: true,
+    msg: 'Sentry initialized',
     environment: env.NODE_ENV,
   });
 }
@@ -54,10 +69,7 @@ export function initMonitoring(): void {
  * Capture an exception for error tracking
  */
 export function captureException(error: Error | unknown, context?: ErrorContext): string {
-  const eventId = crypto.randomUUID();
-
   const errorDetails = {
-    event_id: eventId,
     error: error instanceof Error ? error.message : String(error),
     stack: error instanceof Error ? error.stack : undefined,
     level: context?.level || 'error',
@@ -67,7 +79,7 @@ export function captureException(error: Error | unknown, context?: ErrorContext)
     timestamp: new Date().toISOString(),
   };
 
-  // Log to structured logger (this would be sent to Sentry in production)
+  // Always log locally
   if (context?.level === 'fatal' || context?.level === 'error') {
     logger.error(errorDetails);
   } else if (context?.level === 'warning') {
@@ -76,17 +88,24 @@ export function captureException(error: Error | unknown, context?: ErrorContext)
     logger.info(errorDetails);
   }
 
-  return eventId;
+  // Send to Sentry if configured
+  if (sentryEnabled) {
+    return Sentry.captureException(error, {
+      tags: context?.tags,
+      extra: context?.extra,
+      user: context?.user,
+      fingerprint: context?.fingerprint,
+    });
+  }
+
+  return crypto.randomUUID();
 }
 
 /**
  * Capture a message for monitoring
  */
 export function captureMessage(message: string, context?: ErrorContext): string {
-  const eventId = crypto.randomUUID();
-
   const messageDetails = {
-    event_id: eventId,
     message,
     level: context?.level || 'info',
     ...context?.user && { user: context.user },
@@ -103,7 +122,15 @@ export function captureMessage(message: string, context?: ErrorContext): string 
     logger.info(messageDetails);
   }
 
-  return eventId;
+  if (sentryEnabled) {
+    return Sentry.captureMessage(message, {
+      tags: context?.tags,
+      extra: context?.extra,
+      level: context?.level as Sentry.SeverityLevel,
+    });
+  }
+
+  return crypto.randomUUID();
 }
 
 /**
@@ -111,13 +138,11 @@ export function captureMessage(message: string, context?: ErrorContext): string 
  */
 export function addBreadcrumb(breadcrumb: BreadcrumbData): void {
   if (!isProduction) {
-    // In development, log breadcrumbs for debugging
-    logger.debug({
-      msg: 'Breadcrumb',
-      ...breadcrumb,
-    });
+    logger.debug({ msg: 'Breadcrumb', ...breadcrumb });
   }
-  // In production with Sentry, this would call Sentry.addBreadcrumb()
+  if (sentryEnabled) {
+    Sentry.addBreadcrumb(breadcrumb);
+  }
 }
 
 /**
@@ -125,23 +150,21 @@ export function addBreadcrumb(breadcrumb: BreadcrumbData): void {
  */
 export function setUser(user: ErrorContext['user'] | null): void {
   if (user) {
-    logger.debug({
-      msg: 'User context set',
-      user_id: user.id,
-    });
+    logger.debug({ msg: 'User context set', user_id: user.id });
   }
-  // In production with Sentry, this would call Sentry.setUser()
+  if (sentryEnabled) {
+    Sentry.setUser(user ?? null);
+  }
 }
 
 /**
  * Set extra tags for error tracking
  */
 export function setTags(tags: Record<string, string>): void {
-  logger.debug({
-    msg: 'Tags set',
-    tags,
-  });
-  // In production with Sentry, this would call Sentry.setTags()
+  logger.debug({ msg: 'Tags set', tags });
+  if (sentryEnabled) {
+    Sentry.setTags(tags);
+  }
 }
 
 /**

@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next';
+import { withSentryConfig } from '@sentry/nextjs';
 import bundleAnalyzer from '@next/bundle-analyzer';
 
 const withBundleAnalyzer = bundleAnalyzer({
@@ -63,4 +64,10 @@ const config: NextConfig = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- bundle-analyzer types lag behind Next.js 15
-export default withBundleAnalyzer(config as any);
+export default withSentryConfig(withBundleAnalyzer(config as any), {
+  // Suppress source map upload warnings when no auth token is set
+  silent: !process.env.SENTRY_AUTH_TOKEN,
+  // Disable source map upload in dev (no token needed locally)
+  disableServerWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+  disableClientWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+});
