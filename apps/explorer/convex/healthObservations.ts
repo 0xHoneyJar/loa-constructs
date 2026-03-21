@@ -96,3 +96,47 @@ export const trends = query({
     return { period: `${days}d`, points };
   },
 });
+
+export const subScoreTrends = query({
+  args: { days: v.optional(v.number()) },
+  handler: async (ctx, { days = 7 }) => {
+    const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+    const observations = await ctx.db
+      .query('healthObservations')
+      .withIndex('by_timestamp', (q) => q.gte('timestamp', cutoff))
+      .order('asc')
+      .collect();
+
+    const subScoreKeys = [
+      'api_liveness',
+      'version_freshness',
+      'category_coverage',
+      'identity_drift',
+      'composition_density',
+      'verification_flow',
+    ] as const;
+
+    // Collect per-date averages for each sub-score
+    const byDate = new Map<string, Record<string, number[]>>();
+    for (const obs of observations) {
+      const date = obs.timestamp.substring(0, 10);
+      if (!byDate.has(date)) {
+        byDate.set(date, Object.fromEntries(subScoreKeys.map((k) => [k, []])));
+      }
+      const bucket = byDate.get(date)!;
+      for (const key of subScoreKeys) {
+        bucket[key].push(obs.subScores[key]);
+      }
+    }
+
+    const result: Record<string, number[]> = {};
+    for (const key of subScoreKeys) {
+      result[key] = Array.from(byDate.values()).map((bucket) => {
+        const vals = bucket[key];
+        return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+      });
+    }
+
+    return result;
+  },
+});

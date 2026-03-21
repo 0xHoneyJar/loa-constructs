@@ -31,3 +31,34 @@ export async function escalateSignal(signalId: string) {
     signalId: signalId as Id<'signals'>,
   });
 }
+
+export async function resetCircuitBreaker(appSlug: string) {
+  const convex = getConvexClient();
+  const writeKey = process.env.CONVEX_WRITE_KEY;
+  if (!convex || !writeKey) throw new Error('not configured');
+
+  await convex.mutation(api.signals.resetCircuitBreaker, {
+    writeKey,
+    appSlug,
+  });
+}
+
+export async function setManualOverride(
+  scope: string,
+  tier: string,
+  reason: string,
+  expiresAt?: number,
+) {
+  const convex = getConvexClient();
+  const writeKey = process.env.CONVEX_WRITE_KEY;
+  if (!convex || !writeKey) throw new Error('not configured');
+
+  await convex.mutation(api.signals.setManualOverride, {
+    writeKey,
+    scope,
+    tier,
+    setBy: 'dashboard',
+    reason,
+    ...(expiresAt ? { expiresAt } : {}),
+  });
+}

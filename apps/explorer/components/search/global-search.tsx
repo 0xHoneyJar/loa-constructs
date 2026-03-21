@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { resolveShortDescription } from '@/lib/utils/resolve-short-description';
+import { useObservatoryStore } from '@/lib/stores/observatory-store';
+import { updateSignalStatus } from '@/app/actions/signal-actions';
+import { toast } from 'sonner';
 
 interface SearchResult {
   id: string;
@@ -11,13 +14,105 @@ interface SearchResult {
   icon?: string;
   shortDescription: string;
   category: string;
-  type: string;
+  type: 'construct' | 'action' | 'navigate';
+  action?: () => void;
 }
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.constructs.network/v1';
 
+function getObservatoryActions(router: ReturnType<typeof useRouter>): SearchResult[] {
+  return [
+    {
+      id: 'nav-observatory',
+      slug: '',
+      name: 'Observatory',
+      icon: '◉',
+      shortDescription: 'Go to signals observatory',
+      category: 'Navigation',
+      type: 'navigate',
+      action: () => router.push('/dashboard/observatory'),
+    },
+    {
+      id: 'nav-overview',
+      slug: '',
+      name: 'Overview',
+      icon: '◫',
+      shortDescription: 'Go to dashboard overview',
+      category: 'Navigation',
+      type: 'navigate',
+      action: () => router.push('/dashboard'),
+    },
+    {
+      id: 'action-dismiss',
+      slug: '',
+      name: 'Dismiss Selected Signal',
+      icon: '×',
+      shortDescription: 'Mark the selected signal as dismissed',
+      category: 'Action',
+      type: 'action',
+      action: () => {
+        const { selectedSignalId, selectNext } = useObservatoryStore.getState();
+        if (!selectedSignalId) {
+          toast.error('No signal selected');
+          return;
+        }
+        updateSignalStatus(selectedSignalId, 'dismissed').then(() => {
+          toast.success('Signal dismissed');
+          selectNext();
+        });
+      },
+    },
+    {
+      id: 'action-triage',
+      slug: '',
+      name: 'Triage Selected Signal',
+      icon: '▸',
+      shortDescription: 'Mark the selected signal as triaged',
+      category: 'Action',
+      type: 'action',
+      action: () => {
+        const { selectedSignalId, selectNext } = useObservatoryStore.getState();
+        if (!selectedSignalId) {
+          toast.error('No signal selected');
+          return;
+        }
+        updateSignalStatus(selectedSignalId, 'triaged').then(() => {
+          toast.success('Signal triaged');
+          selectNext();
+        });
+      },
+    },
+    {
+      id: 'filter-critical',
+      slug: '',
+      name: 'Filter: Critical Only',
+      icon: '⬤',
+      shortDescription: 'Show only critical severity signals',
+      category: 'Filter',
+      type: 'action',
+      action: () => {
+        const { filters, setFilter } = useObservatoryStore.getState();
+        setFilter('severity', filters.severity === 'critical' ? null : 'critical');
+      },
+    },
+    {
+      id: 'filter-clear',
+      slug: '',
+      name: 'Clear All Filters',
+      icon: '⌀',
+      shortDescription: 'Reset all observatory filters',
+      category: 'Filter',
+      type: 'action',
+      action: () => {
+        useObservatoryStore.getState().clearFilters();
+      },
+    },
+  ];
+}
+
 export function GlobalSearch() {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -25,6 +120,8 @@ export function GlobalSearch() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loaded, setLoaded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const isOnObservatory = pathname === '/dashboard/observatory';
 
   // Fetch all constructs on first open
   useEffect(() => {
@@ -39,10 +136,9 @@ export function GlobalSearch() {
             icon: c.icon as string | undefined,
             shortDescription: resolveShortDescription(c.short_description as string, c.description as string),
             category: c.category as string,
-            type: c.type as string,
+            type: 'construct' as const,
           }));
           setAllConstructs(data);
-          setResults(data.slice(0, 8));
           setLoaded(true);
         })
         .catch(() => setLoaded(true));
@@ -51,20 +147,25 @@ export function GlobalSearch() {
 
   // Filter results when query changes
   useEffect(() => {
+    const observatoryActions = isOnObservatory ? getObservatoryActions(router) : [];
+    const allItems = [...observatoryActions, ...allConstructs];
+
     if (!query.trim()) {
-      setResults(allConstructs.slice(0, 8));
+      // Show actions first when on observatory, then constructs
+      setResults(allItems.slice(0, 10));
     } else {
       const q = query.toLowerCase();
-      const filtered = allConstructs.filter(
+      const filtered = allItems.filter(
         (c) =>
           c.name.toLowerCase().includes(q) ||
           c.shortDescription.toLowerCase().includes(q) ||
-          c.slug.toLowerCase().includes(q)
+          c.category.toLowerCase().includes(q) ||
+          (c.slug && c.slug.toLowerCase().includes(q))
       );
-      setResults(filtered.slice(0, 8));
+      setResults(filtered.slice(0, 10));
     }
     setSelectedIndex(0);
-  }, [query, allConstructs]);
+  }, [query, allConstructs, isOnObservatory, router]);
 
   // Focus input when opened
   useEffect(() => {
@@ -109,17 +210,19 @@ export function GlobalSearch() {
         setSelectedIndex((prev) => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter' && results[selectedIndex]) {
         e.preventDefault();
-        router.push(`/constructs/${results[selectedIndex].slug}`);
-        setOpen(false);
-        setQuery('');
+        handleSelect(results[selectedIndex]);
       }
     },
-    [results, selectedIndex, router]
+    [results, selectedIndex]
   );
 
   const handleSelect = useCallback(
     (result: SearchResult) => {
-      router.push(`/constructs/${result.slug}`);
+      if (result.type === 'action' || result.type === 'navigate') {
+        result.action?.();
+      } else {
+        router.push(`/constructs/${result.slug}`);
+      }
       setOpen(false);
       setQuery('');
     },
@@ -127,6 +230,19 @@ export function GlobalSearch() {
   );
 
   if (!open) return null;
+
+  // Group results by category for section headers
+  const groupedResults: Array<{ header?: string; result: SearchResult; index: number }> = [];
+  let lastCategory = '';
+  results.forEach((result, index) => {
+    const cat = result.type === 'construct' ? 'Constructs' : result.category;
+    if (cat !== lastCategory) {
+      groupedResults.push({ header: cat, result, index });
+      lastCategory = cat;
+    } else {
+      groupedResults.push({ result, index });
+    }
+  });
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]">
@@ -144,7 +260,7 @@ export function GlobalSearch() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handlePaletteKeyDown}
-            placeholder="Search constructs..."
+            placeholder={isOnObservatory ? 'Search actions, filters, constructs...' : 'Search constructs...'}
             className="w-full bg-transparent font-mono text-xl text-bone-base placeholder:text-bone-ghost focus:outline-none"
           />
         </div>
@@ -157,34 +273,51 @@ export function GlobalSearch() {
             </div>
           ) : results.length === 0 ? (
             <div className="px-6 py-12 text-center">
-              <p className="font-mono text-base text-bone-ghost">No constructs found</p>
+              <p className="font-mono text-base text-bone-ghost">No results found</p>
             </div>
           ) : (
             <ul>
-              {results.map((result, index) => (
-                <li key={result.id}>
+              {groupedResults.map((item) => (
+                <li key={item.result.id}>
+                  {item.header && (
+                    <div className="px-6 pt-3 pb-1">
+                      <span className="font-mono text-[9px] text-bone-ghost uppercase tracking-widest">
+                        {item.header}
+                      </span>
+                    </div>
+                  )}
                   <button
                     type="button"
-                    onClick={() => handleSelect(result)}
-                    onMouseEnter={() => setSelectedIndex(index)}
-                    className={`flex w-full items-center gap-4 px-6 py-4 text-left transition-colors ${
-                      index === selectedIndex ? 'bg-void-raised' : ''
+                    onClick={() => handleSelect(item.result)}
+                    onMouseEnter={() => setSelectedIndex(item.index)}
+                    className={`flex w-full items-center gap-4 px-6 py-3 text-left transition-colors ${
+                      item.index === selectedIndex ? 'bg-void-raised' : ''
                     }`}
                   >
-                    {result.icon && (
-                      <span className="text-xl shrink-0">{result.icon}</span>
+                    {item.result.icon && (
+                      <span className={`text-lg shrink-0 ${
+                        item.result.type === 'action' ? 'text-cyan-base' :
+                        item.result.type === 'navigate' ? 'text-bone-muted' :
+                        ''
+                      }`}>
+                        {item.result.icon}
+                      </span>
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-3">
-                        <span className="font-display text-lg uppercase tracking-display text-bone-base">
-                          {result.name}
+                        <span className={`font-mono text-base uppercase tracking-terminal ${
+                          item.result.type === 'construct' ? 'font-display text-lg tracking-display' : ''
+                        } text-bone-base`}>
+                          {item.result.name}
                         </span>
-                        <span className="font-mono text-sm uppercase tracking-whisper text-bone-ghost">
-                          {result.category}
-                        </span>
+                        {item.result.type === 'construct' && (
+                          <span className="font-mono text-sm uppercase tracking-whisper text-bone-ghost">
+                            {item.result.category}
+                          </span>
+                        )}
                       </div>
-                      <p className="truncate font-mono text-base text-bone-muted mt-1">
-                        {result.shortDescription}
+                      <p className="truncate font-mono text-sm text-bone-muted mt-0.5">
+                        {item.result.shortDescription}
                       </p>
                     </div>
                   </button>
@@ -198,7 +331,7 @@ export function GlobalSearch() {
         <div className="flex items-center justify-between border-t border-void-border px-6 py-3">
           <div className="flex items-center gap-4 font-mono text-sm text-bone-ghost">
             <span><kbd className="border border-void-border px-1.5 py-0.5">↑↓</kbd> navigate</span>
-            <span><kbd className="border border-void-border px-1.5 py-0.5">↵</kbd> open</span>
+            <span><kbd className="border border-void-border px-1.5 py-0.5">↵</kbd> select</span>
             <span><kbd className="border border-void-border px-1.5 py-0.5">esc</kbd> close</span>
           </div>
           <span className="font-mono text-sm text-bone-ghost">

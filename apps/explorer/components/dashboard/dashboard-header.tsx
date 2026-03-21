@@ -17,6 +17,7 @@ const routeLabels: Record<string, string> = {
   '/dashboard/keys': 'API Keys',
   '/dashboard/signals': 'Signals',
   '/dashboard/health': 'Health',
+  '/dashboard/observatory': 'Observatory',
 };
 
 const HEADER_TOKENS = {

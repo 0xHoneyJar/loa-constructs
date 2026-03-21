@@ -10,7 +10,6 @@ import {
   PixelNetwork,
   PixelCube,
   PixelKey,
-  PixelSignal,
   PixelPulse,
 } from '@/components/icons/pixel';
 
@@ -22,8 +21,7 @@ const baseNavItems = [
 ];
 
 const adminNavItems = [
-  { href: '/dashboard/signals', label: 'Signals', icon: PixelSignal },
-  { href: '/dashboard/health', label: 'Health', icon: PixelPulse },
+  { href: '/dashboard/observatory', label: 'Observatory', icon: PixelPulse },
 ];
 
 const SIDEBAR_TOKENS = {

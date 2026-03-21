@@ -223,7 +223,7 @@ export const statusCounts = query({
     for (const signal of active) {
       const app = signal.appSlug;
       if (!counts[app]) {
-        counts[app] = { new: 0, triaged: 0, escalated: 0, resolved: 0, dismissed: 0, critical: 0, high: 0 };
+        counts[app] = { new: 0, triaged: 0, escalated: 0, critical: 0, high: 0 };
       }
       counts[app][signal.status] = (counts[app][signal.status] || 0) + 1;
       if (signal.severity === 'critical') {
@@ -248,6 +248,57 @@ export const recentActivity = query({
       .withIndex('by_timestamp')
       .order('desc')
       .take(limit);
+  },
+});
+
+export const byAppPaginated = query({
+  args: {
+    appSlug: v.optional(v.string()),
+    status: v.optional(v.string()),
+    cursor: v.optional(v.number()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { appSlug, status, cursor, limit = 50 }) => {
+    let q;
+    if (appSlug) {
+      q = ctx.db
+        .query('signals')
+        .withIndex('by_app', (idx) => idx.eq('appSlug', appSlug))
+        .order('desc');
+    } else if (status) {
+      q = ctx.db
+        .query('signals')
+        .withIndex('by_status', (idx) => idx.eq('status', status))
+        .order('desc');
+    } else {
+      q = ctx.db.query('signals').withIndex('by_timestamp').order('desc');
+    }
+
+    // Cursor-based pagination via _creationTime filter.
+    // Convex indexes don't support range on non-indexed fields, so we
+    // over-fetch and filter. The multiplier accounts for filtered-out items.
+    let signals;
+    if (cursor) {
+      const fetchSize = Math.min(limit * 4, 500);
+      const all = await q.take(fetchSize);
+      const afterCursor = all.filter((s) => s._creationTime < cursor);
+      signals = afterCursor.slice(0, limit + 1);
+    } else {
+      signals = await q.take(limit + 1);
+    }
+
+    const hasMore = signals.length > limit;
+    const page = hasMore ? signals.slice(0, limit) : signals;
+    const nextCursor =
+      hasMore && page.length > 0
+        ? page[page.length - 1]._creationTime
+        : undefined;
+
+    return {
+      signals: page.filter((s) => s.source !== 'heartbeat'),
+      nextCursor,
+      hasMore,
+    };
   },
 });
 

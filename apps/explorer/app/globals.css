@@ -66,6 +66,23 @@
   --color-node-green: oklch(0.72 0.18 155);
   --color-token-yellow: oklch(0.78 0.15 85);
 
+  /* Sovereignty tiers */
+  --color-tier-autonomous: var(--color-node-green);
+  --color-tier-standard: var(--color-token-yellow);
+  --color-tier-constrained: var(--color-bone-muted);
+
+  /* Severity — amber-warm for high (distinct from crimson-base critical) */
+  --color-severity-critical: var(--color-crimson-base);
+  --color-severity-high: oklch(0.75 0.16 55);
+  --color-severity-medium: var(--color-token-yellow);
+  --color-severity-low: var(--color-cyan-base);
+  --color-severity-info: var(--color-bone-muted);
+
+  /* Observatory spacing */
+  --obs-pulse-height: 48px;
+  --obs-section-gap: 48px;
+  --obs-related-gap: 12px;
+
   /* SprawlOS — motion (reference values, used directly in Tailwind config) */
   --quantum: 83ms;
 
