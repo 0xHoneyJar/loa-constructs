@@ -5,6 +5,7 @@ import localFont from 'next/font/local';
 import { DynamicProvider } from '@/components/providers/dynamic-provider';
 import { ConvexProvider } from '@/components/providers/convex-provider';
 import { FeedbackWidget } from '@/components/feedback-widget';
+import { ErrorCaptureProvider } from '@/components/error-capture-provider';
 import { Agentation } from 'agentation';
 import './globals.css';
 
@@ -96,6 +97,7 @@ export default function RootLayout({
         />
         <DynamicProvider>
           <ConvexProvider>
+            <ErrorCaptureProvider />
             {children}
             <FeedbackWidget />
             {/* @ts-ignore React 19 type mismatch with Agentation portal */}

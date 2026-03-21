@@ -15,6 +15,10 @@
     "./validation": {
       "types": "./dist/validation.d.ts",
       "import": "./dist/validation.js"
+    },
+    "./error-capture": {
+      "types": "./dist/error-capture.d.ts",
+      "import": "./dist/error-capture.js"
     }
   },
   "scripts": {
