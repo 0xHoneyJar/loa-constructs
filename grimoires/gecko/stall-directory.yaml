@@ -1,0 +1,169 @@
+# stall-directory.yaml — gecko's routing table
+#
+# maps product names, aliases, and URLs to repo locations.
+# when someone says "moneycomb is slow" gecko reads this
+# and knows where to walk without being told.
+#
+# this is NOT the construct registry. it's the foot traffic map
+# for the 89% of repos that aren't constructs.
+#
+# maintained by: gecko patrol
+# source: grimoires/gecko/org-ecosystem-map-2026-03-19.md
+# spec: grimoires/gecko/repo-manifest-proposal.md
+
+# ── high-traffic product repos ────────────────────────────
+
+- name: mcv-interface
+  aliases: [moneycomb, moneycomb-vaults, mcv, honeycomb-vault-ui]
+  url: https://moneycomb.0xhoneyjar.xyz
+  domain: product/defi
+  stack: [next.js, wagmi, viem, tanstack-query, dynamic-labs, convex]
+  local_path: ~/Documents/GitHub/mcv-interface
+  org_repo: 0xHoneyJar/mcv-interface
+  contract: "0x9A13d7802CEBe2C4531616a7D590569c4568a401"
+  has_manifest: true
+  notes: "single-page vault DApp. Alchemy NFT API for holdings, wagmi for on-chain reads."
+
+- name: set-and-forgetti
+  aliases: [saf, set-and-forget, pol-farming]
+  url: https://setandforgetti.com
+  domain: product/defi
+  stack: [next.js, convex]
+  local_path: ~/Documents/GitHub/set-and-forgetti
+  org_repo: 0xHoneyJar/set-and-forgetti
+  has_manifest: false
+  notes: "gold standard feedback pipeline. Convex-native."
+
+- name: mibera-dimensions
+  aliases: [dimensions, mibera]
+  domain: product/nft
+  stack: [next.js]
+  local_path: ~/Documents/GitHub/mibera-dimensions
+  org_repo: 0xHoneyJar/mibera-dimensions
+  has_manifest: false
+
+- name: mibera-honeyroad
+  aliases: [honeyroad, honey-road, silk-road, mibera, vending-machine, vm]
+  url: https://honeyroad.mibera.io
+  domain: product/marketplace
+  stack: [next.js, trigger.dev, supabase, wagmi, sharp, aws-s3]
+  local_path: ~/Documents/GitHub/mibera-honeyroad
+  org_repo: 0xHoneyJar/mibera-honeyroad
+  has_manifest: false
+  notes: "NFT marketplace on Berachain. Vending Machine = async NFT image gen (Trigger.dev → Sharp → S3 → CloudFront). HoneyGPT proved construct economics."
+  known_issues:
+    - "VM generation dispatch fails intermittently — check TRIGGER_SECRET_KEY + task deployment"
+    - "Recovery: WALLET=0x... npx tsx scripts/regenerate-vm-tokens.ts"
+
+- name: honey-interface
+  aliases: [honeyjar, honey-jar-ui, thj-ui]
+  domain: product/nft
+  stack: [next.js]
+  local_path: ~/Documents/GitHub/honey-interface
+  org_repo: 0xHoneyJar/honey-interface
+  has_manifest: false
+
+- name: cubquests-interface
+  aliases: [cubquests, faucet, quests]
+  domain: product/utility
+  stack: [next.js]
+  local_path: ~/Documents/GitHub/cubquests-interface
+  org_repo: 0xHoneyJar/cubquests-interface
+  has_manifest: false
+
+# ── loa ecosystem ─────────────────────────────────────────
+
+- name: loa-constructs
+  aliases: [constructs, constructs-network, marketplace]
+  url: https://constructs.network
+  domain: platform/marketplace
+  stack: [next.js, hono, supabase, convex, redis]
+  local_path: ~/Documents/GitHub/loa-constructs
+  org_repo: 0xHoneyJar/loa-constructs
+  has_manifest: false
+  notes: "this repo. api + explorer monorepo."
+
+- name: loa-freeside
+  aliases: [freeside, saas, billing]
+  domain: platform/saas
+  local_path: ~/Documents/GitHub/loa-freeside
+  org_repo: 0xHoneyJar/loa-freeside
+  has_manifest: false
+
+- name: loa-hounfour
+  aliases: [hounfour, schemas, protocol]
+  domain: protocol/schemas
+  stack: [typescript, typebox]
+  local_path: ~/Documents/GitHub/loa-hounfour
+  org_repo: 0xHoneyJar/loa-hounfour
+  has_manifest: false
+  notes: "87+ TypeBox schemas. zero runtime code."
+
+- name: loa-finn
+  aliases: [finn, sessions, model-routing]
+  domain: runtime/sessions
+  local_path: ~/Documents/GitHub/loa-finn
+  org_repo: 0xHoneyJar/loa-finn
+  has_manifest: false
+
+- name: loa-dixie
+  aliases: [dixie, oracle, dnft]
+  domain: product/oracle
+  local_path: ~/Documents/GitHub/loa-dixie
+  org_repo: 0xHoneyJar/loa-dixie
+  has_manifest: false
+  notes: "L5 product layer. conviction-gated oracle dNFT."
+
+# ── infrastructure ────────────────────────────────────────
+
+- name: honey-guard
+  aliases: [honeyguard, validator-ops, validator]
+  domain: infra/validator
+  stack: [next.js, supabase, trigger.dev, viem]
+  local_path: ~/Documents/GitHub/honey-guard
+  org_repo: 0xHoneyJar/honey-guard
+  has_manifest: false
+  notes: "validator incentive optimizer. active investigation."
+
+- name: thj-sonar
+  aliases: [sonar, indexer]
+  domain: infra/indexer
+  local_path: ~/Documents/GitHub/thj-sonar
+  org_repo: 0xHoneyJar/thj-sonar
+  has_manifest: false
+  notes: "candidate for construct-sonar."
+
+- name: score-api
+  aliases: [score, score-backend]
+  domain: product/scoring
+  local_path: ~/Documents/GitHub/score-api
+  org_repo: 0xHoneyJar/score-api
+  has_manifest: false
+
+# ── contracts ─────────────────────────────────────────────
+
+- name: mcv-contracts
+  aliases: [moneycomb-contracts, moneycomb-vault-contracts]
+  domain: contracts/defi
+  stack: [solidity, foundry]
+  local_path: ~/Documents/GitHub/mcv-contracts
+  org_repo: 0xHoneyJar/mcv-contracts
+  has_manifest: false
+  notes: "UUPS proxy. MoneycombVault at 0x9A13d7802CEBe2C4531616a7D590569c4568a401"
+
+- name: purupuru
+  aliases: [puru, card-venture]
+  domain: contracts/gaming
+  stack: [solidity, foundry]
+  local_path: ~/Documents/GitHub/purupuru
+  org_repo: 0xHoneyJar/purupuru
+  has_manifest: false
+  notes: "active collab with gumi. wuxing elements, 168 cards."
+
+- name: honeyjar-contracts
+  aliases: [thj-contracts, honey-jar-contracts]
+  domain: contracts/nft
+  stack: [solidity]
+  local_path: ~/Documents/GitHub/honeyjar-contracts
+  org_repo: 0xHoneyJar/honeyjar-contracts
+  has_manifest: false
