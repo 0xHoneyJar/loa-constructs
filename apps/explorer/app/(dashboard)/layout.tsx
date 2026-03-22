@@ -44,7 +44,6 @@ export default function DashboardLayout({
         <DashboardHeader />
         <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>
-      {/* @ts-expect-error — React 18/19 JSX type conflict with sonner, works at runtime */}
       <Toaster
         theme="dark"
         toastOptions={{
