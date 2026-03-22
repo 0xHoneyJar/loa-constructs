@@ -8,16 +8,35 @@ import {
 } from '@/lib/signals/validation';
 import { validateSignalKey, validateOrigin } from '@/lib/signals/auth';
 
+function corsHeaders(origin: string) {
+  return {
+    'Access-Control-Allow-Origin': origin || '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+  };
+}
+
+export async function OPTIONS(req: NextRequest) {
+  const origin = req.headers.get('origin') || '';
+  return new NextResponse(null, { status: 204, headers: corsHeaders(origin) });
+}
+
 export async function POST(req: NextRequest) {
+  const origin = req.headers.get('origin') || '';
+  const cors = corsHeaders(origin);
+  const json = (data: unknown, status: number) =>
+    NextResponse.json(data, { status, headers: cors });
+
   const convex = getConvexClient();
   if (!convex) {
-    return NextResponse.json({ error: 'service unavailable' }, { status: 503 });
+    return json({ error: 'service unavailable' }, 503);
   }
 
   // Extract API key from Authorization header
   const authHeader = req.headers.get('authorization');
   if (!authHeader?.startsWith('sk_')) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    return json({ error: 'unauthorized' }, 401);
   }
 
   const apiKey = authHeader;
@@ -28,19 +47,16 @@ export async function POST(req: NextRequest) {
   try {
     keyInfo = await validateSignalKey(convex, apiKey);
     if (!keyInfo) {
-      return NextResponse.json({ error: 'invalid api key' }, { status: 403 });
+      return json({ error: 'invalid api key' }, 403);
     }
   } catch {
-    return NextResponse.json({ error: 'key validation failed' }, { status: 500 });
+    return json({ error: 'key validation failed' }, 500);
   }
 
-  // Origin validation
-  const origin = req.headers.get('origin') || req.headers.get('referer') || '';
-  if (!validateOrigin(keyInfo.appSlug, origin)) {
-    return NextResponse.json(
-      { error: 'origin not allowed for this key' },
-      { status: 403 },
-    );
+  // Origin validation (server-side callers without origin are allowed)
+  const reqOrigin = origin || req.headers.get('referer') || '';
+  if (!validateOrigin(keyInfo.appSlug, reqOrigin)) {
+    return json({ error: 'origin not allowed for this key' }, 403);
   }
 
   // Parse and validate request body
@@ -48,14 +64,14 @@ export async function POST(req: NextRequest) {
   try {
     body = await req.json();
   } catch {
-    return NextResponse.json({ error: 'invalid json' }, { status: 400 });
+    return json({ error: 'invalid json' }, 400);
   }
 
   const parsed = signalRequestSchema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json(
+    return json(
       { error: 'validation failed', details: parsed.error.issues },
-      { status: 400 },
+      400,
     );
   }
 
@@ -74,7 +90,7 @@ export async function POST(req: NextRequest) {
 
   const writeKey = process.env.CONVEX_WRITE_KEY;
   if (!writeKey) {
-    return NextResponse.json({ error: 'server misconfigured' }, { status: 500 });
+    return json({ error: 'server misconfigured' }, 500);
   }
 
   // Ingest signal via Convex action (rate limiting wired inside)
@@ -91,35 +107,35 @@ export async function POST(req: NextRequest) {
       timestamp: new Date().toISOString(),
     });
 
-    return NextResponse.json(
+    return json(
       {
         signalId: result.signalId,
         incidentGroupId,
         status: result.deduplicated ? 'deduplicated' : 'created',
       },
-      { status: 201 },
+      201,
     );
   } catch (err) {
     // Differentiate error types instead of catch-all 202 (MEDIUM-003)
     const message = err instanceof Error ? err.message : '';
     if (message === 'rate limit exceeded') {
-      return NextResponse.json({ error: 'rate limit exceeded' }, { status: 429 });
+      return json({ error: 'rate limit exceeded' }, 429);
     }
     if (message === 'unauthorized') {
-      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+      return json({ error: 'unauthorized' }, 401);
     }
     // Only 202 for known transient transport failures
     const isTransient =
       /timeout|timed out|ECONNRESET|ENOTFOUND|fetch failed|network/i.test(message);
     if (isTransient) {
-      return NextResponse.json(
+      return json(
         { status: 'accepted', message: 'Signal accepted; downstream processing delayed' },
-        { status: 202 },
+        202,
       );
     }
 
     // Non-transient: don't fabricate success
     console.error('[api/signals] ingest failed:', err);
-    return NextResponse.json({ error: 'ingestion failed' }, { status: 500 });
+    return json({ error: 'ingestion failed' }, 500);
   }
 }

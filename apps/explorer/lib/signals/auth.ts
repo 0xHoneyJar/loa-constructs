@@ -12,11 +12,14 @@ const KEY_CACHE_MAX_ENTRIES = 5_000;
 const ALLOWED_ORIGINS: Record<string, string[]> = {
   'midi-interface': ['https://midi.0xhoneyjar.xyz'],
   'mibera-honeyroad': ['https://honeyroad.xyz', 'https://mibera.0xhoneyjar.xyz'],
-  'set-and-forgetti': ['https://app.setandforgetti.io'],
+  'set-and-forgetti': ['https://app.setandforgetti.io', 'https://setandforgetti.com', 'https://set-and-forgetti.vercel.app'],
   'apdao-auction-house': ['https://apiologydao.0xhoneyjar.xyz'],
   'mcv-interface': ['https://moneycomb.0xhoneyjar.xyz'],
-  'cubquests-interface': ['https://cubquests.com', 'https://cubquests.0xhoneyjar.xyz'],
+  'cubquests-interface': ['https://cubquests.com', 'https://cubquests.0xhoneyjar.xyz', 'https://faucet-vert.vercel.app'],
 };
+
+// Also allow Vercel preview deployments (*.vercel.app) for any registered app
+const VERCEL_PREVIEW_PATTERN = /^https:\/\/[a-z0-9-]+-0xhoneyjar-s-team\.vercel\.app$/;
 
 function cacheKeyHash(rawKey: string): string {
   return crypto.createHash('sha256').update(rawKey).digest('hex');
@@ -85,7 +88,12 @@ export function validateOrigin(appSlug: string, origin: string): boolean {
   // Parse to canonical origin to prevent prefix-matching bypasses
   try {
     const parsed = new URL(origin).origin;
-    return allowedOrigins.includes(parsed);
+    if (allowedOrigins.includes(parsed)) return true;
+
+    // Allow Vercel preview deployments for any registered app
+    if (VERCEL_PREVIEW_PATTERN.test(parsed)) return true;
+
+    return false;
   } catch {
     return false;
   }
