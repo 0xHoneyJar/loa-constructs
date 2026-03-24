@@ -199,9 +199,9 @@ skill_stale=0
 
 mkdir -p "$LOCAL_SKILLS"
 
-# LC_ALL=C ensures deterministic pack iteration order across locales
-# (collision resolution is first-wins, so order must be stable)
-for pack_dir in $(LC_ALL=C ls -d "$LOCAL_PACKS"/*/ 2>/dev/null); do
+# Deterministic pack iteration order for stable collision resolution (first-wins)
+# Uses null-delimited sorted glob to handle spaces in paths safely
+while IFS= read -r -d '' pack_dir; do
     [[ -d "$pack_dir" ]] || continue
     slug=$(basename "$pack_dir")
     skills_dir="${pack_dir}skills"
@@ -228,6 +228,13 @@ for pack_dir in $(LC_ALL=C ls -d "$LOCAL_PACKS"/*/ 2>/dev/null); do
             fi
             # Keep only canonical construct skill links (first wins, stable)
             if [[ "$current_target" =~ ^[.][.]/constructs/packs/[^/]+/skills/[^/]+$ ]] && [[ -d "${LOCAL_SKILLS}/${current_target}" ]]; then
+                # Log collision for visibility (only on non-JSON output)
+                if [[ "$JSON_OUTPUT" != "true" ]]; then
+                    existing_pack=$(echo "$current_target" | sed 's|.*/constructs/packs/\([^/]*\)/.*|\1|')
+                    if [[ "$existing_pack" != "$slug" ]]; then
+                        echo "  skill collision: ${skill_name} (keeping ${existing_pack}, skipping ${slug})" >&2
+                    fi
+                fi
                 skill_skipped=$((skill_skipped + 1))
                 continue
             fi
@@ -239,7 +246,7 @@ for pack_dir in $(LC_ALL=C ls -d "$LOCAL_PACKS"/*/ 2>/dev/null); do
         ln -s "$relative_path" "$local_skill"
         skill_linked=$((skill_linked + 1))
     done
-done
+done < <(printf '%s\0' "$LOCAL_PACKS"/*/ | LC_ALL=C sort -z)
 
 # Clean stale skill symlinks: remove any canonical construct links whose target
 # directory no longer exists. Uses find -type l to catch dangling symlinks.
