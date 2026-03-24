@@ -186,6 +186,85 @@ if [[ -d "$LOCAL_COMMANDS" ]]; then
 fi
 
 # =============================================================================
+# Sync pack skills to .claude/skills/
+# =============================================================================
+# Creates symlinks from .claude/skills/<name> → pack skill directories.
+# Non-symlink entries (framework built-in skills) are never overwritten.
+# Stale symlinks pointing to removed pack skills are cleaned up.
+
+LOCAL_SKILLS="${REPO_ROOT}/.claude/skills"
+skill_linked=0
+skill_skipped=0
+skill_stale=0
+
+mkdir -p "$LOCAL_SKILLS"
+
+# Deterministic pack iteration order for stable collision resolution (first-wins)
+# Uses null-delimited sorted glob to handle spaces in paths safely
+while IFS= read -r -d '' pack_dir; do
+    [[ -d "$pack_dir" ]] || continue
+    slug=$(basename "$pack_dir")
+    skills_dir="${pack_dir}skills"
+    [[ -d "$skills_dir" ]] || continue
+
+    for skill_path in "$skills_dir"/*/; do
+        [[ -d "$skill_path" ]] || continue
+        skill_name=$(basename "$skill_path")
+        local_skill="${LOCAL_SKILLS}/${skill_name}"
+        relative_path="../constructs/packs/${slug}/skills/${skill_name}"
+
+        if [[ -e "$local_skill" ]] && [[ ! -L "$local_skill" ]]; then
+            # Real directory/file — framework built-in, don't overwrite
+            skill_skipped=$((skill_skipped + 1))
+            continue
+        fi
+
+        if [[ -L "$local_skill" ]]; then
+            # Already a symlink — check if target is correct or valid from another pack
+            current_target=$(readlink "$local_skill" 2>/dev/null || echo "")
+            if [[ "$current_target" == "$relative_path" ]]; then
+                skill_skipped=$((skill_skipped + 1))
+                continue
+            fi
+            # Keep only canonical construct skill links (first wins, stable)
+            if [[ "$current_target" =~ ^[.][.]/constructs/packs/[^/]+/skills/[^/]+$ ]] && [[ -d "${LOCAL_SKILLS}/${current_target}" ]]; then
+                # Log collision for visibility (only on non-JSON output)
+                if [[ "$JSON_OUTPUT" != "true" ]]; then
+                    existing_pack=$(echo "$current_target" | sed 's|.*/constructs/packs/\([^/]*\)/.*|\1|')
+                    if [[ "$existing_pack" != "$slug" ]]; then
+                        echo "  skill collision: ${skill_name} (keeping ${existing_pack}, skipping ${slug})" >&2
+                    fi
+                fi
+                skill_skipped=$((skill_skipped + 1))
+                continue
+            fi
+            # Non-canonical, stale, or broken — replace
+            rm -f "$local_skill"
+        fi
+
+        # Create symlink
+        ln -s "$relative_path" "$local_skill"
+        skill_linked=$((skill_linked + 1))
+    done
+done < <(printf '%s\0' "$LOCAL_PACKS"/*/ | LC_ALL=C sort -z)
+
+# Clean stale skill symlinks: remove any canonical construct links whose target
+# directory no longer exists. Uses find -type l to catch dangling symlinks.
+while IFS= read -r -d '' link_path; do
+    [[ -L "$link_path" ]] || continue
+
+    target=$(readlink "$link_path" 2>/dev/null || echo "")
+    # Only manage canonical relative links created by this script
+    [[ "$target" =~ ^[.][.]/constructs/packs/[^/]+/skills/[^/]+$ ]] || continue
+
+    # Resolve relative target from the symlink's directory
+    if [[ ! -d "${LOCAL_SKILLS}/${target}" ]]; then
+        rm -f "$link_path"
+        skill_stale=$((skill_stale + 1))
+    fi
+done < <(find "$LOCAL_SKILLS" -mindepth 1 -maxdepth 1 -type l -print0 2>/dev/null)
+
+# =============================================================================
 # Write sync state
 # =============================================================================
 
@@ -208,6 +287,9 @@ cat > "$SYNC_STATE" << EOF
   "packs_total": ${total},
   "commands_registered": ${cmd_registered},
   "commands_skipped": ${cmd_skipped},
+  "skills_linked": ${skill_linked},
+  "skills_skipped": ${skill_skipped},
+  "skills_stale_removed": ${skill_stale},
   "global_total": ${global_pack_count},
   "global_store": "${GLOBAL_PACKS}",
   "method": "symlink"
@@ -220,9 +302,11 @@ EOF
 
 if [[ "$JSON_OUTPUT" == "true" ]]; then
     cat "$SYNC_STATE"
-elif [[ $added -gt 0 ]] || [[ $updated -gt 0 ]] || [[ $removed -gt 0 ]] || [[ $cmd_registered -gt 0 ]]; then
+elif [[ $added -gt 0 ]] || [[ $updated -gt 0 ]] || [[ $removed -gt 0 ]] || [[ $cmd_registered -gt 0 ]] || [[ $skill_linked -gt 0 ]] || [[ $skill_stale -gt 0 ]]; then
     # Only report when changes happen (silent on no-op)
     msg="packs synced: +${added} ~${updated} -${removed} (${total} total)"
     [[ $cmd_registered -gt 0 ]] && msg+=", commands: +${cmd_registered}"
+    [[ $skill_linked -gt 0 ]] && msg+=", skills: +${skill_linked}"
+    [[ $skill_stale -gt 0 ]] && msg+=", stale: -${skill_stale}"
     echo "$msg" >&2
 fi

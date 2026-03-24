@@ -156,9 +156,36 @@ validate_symlink_target() {
                 constructs_abs=$(readlink -f "$constructs_dir" 2>/dev/null || realpath "$constructs_dir" 2>/dev/null || (cd "$constructs_dir" 2>/dev/null && pwd -P) || echo "")
             fi
 
-            # Verify resolved path is within constructs
-            if [[ -n "$constructs_abs" ]] && [[ "$resolved_target" != "$constructs_abs"* ]]; then
-                print_warning "Symlink resolves outside constructs: $resolved_target"
+            # Verify resolved path is within constructs (local or global store)
+            # Trust boundary: only accept global store under $HOME to prevent
+            # env var injection from widening the validation boundary
+            local global_store="${LOA_GLOBAL_STORE:-${HOME}/.loa/constructs}"
+            local global_abs=""
+            if [[ -d "$global_store" ]] && [[ "$global_store" == "${HOME}/"* ]]; then
+                if command -v get_canonical_path &>/dev/null; then
+                    global_abs=$(get_canonical_path "$global_store")
+                else
+                    global_abs=$(readlink -f "$global_store" 2>/dev/null || realpath "$global_store" 2>/dev/null || (cd "$global_store" 2>/dev/null && pwd -P) || echo "")
+                fi
+            fi
+
+            # Normalize trailing slashes for boundary-safe prefix checks
+            constructs_abs="${constructs_abs%/}"
+            global_abs="${global_abs%/}"
+
+            local in_local="false"
+            local in_global="false"
+
+            if [[ -n "$constructs_abs" ]] && { [[ "$resolved_target" == "$constructs_abs" ]] || [[ "$resolved_target" == "$constructs_abs/"* ]]; }; then
+                in_local="true"
+            fi
+
+            if [[ -n "$global_abs" ]] && { [[ "$resolved_target" == "$global_abs" ]] || [[ "$resolved_target" == "$global_abs/"* ]]; }; then
+                in_global="true"
+            fi
+
+            if [[ "$in_local" != "true" ]] && [[ "$in_global" != "true" ]]; then
+                print_warning "Symlink resolves outside constructs/global store: $resolved_target"
                 return 1
             fi
         fi
@@ -1627,6 +1654,13 @@ do_upgrade_pack() {
     # Phase 6: Update metadata
     update_pack_meta "$pack_slug" "$pack_dir"
 
+    # Phase 7: Re-link skills and commands (new skills from upgrade become discoverable)
+    local skills_linked commands_linked
+    skills_linked=$(symlink_pack_skills "$pack_slug" 2>/dev/null)
+    skills_linked=${skills_linked:-0}
+    commands_linked=$(symlink_pack_commands "$pack_slug" 2>/dev/null)
+    commands_linked=${commands_linked:-0}
+
     # Cleanup
     rm -rf "$tmp_new" "$backup_dir"
 
@@ -1635,6 +1669,9 @@ do_upgrade_pack() {
     echo "  Kept local:   $merged files"
     if [[ $conflicts -gt 0 ]]; then
         print_warning "  Conflicts:    $conflicts files (check .upstream files)"
+    fi
+    if [[ "$skills_linked" -gt 0 ]] || [[ "$commands_linked" -gt 0 ]]; then
+        echo "  Skills linked: $skills_linked, Commands linked: $commands_linked"
     fi
     echo ""
     print_success "Pack '$pack_slug' upgraded to $latest_version"
@@ -1685,6 +1722,102 @@ do_link_commands() {
     fi
 
     return $EXIT_SUCCESS
+}
+
+# Re-link pack skills (useful after updates, local dev, or post-upgrade)
+# Args:
+#   $1 - Pack slug (or "all" for all packs)
+do_link_skills() {
+    local pack_slug="$1"
+    local packs_dir
+    packs_dir=$(get_packs_dir)
+
+    if [[ "$pack_slug" == "all" ]]; then
+        # Link all packs
+        local total_linked=0
+        local total_stale=0
+        for pack_path in "$packs_dir"/*/; do
+            [[ -d "$pack_path" ]] || continue
+            local slug
+            slug=$(basename "$pack_path")
+
+            echo "Linking skills for pack: $slug"
+            local linked
+            linked=$(symlink_pack_skills "$slug")
+            echo "  Created $linked skill symlinks"
+            total_linked=$((total_linked + linked))
+        done
+
+        # Clean stale skill symlinks
+        local stale
+        stale=$(clean_stale_skill_symlinks)
+        total_stale=$stale
+
+        echo ""
+        print_success "Total: $total_linked skill symlinks created"
+        if [[ $total_stale -gt 0 ]]; then
+            echo "  Removed $total_stale stale skill symlinks"
+        fi
+    else
+        # Link specific pack
+        local pack_dir="$packs_dir/$pack_slug"
+        if [[ ! -d "$pack_dir" ]]; then
+            print_error "ERROR: Pack '$pack_slug' is not installed"
+            return $EXIT_NOT_FOUND
+        fi
+
+        echo "Linking skills for pack: $pack_slug"
+        local linked
+        linked=$(symlink_pack_skills "$pack_slug")
+        print_success "Created $linked skill symlinks"
+    fi
+
+    return $EXIT_SUCCESS
+}
+
+# Re-link both skills and commands for a pack (combined convenience)
+# Args:
+#   $1 - Pack slug (or "all" for all packs)
+do_link_all() {
+    local pack_slug="$1"
+
+    echo "=== Linking skills ==="
+    do_link_skills "$pack_slug"
+    echo ""
+    echo "=== Linking commands ==="
+    do_link_commands "$pack_slug"
+}
+
+# Remove stale skill symlinks that point to nonexistent pack skill directories
+# Returns: Number of stale symlinks removed
+clean_stale_skill_symlinks() {
+    local repo_root
+    repo_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
+    local skills_dir="$repo_root/.claude/skills"
+    local removed=0
+
+    [[ -d "$skills_dir" ]] || { echo "0"; return 0; }
+
+    # Use find -type l to catch dangling symlinks (glob */ skips them)
+    while IFS= read -r -d '' link_path; do
+        [[ -L "$link_path" ]] || continue
+
+        local target
+        target=$(readlink "$link_path" 2>/dev/null || echo "")
+
+        # Only manage canonical relative links we create:
+        # ../constructs/packs/<slug>/skills/<skill>
+        [[ "$target" =~ ^[.][.]/constructs/packs/[^/]+/skills/[^/]+$ ]] || continue
+
+        # Check if the target actually exists (resolve relative to symlink dir)
+        local resolved="$skills_dir/$target"
+        if [[ ! -d "$resolved" ]]; then
+            rm -f "$link_path"
+            ((removed++))
+        fi
+    done < <(find "$skills_dir" -mindepth 1 -maxdepth 1 -type l -print0 2>/dev/null)
+
+    echo "$removed"
 }
 
 # =============================================================================
@@ -2265,6 +2398,8 @@ Commands:
     uninstall skill <slug>   Uninstall a skill
     upgrade <slug> [version] Upgrade a pack to latest or specified version
     link-commands <slug>     Re-link pack commands (use "all" for all packs)
+    link-skills <slug>       Re-link pack skills (use "all" for all packs)
+    link <slug>              Re-link both skills and commands (use "all" for all)
     register <slug> [opts]   Register a new construct (delegates to constructs-register.sh)
     sync <slug>              Sync a git-sourced construct from registry
     status [slug]            Show sync status for installed constructs
@@ -2288,6 +2423,8 @@ Examples:
     constructs-install.sh skill thj/terraform-assistant
     constructs-install.sh uninstall pack gtm-collective
     constructs-install.sh link-commands all
+    constructs-install.sh link-skills all
+    constructs-install.sh link all
 
 Authentication:
     Set LOA_CONSTRUCTS_API_KEY environment variable, or create:
@@ -2341,6 +2478,14 @@ main() {
         link-commands)
             [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug (or 'all')"; exit $EXIT_ERROR; }
             do_link_commands "$2"
+            ;;
+        link-skills)
+            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug (or 'all')"; exit $EXIT_ERROR; }
+            do_link_skills "$2"
+            ;;
+        link)
+            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug (or 'all')"; exit $EXIT_ERROR; }
+            do_link_all "$2"
             ;;
         register)
             # Delegate to standalone register script.
