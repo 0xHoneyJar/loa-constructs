@@ -156,6 +156,7 @@ async function umamiGet(
   }
 }
 
+
 async function fetchSingleSiteStats(
   websiteId: string,
   apiKey: string,
@@ -307,6 +308,126 @@ export const fetchUmamiTraffic = internalAction({
       pageviews: stats.pageviews?.value ?? 0,
       topReferrers: referrers.map((r) => ({ name: r.x || 'direct', value: r.y })),
       topPages: pages.map((p) => ({ name: p.x, value: p.y })),
+    };
+  },
+});
+
+// --- Purupuru Custom Events ---
+
+export interface PurupuruMetrics {
+  bazi: { total: number; byElement: Record<string, number> };
+  walledGarden: { total: number; bySource: Record<string, number> };
+  locale: { lang: string; pct: number }[];
+  referrers: string[];
+  mcpVersion: string;
+}
+
+// Known walled-garden source values (WeChat, XHS, Douyin referrers)
+const GARDEN_SOURCES = new Set(['wechat', 'xhs', 'xiaohongshu', 'douyin']);
+
+/**
+ * Fetch purupuru-specific metrics from Umami Cloud.
+ * Bazi readings by element (五行), walled garden arrivals, locale split, referrers.
+ * Requires UMAMI_PURUPURU_WEBSITE_ID env var.
+ * Returns null when not configured — digest still sends without purupuru section.
+ */
+export const fetchPurupuruMetrics = internalAction({
+  handler: async (): Promise<PurupuruMetrics | null> => {
+    const apiKey = process.env.UMAMI_API_KEY;
+    const websiteId = process.env.UMAMI_PURUPURU_WEBSITE_ID;
+
+    if (!apiKey || !websiteId) {
+      return null;
+    }
+
+    const now = Date.now();
+    const startAt = String(now - DAY_MS);
+    const endAt = String(now);
+
+    // All fetches isolated — individual failures return null, don't block others
+    const [eventMetrics, fieldData, langMetrics, referrerMetrics] = await Promise.all([
+      // Event counts by name (element-discovered, walled-garden-arrival, etc.)
+      umamiGet(`/websites/${websiteId}/metrics`, apiKey, {
+        startAt,
+        endAt,
+        type: 'event',
+      }),
+      // Property values across all events (element: fire/water/wood, source: wechat, etc.)
+      umamiGet(`/websites/${websiteId}/event-data/fields`, apiKey, {
+        startAt,
+        endAt,
+      }),
+      // Locale distribution
+      umamiGet(`/websites/${websiteId}/metrics`, apiKey, {
+        startAt,
+        endAt,
+        type: 'language',
+      }),
+      // Top referrers
+      umamiGet(`/websites/${websiteId}/metrics`, apiKey, {
+        startAt,
+        endAt,
+        type: 'referrer',
+        limit: '5',
+      }),
+    ]);
+
+    // Parse bazi element breakdown from event-data fields
+    // propertyName "element" is unambiguous — only fired by element-discovered
+    const byElement: Record<string, number> = {};
+    let baziTotal = 0;
+    if (Array.isArray(fieldData)) {
+      for (const f of fieldData as { propertyName: string; value: string; total: number }[]) {
+        if (f.propertyName === 'element' && f.value) {
+          byElement[f.value] = f.total;
+          baziTotal += f.total;
+        }
+      }
+    }
+
+    // Walled garden total from event metrics, source breakdown from field data
+    let gardenTotal = 0;
+    if (Array.isArray(eventMetrics)) {
+      const wg = (eventMetrics as { x: string; y: number }[]).find(
+        (e) => e.x === 'walled-garden-arrival',
+      );
+      if (wg) gardenTotal = wg.y;
+    }
+    const bySource: Record<string, number> = {};
+    if (gardenTotal > 0 && Array.isArray(fieldData)) {
+      for (const f of fieldData as { propertyName: string; value: string; total: number }[]) {
+        if (f.propertyName === 'source' && GARDEN_SOURCES.has(f.value)) {
+          bySource[f.value] = f.total;
+        }
+      }
+    }
+
+    // Parse locale distribution
+    const locale: { lang: string; pct: number }[] = [];
+    if (Array.isArray(langMetrics)) {
+      const metrics = langMetrics as { x: string; y: number }[];
+      const totalLang = metrics.reduce((sum, m) => sum + m.y, 0);
+      for (const m of metrics.slice(0, 4)) {
+        if (totalLang > 0) {
+          locale.push({ lang: m.x, pct: Math.round((m.y / totalLang) * 100) });
+        }
+      }
+    }
+
+    // Parse referrers
+    const referrers: string[] = [];
+    if (Array.isArray(referrerMetrics)) {
+      for (const r of (referrerMetrics as { x: string; y: number }[]).slice(0, 5)) {
+        referrers.push(r.x || 'direct');
+      }
+    }
+
+    return {
+      bazi: { total: baziTotal, byElement },
+      walledGarden: { total: gardenTotal, bySource },
+      locale,
+      referrers,
+      mcpVersion: '0.2.0',
     };
   },
 });

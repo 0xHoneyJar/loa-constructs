@@ -1,5 +1,6 @@
 import { internalAction } from './_generated/server';
 import { internal } from './_generated/api';
+import type { PurupuruMetrics } from './analytics';
 
 const TELEGRAM_API = 'https://api.telegram.org';
 
@@ -115,6 +116,54 @@ function formatDigest(
   return lines.join('\n');
 }
 
+// --- Purupuru Section ---
+
+const ELEMENT_KANJI: Record<string, string> = {
+  fire: '\u706B',
+  water: '\u6C34',
+  wood: '\u6728',
+  earth: '\u571F',
+  metal: '\u91D1',
+};
+
+function formatPurupuruSection(metrics: PurupuruMetrics): string {
+  const lines: string[] = ['', '\uD83C\uDF6F purupuru', ''];
+
+  // Bazi readings by element
+  if (metrics.bazi.total > 0) {
+    const parts = Object.entries(metrics.bazi.byElement)
+      .sort(([, a], [, b]) => b - a)
+      .map(([el, n]) => `${ELEMENT_KANJI[el] ?? el} ${n}`)
+      .join(', ');
+    lines.push(`bazi: ${metrics.bazi.total} reading${metrics.bazi.total === 1 ? '' : 's'} (${parts})`);
+  }
+
+  // Walled garden arrivals
+  if (metrics.walledGarden.total > 0) {
+    const parts = Object.entries(metrics.walledGarden.bySource)
+      .sort(([, a], [, b]) => b - a)
+      .map(([src, n]) => `${src} ${n}`)
+      .join(', ');
+    lines.push(`walled garden: ${metrics.walledGarden.total} arrival${metrics.walledGarden.total === 1 ? '' : 's'} (${parts})`);
+  }
+
+  // Locale split
+  if (metrics.locale.length > 0) {
+    const parts = metrics.locale.map((l) => `${l.lang} ${l.pct}%`).join(' \u00B7 ');
+    lines.push(`locale: ${parts}`);
+  }
+
+  // Referrers
+  if (metrics.referrers.length > 0) {
+    lines.push(`via ${metrics.referrers.join(' \u00B7 ')}`);
+  }
+
+  // MCP version
+  lines.push(`mcp: purupuru-mcp@${metrics.mcpVersion}`);
+
+  return lines.join('\n');
+}
+
 // --- Cron Entry Point ---
 
 export const sendDigest = internalAction({
@@ -136,7 +185,7 @@ export const sendDigest = internalAction({
         ctx.runQuery(internal.analytics.getDailyBaseline),
       ]);
 
-      // External dependency — isolated. Umami failure must not block the digest.
+      // External dependencies — isolated. Failures must not block the digest.
       let traffic: {
         visitors: number;
         pageviews: number;
@@ -150,7 +199,15 @@ export const sendDigest = internalAction({
         console.warn('[telegram] Umami fetch failed, sending digest without traffic:', (e as Error).message);
       }
 
-      const message = formatDigest(metrics, baseline, traffic);
+      let purupuru: PurupuruMetrics | null = null;
+      try {
+        purupuru = await ctx.runAction(internal.analytics.fetchPurupuruMetrics);
+      } catch (e) {
+        console.warn('[telegram] Purupuru fetch failed:', (e as Error).message);
+      }
+
+      const message = formatDigest(metrics, baseline, traffic)
+        + (purupuru ? formatPurupuruSection(purupuru) : '');
 
       const result = await sendMessage(botToken, chatId, message);
       if (result.ok) {

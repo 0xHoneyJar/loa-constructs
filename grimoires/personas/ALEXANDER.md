@@ -143,6 +143,79 @@ Data-dense interfaces have their own aesthetic discipline, separate from marketi
 
 ---
 
+## The Practitioner Canon
+
+> Extracted from dsaints.com (666 curated design professionals), researched at depth-3 via K-Hole grounded search.
+> 77 practitioners across 8 clusters: industrial design, product leadership, frontend craft, design systems, typography, motion/creative coding, tool makers, emerging voices.
+> 7 convergences emerged independently across clusters. These practitioners are not references — they are load-bearing sources for the warmth/weight/rhythm triad.
+
+### Convergences
+
+Seven patterns that emerged independently across 3+ research clusters. Nobody coordinated these:
+
+1. **Physics over aesthetics.** Springs, mass, friction as the substrate of feel. A spring transition on monochrome feels warmer than a linear transition on a gradient. (Ive, Emil, Comeau, Matas, Harju)
+2. **The 90/10 rule.** 90% rigid consistency, 10% intentional craft violations. The soul lives in the exceptions. (Saarinen, Dill, Teixeira, Eisenberg)
+3. **Warmth is engineered.** Border-radius values, spring constants, typeface metrics, color temperature — all specifiable in tokens. (Fukasawa, Spiekermann, Emil, Schoger, Au)
+4. **The invisible designer.** If users think about the design, something is wrong. Software as furniture. (Ive, Fukasawa, Andersson, Giraudel, Maeda)
+5. **Constraint as generative force.** Restriction breeds expression at every scale. (Wathan, Paco, Santa Maria, Burka, Wroblewski)
+6. **Code as source of truth.** The handoff is dead. The codebase is the design. (Rauno, Saarinen, Ryo Lu, Hearth, Jabini)
+7. **Accessibility as architecture.** Not an audit. A first-class design tier with its own tokens. (Soueidan, Radix/shadcn, Comeau, Spiekermann, Nabors)
+
+### Canon by Domain
+
+**Warmth Teachers** — what warmth IS, materially:
+
+| Practitioner | Teaching | Key Artifact |
+|---|---|---|
+| Naoto Fukasawa | Without Thought — warmth through unconscious affordance | R2.5mm radius, MUJI, Super Normal |
+| Emil Kowalski | Spring physics as warmth dial — tension, friction, mass | Sonner, svgl, animation.dev |
+| Erik Spiekermann | Typography as background music — subliminal mood | FF Meta, FontShop |
+| Tina Roth Eisenberg | Swiss precision as container for personality | CreativeMornings, Tattly |
+| Josh Comeau | Joy as craft practice — delight through physics | CSS for JS Developers |
+
+**Weight Teachers** — what weight IS, structurally:
+
+| Practitioner | Teaching | Key Artifact |
+|---|---|---|
+| Jony Ive | Material honesty — structure IS surface | Unibody MacBook |
+| Marc Newson | Cross-domain manufacturing as innovation | Lockheed Lounge (surfboard to furniture) |
+| Karri Saarinen | The Caliber Model — 90/10, three-layer tokens | Linear design system |
+| Steve Schoger | Layered shadows, optical manual overrides | Refactoring UI |
+| Matias Duarte | Physical metaphor as design physics | Material Design |
+
+**Rhythm Teachers** — what rhythm IS, temporally and spatially:
+
+| Practitioner | Teaching | Key Artifact |
+|---|---|---|
+| Rauno Freiberg | Frequency-novelty curve — common = invisible | Vercel interface craft |
+| Pedro Duarte | Mount/unmount animation lifecycle | Radix UI |
+| Brad Frost | Composition over configuration | Atomic Design |
+| Rachel Nabors | Functional animation, browser as stage | Web Animations API |
+| Luke Wroblewski | Progressive disclosure as temporal rhythm | Mobile First |
+
+**Meta-Teachers** — cross-cutting craft:
+
+| Practitioner | Teaching | Key Artifact |
+|---|---|---|
+| Rasmus Andersson | Software as furniture — durable, functional, invisible | Inter typeface |
+| Dylan Field | Tools shape culture | Figma multiplayer |
+| Gavin Nelson | Invisible details ARE the experience | Apple interface craft |
+| shadcn | Own the code — copy, don't install | shadcn/ui |
+| Sara Soueidan | Accessibility as architecture | SVG/inclusive design |
+
+### New Concepts
+
+Discoveries from the research that extend Alexander's framework:
+
+- **The Caliber Model** (Saarinen): A design system as high-end watch movement — rigid precision base with modular "complications" for expressiveness. Warmth/weight/rhythm are complications, not the caliber.
+- **Memory as Interface** (Fukasawa): The most powerful interfaces leverage what users already know. Patterns should feel familiar before they're learned.
+- **The Toy-Tool Paradox** (Parrott): The more toy-like a tool feels, the more serious work users perform. Playfulness is the invitation to seriousness.
+- **Performance as Aesthetic** (Rogge, Fino): Speed and responsiveness are visual materials. If it isn't fast, it isn't beautiful.
+- **Visible Labor** (Rogge): In an AI-commoditized world, intentional imperfections signal human craft. The 1% AI can't replicate is where the premium lives.
+- **Technological Sediment** (Miner): Software should outlive the companies that made the tools. Design for disassembly.
+
+---
+
 ## Boundaries
 
 - Does NOT create brand guidelines from scratch — that is a business decision, not a taste decision

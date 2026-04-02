@@ -35,16 +35,19 @@
   notes: "gold standard feedback pipeline. Convex-native."
 
 - name: mibera-dimensions
-  aliases: [dimensions, mibera]
+  aliases: [dimensions, mibera, midi, midi-interface]
+  url: https://midi.0xhoneyjar.xyz
   domain: product/nft
-  stack: [next.js]
+  stack: [next.js, supabase, convex, dynamic-labs, wagmi, viem, anthropic-sdk]
   local_path: ~/Documents/GitHub/mibera-dimensions
   org_repo: 0xHoneyJar/mibera-dimensions
   has_manifest: false
+  notes: "identity mirror app. 5 dimensions (3 active), Agora chat, AI oracle, Caravan (Tedism partnership, expires 2026-03-27). Observer pipeline active (27 canvases, 8 journeys, 31 gaps)."
 
 - name: mibera-honeyroad
   aliases: [honeyroad, honey-road, silk-road, mibera, vending-machine, vm]
-  url: https://honeyroad.mibera.io
+  url: https://honeyroad.xyz
+  production_origin: https://mibera.0xhoneyjar.xyz
   domain: product/marketplace
   stack: [next.js, trigger.dev, supabase, wagmi, sharp, aws-s3]
   local_path: ~/Documents/GitHub/mibera-honeyroad
@@ -55,10 +58,28 @@
     - "VM generation dispatch fails intermittently — check TRIGGER_SECRET_KEY + task deployment"
     - "Recovery: WALLET=0x... npx tsx scripts/regenerate-vm-tokens.ts"
 
+- name: apdao-auction-house
+  aliases: [apdao, auction-house, ap-dao]
+  domain: product/governance
+  stack: [next.js, dynamic-labs, wagmi, viem, zerodev]
+  local_path: ~/Documents/GitHub/apdao-auction-house
+  org_repo: 0xHoneyJar/apdao-auction-house
+  has_manifest: false
+  notes: "DAO auction house + governance. Also: apdao-interface, apdao-contracts, apdao-docs, apdao-squid."
+
+- name: hub-interface
+  aliases: [honey-hub, hub, honeyport]
+  domain: product/hub
+  stack: [next.js, dynamic-labs, wagmi, viem, zerodev, r3f]
+  local_path: ~/Documents/GitHub/hub-interface
+  org_repo: 0xHoneyJar/hub-interface
+  has_manifest: false
+  notes: "main hub/landing. release/honeyport-v2 branch has isometric map (177K+ lines, major project)."
+
 - name: honey-interface
   aliases: [honeyjar, honey-jar-ui, thj-ui]
   domain: product/nft
-  stack: [next.js]
+  stack: [next.js, dynamic-labs]
   local_path: ~/Documents/GitHub/honey-interface
   org_repo: 0xHoneyJar/honey-interface
   has_manifest: false
@@ -117,13 +138,13 @@
 # ── infrastructure ────────────────────────────────────────
 
 - name: honey-guard
-  aliases: [honeyguard, validator-ops, validator]
+  aliases: [honeyguard, validator-ops, validator, cutting-board]
   domain: infra/validator
-  stack: [next.js, supabase, trigger.dev, viem]
+  stack: [next.js, supabase, trigger.dev-v4, viem, pnpm]
   local_path: ~/Documents/GitHub/honey-guard
-  org_repo: 0xHoneyJar/honey-guard
+  org_repo: 0xHoneyJar/honey-guard-interface
   has_manifest: false
-  notes: "validator incentive optimizer. active investigation."
+  notes: "validator cutting board automation. 5 validators, 11 trigger tasks. Trigger.dev v4.4.3. Deploy: DOCKER_CONFIG=/tmp/docker-empty OTEL_TRACES_EXPORTER=none npx trigger.dev@4.4.3 deploy"
 
 - name: thj-sonar
   aliases: [sonar, indexer]

@@ -264,21 +264,30 @@ Template: [`0xHoneyJar/world-template`](https://github.com/0xHoneyJar/world-temp
 
 ---
 
-### ⚪ WORLD: cubquests
+### 🔵 WORLD: cubquests
 
-> Berachain faucet + quests.
+> Berachain faucet + quests. Resource economy (Fuel, Crystals, Quantum), badge merkle trees, partner verification.
 
 **Target**: `cubquests.0xhoneyjar.xyz`
-**Repos to consolidate**:
-| Source Repo | What | Vercel URL |
-|-------------|------|------------|
-| `cubquests-interface` | Main quests/faucet | faucet-vert.vercel.app |
-| `cubquests-dashboard` | Dashboard | cubquests-dashboard.vercel.app |
-| `cubquests` | Docs | cubquests-docs.vercel.app |
-
-**Stack**: Next.js (current). Needs sovereign migration or Railway Phase A.
+**Repo**: [`0xHoneyJar/cubquests-interface`](https://github.com/0xHoneyJar/cubquests-interface) (becomes the world)
+**Stack**: Next.js 15 + Supabase + Dynamic Labs + Trigger.dev + Vercel (NOT YET sovereign)
 **Freeside Terraform**: ❌ Not provisioned
-**Migration work**: Not started. No kickoff doc.
+**Archived**: cubquests-dashboard ✅, cubquests ✅
+
+**External dependencies**:
+- Supabase Postgres (79 migrations, ALL state)
+- thj-envio (on-chain badge holder queries)
+- Trigger.dev (badge snapshot + IPFS upload)
+- Dynamic Labs (wallet auth)
+- Upstash Redis (rate limiting)
+- AWS S3 (badge images)
+- Convex THJ Global (presence, read-only)
+- Partner APIs (Mibera + Henlo quest verification)
+
+**Estimated effort**: 35-50h
+**Cost reduction**: $55-185/mo → $5/mo
+
+**Spec**: [`specs/kickoff-cubquests-migration.md`](grimoires/gecko/specs/kickoff-cubquests-migration.md)
 
 ---
 

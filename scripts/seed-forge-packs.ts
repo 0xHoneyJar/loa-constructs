@@ -847,6 +847,8 @@ async function seedForgePacks() {
           'mibera-codex',
           'artisan',
           'hypha',
+          'the-easel',
+          'the-mint',
         ]);
 
         const VALID_VIS = ['public', 'internal', 'unlisted'];
