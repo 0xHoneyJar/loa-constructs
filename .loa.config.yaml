@@ -1784,6 +1784,7 @@ spiral:
       - architecture
       - security
     max_seed_visions: 10           # Max visions included in seed context
+    include_flight_recorder: true  # RFC-062 #575 item 2: fold prior cycle's load-bearing failure events into discovery context (learning-across-cycles)
   step_timeouts:
     seed_sec: 30
     simstim_sec: 7200              # 2 hours per cycle dispatch
