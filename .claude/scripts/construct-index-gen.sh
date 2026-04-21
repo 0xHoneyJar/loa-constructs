@@ -274,15 +274,65 @@ process_pack() {
     local pack_slug
     pack_slug=$(basename "$pack_dir")
 
+    # === Cycle-001 §14.9: Manifest resolution order ===
+    # 1. manifest.json (legacy artifact — use if present)
+    # 2. construct.yaml (primary — convert in-memory via yq, no persistent manifest.json written)
+    # 3. construct.json (Hypha schema_v1 — tolerated legacy; parse fields)
+    # 4. None found — skip + warn to stderr
+
     local manifest="$pack_dir/manifest.json"
+    local construct_yaml="$pack_dir/construct.yaml"
+    local construct_json_hypha="$pack_dir/construct.json"
+    local manifest_source="manifest.json"
+    local using_virtual_manifest=false
+
     if [[ ! -f "$manifest" ]]; then
-        return 1
+        if [[ -f "$construct_yaml" ]]; then
+            # Check yq is available (required for YAML to JSON conversion)
+            if ! command -v yq &>/dev/null; then
+                echo "ERROR: yq v4+ required. Install: brew install yq" >&2
+                exit 1
+            fi
+
+            # Convert construct.yaml to in-memory JSON -- no manifest.json written to disk
+            local virtual_manifest
+            virtual_manifest=$(yq e -o=json . "$construct_yaml" 2>/dev/null) || {
+                warn "Invalid YAML in $pack_slug/construct.yaml -- skipping"
+                return 0
+            }
+
+            if [[ -z "$virtual_manifest" ]] || ! echo "$virtual_manifest" | jq empty 2>/dev/null; then
+                warn "construct.yaml in $pack_slug produced invalid JSON -- skipping"
+                return 0
+            fi
+
+            # Write to a temp file so the rest of process_pack can use $manifest path
+            local tmp_manifest
+            tmp_manifest=$(mktemp)
+            echo "$virtual_manifest" > "$tmp_manifest"
+            manifest="$tmp_manifest"
+            manifest_source="construct.yaml"
+            using_virtual_manifest=true
+
+        elif [[ -f "$construct_json_hypha" ]]; then
+            # Hypha schema_v1 -- tolerate as legacy source
+            if ! jq empty "$construct_json_hypha" 2>/dev/null; then
+                warn "Malformed construct.json (Hypha) in pack '$pack_slug' -- skipping"
+                return 0
+            fi
+            manifest="$construct_json_hypha"
+            manifest_source="construct.json"
+        else
+            warn "No manifest found for pack '$pack_slug' (tried manifest.json, construct.yaml, construct.json) -- skipping"
+            return 0
+        fi
     fi
 
     # Validate manifest is valid JSON
     if ! jq empty "$manifest" 2>/dev/null; then
-        warn "Malformed manifest.json in pack '$pack_slug' — skipping"
-        return 1
+        warn "Malformed $manifest_source in pack '$pack_slug' -- skipping"
+        [[ "$using_virtual_manifest" == "true" ]] && rm -f "$manifest"
+        return 0
     fi
 
     log "  Processing pack: $pack_slug"
@@ -358,6 +408,9 @@ process_pack() {
     # Aggregate capabilities (Task 103.2)
     local aggregated_caps
     aggregated_caps=$(aggregate_capabilities "$pack_slug" "$pack_dir" "$skills_json")
+
+    # Clean up temp manifest if we used a virtual one
+    local cleanup_manifest="$manifest"
 
     # Build the construct entry JSON using jq --arg for safety
     jq -n \
@@ -439,11 +492,11 @@ main() {
         exit 1
     fi
 
-    # Find all packs with manifest.json
+    # Find all packs with any manifest source (manifest.json, construct.yaml, construct.json)
     local pack_dirs=()
     for pack_path in "$PACKS_DIR"/*/; do
         [[ -d "$pack_path" ]] || continue
-        if [[ -f "$pack_path/manifest.json" ]]; then
+        if [[ -f "$pack_path/manifest.json" ]] || [[ -f "$pack_path/construct.yaml" ]] || [[ -f "$pack_path/construct.json" ]]; then
             pack_dirs+=("$pack_path")
         fi
     done

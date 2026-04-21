@@ -139,8 +139,19 @@ _load_index() {
     local index_file="${INDEX_PATH:-${CONSTRUCT_INDEX_PATH:-$DEFAULT_INDEX_PATH}}"
 
     if [[ ! -f "$index_file" ]]; then
-        echo "ERROR: Construct index not found: $index_file" >&2
-        exit 3
+        # Cycle-001 C-4: graceful fallback -- rebuild index, never exit non-zero on missing index alone
+        echo "[construct-resolve] WARNING: index missing at $index_file. Rebuilding..." >&2
+        local gen_script
+        gen_script="$(dirname "${BASH_SOURCE[0]}")/construct-index-gen.sh"
+        if [[ -x "$gen_script" ]]; then
+            "$gen_script" --quiet 2>/dev/null || true
+        fi
+        # Proceed even if rebuild failed -- resolve will fail with meaningful error if slug not found
+        if [[ ! -f "$index_file" ]]; then
+            echo "[construct-resolve] WARNING: index rebuild produced no index at $index_file" >&2
+            INDEX_JSON='{"constructs":[]}'
+            return 0
+        fi
     fi
 
     # Detect format and convert to JSON

@@ -489,6 +489,13 @@ do_install_pack() {
             echo "  Created $skills_linked skill symlinks"
 
             echo ""
+            # Write .source.json provenance (Cycle-001 §14.4)
+            local source_commit="unknown"
+            source_commit=$(git -C "$packs_dir/$pack_slug" rev-parse HEAD 2>/dev/null || echo "unknown")
+            local source_json
+            source_json=$(printf '{"source_repo":"%s","source_commit":"%s","installed_at":"%s"}'                 "$local_source" "$source_commit" "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+            echo "$source_json" > "$packs_dir/$pack_slug/.source.json" 2>/dev/null ||                 echo "[constructs-install] WARNING: failed to write .source.json" >&2
+
             print_success "Pack '$pack_slug' installed from local source"
             return $EXIT_SUCCESS
         fi
@@ -718,6 +725,13 @@ PYEOF
 
     # Update registry meta
     update_pack_meta "$pack_slug" "$pack_dir"
+
+    # Write .source.json provenance (Cycle-001 §14.4)
+    local source_commit="unknown"
+    source_commit=$(git -C "$pack_dir" rev-parse HEAD 2>/dev/null || echo "unknown")
+    local source_json
+    source_json=$(printf '{"source_repo":"%s","source_commit":"%s","installed_at":"%s"}'         "$registry_url/packs/$pack_slug" "$source_commit" "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+    echo "$source_json" > "$pack_dir/.source.json" 2>/dev/null ||         echo "[constructs-install] WARNING: failed to write .source.json" >&2
 
     echo ""
     print_success "Pack '$pack_slug' installed successfully!"
@@ -1281,6 +1295,111 @@ After Installation:
 EOF
 }
 
+# =============================================================================
+# Upgrade Subcommand (Cycle-001 C-3 Three-Way Merge)
+# =============================================================================
+
+# Upgrade an installed pack with three-way merge semantics
+# Args:
+#   $1 - Pack slug
+do_upgrade_pack() {
+    local pack_slug="$1"
+    local packs_dir
+    packs_dir=$(get_packs_dir)
+    local pack_dir="$packs_dir/$pack_slug"
+
+    if [[ ! -d "$pack_dir" ]]; then
+        print_error "ERROR: Pack '$pack_slug' is not installed"
+        return $EXIT_NOT_FOUND
+    fi
+
+    local source_json="$pack_dir/.source.json"
+    if [[ ! -f "$source_json" ]]; then
+        print_error "ERROR: No .source.json found for '$pack_slug'. Cannot compute three-way merge."
+        return $EXIT_ERROR
+    fi
+
+    local base_commit source_repo
+    base_commit=$(jq -r '.source_commit // empty' "$source_json" 2>/dev/null || echo "")
+    source_repo=$(jq -r '.source_repo // empty' "$source_json" 2>/dev/null || echo "")
+
+    if [[ -z "$base_commit" || "$base_commit" == "unknown" ]]; then
+        print_error "ERROR: base_commit is unknown or missing in .source.json. Cannot merge."
+        return $EXIT_ERROR
+    fi
+
+    # Check git is available
+    if ! command -v git &>/dev/null; then
+        print_error "ERROR: git is required for upgrade"
+        return $EXIT_ERROR
+    fi
+
+    # Compute diffs
+    local local_diff upstream_diff
+    local_diff=$(git -C "$pack_dir" diff "$base_commit" -- . 2>/dev/null || echo "")
+    upstream_diff=$(git -C "$pack_dir" fetch origin main 2>/dev/null &&                     git -C "$pack_dir" diff "$base_commit"..FETCH_HEAD -- . 2>/dev/null || echo "")
+
+    # Decision tree
+    if [[ -z "$local_diff" && -z "$upstream_diff" ]]; then
+        echo "Already up to date."
+        return $EXIT_SUCCESS
+    fi
+
+    if [[ -z "$local_diff" && -n "$upstream_diff" ]]; then
+        # Fast-forward: no local edits, upstream changed
+        echo "Fast-forward: applying upstream changes..."
+        git -C "$pack_dir" merge --ff-only FETCH_HEAD 2>/dev/null || {
+            print_error "Fast-forward merge failed"
+            return $EXIT_ERROR
+        }
+        # Update .source.json
+        local new_commit
+        new_commit=$(git -C "$pack_dir" rev-parse HEAD 2>/dev/null || echo "unknown")
+        local now_ts
+        now_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        printf '{"source_repo":"%s","source_commit":"%s","installed_at":"%s"}'             "$source_repo" "$new_commit" "$now_ts" > "$source_json"
+        print_success "Pack '$pack_slug' upgraded successfully"
+        return $EXIT_SUCCESS
+    fi
+
+    if [[ -n "$local_diff" && -z "$upstream_diff" ]]; then
+        echo "No upstream changes. Local edits preserved."
+        return $EXIT_SUCCESS
+    fi
+
+    # Conflict: both local and upstream have changes
+    local local_lines upstream_lines
+    local_lines=$(echo "$local_diff" | wc -l | tr -d ' ')
+    upstream_lines=$(echo "$upstream_diff" | wc -l | tr -d ' ')
+
+    echo ""
+    echo "Conflict: local edits exist and upstream has changed."
+    echo "  Local changes:    $local_lines lines"
+    echo "  Upstream changes: $upstream_lines lines"
+    echo ""
+    printf "Apply upstream and discard local? [y/N]: "
+    local answer
+    read -r answer || answer="N"
+
+    if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
+        git -C "$pack_dir" reset --hard FETCH_HEAD 2>/dev/null || {
+            print_error "Failed to apply upstream"
+            return $EXIT_ERROR
+        }
+        local new_commit
+        new_commit=$(git -C "$pack_dir" rev-parse HEAD 2>/dev/null || echo "unknown")
+        local now_ts
+        now_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        printf '{"source_repo":"%s","source_commit":"%s","installed_at":"%s"}'             "$source_repo" "$new_commit" "$now_ts" > "$source_json"
+        print_success "Pack '$pack_slug' upgraded (local edits discarded)"
+    else
+        echo "Upgrade cancelled. Local edits preserved."
+    fi
+
+    return $EXIT_SUCCESS
+}
+
+
 main() {
     local command="${1:-}"
 
@@ -1293,6 +1412,10 @@ main() {
         pack)
             [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug"; show_usage; exit $EXIT_ERROR; }
             do_install_pack "$2"
+            ;;
+        upgrade)
+            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug"; show_usage; exit $EXIT_ERROR; }
+            do_upgrade_pack "$2"
             ;;
         skill)
             [[ -n "${2:-}" ]] || { print_error "ERROR: Missing skill slug"; show_usage; exit $EXIT_ERROR; }

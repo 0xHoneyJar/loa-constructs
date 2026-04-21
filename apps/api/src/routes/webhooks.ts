@@ -9,6 +9,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { createHmac, randomUUID, timingSafeEqual } from 'crypto';
+import { eq } from 'drizzle-orm';
+import { db, packs } from '../db/index.js';
 import type Stripe from 'stripe';
 import { verifyWebhookSignatureDual, getStripe, getTierFromPriceId } from '../services/stripe.js';
 import {
@@ -25,7 +27,8 @@ import {
 import { requireAuth } from '../middleware/auth.js';
 import { getPackBySlug, getAccessContext, isPackOwner } from '../services/packs.js';
 import { Errors } from '../lib/errors.js';
-import { guardVisibilityTransition } from '../lib/visibility-guard.js';
+import { guardVisibilityTransition as gitSyncGuard } from '../lib/visibility-guard.js';
+import { guardVisibilityTransition, isDeliveryProcessed } from '../services/visibility-guard.js';
 import { logger } from '../lib/logger.js';
 import { getRedis, isRedisConfigured } from '../services/redis.js';
 
@@ -423,6 +426,108 @@ webhooksRouter.post('/github', async (c) => {
   if (!deliveryInsert) {
     logger.warn({ requestId, deliveryId }, 'GitHub webhook replay detected');
     return c.json({ received: true, action: 'ignored', reason: 'Replay' });
+  }
+
+  // Handle repository visibility/lifecycle events (cycle-001 Leg B)
+  if (event === 'repository') {
+    let repoPayload: {
+      action?: string;
+      repository?: {
+        name: string;
+        full_name: string;
+        html_url: string;
+        visibility?: string;
+        private?: boolean;
+      };
+    };
+
+    try {
+      repoPayload = JSON.parse(rawBody);
+    } catch {
+      return c.json({ error: 'Invalid JSON payload' }, 400);
+    }
+
+    const action = repoPayload.action;
+    const repo = repoPayload.repository;
+
+    if (!repo || !action) {
+      return c.json({ received: true, status: 'ignored' });
+    }
+
+    // Only handle known sub-types
+    if (!['privatized', 'publicized', 'renamed', 'archived'].includes(action)) {
+      return c.json({ received: true, status: 'ignored' });
+    }
+
+    const repoName = repo.name;
+    const slug = repoName.startsWith('construct-') ? repoName.replace(/^construct-/, '') : repoName;
+
+    // Find pack by slug
+    const matchedRepo = await db
+      .select({ id: packs.id, slug: packs.slug, visibility: packs.visibility, status: packs.status })
+      .from(packs)
+      .where(eq(packs.slug, slug))
+      .limit(1);
+
+    if (matchedRepo.length === 0) {
+      logger.info({ slug, action, deliveryId }, 'Repository event for unknown pack — ignored');
+      return c.json({ received: true, status: 'ignored' });
+    }
+
+    const pack = matchedRepo[0];
+
+    // Idempotency check for visibility transitions
+    if (deliveryId && (action === 'privatized' || action === 'publicized' || action === 'renamed')) {
+      const alreadyProcessed = await isDeliveryProcessed(deliveryId);
+      if (alreadyProcessed) {
+        return c.json({ received: true, status: 'already_processed' });
+      }
+    }
+
+    if (action === 'privatized') {
+      const currentVisibility = pack.visibility ?? 'internal';
+      const guardResult = await guardVisibilityTransition(
+        pack.id,
+        currentVisibility,
+        'private',
+        'webhook',
+        deliveryId,
+      );
+
+      if (guardResult.blocked) {
+        logger.warn({ packId: pack.id, slug, deliveryId }, 'Visibility demotion blocked by guard');
+        return c.json(
+          { error: guardResult.error, current: guardResult.current, attempted: guardResult.attempted },
+          guardResult.status ?? 409,
+        );
+      }
+
+      await db.update(packs).set({ visibility: 'internal', updatedAt: new Date() }).where(eq(packs.id, pack.id));
+      return c.json({ received: true, status: 'processed', action });
+    }
+
+    if (action === 'publicized') {
+      const currentVisibility = pack.visibility ?? 'internal';
+      await guardVisibilityTransition(pack.id, currentVisibility, 'public', 'webhook', deliveryId);
+      await db.update(packs).set({ visibility: 'public', updatedAt: new Date() }).where(eq(packs.id, pack.id));
+      return c.json({ received: true, status: 'processed', action });
+    }
+
+    if (action === 'renamed') {
+      const newSlug = repo.name.startsWith('construct-') ? repo.name.replace(/^construct-/, '') : repo.name;
+      const newSourceUrl = repo.html_url;
+      const currentVisibility = pack.visibility ?? 'internal';
+      await guardVisibilityTransition(pack.id, currentVisibility, currentVisibility, 'webhook', deliveryId);
+      await db.update(packs).set({ slug: newSlug, gitUrl: newSourceUrl, updatedAt: new Date() }).where(eq(packs.id, pack.id));
+      return c.json({ received: true, status: 'processed', action });
+    }
+
+    if (action === 'archived') {
+      await db.update(packs).set({ status: 'deprecated', updatedAt: new Date() }).where(eq(packs.id, pack.id));
+      return c.json({ received: true, status: 'processed', action });
+    }
+
+    return c.json({ received: true, status: 'ignored' });
   }
 
   // Only handle push and create (tag) events
