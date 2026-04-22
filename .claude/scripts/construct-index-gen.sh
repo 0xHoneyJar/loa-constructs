@@ -44,6 +44,16 @@ fi
 # =============================================================================
 
 PACKS_DIR="${LOA_PACKS_DIR:-$PROJECT_ROOT/.claude/constructs/packs}"
+# cycle-004 L2 (F27): auto-fallback to global ~/.loa/constructs/packs/ if local is
+# missing or empty. Fixes the determinism gap where this worktree had an empty
+# index because cycle-001's default was project-local only while 29 packs lived
+# globally.
+if [[ ! -d "$PACKS_DIR" ]] || [[ -z "$(ls -A "$PACKS_DIR" 2>/dev/null)" ]]; then
+    GLOBAL_PACKS="$HOME/.loa/constructs/packs"
+    if [[ -d "$GLOBAL_PACKS" ]] && [[ -n "$(ls -A "$GLOBAL_PACKS" 2>/dev/null)" ]]; then
+        PACKS_DIR="$GLOBAL_PACKS"
+    fi
+fi
 SKILLS_DIR="${LOA_SKILLS_DIR:-$PROJECT_ROOT/.claude/skills}"
 DEFAULT_OUTPUT="$PROJECT_ROOT/.run/construct-index.yaml"
 
@@ -405,6 +415,19 @@ process_pack() {
         quick_start="$first_cmd"
     fi
 
+    # cycle-004 L2 (F28): extract persona handles from identity/*.md filenames.
+    # Convention: identity/ALEXANDER.md → persona "ALEXANDER". Excludes OPERATOR.md
+    # (shared meta-persona, not pack-specific) and lowercase/persona.yaml.
+    local personas_json="[]"
+    if [[ -d "$pack_dir/identity" ]]; then
+        personas_json=$(
+            find "$pack_dir/identity" -maxdepth 1 -name "*.md" 2>/dev/null | while read -r f; do
+                basename "$f" .md
+            done | grep -vE '^(OPERATOR|persona|PERSONA|README)$' | jq -R . | jq -sc '.'
+        )
+        [[ -z "$personas_json" ]] && personas_json="[]"
+    fi
+
     # Aggregate capabilities (Task 103.2)
     local aggregated_caps
     aggregated_caps=$(aggregate_capabilities "$pack_slug" "$pack_dir" "$skills_json")
@@ -429,12 +452,14 @@ process_pack() {
         --argjson consumes "$consumes_json" \
         --argjson tags "$tags_json" \
         --argjson aggregated_capabilities "$aggregated_caps" \
+        --argjson personas "$personas_json" \
         '{
             slug: $slug,
             name: $name,
             version: $version,
             description: $description,
             persona_path: (if $persona_path == "null" then null else $persona_path end),
+            personas: $personas,
             quick_start: (if $quick_start == "null" then null else $quick_start end),
             skills: $skills,
             commands: $commands,
