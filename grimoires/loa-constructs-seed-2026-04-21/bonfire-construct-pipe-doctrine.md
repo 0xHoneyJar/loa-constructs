@@ -764,3 +764,98 @@ Original cycle-003 inheritance queue (§15.7) carried infra-heavy priorities (F2
 ---
 
 *v4 · 2026-04-21-late · Third operator review. Operator OS inverts from canon to starter-template. Hivemind trichotomy cleaned. Composition determinism promoted to cycle-004 primary. Agent transparency becomes doctrine-level invariant. Open playground — "my workflow is one example, not THE workflow."*
+
+---
+
+## 17 · Amendments (v4 → v5, 2026-04-22 post cycle-005 L1/L2/L4/L6 landing)
+
+Cycle-005 shipped the composition runner, stream schemas, manifest validator, and butterfreezone adapter. Running a real chain revealed two structural claims v4 conflated that v5 needs to separate, and one primitive layer v4 left undefined.
+
+### 17.1 · Dispatch-determinism vs output-reproducibility (flatline SKP-002 closure — partial)
+
+The v4 §16.3 "composition determinism" invariant packed two distinct guarantees into one phrase. Running `construct-compose feel-audit <target>` twice surfaces the tension:
+
+**Dispatch-determinism** — the runner's obligation. A composition YAML + input selects the same construct slugs, same skill slugs, same persona handles, same stream types, same ordering *every invocation*. No LLM variance. No hidden routing. Verifiable from trajectory rows alone.
+
+**Output-reproducibility** — not a pipe-layer guarantee. Each stage's *content* comes from an LLM-driven skill whose output varies session-to-session even on identical inputs. A feel-audit verdict changes wording and sometimes surfaces a different finding on re-run.
+
+v4 said "same operator utterance → same construct every time" (dispatch-side) and implicitly suggested same-chain-runs-same-way (output-side). The second claim is false under LLM semantics and v5 doesn't pretend otherwise.
+
+**Promoted to invariant**:
+
+> Compositions MUST be dispatch-deterministic. Compositions MUST NOT be assumed to be output-reproducible. Tooling that needs reproducibility pins model + seed + temperature at the stage boundary; that's a stage-level contract, not a pipe-layer one.
+
+**Consequence for trajectory rows**: an agent comparing two runs of the same composition should diff the *dispatch trail* (constructs touched, stages ordered, stream types) and expect identical rows. Output content diffing is optional, not a doctrine obligation.
+
+**Flatline SKP-002 partial closure**: the determinism claim is now clearly split. SKP-002's full closure (how to pin output reproducibility when an operator wants it) lands in cycle-006+.
+
+### 17.2 · Failure-semantics primitives (flatline SKP-003)
+
+v4 was silent on what a pipe chain does when a stage fails. Cycle-005's runner implements the simplest possible policy (fail-fast, propagate exit code 3) but doctrine v5 names the primitive vocabulary so downstream cycles can choose other policies coherently.
+
+Four primitives, named but not yet all implemented:
+
+| Primitive | What it means | Cycle-005 default |
+|---|---|---|
+| **Timeout** | Stage exceeds duration budget → marked failed | Not enforced (stages are stubs) |
+| **Retry** | Stage failed → runner re-invokes per policy (max attempts, backoff) | Not enforced — one attempt |
+| **Idempotency** | Re-running the same stage on the same input produces the same-schema output even if content varies (see §17.1) | Partially — stubs are idempotent; real stages TBD |
+| **Dead-letter** | Stage permanently failed after retries → payload diverts to a dead-letter stream for operator review | Not implemented — failures surface in exit code only |
+
+A composition MAY declare a `failure_policy:` block per stage. Example (post-cycle-005, not yet consumed):
+
+```yaml
+chain:
+  - stage: 2
+    construct: observer
+    skill: analyzing-gaps
+    reads: [Verdict, Signal]
+    writes: [Verdict]
+    failure_policy:
+      timeout_ms: 30000
+      retry:
+        max_attempts: 3
+        backoff: exponential
+      idempotency_key: "{run_id}-{stage}"
+      dead_letter: .run/deadletter/feel-audit.jsonl
+```
+
+**Invariant** (promoted): every pipe-stage failure MUST be observable. Either the runner propagates exit code + emits a failed-outcome trajectory row, OR the payload routes to a dead-letter stream. Silent-drop is a doctrine violation.
+
+**Flatline SKP-003 partial closure**: the vocabulary is set. Full closure requires a runner that honors failure_policy blocks — cycle-006 target.
+
+### 17.3 · `Verdict` finding type — severity-evidence contract
+
+Cycle-005 L4's `construct-validate.sh` emits findings as Verdict stream rows with `severity` and `evidence` fields. Usage demonstrated that a Verdict row doubles as both:
+
+1. An evaluated judgment (v4 §3.2 original framing)
+2. A structured finding with severity tier (info/low/medium/high/critical) + evidence chain
+
+Both usages already round-trip through `.claude/schemas/verdict.schema.json`. Promoting to doctrine: Verdict rows SHOULD carry `severity` when the producer is an audit / validator / review construct. The `severity` field itself is optional on the schema (preserves backwards compat with feedback-v3-era verdicts), but downstream consumers (dashboards, install gates, bridge reviewers) may key off it.
+
+### 17.4 · Grimoires-as-interface convention (SEED §12 promotion)
+
+The cycle-005 SEED §12 convention was repo-local guidance. After L6 butterfreezone surfaced artisan's CLAUDE.md drift (construct.yaml declares paths; CLAUDE.md does not), the convention is load-bearing enough for doctrine:
+
+> **A construct's declared `grimoires/` read/write paths ARE its filesystem-level composition interface.** Two constructs writing to the same grimoire path compose automatically; no event bus, no handshake. Two constructs where one reads a path the other writes form an implicit pipe edge. This is structurally identical to a typed-stream pipe at the stream layer.
+
+The implication for v5: **pipe compatibility is a two-layer claim**. The stream layer (Signal/Verdict/Artifact/Intent/Operator-Model) gives in-memory typing; the grimoire layer gives filesystem typing. Both must align for a composition to be complete.
+
+Cycle-005 enforces the stream layer via `construct-compose.sh` type check. Cycle-006+ can extend to the grimoire layer: the composition runner reads each stage's declared grimoire paths and warns when two stages overwrite the same path without sequencing.
+
+### 17.5 · Version bump
+
+**v5**. v4 chain-preserved. Amendments:
+
+- Dispatch-determinism vs output-reproducibility split (§17.1)
+- Failure-semantics primitives vocabulary (§17.2)
+- Verdict severity field promoted as canonical for audit/review/validator producers (§17.3)
+- Grimoires-as-interface promoted from SEED §12 to doctrine invariant (§17.4)
+
+Flatline blocker updates:
+- SKP-002 — partially closed by §17.1 split. Full closure (reproducibility knob) deferred.
+- SKP-003 — partially closed by §17.2 vocabulary. Full closure (runner enforcement) deferred to cycle-006.
+
+---
+
+*v5 · 2026-04-22 · Post cycle-005 runtime landing. Two conflated invariants split. Failure-semantics primitives named. Grimoires-as-interface promoted. Four active primitives now have doctrine: Signal/Verdict/Artifact/Intent/Operator-Model for stream typing; timeout/retry/idempotency/dead-letter for failure; stream-layer + grimoire-layer compose for composition completeness.*

@@ -53,11 +53,13 @@ Browse and install packs from the Loa Constructs Registry with a multi-select UI
 ```
 /constructs                    # Smart default: manage installed OR browse to install
 /constructs browse             # Browse available packs
-/constructs install <pack>     # Install specific pack
-/constructs list               # List installed packs
+/constructs install <pack>     # Install a single pack
+/constructs list               # List installed packs (--orient shows streams + personas)
 /constructs search <query>     # Search packs by name/description
-/constructs update             # Check for updates
+/constructs update             # Check for updates across all packs
+/constructs upgrade <pack>     # Upgrade a single pack (git pull / re-fetch)
 /constructs uninstall <pack>   # Remove a pack
+/constructs auth               # View auth status / setup API key
 ```
 
 ## Prerequisites

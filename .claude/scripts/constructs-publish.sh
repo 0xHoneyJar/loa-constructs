@@ -198,7 +198,26 @@ do_validate() {
         fail=$((fail + 1))
     fi
 
-    # 10. Package size reasonable (< 10MB)
+    # 10. Manifest validation (cycle-005 L4) — F28 + SEED §12 convention checks
+    local manifest_validator="$SCRIPT_DIR/construct-validate.sh"
+    if [[ -x "$manifest_validator" ]]; then
+        local mv_rc=0
+        "$manifest_validator" "$path" >/dev/null 2>&1 || mv_rc=$?
+        if (( mv_rc == 0 )); then
+            results+=('{"check":"manifest_validate","status":"pass","detail":"construct-validate all checks passed"}')
+            pass=$((pass + 1))
+        else
+            # Fetch findings JSON for detail
+            local mv_report
+            mv_report=$("$manifest_validator" "$path" --json 2>/dev/null || echo '[]')
+            local mv_count
+            mv_count=$(echo "$mv_report" | jq 'length' 2>/dev/null || echo 0)
+            results+=("$(jq -n --arg cnt "$mv_count" '{check:"manifest_validate",status:"fail",detail:("construct-validate surfaced "+$cnt+" finding(s) — run: construct-validate.sh <path>")}')")
+            fail=$((fail + 1))
+        fi
+    fi
+
+    # 11. Package size reasonable (< 10MB)
     local size_kb
     size_kb=$(du -sk "$path" 2>/dev/null | cut -f1)
     if [[ "$size_kb" -lt 10240 ]]; then
