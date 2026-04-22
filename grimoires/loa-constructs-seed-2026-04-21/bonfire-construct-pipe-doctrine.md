@@ -262,21 +262,18 @@ Answer per `[[sovereign-stack]]`: L3 "navigation" — session routing, model sel
 
 ---
 
-## 10 · Open questions for operator review
+## 10 · Open questions for operator review — v1
 
-Questions where I'm genuinely uncertain and want your direction before cycle-004 SEEDs:
+**Reframed in v2 (see §14). Kept here as chain-preserved v1 record.**
 
-1. **Stream type cardinality** — is four (Signal / Verdict / Artifact / Intent) the right granularity, or should one of them split? E.g., should `Verdict` split into `Praise` / `Finding` / `Reframe` per BRIDGEBUILDER's severity classes? Or is that emission-schema detail, not type-system detail?
+1. **Stream type cardinality** — four or more? `Verdict` subdivision?
+2. **Composition authorship** — operator / agents / governance-FSM?
+3. **Orchestration transparency granularity** — every stage or top-level only?
+4. **Finn's scope reframe** — is "Finn = orchestration layer for constructs" load-bearing?
+5. **Forum-project integration timeline** — when do the streams cross?
+6. **Doctrine versioning** — `doctrine.yaml` metadata or human-read-only?
 
-2. **Composition authorship** — who writes composition YAMLs? Operator? Agents? Both via a governance-FSM analog? Forum-project suggests a governance layer; cycle-N might need one.
-
-3. **Orchestration transparency granularity** — does the orchestrator report every pipe-stage dispatch to operator ("I'm routing to artisan, then observer, then archivist"), or only report Intent → top-level composition selection? Tradeoff between transparency and noise.
-
-4. **Finn's scope reframe** — is the "Finn = orchestration layer for constructs" claim load-bearing? If yes, `[[sovereign-stack]]` gets amended; Finn becomes cycle-005+ priority over other L3 capabilities.
-
-5. **Forum-project integration timeline** — when (if ever) does the construct network's Signal/Verdict stream cross-post into forum-project's audit log? And vice versa, when does forum deliberation emit Intent into construct orchestrator?
-
-6. **Versioning** — doctrines need versioning. Do we adopt a `doctrine.yaml` metadata pattern (analogous to construct.yaml) so agents can discover/validate doctrine versions programmatically? Or is doctrine a human-read-only artifact?
+**Operator feedback 2026-04-21-late** (reviewing v1): Q1/Q2/Q5/Q6 weren't framed in operator language — they were framed as architecture-spec questions. The operator thinks in UX, expertise-depth, visual output, read-modes. Q3 and Q4 were tractable (Q3 because it bridged to UX via loa#598; Q4 because it flagged a specific knowledge gap). Meta-lesson folded into §14.
 
 ---
 
@@ -329,3 +326,120 @@ The fact that this doctrine exists and was reviewed means future cycles won't ac
 ---
 
 *v1 · 2026-04-21 · Bonfire doctrine produced during cycle-002 close, pre-cycle-003 dispatch. The frame before the shipping.*
+
+---
+
+## 14 · Amendments (v1 → v2, 2026-04-21-late operator review)
+
+### 14.1 · Generalization — "everything is a computer"
+
+Operator review surfaced Eileen's frame: *"Pretty much everything is a computer; everything takes inputs and produces outputs, and in this way we're all computing."*
+
+The Unix-pipe claim in §1 is an instance of this broader frame, not the frame itself. Generalized:
+
+**Every actor in the construct network is a computer.** Each takes typed inputs, applies a transform (expertise / orchestration / framing / feedback / decision), emits typed outputs. The "computer" is not metaphor; it's the structural unit. Operators are computers. Agents are computers. Constructs are computers. The orchestration layer is a computer that routes between computers.
+
+Consequence: the protocol doesn't privilege any actor type. An operator's feedback and a construct's verdict and a forum-project deliberation are all typed I/O events. The pipe layer routes them uniformly.
+
+This reframes §6 (operator-as-orchestrator) — the operator isn't "above" the stack; the operator is one computer in the mesh. Powerful because their Intent output shapes routing; not special because they're metaphysically different.
+
+### 14.2 · Operator-Model as first-class input
+
+Operator review added a layer §5 didn't name: **the agent's model of the operator is a load-bearing input to every pipe stage**, not just the orchestration layer.
+
+Evidence:
+> *"Designing around the operator and what the operator knows is a very powerful tool. What we've built with… hive mind is a tool that a lot of people can use so that the agent can better understand what you know."*
+
+Structural claim:
+
+- **Operator-Model** is a typed stream (5th primitive — "what does this operator know, care about, have expertise in?"). Sourced from `~/hivemind/` + session context + explicit operator utterances.
+- Every pipe stage reads Operator-Model alongside its domain input. A construct producing a `Verdict` calibrates that verdict's depth/framing/vocabulary to Operator-Model.
+- Example: ALEXANDER producing a feel-audit verdict. If Operator-Model says "expert in design engineering, familiar with Emil Kowalski," the verdict can reference motion-design patterns by name. If Operator-Model says "designer onboarding, no prior feel-system context," the verdict explains the concept before the judgment.
+- Without Operator-Model, verdicts default to a generic-expert register. This is the failure mode — the agent is speaking, but the operator can't process it because the framing isn't calibrated.
+
+Corollary to §3 primitive stream types: **add Operator-Model as the 5th type.**
+
+| Type | Shape | Primary source |
+|---|---|---|
+| Signal | append-only observation | upstream construct |
+| Verdict | evaluated judgment | persona emission |
+| Artifact | produced material | implementation |
+| Intent | operator routing signal | operator utterance |
+| **Operator-Model** (NEW) | operator knowledge/expertise map | hivemind + session |
+
+### 14.3 · Output read-modes (loa#598 generalized)
+
+loa#598 names three read-modes for the SIMSTIM harness's ambient pulse:
+- **Glance** (<1s) — status at ambient attention
+- **Orient** (~5s) — what's happening + why
+- **Intervene** (~15s) — actionable detail for course-correction
+
+Operator framing extends this to all construct output:
+> *"It's exactly just the right amount of information, not too much or not too little, just the right amount of information."*
+
+Structural claim: **every construct's Verdict/Signal output should support all three read-modes, calibrated to Operator-Model.**
+
+- **Glance-mode output**: one line. Emoji + phase + pass/fail + cost. Supports ambient watching.
+- **Orient-mode output**: 3-5 lines. Intent + key finding + next-step cue. Supports reading between steps.
+- **Intervene-mode output**: full structured block. All findings, all metadata, actionable detail. Supports active redirection.
+
+The construct emits all three levels; the consumer (UI, CLI, orchestrator) selects the mode based on context. Reference implementation: loa#598's `[INTENT]` + `[HEARTBEAT]` dual schema.
+
+This feeds back into §3 stream types — `Verdict` isn't a single shape; it's a **tiered shape** with glance/orient/intervene variants. Equivalent for `Signal` (single event vs orient-summary vs full observation). `Artifact` is usually intervene-only. `Intent` is usually glance-or-orient.
+
+### 14.4 · Multi-modal Intent — the inline-controls pattern
+
+Operator shared a screenshot (2026-04-21) showing a mobile app where natural-language Intent is interleaved with inline controls:
+
+> "make 🧌 bigger and spawn [-4+] of them each round. also make it look 🎮 like its 2004 or something 😂"
+
+Pattern:
+- **Emoji-as-object-refs** — 🧌 is a handle to a typed entity; 🎮 is a handle to a concept/style
+- **Inline numeric controls** — `[-4+]` is a discrete stepper embedded mid-sentence
+- **Casual framing** — "or something 😂" as acceptable vagueness tolerance
+- **Multi-modal** — text + emoji + UI control + tone-marker, composed into one Intent
+
+This is the UX of Intent emission. Structural implications:
+
+- **Intent stream type from §3 gains structured-slots.** Not just prose text; prose with typed inline slots (`@artifact:<path>`, `#intent-class:<enum>`, discrete controls, vague-tolerance markers).
+- **The orchestration layer parses structured Intent** — extracting the typed slots for routing, preserving the prose for framing.
+- **Operator-tooling for Intent authoring** becomes a UX concern: how does the operator express multi-modal Intent efficiently? Chat input with inline widget support; CLI with typed flags; forum-project post templates.
+
+This is NOT something cycle-003 or cycle-004 builds. It's a UX north star for cycle-006+ (operator-facing Intent authoring surface). Naming it here so future surfaces can target it.
+
+### 14.5 · Reframed open questions (operator-language)
+
+The v1 questions were architecture-spec. The v2 questions are operator-experience:
+
+1. **Does the pipe output feel right for different expertise levels?** When ALEXANDER emits a verdict, does it read right to an expert-in-feel-systems *and* to a new designer just installing artisan? If not, what does the Operator-Model miss?
+
+2. **Is the ambient presence of an invocation calibrated?** When operator runs a composed chain (artisan → observer) in the background, do the glance/orient/intervene levels hit at the right rhythm? Does the operator feel in control or narrated-at?
+
+3. **Does the composition feel like Lego bricks snapping, or like YAML configuration?** If the operator has to edit YAML to compose two constructs, that's config. If they can describe Intent multi-modally and the orchestrator suggests a composition they can accept/redirect, that's bricks. Are we close to the second, or stuck in the first?
+
+4. **When I (the operator) give feedback, does the system route it or file it?** Feedback-as-Intent should trigger re-dispatch. Feedback-as-note should persist as Signal. Are both paths honored, or does everything get filed as notes?
+
+5. **Is the Finn/orchestration layer visible enough to steer, invisible enough to not narrate?** Operator should know where they are in a composition without having to ask. But they shouldn't be forced to read every stage's handoff.
+
+6. **Does hivemind feed the Operator-Model fast enough?** When operator references something ("the Finn design Jani did"), does the agent have Operator-Model data on that reference, or does it need clarification? What's the decay rate of operator expertise model? Per-session? Per-week?
+
+These are the questions I should have asked. They route to UX outcomes, not architecture specs. Operator engagement is higher because the questions match how the operator experiences the system.
+
+### 14.6 · Meta-lesson — question-framing as doctrine
+
+**Questions from agent → operator should be framed in operator-experience language, not architecture-spec language.** Architecture-spec questions are what the agent wants to know to build; operator-experience questions are what the operator can answer from their ground-truth use of the system.
+
+Applied to the doctrine:
+- Operator-Model (§14.2) is what makes this calibration possible.
+- Output read-modes (§14.3) apply to questions too — "glance-mode question" (one line, yes/no), "orient-mode question" (with context), "intervene-mode question" (full exploration).
+- When the agent asks a bad question, the operator's pushback ("that's not framed in a way I'd understand") is itself an Intent signal to recalibrate.
+
+This is recursive: the doctrine describes the system; the system produces the doctrine; the operator's feedback on the doctrine reshapes both. Bonfire ↔ Spiral in miniature.
+
+### 14.7 · Version bump
+
+This file is now **v2**. v1's §10 open-questions are chain-preserved (not deleted) per OTLET. Future amendments should continue the §14.N amendment-section pattern rather than rewriting in place — readers want the chain, not the latest snapshot.
+
+---
+
+*v2 · 2026-04-21-late · Amended after operator review. Generalized to "everything is a computer." Added Operator-Model + read-modes + multi-modal Intent. Reframed questions in operator language. Meta-lesson on question-framing folded into doctrine itself.*
