@@ -148,3 +148,24 @@ Banned from cycle-006 (scope-lock rule):
 - Team-type DSL / composition language layer
 - Typed-team primitives as first-class schema
 - Any upfront abstraction not earned by a second concrete composition
+- Multi-construct loadouts per stage (operator wants to understand mechanics first)
+- QMD integration for per-agent memory (cycle-007 — primitives already on substrate)
+- TeamCreate-as-backend implementation (optional alternative; research-only leg)
+
+---
+
+## Thread 5 · QMD on the substrate layer (cycle-007 candidate for agent-memory)
+
+**Operator 2026-04-23 late**: *"QMD, bash, and markdown files are something that agents understand extremely well, and this is sort of the baseline for all constructs. [...] I think it's valuable for each agent to use QMD to manage their own memory, integrated with the hive mind, but obviously the hive mind is optional."*
+
+QMD ([tobi/qmd](https://github.com/tobi/qmd)) — markdown-querying tool, required for Loa installation. Agent-friendly because agents natively reason about markdown + simple query surfaces; no database required.
+
+**On the substrate** because it's the same class as bash + markdown: primitive tools that compose into higher-level patterns. Per [[agent-teams-as-pipes]] three-layer architecture: substrate = bash + markdown + QMD (+ headless Claude).
+
+**Cycle-007 candidate**:
+- Per-agent memory via QMD-queried markdown
+- Optional integration with personal [[hivemind]] layer
+- "Collections" as a possible organizing primitive (low priority)
+- QMD maintenance / freshness pass (stale content, reorganization) may warrant its own dedicated pass
+
+**NOT in cycle-006 scope.** QMD exists and works today; cycle-006 leaves it as-is on the substrate.
