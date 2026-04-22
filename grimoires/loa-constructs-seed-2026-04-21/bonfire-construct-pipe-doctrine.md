@@ -633,3 +633,134 @@ Given v3 amendments, cycle-003's cycle-004 inheritance queue gains doctrinal fra
 ---
 
 *v3 · 2026-04-21-late · After cycle-003 walk + second operator review. Doctrine deepens: Operator OS is the proto-composition system we're naming underneath. Frames vs workflows distinguished. Vibe-coding surface promoted. Hivemind as shareable. Four layers explicitly co-exist without forced unification.*
+
+---
+
+## 16 · Amendments (v3 → v4, 2026-04-21-late third operator review)
+
+After doctrine v3 merged + cycle-003 closed. Operator signaled two structural shifts + named a friction point that reframes cycle-004 primary target.
+
+### 16.1 · Operator OS inverts — prescriptive → prototype (open playground)
+
+Operator observation:
+
+> *"We built this Claude MD at the base before we even designed this new update here… I think we should reverse our understanding of using this as a composition. I guess it's a prototype of the composition system; it can inform what types of compositions there could be, but again, if we design stuff in the sense that they are Unix tools, then all of these modes and possibilities should be possible. My personal workflow should never prescribe specificity, but it could provide ideas and overall form of how an operator may structure his/hers. Open playground."*
+
+**Structural claim**: with pipe doctrine as the ground, Operator OS (the `~/.claude/CLAUDE.md` modes + lenses + Construct Resolution table) is no longer the canonical spec. It becomes the **reference implementation** — one operator's structured workflow, offered as a starter template for others. Any operator may:
+
+- Use it as-is
+- Fork it and customize modes/lenses
+- Replace it entirely with their own composition
+- Mix: adopt some modes, introduce their own
+
+The pipe doctrine guarantees that **all of these are valid** as long as the compositional substrate (typed I/O, Signal/Verdict/Artifact/Intent/Operator-Model streams) is honored. Modes are a UX affordance over that substrate, not the substrate itself.
+
+**Implication for public release** (operator-stated post-cycle goal): the README should frame Operator OS as "here's one operator's workflow — here's how to author yours." The construct network's value is the *substrate*; Operator OS is one of many surfaces.
+
+**Doctrine invariant**: no construct, pipe, or composition may require Operator OS modes/lenses as preconditions for operation. Modes are **orchestration hints**, not dispatch requirements.
+
+### 16.2 · Hivemind trichotomy — named layers
+
+Operator clarification:
+
+> *"The hive mind OS is an internal hive mind tool. The hive mind that I'm talking about more so is the /hive mind, so I think we can consider the hive mind construct as an internal knowledge base, and then we can also consider the organizational memory, the hive mind, as well. There's a personal hive mind, and then there's the organizational hive mind."*
+
+Clean trichotomy:
+
+| Layer | What it is | Lives at |
+|---|---|---|
+| **Construct** | `hivemind-os` pack — installable org-knowledge structure + skills | `~/.loa/constructs/packs/hivemind-os/` |
+| **Skill** | `/hivemind` (router) + `querying-hivemind` (org lookup) — invocation surface | `.claude/skills/` |
+| **Knowledge (personal)** | Operator's own memory — self, strategy, wiki concepts, world notes | `~/hivemind/` |
+| **Knowledge (organizational)** | Org-shared — library, laboratory, distribution, identity | `~/.loa/constructs/packs/hivemind-os/library+laboratory+network+…` |
+| **Archivist** | Separate construct for vault mechanics — ingest, supersede, decay | `~/.loa/constructs/packs/archivist/` (not installed by default) |
+
+**Structural claim**: these five are distinct and composable. Operator-Model (§14.2) reads from **all four knowledge-bearing layers** through the Skill layer. Construct layer (hivemind-os) is the *shareable structure* that any org can adopt. Archivist composes with either personal or org hivemind to provide vault mechanics without re-implementing them.
+
+**Implication for §15.4 "hivemind-as-shareable-system"**: the shareable thing is the *structure*, the *conventions* (frontmatter, wikilinks, decay classes, supersession), and the *skill router* — not any specific operator's content. Publishing `hivemind-os` publicly means publishing the PATTERN, with redacted starter content showing how to use it.
+
+**Implication for cycle-N**: document the trichotomy in public-facing material. Not as "this is complicated" — as "here are four clean slots: plug your org's knowledge into layer 2, your personal into layer 3, compose with archivist for mechanics, invoke through the skill."
+
+### 16.3 · Composition determinism — the stated friction
+
+Operator observation (load-bearing for cycle-004):
+
+> *"One of the key friction points is that it is unclear to me which constructs are being called and how consistent they are. It doesn't feel extremely consistent, especially with the amount of context loaded in and the variance and non-deterministic nature of agents. I think you have a lot more variance if the sessions that you kick off are very unstructured; it could be a conflict of frames."*
+
+**Three distinct failures** this names:
+
+1. **Transparency failure** — operator can't see which constructs are informing the current agent response
+2. **Consistency failure** — same operator utterance on different sessions routes to different constructs
+3. **Frame conflict** — when multiple constructs load into one session, their frames (modes, lenses, personas) can contradict without explicit resolution
+
+**Structural claim**: composition determinism is a first-class construct-network invariant, not a tooling nicety.
+
+Minimum requirements a construct-using agent session must support:
+
+| Invariant | Manifestation |
+|---|---|
+| **Active set visible** | Agent can report "constructs in my active context right now" at any point — a `constructs-active` command or equivalent |
+| **Invocation deterministic** | When operator invokes `/feel`, the same pack + skill + lens set fires every time. Variance is explicit (e.g., parameter), not hidden |
+| **Frame resolution named** | When two constructs' frames conflict (e.g., FEEL mode + TEND mode simultaneously), the resolution is explicit — one wins, or they compose with a stated rule |
+| **Trajectory completeness** | Every construct-touching action emits a trajectory row (Signal stream), not just Skill tool invocations |
+
+**Cycle-003's contribution**: the `.run/construct-trajectory.jsonl` + hook wiring solves the trajectory side of #1. But the UX-level "what's active right now" question is not answered — trajectory is append-only historical, not active-state.
+
+**Cycle-004 primary target**: close this trifecta. Composition determinism becomes the load-bearing cycle outcome, not an incidental fix.
+
+### 16.4 · Invariant: agent-transparency is non-optional
+
+Promoting a consequence of §16.3 to doctrine-level invariant:
+
+> **Every construct-network-aware agent session MUST support the operator asking "what's informing this response" and receiving a specific, complete, trustworthy answer within read-mode latency (glance <1s, orient <5s).**
+
+This is not "logging." It's a runtime capability. An agent that can't surface its active construct set *cannot participate honestly in operator orchestration* — the operator's pipe-stage input can't route effectively if they don't know what's downstream.
+
+**Implementation implications for cycle-004**:
+- Shell tool: `constructs-active.sh` — outputs active set with mode + lens + pack + active skills per pack. Three read-modes per §14.3.
+- Integration: hook into operator workflow naturally — e.g., at session start, on /loa-style status, on explicit `/active` query.
+- Coverage: personal hivemind context, org hivemind context, operator OS mode, active lenses, invoked skills (trajectory-backed), agent's own self-reported frame.
+
+**Invariant fails** if:
+- Active-state is inferred post-hoc from trajectory rather than available live
+- Modes/lenses/constructs can be "loaded" without the agent being able to enumerate them
+- Different invocations of the same intent produce non-deterministic active sets without operator visibility into the divergence
+
+### 16.5 · Operator-Context ↔ Hivemind autoload revisited
+
+Previously in §15.5 I named Operator-Context as cycle-006+ candidate. After §16.3 framing, this is now earlier-stage:
+
+- Operator-Context (slice of Operator-Model load-bearing NOW) is the MECHANISM that makes composition determinism work across expertise levels
+- Without it, an agent either over-explains (operator impatience pattern per `~/hivemind/self/patterns.md`) or under-explains (misses context operator needs)
+- With it, the same construct invocation adapts output-depth to operator state per read-mode
+
+**Revised placement**: Operator-Context construct candidate moves from cycle-006 → cycle-005. Same cycle as workflow-kind composition design, since both rely on operator-state read-paths.
+
+### 16.6 · Cycle-004 legs restructured
+
+Original cycle-003 inheritance queue (§15.7) carried infra-heavy priorities (F24, DB swap). After §16.3 friction surfaced, cycle-004 primary target shifts to **transparency + determinism + open-playground doctrine**. Infra defers to cycle-005.
+
+| Leg | Purpose | Priority |
+|---|---|---|
+| **L1 · constructs-active.sh** | Active-set reporter for agent sessions (§16.4 invariant) | CERTAIN |
+| **L2 · Mode invocation contract** | Document + enforce: /feel, @ALEXANDER, "FEEL mode" all route deterministically to same pack+skill+lens | CERTAIN |
+| **L3 · Operator OS as starter template** | Draft `~/.claude/CLAUDE.md` as template; separate operator's canonical version as example; publish as hivemind page | CERTAIN |
+| **L4 · Hivemind trichotomy doc** | Formal named page: personal / org / construct / skill / archivist | CERTAIN |
+| **L5 · feel-audit workflow-kind composition** | First real workflow per §15.2; composes artisan + observer | LIKELY |
+| **L6 · Trajectory extension** | Cover not just Skill tool use but full agent-action attribution (Bash/Read/Edit touching construct files) | POSSIBLE |
+| **L7 · F24 three-way-merge** | Carryover from cycle-003; still useful but not primary | CONDITIONAL |
+| **L8 · DB swap** | Defers to cycle-005+ | DEFERRED |
+
+### 16.7 · Version bump
+
+**v4**. v3 chain-preserved. Amendments:
+- Operator OS inverted (prescriptive → prototype, open playground)
+- Hivemind trichotomy named (5 layers, 4 composable)
+- Composition determinism invariant (§16.4)
+- Agent transparency promoted (non-optional)
+- Operator-Context upgraded to cycle-005 placement
+- Cycle-004 legs restructured around transparency
+
+---
+
+*v4 · 2026-04-21-late · Third operator review. Operator OS inverts from canon to starter-template. Hivemind trichotomy cleaned. Composition determinism promoted to cycle-004 primary. Agent transparency becomes doctrine-level invariant. Open playground — "my workflow is one example, not THE workflow."*
