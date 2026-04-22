@@ -7,8 +7,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
-import { requireAuth } from '../middleware/auth.js';
-import { requireAdmin } from '../middleware/admin.js';
+import { randomUUID } from 'crypto';
+import { requireAdminAccess } from '../middleware/operational-token.js';
 import { db, users, packs, subscriptions, skills, skillUsage, packInstallations, apiKeys, teams } from '../db/index.js';
 import { eq, like, or, desc, count, sql, gte, and } from 'drizzle-orm';
 import { Errors } from '../lib/errors.js';
@@ -26,14 +26,14 @@ import {
   sendPackRejectedEmail,
 } from '../services/email.js';
 import { invalidateConstructCaches } from '../services/redis.js';
+import { runDiscovery } from '../services/discovery.js';
 
 // --- Route Instance ---
 
 export const adminRouter = new Hono();
 
-// Apply middleware: auth first, then admin check, then rate limiting
-adminRouter.use('*', requireAuth());
-adminRouter.use('*', requireAdmin());
+// Auth: operational-token bypass (cycle-002 L0) falls through to user JWT/API-key + admin-role check
+adminRouter.use('*', requireAdminAccess());
 adminRouter.use('*', apiRateLimiter());
 
 // --- Schemas ---
@@ -1049,4 +1049,59 @@ adminRouter.get('/analytics/installs', zValidator('query', installQuerySchema), 
     pack_id: packId ?? null,
     buckets: dailyCounts,
   });
+});
+
+// --- Discovery Endpoint (cycle-001) ---
+
+const discoverQuerySchema = z.object({
+  owner: z.string().min(1).max(100).default(process.env.CONSTRUCTS_ORG ?? '0xHoneyJar'),
+  dry_run: z
+    .string()
+    .optional()
+    .transform(v => v === 'true'),
+});
+
+/**
+ * POST /v1/admin/discover
+ * Scans a GitHub org for construct-* repos and upserts them into the registry.
+ * Preserves operator-set DB visibility (AC-A5 §14.3 AMENDMENT — load-bearing).
+ * @see prd.md FR-A1, FR-A2, FR-A3
+ * @see sdd.md §3.1.1
+ * @see grimoires/loa-constructs-seed-2026-04-21/SEED-loa-constructs-infrastructure-cycle.md §14.3
+ */
+adminRouter.post('/discover', zValidator('query', discoverQuerySchema), async (c) => {
+  const requestId = randomUUID();
+  const adminId = c.get('userId' as never) as string;
+  const { owner, dry_run: dryRun } = c.req.valid('query' as never) as {
+    owner: string;
+    dry_run: boolean;
+  };
+
+  logger.info({ adminId, owner, dryRun, requestId }, 'Admin triggered construct discovery');
+
+  try {
+    const result = await runDiscovery({
+      owner,
+      dryRun,
+      githubToken: process.env.GITHUB_TOKEN,
+    });
+
+    logger.info(
+      { adminId, owner, dryRun, found: result.constructs_found, updated: result.constructs_updated, requestId },
+      'Discovery complete'
+    );
+
+    return c.json(result, 200);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    const code = (err as { code?: string }).code;
+
+    if (code === 'RATE_LIMIT') {
+      logger.warn({ adminId, owner, requestId }, 'GitHub rate limit hit during discovery');
+      return c.json({ error: 'github_rate_limit', message }, 429);
+    }
+
+    logger.error({ adminId, owner, requestId, error: message }, 'Discovery failed');
+    return c.json({ error: 'discovery_failed', message }, 500);
+  }
 });

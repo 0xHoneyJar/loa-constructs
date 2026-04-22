@@ -156,36 +156,9 @@ validate_symlink_target() {
                 constructs_abs=$(readlink -f "$constructs_dir" 2>/dev/null || realpath "$constructs_dir" 2>/dev/null || (cd "$constructs_dir" 2>/dev/null && pwd -P) || echo "")
             fi
 
-            # Verify resolved path is within constructs (local or global store)
-            # Trust boundary: only accept global store under $HOME to prevent
-            # env var injection from widening the validation boundary
-            local global_store="${LOA_GLOBAL_STORE:-${HOME}/.loa/constructs}"
-            local global_abs=""
-            if [[ -d "$global_store" ]] && [[ "$global_store" == "${HOME}/"* ]]; then
-                if command -v get_canonical_path &>/dev/null; then
-                    global_abs=$(get_canonical_path "$global_store")
-                else
-                    global_abs=$(readlink -f "$global_store" 2>/dev/null || realpath "$global_store" 2>/dev/null || (cd "$global_store" 2>/dev/null && pwd -P) || echo "")
-                fi
-            fi
-
-            # Normalize trailing slashes for boundary-safe prefix checks
-            constructs_abs="${constructs_abs%/}"
-            global_abs="${global_abs%/}"
-
-            local in_local="false"
-            local in_global="false"
-
-            if [[ -n "$constructs_abs" ]] && { [[ "$resolved_target" == "$constructs_abs" ]] || [[ "$resolved_target" == "$constructs_abs/"* ]]; }; then
-                in_local="true"
-            fi
-
-            if [[ -n "$global_abs" ]] && { [[ "$resolved_target" == "$global_abs" ]] || [[ "$resolved_target" == "$global_abs/"* ]]; }; then
-                in_global="true"
-            fi
-
-            if [[ "$in_local" != "true" ]] && [[ "$in_global" != "true" ]]; then
-                print_warning "Symlink resolves outside constructs/global store: $resolved_target"
+            # Verify resolved path is within constructs
+            if [[ -n "$constructs_abs" ]] && [[ "$resolved_target" != "$constructs_abs"* ]]; then
+                print_warning "Symlink resolves outside constructs: $resolved_target"
                 return 1
             fi
         fi
@@ -257,7 +230,7 @@ symlink_pack_commands() {
 
         # Create symlink
         ln -sf "$relative_path" "$target_link"
-        ((linked++))
+        linked=$((linked + 1))
     done
 
     echo "$linked"
@@ -294,7 +267,7 @@ unlink_pack_commands() {
             existing_target=$(readlink "$target_link" 2>/dev/null || echo "")
             if [[ "$existing_target" == *"constructs/packs/$pack_slug"* ]]; then
                 rm -f "$target_link"
-                ((unlinked++))
+                unlinked=$((unlinked + 1))
             fi
         fi
     done
@@ -361,7 +334,7 @@ symlink_pack_skills() {
 
         # Create symlink
         ln -sf "$relative_path" "$target_link"
-        ((linked++))
+        linked=$((linked + 1))
     done
 
     echo "$linked"
@@ -410,67 +383,6 @@ unlink_pack_skills() {
 }
 
 # =============================================================================
-# Post-Install Hooks
-# =============================================================================
-
-# Execute post-install hook if declared in manifest.
-# Security: path traversal prevention via realpath comparison.
-# Non-blocking: hook failure emits warning, does not fail installation.
-# Args:
-#   $1 - Pack directory path
-execute_post_install_hook() {
-    local pack_dir="$1"
-    local manifest="${pack_dir}/construct.yaml"
-    [[ -f "$manifest" ]] || return 0
-
-    if ! type safe_yq &>/dev/null; then return 0; fi
-
-    local hook_script
-    hook_script=$(safe_yq '.hooks.post_install' "$manifest" 2>/dev/null) || return 0
-    [[ -z "$hook_script" || "$hook_script" == "null" ]] && return 0
-
-    local script_path="${pack_dir}/${hook_script}"
-
-    # Security: validate script is within pack directory (path traversal prevention)
-    # Trailing slash prevents sibling-path bypass (e.g., /packs/foo matching /packs/foobar)
-    local real_script real_pack
-    if command -v realpath &>/dev/null; then
-        real_script=$(realpath "$script_path" 2>/dev/null) || return 0
-        real_pack=$(realpath "$pack_dir" 2>/dev/null) || return 0
-    elif command -v python3 &>/dev/null; then
-        real_script=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$script_path" 2>/dev/null) || return 0
-        real_pack=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$pack_dir" 2>/dev/null) || return 0
-    else
-        return 0
-    fi
-    real_pack="${real_pack%/}/"
-    if [[ "$real_script" != "$real_pack"* ]]; then
-        echo "  ⚠ Post-install hook path traversal blocked: $hook_script" >&2
-        return 0
-    fi
-
-    # Portable timeout: prefer timeout, fall back to gtimeout (macOS), then direct exec
-    local timeout_cmd=""
-    if command -v timeout &>/dev/null; then
-        timeout_cmd="timeout"
-    elif command -v gtimeout &>/dev/null; then
-        timeout_cmd="gtimeout"
-    fi
-
-    if [[ -f "$script_path" && -x "$script_path" ]]; then
-        if [[ -n "$timeout_cmd" ]]; then
-            echo "  Running post-install hook..."
-            if ! (cd "$pack_dir" && "$timeout_cmd" 30 "$script_path" 2>&1); then
-                echo "  ⚠ Post-install hook failed (non-blocking)" >&2
-            fi
-        else
-            # No timeout utility → skip execution (untrusted hooks must be bounded)
-            echo "  ⚠ Post-install hook skipped: timeout utility not available (requires timeout or gtimeout)" >&2
-        fi
-    fi
-}
-
-# =============================================================================
 # Pack Installation
 # =============================================================================
 
@@ -512,6 +424,82 @@ do_install_pack() {
 
     # Ensure constructs directory is gitignored
     ensure_constructs_gitignored
+
+    # Check for local source clone (prefer over stale registry download) — Issue #449
+    local local_source
+    if local_source=$(find_local_source "$pack_slug"); then
+        local meta_file
+        meta_file=$(get_registry_meta_path)
+        local should_use_local=false
+
+        if [[ ! -d "$packs_dir/$pack_slug" ]]; then
+            # Not installed yet — use local if available
+            should_use_local=true
+            echo "  Local source found at: $local_source (not yet installed)"
+        elif [[ -f "$meta_file" ]]; then
+            # Already installed — check if local is newer
+            local installed_at
+            installed_at=$(jq -r --arg s "$pack_slug" '.installed_packs[$s].installed_at // empty' "$meta_file" 2>/dev/null) || installed_at=""
+            if [[ -n "$installed_at" ]]; then
+                # Check if ANY file in local source is newer than install time
+                # (not just construct.yaml — the P0 bug was in dig-search.ts)
+                local installed_epoch
+                if type _date_to_epoch &>/dev/null; then
+                    installed_epoch=$(_date_to_epoch "$installed_at" 2>/dev/null) || installed_epoch=0
+                else
+                    installed_epoch=$(date -d "$installed_at" +%s 2>/dev/null) || installed_epoch=0
+                fi
+
+                if [[ $installed_epoch -gt 0 ]]; then
+                    # Find any file newer than install time
+                    local newer_file
+                    newer_file=$(find "$local_source" -type f -newer "$packs_dir/$pack_slug" -print -quit 2>/dev/null) || newer_file=""
+                    if [[ -n "$newer_file" ]]; then
+                        should_use_local=true
+                        echo "  Local source at $local_source has changes since last install"
+                    fi
+                fi
+            fi
+        fi
+
+        if [[ "$should_use_local" == "true" ]]; then
+            echo "  Installing from local source: $local_source"
+            # Copy from local source instead of downloading
+            mkdir -p "$packs_dir/$pack_slug"
+            cp -r "$local_source/." "$packs_dir/$pack_slug/"
+            # Update metadata
+            local now_ts
+            now_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            init_registry_meta
+            local meta_tmp="${meta_file}.tmp.$$"
+            jq --arg slug "$pack_slug" --arg ts "$now_ts" --arg src "$local_source" \
+                '.installed_packs[$slug].installed_at = $ts | .installed_packs[$slug].source = "local" | .installed_packs[$slug].local_source = $src' \
+                "$meta_file" > "$meta_tmp" && mv "$meta_tmp" "$meta_file"
+
+            # Symlink commands
+            echo "  Linking commands..."
+            local commands_linked
+            commands_linked=$(symlink_pack_commands "$pack_slug")
+            echo "  Created $commands_linked command symlinks"
+
+            # Symlink skills
+            echo "  Linking skills..."
+            local skills_linked
+            skills_linked=$(symlink_pack_skills "$pack_slug")
+            echo "  Created $skills_linked skill symlinks"
+
+            echo ""
+            # Write .source.json provenance (Cycle-001 §14.4)
+            local source_commit="unknown"
+            source_commit=$(git -C "$packs_dir/$pack_slug" rev-parse HEAD 2>/dev/null || echo "unknown")
+            local source_json
+            source_json=$(printf '{"source_repo":"%s","source_commit":"%s","installed_at":"%s"}'                 "$local_source" "$source_commit" "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+            echo "$source_json" > "$packs_dir/$pack_slug/.source.json" 2>/dev/null ||                 echo "[constructs-install] WARNING: failed to write .source.json" >&2
+
+            print_success "Pack '$pack_slug' installed from local source"
+            return $EXIT_SUCCESS
+        fi
+    fi
 
     echo "  Downloading from $registry_url/packs/$pack_slug/download..."
 
@@ -574,89 +562,6 @@ do_install_pack() {
 
     # Parse response and extract files
     local pack_dir="$packs_dir/$pack_slug"
-
-    # Check source_type from download response — branch on git vs registry
-    local source_type
-    source_type=$(jq -r '.data.pack.source_type // "registry"' "$tmp_file" 2>/dev/null || echo "registry")
-
-    if [[ "$source_type" == "git" ]]; then
-        local git_url git_ref last_synced_at
-        git_url=$(jq -r '.data.pack.git_url // ""' "$tmp_file" 2>/dev/null || echo "")
-        git_ref=$(jq -r '.data.pack.git_ref // "main"' "$tmp_file" 2>/dev/null || echo "main")
-        last_synced_at=$(jq -r '.data.pack.last_synced_at // ""' "$tmp_file" 2>/dev/null || echo "")
-
-        if [[ -n "$git_url" ]]; then
-            echo "  Git-sourced pack detected, attempting clone..."
-            if do_install_pack_git "$pack_slug" "$git_url" "$git_ref" "$pack_dir" "$last_synced_at"; then
-                # Save license from download response (before deleting tmp_file)
-                local license_token license_expires_at license_watermark
-                license_token=$(jq -r '.data.license.token // ""' "$tmp_file" 2>/dev/null || echo "")
-                license_expires_at=$(jq -r '.data.license.expires_at // ""' "$tmp_file" 2>/dev/null || echo "")
-                license_watermark=$(jq -r '.data.license.watermark // ""' "$tmp_file" 2>/dev/null || echo "")
-
-                # Git clone succeeded — clean up download response
-                rm -f "$tmp_file"
-
-                if [[ -n "$license_token" ]]; then
-                    echo "{\"token\":\"$license_token\",\"expires_at\":\"$license_expires_at\",\"watermark\":\"$license_watermark\"}" > "$pack_dir/.license.json"
-                fi
-
-                # Continue to symlinks, validation, and meta update
-                echo "  Linking commands..."
-                local commands_linked
-                commands_linked=$(symlink_pack_commands "$pack_slug")
-                echo "  Created $commands_linked command symlinks"
-
-                echo "  Linking skills..."
-                local skills_linked
-                skills_linked=$(symlink_pack_skills "$pack_slug")
-                echo "  Created $skills_linked skill symlinks"
-
-                # Execute post-install hook if declared
-                execute_post_install_hook "$pack_dir"
-
-                echo "  Validating license..."
-                local validator="$SCRIPT_DIR/constructs-loader.sh"
-                if [[ -x "$validator" ]]; then
-                    local validation_result=0
-                    "$validator" validate-pack "$pack_dir" >/dev/null 2>&1 || validation_result=$?
-                    case $validation_result in
-                        0) print_success "  License valid" ;;
-                        1) print_warning "  License in grace period - please renew soon" ;;
-                        2) print_error "  License expired - pack may not work correctly" ;;
-                        3) print_warning "  No license file found - pack may be free tier" ;;
-                        *) print_warning "  License validation returned code $validation_result" ;;
-                    esac
-                fi
-
-                update_pack_meta "$pack_slug" "$pack_dir" "git" "$git_url" "$git_ref"
-
-                # Preserve shadow for divergence detection (cycle-032)
-                if [[ ! -L "$pack_dir" ]]; then
-                    preserve_shadow "$pack_slug" "$pack_dir" 2>/dev/null || true
-                fi
-
-                echo ""
-                print_success "Pack '$pack_slug' installed via git clone!"
-
-                local commands_dir="$pack_dir/commands"
-                if [[ -d "$commands_dir" ]]; then
-                    echo ""
-                    echo "Available commands:"
-                    for cmd in "$commands_dir"/*.md; do
-                        [[ -f "$cmd" ]] || continue
-                        local cmd_name
-                        cmd_name=$(basename "$cmd" .md)
-                        echo "  /$cmd_name"
-                    done
-                fi
-
-                return $EXIT_SUCCESS
-            else
-                echo "  Falling back to base64 extraction..."
-            fi
-        fi
-    fi
 
     echo "  Extracting files..."
 
@@ -792,9 +697,6 @@ PYEOF
     skills_linked=$(symlink_pack_skills "$pack_slug")
     echo "  Created $skills_linked skill symlinks"
 
-    # Execute post-install hook if declared
-    execute_post_install_hook "$pack_dir"
-
     # Validate pack license
     echo "  Validating license..."
     local validator="$SCRIPT_DIR/constructs-loader.sh"
@@ -824,10 +726,12 @@ PYEOF
     # Update registry meta
     update_pack_meta "$pack_slug" "$pack_dir"
 
-    # Preserve shadow for divergence detection (cycle-032)
-    if [[ ! -L "$pack_dir" ]]; then
-        preserve_shadow "$pack_slug" "$pack_dir" 2>/dev/null || true
-    fi
+    # Write .source.json provenance (Cycle-001 §14.4)
+    local source_commit="unknown"
+    source_commit=$(git -C "$pack_dir" rev-parse HEAD 2>/dev/null || echo "unknown")
+    local source_json
+    source_json=$(printf '{"source_repo":"%s","source_commit":"%s","installed_at":"%s"}'         "$registry_url/packs/$pack_slug" "$source_commit" "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+    echo "$source_json" > "$pack_dir/.source.json" 2>/dev/null ||         echo "[constructs-install] WARNING: failed to write .source.json" >&2
 
     echo ""
     print_success "Pack '$pack_slug' installed successfully!"
@@ -845,176 +749,31 @@ PYEOF
         done
     fi
 
-    # Append CTAs if enabled (cycle-037)
-    emit_cta "install" "$pack_slug"
+    # Regenerate construct index after install
+    if [[ -x "$SCRIPT_DIR/construct-index-gen.sh" ]]; then
+        "$SCRIPT_DIR/construct-index-gen.sh" --quiet 2>/dev/null || true
+    fi
 
     return $EXIT_SUCCESS
-}
-
-# Install pack via git clone with base64 fallback
-# @see sprint.md T1.7: Install Script — Git Clone Support
-# Args:
-#   $1 - Pack slug
-#   $2 - Git URL
-#   $3 - Git ref (branch/tag)
-#   $4 - Pack directory (target)
-do_install_pack_git() {
-    local pack_slug="$1"
-    local git_url="$2"
-    local git_ref="${3:-main}"
-    local pack_dir="$4"
-    local last_synced_at="${5:-}"
-
-    # Staleness warning: log if last_synced_at > 7 days ago
-    if [[ -n "$last_synced_at" ]]; then
-        local synced_epoch
-        synced_epoch=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${last_synced_at%%.*}" "+%s" 2>/dev/null || date -d "${last_synced_at}" "+%s" 2>/dev/null || echo "0")
-        local now_epoch
-        now_epoch=$(date "+%s")
-        local seven_days=$((7 * 24 * 60 * 60))
-        if [[ $((now_epoch - synced_epoch)) -gt $seven_days ]]; then
-            print_warning "  Pack was last synced over 7 days ago. Consider asking the author to sync."
-        fi
-    fi
-
-    # Validate HTTPS
-    if [[ ! "$git_url" =~ ^https:// ]]; then
-        print_error "ERROR: Only HTTPS git URLs are allowed"
-        return 1
-    fi
-
-    # Reject credentials in URL (userinfo)
-    if [[ "$git_url" =~ ^https://[^/]*@ ]]; then
-        print_error "ERROR: Git URLs with embedded credentials are not allowed"
-        return 1
-    fi
-
-    # Check git is available
-    if ! command -v git &>/dev/null; then
-        print_error "ERROR: git is not installed"
-        return 1
-    fi
-
-    echo "  Cloning from $git_url (ref: $git_ref)..."
-
-    # Clone to a temp directory first
-    local tmp_clone
-    tmp_clone=$(mktemp -d) || { print_error "mktemp failed"; return 1; }
-
-    local clone_result=0
-    GIT_TERMINAL_PROMPT=0 GIT_LFS_SKIP_SMUDGE=1 \
-        git clone --depth 1 --branch "$git_ref" --single-branch \
-        -c submodule.recurse=false \
-        "$git_url" "$tmp_clone" 2>/dev/null || clone_result=$?
-
-    if [[ $clone_result -ne 0 ]]; then
-        rm -rf "$tmp_clone"
-        print_warning "  Git clone failed (exit $clone_result), falling back to base64 download"
-        return 1
-    fi
-
-    # Remove .git/ directory (no history at install site)
-    rm -rf "$tmp_clone/.git"
-
-    # Tree validation: reject symlinks
-    local symlinks
-    symlinks=$(find "$tmp_clone" -type l 2>/dev/null | head -1)
-    if [[ -n "$symlinks" ]]; then
-        rm -rf "$tmp_clone"
-        print_error "ERROR: Symlinks detected in repository"
-        return 1
-    fi
-
-    # Tree validation: reject path traversal components (.. in path segments)
-    local traversal=0
-    while IFS= read -r -d '' f; do
-        [[ "$f" == "$tmp_clone" ]] && continue
-        local rel="${f#$tmp_clone/}"
-        if [[ "$rel" == "/"* || "$rel" == ".." || "$rel" == "../"* || "$rel" == *"/../"* || "$rel" == *"/.." ]]; then
-            traversal=1
-            break
-        fi
-    done < <(find "$tmp_clone" -print0 2>/dev/null)
-
-    if [[ $traversal -eq 1 ]]; then
-        rm -rf "$tmp_clone"
-        print_error "ERROR: Path traversal detected in repository"
-        return 1
-    fi
-
-    # Verify manifest exists
-    if [[ ! -f "$tmp_clone/construct.yaml" ]] && [[ ! -f "$tmp_clone/manifest.json" ]]; then
-        rm -rf "$tmp_clone"
-        print_error "ERROR: No manifest found in repository"
-        return 1
-    fi
-
-    # Move to pack directory
-    rm -rf "$pack_dir"
-    mv "$tmp_clone" "$pack_dir"
-
-    # Get the git commit for metadata
-    local git_commit="unknown"
-    if command -v git &>/dev/null; then
-        # We removed .git, but we can parse from clone output or use the ref
-        git_commit="$git_ref"
-    fi
-
-    echo "  Clone successful"
-    return 0
-}
-
-# Compute Merkle-root content hash for an installed pack directory.
-# Uses compute_merkle_hash from constructs-lib.sh (same algorithm as API).
-# Excludes license and meta files from hash computation.
-# Args:
-#   $1 - Pack directory
-# Returns: sha256:... hash string
-compute_pack_hash() {
-    local pack_dir="$1"
-
-    if command -v compute_merkle_hash &>/dev/null; then
-        compute_merkle_hash "$pack_dir"
-    else
-        echo ""
-    fi
 }
 
 # Update pack metadata in .constructs-meta.json
 # Args:
 #   $1 - Pack slug
 #   $2 - Pack directory
-#   $3 - Source type (optional: "git" or "registry")
-#   $4 - Git URL (optional)
-#   $5 - Git commit/ref (optional)
 update_pack_meta() {
     local pack_slug="$1"
     local pack_dir="$2"
-    local source_type="${3:-registry}"
-    local git_url="${4:-}"
-    local git_commit="${5:-}"
     local meta_path
     meta_path=$(get_registry_meta_path)
     local now
     now=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
-    # Get pack version from manifest (try construct.yaml first, then manifest.json)
+    # Get pack version from manifest
     local version="unknown"
-    if [[ -f "$pack_dir/construct.yaml" ]] && command -v python3 &>/dev/null; then
-        version=$(python3 -c "
-import yaml, sys
-try:
-    with open('$pack_dir/construct.yaml') as f:
-        d = yaml.safe_load(f)
-    print(d.get('version', 'unknown'))
-except: print('unknown')
-" 2>/dev/null || echo "unknown")
-    fi
-    if [[ "$version" == "unknown" ]]; then
-        local manifest_file="$pack_dir/manifest.json"
-        if [[ -f "$manifest_file" ]]; then
-            version=$(jq -r '.version // "unknown"' "$manifest_file" 2>/dev/null || echo "unknown")
-        fi
+    local manifest_file="$pack_dir/manifest.json"
+    if [[ -f "$manifest_file" ]]; then
+        version=$(jq -r '.version // "unknown"' "$manifest_file" 2>/dev/null || echo "unknown")
     fi
 
     # Get license expiry
@@ -1030,57 +789,23 @@ except: print('unknown')
         skills_json=$(find "$pack_dir/skills" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | jq -R -s 'split("\n") | map(select(length > 0))')
     fi
 
-    # Compute content hash for staleness detection
-    # Convention: null = not computed, string = computed hash
-    local content_hash_raw=""
-    content_hash_raw=$(compute_pack_hash "$pack_dir")
-    local content_hash_json="null"
-    if [[ -n "$content_hash_raw" ]]; then
-        content_hash_json="\"$content_hash_raw\""
-    fi
-
     # Ensure meta file exists
     init_registry_meta
 
-    # Update meta with git fields when applicable
+    # Update meta
     local tmp_file="${meta_path}.tmp"
-    if [[ "$source_type" == "git" ]]; then
-        jq --arg slug "$pack_slug" \
-           --arg version "$version" \
-           --arg installed_at "$now" \
-           --arg license_expires "$license_expires" \
-           --arg source_type "$source_type" \
-           --arg git_url "$git_url" \
-           --arg git_commit "$git_commit" \
-           --argjson content_hash "$content_hash_json" \
-           --argjson skills "$skills_json" \
-           '.installed_packs[$slug] = {
-               "version": $version,
-               "installed_at": $installed_at,
-               "registry": "default",
-               "license_expires": $license_expires,
-               "source_type": $source_type,
-               "git_url": $git_url,
-               "git_commit": $git_commit,
-               "content_hash": $content_hash,
-               "skills": $skills
-           }' "$meta_path" > "$tmp_file" && mv "$tmp_file" "$meta_path"
-    else
-        jq --arg slug "$pack_slug" \
-           --arg version "$version" \
-           --arg installed_at "$now" \
-           --arg license_expires "$license_expires" \
-           --argjson content_hash "$content_hash_json" \
-           --argjson skills "$skills_json" \
-           '.installed_packs[$slug] = {
-               "version": $version,
-               "installed_at": $installed_at,
-               "registry": "default",
-               "license_expires": $license_expires,
-               "content_hash": $content_hash,
-               "skills": $skills
-           }' "$meta_path" > "$tmp_file" && mv "$tmp_file" "$meta_path"
-    fi
+    jq --arg slug "$pack_slug" \
+       --arg version "$version" \
+       --arg installed_at "$now" \
+       --arg license_expires "$license_expires" \
+       --argjson skills "$skills_json" \
+       '.installed_packs[$slug] = {
+           "version": $version,
+           "installed_at": $installed_at,
+           "registry": "default",
+           "license_expires": $license_expires,
+           "skills": $skills
+       }' "$meta_path" > "$tmp_file" && mv "$tmp_file" "$meta_path"
 }
 
 # =============================================================================
@@ -1426,6 +1151,11 @@ do_uninstall_pack() {
     echo ""
     print_success "Pack '$pack_slug' uninstalled successfully!"
 
+    # Regenerate construct index after uninstall
+    if [[ -x "$SCRIPT_DIR/construct-index-gen.sh" ]]; then
+        "$SCRIPT_DIR/construct-index-gen.sh" --quiet 2>/dev/null || true
+    fi
+
     return $EXIT_SUCCESS
 }
 
@@ -1476,210 +1206,6 @@ do_uninstall_skill() {
 }
 
 # =============================================================================
-# Upgrade
-# =============================================================================
-
-# Upgrade a pack to the latest version using 3-way merge
-# Base = shadow (pristine copy from last install)
-# Local = current installation (may have user modifications)
-# Remote = new version from registry
-# Args:
-#   $1 - Pack slug
-#   $2 - Optional flags (--check)
-do_upgrade_pack() {
-    local pack_slug="$1"
-    local check_only="${2:-}"
-    local pack_dir
-    pack_dir="$(get_packs_dir)/$pack_slug"
-
-    validate_safe_identifier "$pack_slug"
-
-    # Verify pack is installed
-    if [[ ! -d "$pack_dir" ]]; then
-        print_error "ERROR: Pack '$pack_slug' is not installed"
-        return $EXIT_NOT_FOUND
-    fi
-
-    # Skip linked constructs
-    if [[ -L "$pack_dir" ]]; then
-        print_warning "Pack '$pack_slug' is linked — use /construct-sync instead"
-        return $EXIT_ERROR
-    fi
-
-    print_status "$icon_valid" "Checking for updates: $pack_slug"
-
-    # Get current installed version from meta
-    local meta_path
-    meta_path=$(get_registry_meta_path)
-    local current_version="unknown"
-    if [[ -f "$meta_path" ]]; then
-        current_version=$(jq -r ".installed_packs[\"$pack_slug\"].version // \"unknown\"" "$meta_path" 2>/dev/null || echo "unknown")
-    fi
-
-    # Get latest version from registry
-    local api_key registry_url
-    api_key=$(get_api_key)
-    registry_url=$(get_registry_url)
-
-    if [[ -z "$api_key" ]]; then
-        print_error "ERROR: No API key found"
-        return $EXIT_AUTH_ERROR
-    fi
-
-    local latest_version=""
-    local version_info
-    version_info=$(curl -s --proto =https --tlsv1.2 --max-time 30 \
-        -H "Authorization: Bearer $api_key" \
-        "$registry_url/packs/$pack_slug" 2>/dev/null || echo "")
-
-    if [[ -n "$version_info" ]]; then
-        latest_version=$(echo "$version_info" | jq -r '.data.latest_version.version // ""' 2>/dev/null || echo "")
-    fi
-
-    if [[ -z "$latest_version" ]]; then
-        print_error "ERROR: Could not fetch latest version from registry"
-        return $EXIT_NETWORK_ERROR
-    fi
-
-    echo "  Installed: $current_version"
-    echo "  Latest:    $latest_version"
-
-    if [[ "$current_version" == "$latest_version" ]]; then
-        print_success "Already up to date"
-        return $EXIT_SUCCESS
-    fi
-
-    if [[ "$check_only" == "--check" ]]; then
-        echo ""
-        echo "Update available: $current_version → $latest_version"
-        return $EXIT_SUCCESS
-    fi
-
-    echo ""
-    echo "Upgrading $pack_slug: $current_version → $latest_version"
-
-    # Phase 1: Backup current installation
-    local backup_dir="${pack_dir}.upgrade-backup"
-    cp -r "$pack_dir" "$backup_dir"
-
-    # Phase 2: Get shadow (base version) for 3-way merge
-    local construct_dir
-    construct_dir=$(get_construct_dir)
-    local shadow_dir="$construct_dir/shadow/$pack_slug"
-
-    local has_shadow=false
-    if [[ -d "$shadow_dir" ]]; then
-        has_shadow=true
-    fi
-
-    # Phase 3: Download new version to temp
-    local tmp_new
-    tmp_new=$(mktemp -d) || { print_error "mktemp failed"; return 1; }
-
-    echo "  Downloading new version..."
-    if ! do_install_pack "$pack_slug" 2>/dev/null; then
-        # Restore backup on failure
-        rm -rf "$pack_dir"
-        mv "$backup_dir" "$pack_dir"
-        rm -rf "$tmp_new"
-        print_error "ERROR: Failed to download new version"
-        return $EXIT_NETWORK_ERROR
-    fi
-
-    # The install overwrote pack_dir — move it to tmp and restore backup
-    mv "$pack_dir" "$tmp_new/new"
-    mv "$backup_dir" "$pack_dir"
-
-    # Phase 4: 3-way merge
-    local merged=0
-    local conflicts=0
-    local auto_updated=0
-
-    if [[ "$has_shadow" == true ]]; then
-        echo "  Performing 3-way merge (shadow=base, current=local, new=remote)..."
-
-        # For each file in the new version
-        while IFS= read -r -d '' new_file; do
-            local rel_path="${new_file#$tmp_new/new/}"
-            local local_file="$pack_dir/$rel_path"
-            local base_file="$shadow_dir/$rel_path"
-
-            if [[ -d "$new_file" ]]; then
-                mkdir -p "$local_file"
-                continue
-            fi
-
-            if [[ ! -f "$local_file" ]]; then
-                # New file from upstream — add it
-                mkdir -p "$(dirname "$local_file")"
-                cp "$new_file" "$local_file"
-                auto_updated=$((auto_updated + 1))
-            elif [[ ! -f "$base_file" ]]; then
-                # No base — can't 3-way merge, keep local
-                conflicts=$((conflicts + 1))
-            else
-                # All three exist — check if local was modified
-                local base_hash local_hash new_hash
-                base_hash=$(compute_file_sha256 "$base_file")
-                local_hash=$(compute_file_sha256 "$local_file")
-                new_hash=$(compute_file_sha256 "$new_file")
-
-                if [[ "$local_hash" == "$base_hash" ]]; then
-                    # Local unchanged — accept remote
-                    cp "$new_file" "$local_file"
-                    auto_updated=$((auto_updated + 1))
-                elif [[ "$new_hash" == "$base_hash" ]]; then
-                    # Remote unchanged — keep local
-                    merged=$((merged + 1))
-                elif [[ "$local_hash" == "$new_hash" ]]; then
-                    # Same change both sides — no action needed
-                    merged=$((merged + 1))
-                else
-                    # True conflict — keep local, save remote as .upstream
-                    cp "$new_file" "${local_file}.upstream"
-                    conflicts=$((conflicts + 1))
-                fi
-            fi
-        done < <(find "$tmp_new/new" -type f -print0 2>/dev/null)
-    else
-        echo "  No shadow found — performing full replacement..."
-        rm -rf "$pack_dir"
-        mv "$tmp_new/new" "$pack_dir"
-        auto_updated=1
-    fi
-
-    # Phase 5: Update shadow to new version
-    preserve_shadow "$pack_slug" "${tmp_new}/new" 2>/dev/null || true
-
-    # Phase 6: Update metadata
-    update_pack_meta "$pack_slug" "$pack_dir"
-
-    # Phase 7: Re-link skills and commands (new skills from upgrade become discoverable)
-    local skills_linked commands_linked
-    skills_linked=$(symlink_pack_skills "$pack_slug" 2>/dev/null)
-    skills_linked=${skills_linked:-0}
-    commands_linked=$(symlink_pack_commands "$pack_slug" 2>/dev/null)
-    commands_linked=${commands_linked:-0}
-
-    # Cleanup
-    rm -rf "$tmp_new" "$backup_dir"
-
-    echo ""
-    echo "  Auto-updated: $auto_updated files"
-    echo "  Kept local:   $merged files"
-    if [[ $conflicts -gt 0 ]]; then
-        print_warning "  Conflicts:    $conflicts files (check .upstream files)"
-    fi
-    if [[ "$skills_linked" -gt 0 ]] || [[ "$commands_linked" -gt 0 ]]; then
-        echo "  Skills linked: $skills_linked, Commands linked: $commands_linked"
-    fi
-    echo ""
-    print_success "Pack '$pack_slug' upgraded to $latest_version"
-
-    return $EXIT_SUCCESS
-}
-
-# =============================================================================
 # Re-link Commands (for manual fixing)
 # =============================================================================
 
@@ -1724,665 +1250,6 @@ do_link_commands() {
     return $EXIT_SUCCESS
 }
 
-# Re-link pack skills (useful after updates, local dev, or post-upgrade)
-# Args:
-#   $1 - Pack slug (or "all" for all packs)
-do_link_skills() {
-    local pack_slug="$1"
-    local packs_dir
-    packs_dir=$(get_packs_dir)
-
-    if [[ "$pack_slug" == "all" ]]; then
-        # Link all packs
-        local total_linked=0
-        local total_stale=0
-        for pack_path in "$packs_dir"/*/; do
-            [[ -d "$pack_path" ]] || continue
-            local slug
-            slug=$(basename "$pack_path")
-
-            echo "Linking skills for pack: $slug"
-            local linked
-            linked=$(symlink_pack_skills "$slug")
-            echo "  Created $linked skill symlinks"
-            total_linked=$((total_linked + linked))
-        done
-
-        # Clean stale skill symlinks
-        local stale
-        stale=$(clean_stale_skill_symlinks)
-        total_stale=$stale
-
-        echo ""
-        print_success "Total: $total_linked skill symlinks created"
-        if [[ $total_stale -gt 0 ]]; then
-            echo "  Removed $total_stale stale skill symlinks"
-        fi
-    else
-        # Link specific pack
-        local pack_dir="$packs_dir/$pack_slug"
-        if [[ ! -d "$pack_dir" ]]; then
-            print_error "ERROR: Pack '$pack_slug' is not installed"
-            return $EXIT_NOT_FOUND
-        fi
-
-        echo "Linking skills for pack: $pack_slug"
-        local linked
-        linked=$(symlink_pack_skills "$pack_slug")
-        print_success "Created $linked skill symlinks"
-    fi
-
-    return $EXIT_SUCCESS
-}
-
-# Re-link both skills and commands for a pack (combined convenience)
-# Args:
-#   $1 - Pack slug (or "all" for all packs)
-do_link_all() {
-    local pack_slug="$1"
-
-    echo "=== Linking skills ==="
-    do_link_skills "$pack_slug"
-    echo ""
-    echo "=== Linking commands ==="
-    do_link_commands "$pack_slug"
-}
-
-# Remove stale skill symlinks that point to nonexistent pack skill directories
-# Returns: Number of stale symlinks removed
-clean_stale_skill_symlinks() {
-    local repo_root
-    repo_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
-    local skills_dir="$repo_root/.claude/skills"
-    local removed=0
-
-    [[ -d "$skills_dir" ]] || { echo "0"; return 0; }
-
-    # Use find -type l to catch dangling symlinks (glob */ skips them)
-    while IFS= read -r -d '' link_path; do
-        [[ -L "$link_path" ]] || continue
-
-        local target
-        target=$(readlink "$link_path" 2>/dev/null || echo "")
-
-        # Only manage canonical relative links we create:
-        # ../constructs/packs/<slug>/skills/<skill>
-        [[ "$target" =~ ^[.][.]/constructs/packs/[^/]+/skills/[^/]+$ ]] || continue
-
-        # Check if the target actually exists (resolve relative to symlink dir)
-        local resolved="$skills_dir/$target"
-        if [[ ! -d "$resolved" ]]; then
-            rm -f "$link_path"
-            ((removed++))
-        fi
-    done < <(find "$skills_dir" -mindepth 1 -maxdepth 1 -type l -print0 2>/dev/null)
-
-    echo "$removed"
-}
-
-# =============================================================================
-# CLAUDE.md Injection — Sentinel Block Architecture (SDD §F / §7.2)
-# =============================================================================
-#
-# Architecture: Single Managed Import
-#   Root CLAUDE.md gets ONE sentinel block with ONE @import to a managed file.
-#   Individual construct imports are added to the managed file only.
-#   This means root CLAUDE.md is mutated once, then never again.
-#
-# Layout:
-#   Root CLAUDE.md:
-#     @.claude/loa/CLAUDE.loa.md              (Loa framework - existing)
-#     <!-- constructs:begin -->
-#     @.claude/constructs/CLAUDE.constructs.md (single managed import)
-#     <!-- constructs:end -->
-#
-#   .claude/constructs/CLAUDE.constructs.md:   (managed by installer)
-#     @.claude/constructs/packs/observer/CLAUDE.md
-#     @.claude/constructs/packs/artisan/CLAUDE.md
-# =============================================================================
-
-# Portable mkdir-based lock (macOS + Linux compatible)
-_inject_lock_dir=""
-
-_inject_acquire_lock() {
-    local root="${CONSTRUCTS_ROOT:-.}"
-    _inject_lock_dir="$root/.constructs-inject.lock"
-    local timeout=10
-    local start=$SECONDS
-
-    while ! mkdir "$_inject_lock_dir" 2>/dev/null; do
-        if [ $((SECONDS - start)) -ge $timeout ]; then
-            # Check for stale lock via PID file
-            if [ -f "$_inject_lock_dir/pid" ]; then
-                local lock_pid
-                lock_pid=$(cat "$_inject_lock_dir/pid")
-                if ! kill -0 "$lock_pid" 2>/dev/null; then
-                    rm -rf "$_inject_lock_dir"
-                    continue
-                fi
-            fi
-            echo "ERROR: Lock held >${timeout}s. Another install may be running." >&2
-            return 1
-        fi
-        sleep 0.5
-    done
-    echo $$ > "$_inject_lock_dir/pid"
-}
-
-_inject_release_lock() {
-    if [ -n "$_inject_lock_dir" ] && [ -d "$_inject_lock_dir" ]; then
-        rm -rf "$_inject_lock_dir"
-    fi
-}
-
-# Validate slug format and reject symlinks on path components
-_inject_validate_paths() {
-    local slug="$1"
-    local root="${CONSTRUCTS_ROOT:-.}"
-
-    # Validate slug format (kebab-case, matches construct.schema.json pattern)
-    if ! echo "$slug" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
-        echo "ERROR: Invalid slug format: $slug" >&2
-        return 1
-    fi
-
-    # Check for symlinks on critical paths (pre-lock, defense-in-depth)
-    # NOTE: Authoritative symlink check is inside inject_construct_claude_md()
-    # after lock acquisition. This early check is an optimization to fail fast
-    # before attempting lock. TOCTOU between here and the post-lock check is
-    # mitigated by the redundant check after lock (see inject_construct_claude_md).
-    if [ -L "$root/CLAUDE.md" ]; then
-        echo "ERROR: CLAUDE.md is a symlink — refusing to modify" >&2
-        return 1
-    fi
-}
-
-# Inject a construct's CLAUDE.md import into the managed file + sentinel block
-# Usage: inject_construct_claude_md <slug>
-# Environment: CONSTRUCTS_ROOT (optional, defaults to ".")
-inject_construct_claude_md() {
-    local slug="$1"
-    local root="${CONSTRUCTS_ROOT:-.}"
-    local claude_md="$root/CLAUDE.md"
-    local managed_dir="$root/.claude/constructs"
-    local managed_file="$managed_dir/CLAUDE.constructs.md"
-    local import_line="@.claude/constructs/packs/${slug}/CLAUDE.md"
-    local managed_import="@.claude/constructs/CLAUDE.constructs.md"
-    local sentinel_begin="<!-- constructs:begin -->"
-    local sentinel_end="<!-- constructs:end -->"
-
-    # Step 1: Validate paths
-    _inject_validate_paths "$slug" || return 1
-
-    # Step 2: Acquire lock
-    _inject_acquire_lock || return 1
-    # Ensure lock is released on exit
-    trap '_inject_release_lock' EXIT
-
-    # Step 3: Update managed file (create dir if needed)
-    mkdir -p "$managed_dir"
-
-    if [ -f "$managed_file" ] && grep -qF "$import_line" "$managed_file" 2>/dev/null; then
-        # Already present — idempotent, skip
-        :
-    else
-        # Append import line via atomic write
-        local tmp_managed
-        tmp_managed=$(mktemp "$managed_dir/CLAUDE.constructs.md.XXXXXX")
-        if [ -f "$managed_file" ]; then
-            cat "$managed_file" > "$tmp_managed"
-        fi
-        echo "$import_line" >> "$tmp_managed"
-        mv "$tmp_managed" "$managed_file"
-    fi
-
-    # Step 4: Ensure sentinel block in root CLAUDE.md
-    if [ -L "$claude_md" ]; then
-        echo "ERROR: CLAUDE.md is a symlink — refusing to modify" >&2
-        _inject_release_lock
-        trap - EXIT
-        return 1
-    fi
-
-    if [ -f "$claude_md" ]; then
-        # Check if sentinel already present
-        if grep -qF "$sentinel_begin" "$claude_md" 2>/dev/null; then
-            # Sentinel exists — check if managed import is inside
-            if grep -qF "$managed_import" "$claude_md" 2>/dev/null; then
-                # All good, nothing to do
-                :
-            else
-                # Sentinel exists but managed import missing — malformed state
-                echo "WARNING: Sentinel block exists but managed import missing. Adding import." >&2
-                local tmp_claude
-                tmp_claude=$(mktemp "$root/CLAUDE.md.XXXXXX")
-                # Insert managed import after sentinel_begin
-                while IFS= read -r line || [ -n "$line" ]; do
-                    echo "$line" >> "$tmp_claude"
-                    if [ "$line" = "$sentinel_begin" ]; then
-                        echo "$managed_import" >> "$tmp_claude"
-                    fi
-                done < "$claude_md"
-                mv "$tmp_claude" "$claude_md"
-            fi
-        else
-            # No sentinel — add it
-            local tmp_claude
-            tmp_claude=$(mktemp "$root/CLAUDE.md.XXXXXX")
-            cat "$claude_md" > "$tmp_claude"
-            # Append sentinel block at end
-            {
-                echo ""
-                echo "$sentinel_begin"
-                echo "$managed_import"
-                echo "$sentinel_end"
-            } >> "$tmp_claude"
-            mv "$tmp_claude" "$claude_md"
-        fi
-    else
-        # No CLAUDE.md — create with sentinel block
-        local tmp_claude
-        tmp_claude=$(mktemp "$root/CLAUDE.md.XXXXXX")
-        {
-            echo "$sentinel_begin"
-            echo "$managed_import"
-            echo "$sentinel_end"
-        } > "$tmp_claude"
-        mv "$tmp_claude" "$claude_md"
-    fi
-
-    # Step 5: Release lock
-    _inject_release_lock
-    trap - EXIT
-    return 0
-}
-
-# Remove a construct's import from the managed file
-# Usage: remove_construct_claude_md <slug>
-# Environment: CONSTRUCTS_ROOT (optional, defaults to ".")
-remove_construct_claude_md() {
-    local slug="$1"
-    local root="${CONSTRUCTS_ROOT:-.}"
-    local managed_dir="$root/.claude/constructs"
-    local managed_file="$managed_dir/CLAUDE.constructs.md"
-    local import_line="@.claude/constructs/packs/${slug}/CLAUDE.md"
-
-    # Step 1: Validate slug
-    if ! echo "$slug" | grep -qE '^[a-z0-9][a-z0-9-]*[a-z0-9]$'; then
-        echo "ERROR: Invalid slug format: $slug" >&2
-        return 1
-    fi
-
-    # Step 2: Acquire lock
-    _inject_acquire_lock || return 1
-    trap '_inject_release_lock' EXIT
-
-    # Step 3: Remove import from managed file
-    if [ -f "$managed_file" ]; then
-        local tmp_managed
-        tmp_managed=$(mktemp "$managed_dir/CLAUDE.constructs.md.XXXXXX")
-        grep -vF "$import_line" "$managed_file" > "$tmp_managed" 2>/dev/null || true
-        mv "$tmp_managed" "$managed_file"
-    fi
-
-    # Step 4: Release lock
-    _inject_release_lock
-    trap - EXIT
-    return 0
-}
-
-# =============================================================================
-# Sync Subcommand
-# =============================================================================
-
-# Trigger server-side sync for a git-sourced construct
-# Args:
-#   $1 - Pack slug
-do_sync_pack() {
-    local pack_slug="$1"
-
-    print_status "$icon_valid" "Syncing construct: $pack_slug"
-
-    # Get authentication
-    local api_key
-    api_key=$(get_api_key)
-    if [[ -z "$api_key" ]]; then
-        print_error "ERROR: No API key found. Run /constructs auth setup"
-        return $EXIT_AUTH_ERROR
-    fi
-
-    local registry_url
-    registry_url=$(get_registry_url)
-
-    # SHELL-002: Use curl config file to avoid exposing API key in process list
-    local curl_config
-    curl_config=$(mktemp)
-    chmod 600 "$curl_config"
-
-    # Prevent curl config injection via CR/LF or quote characters in API key
-    if [[ "$api_key" == *$'\n'* || "$api_key" == *$'\r'* || "$api_key" == *'"'* ]]; then
-        print_error "Invalid API key format"
-        rm -f "$curl_config"
-        return $EXIT_AUTH_ERROR
-    fi
-    printf 'header = "Authorization: Bearer %s"\n' "$api_key" > "$curl_config"
-
-    echo "  POST ${registry_url}/packs/${pack_slug}/sync"
-
-    local tmp_file
-    tmp_file=$(mktemp)
-    chmod 600 "$tmp_file"
-
-    local http_code
-    http_code=$(curl -s -w "%{http_code}" \
-        --config "$curl_config" \
-        --proto =https --tlsv1.2 --max-time 120 \
-        -X POST \
-        "${registry_url}/packs/${pack_slug}/sync" \
-        -o "$tmp_file" 2>/dev/null) || {
-        rm -f "$curl_config" "$tmp_file"
-        print_error "ERROR: Network error — could not reach registry"
-        return $EXIT_NETWORK_ERROR
-    }
-
-    rm -f "$curl_config"
-
-    case "$http_code" in
-        200)
-            local version commit files_synced
-            version=$(jq -r '.data.version // "unknown"' "$tmp_file" 2>/dev/null)
-            commit=$(jq -r '.data.commit // "unknown"' "$tmp_file" 2>/dev/null)
-            files_synced=$(jq -r '.data.files_synced // 0' "$tmp_file" 2>/dev/null)
-
-            echo ""
-            print_success "Sync complete: $pack_slug"
-            echo "  Version: $version"
-            echo "  Commit:  $commit"
-            echo "  Files:   $files_synced synced"
-
-            # Check if installed locally — suggest reinstall if version changed
-            local meta_path
-            meta_path=$(get_registry_meta_path)
-            if [[ -f "$meta_path" ]]; then
-                local local_version
-                local_version=$(jq -r ".installed_packs[\"$pack_slug\"].version // \"\"" "$meta_path" 2>/dev/null)
-                if [[ -n "$local_version" && "$local_version" != "$version" ]]; then
-                    echo ""
-                    echo "  Local install is at $local_version — run /constructs install $pack_slug to update"
-                fi
-            fi
-
-            rm -f "$tmp_file"
-            return $EXIT_SUCCESS
-            ;;
-        401|403)
-            print_error "ERROR: Authentication failed. Check your API key."
-            rm -f "$tmp_file"
-            return $EXIT_AUTH_ERROR
-            ;;
-        404)
-            print_error "ERROR: Pack '$pack_slug' not found or not git-sourced"
-            rm -f "$tmp_file"
-            return $EXIT_NOT_FOUND
-            ;;
-        429)
-            print_error "ERROR: Rate limited. Maximum 10 syncs per hour."
-            rm -f "$tmp_file"
-            return $EXIT_ERROR
-            ;;
-        *)
-            local error_msg
-            error_msg=$(jq -r '.error.message // "Unknown error"' "$tmp_file" 2>/dev/null)
-            print_error "ERROR: Sync failed (HTTP $http_code): $error_msg"
-            rm -f "$tmp_file"
-            return $EXIT_ERROR
-            ;;
-    esac
-}
-
-# =============================================================================
-# Status Subcommand
-# =============================================================================
-
-# Show sync status for installed constructs
-# Makes O(2n) HTTP calls where n = installed packs (registry + hash per pack).
-# Acceptable for typical install counts (1-10 packs).
-# Args:
-#   $1 - Pack slug (optional — if empty, show all installed packs)
-do_status_pack() {
-    local pack_slug="${1:-}"
-    local meta_path
-    meta_path=$(get_registry_meta_path)
-
-    if [[ ! -f "$meta_path" ]]; then
-        print_warning "No constructs installed. Run /constructs install <pack> first."
-        return $EXIT_SUCCESS
-    fi
-
-    local registry_url
-    registry_url=$(get_registry_url)
-
-    if [[ -n "$pack_slug" ]]; then
-        # Single pack status — always use detailed format
-        show_pack_status "$pack_slug" "$meta_path" "$registry_url"
-    else
-        # All installed packs
-        local slugs
-        slugs=$(jq -r '.installed_packs | keys[]' "$meta_path" 2>/dev/null)
-        if [[ -z "$slugs" ]]; then
-            echo "No packs installed."
-            return $EXIT_SUCCESS
-        fi
-
-        # Collect all pack data into JSON array (shared data collection)
-        local status_json="[]"
-        while IFS= read -r slug; do
-            local lv rv sl
-            lv=$(jq -r ".installed_packs[\"$slug\"].version // \"unknown\"" "$meta_path" 2>/dev/null)
-            local lh
-            lh=$(jq -r ".installed_packs[\"$slug\"].content_hash // \"\"" "$meta_path" 2>/dev/null)
-
-            # Fetch registry version (non-blocking)
-            rv="unknown"
-            local tmp_file
-            tmp_file=$(mktemp)
-            chmod 600 "$tmp_file"
-            local http_code
-            http_code=$(curl -s -w "%{http_code}" \
-                --proto =https --tlsv1.2 --max-time 10 \
-                "${registry_url}/constructs/${slug}" \
-                -o "$tmp_file" 2>/dev/null) || http_code="000"
-            if [[ "$http_code" == "200" ]]; then
-                rv=$(jq -r '.data.version // .data.latest_version.version // "unknown"' "$tmp_file" 2>/dev/null)
-            fi
-            rm -f "$tmp_file"
-
-            # Fetch registry hash for divergence detection (bridge-review medium-2)
-            local rh=""
-            local hash_file
-            hash_file=$(mktemp)
-            chmod 600 "$hash_file"
-            local hash_code
-            hash_code=$(curl -s -w "%{http_code}" \
-                --proto =https --tlsv1.2 --max-time 10 \
-                "${registry_url}/packs/${slug}/hash" \
-                -o "$hash_file" 2>/dev/null) || hash_code="000"
-            if [[ "$hash_code" == "200" ]]; then
-                rh=$(jq -r '.data.hash // ""' "$hash_file" 2>/dev/null)
-            fi
-            rm -f "$hash_file"
-
-            # Determine status label (with full hash divergence detection)
-            sl="UNKNOWN"
-            if [[ -z "$lh" ]]; then
-                if [[ "$lv" == "$rv" && "$rv" != "unknown" ]]; then sl="UNKNOWN"; else sl="BEHIND"; fi
-            elif [[ -n "$rh" ]]; then
-                if [[ "$lh" == "$rh" ]]; then
-                    sl="SYNCED"
-                elif [[ "$lv" != "$rv" && "$rv" != "unknown" ]]; then
-                    sl="BEHIND"
-                else
-                    sl="DIVERGED"
-                fi
-            else
-                sl="SYNCED"
-                if [[ "$lv" != "$rv" && "$rv" != "unknown" ]]; then sl="BEHIND"; fi
-            fi
-
-            status_json=$(echo "$status_json" | jq --arg s "$slug" \
-                --arg v "$lv" --arg rv "$rv" --arg st "$sl" \
-                '. += [{"slug":$s,"local":$v,"registry":$rv,"status":$st}]')
-        done <<< "$slugs"
-
-        local fmt
-        fmt=$(get_output_format)
-
-        if [[ "$fmt" == "toon" || "$fmt" == "json" ]]; then
-            format_tabular_output "status" "$status_json" "$status_json" "_show_all_packs_md"
-        else
-            # Default markdown: render from collected data
-            _render_status_md "$status_json" "$meta_path" "$registry_url"
-        fi
-    fi
-
-    # Append CTAs if enabled
-    emit_cta "status"
-
-    return $EXIT_SUCCESS
-}
-
-# Markdown fallback for format_tabular_output — renders from collected status_json
-# Args: $1 = JSON array of status objects
-_show_all_packs_md() {
-    local status_json="$1"
-    local meta_path
-    meta_path=$(get_registry_meta_path)
-    local registry_url
-    registry_url=$(get_registry_url)
-
-    _render_status_md "$status_json" "$meta_path" "$registry_url"
-}
-
-# Render markdown status from pre-collected data (shared by both md and TOON-fallback paths)
-# Args: $1 = status_json, $2 = meta_path, $3 = registry_url
-_render_status_md() {
-    local status_json="$1"
-    local meta_path="$2"
-    local registry_url="$3"
-
-    echo "Construct Status"
-    echo "════════════════════════════════════════"
-    echo ""
-
-    local slugs
-    slugs=$(jq -r '.installed_packs | keys[]' "$meta_path" 2>/dev/null)
-    while IFS= read -r slug; do
-        show_pack_status "$slug" "$meta_path" "$registry_url"
-        echo ""
-    done <<< "$slugs"
-}
-
-# Show status for a single pack
-# Args:
-#   $1 - Pack slug
-#   $2 - Meta file path
-#   $3 - Registry URL
-show_pack_status() {
-    local slug="$1"
-    local meta_path="$2"
-    local registry_url="$3"
-
-    # Read local data
-    local local_version local_installed_at local_source_type local_git_url local_content_hash
-    local_version=$(jq -r ".installed_packs[\"$slug\"].version // \"unknown\"" "$meta_path" 2>/dev/null)
-    local_installed_at=$(jq -r ".installed_packs[\"$slug\"].installed_at // \"unknown\"" "$meta_path" 2>/dev/null)
-    local_source_type=$(jq -r ".installed_packs[\"$slug\"].source_type // \"registry\"" "$meta_path" 2>/dev/null)
-    local_git_url=$(jq -r ".installed_packs[\"$slug\"].git_url // \"\"" "$meta_path" 2>/dev/null)
-    local_content_hash=$(jq -r ".installed_packs[\"$slug\"].content_hash // \"\"" "$meta_path" 2>/dev/null)
-
-    echo "Pack: $slug"
-    echo "  Installed: $local_version ($local_installed_at)"
-
-    # Fetch registry data (non-blocking — graceful on failure)
-    local registry_version="unknown"
-    local registry_hash=""
-    local tmp_file
-    tmp_file=$(mktemp)
-    chmod 600 "$tmp_file"
-
-    local http_code
-    http_code=$(curl -s -w "%{http_code}" \
-        --proto =https --tlsv1.2 --max-time 10 \
-        "${registry_url}/constructs/${slug}" \
-        -o "$tmp_file" 2>/dev/null) || http_code="000"
-
-    if [[ "$http_code" == "200" ]]; then
-        registry_version=$(jq -r '.data.version // .data.latest_version.version // "unknown"' "$tmp_file" 2>/dev/null)
-        local registry_updated
-        registry_updated=$(jq -r '.data.updated_at // "unknown"' "$tmp_file" 2>/dev/null)
-        echo "  Registry:  $registry_version ($registry_updated)"
-    else
-        echo "  Registry:  [unavailable]"
-    fi
-    rm -f "$tmp_file"
-
-    # Source info
-    if [[ "$local_source_type" == "git" && -n "$local_git_url" ]]; then
-        echo "  Source:    git ($local_git_url)"
-    else
-        echo "  Source:    registry"
-    fi
-
-    # Fetch content hash for divergence detection
-    # NOTE: O(2n) HTTP calls per pack — registry metadata + hash endpoint.
-    # Acceptable for CLI status; optimize if used in CI or batch contexts.
-    local registry_hash_value=""
-    local hash_file
-    hash_file=$(mktemp)
-    chmod 600 "$hash_file"
-
-    local hash_code
-    hash_code=$(curl -s -w "%{http_code}" \
-        --proto =https --tlsv1.2 --max-time 10 \
-        "${registry_url}/packs/${slug}/hash" \
-        -o "$hash_file" 2>/dev/null) || hash_code="000"
-
-    if [[ "$hash_code" == "200" ]]; then
-        registry_hash_value=$(jq -r '.data.hash // ""' "$hash_file" 2>/dev/null)
-    fi
-    rm -f "$hash_file"
-
-    # Combined version + content-hash status
-    if [[ -z "$local_content_hash" ]]; then
-        # No local hash — installed before hash tracking was added
-        if [[ "$registry_version" != "unknown" && "$local_version" != "unknown" ]]; then
-            if [[ "$local_version" == "$registry_version" ]]; then
-                echo "  Status:    [UNKNOWN] — reinstall to compute hash"
-            else
-                echo "  Status:    [BEHIND] — registry has $registry_version"
-            fi
-        else
-            echo "  Status:    [UNKNOWN]"
-        fi
-    elif [[ -n "$registry_hash_value" ]]; then
-        # Both hashes available — compare
-        if [[ "$local_content_hash" == "$registry_hash_value" ]]; then
-            echo "  Status:    [SYNCED]"
-        elif [[ "$local_version" != "$registry_version" && "$registry_version" != "unknown" ]]; then
-            echo "  Status:    [BEHIND] — registry has $registry_version"
-        else
-            echo "  Status:    [DIVERGED] — local files modified"
-        fi
-    else
-        # No registry hash — can't compare
-        if [[ "$local_version" == "$registry_version" && "$registry_version" != "unknown" ]]; then
-            echo "  Status:    [SYNCED] (version match, hash unavailable)"
-        else
-            echo "  Status:    [UNKNOWN]"
-        fi
-    fi
-}
-
 # =============================================================================
 # Command Line Interface
 # =============================================================================
@@ -2396,13 +1263,7 @@ Commands:
     skill <vendor/slug>      Install a skill from the registry
     uninstall pack <slug>    Uninstall a pack
     uninstall skill <slug>   Uninstall a skill
-    upgrade <slug> [version] Upgrade a pack to latest or specified version
     link-commands <slug>     Re-link pack commands (use "all" for all packs)
-    link-skills <slug>       Re-link pack skills (use "all" for all packs)
-    link <slug>              Re-link both skills and commands (use "all" for all)
-    register <slug> [opts]   Register a new construct (delegates to constructs-register.sh)
-    sync <slug>              Sync a git-sourced construct from registry
-    status [slug]            Show sync status for installed constructs
 
 Exit Codes:
     0 = success
@@ -2423,8 +1284,6 @@ Examples:
     constructs-install.sh skill thj/terraform-assistant
     constructs-install.sh uninstall pack gtm-collective
     constructs-install.sh link-commands all
-    constructs-install.sh link-skills all
-    constructs-install.sh link all
 
 Authentication:
     Set LOA_CONSTRUCTS_API_KEY environment variable, or create:
@@ -2435,6 +1294,111 @@ After Installation:
     Skills will be available in the skill loader (constructs-loader.sh list)
 EOF
 }
+
+# =============================================================================
+# Upgrade Subcommand (Cycle-001 C-3 Three-Way Merge)
+# =============================================================================
+
+# Upgrade an installed pack with three-way merge semantics
+# Args:
+#   $1 - Pack slug
+do_upgrade_pack() {
+    local pack_slug="$1"
+    local packs_dir
+    packs_dir=$(get_packs_dir)
+    local pack_dir="$packs_dir/$pack_slug"
+
+    if [[ ! -d "$pack_dir" ]]; then
+        print_error "ERROR: Pack '$pack_slug' is not installed"
+        return $EXIT_NOT_FOUND
+    fi
+
+    local source_json="$pack_dir/.source.json"
+    if [[ ! -f "$source_json" ]]; then
+        print_error "ERROR: No .source.json found for '$pack_slug'. Cannot compute three-way merge."
+        return $EXIT_ERROR
+    fi
+
+    local base_commit source_repo
+    base_commit=$(jq -r '.source_commit // empty' "$source_json" 2>/dev/null || echo "")
+    source_repo=$(jq -r '.source_repo // empty' "$source_json" 2>/dev/null || echo "")
+
+    if [[ -z "$base_commit" || "$base_commit" == "unknown" ]]; then
+        print_error "ERROR: base_commit is unknown or missing in .source.json. Cannot merge."
+        return $EXIT_ERROR
+    fi
+
+    # Check git is available
+    if ! command -v git &>/dev/null; then
+        print_error "ERROR: git is required for upgrade"
+        return $EXIT_ERROR
+    fi
+
+    # Compute diffs
+    local local_diff upstream_diff
+    local_diff=$(git -C "$pack_dir" diff "$base_commit" -- . 2>/dev/null || echo "")
+    upstream_diff=$(git -C "$pack_dir" fetch origin main 2>/dev/null &&                     git -C "$pack_dir" diff "$base_commit"..FETCH_HEAD -- . 2>/dev/null || echo "")
+
+    # Decision tree
+    if [[ -z "$local_diff" && -z "$upstream_diff" ]]; then
+        echo "Already up to date."
+        return $EXIT_SUCCESS
+    fi
+
+    if [[ -z "$local_diff" && -n "$upstream_diff" ]]; then
+        # Fast-forward: no local edits, upstream changed
+        echo "Fast-forward: applying upstream changes..."
+        git -C "$pack_dir" merge --ff-only FETCH_HEAD 2>/dev/null || {
+            print_error "Fast-forward merge failed"
+            return $EXIT_ERROR
+        }
+        # Update .source.json
+        local new_commit
+        new_commit=$(git -C "$pack_dir" rev-parse HEAD 2>/dev/null || echo "unknown")
+        local now_ts
+        now_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        printf '{"source_repo":"%s","source_commit":"%s","installed_at":"%s"}'             "$source_repo" "$new_commit" "$now_ts" > "$source_json"
+        print_success "Pack '$pack_slug' upgraded successfully"
+        return $EXIT_SUCCESS
+    fi
+
+    if [[ -n "$local_diff" && -z "$upstream_diff" ]]; then
+        echo "No upstream changes. Local edits preserved."
+        return $EXIT_SUCCESS
+    fi
+
+    # Conflict: both local and upstream have changes
+    local local_lines upstream_lines
+    local_lines=$(echo "$local_diff" | wc -l | tr -d ' ')
+    upstream_lines=$(echo "$upstream_diff" | wc -l | tr -d ' ')
+
+    echo ""
+    echo "Conflict: local edits exist and upstream has changed."
+    echo "  Local changes:    $local_lines lines"
+    echo "  Upstream changes: $upstream_lines lines"
+    echo ""
+    printf "Apply upstream and discard local? [y/N]: "
+    local answer
+    read -r answer || answer="N"
+
+    if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
+        git -C "$pack_dir" reset --hard FETCH_HEAD 2>/dev/null || {
+            print_error "Failed to apply upstream"
+            return $EXIT_ERROR
+        }
+        local new_commit
+        new_commit=$(git -C "$pack_dir" rev-parse HEAD 2>/dev/null || echo "unknown")
+        local now_ts
+        now_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        printf '{"source_repo":"%s","source_commit":"%s","installed_at":"%s"}'             "$source_repo" "$new_commit" "$now_ts" > "$source_json"
+        print_success "Pack '$pack_slug' upgraded (local edits discarded)"
+    else
+        echo "Upgrade cancelled. Local edits preserved."
+    fi
+
+    return $EXIT_SUCCESS
+}
+
 
 main() {
     local command="${1:-}"
@@ -2448,6 +1412,10 @@ main() {
         pack)
             [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug"; show_usage; exit $EXIT_ERROR; }
             do_install_pack "$2"
+            ;;
+        upgrade)
+            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug"; show_usage; exit $EXIT_ERROR; }
+            do_upgrade_pack "$2"
             ;;
         skill)
             [[ -n "${2:-}" ]] || { print_error "ERROR: Missing skill slug"; show_usage; exit $EXIT_ERROR; }
@@ -2471,40 +1439,9 @@ main() {
                     ;;
             esac
             ;;
-        upgrade)
-            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug"; show_usage; exit $EXIT_ERROR; }
-            do_upgrade_pack "$2" "${3:-}"
-            ;;
         link-commands)
             [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug (or 'all')"; exit $EXIT_ERROR; }
             do_link_commands "$2"
-            ;;
-        link-skills)
-            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug (or 'all')"; exit $EXIT_ERROR; }
-            do_link_skills "$2"
-            ;;
-        link)
-            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug (or 'all')"; exit $EXIT_ERROR; }
-            do_link_all "$2"
-            ;;
-        register)
-            # Delegate to standalone register script.
-            # exec replaces the current process (no fork overhead, no cleanup needed
-            # since dispatch has no active traps at this point).
-            local register_script="$SCRIPT_DIR/constructs-register.sh"
-            if [[ ! -x "$register_script" ]]; then
-                print_error "ERROR: constructs-register.sh not found or not executable"
-                exit $EXIT_ERROR
-            fi
-            shift  # Remove 'register' from args
-            exec "$register_script" "$@"
-            ;;
-        sync)
-            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug"; exit $EXIT_ERROR; }
-            do_sync_pack "$2"
-            ;;
-        status)
-            do_status_pack "${2:-}"
             ;;
         -h|--help|help)
             show_usage

@@ -1609,10 +1609,11 @@ simstim:
 run_bridge:
   enabled: true
   defaults:
-    depth: 3
+    depth: 5                            # cycle-030 → cycle-052: bumped 3→5 for kaironic termination
     per_sprint: false
     flatline_threshold: 0.05
     consecutive_flatline: 2
+    timeout_hours: 24
   timeouts:
     per_iteration_hours: 4
     total_hours: 24
@@ -1633,8 +1634,51 @@ run_bridge:
       - mibera
       - neuromancer
   bridgebuilder:
+    persona_enabled: true
     persona_path: .claude/data/bridgebuilder-persona.md
     archetype_path: grimoires/bridgebuilder/ARCHETYPE.md
+    enriched_findings: true
+    insights_stream: true
+    praise_findings: true
+    integrity_check: true
+    token_budget:
+      findings_tokens: 5000
+      insights_tokens: 25000
+      total_tokens: 30000
+    size_limits:
+      truncate_bytes: 66560
+      findings_only_bytes: 262144
+    redaction:
+      enabled: true
+      post_redaction_safety: true
+    # Multi-model Bridgebuilder (cycle-052 PR #463 architecture)
+    # Three-model kaironic review: Opus + GPT-5.3-codex + Gemini 2.5 Pro.
+    # Consensus scoring + iterative convergence (findings stabilize → kaironic termination).
+    # api_key_mode: graceful — missing keys degrade gracefully rather than blocking review.
+    multi_model:
+      enabled: true
+      models:
+        - provider: anthropic
+          model_id: claude-opus-4-7
+          role: primary
+        - provider: openai
+          model_id: gpt-5.3-codex
+          role: reviewer
+        - provider: google
+          model_id: gemini-2.5-pro
+          role: reviewer
+      iteration_strategy: final
+      api_key_mode: graceful
+      consensus:
+        enabled: true
+        scoring_thresholds:
+          high_consensus: 700
+          disputed_delta: 300
+          low_value: 400
+          blocker: 700
+  pipeline_self_review:
+    enabled: true                       # advanced spiraling — enabled for cycle-001
+    base_branch: main
   flatline:
     auto_accept_high_consensus: true
     show_disputed: true
@@ -1644,8 +1688,6 @@ run_bridge:
       - prd
       - sdd
       - sprint
-  defaults:
-    timeout_hours: 24
 
 # =============================================================================
 # Output Format (cycle-037)
@@ -1716,7 +1758,7 @@ butterfreezone:
 # Weaves captured visions from bridge reviews into planning workflows.
 # Disabled by default — opt-in via enabled: true.
 vision_registry:
-  enabled: false           # Master switch — default OFF, opt-in
+  enabled: true            # Graduated in cycle-069 (#486)
   shadow_mode: true        # Log matches silently before presenting to user
   shadow_cycles_before_prompt: 2  # Shadow cycles before graduation prompt
   status_filter:
@@ -1727,6 +1769,49 @@ vision_registry:
   ref_elevation_threshold: 3  # Ref count before lore elevation suggestion
   propose_requirements: false  # Experimental — vision-inspired requirement proposals
   bridge_auto_capture: false   # Auto-capture VISION findings from bridge reviews (cycle-042)
+
+# Spiral Configuration (cycle-069 seed, cycle-070 e2e)
+# Autonomous multi-cycle development loop.
+spiral:
+  enabled: true                    # Master switch for /spiral --start
+  task: ""                         # Set dynamically by --start "task description"
+  max_budget_per_cycle_usd: 15     # Per-cycle cost cap (3x Flatline + implement + review + audit)
+  max_total_budget_usd: 50         # Spiral-level hard stop across all cycles
+  status_file: ".run/spiral-status.txt"  # Human-readable status artifact
+  seed:
+    mode: "full"                   # "full" (Vision Registry queries), "degraded" (text-blob), "cold" (no context)
+    default_tags:                  # Fallback tags when HARVEST sidecar has no mappable categories
+      - architecture
+      - security
+    max_seed_visions: 10           # Max visions included in seed context
+    include_flight_recorder: true  # RFC-062 #575 item 2: fold prior cycle's load-bearing failure events into discovery context (learning-across-cycles)
+  step_timeouts:
+    seed_sec: 30
+    simstim_sec: 7200              # 2 hours per cycle dispatch
+    harvest_sec: 60
+  harness:                           # Evidence-gated orchestrator (cycle-071)
+    enabled: true                    # Use harness vs monolithic dispatch
+    max_phase_retries: 3             # Retries per gate on failure
+    planning_budget_usd: 1           # Per-phase budget for PRD/SDD/Sprint
+    implement_budget_usd: 5          # Budget for implementation session
+    review_budget_usd: 2             # Budget for independent review session
+    audit_budget_usd: 2              # Budget for independent audit session
+    # Advisor Strategy: Sonnet executes (cheap), Opus judges (quality)
+    # ~60% cost reduction vs all-Opus. See https://claude.com/blog/the-advisor-strategy
+    executor_model: sonnet           # PRD, SDD, Sprint, Implementation
+    advisor_model: opus              # Review, Audit (judgment quality)
+    # Pipeline Profiles (cycle-072): full | standard | light
+    pipeline_profile: standard       # Sprint Flatline only + Opus advisor ($12)
+
+  # Off-Hours Scheduling (cycle-072)
+  scheduling:
+    enabled: false                   # Must opt-in
+    windows:
+      - start_utc: "02:00"
+        end_utc: "08:00"
+        days: [mon, tue, wed, thu, fri]
+    strategy: fill                   # fill | single | continuous
+    max_cycles_per_window: 3
 
 # Prompt Isolation (v1.42.0 — cycle-042)
 # De-authorization wrappers for untrusted content in LLM prompts.
@@ -1739,6 +1824,18 @@ continuous_learning:
   skills_dir: grimoires/loa/skills
   pending_dir: grimoires/loa/skills-pending
   archive_dir: grimoires/loa/skills-archived
+
+# Post-PR Validation — Amendment 1 enablement (cycle-053, Issue #467)
+# The BRIDGEBUILDER_REVIEW phase runs after FLATLINE_PR, performs iterative
+# adversarial review with kaironic termination. Feature enabled here for
+# real-world observation per Option A from Issue #467 roadmap.
+post_pr_validation:
+  enabled: true
+  phases:
+    bridgebuilder_review:
+      enabled: true              # ← Enabling Option A (was false default)
+      auto_triage_blockers: true # Autonomous dispatch with logged reasoning (HITL decision #1)
+      depth: 5                   # Inherit from /run-bridge default; kaironic short-circuit on FLATLINE
 
 # Bridgebuilder Design Review (cycle-044)
 bridgebuilder_design_review:
@@ -1768,6 +1865,22 @@ flatline_protocol:
     low_value: 400
     blocker_skeptic: 700
   max_iterations: 5
+  # Phase 2.5: Adversarial cross-model review (PR #552 enforcement gate)
+  # When enabled, `/review-sprint` and `/audit-sprint` invoke a cross-model
+  # dissenter (gpt-5.3-codex by default) and produce adversarial-{review,audit}.json.
+  # The PreToolUse:Write hook at .claude/hooks/safety/adversarial-review-gate.sh
+  # blocks COMPLETED marker writes when enabled but the artifact is missing.
+  # Emergency override: LOA_ADVERSARIAL_REVIEW_ENFORCE=false.
+  code_review:
+    enabled: true
+    model: gpt-5.3-codex
+    budget_cents: 150
+    timeout_seconds: 60
+  security_audit:
+    enabled: true
+    model: gpt-5.3-codex
+    budget_cents: 150
+    timeout_seconds: 60
   secret_scanning:
     patterns:
       - "AIzaSy[A-Za-z0-9_-]{33}"
@@ -1780,6 +1893,17 @@ flatline_protocol:
     notebooklm:
       enabled: false
       notebook_id: ""
+  # Round-Robin Arbiter (cycle-070 FR-4)
+  # Autonomous decision-making for DISPUTED/BLOCKER findings.
+  # Replaces HITL prompts when SIMSTIM_AUTONOMOUS=1.
+  autonomous_arbiter:
+    enabled: true                      # Enabled cycle-070 — round-robin arbiter active in autonomous mode
+    rotation:                          # Model rotation per Flatline phase
+      - opus                           # PRD arbiter
+      - gpt-5.3-codex                  # SDD arbiter
+      - gemini-2.5-pro                 # Sprint arbiter
+    fallback: "reject"                 # Conservative fallback when all models fail
+    max_arbiter_tokens: 4000           # Token budget for arbiter response
 
 # Red Team — Generative Adversarial Security Design (cycle-012)
 red_team:
@@ -1806,6 +1930,13 @@ red_team:
   early_stopping:
     saturation_threshold: 0.8
     min_novel_per_iteration: 2
+  # #582: fail closed when the primary reviewer (Opus) scores a qualifying
+  # majority of attacks at 0 — signal that the domain extractor grounded
+  # poorly and the attacker model filled in from its prior rather than
+  # engaging the actual target document.
+  grounding_failure:
+    opus_zero_threshold: 0.8   # ≥80% of scored attacks at opus_score=0 trips the guard
+    min_attacks: 3             # small-N guard; don't trip on 1-2 attack runs
   safety:
     prohibited_content: true
     mandatory_redaction: true

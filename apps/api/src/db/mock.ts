@@ -256,6 +256,13 @@ export const mockDb = {
   delete: (table: any) => new MockDeleteBuilder(table),
   transaction: mockTransaction,
 
+  // cycle-002 F14: discovery.ts uses db.execute for raw SQL (discovery_runs insert).
+  // Mock is a no-op — logs + resolves empty so service code completes end-to-end.
+  execute: (_query: unknown) => {
+    logger.debug('Mock: db.execute (write ignored)');
+    return Promise.resolve({ rows: [], rowCount: 0 });
+  },
+
   // For direct query access (some services use this)
   query: {
     categories: {

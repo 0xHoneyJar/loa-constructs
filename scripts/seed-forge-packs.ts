@@ -1,3 +1,13 @@
+// DEPRECATED: cycle-001 (2026-04-21).
+// Use POST /v1/admin/discover instead.
+// Deletion scheduled for cycle-002.
+// SEED: grimoires/loa-constructs-seed-2026-04-21/SEED-loa-constructs-infrastructure-cycle.md §14.11
+
+console.warn(
+  '[DEPRECATED] seed-forge-packs.ts is deprecated as of cycle-001 (2026-04-21). ' +
+  'Use POST /v1/admin/discover instead. This script will be deleted in cycle-002.'
+);
+
 /**
  * Seed Forge Constructs
  *
