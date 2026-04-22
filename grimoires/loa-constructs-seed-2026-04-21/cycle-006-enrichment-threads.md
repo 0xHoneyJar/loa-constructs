@@ -71,6 +71,43 @@ Both are valid composition patterns. They differ in *operator presence*, not in 
 
 ---
 
+---
+
+## Thread 4 · Website scaffolding as the first concrete composition (cycle-006 target)
+
+**Operator 2026-04-23 late**: *"I deeply understand and can name each part of the process, like the mood boarding session, mock-ups, design systems, composition, copy. All of these things are pipelined together."*
+
+The named pipeline:
+
+| Stage | Construct | Output |
+|---|---|---|
+| 1 · Mood-board | [[the-easel]] | Visual vocabulary, reference grid |
+| 2 · Mock-ups | surface-craft discipline | Layout drafts, component candidates |
+| 3 · Design system scaffold | artisan | Taste tokens, component primitives, motion specs |
+| 4 · Composition | the-arcade | Pages, flows, navigation |
+| 5 · Copy | vocabulary-bank + herald | Register, voice, narrative |
+
+This is the **first real use-case** the composition runner (cycle-005 L1) targets. Not a toy demo — a real website the operator is about to build. The runner's viability gets tested against it.
+
+Cycle-006 treatment:
+- Ship a composition YAML at `grimoires/compositions/website-scaffold.yaml` — same format as the existing `feel-audit.yaml`, but 5 stages long, and pointing at the real constructs
+- Don't force linearity. The runner should support per-stage re-entry (operator needs to loop between mood-board and design-system many times in practice — sequential-but-iterative)
+- This composition, paired with the transparency/visibility layer from Thread 1, demonstrates the full substrate: pipe runs, operator sees it, stages are constructs with real expertise, focus-per-register maintained
+
+## Scope discipline — operator self-pushback, recorded
+
+**Operator verbatim 2026-04-23 late**: *"I was even thinking that we end up writing a language that layers on top of this. I don't know if that's overkill [...] I would push back on what I'm saying here to limit the scope and enable us to get to actually having our hands on and building out compositions so that I can essentially design or apply our knowledge here into a real-world project where I'm taking a step back and building the design systems from the ground up."*
+
+**The rule for cycle-006 scope lock**:
+
+> **Build primitives in service of one concrete composition. Do not design a DSL, a team-typing language, or upfront abstraction layers. Those emerge from repeated usage across N compositions, not from one.**
+
+Concretely: the website-scaffold composition is in scope. A generalized "team types" schema is NOT. The composition runner with a real LLM stage executor is in scope. A construct-composition language is NOT.
+
+Cycle-006 SEED's §1 scope-lock section should carry this rule explicitly so it's not re-litigated at dispatch time.
+
+---
+
 ## Dispatch-ready summary for cycle-006 SEED
 
 Folded into SEED scope:
@@ -78,8 +115,14 @@ Folded into SEED scope:
 - **L-starter**: `construct-network-tools` exemplar pack + `Constructfile` format + `constructs create taste-first` (taste stack includes `/hivemind` — needs URL-install path until cycle-007 pack lands)
 - **L-migrate**: move compose/validate/stream-validate/butterfreezone + schemas + validator skill from loa-constructs into loa (Path B per paired decision)
 - **L-research-teamcreate**: research-only leg, NOT implementation — catalog TeamCreate + tmux + rewind primitives so future cycles can wire them into the composition runner as a stage-executor option
+- **L-website-scaffold**: author `grimoires/compositions/website-scaffold.yaml` as the first real 5-stage composition (Thread 4). Target dispatch with [[agent-teams-as-pipes]] principles — focus-per-register per stage, sequential-but-iterative, visible via Thread 1 transparency layer
 
 Deferred to cycle-007:
 - Hivemind-as-construct (Thread 2)
 - TeamCreate-executor implementation (stages-as-windows)
 - `constructs try` ephemeral exec (from cycle-005 decision)
+
+Banned from cycle-006 (scope-lock rule):
+- Team-type DSL / composition language layer
+- Typed-team primitives as first-class schema
+- Any upfront abstraction not earned by a second concrete composition
