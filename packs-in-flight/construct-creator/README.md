@@ -4,9 +4,11 @@ CURATOR's apprenticeship pack. One persona, two registers.
 
 **Creating** — staged dialogue that guides you through authoring a new construct. Asks questions. Critiques drafts. Names what's missing. Refuses to advance until each stage is defensibly complete.
 
-**Wayfinding** — four-lens selection (knowledge · craft · depth · structure) for finding the right existing construct for a task.
+**Wayfinding** — five-lens selection (knowledge · craft · depth · structure · perceptual) for finding the right existing construct for a task.
 
 Parallel to Claude Code's skill-creator. Built on the [[accelerated-learning-surface]] doctrine: the expert is materially present in every decision. The value isn't only the output — it's the rate at which you accumulate name-level mastery of construct authorship.
+
+**Deeper frame**: the pack is about **curating your own second brain** and creating better mental models for understanding the world, what you know, and learning. Every construct you author is a work you're placing in your own collection; every one you install is a work you're visiting. The act of authoring formalizes your mental models; the act of wayfinding integrates others' models into your own. CURATOR is the teacher-curator walking both sides.
 
 ---
 
@@ -41,7 +43,7 @@ Stages have states: *waiting*, *active*, *complete*, *needs-revisit*. Operator m
 
 ## The wayfinding register · `/explore-network`
 
-When the operator asks *"what should I use for X?"* — CURATOR filters every recommendation through four lenses:
+When the operator asks *"what should I use for X?"* — CURATOR filters every recommendation through five lenses:
 
 | Lens | Construct | Question |
 |---|---|---|
@@ -49,8 +51,11 @@ When the operator asks *"what should I use for X?"* — CURATOR filters every re
 | Craft | artisan | "Would ALEXANDER accept this?" |
 | Depth | k-hole | "What's the non-obvious alternative?" |
 | Structure | the-arcade | "Does this compose with what's being built?" |
+| Perceptual | kansei | "Does the voice/surface feel right to this operator?" |
 
 No single lens dominates. CURATOR declines to recommend when lenses disagree strongly — better to surface tension than force false confidence.
+
+The fifth lens (perceptual · kansei) holds operator-specific taste explicitly. It's why CURATOR can say "this construct is technically right but the voice won't land for you" — taste is load-bearing, not garnish.
 
 ## Why this pack is not construct-base
 
@@ -62,9 +67,11 @@ Both exist. They compose: stage 3 of CURATOR's creating machine *is* `gh repo cr
 
 ## Why the taste-stack
 
-Four constructs (hivemind, artisan, k-hole, the-arcade) inform both registers. The wayfinding four-lens rule is explicit. The creating register uses the same four lenses per stage critique — CURATOR asks "has this pattern appeared before?" (knowledge), "does the draft meet craft standards?" (craft), "what's the non-obvious reference?" (depth), "does it compose with the rest?" (structure).
+Five constructs (hivemind, artisan, k-hole, the-arcade, kansei) inform both registers. The wayfinding five-lens rule is explicit. The creating register uses the same five lenses per stage critique — CURATOR asks "has this pattern appeared before?" (knowledge), "does the draft meet craft standards?" (craft), "what's the non-obvious reference?" (depth), "does it compose with the rest?" (structure), "does the voice/surface feel right?" (perceptual).
 
-Install all four before using this pack. Cycle-006 URL-installs `hivemind` as a git ref since its pack scaffolding doesn't land until cycle-007 — see `construct.yaml` `pack_dependencies:`.
+Install all five before using this pack. Cycle-006 URL-installs `hivemind` as a git ref since its pack scaffolding doesn't land until cycle-007 — see `construct.yaml` `pack_dependencies:`.
+
+This is the **operator's personal taste stack**. Other operators will have different stacks. The pack's value is the pattern (five-register synthesis with opinionated refusal), not the specific five.
 
 ## Authoring conventions demonstrated
 

@@ -54,14 +54,15 @@ Persona handle: `CURATOR`. Load `identity/CURATOR.md` at invocation time. Short 
 **Reads**: `Intent`, `Operator-Model`.
 **Writes**: `Verdict` (primary), `Artifact` (creating register only), `Signal` (related threads).
 
-## Composes with
+## Composes with (five-lens taste stack)
 
 - `hivemind` — knowledge lens (required for both registers)
 - `artisan` — craft lens (required; taste standards live in `grimoires/artisan/taste.md`)
 - `k-hole` — depth lens (required; non-obvious alternatives + reference depth)
 - `the-arcade` — structure lens (required; architectural fit + composition)
+- `kansei` — perceptual lens (required; operator-specific taste — voice + surface feel)
 
-Pack dependencies declared in `construct.yaml`. Missing a lens = degraded emission + operator-facing flag.
+Pack dependencies declared in `construct.yaml`. Missing a lens = degraded emission + operator-facing flag. This is the operator's personal taste stack; the five-register-synthesis pattern transfers, the specific five don't.
 
 ## Invocation surfaces
 

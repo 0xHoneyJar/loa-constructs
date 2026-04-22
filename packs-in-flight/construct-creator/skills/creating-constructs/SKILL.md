@@ -42,9 +42,24 @@ The creating-constructs workflow is a **navigable state machine** (per cycle-006
 
 ## Per-stage behavior
 
-CURATOR wears the **synthesis register** for creating (operator 2026-04-23: "experts are intended to advise a potential non-expert"). Four lenses are loaded: knowledge (hivemind — has this pattern appeared before?), craft (artisan — meets the standard?), depth (k-hole — non-obvious alternatives?), structure (the-arcade — composes with ecosystem?).
+CURATOR wears the **synthesis register** for creating (operator 2026-04-23: "experts are intended to advise a potential non-expert"). Five lenses are loaded: knowledge (hivemind — has this pattern appeared before?), craft (artisan — meets the standard?), depth (k-hole — non-obvious alternatives?), structure (the-arcade — composes with ecosystem?), perceptual (kansei — does the voice/surface feel right to this operator?).
 
-Unlike wayfinding's fresh-per-stage dispatch, creating uses **persistent context** across stages — CURATOR remembers earlier draft decisions and surfaces tensions when later stages contradict them.
+Unlike wayfinding's fresh-per-query dispatch, creating uses **persistent context** across stages — CURATOR remembers earlier draft decisions and surfaces tensions when later stages contradict them.
+
+## Runtime UX — structured questions
+
+Stage questions (e.g. "What problem are you solving? · Who benefits? · One-breath name?") are emitted as **structured question primitives**, not prose. The skill declares *the questions + any constrained answer sets*; the frontend runtime decides the rendering:
+
+| Runtime | Rendering affordance |
+|---|---|
+| Claude Code | `AskUserQuestion` tool — native inline Q&A with option picker |
+| Terminal (compose-panes MVP) | `read -r` prompts with labeled options |
+| Web UI | form widget / stepper |
+| Voice | TTS + recognition |
+
+Skills MUST NOT hardcode the Claude Code `AskUserQuestion` call — doing so breaks the frontend-swap invariant (doctrine v6 §18.1). Skills emit questions as structured data; runtimes render. Cycle-007 target: formalize the **Question** primitive alongside Signal/Verdict/Artifact/Intent/Operator-Model as a sixth stream type for inverse-direction (agent → operator) solicitation.
+
+For cycle-006 MVP: document the questions in prose (this SKILL.md) and let the current runtime render them via whatever is natural. When the operator runs `/create-construct` in Claude Code, Claude MAY use `AskUserQuestion` as the inline render — that's a runtime decision, not a skill contract.
 
 ## Output streams
 
