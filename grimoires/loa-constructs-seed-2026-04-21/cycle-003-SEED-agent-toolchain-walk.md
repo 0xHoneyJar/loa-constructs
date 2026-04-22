@@ -245,3 +245,86 @@ If it doesn't land — if Turso's SQLite dialect breaks something non-trivial, i
 ---
 
 *Drafted 2026-04-21 post-cycle-002-close. First SEED authored from the agent's own POV. The operator is not the only ground-truth anymore; the agent operating the toolchain is also ground-truth, and its friction counts.*
+
+---
+
+## 13 · Doctrine composed in (amendment 2026-04-21-late)
+
+After the Bonfire doctrine (`bonfire-construct-pipe-doctrine.md` v2) was drafted and reviewed through §5, the operator directed: *"compose what we can here and feed it into the seed and dispatch it."* This section folds the doctrine implications into cycle-003 scope.
+
+### 13.1 · Shell-first implementation (Jani's approach validated)
+
+The doctrine's "construct as Unix-pipe stage" claim validates Jani's extensive use of shell in Loa. Loa already leans on shell for `spiral-harness.sh`, `construct-invoke.sh`, `sync-constructs.sh`, `mount-loa.sh` and dozens of others. This is not coincidence — shell is the Unix primitive that expresses the pipe model natively. Bash as glue, typed streams as data, constructs as programs.
+
+**Constraint for cycle-003**: prefer shell over TypeScript/Python where the work is plumbing. Specifically:
+- **L3 (construct-invoke wiring)** — stays shell. Do not port to Node. Emit entry/exit rows as JSONL via `jq` pipelines.
+- **L6 (agent skill clarity CLI)** — new shell script `constructs-list` reading `~/.loa/constructs/packs/*/.source.json` + `construct.yaml` metadata. Outputs JSON-lines; operator formats with `jq` as needed.
+- **L7 (composition runtime)** — shell script `construct-compose.sh` reading YAML (via `yq`) and piping constructs. Deferred to cycle-004; but if we touch it this cycle, shell-first.
+- **L1 (DB swap)** — TypeScript (unavoidable; Drizzle lives there). But connection config + migration shell wrapper stays shell.
+
+**Why this matters for RL corpus**: shell produces traceable command-line sessions. Every pipe stage is a process with args, stdin, stdout, exit code — all ambient observables. TypeScript wraps this in abstractions that obscure the trace. Shell-first = RL-legible-by-default.
+
+### 13.2 · Pre-AI continuity context
+
+Operator's frame: *"Composing together expert workflows for your specific case, for your own needs, is the taste and skill that people will learn through simply just going through the ropes and hyper-contextualizing with their industry."*
+
+The composition pattern is not AI-era; it's ancient (grandmother-test passes per `[[composable-expertise-legos]]`). Programmers have always composed expert tools via shell. Constructs just name what programmers are already doing.
+
+**Implication**: cycle-003 output should feel *familiar* to programmers who have never installed a single AI-era tool. If a programmer from 2015 sees `constructs install artisan && echo "$component" | /feel`, they should recognize the pattern immediately. Unix-pipe-native affordances score higher than invented-API affordances.
+
+### 13.3 · Per-leg doctrine compliance (updated)
+
+Each leg from §3 gets a doctrine-compliance check appended:
+
+**L1 · DB swap** — no doctrine obligation beyond "the new DB doesn't introduce stream-type columns this cycle" (per doctrine §11, cycle-003 must not pre-commit composition state to DB).
+
+**L2 · CLI surface audit** — canonical `constructs install` honors Unix conventions: exit code 0 on success, non-zero on failure class (auth=1, network=2, not-found=3, extraction=4, validation=5, general=6 — already in constructs-install.sh header). Stdout = machine-parseable; stderr = human messages. Offline-mode error (cycle-002 F14) gets a clear "what to do next" message.
+
+**L3 · construct-invoke wiring** — JSONL rows MUST include `stream_type` field declaring the invocation's I/O contract. Four values initially allowed: `Signal`, `Verdict`, `Artifact`, `Intent`. A fifth value `Operator-Model` is read-only in this cycle (no construct emits Operator-Model; some constructs read it from hivemind).
+
+**L4 · SKILL.md feedback-v3 emission** — emissions validate as `Verdict` stream rows. Each row includes a `read_mode` field at minimum (`glance` / `orient` / `intervene`); the SKILL.md edit produces at least the `orient`-mode output line. Future cycles can add full three-mode support.
+
+**L5 · install round-trip bats test** — tests the `.source.json` contract as a pipe-layer artifact (not just a file). Verify it's readable by future `constructs list` + future `construct-compose`.
+
+**L6 · agent skill clarity CLI** — outputs typed stream-contract per construct. Column includes: slug, version, install state, `.source.json.source_commit` vs upstream, declared `reads:` types, declared `writes:` types. Three output formats: table (glance), verbose (orient), JSON (intervene / for piping).
+
+**L7 · composition runtime** — still POSSIBLE status. If attempted: reads `compositions/*.yaml`, validates `reads`/`writes` type compatibility across edges, executes each stage via `construct-invoke.sh`, pipes stdout→stdin between stages. If not attempted this cycle, cycle-004 claims it.
+
+**L8 · Railway/Supabase decommission** — post-L1 cleanup. No doctrine obligation.
+
+### 13.4 · Operator-Model as implicit input (cycle-003 stance)
+
+Doctrine §14.2 names Operator-Model as the 5th stream type. Cycle-003 does not build a runtime for Operator-Model emission or consumption. It does:
+
+- **Not contradict** the Operator-Model claim in any leg's implementation.
+- **Read** operator knowledge from hivemind where agent invocations benefit (e.g., an agent writing documentation should read `~/hivemind/wiki/concepts/construct-pipe-doctrine.md` + related pages before framing verdicts).
+- **Leave room** for cycle-005+ to formalize Operator-Model as a queryable input.
+
+Nothing ships in cycle-003 that makes Operator-Model harder to add later.
+
+### 13.5 · Dispatch mode (updated)
+
+Original §5 said cycle-003 *may* skip `spiral-harness.sh`. With the doctrine folded in, this is firmer:
+
+**Dispatch mode: conversational-paired + shell-first**, NOT harness.
+
+Rationale:
+- The walk steps A–H are dialogue-driven (operator + agent scribe-session, per cycle-002 precedent).
+- Shell-first implementation means micro-fixes emerge as each friction point hits; harness phase-decomposition would add ceremony that fights the mode.
+- L1 (DB swap) is substantial but not harness-worthy on its own — it's one concrete task, not a cycle.
+- Operator retains creative latitude per project CLAUDE.md (micro-fix threshold, up to 20% adjacent quality work).
+
+**If at any point the work outgrows conversational-paired mode**, cycle-003 halts and cycle-003-extension or cycle-004 picks up via harness.
+
+### 13.6 · What this cycle ADDS to the doctrine (if it lands)
+
+Cycle-003 is the first cycle to route-through the doctrine. If it lands cleanly:
+- Proves the doctrine is *implementable* (not just declarative)
+- Generates the first real pipe traffic — RL corpus begins
+- Produces a catalogue of doctrine-edge-cases (things the doctrine didn't anticipate, flagged for v3 amendments)
+
+If it struggles, the doctrine itself gets amended based on what breaks. Either way: this cycle's close feeds back into the doctrine. Bonfire ↔ Spiral explicitly.
+
+---
+
+*Amendment 13 · 2026-04-21-late · Doctrine v2 composed into cycle-003 scope. Shell-first constraint locked. Dispatch mode: conversational-paired, not harness. Operator directive: "compose what we can here and feed it into the seed and dispatch it." Dispatched.*
