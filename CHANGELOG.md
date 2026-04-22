@@ -5,6 +5,23 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.27.0] — 2026-04-22 — runtime + integration — composition runner, stream schemas, manifest validator, butterfreezone adapter, doctrine v5
+
+
+Cycle-005 per [`cycle-005-SEED-runtime-integration.md`](grimoires/loa-constructs-seed-2026-04-21/cycle-005-SEED-runtime-integration.md). Closes the Q5 self-audit gap from cycle-004 — composition execution is no longer manual. `construct-compose feel-audit <target>` now executes all three stages end-to-end with paired trajectory rows, per-stage timings, and final-output schema validation.
+
+**9 of 10 legs landed. 2 upstream PRs open (L3 construct-base, L5 Loa). L10 CONDITIONAL per SEED; deferred cleanly.**
+
+### Added
+
+- **cycle-005 L7**: /constructs polish — metadata surface + upgrade visibility
+- **cycle-005 L6**: butterfreezone adapter — per-pack CONSTRUCT-README.md
+- **cycle-005 L4**: validating-construct-manifest skill + install/publish gates
+- **cycle-005 L1+L2+L8**: composition runner + stream schemas + e2e proof
+
+_Source: PR #202_
+
+
 ## [2.10.0] - 2026-04-21
 
 ### Why This Release
