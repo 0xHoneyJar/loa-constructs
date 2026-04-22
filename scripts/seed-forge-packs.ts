@@ -889,7 +889,8 @@ async function seedForgePacks() {
         }
 
         // Logos: -mark.svg (icon), -wordmark.svg (horizontal text lockup), .svg (full knockout)
-        const logoDir = join(__dirname, '../logos');
+        // cycle-007: relocated from ./logos/ to grimoires/artisan/logos/ per repo declutter
+        const logoDir = join(__dirname, '../grimoires/artisan/logos');
         const readLogo = (filename: string) => {
           const p = join(logoDir, filename);
           return existsSync(p) ? require('fs').readFileSync(p, 'utf-8') as string : null;

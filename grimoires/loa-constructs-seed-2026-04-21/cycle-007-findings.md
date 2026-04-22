@@ -246,3 +246,70 @@ Deferred to cycle-008+:
 This addendum extends cycle-007 inheritance queue §5 by making items 4 (Purupuru alignment — now can adopt via construct-world-creator) and 8 (BUTTERFREEZONE regen automation — parallel pattern) both dispatchable in concert with the creator-pack cycle.
 
 Spec file: [`cycle-007-world-base-and-creator-spec.md`](./cycle-007-world-base-and-creator-spec.md)
+
+---
+
+## 12 · Post-merge addendum · operator Q5 + declutter + cycle-008 priority re-rank
+
+### 12.1 · KANSEI Q5 answered (operator, 2026-04-23 late, post-merge)
+
+> *"It should be straightforward. The agent should simply be able to create an app for you and deploy it and give you a link for it, very similar to Vercel but agent-native and with our stack and kind of giving people the visibility on the free side."*
+
+This is the **north star for `construct-world-creator`**: an agent that takes operator intent → scaffolds the world → deploys to freeside → returns a live link. Vercel-like on-ramp UX, agent-native orchestration, sovereign-stack default, freeside-visible at the end. Directly constrains cycle-008+ creator-pack design: if the first operator-experience isn't "ship-and-forget in a single turn," the spec hasn't met the bar.
+
+**KANSEI gate**: 4/5 Y (Q1 partial-Y, Q2 Y, Q3 Y, Q4 Y, Q5 constructive-Y). Cycle-007 closes above threshold.
+
+### 12.2 · Declutter pass (operator directive, post-merge)
+
+Operator-surfaced: *"a lot of stale artifacts and clutter in the folder itself. logo folders, packs-in-flight folders, packs folders... random pre-launch checklist and sync architecture plan fly.toml... kind of just random clutter at the base of this repo."*
+
+Executed:
+
+| Artifact | Disposition | Rationale |
+|---|---|---|
+| `logos/` (11 SVGs) | → `grimoires/artisan/logos/` | Brand marks belong with artisan construct (design DNA carrier); not network-infra |
+| `packs/construct-network-tools/` | trashed | Stale stub (stem left after cycle-006 rename to `construct-creator`) |
+| `packs-in-flight/construct-creator/` | trashed | Published as `0xHoneyJar/construct-creator`; workspace copy redundant |
+| `PRE_LAUNCH_CHECKLIST.md` | → `grimoires/loa-constructs-seed-2026-04-21/` | Historical artifact; belongs with cycle lineage |
+| `SYNC_ARCHITECTURE_PLAN.md` | → `docs/architecture/sync-architecture-plan.md` | Architecture doc; lives with its siblings |
+| `fly.toml` | trashed | Fly.io deprecated per operator mandate; Railway is the target |
+| `default.profraw` | trashed | Empty profiler artifact |
+| `pnpm-workspace.yaml` | trashed | Redundant with root `package.json` workspaces field; cycle-007 sprawl-world cleanup missed this loa-constructs side |
+| `grimoires/purupuru-{density-and-hold,ecs-architecture,game-flow}.svg` | trashed | World-artifact bleed (same class as the PNGs removed in a20b2d4b; SVG variants slipped through) |
+| `scripts/seed-forge-packs.ts` | path-updated (line 892) | Logo path updated from `../logos` to `../grimoires/artisan/logos`; script remains deprecated, scheduled for deletion in cycle-008 |
+
+**Root is now 16 top-level files + 10 dirs (down from 22 files + 13 dirs).** All remaining files/dirs are either standard-repo convention (README, LICENSE, etc), active Loa framework (CLAUDE.md, BUTTERFREEZONE.md), active build config (package.json, turbo.json), or active registry config (registry.yaml, registry-sources.yaml, resonance-profile.yaml).
+
+Generalizes F42 (world-artifact-bleed pattern) — this declutter pass confirms the pattern recurs and warrants a lint gate in cycle-008 (item 7 in queue).
+
+### 12.3 · Cycle-008 priority re-rank (operator direction, 2026-04-23 late)
+
+Operator-stated priority order, supersedes the unordered queue in §5:
+
+| Priority | Item | Why |
+|---|---|---|
+| **P1** | **Root-app migration** (sprawl-world: Rektdrop → `apps/rektdrop/`) | *"Clean up the Sprawl work and get it ready for my design engineering work, design systems work, creative work. Setting the baseline for the Sprawl work so I actually can jump into it."* Operator is about to dispatch the design-studio-workflow session; sprawl-world must be in its stable monorepo form before operator jumps in. |
+| **P1** | **Constructs.network sync + create-flow verification** | *"Making sure that the constructs network is properly working and that it's syncing up, and that users can expect a better experience with creating constructs, having it show up on there, and using it for compositions."* This is the load-bearing UX for the network product. Addresses the webhook+cron gap from L-registry-automation (§5 items 1-2). |
+| **P1** | **Freeside exploration + GTM connection to Rektdrop + other sprawl apps** | Next-session target per operator. Explicitly priority for GTM launch arc. |
+| **P2** | Purupuru alignment work (6 patterns from L-cross-pollinate audit) | Cross-world pollination produces when N≥2 worlds adopt same patterns; demotes if operator focus is sprawl-first for GTM |
+| **P2** | construct-world-creator pack scaffold (spec-ready from cycle-007) | Enables the Q5 "agent creates app → deploys → link" experience; blocked only by decision on stack-menu mechanism |
+| **P3** | Stripe → NOWPayments migration (closes F43) | *"Lower priority than the root app migration"* (operator). Three-layer boundary documented; concrete migration work defers. |
+| **P3** | TEND prune constructs-network `:root` duplicates | Reveals inheritance floor directly; cosmetic + pedagogical, non-urgent |
+| **P3** | Registry validator integration (construct-validate.sh into discovery) | Quality gate; defers until webhook/cron land |
+| **P3** | Payment-SDK lint rule | Enforces N-rails invariant; depends on any new payment work landing first |
+| **P3** | BUTTERFREEZONE regen post-merge automation | Workflow hygiene; low urgency |
+| **P4** | TeamCreate-executor + `constructs try` + QMD + hivemind-as-construct + multi-construct-per-stage + navigation-layer-via-templates + stack-swap evaluation | All carryovers from prior cycles; defer until priority arc clears |
+
+### 12.4 · World-engine architecture — pre-doctrine note
+
+Operator-flagged tension: *"separate the stack into separate repos eventually with the world engine being separate (it's the backend of the frontend but also the builder of the world). we need to properly name these to avoid conflict. like we did with substrate/runtime <> backend <> frontend for constructs."*
+
+Captured as pre-doctrine notes at `~/hivemind/wiki/concepts/world-engine-architecture-notes.md` per operator direction *"don't overthink this for now simply note it in hivemind as something we are thinking about and will get clarity on."* Page is status-notes, not doctrine; enumerates candidate names (world-forge, world-kernel, world-substrate) and their collision risks against existing vocabulary. Resolution defers to cycle-008+ when friction surfaces the right naming.
+
+### 12.5 · What this addendum closes
+
+- ✅ KANSEI Q5 answered (cycle-007 KANSEI gate fully satisfied)
+- ✅ loa-constructs root decluttered per operator directive
+- ✅ Cycle-008 priorities re-ranked per operator direction
+- ✅ World-engine naming tension captured (hivemind pre-doctrine notes)
+- ✅ Seed-forge-packs.ts path reference updated (legacy script still works; cycle-008 deletion target)
