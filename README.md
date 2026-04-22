@@ -61,6 +61,46 @@ Start here: **[construct-base](https://github.com/0xHoneyJar/construct-base)**
 
 ---
 
+## Invoke
+
+Agents resolve constructs through **five tiers** — first match wins, collisions warn explicitly.
+
+```bash
+# Direct — by slug / name
+@artisan   /  @ALEXANDER   /  /feel
+
+# See what's active right now
+constructs-active              # one line · <1s
+constructs-active --orient     # multi-line · ~2s
+constructs-active --intervene  # JSON · pipeable
+
+# Enumerate installed packs with provenance
+constructs-list                # table · 3 read-modes
+```
+
+Full dispatch contract: [`cycle-004-L2-invocation-contract.md`](grimoires/loa-constructs-seed-2026-04-21/cycle-004-L2-invocation-contract.md).
+
+**Operator OS pattern** — modes + lenses + construct resolution as a workflow layer. One operator's worked example is offered at **[operator-os-starter](https://github.com/0xHoneyJar/operator-os-starter)** as a template to fork. You don't need to adopt it — constructs work without any OS layer.
+
+---
+
+## Compose
+
+Constructs compose via **typed pipe chains** — Unix philosophy over LLM expertise. Five stream types flow between stages: `Signal` / `Verdict` / `Artifact` / `Intent` / `Operator-Model`.
+
+```yaml
+# grimoires/compositions/feel-audit.yaml
+kind: workflow
+chain:
+  - { construct: artisan,  skill: decomposing-feel,   writes: [Signal] }
+  - { construct: artisan,  skill: scoring-experience, reads: [Signal],  writes: [Verdict] }
+  - { construct: observer, skill: analyzing-gaps,     reads: [Verdict], writes: [Verdict] }
+```
+
+Full doctrine: [`bonfire-construct-pipe-doctrine.md`](grimoires/loa-constructs-seed-2026-04-21/bonfire-construct-pipe-doctrine.md).
+
+---
+
 ## The Network
 
 | | |
@@ -86,6 +126,8 @@ bun --filter explorer dev       # Explorer on localhost:3001
 - [constructs.network](https://constructs.network) — Browse & install
 - [Loa](https://github.com/0xHoneyJar/loa) — Framework
 - [construct-base](https://github.com/0xHoneyJar/construct-base) — Start here
+- [operator-os-starter](https://github.com/0xHoneyJar/operator-os-starter) — Workflow template to fork
+- [Pipe doctrine](grimoires/loa-constructs-seed-2026-04-21/bonfire-construct-pipe-doctrine.md) — How constructs compose under the hood
 - [CHANGELOG.md](CHANGELOG.md)
 
 ---
