@@ -5,6 +5,120 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.23.0] — 2026-04-22 — operational-token bypass (L0) + discovery pagination fix (F15)
+
+## Cycle-002 · Artisan Lifecycle Walk (friction-driven, in-flight)
+
+### Added
+
+- **cycle-002 L0**: operational admin token bypass for admin endpoints
+- **cycle-001**: implement loa-constructs infrastructure cycle — Legs A–G + CL
+- **lens**: add cycle-001 review lens — GECKO + KEEPER + OTLET + KISS layered on BRIDGEBUILDER
+- **seed**: add loa-constructs infrastructure cycle SEED (§14 amended) + 4 peer research reports
+- **spiral**: enable advanced features — flight-recorder SEED folding + pipeline_self_review
+- **spiral**: _pre_check_seed environment-invariant gate (#575 item 3) (#594)
+- **spiral**: fold prior-cycle failure events into SEED context (#575 item 2) (#592)
+- **spiral**: observability dashboard — default-on metrics emission (#569) (#589)
+- **bridgebuilder**: persona discovery + resolution trace CLI flags (#396) (#588)
+- **adapters**: swap legacy adapter to generated maps (#548 continuation) (#571)
+- **adapters**: YAML → bash map generator (vision-011, #548) (#566)
+- **adversarial-review**: enforce Phase 2.5 at COMPLETED marker write (#552)
+- **models**: promote Opus 4.7 to top-review default (cycle-082) (#547)
+- **harness**: Bridgebuilder kaironic fix loop (cycle-074) (#512)
+- **cycle-073**: config transparency & safety enforcement (#511)
+- **hooks**: auto-sentinel — close last mechanical enforcement gap
+- **spiral**: pipeline profiles + scheduling + mechanical dispatch guard (cycle-072) (#508)
+- **cycles-070+071**: spiral end-to-end — harness architecture with evidence-gated pipeline
+- **cycle-069**: Vision Registry graduation — query API, lifecycle, spiral integration (#486)
+- **spiral**: cycle-068 — wire real /simstim dispatch (#495)
+- **spiral**: cycle-067 — finish /spiral skill (#494)
+- **spiral**: /spiral autopoietic meta-orchestrator MVP (cycle-066) (#493)
+- **cycle-workspace**: per-cycle PRD/SDD/sprint workspace (#491)
+- **simstim**: state-machine coalescer + --archive-completed (#490)
+- **post-merge**: wire lore-promote phase (closes #484)
+- **lore-promoter**: HARVEST phase consumer (closes #481)
+- **analyzer**: bridge triage stats aggregator (closes #467 tooling)
+- **bridge**: --single-iteration re-entrancy + silent-no-op detection (closes #473)
+- **skills**: structural AC verification gate at /implement (closes #475)
+- **simstim**: git-aware sync_run_mode fallback (closes #474)
+- **cycle-055**: wire cross-repo + lore into multi-model Bridgebuilder (#471)
+- **cycle-054**: enable Bridgebuilder post-PR review + sync stale dist (#468)
+- **cycle-053**: Amendment 1 — close Bridgebuilder loop + kaironic pattern (#466)
+- **bridgebuilder**: multi-model review pipeline with Pass-2 enrichment (#463)
+- add git-native construct registry
+- PRD for core app migration — CubQuests, Honeyroad, APDAO
+- flatline adversarial review of org migration plan
+- mibera world consolidation context pack — OSTROM + GECKO
+- RPC migration spec — QuikNode → org-owned node + public fallback
+- org-wide sovereign migration plan — 266 repos audited
+- sprawl consolidation kickoff — 4 repos → 1 world
+- sovereign stack architecture — construct audit, world pattern, migration guides
+- **cycle-052**: DX Hardening — friendly summaries + zone-aware filtering
+- **construct-index**: add --validate flag + metadata block
+- **sprint-106**: Integration, E2E validation, cross-platform checks
+- **sprint-104+105**: Name resolution, composition, operator OS, ambient greeting
+- **sprint-103**: Construct index generation + capability aggregation
+- **cycle-050/sprint-109**: Mount conflict detection + E2E validation
+- **cycle-050/sprint-108**: Dual-mode compliance hook + rule lifecycle metadata
+- **cycle-050/sprint-105-107**: Multi-Model Permission Architecture — taxonomy, validation, annotation
+- **sprint-104**: Path-scoped rules + ADVISORY compliance hook prototype
+- **sprint-103**: Skill frontmatter — allowed-tools, context:fork, name/description
+- **sprint-102**: Foundation — model aliases, memory docs, Agent Teams validation
+- **constructs**: unified /constructs — discovery, search, composability (#448)
+
+### Fixed
+
+- **cycle-002 F15**: paginate GitHub org scan + mock-db execute stub
+- **bridgebuilder**: route OpenAI codex models to /responses endpoint (#585) (#586)
+- **flatline**: simstim --mode hitl docs drift + red-team grounding fail-closed (#579, #582) (#583)
+- **flatline**: prune phantom Gemini 3 + forward-compat patterns (#573, #574) (#578)
+- **spiral**: configurable planning-phase timeouts (#570) (#577)
+- **spiral**: export SPIRAL_TASK to dispatch subprocess (#568) (#576)
+- **tripwire**: detect untracked-only changes in rollback precheck (#563) (#567)
+- **spiral**: REVIEW→IMPL fix-loop + --resume --force (#545, #546) (#565)
+- **safety**: stash_with_guard helper + rules + tripwire refactor (#555) (#564)
+- **ci**: restore green Shell Tests on main — 5 clusters (#549) (#562)
+- **post-merge**: broaden classifier to match cycle-NNN anywhere (#550) (#560)
+- **update-loa**: refresh version markers post-merge (Phase 5.6) (#554) (#559)
+- **skills**: drop restrictive agent: on write-capable skills + lint invariant (#553) (#558)
+- **tests**: update stale gpt-5.2 assertion to gpt-5.3-codex
+- **harness**: eliminate silent exits in spiral-harness.sh (#516) (#544)
+- **red-team**: anchor template paths to SCRIPT_DIR for submodule compatibility (#528) (#543)
+- **vision**: replace grep -c || echo 0 with awk in vision-lib.sh (#542)
+- **scripts**: replace (( var++ )) with var=$((var + 1)) across 26 scripts + lint rule (#541)
+- **security**: narrow cache-manager secret pattern to reduce false positives (#530) (#540)
+- **harness**: reserve audit budget floor + strict-greater comparison (#515) (#538)
+- **spiral**: redirect cycle-workspace.sh stdout to prevent early termination (#514) (#537)
+- **tests**: Wave-3 BATS cleanup — 32 failures across 7 files (cycle-076) (#536)
+- **tests**: isolate PROJECT_ROOT across BATS suite + fix harness secret scanner (cycle-075 W3) (#535)
+- **scripts**: replace grep -c || echo 0 pattern with awk (cycle-075 W2f) (#533)
+- **search**: 4 bugs in search-orchestrator.sh + JSONL compaction in search-api.sh (cycle-075 W2e) (#532)
+- **butterfreezone**: env-var word budget override + richer test fixture (cycle-075 W2d) (#527)
+- **cache**: block JSON-style secrets, not just shell-style KEY=value (cycle-075 W2b) (#525)
+- **tests**: isolate PROJECT_ROOT + contract-based path assertions in ledger-lib.bats (cycle-075 W2a) (#522)
+- **tests**: decouple invariant tests from deleted project data + create subagent-reports placeholder (cycle-075 W1b) (#521)
+- **tests**: accept ≥2 frontmatter delimiters in subagent validation (cycle-075 W1c) (#520)
+- **lint**: rephrase comment triggering false-positive readlink -f lint (cycle-075 W1e) (#519)
+- **tests**: avoid ls|wc -l newline bug in secret_scan cleanup test (cycle-075 W1d) (#518)
+- **tests**: rename loa-grimoire → grimoires/loa in 5 test files (cycle-075 W1a) (#517)
+- **hooks**: wire safety hooks into settings.json — close activation gap
+- **spiraling**: dispatch guard — NEVER implement directly in conversation (#507)
+- **harness**: system zone override for autonomous implementation
+- **harness**: advisor strategy cost optimization + 6 E2E fixes
+- **flatline**: cycle-062 follow-ups — review-mode wiring, inquiry tests, default case (#489)
+- **flatline**: jq 1.7 parser error in red-team/inquiry metrics merge (#488)
+- **red-team**: wire invoke_live to model-invoke (#469)
+- **bridgebuilder**: Issue #464 A1+A2+A3 follow-ups (#465)
+- **mount**: curl -o flag before -- sentinel in mount-loa.sh (#461)
+- **collect-trace**: unbound variables, invalid JSON, empty array errors (#444)
+- **constructs**: address Bridgebuilder review findings on #453
+- **constructs**: prefer local source over stale registry pack (#449)
+- **bridge-findings**: portable date conversion + missing .ck/** path
+- **constructs**: auth fallback in browse, symlink + construct.yaml in loader (#447)
+
+_Source: PR #191_
+
+
 ## [2.9.0] - 2026-02-28
 
 ### Why This Release
