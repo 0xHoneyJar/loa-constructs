@@ -218,3 +218,31 @@ Declared at cycle open. OTLET chain holds: every cycle's findings link back to t
 ---
 
 *Cycle-007 closes at 10/10 legs landed, 3.5/4 self-scored KANSEI pending operator Q5, 8 items queued for cycle-008+. Branch `feat/spiral-loa-constructs-cycle-007-world-consolidation` ready for operator review + admin-merge to main.*
+
+---
+
+## 11 · Post-close addendum · world-base + construct-world-creator + modular stack
+
+Operator 2026-04-23 late (post-L-close reframe): *"world-template is simply supposed to provide the n=0 structure just like constructs-base. we can unify and call it world-base and then have a constructs-world-creator..."*
+
+Executed in this cycle:
+- **Repo renamed**: `0xHoneyJar/world-template` → `0xHoneyJar/world-base` via `gh repo rename` (GitHub auto-redirect preserves existing clones/links)
+- **sprawl-world README updated**: 4 `world-template` references → `world-base`
+- **Spec authored**: `cycle-007-world-base-and-creator-spec.md` (~230 lines) covering:
+  - Unification pattern (base + creator mirrors construct-base + construct-creator)
+  - construct-world-creator pack shape (EXEMPLAR, not toolbox; ATLAS persona sketch; 6 skills spanning create/arch/dig/ship/cross-pollinate)
+  - "Subway sandwich" scaffold menu (sovereign default, modular opt-outs)
+  - Modular stack principle — sovereign-as-default + opt-out escape hatch
+  - Pedagogical frame — 6 depth layers from "dead simple SvelteKit" → "ecosystem org-of-one"
+  - Doctrine chain composing with [[worlds-vs-lenses]] + [[constructs-as-packages]] + [[sovereign-stack]] + [[cross-world-pollination]] + [[learn-mode]] + [[naming-is-diagnostic]]
+  - 5 open questions for cycle-008 SEED to resolve at dispatch
+
+Deferred to cycle-008+:
+- Create `0xHoneyJar/construct-world-creator` repo
+- Scaffold the pack (identity + 6 skills + grimoires + subway-sandwich menu)
+- Modular-stack interpolation mechanism in world-base (branches vs plugin-slots — open question)
+- Update world-base repo README to reference the creator pack (after creator ships)
+
+This addendum extends cycle-007 inheritance queue §5 by making items 4 (Purupuru alignment — now can adopt via construct-world-creator) and 8 (BUTTERFREEZONE regen automation — parallel pattern) both dispatchable in concert with the creator-pack cycle.
+
+Spec file: [`cycle-007-world-base-and-creator-spec.md`](./cycle-007-world-base-and-creator-spec.md)
