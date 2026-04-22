@@ -1280,6 +1280,7 @@ Usage: constructs-install.sh <command> [arguments]
 
 Commands:
     pack <slug>              Install a pack from the registry
+    upgrade <slug>           Upgrade a single installed pack (git pull or re-fetch)
     skill <vendor/slug>      Install a skill from the registry
     uninstall pack <slug>    Uninstall a pack
     uninstall skill <slug>   Uninstall a skill
@@ -1301,6 +1302,7 @@ Environment Variables:
 
 Examples:
     constructs-install.sh pack gtm-collective
+    constructs-install.sh upgrade gtm-collective
     constructs-install.sh skill thj/terraform-assistant
     constructs-install.sh uninstall pack gtm-collective
     constructs-install.sh link-commands all

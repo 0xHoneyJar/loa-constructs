@@ -67,6 +67,7 @@ emit_pack_json() {
     local source_json="$pack_dir/.source.json"
 
     local name="" version="" description="" visibility="" schema_version="" skill_count=0 command_count=0
+    local reads_count=0 writes_count=0
     if [[ -f "$yaml" ]]; then
         name=$(yq -r '.name // ""' "$yaml" 2>/dev/null)
         version=$(yq -r '.version // ""' "$yaml" 2>/dev/null)
@@ -75,6 +76,26 @@ emit_pack_json() {
         schema_version=$(yq -r '.schema_version // ""' "$yaml" 2>/dev/null)
         skill_count=$(yq -r '(.skills // []) | length' "$yaml" 2>/dev/null)
         command_count=$(yq -r '(.commands // []) | length' "$yaml" 2>/dev/null)
+        # cycle-005 L7 · surface stream declarations (doctrine §3)
+        reads_count=$(yq -r '(.reads // .streams.reads // []) | length' "$yaml" 2>/dev/null)
+        writes_count=$(yq -r '(.writes // .streams.writes // []) | length' "$yaml" 2>/dev/null)
+    fi
+
+    # cycle-005 L7 · persona handles (yaml declaration OR identity/<HANDLE>.md filenames)
+    local personas_json="[]"
+    if [[ -f "$yaml" ]]; then
+        personas_json=$(yq -o=json '.personas // []' "$yaml" 2>/dev/null || echo "[]")
+        # If empty list, probe identity dir
+        if [[ "$(echo "$personas_json" | jq 'length')" == "0" && -d "$pack_dir/identity" ]]; then
+            personas_json=$(
+                find "$pack_dir/identity" -maxdepth 1 -name '*.md' -print 2>/dev/null \
+                  | while read -r f; do
+                      base=$(basename "$f" .md)
+                      [[ "$base" =~ ^[A-Z][A-Z0-9_]+$ ]] && printf '%s\n' "$base"
+                    done | LC_ALL=C sort -u | jq -R . | jq -sc .
+            )
+            [[ -z "$personas_json" ]] && personas_json="[]"
+        fi
     fi
 
     local source_repo="" source_commit="" installed_at="" source_state="no_source_json"
@@ -112,6 +133,9 @@ emit_pack_json() {
         --arg schema_version "$schema_version" \
         --argjson skill_count "${skill_count:-0}" \
         --argjson command_count "${command_count:-0}" \
+        --argjson reads_count "${reads_count:-0}" \
+        --argjson writes_count "${writes_count:-0}" \
+        --argjson personas "$personas_json" \
         --arg source_repo "$source_repo" \
         --arg source_commit "$source_commit" \
         --arg installed_at "$installed_at" \
@@ -121,6 +145,8 @@ emit_pack_json() {
         '{slug:$slug, name:$name, version:$version, description:$description,
           visibility:$visibility, schema_version:$schema_version,
           skill_count:$skill_count, command_count:$command_count,
+          reads_count:$reads_count, writes_count:$writes_count,
+          personas:$personas,
           source_repo:$source_repo, source_commit:$source_commit,
           installed_at:$installed_at, source_state:$source_state,
           drift_state:$drift_state, pack_dir:$pack_dir}'
@@ -176,6 +202,8 @@ case "$MODE" in
             "  \(.name)\n" +
             "  \(.description)\n" +
             "  skills: \(.skill_count) · commands: \(.command_count) · schema_v\(.schema_version)\n" +
+            "  personas: " + (if (.personas | length) > 0 then (.personas | map("@" + .) | join(", ")) else "(none declared)" end) + "\n" +
+            "  streams: reads=\(.reads_count) writes=\(.writes_count)" + (if (.reads_count + .writes_count) == 0 then " ⚠ undeclared" else "" end) + "\n" +
             "  state: \(.source_state) · drift: \(.drift_state)\n" +
             (if .source_repo != "" then "  source: \(.source_repo) @ \(.source_commit)\n" else "  source: (no .source.json — untracked install)\n" end)'
         ;;
