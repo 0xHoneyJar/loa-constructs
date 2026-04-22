@@ -127,6 +127,24 @@ Start here: **[construct-base](https://github.com/0xHoneyJar/construct-base)**.
 
 ---
 
+## Responsibility boundary
+
+This repo owns a **narrow slice** of the network's concerns: distribution + registry API + license-verify hooks.
+
+| Layer | Lives in | Owns |
+|---|---|---|
+| Apps (UI + checkout) | World repos — [sprawl-world](https://github.com/0xHoneyJar/sprawl-world), purupuru, etc | Payment-initiation, wallet connect, checkout UI |
+| Network API | **This repo** (`apps/api`, `apps/docs`, `packages/shared`, `packages/loa-registry`) | Construct distribution + registry API + license-verify hooks |
+| Ledger | [loa-freeside](https://github.com/0xHoneyJar/loa-freeside) | Author payouts + revenue share + single-source-of-truth for receipts |
+
+**N-rails invariant**: the network supports N payment rails (Stripe, NOWPayments, x402, future) via freeside hooks. **NONE live here.** Adding a rail means apps adopt it + freeside adapter ingests it; this repo stays rail-agnostic.
+
+Full details: [`docs/architecture/payment-responsibility.md`](docs/architecture/payment-responsibility.md).
+
+Per cycle-007: `apps/explorer` (wallet/wagmi bleed) lifted to sprawl-world as `@sprawl-world/constructs-network`. `loa-freeside/packages/adapters/billing/polar/` stub removed — if a billing adapter ever ships, it lives in Jani's freeside repo.
+
+---
+
 ## Operator OS (optional)
 
 Some operators layer a mode-and-lens workflow on top of raw construct invocation — FEEL for zoomed-in craft, ARCH for zoomed-out structure, DIG for research, SHIP for scope discipline. This is a personal workflow pattern, not part of the network itself.
