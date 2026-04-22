@@ -198,3 +198,26 @@ The thesis of friction-driven composable cycles is now validated across three di
 ---
 
 *Cycle-003 walk complete. 2026-04-21. First-person-agent walk proved the doctrine at runtime. 8 steps, 4 passes, 2 partials, 2 spec-only, 4 new findings. 450 lines shell shipped, 0 non-shell. Next: operator pacing.*
+
+---
+
+## Post-close addendum (2026-04-21-late)
+
+### F26 · Adversarial-review env gap
+
+Running `/flatline-review` against the doctrine failed in degraded mode:
+- `ANTHROPIC_API_KEY` not set in operator's local shell env (Claude Code uses a separate auth path)
+- 4/6 Phase-1 review calls failed (Opus + Gemini reviews)
+- Only 2/6 succeeded (GPT-5.3-codex reviews)
+- Orchestrator exited code 3 despite `api_key_mode: graceful` declared in `.loa.config.yaml` — graceful degradation not honored for zero-items-scored case
+
+`/bridgebuilder-review` didn't run either:
+- `post_pr_validation.bridgebuilder_review.enabled=true` is harness-scoped, not CI-hooked
+- PR #195 (doctrine v3) received Vercel + Socket comments but no Bridgebuilder auto-review
+
+**Remediation paths** (cycle-005+ candidates):
+1. Operator sets `ANTHROPIC_API_KEY` + `GOOGLE_API_KEY` in shell env → flatline-review becomes runnable
+2. Small GitHub Actions workflow that invokes `bridgebuilder-review` on PRs matching cycle-* branches
+3. Fix `api_key_mode: graceful` — orchestrator should emit partial consensus when fewer than 6/6 calls succeed, not exit-3
+
+**Scope note**: cycle-003 shipped without triple-model adversarial review. Doctrine v4 also ships without it. This is documented risk — the review gates operators have in this state are: (a) operator conversational review, (b) KANSEI gate, (c) cycle-001 review-lens (GECKO/KEEPER/OTLET/KISS). Adequate for cycle-pacing; insufficient for public-release sign-off. Public README cycle should include running flatline against the full corpus once env gap closed.
