@@ -4,6 +4,7 @@
   "version": "1.5.0",
   "description": "SaaS platform for distributing, licensing, and monetizing AI agent constructs",
   "workspaces": ["apps/*", "packages/*"],
+  "packageManager": "bun@1.3.11",
   "engines": {
     "node": ">=20.0.0"
   },
