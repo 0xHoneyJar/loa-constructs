@@ -13,6 +13,8 @@
 
 ---
 
+**Also**: cycle-006 L-meta-pack close discovered that the registry is **manually-driven today** — new packs don't land automatically on push. The gap affects any operator publishing a construct. Folded in as L-registry-automation.
+
 ## 0 · Why this cycle exists
 
 Three convergent pressures surfaced during cycle-006 dispatch:
@@ -61,6 +63,7 @@ Cycle-007 consolidates Sprawl. Purupuru might follow in cycle-008 if pattern val
 | **L-delineate-responsibility** · three-layer payment boundary | Document explicitly: apps = UI + checkout; network-API = license-verify hooks only; freeside = ledger. Update loa-constructs README / CLAUDE.md to reflect narrower responsibility | small (docs) | CERTAIN |
 | **L-remove-stale** · delete sprawl-protocol-world repo + any other stale loa-constructs artifacts | `sprawl-protocol-world` confirmed dead. Audit loa-constructs for other 4-week+ untouched scaffolds. Delete cleanly (not admin-merge — actual `gh repo delete` with operator confirmation) | small | CERTAIN |
 | **L-cleanup-loa-constructs** · TEND pass on artifacts cluttering agent context | Audit what a fresh agent reading loa-constructs picks up wrong. Remove stale registry entries, orphaned skills, dangling commands. Target: "ultra simple, down to what it needs" | medium | CERTAIN |
+| **L-registry-automation** · close the manual-publish gap | New packs pushed to `0xHoneyJar/*` do NOT auto-land in the registry today. Three gaps: (1) no github webhook on push, (2) no namespace-scan cron, (3) `createPack()` defaults `status=draft` so even ingested packs are invisible to `/v1/constructs`. Discovered cycle-006 L-meta-pack close when `constructs install construct-creator` returned HTTP 500 post-push. Wire an ingest pipeline + flip auto-publish | medium-large | CERTAIN |
 | **L-exemplar-readme** · sprawl-world as reference implementation | Author the README / docs that make sprawl-world the prime example of [[worlds-vs-lenses]] three-tier hierarchy. Other operators / future worlds read this to learn the pattern | small (docs) | CERTAIN |
 | **L-inheritance-mechanism** · runtime implementation of design-system inheritance | The **biggest leg**. Implement the cycle-006 doctrine amendment: world-level core DS + apps inherit by default + apps may fork + DNA survives forks. Concrete: how does sprawl-world's apps/constructs-network pull tokens from sprawl-world/design-system/core? What's the update propagation? What's the fork mechanism? | **large** | CERTAIN |
 | **L-cross-pollinate-purupuru** · extract Purupuru's existing patterns for Sprawl template | Purupuru is already structured well. Document what Purupuru does that Sprawl should inherit as the world-template invariants. Two-world cross-check validates the inheritance pattern | medium | LIKELY |
@@ -107,6 +110,25 @@ Cycle-007 consolidates Sprawl. Purupuru might follow in cycle-008 if pattern val
 - **AC-CL.3** · Dead branches audit (not just this cycle's work); stale PRs reviewed
 - **AC-CL.4** · `apps/` reduces to `api` + `docs` only (explorer lifted per L-lift-explorer; sandbox evaluated for whether it still serves a purpose)
 - **AC-CL.5** · BUTTERFREEZONE.md regenerated to match narrower responsibility
+
+### L-registry-automation · close the manual-publish gap
+
+Discovered during cycle-006 L-meta-pack close: pushed `0xHoneyJar/construct-creator` → attempted `constructs install construct-creator` → registry returns HTTP 500. Root cause documented in `apps/api/src/db/seed-publish-packs.ts` header comment: *"createPack() defaults status to 'draft', and there's no automatic publish mechanism. Packs must be manually published via admin API or this script."*
+
+Three structural gaps:
+
+1. **No ingest trigger** — github push to `0xHoneyJar/*` doesn't notify the registry. Registry remains unaware a new repo exists.
+2. **No namespace-scan cron** — `pnpm seed:auto` is something an operator runs manually; no schedule fires it.
+3. **Draft-default gate** — `createPack()` sets `status='draft'` even after ingest; packs stay invisible to `/v1/constructs` until explicitly published.
+
+- **AC-RA.1** · Ingest trigger exists: either github webhook → registry endpoint, or scheduled cron running namespace scan on `0xHoneyJar` (operator picks mechanism)
+- **AC-RA.2** · Ingest pipeline: on new repo detected, fetch `construct.yaml`, run `construct-validate.sh`, insert into packs table with source URL + commit SHA pinned
+- **AC-RA.3** · Auto-publish on clean ingest: remove the `draft` default OR add a post-ingest publish step; configurable per-org if governance demands it later
+- **AC-RA.4** · Backfill: re-ingest all 0xHoneyJar/construct-* repos to catch anything that landed during the manual-only era (minimally construct-creator from cycle-006)
+- **AC-RA.5** · Smoke test: `constructs install <slug>` on a freshly-pushed `0xHoneyJar/construct-test-smoke` succeeds end-to-end within N minutes (N configurable; webhook path ≤ 1min, cron path ≤ scan interval)
+- **AC-RA.6** · Related issues closed or linked: #72 (registry API returning stale data) · #57 (DB migrations not running on Fly.io) — if scoped into this leg, close them; otherwise link as "composes with"
+
+Shape-sketch: if webhook path — add an endpoint on `apps/api` at `POST /v1/admin/ingest` authenticated via the existing API-key path; github webhook fires on org push events; webhook body tells registry which slug + commit SHA to fetch. If cron path — add a scheduled function (Convex cron if explorer is using Convex, or a github Action on schedule that hits the admin endpoint).
 
 ### L-exemplar-readme · sprawl-world as reference implementation
 
