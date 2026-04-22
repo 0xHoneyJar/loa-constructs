@@ -142,6 +142,41 @@ The same deployment's read path (`GET /v1/constructs`) works fine (HTTP 200, ret
 
 ---
 
+## F18+ · Meta-finding (added 2026-04-21, post-walk)
+
+**The meta-finding that eclipses F10-F17**: F18 (Supabase paused, won't be restored) is not a bug. It's the **forcing function** revealing that constructs.network is the unmigrated outlier in an org that has moved to the Freeside sovereign stack.
+
+**Evidence from `~/hivemind/wiki/concepts/`**:
+- `[[sovereign-stack]]` — canonical stack is SvelteKit 5 + Drizzle + **Turso libSQL** + Passkeys/SIWE; NOT Next.js + Supabase Postgres + Dynamic Labs.
+- `[[freeside-as-subway]]` + `[[ecs-architecture-freeside]]` — ECS composition pattern; constructs.network doesn't apply it.
+- `construct-freeside` skill pack (`/use-freeside`) — the automation for Freeside world deploys exists; constructs.network hasn't invoked it.
+
+**Repos confirming org migration** (verified locally, 2026-04-21):
+- `~/Documents/GitHub/sprawl-world` — migrated
+- `~/Documents/GitHub/mibera-freeside` — migrated
+- `~/Documents/GitHub/world-template` — canonical boilerplate
+- `~/Documents/GitHub/loa-freeside` — platform itself
+
+**Cycle-001's entire plumbing was built against the obsolete stack.** Clean code, directed at infrastructure the org is decommissioning. This isn't wasted work — L0, F15, F14 survive into sovereign — but the deployment context (Railway + Supabase) has a different horizon.
+
+**Operator directive post-discovery (2026-04-21)**:
+> *"do not rebuild the network, as it's not extremely important. It's more so the underlying architecture and integration with the Claude Code surface… your job is to improve the tools for your own use case. We can see the constructs on the network and it works as is, so I would prefer not to have to rebuild it. I think that the skill and these components, the CLI, may need to be updated as well. I would only swap the database."*
+
+**Scope lock for cycle-003**:
+- DB-only swap (Supabase → Turso libSQL)
+- Agent-first CLI/skill toolchain audit
+- Explorer frontend UNTOUCHED (works-as-folklore)
+- Full rebuild DEFERRED (possibly never — explorer is a viewing surface, not the product)
+
+## Closure actions (cycle-002 session close, 2026-04-21)
+
+- ✅ `CONSTRUCTS_ADMIN_TOKEN` deleted from Railway (stale, unused)
+- ✅ Tag `cycle-001-last-supabase` pushed at commit `49ce22b2` — last-Supabase marker
+- ✅ Local token file `/tmp/cycle002-ops-token` deleted
+- ✅ `cycle-003-SEED-agent-toolchain-walk.md` drafted (see sibling file)
+
+---
+
 ## Emergent legs (reclassified from SEED §5 draft)
 
 | Leg | Original status | Revised status |
