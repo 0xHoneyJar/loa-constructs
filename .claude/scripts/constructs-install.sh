@@ -723,6 +723,26 @@ PYEOF
         esac
     fi
 
+    # Manifest validation (cycle-005 L4) — F28-class checks + SEED §12 grimoires convention
+    # Default: warn on HIGH/CRITICAL, advisory on MEDIUM/LOW. Set LOA_STRICT_VALIDATION=1 to block.
+    local manifest_validator="$SCRIPT_DIR/construct-validate.sh"
+    if [[ -x "$manifest_validator" ]]; then
+        echo "  Validating manifest..."
+        local manifest_rc=0
+        local manifest_report
+        manifest_report=$("$manifest_validator" "$pack_dir" 2>&1) || manifest_rc=$?
+        if (( manifest_rc != 0 )); then
+            print_warning "  Manifest validation surfaced findings:"
+            printf '%s\n' "$manifest_report" | sed 's/^/    /'
+            if [[ "${LOA_STRICT_VALIDATION:-0}" == "1" ]]; then
+                print_error "  Aborting install (LOA_STRICT_VALIDATION=1)"
+                return 1
+            fi
+        else
+            print_success "  Manifest clean"
+        fi
+    fi
+
     # Update registry meta
     update_pack_meta "$pack_slug" "$pack_dir"
 
