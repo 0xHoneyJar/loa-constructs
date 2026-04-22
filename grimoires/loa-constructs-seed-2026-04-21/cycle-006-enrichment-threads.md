@@ -97,6 +97,41 @@ This is the **first real composition** the cycle-005 runner targets. Real site; 
 
 **Operator self-caveat**: *"this is just one workflow of many that other people may present, but this is a workflow that I've been using time and time again."* The composition is a **taste statement**, not a universal template. Other operators author their own.
 
+### Runner model clarification (operator 2026-04-23 late, added after Q1-Q4 lock)
+
+The runner is a **navigable persistent state machine**, not a one-shot pass.
+
+- Stages enter waiting state with inputs defined per-stage
+- Operator navigates nonlinearly — jump to stage 3 while stage 5 is active; edit stage 2 output after seeing stage 6
+- Per-stage teammate holds context in its pane; operator works with that teammate directly; confirms when stage "done for now"
+- Iteration loops (2↔4, 5↔6) are first-class — runner does NOT prevent revisiting
+- Forward-closing per stage is explicit (operator marks complete), not automatic
+
+**Shapes the MVP UI**: pipe graph + per-pane color/emoji + **stage-status indicators (waiting / active / complete / needs-revisit)** + **operator navigation controls (jump, iterate, close)**.
+
+**Cross-repo invariant** (operator asked 2026-04-23 late): after cycle-006 ships, this composition runs in any Loa-mounted repo — `cd sprawl-interface && construct-compose website-scaffold --target <app>`. The substrate lives in Loa; every mounted repo inherits it. This is the point of the migrate leg.
+
+### The real KANSEI target — Sprawl design system divergence
+
+**Operator 2026-04-23 late**: *"During the process of building all of these apps within the Sprawl world, I think we did lay down the taste runtime tokens, but I think it's really missing a design system and component system that we can iterate on."* + *"Structural work should be default — getting all buttons aligned to same design system should be very easy and it should be default. Currently we have a ton of divergence."*
+
+Cycle-006 isn't abstract infrastructure. Its success criterion is **reducing a specific class of divergence work the operator is doing manually today**: button alignment across Sprawl world apps, component-system consolidation, cross-app design-system propagation.
+
+**Open question for operator before SEED dispatch**: Sprawl design system validation —
+- **(a) In-cycle KANSEI gate**: cycle-006's Q5 requires running the 7-stage composition against Sprawl and reporting outcomes. Sprawl success gates cycle close.
+- **(b) Cycle-007 application**: cycle-006 ships the substrate and the website-scaffold YAML. Cycle-007 runs it against Sprawl as dedicated work.
+- **(c) Post-cycle-006 demonstration**: cycle-006 closes when the substrate works on a toy target; Sprawl is a separate post-cycle paired session, not a gate.
+
+My lean: **(c)**. Cycle-006 substrate work is heavy enough; Sprawl is its own focus session. But the operator's pain is immediate so (a) or (b) might match urgency better. Needs operator call.
+
+### The systems-thinking-applies-to-design doctrine line
+
+**Operator 2026-04-23 late** (verbatim, preservation-worthy):
+
+> *"Systems thinking applies to design as well despite its exploratory nature. I think the iterative loops are just faster. Rails help my adhd so I'm not jumping into completely random places."*
+
+Captured in [[agent-teams-as-pipes]] §"Systems thinking applies to design" and in [[rails-as-legibility]] as a supporting case. The doctrinal claim: rails *accelerate* exploratory work, they don't constrain it. Looseness lives inside stages; rails live between stages. This is the direct answer to the anticipated objection "won't systems thinking kill the creative process?"
+
 ## Operator answers locked 2026-04-23 late (pre-SEED)
 
 | Q | Answer | SEED implication |
