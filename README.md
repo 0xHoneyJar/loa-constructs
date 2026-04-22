@@ -89,7 +89,7 @@ Agent-facing transparency is a first-class invariant. `constructs-active` answer
 
 ## Compose
 
-Constructs chain through **typed streams** — [Unix philosophy](https://medium.com/ingeniouslysimple/philosophy-of-unix-development-aa0104322491) over LLM expertise. Five primitive stream types flow between stages:
+Constructs chain through **typed streams** — [Unix philosophy](https://iamchandra.com/Technology/2024-02-23-Unix-Philosophy) over LLM expertise. Five primitive stream types flow between stages:
 
 `Signal` · `Verdict` · `Artifact` · `Intent` · `Operator-Model`
 
