@@ -350,20 +350,20 @@ handle_event() {
 cleanup() { printf '\033[0m\n'; }
 trap cleanup EXIT INT TERM
 
-# Initial render (empty trajectory is valid; shows all pending)
-render
-
 if (( ONE_SHOT )); then
-  # Read existing trajectory if any
+  # Single render after processing any existing trajectory
   if [[ -f "$ORCH_TRAJECTORY" ]]; then
     while IFS= read -r line; do
       [[ -z "$line" ]] && continue
       handle_event "$line"
     done < "$ORCH_TRAJECTORY"
-    render
   fi
+  render
   exit 0
 fi
+
+# Interactive mode: initial render (empty trajectory valid), then tail-follow
+render
 
 # Wait for file to exist
 wait_count=0
