@@ -67,28 +67,42 @@ async function fetchOrgRepos(owner: string, token?: string): Promise<OrgRepo[]> 
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const resp = await fetch(
-    `https://api.github.com/orgs/${owner}/repos?type=all&per_page=100`,
-    { headers }
-  );
-
-  if (resp.status === 429) {
-    throw Object.assign(new Error('GitHub rate limit hit'), { code: 'RATE_LIMIT' });
-  }
-  if (!resp.ok) {
-    throw new Error(`GitHub API error: ${resp.status} ${resp.statusText}`);
-  }
-
-  const data = (await resp.json()) as Array<{
+  // cycle-002 F15: paginate. Large orgs (0xHoneyJar has 278 repos) scatter
+  // construct-* names across pages 2-3. Fetching only page 1 silently
+  // returned 0 constructs — the prod symptom behind F10.
+  const all: Array<{
     name: string;
     visibility: string;
     default_branch: string;
     archived: boolean;
     description: string | null;
     html_url: string;
-  }>;
+  }> = [];
 
-  return data
+  const MAX_PAGES = 10; // 100 * 10 = 1000 repos ceiling; fail loud if exceeded
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const resp = await fetch(
+      `https://api.github.com/orgs/${owner}/repos?type=all&per_page=100&page=${page}`,
+      { headers }
+    );
+
+    if (resp.status === 429) {
+      throw Object.assign(new Error('GitHub rate limit hit'), { code: 'RATE_LIMIT' });
+    }
+    if (!resp.ok) {
+      throw new Error(`GitHub API error: ${resp.status} ${resp.statusText}`);
+    }
+
+    const pageData = (await resp.json()) as typeof all;
+    if (pageData.length === 0) break;
+    all.push(...pageData);
+    if (pageData.length < 100) break; // last page
+    if (page === MAX_PAGES) {
+      throw new Error(`Pagination ceiling hit (${MAX_PAGES} pages × 100). Org ${owner} has >1000 repos; raise MAX_PAGES.`);
+    }
+  }
+
+  return all
     .filter(r => r.name.startsWith('construct-'))
     .map(r => ({
       name: r.name,
