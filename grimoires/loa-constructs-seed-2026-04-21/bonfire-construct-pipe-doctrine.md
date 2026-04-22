@@ -443,3 +443,193 @@ This file is now **v2**. v1's §10 open-questions are chain-preserved (not delet
 ---
 
 *v2 · 2026-04-21-late · Amended after operator review. Generalized to "everything is a computer." Added Operator-Model + read-modes + multi-modal Intent. Reframed questions in operator language. Meta-lesson on question-framing folded into doctrine itself.*
+
+---
+
+## 15 · Amendments (v2 → v3, 2026-04-21-late operator review after cycle-003 walk)
+
+Operator provided three load-bearing amplifications while reviewing v2 + cycle-003 walk outcomes. All three are doctrine-deep — they extend existing sections rather than contradicting them.
+
+### 15.1 · Operator OS is the proto-composition system
+
+Looking at `~/.claude/CLAUDE.md` (operator's global memory, auto-loads into every Claude Code session), the **Operator OS v2** section contains:
+
+- **Six cognitive modes** (FEEL/ARCH/DIG/SHIP/FRAME/TEND) — each names a persona + primary construct
+- **Five lenses** (craft/keeper/canon/GTM/weaver/ecosystem) — each layers on top of any mode with a specific question
+- **Construct Resolution (cybernetic)** table — eight domains × mode + primary + secondary + lens compositions
+
+This is a **compositional dispatch system, pre-dating the doctrine that named it.** Each row in the Construct Resolution table is a composition spec expressed in mode+lens+construct vocabulary instead of stream-type vocabulary:
+
+> Smart contracts → ARCH mode · the-arcade + protocol + noether · craft lens
+
+Translated to doctrine §4 composition shape:
+```yaml
+# compositions/smart-contracts-arch.yaml
+name: smart-contracts-arch
+intent: "architect a smart-contract change"
+frame: ARCH          # mode — sets the operational register
+lens: craft          # lens — question to hold throughout
+chain:
+  - construct: the-arcade   # primary — owns the frame
+  - construct: protocol     # secondary — composes with primary
+  - construct: noether      # secondary — composes with primary
+```
+
+**Structural claim**: Operator OS's modes-and-lenses vocabulary is **not parallel to** this doctrine's pipe vocabulary — it's an earlier, more-operator-friendly expression of the same thing. The pipe vocabulary compiles down FROM operator-OS vocabulary.
+
+**Implication**: Composition YAMLs should accept BOTH:
+- Construct-stream specification (pipe layer — for machines)
+- Mode-lens-construct specification (Operator OS layer — for humans/operators)
+
+The orchestration layer translates between them. This honors the operator's pre-existing compositional thinking without forcing a rewrite.
+
+### 15.2 · Frames vs workflows — two compositional flavors
+
+Operator distinguishes:
+
+| Compositional flavor | What it is | Example |
+|---|---|---|
+| **Frame / Lens** | Way to SEE a problem (analytical stance) | KEEPER lens — "what are users actually doing?" |
+| **Workflow** | Way to EXECUTE on a seen problem (sequenced dispatch) | feel-audit workflow — decompose component → score experience → emit verdict |
+
+Doctrine §4 composition YAMLs currently describe WORKFLOWS (pipe chains). Frames/lenses are a DIFFERENT composition primitive — they filter / interpret inputs across ANY workflow, rather than dispatching a sequence.
+
+**Amendment to §4 shape**:
+```yaml
+# Two composition kinds
+kind: workflow       # pipe chain — sequenced dispatch (e.g., feel-audit)
+# OR
+kind: frame          # input-filter / interpretation-lens (e.g., keeper-lens)
+```
+
+**Implication for cycle-004+**:
+- The composition runner (L7) consumes BOTH kinds.
+- Workflow kind: executes the chain with typed I/O verification.
+- Frame kind: attaches to a workflow as a pre-filter OR a per-stage lens. Modifies interpretation; doesn't change dispatch.
+- Operator OS's five lenses become frame-kind compositions.
+- Feel-audit, dig-to-ship, material-tour (cycle-001 Leg F YAMLs) are workflow-kind compositions that have never been designed with frames/lenses attached yet.
+
+**Gap named**: workflow-kind design is largely undone. Cycle-005+ candidate. Feel-audit is the canonical first workflow to author — closes the gap between "compositions exist as folklore" and "compositions execute."
+
+### 15.3 · Inline-controls as "vibe coding surface" — §14.4 amplified
+
+Operator reflection on the mobile-app screenshot in §14.4:
+
+> *"This sort of view is something that a lot of people will likely fall in love with from a vibe coding point of view. We're using emojis and really clear identifiers for things that are being changed, like number changes, thinking about this as an operating surface or a fun vibe coding surface that pretty much everyone can relate to."*
+
+Load-bearing promotion: multi-modal Intent authoring (emoji-as-object-refs + inline discrete controls + casual framing) is not just a UX north star (v2 framing). **It is a potential first-class distribution vector.**
+
+- The Unix-pipe semantics underneath are power-user-legible (§13.2 pre-AI continuity).
+- The vibe-coding surface on top is mass-legible — emojis + steppers + casual tone.
+- Same compositional substrate, two read-registers.
+
+**Amendment**: Intent stream (§3) implementations should be designed to support BOTH:
+- Terminal/CLI operators (text + shell flags)
+- Vibe-coding operators (text + inline emoji-refs + stepper controls + casual tone)
+
+Neither is default; both are valid. Surface selection is runtime-choice (terminal vs chat vs web vs native app). The underlying Intent stream is the same typed object.
+
+**Implication for cycle-006+**: the "operator-facing Intent authoring surface" is not just a CLI — it's an adaptive surface. Vibe-coding may be the distribution hook that brings the construct network to mass operators.
+
+### 15.4 · Hivemind-as-shareable-system
+
+Operator observation:
+
+> *"The hivemind, in itself, its whole design, can be shared with people, because I think this knowledge base and this structure is a very powerful tool that can scale up and scale down."*
+
+Structural signal:
+- `hivemind-os` construct already exists (67 skills, private visibility — confirmed in cycle-003 Step A output)
+- Its structure (wiki/concepts, wiki/entities, strategy, self, sessions, worlds, raw-sources) scales from solo-operator to team to org
+- The `[[wikilinks]]` convention + frontmatter decay + supersession semantics are all existing Obsidian-plus-conventions
+- Operator-Model (§14.2) READS FROM hivemind; it could also WRITE BACK (closing the loop)
+
+**Amendment to §14.2 Operator-Model**: hivemind is the canonical source for Operator-Model, AND a first-class construct in its own right. Two usage modes:
+
+1. **Operator-Model source** — pipe stages read hivemind as typed input to calibrate depth/framing
+2. **Shareable knowledge construct** — hivemind's structure itself is installable as a pack (`hivemind-os`), configurable per-operator, cross-pollinating between operators
+
+Cycle-005+ candidate: promote `hivemind-os` from private to public (with appropriate redaction of operator-specific content) + document the structure-as-methodology for external adoption.
+
+### 15.5 · Operator OS ↔ Claude base memory ↔ Hivemind
+
+Operator observation:
+
+> *"The operator OS in the memory of the base of Claude is, I guess, a direct parallel to what is in the hive mind. What's in Claude auto-loads, what's in the hive mind, I'm not sure, auto-loads."*
+
+Confirming: `~/.claude/CLAUDE.md` **does auto-load** (every Claude Code session reads it). Hivemind **does NOT auto-load** — it's read on-demand when `[[wikilink]]` is mentioned OR when agent explicitly checks.
+
+Three layers of operator-context in current state:
+
+| Layer | Lifecycle | What |
+|---|---|---|
+| **Claude base** (`~/.claude/CLAUDE.md`) | Auto-loads every session | Operator OS modes + lenses, creative latitude, micro-fix threshold |
+| **Project CLAUDE.md** (`loa-constructs/CLAUDE.md`) | Auto-loads when in that project | Project-specific instructions, team, conventions |
+| **Hivemind** (`~/hivemind/`) | Read on-demand | Deep mental models, strategy, self-observation, world details |
+
+**Gap**: there's no bridge that makes hivemind *selectively* auto-load based on context. An agent starting in a purupuru session should auto-read purupuru-relevant hivemind pages; an agent in loa-constructs should auto-read construct-network pages.
+
+**Amendment**: add a 6th stream type OR extend Operator-Model:
+- **Operator-Model** (existing §14.2 / 5th type) remains: what operator knows
+- **Operator-Context** (new consideration): which slice of Operator-Model is load-bearing *right now*
+
+Context-aware hivemind loading is a cycle-006+ construct — probably named something like `hivemind-autoload` or `context-routed-memory`. Scope-defer; just name the shape now.
+
+### 15.6 · First-class Loa + Claude Code integration without bloat
+
+Operator concern:
+
+> *"First-class integration with these tools is important for us without overbloating or confusing mental models."*
+
+Risk observed: we now have four overlapping mental frames:
+
+1. **Claude Code primitives** — Skill tool, Agent tool, hooks, settings
+2. **Loa framework** — cycles, skills, harness, construct registry
+3. **Operator OS** — modes, lenses, construct resolution table
+4. **Pipe doctrine** — stream types, compositions, orchestration
+
+These aren't redundant — they're nested:
+
+- Pipe doctrine names the underlying protocol
+- Operator OS names the operator-facing register
+- Loa names the cycle-driven execution shape
+- Claude Code names the runtime substrate
+
+**Doctrine stance**: do not try to unify all four into one vocabulary. Do NOT flatten Operator OS into pipe doctrine, and vice versa. Instead:
+
+- **Documentation** should show the translation between layers (§15.1 composition YAML example is one)
+- **Tooling** should accept input in any layer's vocabulary (operator says "ARCH mode with craft lens"; orchestrator translates to pipe chain; construct-invoke emits JSONL rows)
+- **Operator cognitive load** stays in the register they're already fluent in (CLAUDE.md modes + lenses for most users; pipe vocabulary only for protocol-authors)
+
+**Implication for cycle-N readme + public release** (operator-stated next step): the public README should lead with the **Operator OS register** (modes + lenses + construct resolution) because that's the familiar pattern. Pipe-doctrine is the "how it actually works under the hood" section, not the landing.
+
+### 15.7 · Reframed cycle-004 legs
+
+Given v3 amendments, cycle-003's cycle-004 inheritance queue gains doctrinal framing:
+
+| Queue item | Doctrinal framing (v3) |
+|---|---|
+| F24 three-way-merge impl | §4 composition-runner first primitive — merge IS composition of 3 states |
+| `.source.json` backfill | Operator-Model integrity — ensures Operator-Model reads get real data |
+| Upstream SKILL.md emission PRs | §15.2 workflow-kind compositions — feel-audit workflow's first stage |
+| Install round-trip bats test | Doctrine §11 cycle-003 lens — locks the invariant at test layer |
+| Composition runtime L7 | §15.2 — consumes BOTH workflow-kind AND frame-kind |
+| DB swap Supabase → Turso | Unrelated to pipe doctrine — pure infra |
+| Railway/Supabase decommission | Same |
+| F23 validator fix | Quality-of-life |
+
+**New cycle-005 candidate (§15.2 / §15.4 / §15.5)**: "workflow-kind composition design" — author the feel-audit workflow end-to-end (frame + chain + lens attachments) as the first real workflow. Requires the composition runner (L7) to land first OR run alongside as co-design.
+
+### 15.8 · Version bump
+
+**v3**. v2 chain-preserved. Amendments address operator's 2026-04-21-late post-cycle-003 observations. Structural changes:
+
+- Operator OS recognized as proto-composition system (§15.1)
+- Two composition kinds: workflow + frame (§15.2)
+- Vibe-coding surface promoted to distribution vector (§15.3)
+- Hivemind-as-shareable-construct (§15.4)
+- Operator-Context layer named (§15.5)
+- Four overlapping layers explicitly NOT unified (§15.6)
+
+---
+
+*v3 · 2026-04-21-late · After cycle-003 walk + second operator review. Doctrine deepens: Operator OS is the proto-composition system we're naming underneath. Frames vs workflows distinguished. Vibe-coding surface promoted. Hivemind as shareable. Four layers explicitly co-exist without forced unification.*
