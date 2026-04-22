@@ -7,6 +7,7 @@
 import { db, auditLogs } from '../db/index.js';
 import { eq, and, gte, lte, desc, sql } from 'drizzle-orm';
 import { logger } from '../lib/logger.js';
+import { OPERATIONAL_TOKEN_USER_ID } from '../middleware/operational-token.js';
 
 // --- Types ---
 
@@ -99,21 +100,31 @@ export interface AuditLogQueryOptions {
  */
 export async function createAuditLog(entry: AuditLogEntry): Promise<void> {
   try {
+    // Operational-token calls carry the sentinel userId (not a real user row).
+    // Coerce to null for the FK-nullable audit_logs.user_id column and tag
+    // metadata so downstream queries can distinguish operational from user actions.
+    const isOperational = entry.userId === OPERATIONAL_TOKEN_USER_ID;
+    const persistedUserId = isOperational ? undefined : entry.userId;
+    const persistedMetadata = isOperational
+      ? { ...(entry.metadata ?? {}), source: 'operational_token' }
+      : (entry.metadata ?? {});
+
     await db.insert(auditLogs).values({
-      userId: entry.userId,
+      userId: persistedUserId,
       teamId: entry.teamId,
       action: entry.action,
       resourceType: entry.resourceType,
       resourceId: entry.resourceId,
       ipAddress: entry.ipAddress,
       userAgent: entry.userAgent,
-      metadata: entry.metadata ?? {},
+      metadata: persistedMetadata,
     });
 
     logger.debug(
       {
         action: entry.action,
-        userId: entry.userId,
+        userId: persistedUserId,
+        operational: isOperational,
         resourceType: entry.resourceType,
         resourceId: entry.resourceId,
       },

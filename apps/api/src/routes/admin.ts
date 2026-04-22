@@ -8,8 +8,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { zValidator } from '@hono/zod-validator';
 import { randomUUID } from 'crypto';
-import { requireAuth } from '../middleware/auth.js';
-import { requireAdmin } from '../middleware/admin.js';
+import { requireAdminAccess } from '../middleware/operational-token.js';
 import { db, users, packs, subscriptions, skills, skillUsage, packInstallations, apiKeys, teams } from '../db/index.js';
 import { eq, like, or, desc, count, sql, gte, and } from 'drizzle-orm';
 import { Errors } from '../lib/errors.js';
@@ -33,9 +32,8 @@ import { runDiscovery } from '../services/discovery.js';
 
 export const adminRouter = new Hono();
 
-// Apply middleware: auth first, then admin check, then rate limiting
-adminRouter.use('*', requireAuth());
-adminRouter.use('*', requireAdmin());
+// Auth: operational-token bypass (cycle-002 L0) falls through to user JWT/API-key + admin-role check
+adminRouter.use('*', requireAdminAccess());
 adminRouter.use('*', apiRateLimiter());
 
 // --- Schemas ---
