@@ -75,24 +75,46 @@ Both are valid composition patterns. They differ in *operator presence*, not in 
 
 ## Thread 4 · Website scaffolding as the first concrete composition (cycle-006 target)
 
-**Operator 2026-04-23 late**: *"I deeply understand and can name each part of the process, like the mood boarding session, mock-ups, design systems, composition, copy. All of these things are pipelined together."*
+Operator 2026-04-23 late expanded the pipeline to 7 stages (earlier 5-stage sketch was a simplification):
 
-The named pipeline:
+| # | Stage | Construct | Output | Mode |
+|---|---|---|---|---|
+| 1 | Research / context | [[k-hole]] | Context brief, prior art, constraints | fresh-per-stage |
+| 2 | Mood-boarding exploration | the-easel + k-hole | Design concepts, mood candidates | persistent (iter w/ stage 4) |
+| 3 | Asset generation | **mint** | Locked mood-board assets | fresh-per-stage |
+| 4 | Mood refinement | the-easel | Refined mood tokens, direction lock | persistent (iter w/ stage 2) |
+| 5 | Design UI system scaffold | artisan | Taste tokens, color, type scale, motion specs | persistent (iter w/ stage 6) |
+| 6 | Component system refinement | artisan + kansei | Component primitives, state variants, feel calibration | persistent (iter w/ stage 5) |
+| 7 | Product structuring | the-arcade | Actual product/page structure, navigation | fresh-per-stage |
 
-| Stage | Construct | Output |
+Copy (vocabulary-bank + herald) weaves in at stages 5–7, not as its own stage.
+
+**Iteration loops** the composition runner must support:
+- 2 ↔ 4 (mood-board exploration ↔ refinement)
+- 5 ↔ 6 (design system ↔ component refinement)
+
+This is the **first real composition** the cycle-005 runner targets. Real site; real expertise per stage; the operator runs it. SEED leg `L-website-scaffold` authors `grimoires/compositions/website-scaffold.yaml` for this.
+
+**Operator self-caveat**: *"this is just one workflow of many that other people may present, but this is a workflow that I've been using time and time again."* The composition is a **taste statement**, not a universal template. Other operators author their own.
+
+## Operator answers locked 2026-04-23 late (pre-SEED)
+
+| Q | Answer | SEED implication |
 |---|---|---|
-| 1 · Mood-board | [[the-easel]] | Visual vocabulary, reference grid |
-| 2 · Mock-ups | surface-craft discipline | Layout drafts, component candidates |
-| 3 · Design system scaffold | artisan | Taste tokens, component primitives, motion specs |
-| 4 · Composition | the-arcade | Pages, flows, navigation |
-| 5 · Copy | vocabulary-bank + herald | Register, voice, narrative |
+| **Q1** · persistent vs fresh-per-stage | **Both, declarative per-stage in the composition YAML** | Composition format carries `mode: persistent` or `mode: fresh` per stage. Website-scaffold composition above declares per-stage already. |
+| **Q2** · TeamCreate backend vs build-from-scratch | **Build-from-scratch.** Backend = `claude -p` headless + tmux split-panes + bash orchestration. TeamCreate remains an **optional alternative backend** (composition can declare `backend: teamcreate` if an operator prefers it). | Default backend is Unix-native, not Claude-native. Matches substrate boundary from [[agent-teams-as-pipes]]. Forkable without Claude-Code-specific features. |
+| **Q3** · stage cardinality | **One teammate per stage.** Clear inputs/outputs like a scripting language. Multi-construct loadouts *possible* but deferred — operator wants to understand composition mechanics before multi-construct-per-stage is wired. | Cycle-006 MVP: one-teammate-one-stage strict. Document extension path for multi-construct loadouts but don't implement. |
+| **Q4** · MVP UI | **Confirmed**: colors per pane by construct, emoji per pane, main orchestrator pane shows pipe graph + stream activity. | SEED ships exactly this — no more, no less. |
 
-This is the **first real use-case** the composition runner (cycle-005 L1) targets. Not a toy demo — a real website the operator is about to build. The runner's viability gets tested against it.
+## The rails-under-non-determinism insight (operator 2026-04-23 late)
 
-Cycle-006 treatment:
-- Ship a composition YAML at `grimoires/compositions/website-scaffold.yaml` — same format as the existing `feel-audit.yaml`, but 5 stages long, and pointing at the real constructs
-- Don't force linearity. The runner should support per-stage re-entry (operator needs to loop between mood-board and design-system many times in practice — sequential-but-iterative)
-- This composition, paired with the transparency/visibility layer from Thread 1, demonstrates the full substrate: pipe runs, operator sees it, stages are constructs with real expertise, focus-per-register maintained
+**Verbatim**: *"(it provides rails for not only my adhd but agents to maximize understanding of the topology of the problem and deterministic outputs IN a non deterministic LLM)"*
+
+This is the load-bearing *why* of cycle-006. Not just operator-convenience scaffolding — **the composition topology IS how you get dispatch-determinism out of non-deterministic LLMs**. Each stage output varies (LLM variance unavoidable); the topology doesn't. Rails orient both operator and agents; legibility becomes the substrate of usable LLM work at scale.
+
+Grounds [[construct-pipe-doctrine]] §17.1 — §17.1 named the split (dispatch-det ≠ output-repro); this insight names *why the split matters*. Transparency in the UI layer (pipe graph, emoji per stage, inline controls) is NOT decoration — it's the operator's view into the rails.
+
+Captured in [[agent-teams-as-pipes]] §"Rails as determinism-under-non-determinism". Should appear in the cycle-006 SEED §"Why this cycle exists" section prominently.
 
 ## Scope discipline — operator self-pushback, recorded
 
