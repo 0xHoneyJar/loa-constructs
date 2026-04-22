@@ -5,6 +5,90 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.10.0] - 2026-04-21
+
+### Why This Release
+
+**Pipe doctrine + agent-first toolchain.** Four cycles of tending produced a structural shift in how constructs are understood and invoked: as Unix-pipe stages composing via typed streams. Agent transparency became a first-class invariant. Operator OS inverted from canonical spec to starter template so other operators can author their own workflows on top of the shared substrate.
+
+Flatline triple-model adversarial review (Opus + GPT-5.3-codex + Gemini 2.5 Pro) validated doctrine v4 at 100% model agreement; 11 blockers logged for forward cycles (no retroactive amendment).
+
+Zero TypeScript shipped. All 700+ net new lines are shell + doctrine + YAML — Jani's Unix-first approach doctrinally validated.
+
+### Added
+
+#### Bonfire Doctrine — Constructs as Unix Pipes (cycle-002/003/004)
+
+- **`bonfire-construct-pipe-doctrine.md`** v1 → v4 — 445 lines naming the compositional substrate under the construct network
+- **Five stream types** declared at doctrine level: `Signal` / `Verdict` / `Artifact` / `Intent` / `Operator-Model`
+- **Compositions as pipe-chain specifications** per doctrine §4 — two kinds (workflow-kind + frame-kind per §15.2)
+- **Agent-transparency invariant** (§16.4) — "what's informing this response" answerable in read-mode latency (<1s glance, ~5s orient, ~15s intervene)
+- **Everything is a computer** (§14.1, per Eileen) — every actor in the network takes typed I/O and applies a transform
+
+#### Agent-facing tooling (cycle-003/004)
+
+- **`constructs-list.sh`** — agent-facing pack enumeration with three read-modes (glance/orient/intervene), source-state + drift detection
+- **`constructs-active.sh`** — active-context reporter answering doctrine §16.4 transparency invariant; combines trajectory + feedback-v3 + project CLAUDE.md + installed packs
+- **`construct-invoke.sh`** (patched) — emits `stream_type` + `read_mode` fields on trajectory JSONL rows
+- **`feedback-v3-emit.sh`** — Verdict-stream writer with schema validation
+- **`construct-index-gen.sh`** (patched) — auto-fallback to `~/.loa/constructs/packs/` when project-local empty (F27); extracts persona handles from `identity/<HANDLE>.md` filenames (F28)
+- **`construct-resolve.sh`** (patched) — 5-tier deterministic dispatch: slug → name → command → persona → no-match; `/` + `@` prefix stripping
+
+#### Trajectory hooks (cycle-003)
+
+- **PreToolUse:Skill + PostToolUse:Skill** hooks — `.claude/hooks/trajectory/skill-pre.sh` + `skill-post.sh`
+- Auto-fire on Skill tool use; resolves to installed pack; emits paired entry/exit rows to `.run/construct-trajectory.jsonl`
+- Non-THJ skills silently skip (no trajectory pollution)
+
+#### Compositions (cycle-004)
+
+- **`grimoires/compositions/feel-audit.yaml`** — first workflow-kind composition per doctrine §15.2; composes artisan + observer symmetrically
+- Shipped in `grimoires/compositions/` (checkable) — supersedes cycle-001 folklore in gitignored `.claude/constructs/compositions/` (F29)
+
+#### Doctrine + hivemind pages
+
+- **`cycle-004-L2-invocation-contract.md`** — 5-tier dispatch spec, frame conflict resolution, known debt (KEEPER collision, `/feel` pack-binding decision)
+- **`~/hivemind/wiki/concepts/operator-os-starter-template.md`** — template inverting operator's CLAUDE.md from canon to fork-source
+- **`~/hivemind/wiki/concepts/hivemind-trichotomy.md`** — 5-layer hivemind architecture cleanly named (construct / skill / knowledge-personal / knowledge-org / archivist)
+- **`~/hivemind/wiki/concepts/construct-pipe-doctrine.md`** — hivemind-synced copy of canonical doctrine
+
+#### Four cycle-findings docs
+
+- `cycle-001-findings.md` · `cycle-002-findings.md` · `cycle-003-findings.md` · `cycle-004-findings.md` — OTLET chain-preserved across authorship shifts (OSTROM → operator → agent)
+
+### Changed
+
+- **Cycle-001** operational-token middleware (PR #191) + pagination fix (F15) — still active, now with stream_type awareness
+- **Tag `cycle-001-last-supabase`** marks last commit before sovereign stack migration (commit `49ce22b2`)
+- **F26** Adversarial review env setup — triple-model flatline now operational with ANTHROPIC + GOOGLE + OPENAI keys
+
+### Findings logged
+
+- F22 (cycle-003) · .source.json missing on pre-existing installs (fresh installs write correctly)
+- F23 · Symlink validation on non-standard install targets
+- F24 · AC-C4 three-way-merge NOT implemented (cycle-005 inheritance)
+- F25 · Install is lazy-skip on re-install
+- F26 · Adversarial review env gap (now resolved)
+- F27 (cycle-004) · `construct-index-gen` path defaulted wrong — **closed**
+- F28 · Packs don't declare personas/commands — persona tier fixed, commands tier pending upstream PRs
+- F29 · `.claude/constructs/` fully gitignored — **closed** via grimoires/compositions/
+
+### Deferred to cycle-005+
+
+Flatline doctrine review surfaced 11 blockers routed to forward cycles:
+- **cycle-005**: stream schemas (SKP-001), determinism-split (SKP-002), failure semantics (SKP-003), composition runner
+- **cycle-006**: security model (SKP-004), data governance (SKP-005), trust model
+- **cycle-007+**: JSONL append integrity hardening (SKP-006)
+
+### Authorship ladder
+
+- **Cycle-001** · OSTROM-lens (architecture-first): 7 legs decomposed, harness-dispatched, clean but dry
+- **Cycle-002** · operator-lens (experience-first paired-scribe): infrastructure drift revealed; Supabase pause as forcing function
+- **Cycle-003** · agent-lens (first-person toolchain walk): trajectory wiring + transparency tools shipped
+- **Cycle-004** · same agent + doctrine (open playground): Operator OS inverted, hivemind trichotomy named, first workflow-kind composition
+
+---
+
 ## [2.9.0] - 2026-02-28
 
 ### Why This Release
