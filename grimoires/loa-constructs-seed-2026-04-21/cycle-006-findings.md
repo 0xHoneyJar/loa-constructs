@@ -186,6 +186,11 @@ Pre-drafted from SEED §8 + cycle-006 emergence + F35-F39 routing:
 24. CURATOR voice operator review + upstream publish of `construct-network-tools` — F33 FINAL closure
 25. QMD integration for per-agent memory (SEED Thread 5 — cycle-007 candidate)
 26. UI-surface adapters beyond tmux — IDE split-panes, web dashboard, mobile (cycle-006 L-threadpipe surface enables)
+27. **Navigable-state-machine runner** (operator-declared mid-session) — elevate runner from sequential-with-iteration to full nonlinear navigation. Stage states: waiting / active / complete / needs-revisit. Operator controls: jump / iterate / close-forward. Substantial re-architecture; cycle-007 or dedicated.
+28. **Navigation-layer-via-templates** (operator commit `5360bf0f`) — each construct exposes declared template pointers (artisan → button-variants, the-easel → mood-board, mint → asset-generation). Schema change, not runner change. Structured-but-loose exploration surface per stage.
+29. **Expertise-as-consultant framing** (operator commit `5360bf0f`) — constructs as accelerated-learning surfaces, not just capability injection. Doctrine-candidate per [[naming-is-diagnostic]]; placeholder noted on [[construct-ontology]].
+30. **Sprawl design-system divergence as production KANSEI** — run website-scaffold against actual Sprawl world apps; surface real button-alignment divergence; validate whether the substrate reduces the operator's manual consolidation work (SEED §4 KANSEI beyond mock-mode validation).
+31. **Stack/framework swap consideration** (operator commit `5360bf0f`) — Radix vs Base UI vs Svelte-sovereign. Framework decisions are bigger than compositional-rails work; explicitly cycle-008+ or dedicated, NOT cycle-007.
 
 Inheritance list is LONG. Cycle-007 framing should pick 2-3 load-bearing items (likely items 1, 2, 3 plus one from the cycle-005 carryover bucket) and defer the rest.
 
@@ -219,6 +224,41 @@ Declared at SEED open (§9). Held. The shift from cycle-005 ("agent building plu
 - **Real-LLM end-to-end website-scaffold run**: cycle-006 validated in mock mode (LOA_STAGE_MOCK=1). A live run with `claude -p` per stage would cost real LLM tokens and hasn't been exercised in this cycle. The substrate handles it (stage-executor-tmux has the real path); only end-to-end live validation is missing.
 - **Live iteration-loop run**: bats uses `--no-interactive` which auto-accepts. Full happy-path with operator `y/N/a` iteration prompts requires live session.
 - **F35 true long-lived-pane persistent mode**: file-accumulated history is MVP. Real tmux-pane-held interactive sessions with marker-based or IPC completion detection is cycle-007.
+
+### Significant architectural gap — navigable state machine vs sequential-with-iteration
+
+Operator clarified mid-session (commit `0f119872`): the runner should be a **navigable persistent state machine**, not a one-shot pass. Stages enter *waiting* state; operator navigates nonlinearly (jump to stage 3 while stage 5 is active; edit stage 2 output after seeing stage 6); iteration loops are first-class (runner must NOT prevent revisiting); operator marks stages complete explicitly.
+
+**Cycle-006 MVP honors only PART of this model**:
+- ✅ Iteration loops as first-class (`--no-interactive` skips, but `--interactive` runs them with y/N/a prompts)
+- ✅ Per-stage persistence (file-accumulated history for persistent-mode stages)
+- ✅ Backend invariant preserved (substrate-native, forkable)
+- ❌ **Nonlinear navigation** — runner is still sequential dispatch; jumping mid-chain to an arbitrary stage is not supported
+- ❌ **Stage status states** (waiting / active / complete / needs-revisit) — compose-panes-render shows *running/done/pending*, which is less expressive
+- ❌ **Operator navigation controls** (jump / iterate / close) — iteration ACK is the only explicit control; no arbitrary stage revisit
+
+**Implication**: cycle-006's substrate is **pipe-with-iteration**, which is the lower bound of what the navigable state machine requires. Full-fidelity navigable state machine is cycle-007 (or later) — needs runner-level state management rather than bash-script linear dispatch, and UI-level interactive navigation rather than static render-on-event.
+
+**This is the single biggest honest gap in cycle-006's close.** Routing to cycle-007 inheritance item 27 below.
+
+### Cross-repo invariant depends on L-migrate merge
+
+Operator observation (commit `0f119872`): "After cycle-006 ships, this composition runs in any Loa-mounted repo — `cd sprawl-interface && construct-compose website-scaffold --target <app>`. The substrate lives in Loa; every mounted repo inherits it. This is the point of the migrate leg."
+
+Cycle-006 opens PR #616 to ship this invariant. Until Jani merges, the cross-repo invariant is NOT load-bearing — each mounted repo needs its own copy of the scripts. Closure of this invariant is gated on upstream review.
+
+### Sprawl KANSEI is the real validation — open for operator
+
+Operator (commit `0f119872`) surfaced: **"Cycle-006 isn't abstract infrastructure. Its success criterion is reducing a specific class of divergence work the operator is doing manually today: button alignment across Sprawl world apps, component-system consolidation, cross-app design-system propagation."**
+
+Cycle-006 SEED's Q5 asks about cycle-007 framing but doesn't gate on Sprawl application. Operator named three options:
+- **(a)** In-cycle KANSEI gate — Sprawl run must succeed for cycle-006 close
+- **(b)** Cycle-007 application — ship substrate + YAML, cycle-007 runs against Sprawl
+- **(c)** Post-cycle demonstration — close cycle-006 on toy-target validation; Sprawl is separate paired session
+
+Operator's stated lean was (c), with acknowledgment that (a) or (b) may match urgency better.
+
+**Cycle-006 as shipped close-time: option (c) (toy-target mock mode validation + bats lock, Sprawl deferred)**. If operator prefers (a), cycle-006 should re-open with a Sprawl paired session before final close.
 
 ---
 
