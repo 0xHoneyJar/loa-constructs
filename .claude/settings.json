@@ -541,6 +541,10 @@
           {
             "type": "command",
             "command": ".claude/hooks/safety/spiral-skill-sentinel.sh"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/trajectory/skill-pre.sh"
           }
         ]
       }
@@ -570,6 +574,15 @@
           {
             "type": "command",
             "command": ".claude/hooks/audit/write-mutation-logger.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/trajectory/skill-post.sh"
           }
         ]
       }

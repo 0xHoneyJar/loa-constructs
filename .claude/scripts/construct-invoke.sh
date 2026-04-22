@@ -120,6 +120,12 @@ do_entry() {
   local ts
   ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
+  # Doctrine §13.3 L3: declare stream_type on trajectory rows.
+  # Default to "Signal" (an observation-type emission) for invocation events;
+  # persona-specific downstream rows may declare "Verdict" explicitly.
+  local stream_type="${LOA_STREAM_TYPE:-Signal}"
+  local read_mode="${LOA_READ_MODE:-orient}"
+
   local row
   row=$(jq -cn \
     --arg event "entry" \
@@ -128,7 +134,9 @@ do_entry() {
     --arg trigger "$trigger" \
     --arg construct_slug "$construct_slug" \
     --arg timestamp "$ts" \
-    '{event: $event, session_id: $session_id, persona: $persona, trigger: $trigger, construct_slug: $construct_slug, timestamp: $timestamp}')
+    --arg stream_type "$stream_type" \
+    --arg read_mode "$read_mode" \
+    '{event: $event, session_id: $session_id, persona: $persona, trigger: $trigger, construct_slug: $construct_slug, stream_type: $stream_type, read_mode: $read_mode, timestamp: $timestamp}')
 
   emit_row "$row"
   echo "$session_id"
@@ -186,6 +194,10 @@ do_exit() {
   local ts
   ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 
+  # Doctrine §13.3 L3: declare stream_type on trajectory rows.
+  local stream_type="${LOA_STREAM_TYPE:-Signal}"
+  local read_mode="${LOA_READ_MODE:-orient}"
+
   local row
   if [[ "$session_id" == "null" ]]; then
     row=$(jq -cn \
@@ -196,7 +208,9 @@ do_exit() {
       --arg timestamp "$ts" \
       --argjson duration_ms "$dur_json" \
       --arg outcome "$outcome" \
-      '{event: $event, session_id: null, persona: $persona, trigger: $trigger, construct_slug: $construct_slug, timestamp: $timestamp, duration_ms: $duration_ms, outcome: $outcome}')
+      --arg stream_type "$stream_type" \
+      --arg read_mode "$read_mode" \
+      '{event: $event, session_id: null, persona: $persona, trigger: $trigger, construct_slug: $construct_slug, stream_type: $stream_type, read_mode: $read_mode, timestamp: $timestamp, duration_ms: $duration_ms, outcome: $outcome}')
   else
     row=$(jq -cn \
       --arg event "exit" \
@@ -207,7 +221,9 @@ do_exit() {
       --arg timestamp "$ts" \
       --argjson duration_ms "$dur_json" \
       --arg outcome "$outcome" \
-      '{event: $event, session_id: $session_id, persona: $persona, trigger: $trigger, construct_slug: $construct_slug, timestamp: $timestamp, duration_ms: $duration_ms, outcome: $outcome}')
+      --arg stream_type "$stream_type" \
+      --arg read_mode "$read_mode" \
+      '{event: $event, session_id: $session_id, persona: $persona, trigger: $trigger, construct_slug: $construct_slug, stream_type: $stream_type, read_mode: $read_mode, timestamp: $timestamp, duration_ms: $duration_ms, outcome: $outcome}')
   fi
 
   emit_row "$row"
