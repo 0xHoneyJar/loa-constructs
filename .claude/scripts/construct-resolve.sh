@@ -217,8 +217,10 @@ _resolve() {
         return 2
     fi
 
-    # Tier 3: Command name match
-    matches=$(echo "$INDEX_JSON" | jq -c --arg q "$query" \
+    # Tier 3: Command name match (handles "/feel" → strip leading /)
+    local cmd_query="$query"
+    [[ "$cmd_query" == /* ]] && cmd_query="${cmd_query#/}"
+    matches=$(echo "$INDEX_JSON" | jq -c --arg q "$cmd_query" \
         '[.constructs[] | select(.commands[]? | .name == $q)]')
     count=$(echo "$matches" | jq 'length')
 
@@ -227,8 +229,29 @@ _resolve() {
         return 0
     fi
     if [[ "$count" -gt 1 ]]; then
-        echo "WARNING: Multiple constructs claim command '$query'" >&2
+        echo "WARNING: Multiple constructs claim command '$cmd_query'" >&2
         _output_match "$(echo "$matches" | jq '.[0]')" "command"
+        return 2
+    fi
+
+    # Tier 4 (cycle-004 L2): persona handle match
+    # Handles "@ALEXANDER" (strip leading @), "ALEXANDER" (direct), "alexander"
+    # (case-insensitive). Personas extracted from pack's identity/<HANDLE>.md.
+    local persona_query="$query"
+    [[ "$persona_query" == @* ]] && persona_query="${persona_query#@}"
+    local persona_upper
+    persona_upper=$(echo "$persona_query" | tr '[:lower:]' '[:upper:]')
+    matches=$(echo "$INDEX_JSON" | jq -c --arg q "$persona_upper" \
+        '[.constructs[] | select(.personas[]? | ascii_upcase == $q)]')
+    count=$(echo "$matches" | jq 'length')
+
+    if [[ "$count" -eq 1 ]]; then
+        _output_match "$(echo "$matches" | jq '.[0]')" "persona"
+        return 0
+    fi
+    if [[ "$count" -gt 1 ]]; then
+        echo "WARNING: Multiple constructs claim persona '$persona_upper'" >&2
+        _output_match "$(echo "$matches" | jq '.[0]')" "persona"
         return 2
     fi
 

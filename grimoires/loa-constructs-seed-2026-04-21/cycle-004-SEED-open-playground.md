@@ -174,6 +174,41 @@ Pre-drafted:
 6. **Operator-Context construct** (doctrine §15.5 / §16.5 — context-aware hivemind autoload)
 7. **Archivist pack installation + wiring** (enables vault-mechanics for hivemind)
 
+### 8.1 · Flatline review blockers (doctrine v4, 2026-04-21-late)
+
+Triple-model adversarial review surfaced 11 blockers + 6 high-consensus improvements against doctrine v4. Operator chose option C (track as known-debt; address in forward direction, not retroactive doctrine v5). Full result: `grimoires/loa/a2a/flatline/doctrine-v4-review.json`.
+
+**Tagged for cycle-005+ dedicated cycles**:
+
+| ID | Blocker | Cycle target | Severity |
+|---|---|---|---|
+| SKP-001 (900) | Doctrine vs PRD classification — produce separate PRD for cycle-004 concrete deliverables | cycle-005 entry criteria | CRITICAL |
+| SKP-001 (910) | Typed stream contract not formally specified — JSON Schemas + SemVer per stream type | **cycle-005 L1** (stream-schemas) | CRITICAL |
+| SKP-002 (890) | Dispatch-determinism vs output-reproducibility conflated in §16.4 | **cycle-005 L2** (doctrine v5 §16.4 split amendment) | CRITICAL |
+| SKP-003 (860) | Failure semantics missing — timeouts, retries, idempotency, rollback | **cycle-005 L3** (execution-semantics doc + composition-runner MVP) | CRITICAL |
+| SKP-004 (930) | Security model absent — sandboxing, permissions, signed packs, trust_level | **cycle-006 security cycle** (full scope) | CRITICAL |
+| SKP-002 (820) | Doctrine churn — 4 versions in one day; operator choice: C (no freeze; forward-fix) | Operator-gated; no action | HIGH |
+| SKP-004 (770) | Non-determinism of LLM outputs contradicts §16.4 invariant | Same as SKP-002 split | HIGH |
+| SKP-005 (770) | Privacy/data governance on hivemind ingestion — PII, redaction, retention | **cycle-006 security cycle** (data governance subscope) | HIGH |
+| SKP-003 (780) | Type verification hand-waved — semantic typing over LLM output is hard | Same as stream-schemas (cycle-005 L1) | HIGH |
+| SKP-005 (750) | trust_level mentioned as "secondary" — red flag | **cycle-006 security cycle** | HIGH |
+| SKP-006 (720) | Append-only JSONL fragile — concurrency races, integrity | **cycle-007 runtime-hardening** (hash chains, file locking, broker option) | HIGH |
+
+**High-consensus improvements** (implementable now, both models agree):
+
+- **IMP-001** (882) · Canonical JSON schemas per stream type → cycle-005 L1
+- **IMP-002** (867) · Execution semantics (retries/timeouts/dead-letter) → cycle-005 L3
+- **IMP-003** (827) · Testable assertions on §16.4 invariant → cycle-005 L2
+- **IMP-004** (860) · Reconcile internal Verdict-shape contradictions → cycle-005 L1
+- **IMP-005** (807) · Minimum trust model for external constructs → cycle-006 entry criteria
+
+**Proposed cycle split**:
+- **Cycle-005** · Stream schemas + failure semantics + determinism-split doctrine amendment (SKP-001/002/003 + IMP-001/002/003/004)
+- **Cycle-006** · Security + data governance (SKP-004/005, IMP-005)
+- **Cycle-007+** · JSONL hardening, append-only integrity, any residual
+
+Cycle-004 ships without these addressed. That's the known-debt operator chose. Forward-only progress per operator directive 2026-04-21-late: *"Let's C so we don't experience pain in retrofitting."*
+
 ---
 
 ## 9 · Note on /flatline-review + /bridgebuilder-review
