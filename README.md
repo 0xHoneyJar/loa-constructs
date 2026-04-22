@@ -9,7 +9,7 @@
 **[constructs.network](https://constructs.network)** · [Loa framework](https://github.com/0xHoneyJar/loa) · [construct-base](https://github.com/0xHoneyJar/construct-base)
 
 ---
-<img width="2048" height="2048" alt="0xhanijaru_Stylized_concept_art_anime_key_visual_composition _A_a6e33904-cf52-4183-9555-8778ab0e00bf" src="https://github.com/user-attachments/assets/d1699fba-701e-4507-86c1-d3325bb6ff9e" />
+<img width="480" height="480" alt="0xhanijaru_Stylized_concept_art_anime_key_visual_composition _A_a6e33904-cf52-4183-9555-8778ab0e00bf" src="https://github.com/user-attachments/assets/d1699fba-701e-4507-86c1-d3325bb6ff9e" />
 ---
 
 ## What this is
