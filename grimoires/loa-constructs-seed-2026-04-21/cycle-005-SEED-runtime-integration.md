@@ -169,6 +169,15 @@ all three stages. Secondary: polish integration with Loa ecosystem
 (L3 template v3, L4 validator skill, L5 mount-loa bundling, L6
 butterfreezone adapter, L7 /constructs polish).
 
+IMPORTANT governance (SEED §11): 0xHoneyJar/loa is Jani-owned. L5 is
+PR-only, request @janitooor review, NEVER admin-merge. All other upstream
+touches (construct-base, construct-*) admin-merge OK.
+
+Grimoires convention (SEED §12): every construct CLAUDE.md must declare
+its grimoires/ read/write paths. L3 reinforces in template, L4 validates,
+L6 surfaces in generated README. artisan known to have drifted — use as
+L6 canary.
+
 Start with L1 + L2 (runner + stream schemas — they co-depend). Then L8
 e2e proof against feel-audit. Then move through L3-L7 in any order.
 L9 doctrine v5 amendment after code lands. L10 F24 if time permits.
@@ -180,7 +189,8 @@ high (cycle-004 README precedent).
 Findings go in cycle-005-findings.md per OTLET convention.
 
 Begin with constructs-list glance + constructs-active glance to
-orient, then read the SEED in full, then L1.
+orient, then read the SEED in full (especially §11 governance + §12
+grimoires convention), then L1.
 ```
 
 **Pre-dispatch checklist** (next session):
@@ -264,4 +274,50 @@ Cycle-004-findings §"What cycle-005 inherits" is reference-floor. This SEED sup
 
 ---
 
-*Drafted 2026-04-22. First formal SEED post-doctrine-v4. Integration-research-grounded. Ready for next-session dispatch.*
+---
+
+## 11 · Repo governance (IMPORTANT — per operator 2026-04-22)
+
+Not all repos in `0xHoneyJar` are ours to admin-merge. Cycle-005 legs that touch upstream MUST respect ownership boundaries:
+
+| Repo | Owner | PR discipline |
+|---|---|---|
+| `0xHoneyJar/loa` | **@janitooor** (Jani). We are a collaborator, not owner. | **PR only · request @janitooor review · NEVER admin-merge**. Clear rationale in PR body. Await approval. |
+| `0xHoneyJar/loa-constructs` | Operator (this repo) | Admin-merge OK. |
+| `0xHoneyJar/construct-base` | Operator (template we maintain) | Admin-merge OK for schema / integration improvements. |
+| `0xHoneyJar/construct-*` (individual packs) | Operator (packs we publish) | Admin-merge OK for schema / integration improvements. |
+
+**L5 scope correction**: Loa `mount-loa.sh` + `/loa-setup` changes = **upstream PR discipline**. Do NOT admin-merge. PR body must explain:
+- What: specific change (e.g., `--with-constructs` flag)
+- Why: operator-stated direction 2026-04-22 (Loa users should get construct tools by default)
+- Risk: no breaking change to existing installs
+- Request: review from @janitooor
+
+If Jani rejects or requests changes, L5 adapts or defers. Cycle-005 does not gate on Jani-PR merge; cycle ships without L5 if upstream review takes longer than cycle window. L5 becomes an "in-flight" item carried to cycle-006.
+
+---
+
+## 12 · Grimoires as primary read/write area (convention reinforcement)
+
+**Per operator 2026-04-22**: constructs MUST be aware that `grimoires/` is their primary artifact read/write area. `construct-base` CLAUDE.md template already declares this pattern ("grimoire path IS the interface — constructs that share paths are connected"). Cycle-005 reinforces across three places:
+
+**L3 (`construct-base` template v3)** — already has grimoires section; audit and strengthen:
+- Explicit `writes: grimoires/<construct-slug>/` declaration as a required pattern
+- Example: `Artisan writes to grimoires/design-system/taste-tokens/`
+- Explanation of why: inter-construct composition via shared grimoire paths
+
+**L4 (`validating-construct-manifest`)** — new check:
+- Pack's `CLAUDE.md` MUST contain a `grimoires/` read/write declaration
+- Emit Verdict finding if absent (severity: MEDIUM — not blocking, but flagged)
+- Acceptance criterion AC-L4.6 added
+
+**L6 (butterfreezone adapter)** — generated `CONSTRUCT-README.md` MUST surface:
+- Which grimoires paths the construct writes to
+- Which grimoires paths the construct reads from
+- Cross-links to constructs sharing paths (composability surface)
+
+**Drift detected 2026-04-22**: artisan's installed `CLAUDE.md` lacks explicit grimoires section despite template having it. Root cause likely pre-v3 install. **Cycle-005 L6 canary (butterfreezone on artisan) will surface + regenerate.**
+
+---
+
+*Drafted 2026-04-22. Amended 2026-04-22 with §11 repo governance + §12 grimoires convention per operator confirmation. First formal SEED post-doctrine-v4. Integration-research-grounded. Ready for next-session dispatch.*
