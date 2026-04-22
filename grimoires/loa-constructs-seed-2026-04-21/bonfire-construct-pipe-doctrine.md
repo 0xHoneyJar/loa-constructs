@@ -859,3 +859,125 @@ Flatline blocker updates:
 ---
 
 *v5 · 2026-04-22 · Post cycle-005 runtime landing. Two conflated invariants split. Failure-semantics primitives named. Grimoires-as-interface promoted. Four active primitives now have doctrine: Signal/Verdict/Artifact/Intent/Operator-Model for stream typing; timeout/retry/idempotency/dead-letter for failure; stream-layer + grimoire-layer compose for composition completeness.*
+
+---
+
+## 18 · Amendments (v5 → v6, 2026-04-23 post cycle-006 landing)
+
+Cycle-006 shipped the agentic full-stack runtime — backend (`compose-run.sh` + `stage-executor-tmux.sh`), frontend (vibe-coding UI via tmux panes), trajectory API contract, and one concrete composition (website-scaffold). Three structural claims emerged that v5 left implicit and that v6 promotes to doctrine.
+
+### 18.1 · Three-layer architecture (FE / BE / substrate)
+
+Operator framing 2026-04-23 late:
+
+> *"Bash should be like the underlying layer. Unix principle is the underlying layer. In bash, is the backend layer the runtime and the UI layer the vibe coding feel area? I want to separate these two concepts because it will enable us to modify the UI layer how we want, and honestly, users can modify how they want as well, but the underlying runtime stays consistent. I think this is the agentic full stack development."*
+
+**Promoted to doctrine**: the construct-composition runtime separates into three stacked layers riding on a common substrate.
+
+```
+┌─────────────────────────────────────────────┐
+│  FRONTEND  ·  vibe-coding UI surface        │  ← taste, per-operator, REPLACEABLE
+│  emoji + constructs, inline controls,       │    (web-dev analog: React / Svelte / HTML)
+│  tmux coloring, transparency layer, rewind  │
+├─────────────────────────────────────────────┤
+│  BACKEND  ·  runtime                         │  ← stable, opinionated, SHARED
+│  construct composition, agent dispatch      │    (web-dev analog: API + business logic)
+│  (claude -p + tmux), typed-stream emission, │
+│  trajectory logging                          │
+├─────────────────────────────────────────────┤
+│  SUBSTRATE  ·  bash + markdown + QMD         │  ← the kernel; BOTH layers ride atop
+│  + Unix principle — processes, stdio,       │    (web-dev analog: HTTP + OS)
+│  files, signals, headless Claude, markdown  │
+│  as native agent-memory, QMD as queryable    │
+│  markdown index                              │
+└─────────────────────────────────────────────┘
+```
+
+**Invariant** (promoted): the API between frontend and backend IS the typed-stream trajectory (Signal/Verdict/Artifact/Intent/Operator-Model via JSONL). Multiple frontends consume the same stream. Multiple backends emit the same shape. Swapping one layer MUST NOT require touching the other, provided the stream contract is honored.
+
+Cycle-006 L-threadpipe documents the contract at `docs/integration/compose-trajectory-contract.md`. That doc is doctrine-adjacent — the event types it lists are load-bearing; additions must be backward-compatible.
+
+### 18.2 · Agentic full-stack development (name ratification)
+
+Operator-coined 2026-04-23 late: **agentic full-stack development** names the pattern of (a) backend runtime dispatching agent work via Unix-native primitives + (b) frontend vibe-coding UI surface layered atop, (c) swappable independently. Compositions author full-stack from research through product structure via sequenced agent teammates.
+
+The name is admitted to doctrine canon as of v6. Downstream material (README, getting-started guides, operator-facing copy) may use it freely. Not coined lightly — it earns its place because the frontend/backend separation is **structural**, not metaphorical: a swapped frontend touches zero backend code; a swapped backend touches zero frontend code.
+
+### 18.3 · Focus-per-register (principle)
+
+Operator framing 2026-04-23 late:
+
+> *"If I were to do front and backend in the same mindset, I won't be able to apply my full attention to each one individually, and that's kind of the reason or benefit for why agents are so powerful: in the fact that they can load up context and there can be a construct expertise explicitly designed for a specific workflow. When an agent is fully focused on that, then it becomes an expert in it, and there are no mixed mental models that will negatively affect the output."*
+
+> *"Having multiple different perspectives in a single session has pros and cons to it; it's a double-edged sword."*
+
+**Promoted to doctrine as the focus-per-register principle**:
+
+> An agent's output quality is a function of context purity. One agent, one register. Mixing registers in one session is a double-edged sword — the creative cross-pollination is real, but the context dilution is too. The pipe-stage boundary IS the context-reset boundary by construction.
+
+Two valid configurations (both supported by cycle-006 per-stage mode):
+
+| Purpose | Configuration |
+|---|---|
+| Synthesis / creative cross-pollination needed | Single session, multiple registers loaded — operator accepts the dilution cost |
+| Expert-quality output per stage | Separate sessions (tmux panes or teamcreate agents), each loaded with ONE construct's expertise. Focus-per-register |
+
+**Implication**: `mode: fresh` is the default because context-reset-by-construction is the cleaner semantics. `mode: persistent` is opt-in when register depth across iteration passes matters. Mixing constructs within a single stage is banned at cycle-006 MVP (SEED scope-lock); composition authors thinking "I need artisan + kansei in one step" instead author two sequential stages.
+
+### 18.4 · Backend-choice rationale (claude -p + tmux over TeamCreate)
+
+Cycle-006 evaluated two backends. The decision is doctrinal, not just pragmatic:
+
+| | `claude -p` + tmux (chosen) | TeamCreate (alternative) |
+|---|---|---|
+| Substrate match | Rides atop bash / Unix principle natively | Introduces its own coordination layer |
+| Fork-ability | Anyone with `claude` CLI + bash + tmux | Requires Claude Code + agent-teams |
+| Visibility default | Tmux panes are mandatory (the display IS the feature) | Agents invisible-by-default; tmux is optional layer |
+| Cross-collaboration | None assumed — processes isolated unless composed via shell | Assumed via shared TaskList |
+
+**Promoted to doctrine**: the default backend for compositions SHOULD ride atop the substrate, not atop a Claude-native feature. TeamCreate remains valid as an **opt-in alternative** (composition declares `backend: teamcreate`) — both are first-class, neither is canon. But the default is substrate-native because portability + operator ownership of the stack matter more than Claude-native conveniences.
+
+Operator 2026-04-23 late: *"Building it from scratch, with the backend being our own headless Claude, spinning up split terminals for tmux in a way that makes sense, is valuable because that way people can customize their UI layer and they can also customize their team composition layer and the types of teammates and how that whole process works. I think that TeamCreate, designed by Claude, already assumes cross collaboration, when maybe that's not even what you want."*
+
+TeamCreate-as-alternative-backend research (cycle-006 L-research): `stamets-prior-art-teamcreate-tmux.md`. Cycle-007+ target for implementation.
+
+### 18.5 · Rails-as-determinism-under-non-determinism (the WHY of composition)
+
+Operator 2026-04-23 late (parenthetical aside turned into crystallization):
+
+> *"(it provides rails for not only my adhd but agents to maximize understanding of the topology of the problem and deterministic outputs IN a non deterministic LLM)"*
+
+Promoted to doctrine as the **load-bearing WHY** of the entire composition project.
+
+A single LLM invocation produces non-deterministic content. A composition of stages produces a **deterministic topology**: same composition → same stages in same order → same stream types flowing between them → same final artifact shape. Stage output varies; the problem topology doesn't.
+
+Rails cut both ways: they orient the *operator* (topology is legible; ADHD gets structure) AND *the agents* (each stage knows exactly what's upstream, what's downstream, what type-shape it produces, what it refuses). **Legible topology is the substrate of usable LLM work at scale.**
+
+This grounds §17.1 (dispatch-determinism vs output-reproducibility). §17.1 named the split; §18.5 names *why the split matters*. Transparency in the UI layer (pipe graph, emoji per stage, inline controls, per-pane colors) is NOT decoration — it's the operator's view into the rails. Hiding the pipe would erase the determinism the rails produce.
+
+### 18.6 · Scope-lock as forcing function (meta-doctrine)
+
+Operator self-pushback recorded 2026-04-23 late, carried into cycle-006 SEED §1 as a standing rule:
+
+> **Build primitives in service of one concrete composition. Do not design a DSL, a team-typing language, or upfront abstraction layers. Those emerge from repeated usage across N compositions, not from one.**
+
+**Promoted to doctrine as a governance rule for all future cycles**: abstractions earn their place through N concrete uses, not through upfront design. Cycles introducing new primitives MUST demonstrate at least one real-world usage; cycles introducing ABSTRACTIONS on top of existing primitives MUST demonstrate N≥2 concrete primitives they abstract over.
+
+Cycle-006 is N=1. Cycle-007+ may surface genuine abstraction candidates (e.g. a composition language once 3-4 compositions exist and their shared patterns are visible). Until then: YAML + bash + typed streams is the vocabulary.
+
+### 18.7 · Version bump
+
+**v6**. v5 chain-preserved. Amendments:
+
+- §18.1 — three-layer architecture promoted (FE / BE / substrate)
+- §18.2 — agentic full-stack development name ratified
+- §18.3 — focus-per-register principle promoted
+- §18.4 — backend-choice rationale (claude -p + tmux default; TeamCreate opt-in alternative)
+- §18.5 — rails-as-determinism-under-non-determinism as load-bearing WHY
+- §18.6 — scope-lock as forcing function (meta-doctrine for future cycles)
+
+Flatline-relevant: none directly. Cycle-006 did not surface new SKP blockers.
+
+---
+
+*v6 · 2026-04-23 · Post cycle-006 runtime landing. Three layers named + ratified. Agentic full-stack development canonized. Focus-per-register promoted. Backend choice justified. The WHY of composition (rails-as-determinism) made load-bearing. Scope-lock recognized as forcing function for cycle discipline. Five-primitive stream typing holds; §17.2 failure vocabulary holds; §17.4 grimoires-as-interface holds; §18 adds the runtime-layer structure those primitives ride atop.*
