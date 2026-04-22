@@ -5,6 +5,75 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.27.0] - 2026-04-22
+
+### Why This Release
+
+**Cycle-005 · Runtime + Integration.** The composition execution gap from cycle-004 closes: `construct-compose feel-audit <target>` now runs the three-stage artisan→artisan→observer chain end-to-end with paired trajectory rows, per-stage durations, and final-output schema validation. Typed streams (Signal / Verdict / Artifact / Intent / Operator-Model) gain draft-07 JSON schemas and a shell validator. A manifest linter lands as the install + publish pre-gate. The butterfreezone adapter generates per-pack `CONSTRUCT-README.md` from canonical yaml + skills + identity, surfacing and regenerating the SEED §12 grimoires-section drift found across 27 of 29 installed packs.
+
+Doctrine bumps v4 → v5 with two structural clarifications: **dispatch-determinism ≠ output-reproducibility** (an invariant v4 conflated), and **named failure-semantics primitives** (timeout / retry / idempotency / dead-letter). Grimoires-as-interface promoted from SEED §12 guidance to doctrine §17.4.
+
+Shell-first discipline held — zero TypeScript shipped across ~1,050 lines of new shell, ~300 lines of JSON schema, and ~150 lines of markdown (doctrine + SKILL.md + findings). Upstream sibling PRs land in `construct-base` (template v3) and `loa` (mount-time onramp, PR-only per repo governance).
+
+### Added
+
+#### Composition runner + typed streams (L1 + L2 + L8)
+
+- **`.claude/scripts/construct-compose.sh`** — composition runner reading `grimoires/compositions/<name>.yaml`. Build-time type compatibility check (stage reads ⊆ upstream writes ∪ composition inputs); fails loud with stage + type detail. Pipes stdin/stdout between stages; emits paired entry/exit trajectory rows via `construct-invoke.sh`. Stub stage executor produces schema-valid placeholder output per declared write-type; real LLM dispatch swaps in via `--executor` / `$LOA_COMPOSE_STAGE_EXECUTOR` (cycle-006+).
+- **Three read-modes per doctrine §14.3** — `--glance` (one line), `--orient` (per-stage timings), `--intervene` (full JSON blob).
+- **`--dry-run`** flag validates plan without executing; `--run-id` overrides for reproducible test runs.
+- **Five draft-07 JSON schemas** at `.claude/schemas/{signal,verdict,artifact,intent,operator-model}.schema.json`. Schema-versioned 1.0.0; `additionalProperties: true` for additive evolution.
+- **`.claude/scripts/stream-validate.sh`** — python3+jsonschema validator with jq required-field fallback. Pre-check on declared `stream_type` alignment.
+- **`tests/cycle-005-compose-runner.bats`** — 6 tests locking behavior: dry-run plan, live 3-stage execution + 6 trajectory rows + schema-valid final output, type-mismatch fail-at-exact-stage, missing composition, orient timings, intervene JSON shape.
+
+#### Manifest validator skill (L4)
+
+- **`.claude/scripts/construct-validate.sh`** — pre-install + pre-publish linter. Checks: schema_version + required fields, skill/command path resolution, F28 route declaration gate (commands OR personas), stream declarations, SEED §12 grimoires-section presence in `CLAUDE.md`. Emits findings as `Verdict` stream rows (doctrine §3.2).
+- **`.claude/skills/validating-construct-manifest/`** — SKILL.md + index.yaml with capability stanza, input schema, output contract.
+- **Install + publish hooks wired**: `constructs-install.sh` warns on HIGH/CRITICAL findings (promote to blocking via `LOA_STRICT_VALIDATION=1`); `constructs-publish.sh` adds it as check #10 in the 10-point pre-publish report.
+
+#### Butterfreezone per-pack adapter (L6)
+
+- **`.claude/scripts/butterfreezone-construct-gen.sh`** — reads `construct.yaml` + `identity/<HANDLE>.md` + `skills/*/SKILL.md` + `commands/*.md`, emits a provenance-tagged `CONSTRUCT-README.md` covering persona handles, skill inventory with frontmatter descriptions, command inventory, composes_with, stream declarations, grimoire read/write paths, install instructions, and provenance footer. Handles YAML block-scalar frontmatter (`description: |`). Idempotent — byte-identical re-runs (LC_ALL=C + sorted iteration + no timestamp unless `--timestamp`). SEED §12 drift auto-detected and surfaced with a ⚠ notice when `CLAUDE.md` lacks a `grimoires/` reference.
+
+#### /constructs polish (L7)
+
+- `constructs-list.sh --orient` now surfaces **personas** and **streams** per pack, plus a ⚠ undeclared hint when `reads`/`writes` counts are 0.
+- `constructs-install.sh` advertises `upgrade <slug>` in help + examples (the dispatcher already handled it).
+- `constructs-auth.sh validate` with missing key now emits free-vs-premium framing and the exact setup command line.
+- `.claude/commands/constructs.md` invocation block updated.
+
+#### Doctrine v4 → v5 (L9)
+
+- **`bonfire-construct-pipe-doctrine.md` §17** — new amendment section:
+  - §17.1 splits dispatch-determinism from output-reproducibility (flatline SKP-002 partial closure)
+  - §17.2 names failure-semantics primitives vocabulary (flatline SKP-003 partial closure)
+  - §17.3 Verdict `severity` field promoted for audit/review/validator producers
+  - §17.4 grimoires-as-interface promoted from SEED §12 to doctrine invariant
+
+### Upstream
+
+- **`0xHoneyJar/construct-base#11`** (MERGED 2026-04-22) — template v3: typed streams example, `identity/ARCHITECT.md` starter persona with UPPERCASE-filename convention, composition layer split (grimoire + stream), `CONSTRUCT-README.md` generation pattern documented.
+- **`0xHoneyJar/loa#615`** (open, PR-only per SEED §11, @janitooor review) — `mount-loa.sh --with-constructs` / `--no-constructs` / `--constructs-pack <slug>` opt-in flags, `/loa-setup` wizard Step 5 adds the same onramp. Non-fatal on install failure; default off.
+
+### Findings (F30 – F34)
+
+- **F30** — cycle-002 SEED draft was never committed; policy gap for in-progress drafts inside `grimoires/`. Deferred.
+- **F31** — installed symlinks drifted to full directory copies locally. Global-sync integrity check candidate for cycle-006.
+- **F32** — 27 of 29 installed packs have §12 grimoires drift in `CLAUDE.md`. L6 butterfreezone generator is the batch-regen path.
+- **F33** — `construct-network-tools` pack doesn't exist; L5 default-off remains correct until bundle ships. Operator decides pack composition.
+- **F34** — `constructs-publish.sh` reporter truncates `manifest_validate` detail line. Display-layer polish for cycle-006.
+
+### Known deferred
+
+- **L10 (F24 `.source.json` three-way-merge)** — CONDITIONAL per SEED; skipped cleanly. Carries to cycle-006.
+- **Failure-policy runner enforcement (§17.2)** — vocabulary set this cycle; enforcement cycle-006.
+- **Real LLM dispatch in stage executor** — swap-in point ready (`--executor` / `$LOA_COMPOSE_STAGE_EXECUTOR`). Cycle-006+.
+
+### Cycle authorship
+
+Cycle-005 · agent + integration (runtime + ecosystem-coherence). Conversational-paired + shell-first. 9 of 10 legs landed; 2 upstream review-gated. Doctrine v4 chain-preserved; v5 active.
+
 ## [2.10.0] - 2026-04-21
 
 ### Why This Release
