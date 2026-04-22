@@ -178,6 +178,11 @@ Deferred to cycle-007:
 - Hivemind-as-construct (Thread 2)
 - TeamCreate-executor implementation (stages-as-windows)
 - `constructs try` ephemeral exec (from cycle-005 decision)
+- **Navigation-layer-via-templates** (operator 2026-04-23 late): each construct exposes a template pointer to specific patterns/primitives it recommends (e.g. artisan → button-variants template, the-easel → mood-board template, mint → asset-generation template). Extends the construct contract with declared template metadata. Schema change, not runner change. Creates a structured-but-loose exploration surface per-stage.
+- **Expertise-as-consultant framing** (operator 2026-04-23 late): constructs as accelerated-learning surfaces, not just capability injection. The value includes the rate at which a non-expert comes up to speed on the expert's mental model through staged exploration. Doctrine-candidate; not fully named yet per [[naming-is-diagnostic]]. Placeholder noted on [[construct-ontology]].
+
+Deferred further (cycle-008+ or separate cycle):
+- **Stack/framework swap consideration** — Radix vs Base UI vs Svelte-sovereign etc. Framework decisions are bigger than compositional-rails work; need their own cycle with own KANSEI gate. Explicitly NOT cycle-006 or cycle-007 scope.
 
 Banned from cycle-006 (scope-lock rule):
 - Team-type DSL / composition language layer
