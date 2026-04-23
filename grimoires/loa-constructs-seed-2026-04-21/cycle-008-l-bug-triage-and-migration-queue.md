@@ -114,3 +114,55 @@ cycle-008 dispatch resumes with L-ground Part 5 (baseline capture via `/agent-br
 ---
 
 *L-bug-triage-and-migration-queue — 2026-04-24. Conversational leg emergent from operator /bug invocation. No implementation; scoping + deferral only.*
+
+---
+
+## 6 · Session-close reflections (operator 2026-04-24 late)
+
+Two reflections landed during session-close; preserved here so the forward-compatibility signal into `construct-world-creator` + `construct-freeside` isn't lost.
+
+### 6.1 · Sovereignty-preserving composition (world-creator × freeside)
+
+> *"You can create the world, and then the construct free side is the set of skills to interact with. I do think that they can be combined... but not everyone that creates worlds would deploy them to freeside. In my opinion, sovereignty is the ability to deploy wherever you want, and they can choose to deploy with us if they want. I will provide the better user experience."*
+
+Claim: **`construct-world-creator` and `construct-freeside` compose but don't bundle.** World-creator emits a world-artifact; freeside is ONE of N valid deploy-substrates the operator can choose. Fusion would violate [[sovereign-stack]] ("deploy wherever you want"). Composition preserves choice. Lock-in vector = UX, not structural coupling.
+
+This is **the same pattern cycle-008 `consumes:` field just enshrined** (see `grimoires/compositions/SCHEMA.md §4`). Composition A (analysis) emits DecisionArtifact; Composition C1 (design-mockup) consumes it. A can exist without C1. C1 can bind to alternative As. Substitute: world-creator emits WorldArtifact; freeside consumes ONE form of WorldArtifact; other deploy-substrates consume alternative forms.
+
+**Implication for cycle-009+**:
+- When `construct-freeside` ships, its composition YAML declares `consumes: [{type: WorldArtifact, from: world-creator, required: false}]` — emphasis on `required: false`. Operator can run freeside deploy against any source that produces a WorldArtifact-shaped handoff, not only world-creator.
+- `WorldArtifact` typed row should land in `docs/integration/compose-trajectory-contract.md` when the first world-creator → freeside pipeline runs (second-instance of `DecisionArtifact` pattern; promotes the abstraction).
+- **Do not combine the constructs** into one pack. Keep them two packs that compose. The sovereignty IS in the separation.
+
+Doctrine-candidate flag: **`sovereignty-is-optional-composition`** (or similar naming). Second-instance would be: the moment construct-freeside ships + a non-world-creator source also emits into it. Until then, flag-only.
+
+### 6.2 · Latent-handle visibility (agent-behavior norm)
+
+> *"Any time we interact with these tools, then you're aware of actually using these constructs, because everything we've done here to set up constructs in a way that they work is by actually composing them and having clarity on the latent handles to actually use them at the right times."*
+
+Claim: **agent should name the construct handle as it invokes.** Tool use IS construct activation. The composition stays legible when latent handles become active verbs in the conversation.
+
+Extends [[construct-pipe-doctrine]] §14.4 (emoji-as-object-refs — UI-rendering handle visibility) to agent-behavior: not just the frontend should show handles; the agent should name them in its work.
+
+Connects to [[accelerated-learning-surface]] §"Expose the reasoning, not just the output" — the construct-exposure mandate was already established at construct-design-time; this extends it to construct-invocation-time.
+
+**Practical shape**:
+- When invoking `/bug`, say "invoking `bug-triaging` construct via `/bug` handle" — not just "running bug triage"
+- When authoring composition YAML, name constructs by handle (`🔨 artisan`, `🕳️ k-hole`, `🍯 mint`) not just role ("the design construct")
+- When rendering compose-panes, emoji + construct name visible per [[construct-pipe-doctrine]] §14.4 (already the case)
+- When writing commit messages + leg docs, reference constructs by handle
+
+This was **partially honored** in cycle-008 but not consistently. Observation: more explicit handle-naming improves operator-legibility AND agent-register-purity (focus-per-register, [[agent-teams-as-pipes]]).
+
+Doctrine-candidate flag: **`name-your-handles-while-composing`** (or similar). Second-instance: when `construct-world-creator` + `construct-freeside` ship and this norm is consciously applied at invocation-time — that's when it promotes.
+
+### 6.3 · What this means for forward cycles
+
+- **Cycle-009 SEED** (when drafted): reference this §6 as prior-context; the migration IS a `WorldArtifact`-shaped operation in embryo
+- **construct-world-creator** (not yet built): its invocation should produce a typed WorldArtifact row that downstream constructs (freeside OR alternatives) consume — mirrors cycle-008 compositions-compose pattern
+- **construct-freeside** (not yet built): its invocation should declare `consumes: WorldArtifact` + be operable standalone (bring-your-own-world-artifact) — sovereignty-preserving
+- **Doctrine candidates**: two flagged (§6.1 + §6.2); add to the cycle-008 `candidate-watch` list in the SEED §4. Promotes at second-instance.
+
+---
+
+*§6 added at session-close 2026-04-24 late per operator reflection. Preservation-only; no implementation implied for this cycle.*
