@@ -1,77 +1,73 @@
-name: Discover Constructs
+name: Sync Registry
 
-# Runs daily and on manual trigger to find new construct-* repos in the org
-# Reports gaps between GitHub org namespace and registry
+# Cycle-012 rewrite: posts to the live API's /v1/admin/discover endpoint
+# to keep the Turso-backed registry synchronized with the GitHub org.
+# Replaces the legacy GIT_CONFIGS / seed-forge flow (Postgres era).
 
 permissions:
   contents: read
 
 on:
   schedule:
-    # Daily at 06:00 UTC
-    - cron: '0 6 * * *'
+    # Every 6 hours. API is cheap, GitHub API cost is bounded by org size.
+    - cron: '0 */6 * * *'
   workflow_dispatch:
     inputs:
       org:
         description: 'GitHub org to scan'
         required: false
         default: '0xHoneyJar'
+      dry_run:
+        description: 'Dry-run (no DB writes)'
+        required: false
+        default: 'false'
 
 jobs:
-  discover:
-    name: Scan Namespace
+  sync:
+    name: POST /v1/admin/discover
     runs-on: ubuntu-latest
-
+    timeout-minutes: 5
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-
-      - name: Install dependencies
-        run: bun install --frozen-lockfile
-
-      - name: Run discovery scan
+      - name: Invoke discovery
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CONSTRUCTS_ORG: ${{ github.event.inputs.org || '0xHoneyJar' }}
-        run: bun tsx scripts/discover-constructs.ts --register --json > /tmp/discovery.json
-
-      - name: Report results
+          ORG: ${{ github.event.inputs.org || '0xHoneyJar' }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+          ADMIN_TOKEN: ${{ secrets.CONSTRUCTS_ADMIN_TOKEN }}
+          API_BASE: https://api.constructs.network
         run: |
-          echo "## Construct Discovery Report" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          TOTAL=$(jq '.summary.total' /tmp/discovery.json)
-          REGISTERED=$(jq '.summary.registered' /tmp/discovery.json)
-          MISSING=$(jq '.summary.missing' /tmp/discovery.json)
-          BARE=$(jq '.summary.bare' /tmp/discovery.json)
-
-          echo "| Metric | Count |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Total construct-* repos | $TOTAL |" >> $GITHUB_STEP_SUMMARY
-          echo "| Registered | $REGISTERED |" >> $GITHUB_STEP_SUMMARY
-          echo "| Missing (has manifest) | $MISSING |" >> $GITHUB_STEP_SUMMARY
-          echo "| Bare (no manifest) | $BARE |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          if [ "$MISSING" -gt 0 ]; then
-            echo "### Missing from Registry" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            jq -r '.register.missing[] | "- **\(.slug)** — \(.description // "no description") [\(.gitUrl)]"' /tmp/discovery.json >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "> Run \`AUTO_DISCOVER=true bun seed:forge\` to register these constructs." >> $GITHUB_STEP_SUMMARY
+          if [ -z "$ADMIN_TOKEN" ]; then
+            echo "::error::CONSTRUCTS_ADMIN_TOKEN repo secret not set — see apps/api/docs/admin-token-rotation.md"
+            exit 1
           fi
 
-          if [ "$BARE" -gt 0 ]; then
-            echo "### Bare Repos (no manifest)" >> $GITHUB_STEP_SUMMARY
-            echo "" >> $GITHUB_STEP_SUMMARY
-            jq -r '.results[] | select(.hasManifest == false) | "- **\(.slug)** — needs construct.yaml"' /tmp/discovery.json >> $GITHUB_STEP_SUMMARY
+          RESPONSE=$(curl -sS -X POST \
+            "${API_BASE}/v1/admin/discover?owner=${ORG}&dry_run=${DRY_RUN}" \
+            -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+            -H "User-Agent: loa-constructs-sync/cycle-012")
+
+          echo "$RESPONSE" > /tmp/sync.json
+
+          echo "## Sync Registry Report" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Run ID | $(jq -r '.run_id' /tmp/sync.json) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Org | $ORG |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Dry run | $DRY_RUN |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Found | $(jq -r '.constructs_found' /tmp/sync.json) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Created | $(jq -r '.constructs_created' /tmp/sync.json) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Updated | $(jq -r '.constructs_updated' /tmp/sync.json) |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Duration ms | $(jq -r '.duration_ms' /tmp/sync.json) |" >> "$GITHUB_STEP_SUMMARY"
+
+          ERR_COUNT=$(jq -r '.errors | length' /tmp/sync.json)
+          if [ "$ERR_COUNT" -gt 0 ]; then
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "### Errors ($ERR_COUNT)" >> "$GITHUB_STEP_SUMMARY"
+            jq -r '.errors[] | "- \(.)"' /tmp/sync.json >> "$GITHUB_STEP_SUMMARY"
           fi
 
-          if [ "$MISSING" -gt 0 ]; then
-            echo ""
-            echo "WARNING: $MISSING construct(s) with manifest not registered."
-            echo "Run: AUTO_DISCOVER=true bun seed:forge"
+          # Fail the run if the API surfaced an error envelope
+          if jq -e '.error' /tmp/sync.json > /dev/null; then
+            echo "::error::Sync failed: $(jq -r '.error.message' /tmp/sync.json)"
+            exit 1
           fi
