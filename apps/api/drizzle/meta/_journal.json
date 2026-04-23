@@ -1,103 +1,12 @@
 {
   "version": "7",
-  "dialect": "postgresql",
+  "dialect": "sqlite",
   "entries": [
     {
       "idx": 0,
-      "version": "7",
-      "when": 1769885045920,
-      "tag": "0000_new_maverick",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1769924190111,
-      "tag": "0001_striped_mentallo",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1770053706905,
-      "tag": "0002_aromatic_meggan",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1738600000000,
-      "tag": "0003_public_keys",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1738700000000,
-      "tag": "0004_content_hash",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1740100000000,
-      "tag": "0005_construct_verifications",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1740200000000,
-      "tag": "0006_construct_type",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1740300000000,
-      "tag": "0007_measurement_honesty",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1741400000000,
-      "tag": "0008_cycle_038_visibility",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1741500000000,
-      "tag": "0009_cycle_039_dynamic_auth",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1742600000000,
-      "tag": "0010_cycle_044_signal_keys",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1743700000000,
-      "tag": "0011_verifier_role",
-      "breakpoints": true
-    },
-    {
-      "idx": 12,
-      "version": "7",
-      "when": 1745400000000,
-      "tag": "0012_discovery_runs",
-      "breakpoints": true
-    },
-    {
-      "idx": 13,
-      "version": "7",
-      "when": 1745400000001,
-      "tag": "0013_visibility_transitions",
+      "version": "6",
+      "when": 1776975600710,
+      "tag": "0000_red_katie_power",
       "breakpoints": true
     }
   ]
