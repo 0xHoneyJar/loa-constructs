@@ -1,327 +1,255 @@
-/**
- * Discovery Service — cycle-001 (2026-04-21)
- * Ported from scripts/discover-constructs.ts with three amendments:
- *   §14.3: Visibility preservation (AC-A5 — load-bearing)
- *   §14.5: trust_level population (evidence-only, no enforcement)
- *   §14.11: Manifest fallback chain (construct.yaml → construct.json)
- *
- * SEED: grimoires/loa-constructs-seed-2026-04-21/SEED-loa-constructs-infrastructure-cycle.md
- */
-
-import { randomUUID } from 'crypto';
+import { createHash } from 'crypto';
+import yaml from 'js-yaml';
+import { eq } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { packs } from '../db/schema.js';
-import { sql, eq } from 'drizzle-orm';
+import { packs, discoveryRuns, skills, type NewPack } from '../db/schema.js';
 import { logger } from '../lib/logger.js';
 
-// --- Types ---
-
-export interface DiscoveryOpts {
-  owner: string;
-  dryRun?: boolean;
-  githubToken?: string;
-}
+/**
+ * Discovery service (SDD §3.3, §6.1.1)
+ *
+ * Scans a GitHub org for `construct-*` repos, parses each repo's manifest
+ * (`construct.yaml` / `loa.yaml` / `loa.config.yaml` — best-match precedence),
+ * and upserts rows into `packs` (+ `skills` from manifest). Logs an audit row
+ * to `discovery_runs` with caller fingerprint / IP / UA.
+ *
+ * Auth: operational-token only (admin middleware wraps the caller).
+ *
+ * Intentionally minimal: this is the post-cycle-012 replacement for a much
+ * larger Postgres-era git-sync + discovery service. Manifest-field coverage
+ * expands as future cycles grow the live surface.
+ */
 
 export interface DiscoveryResult {
-  run_id: string;
-  dry_run: boolean;
-  owner: string;
   constructs_found: number;
   constructs_updated: number;
-  constructs_skipped: number;
-  details: {
-    new: string[];
-    updated: string[];
-    unchanged: string[];
-    visibility_preserved: string[];
-  };
+  constructs_created: number;
+  errors: string[];
+  run_id: string;
+  duration_ms: number;
 }
 
-interface ManifestData {
+export interface DiscoveryCaller {
+  fingerprint?: string;
+  ip?: string;
+  userAgent?: string;
+}
+
+const MANIFEST_CANDIDATES = [
+  'construct.yaml',
+  'construct.yml',
+  'loa.yaml',
+  'loa.config.yaml',
+];
+
+interface ParsedManifest {
   name?: string;
-  slug?: string;
   description?: string;
-  visibility?: string;
-  trust_level?: string;
   version?: string;
-  tags?: string[];
-  source?: 'construct.yaml' | 'construct.json';
+  category?: string;
+  maturity?: string;
+  visibility?: string;
+  construct_type?: string;
+  owner?: string;
+  skills?: Array<{ name?: string; description?: string; slug?: string; path?: string }>;
 }
 
-interface OrgRepo {
-  name: string;
-  visibility: string;
-  defaultBranch: string;
-  archived: boolean;
-  description: string | null;
-  url: string;
+async function githubFetch(url: string, token: string): Promise<Response> {
+  return fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'User-Agent': 'loa-constructs-api/cycle-012',
+    },
+  });
 }
 
-// --- GitHub API helpers ---
-
-async function fetchOrgRepos(owner: string, token?: string): Promise<OrgRepo[]> {
-  const headers: Record<string, string> = {
-    Accept: 'application/vnd.github.v3+json',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  // cycle-002 F15: paginate. Large orgs (0xHoneyJar has 278 repos) scatter
-  // construct-* names across pages 2-3. Fetching only page 1 silently
-  // returned 0 constructs — the prod symptom behind F10.
-  const all: Array<{
-    name: string;
-    visibility: string;
-    default_branch: string;
-    archived: boolean;
-    description: string | null;
-    html_url: string;
-  }> = [];
-
-  const MAX_PAGES = 10; // 100 * 10 = 1000 repos ceiling; fail loud if exceeded
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    const resp = await fetch(
-      `https://api.github.com/orgs/${owner}/repos?type=all&per_page=100&page=${page}`,
-      { headers }
+async function listOrgRepos(owner: string, token: string): Promise<Array<Record<string, unknown>>> {
+  const repos: Array<Record<string, unknown>> = [];
+  let page = 1;
+  const perPage = 100;
+  for (;;) {
+    const res = await githubFetch(
+      `https://api.github.com/orgs/${owner}/repos?per_page=${perPage}&page=${page}&type=public`,
+      token
     );
-
-    if (resp.status === 429) {
-      throw Object.assign(new Error('GitHub rate limit hit'), { code: 'RATE_LIMIT' });
+    if (!res.ok) {
+      throw new Error(`GitHub repo list failed: HTTP ${res.status}`);
     }
-    if (!resp.ok) {
-      throw new Error(`GitHub API error: ${resp.status} ${resp.statusText}`);
-    }
-
-    const pageData = (await resp.json()) as typeof all;
-    if (pageData.length === 0) break;
-    all.push(...pageData);
-    if (pageData.length < 100) break; // last page
-    if (page === MAX_PAGES) {
-      throw new Error(`Pagination ceiling hit (${MAX_PAGES} pages × 100). Org ${owner} has >1000 repos; raise MAX_PAGES.`);
-    }
+    const batch = (await res.json()) as Array<Record<string, unknown>>;
+    repos.push(...batch);
+    if (batch.length < perPage) break;
+    page += 1;
+    if (page > 20) break;
   }
-
-  return all
-    .filter(r => r.name.startsWith('construct-'))
-    .map(r => ({
-      name: r.name,
-      visibility: r.visibility.toLowerCase(),
-      defaultBranch: r.default_branch,
-      archived: r.archived,
-      description: r.description,
-      url: r.html_url,
-    }));
+  return repos;
 }
 
 async function fetchManifest(
   owner: string,
   repo: string,
-  branch: string,
-  token?: string
-): Promise<ManifestData | null> {
-  const headers: Record<string, string> = {
-    Accept: 'application/vnd.github.v3+json',
-  };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  // Amendment: try construct.yaml first, then construct.json (Hypha schema_v1)
-  for (const filename of ['construct.yaml', 'construct.json'] as const) {
-    const resp = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/contents/${filename}?ref=${branch}`,
-      { headers }
-    );
-
-    if (resp.status === 404) continue;
-    if (!resp.ok) continue;
-
-    const fileData = (await resp.json()) as { content?: string; encoding?: string };
-    if (!fileData.content || fileData.encoding !== 'base64') continue;
-
-    const raw = Buffer.from(fileData.content.replace(/\n/g, ''), 'base64').toString('utf-8');
-
+  defaultBranch: string
+): Promise<ParsedManifest | null> {
+  for (const filename of MANIFEST_CANDIDATES) {
+    const url = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${filename}`;
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'loa-constructs-api/cycle-012' },
+    });
+    if (!res.ok) continue;
+    const raw = await res.text();
     try {
-      if (filename === 'construct.yaml') {
-        // Parse YAML inline — minimal field extraction without yq dependency
-        const parsed = parseSimpleYaml(raw);
-        return { ...parsed, source: 'construct.yaml' };
-      } else {
-        const parsed = JSON.parse(raw) as ManifestData;
-        return { ...parsed, source: 'construct.json' };
+      const parsed = yaml.load(raw);
+      if (parsed && typeof parsed === 'object') {
+        return parsed as ParsedManifest;
       }
-    } catch {
-      logger.warn({ repo, filename }, 'Failed to parse manifest');
-      continue;
+    } catch (err) {
+      logger.warn({ owner, repo, filename, err }, 'manifest parse failed');
     }
   }
-
   return null;
 }
 
-/** Minimal YAML key-value parser for flat construct.yaml fields */
-function parseSimpleYaml(yaml: string): ManifestData {
-  const result: ManifestData = {};
-  for (const line of yaml.split('\n')) {
-    const m = line.match(/^(\w+):\s*["']?(.+?)["']?\s*$/);
-    if (!m) continue;
-    const [, key, value] = m;
-    const clean = value.replace(/^["']|["']$/g, '').trim();
-    switch (key) {
-      case 'name': result.name = clean; break;
-      case 'slug': result.slug = clean; break;
-      case 'description': result.description = clean; break;
-      case 'visibility': result.visibility = clean; break;
-      case 'trust_level': result.trust_level = clean; break;
-      case 'version': result.version = clean; break;
-    }
-  }
-  return result;
+function tokenFingerprint(token: string | undefined): string | undefined {
+  if (!token) return undefined;
+  return createHash('sha256').update(token).digest('hex').slice(0, 8);
 }
 
-// --- Visibility preservation (§14.3 AMENDMENT — load-bearing) ---
+export async function runDiscovery(options: {
+  owner: string;
+  dryRun: boolean;
+  githubToken: string;
+  callerFingerprint?: string;
+  callerIp?: string;
+  callerUserAgent?: string;
+}): Promise<DiscoveryResult> {
+  const { owner, dryRun, githubToken } = options;
+  const started = Date.now();
+  const runRow = (
+    await db
+      .insert(discoveryRuns)
+      .values({
+        owner,
+        dry_run: dryRun,
+        triggered_by: 'operational-token',
+        triggered_by_fingerprint: options.callerFingerprint,
+        triggered_by_ip: options.callerIp,
+        triggered_by_user_agent: options.callerUserAgent,
+      })
+      .returning()
+  )[0];
 
-function shouldPreserveVisibility(dbVisibility: string | null, incoming: string): boolean {
-  return dbVisibility === 'public' && incoming === 'private';
-}
+  const errors: string[] = [];
+  let found = 0;
+  let updated = 0;
+  let created = 0;
 
-// --- Main discovery function ---
+  try {
+    const allRepos = await listOrgRepos(owner, githubToken);
+    const constructRepos = allRepos.filter((r) => {
+      const name = String(r.name ?? '');
+      return name.startsWith('construct-');
+    });
+    found = constructRepos.length;
 
-export async function runDiscovery(opts: DiscoveryOpts): Promise<DiscoveryResult> {
-  const { owner, dryRun = false } = opts;
-  const githubToken = opts.githubToken ?? process.env.GITHUB_TOKEN;
-  const run_id = randomUUID();
+    for (const repo of constructRepos) {
+      const repoName = String(repo.name ?? '');
+      const defaultBranch = String(repo.default_branch ?? 'main');
+      const htmlUrl = String(repo.html_url ?? '');
 
-  const result: DiscoveryResult = {
-    run_id,
-    dry_run: dryRun,
-    owner,
-    constructs_found: 0,
-    constructs_updated: 0,
-    constructs_skipped: 0,
-    details: {
-      new: [],
-      updated: [],
-      unchanged: [],
-      visibility_preserved: [],
-    },
-  };
-
-  const repos = await fetchOrgRepos(owner, githubToken);
-  result.constructs_found = repos.length;
-
-  const performWrites = async () => {
-    for (const repo of repos) {
-      const slug = repo.name.replace(/^construct-/, '');
-
-      const manifest = await fetchManifest(owner, repo.name, repo.defaultBranch, githubToken);
-
+      const manifest = await fetchManifest(owner, repoName, defaultBranch);
       if (!manifest) {
-        logger.info({ repo: repo.name, reason: 'no_manifest' }, 'Skipping repo — no manifest');
-        result.constructs_skipped = result.constructs_skipped + 1;
+        errors.push(`${owner}/${repoName}: no manifest found`);
         continue;
       }
 
-      // Read existing DB row for visibility preservation check
-      const existing = await db
-        .select({ id: packs.id, visibility: packs.visibility, slug: packs.slug })
-        .from(packs)
-        .where(eq(packs.slug, slug))
-        .limit(1);
+      const slug = repoName.replace(/^construct-/, '');
+      const existing = (
+        await db.select().from(packs).where(eq(packs.slug, slug)).limit(1)
+      )[0];
 
-      const existingPack = existing[0] ?? null;
-      const incomingVisibility = manifest.visibility ?? repo.visibility ?? 'public';
-
-      let effectiveVisibility = incomingVisibility;
-      let preserved = false;
-
-      // §14.3 AMENDMENT: preserve public visibility — never silently demote
-      if (existingPack && shouldPreserveVisibility(existingPack.visibility, incomingVisibility)) {
-        effectiveVisibility = 'public';
-        preserved = true;
-        result.details.visibility_preserved.push(slug);
-        logger.info({ slug, dbVisibility: 'public', incoming: incomingVisibility }, 'Visibility preserved — demotion blocked');
-      }
-
-      const packData = {
-        slug: manifest.slug ?? slug,
+      const now = new Date();
+      const payload: NewPack = {
+        slug,
         name: manifest.name ?? slug,
-        description: manifest.description ?? repo.description ?? '',
-        visibility: effectiveVisibility as 'public' | 'internal' | 'unlisted',
-        gitUrl: repo.url,
-        // trust_level: written only when present (Amendment 2 — §14.5)
-        ...(manifest.trust_level !== undefined ? { trustLevel: manifest.trust_level } : {}),
-        updatedAt: new Date(),
+        description: manifest.description ?? String(repo.description ?? ''),
+        namespace: `${owner}/${repoName}`,
+        version: manifest.version ?? '0.0.0',
+        visibility: manifest.visibility ?? 'public',
+        category: manifest.category ?? null,
+        maturity: manifest.maturity ?? 'experimental',
+        repo_url: htmlUrl,
+        manifest: manifest as unknown as Record<string, unknown>,
+        owner_id: String(repo.owner && typeof repo.owner === 'object' ? (repo.owner as { id?: unknown }).id : ''),
+        owner_type: 'org',
+        source_type: 'github',
+        construct_type: manifest.construct_type ?? null,
+        updated_at: now,
       };
 
-      if (existingPack) {
-        if (!preserved) {
-          await db.update(packs).set(packData).where(eq(packs.id, existingPack.id));
-          result.constructs_updated = result.constructs_updated + 1;
-          result.details.updated.push(slug);
-        } else {
-          // Still update non-visibility fields
-          const { visibility: _v, ...nonVisibilityData } = packData;
-          await db.update(packs).set(nonVisibilityData).where(eq(packs.id, existingPack.id));
-          result.constructs_skipped = result.constructs_skipped + 1;
-        }
+      if (dryRun) continue;
+
+      if (existing) {
+        await db
+          .update(packs)
+          .set(payload)
+          .where(eq(packs.id, existing.id))
+          .run();
+        updated += 1;
       } else {
-        await db.insert(packs).values({
-          ...packData,
-          status: 'published' as const,
-          submissionSource: 'org_sync' as const,
-          createdAt: new Date(),
-        });
-        result.details.new.push(slug);
-        result.constructs_updated = result.constructs_updated + 1;
+        const inserted = (
+          await db.insert(packs).values(payload).returning()
+        )[0];
+        created += 1;
+
+        if (manifest.skills?.length) {
+          for (const skill of manifest.skills) {
+            if (!skill?.slug || !skill?.name) continue;
+            await db
+              .insert(skills)
+              .values({
+                pack_id: inserted.id,
+                name: skill.name,
+                description: skill.description ?? null,
+                slug: skill.slug,
+                path: skill.path ?? null,
+              })
+              .run();
+          }
+        }
       }
     }
-
-    // Write discovery_runs row
-    await db.execute(sql`
-      INSERT INTO discovery_runs (run_id, status, owner, dry_run, constructs_found, constructs_updated, constructs_skipped, completed_at)
-      VALUES (
-        ${result.run_id}::uuid,
-        'completed',
-        ${owner},
-        ${dryRun},
-        ${result.constructs_found},
-        ${result.constructs_updated},
-        ${result.constructs_skipped},
-        NOW()
-      )
-    `);
-  };
-
-  if (dryRun) {
-    // Dry run: compute diff but roll back all pack writes
-    await db.transaction(async () => {
-      await performWrites();
-      // Force rollback — transaction will be rolled back
-      throw Object.assign(new Error('DRY_RUN_ROLLBACK'), { isDryRunRollback: true });
-    }).catch(err => {
-      if (!err.isDryRunRollback) throw err;
-      // Expected: dry-run rollback
-    });
-
-    // Write the dry_run discovery_runs row OUTSIDE the rolled-back transaction
-    await db.execute(sql`
-      INSERT INTO discovery_runs (run_id, status, owner, dry_run, constructs_found, constructs_updated, constructs_skipped, completed_at)
-      VALUES (
-        ${result.run_id}::uuid,
-        'completed',
-        ${owner},
-        true,
-        ${result.constructs_found},
-        ${result.constructs_updated},
-        ${result.constructs_skipped},
-        NOW()
-      )
-    `);
-  } else {
-    await performWrites();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    errors.push(`discovery failed: ${message}`);
+    logger.error({ err }, 'discovery error');
   }
 
-  return result;
+  await db
+    .update(discoveryRuns)
+    .set({
+      completed_at: new Date(),
+      constructs_found: found,
+      constructs_updated: updated,
+      constructs_created: created,
+      errors: errors.length ? errors : null,
+    })
+    .where(eq(discoveryRuns.id, runRow.id))
+    .run();
+
+  return {
+    constructs_found: found,
+    constructs_updated: updated,
+    constructs_created: created,
+    errors,
+    run_id: runRow.id,
+    duration_ms: Date.now() - started,
+  };
+}
+
+export function fingerprintFromHeader(authHeader: string | undefined): string | undefined {
+  if (!authHeader) return undefined;
+  const match = /^Bearer\s+(.+)$/.exec(authHeader.trim());
+  if (!match) return undefined;
+  return tokenFingerprint(match[1]);
 }

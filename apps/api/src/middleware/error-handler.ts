@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import type { MiddlewareHandler } from 'hono';
-import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import type { StatusCode } from 'hono/utils/http-status';
 import { AppError } from '../lib/errors.js';
 import { logger } from '../lib/logger.js';
 import { captureException, addBreadcrumb } from '../lib/monitoring.js';
@@ -13,7 +14,7 @@ export const errorHandler = (): MiddlewareHandler => {
     try {
       await next();
     } catch (err) {
-      const requestId = c.get('requestId') || crypto.randomUUID();
+      const requestId = (c.get('requestId') as string | undefined) || randomUUID();
 
       // Handle AppError instances
       // Use duck typing instead of instanceof for bundling compatibility
@@ -38,7 +39,7 @@ export const errorHandler = (): MiddlewareHandler => {
             },
             request_id: requestId,
           },
-          appErr.status as ContentfulStatusCode
+          appErr.status as StatusCode
         );
       }
 

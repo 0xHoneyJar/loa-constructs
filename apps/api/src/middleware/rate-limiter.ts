@@ -1,341 +1,92 @@
+import type { MiddlewareHandler } from 'hono';
+import { trustedClientIp } from './trust-ip.js';
+
 /**
- * Rate Limiting Middleware
- * @see sprint.md T11.4: Enhanced Rate Limiting
- * @see sdd.md §5.5 Rate Limiting
+ * In-memory leaky-bucket rate-limit middleware (SDD §6.2)
+ *
+ * Single-instance constraint — per SDD §6.2.1, the Railway service MUST run
+ * as one instance. Horizontal scaling would break per-IP buckets (attacker
+ * hitting different instances gets N× budget). Escalation path documented
+ * in SDD §6.2.1 (move to stats_events table or edge layer if needed).
+ *
+ * Bucket: sliding window, one Map per limiter instance, opaque string keys.
+ * Cleared on restart — acceptable because rate-limit is best-effort abuse
+ * deterrent, not a hard quota.
  */
 
-import type { MiddlewareHandler, Context } from 'hono';
-import { getRedis, isRedisConfigured, CACHE_KEYS } from '../services/redis.js';
-import { Errors } from '../lib/errors.js';
-import { logger } from '../lib/logger.js';
+interface Bucket {
+  count: number;
+  resetAt: number;
+}
 
-// --- Types ---
-
-export type UserTier = 'free' | 'pro' | 'team' | 'enterprise';
-
-export interface RateLimitConfig {
-  /** Requests per window */
+function createBucketMiddleware(opts: {
   limit: number;
-  /** Window size in seconds */
-  window: number;
-}
-
-export interface RateLimitOptions {
-  /** Key prefix for this limiter */
-  prefix: string;
-  /** Per-tier limits (falls back to 'default' if tier not specified) */
-  limits: {
-    free?: RateLimitConfig;
-    pro?: RateLimitConfig;
-    team?: RateLimitConfig;
-    enterprise?: RateLimitConfig;
-    default: RateLimitConfig;
-  };
-  /** Custom key generator (default: uses IP or user ID) */
-  keyGenerator?: (c: Context) => string;
-  /** Skip rate limiting for certain conditions */
-  skip?: (c: Context) => boolean;
-}
-
-// --- Default Rate Limits ---
-
-/**
- * Default rate limits per tier
- * @see sdd.md §5.5 Rate Limiting
- */
-export const DEFAULT_RATE_LIMITS: RateLimitOptions['limits'] = {
-  free: { limit: 100, window: 60 },       // 100 req/min
-  pro: { limit: 300, window: 60 },        // 300 req/min
-  team: { limit: 500, window: 60 },       // 500 req/min
-  enterprise: { limit: 1000, window: 60 }, // 1000 req/min
-  default: { limit: 100, window: 60 },    // Default fallback
-};
-
-/**
- * Auth-specific rate limits (stricter for security)
- */
-export const AUTH_RATE_LIMITS: RateLimitOptions['limits'] = {
-  free: { limit: 10, window: 60 },        // 10 req/min for login attempts
-  pro: { limit: 20, window: 60 },
-  team: { limit: 30, window: 60 },
-  enterprise: { limit: 50, window: 60 },
-  default: { limit: 10, window: 60 },
-};
-
-/**
- * Search/browse rate limits (moderate)
- */
-export const SEARCH_RATE_LIMITS: RateLimitOptions['limits'] = {
-  free: { limit: 30, window: 60 },        // 30 req/min for searches
-  pro: { limit: 100, window: 60 },
-  team: { limit: 200, window: 60 },
-  enterprise: { limit: 500, window: 60 },
-  default: { limit: 30, window: 60 },
-};
-
-// --- Auth Endpoints (fail closed on error) ---
-
-/**
- * Auth endpoints that should fail closed on Redis errors
- * @see sprint-v2.md T15.4: Rate Limiter Resilience (L5)
- */
-const AUTH_ENDPOINTS = [
-  '/v1/auth/',
-  '/auth/',
-];
-
-/**
- * Check if a path is an auth endpoint
- */
-function isAuthEndpoint(path: string): boolean {
-  return AUTH_ENDPOINTS.some(ep => path.startsWith(ep));
-}
-
-// --- Rate Limiter Implementation ---
-
-/**
- * Get rate limit key for a request
- */
-function getDefaultKey(c: Context): string {
-  // Prefer user ID if authenticated
-  const userId = c.get('userId');
-  if (userId) {
-    return `user:${userId}`;
-  }
-
-  // Fall back to IP address
-  const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
-    || c.req.header('x-real-ip')
-    || 'unknown';
-  return `ip:${ip}`;
-}
-
-/**
- * Get current window identifier (sliding window)
- */
-function getCurrentWindow(windowSeconds: number): string {
-  const now = Math.floor(Date.now() / 1000);
-  return String(Math.floor(now / windowSeconds));
-}
-
-/**
- * Sliding window rate limiter using Redis
- */
-export const rateLimiter = (options: RateLimitOptions): MiddlewareHandler => {
-  const { prefix, limits, keyGenerator = getDefaultKey, skip } = options;
+  windowSec: number;
+  keyFn: (c: Parameters<MiddlewareHandler>[0]) => string;
+}): MiddlewareHandler {
+  const buckets = new Map<string, Bucket>();
 
   return async (c, next) => {
-    // Check skip condition
-    if (skip?.(c)) {
+    const now = Date.now();
+    const key = opts.keyFn(c);
+    const bucket = buckets.get(key);
+
+    if (!bucket || bucket.resetAt <= now) {
+      buckets.set(key, { count: 1, resetAt: now + opts.windowSec * 1000 });
       return next();
     }
 
-    // Check if Redis is configured
-    if (!isRedisConfigured()) {
-      logger.warn('Rate limiting disabled: Redis not configured');
-      return next();
+    if (bucket.count >= opts.limit) {
+      const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
+      return c.json(
+        {
+          error: {
+            code: 'RATE_LIMIT_EXCEEDED',
+            message: `Too many requests. Retry in ${retryAfter}s.`,
+          },
+          request_id: c.get('requestId'),
+        },
+        429,
+        {
+          'Retry-After': String(retryAfter),
+          'X-RateLimit-Limit': String(opts.limit),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': String(Math.floor(bucket.resetAt / 1000)),
+        }
+      );
     }
 
-    try {
-      const redis = getRedis();
-
-      // Get user tier (default to 'free' if not authenticated)
-      const user = c.get('user');
-      const tier: UserTier = user?.tier || 'free';
-
-      // Get rate limit config for this tier
-      const config = limits[tier] || limits.default;
-
-      // Generate cache key
-      const baseKey = keyGenerator(c);
-      const window = getCurrentWindow(config.window);
-      const key = CACHE_KEYS.rateLimit(`${prefix}:${baseKey}`, window);
-
-      // Increment counter
-      const current = await redis.incr(key);
-
-      // Set TTL on first request
-      if (current === 1) {
-        await redis.expire(key, config.window);
-      }
-
-      // Calculate remaining and reset time
-      const remaining = Math.max(0, config.limit - current);
-      const resetTime = (Math.floor(Date.now() / 1000 / config.window) + 1) * config.window;
-
-      // Set rate limit headers
-      c.header('X-RateLimit-Limit', String(config.limit));
-      c.header('X-RateLimit-Remaining', String(remaining));
-      c.header('X-RateLimit-Reset', String(resetTime));
-
-      // Check if over limit
-      if (current > config.limit) {
-        const retryAfter = resetTime - Math.floor(Date.now() / 1000);
-        c.header('Retry-After', String(retryAfter));
-
-        logger.warn(
-          {
-            key: baseKey,
-            tier,
-            limit: config.limit,
-            current,
-            prefix,
-          },
-          'Rate limit exceeded'
-        );
-
-        throw Errors.RateLimitExceeded(retryAfter);
-      }
-
-      await next();
-    } catch (error) {
-      // Re-throw rate limit errors
-      if (error instanceof Error && error.message === 'Too many requests') {
-        throw error;
-      }
-
-      const path = c.req.path;
-
-      // Log Redis errors
-      logger.error({ error, prefix, path }, 'Rate limiter error');
-
-      // L5: Fail closed for auth endpoints (security-critical)
-      if (isAuthEndpoint(path)) {
-        logger.warn({ path }, 'Rate limiter failing closed for auth endpoint');
-        return c.json(
-          {
-            error: {
-              code: 'SERVICE_UNAVAILABLE',
-              message: 'Rate limiting service temporarily unavailable',
-            },
-          },
-          503
-        );
-      }
-
-      // Fail open for other endpoints with warning header
-      c.header('X-RateLimit-Degraded', 'true');
-      await next();
-    }
+    bucket.count += 1;
+    await next();
+    c.res.headers.set('X-RateLimit-Limit', String(opts.limit));
+    c.res.headers.set('X-RateLimit-Remaining', String(Math.max(0, opts.limit - bucket.count)));
+    c.res.headers.set('X-RateLimit-Reset', String(Math.floor(bucket.resetAt / 1000)));
   };
-};
-
-// --- Preset Rate Limiters ---
+}
 
 /**
- * General API rate limiter
+ * Global API rate-limiter — 300 req/min per IP (safety net against bursts).
  */
-export const apiRateLimiter = (): MiddlewareHandler =>
-  rateLimiter({
-    prefix: 'api',
-    limits: DEFAULT_RATE_LIMITS,
+export function apiRateLimiter(): MiddlewareHandler {
+  return createBucketMiddleware({
+    limit: 300,
+    windowSec: 60,
+    keyFn: (c) => `api:${trustedClientIp(c)}`,
   });
+}
 
 /**
- * Auth endpoint rate limiter (stricter)
+ * Stats endpoint rate-limiter — per-IP per-slug bucket.
+ * Default view: 10/min, download: 5/min (SDD §3.2).
  */
-export const authRateLimiter = (): MiddlewareHandler =>
-  rateLimiter({
-    prefix: 'auth',
-    limits: AUTH_RATE_LIMITS,
-    // Use IP only for auth (user isn't authenticated yet)
-    keyGenerator: (c) => {
-      const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
-        || c.req.header('x-real-ip')
-        || 'unknown';
-      return `ip:${ip}`;
+export function statsRateLimiter(action: 'view' | 'download'): MiddlewareHandler {
+  const limit = action === 'view' ? 10 : 5;
+  return createBucketMiddleware({
+    limit,
+    windowSec: 60,
+    keyFn: (c) => {
+      const slug = c.req.param('slug') || 'unknown';
+      return `${action}:${trustedClientIp(c)}:${slug}`;
     },
   });
-
-/**
- * Search/browse rate limiter
- */
-export const searchRateLimiter = (): MiddlewareHandler =>
-  rateLimiter({
-    prefix: 'search',
-    limits: SEARCH_RATE_LIMITS,
-  });
-
-/**
- * Skills API rate limiter (for download/install tracking)
- */
-export const skillsRateLimiter = (): MiddlewareHandler =>
-  rateLimiter({
-    prefix: 'skills',
-    limits: {
-      free: { limit: 50, window: 60 },
-      pro: { limit: 200, window: 60 },
-      team: { limit: 300, window: 60 },
-      enterprise: { limit: 500, window: 60 },
-      default: { limit: 50, window: 60 },
-    },
-  });
-
-/**
- * Creator API rate limiter (for publishing)
- */
-export const creatorRateLimiter = (): MiddlewareHandler =>
-  rateLimiter({
-    prefix: 'creator',
-    limits: {
-      free: { limit: 10, window: 60 },   // Limited publishing for free
-      pro: { limit: 30, window: 60 },
-      team: { limit: 100, window: 60 },
-      enterprise: { limit: 200, window: 60 },
-      default: { limit: 10, window: 60 },
-    },
-  });
-
-/**
- * Stripe Connect rate limiter (very strict)
- * Prevents abuse of Stripe Connect account creation
- * @see auditor-sprint-feedback.md CRITICAL-1
- */
-export const stripeConnectRateLimiter = (): MiddlewareHandler =>
-  rateLimiter({
-    prefix: 'stripe-connect',
-    limits: {
-      // Very strict: 3 attempts per hour regardless of tier
-      free: { limit: 3, window: 3600 },
-      pro: { limit: 3, window: 3600 },
-      team: { limit: 3, window: 3600 },
-      enterprise: { limit: 5, window: 3600 },
-      default: { limit: 3, window: 3600 },
-    },
-  });
-
-/**
- * Pack submission rate limiter (H-001)
- * Prevents spam submissions and resource exhaustion
- * @see SECURITY-AUDIT-REPORT.md H-001
- */
-export const submissionRateLimiter = (): MiddlewareHandler =>
-  rateLimiter({
-    prefix: 'submission',
-    limits: {
-      // Strict: 5 submissions per minute to prevent spam
-      free: { limit: 5, window: 60 },
-      pro: { limit: 10, window: 60 },
-      team: { limit: 20, window: 60 },
-      enterprise: { limit: 30, window: 60 },
-      default: { limit: 5, window: 60 },
-    },
-  });
-
-/**
- * File upload rate limiter (H-001)
- * Prevents resource exhaustion via repeated uploads
- * @see SECURITY-AUDIT-REPORT.md H-001
- */
-export const uploadRateLimiter = (): MiddlewareHandler =>
-  rateLimiter({
-    prefix: 'upload',
-    limits: {
-      // Moderate: 10 uploads per minute
-      free: { limit: 10, window: 60 },
-      pro: { limit: 30, window: 60 },
-      team: { limit: 50, window: 60 },
-      enterprise: { limit: 100, window: 60 },
-      default: { limit: 10, window: 60 },
-    },
-  });
+}

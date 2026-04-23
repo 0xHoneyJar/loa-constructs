@@ -1,5 +1,6 @@
 import { sqliteTable, text, integer, index, uniqueIndex, check } from 'drizzle-orm/sqlite-core';
 import { relations, sql } from 'drizzle-orm';
+import { randomUUID } from 'node:crypto';
 
 /**
  * constructs-api libSQL Schema (cycle-012)
@@ -19,7 +20,7 @@ import { relations, sql } from 'drizzle-orm';
 export const packs = sqliteTable(
   'packs',
   {
-    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
     slug: text('slug').notNull().unique(),
     name: text('name').notNull(),
     description: text('description').notNull(),
@@ -82,7 +83,7 @@ export type NewPack = typeof packs.$inferInsert;
 export const skills = sqliteTable(
   'skills',
   {
-    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
     pack_id: text('pack_id')
       .notNull()
       .references(() => packs.id, { onDelete: 'cascade' }),
@@ -125,7 +126,7 @@ export type NewCategory = typeof categories.$inferInsert;
 export const discoveryRuns = sqliteTable(
   'discovery_runs',
   {
-    id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+    id: text('id').primaryKey().$defaultFn(() => randomUUID()),
     owner: text('owner').notNull(),
     started_at: integer('started_at', { mode: 'timestamp' })
       .notNull()
