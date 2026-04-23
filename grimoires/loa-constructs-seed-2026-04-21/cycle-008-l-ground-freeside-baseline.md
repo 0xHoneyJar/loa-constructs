@@ -168,9 +168,20 @@ If operator dispatches P1#1 in parallel this cycle, cycle-009 D1 becomes dispatc
 
 ---
 
-## 5 · Current freeside UI baseline (AC-G.1 continuation) — ⏳ AWAITING OPERATOR
+## 5 · Current UI baseline (AC-G.1 continuation) — ✅ 70% COMPLETE (operator-authorized scan)
 
-**Status**: TODO. Operator input needed before this leg closes.
+**Status updated 2026-04-24**: Operator authorized autonomous scan (*"I believe you can scan each apps inventory/tokens... also use /agent-browser to screenshot pages"*). Pivot from 1-app (freeside) to **3-app** baseline: Rektdrop + Freeside Dashboard + Constructs Network + sprawlos-tokens world-core DS.
+
+Captured inputs landed at `.run/compose/freeside-pilot-20260424-2150/inputs/baseline/` — see that directory's README.md for full manifest. Summary:
+
+| App | Tokens | Inventory | Screenshots | Status |
+|---|---|---|---|---|
+| Rektdrop | ✅ 45KB app.css + theme.ts | ✅ 40 files | ✅ landing + wallet-connect | COMPLETE |
+| Freeside Dashboard | ✅ 20KB app.css (inherits sprawlos-tokens) | ✅ 176 files | ⏸ deferred (no production URL in repo; scaffold state) | PARTIAL |
+| Constructs Network | ⚪ inherits only | ⚪ empty (branch-topology issue) | ⏸ blocked (bug 20260422-b63fed) | BLOCKED |
+| sprawlos-tokens (world-core DS) | ✅ 10KB tokens.css + patterns + shadcn-compat | — | — | COMPLETE |
+
+**Branch-topology finding confirmed**: constructs-network directory in current `bridge/freeside-dashboard-truthing` checkout contains only `vercel.json` — the 218-file lift (cycle-007 commit `3199bcf`) is in history but not reflected in the current working-tree HEAD. This is the third surface-validation of /bug triage Finding Gap. Will resolve in sprint-bug-66 spot-fix (next session).
 
 ### 5.1 · Inputs required from operator
 
