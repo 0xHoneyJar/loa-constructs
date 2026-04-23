@@ -180,7 +180,7 @@ This becomes **instance-2 evidence for doctrine promotion** per cycle-010 candid
 
 ## 9 · Open questions for operator (amend this pre-SEED OR defer to SEED drafting)
 
-- [ ] Confirm control-plane host: share Jani's cluster vs dedicated task?
+- [ ] **Control-plane ownership** (reframed 2026-04-24 per operator "CLI or connective tissue is shared bridgebuilding"): not "share Jani's cluster OR dedicated task" (implementation detail) but *"operator-drafted, Jani-reviewed, shared-ownership"* (ownership choice — see §10). Hosting decision follows ownership: share-cluster if the service is operationally Jani-owned; dedicated-task if operator-owned-with-Jani-IAM-policy-review. **Leaning**: shared-ownership, start on Jani's existing cluster for v0, spin out to dedicated task when operational-burden pattern emerges.
 - [ ] Confirm agent auth mechanism: tenant-wallet-mapped CIMD vault vs per-agent API keys?
 - [ ] Scope for v0 Vercel-reference: strict minimum (world.{create,list,status,destroy}) or broader (env, logs, domains)?
 - [ ] BEEKEEPER composition: where does it fire — dashboard modal only, or both dashboard + MCP pre-call hook?
@@ -189,7 +189,53 @@ This becomes **instance-2 evidence for doctrine promotion** per cycle-010 candid
 
 ---
 
-## 10 · Cycle-011 SEED drafting handoff
+## 10 · Ownership split — shared bridgebuilding at the platform seam
+
+> *"I think CLI or the connective tissue is shared bridgebuilding."* — operator, cycle-010 close
+
+The cycle-011 surface sits across two owners (operator + Jani) and a distinct third category — the **composition-seam itself**. Naming the split early is load-bearing: it prevents cycle-011 from accidentally conflating single-owner work with paired-seam work, which is the anti-pattern [[bonfire-at-composition-seam]] was coined to prevent.
+
+### Ownership table
+
+| Layer | Owner | Why |
+|---|---|---|
+| IAM policy for platform-apply | **Jani** | his AWS account, his security posture |
+| `modules/world/` extensions (egress_mode, task-role patches, DNS wiring) | **Jani** | shared infra module; operator-PRs for extensions |
+| Control-plane service *design* (API shape, auth model, elicitation flow, trust-signal publishing contract) | **SHARED bridgebuilding** | the seam itself — operator drafts, Jani reviews security/IAM, both iterate |
+| Control-plane service *code* (hosting `/api/v1/worlds`) | **SHARED** | lives in loa-freeside; operator authors v0, Jani reviews, long-term Jani-owned for operational burden |
+| Jani's existing Freeside API (Commons Protocol, Discord/TG, billing) | **Jani** | unchanged scope; control-plane is additive |
+| `freeside` CLI (TS at `packages/freeside-cli/`) | **operator** | thin client over control plane; ships without Jani-pairing once API contract is locked |
+| `freeside-mcp` remote server | **operator** | MCP surface over same control plane; operator-authored |
+| Dashboard `NewProjectButton` wiring → real POST to `/api/v1/worlds` | **operator** | UI layer; hits shared control plane |
+| BEACON `.well-known/freeside-mcp.json` + trust-signal publishing | **SHARED** | operator drafts, Jani endorses (affects who discovers Freeside agents + what they trust) |
+| BEEKEEPER composition recipe | **operator** | construct-level; operator-authored |
+| L-agent-reach-proof (Claude invokes MCP → world provisions → observable from dashboard) | **SHARED bonfire** | validation instance; both present; THIS IS the composition-seam per [[bonfire-at-composition-seam]] |
+
+### What "shared bridgebuilding" names precisely
+
+Shared bridgebuilding is a third ownership pattern distinct from **single-owner** and **full-team-owned**:
+
+- **Single-owner**: one person writes, one person reviews-from-outside, clear authority. Works for bounded-scope code (a CLI flag, a TF module).
+- **Full-team-owned**: multiple owners, PR-review rotation, consensus required. Works for platforms with ≥3 regular contributors (out of scope for operator+Jani today).
+- **Shared bridgebuilding**: 2-person composition-seam ownership. Neither party writes in isolation; the *shape of the thing* (API contract, auth model, trust-signal surface, elicitation UX) is paired by design. PR-review is only the final checkpoint; the real collaboration is at artifact-design time.
+
+This differs from cycle-009's [[learner-expert-transparency-protocol]] (which is about *disclosure*-across-ownership-boundary — operator touches Jani's surface + discloses). Shared bridgebuilding is about *design-ownership* — there is no "whose surface is this" because it's between both.
+
+### Doctrine candidate flagged
+
+**shared-bridgebuilding-as-ownership-pattern** — instance-1 is cycle-011 control-plane + BEACON wiring. Second-instance earns promotion per [[naming-is-diagnostic]] (second-instance-earns-promotion). Candidates: any Freeside↔purupuru-mcp integration surface; any operator-Jani co-authored skill or construct; cross-stack decisions where neither-side-owns-unilaterally.
+
+### Practical implication for cycle-011 dispatch
+
+- **L-control-plane-v0 design phase** = paired session (operator + Jani, ~1 hour). API shape + auth + elicitation decided together. Output: a design doc both sign off on before code is written.
+- **L-control-plane-v0 implementation** = operator can author per the agreed design, but any deviation from the design triggers a mini-pairing moment — not a PR-for-audit move.
+- **L-beacon-wire** = same pattern (design paired, code operator-authored).
+- **L-agent-reach-proof** = paired live (operator runs MCP, Jani confirms platform-side observability, both call it done).
+- **Single-owner legs** (L-cli-integrate, L-freeside-mcp-v0, L-beekeeper-compose, L-dashboard-wire) = operator dispatches solo; Jani reviews via PR only if operator touches his surface.
+
+---
+
+## 11 · Cycle-011 SEED drafting handoff
 
 When the operator confirms pre-SEED direction, full SEED drafts from this document by:
 1. Elevating §4 leg list to full SEED §2 with acceptance criteria per leg
@@ -202,4 +248,4 @@ SEED branch: `feat/spiral-loa-constructs-cycle-011-vercel-for-freeside` (off cyc
 
 ---
 
-*Pre-SEED captured 2026-04-24 post cycle-010 close. Operator-amendable. References Anthropic "Building agents that reach production systems with MCP" (2026 blog post) + [[mcp-wraps-cli-pattern]] + BEEKEEPER+BEACON pairing. Full SEED awaits operator amendment of §9 open questions.*
+*Pre-SEED captured 2026-04-24 post cycle-010 close. Operator-amendable. References Anthropic "Building agents that reach production systems with MCP" (2026 blog post) + [[mcp-wraps-cli-pattern]] + BEEKEEPER+BEACON pairing. §10 ownership-split amended 2026-04-24 per operator "CLI or connective tissue is shared bridgebuilding" framing — shared-bridgebuilding-as-ownership-pattern flagged as instance-1 doctrine candidate. Full SEED awaits operator amendment of §9 open questions.*
