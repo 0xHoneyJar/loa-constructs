@@ -120,6 +120,195 @@ Fired once when `compose-run.sh` returns. Carries final outcome.
 
 ---
 
+## 2.5 · `DecisionArtifact` — typed row (cycle-008 L-compose-fractal)
+
+The `DecisionArtifact` is the **typed handoff between two compositions** per [[bonfire-at-composition-seam]] + Eileen #608 architectural prescription: *"Framework outputs should then be converged into a single decision artifact. Only that decision artifact should be used as input to the product or product-feature workflow."*
+
+Emitted by Composition A (strategic-analysis and similar kinds) as its terminal output. Consumed by Composition B (design-mockup and similar kinds) as input per its `consumes:` declaration in the YAML.
+
+### Row shape
+
+```json
+{
+  "ts": "2026-04-24T21:04:12.556Z",
+  "type": "DecisionArtifact",
+  "run_id": "<uuid or named run_id>",
+  "composition": "<composition name that emitted this>",
+  "backend": "headless-tmux",
+  "schema_version": "1.0",
+  "findings": [
+    {
+      "id": "F1",
+      "claim": "<one-sentence finding>",
+      "source_stage": "<stage label or ref that produced it>",
+      "evidence_refs": ["<evidence refs — file paths, trajectory lines, or URL anchors>"],
+      "confidence": "high | medium | low"
+    }
+  ],
+  "implications": [
+    {
+      "id": "I1",
+      "claim": "<what the findings mean for downstream work>",
+      "depends_on_findings": ["F1", "F2"],
+      "consumer_lens": "<design | gtm | implementation | all>"
+    }
+  ],
+  "risks": [
+    {
+      "id": "R1",
+      "claim": "<what could go wrong>",
+      "severity": "high | medium | low",
+      "mitigation_hint": "<if known>"
+    }
+  ],
+  "open_questions": [
+    {
+      "id": "Q1",
+      "question": "<unresolved question requiring operator or downstream clarification>",
+      "blocks": ["<implication_id or consumer_stage>"]
+    }
+  ],
+  "recommended_actions": [
+    {
+      "id": "A1",
+      "action": "<concrete recommended next-step>",
+      "rationale": "<why this action, linking to findings/implications>",
+      "consumer_stage": "<which downstream composition stage should act on this>"
+    }
+  ]
+}
+```
+
+### Where it lives
+
+Primary location: `.run/compose/<run_id>/decision-artifact.json` (single-file, non-JSONL — written at composition close).
+
+Also emitted as a row in the orchestrator trajectory (`orchestrator.jsonl`) for frontend legibility — so `compose-panes-render.sh` can surface the artifact at the seam, and tail-followers see the composition close with full context.
+
+### Rules
+
+1. **Fields match Eileen #608 shape exactly** — findings / implications / risks / open_questions / recommended_actions. Don't rename.
+2. **IDs are local to the artifact** — F1, I1, R1, Q1, A1 — not globally unique; scoped within one DecisionArtifact.
+3. **`evidence_refs` should be traceable** — either file paths (`inputs/eileen-608-user-picture.md#section-1.2`), trajectory line anchors, or URLs with deep-link fragments. Enables provenance per Eileen #608 §5.4 shared-evidence recommendation.
+4. **Non-optional fields**: `findings`, `recommended_actions`. Others may be empty arrays if genuinely none (but not undefined — explicit empty-array is the "no risks" marker).
+5. **Convergence stage produces this**, not individual lens stages. Lens stages emit their own typed rows (`Signal`, `Verdict`, etc.) into trajectory; convergence stage reads the evidence base + emits the DecisionArtifact.
+
+### Why this shape (Eileen's reasoning, preserved)
+
+> *"Each framework must produce a bounded output containing key findings, implications, risks, open questions, and recommended actions. Framework outputs should then be converged into a single decision artifact. [...] Do not feed raw framework explorations directly into implementation generation, as this creates branching alternatives, recursive derivative outputs, and loss of decision clarity."* — loa#608 §opening
+
+The DecisionArtifact is the **bounded handoff** that prevents implementation-composition from inheriting analysis-composition's raw exploration space.
+
+---
+
+## 2.6 · Inter-composition handoff events (cycle-008 L-compose-fractal)
+
+Events fired when one composition hands off to another. Additive — frontends ignoring these still work.
+
+### `composition_handoff_emit`
+
+Fired by composition A at the end of its run when a DecisionArtifact has been written and is available for downstream consumption.
+
+```json
+{
+  "type": "composition_handoff_emit",
+  "run_id": "freeside-pilot-20260424-2100",
+  "composition": "strategic-analysis",
+  "emits_type": "DecisionArtifact",
+  "emits_path": ".run/compose/freeside-pilot-20260424-2100/decision-artifact.json",
+  "schema_version": "1.0",
+  "ts": "2026-04-24T21:04:15.123Z"
+}
+```
+
+### `composition_handoff_consume`
+
+Fired by composition B on startup when it has successfully loaded an upstream DecisionArtifact declared in its `consumes:` field.
+
+```json
+{
+  "type": "composition_handoff_consume",
+  "run_id": "freeside-pilot-20260424-2130",
+  "composition": "design-mockup",
+  "consumes_type": "DecisionArtifact",
+  "consumes_from": "strategic-analysis",
+  "consumes_run_id": "freeside-pilot-20260424-2100",
+  "consumes_path": ".run/compose/freeside-pilot-20260424-2100/decision-artifact.json",
+  "schema_version": "1.0",
+  "ts": "2026-04-24T21:30:02.891Z"
+}
+```
+
+### Seam-boundary rules
+
+- `composition_handoff_emit` fires BEFORE `run_end` (the emit is part of run close)
+- `composition_handoff_consume` fires AFTER `run_start` but BEFORE `pass_start` (must succeed or downstream composition halts)
+- Failed consume = `run_end` with `outcome: "failed"` and `rc: 6` (new exit code — upstream-artifact-missing)
+- Operator may explicitly run downstream composition WITHOUT upstream artifact present (dev/test mode) — must pass `--allow-missing-upstream` flag to `compose-run.sh`; composition runs with the declared slot empty
+
+### Fractal recursion
+
+A composition CAN itself emit an artifact consumed by a meta-composition. The contract is self-similar — emit/consume events nest if the operator chooses to orchestrate at higher strata. No depth limit in the schema; operator-discretion per [[agent-teams-as-pipes]] §"pipes are fractal."
+
+---
+
+## 2.7 · Seam-loop events — scratchpad + Operator-Model injection (cycle-008 L-compose-fractal)
+
+Events fired when operator injects hyper-context at the composition-seam per [[creative-work-is-re-entered]] failure mode #2 countermeasure. Both event types are additive and informational — frontends may surface them as operator-presence indicators.
+
+### `operator_scratchpad_note`
+
+Fired when the scratchpad file `operator-notes.md` is written-to (via file watch on the `.run/compose/<run_id>/operator-notes.md` path) during a composition run.
+
+```json
+{
+  "type": "operator_scratchpad_note",
+  "run_id": "<active run_id>",
+  "composition": "<active composition name>",
+  "note_summary": "<first 200 chars of the new content, or explicit --summary flag if via CLI>",
+  "note_path": ".run/compose/<run_id>/operator-notes.md",
+  "stage_active": "<stage label currently active, or null if between stages>",
+  "ts": "2026-04-24T21:12:45.200Z"
+}
+```
+
+Use-case: operator drops a casual note during a stage run (*"the user mentioned at coffee that they never open the admin panel — don't build around it"*). Active stage tails the file and ingests if relevant; subsequent stages read it as part of their context accumulation.
+
+### `operator_model_inject`
+
+Fired when the operator adds a new `Operator-Model` stream row to the trajectory. Typed injection — structured context that stages may treat as authoritative per their register.
+
+```json
+{
+  "type": "operator_model_inject",
+  "run_id": "<active run_id>",
+  "composition": "<active composition name>",
+  "injected_payload": {
+    "operator_claim": "<the load-bearing assertion>",
+    "register": "<product | user | builder | any — matches the three-lens integration surface>",
+    "applies_to_stage": "<stage label or 'all'>",
+    "confidence": "high | medium | low"
+  },
+  "ts": "2026-04-24T21:13:02.440Z"
+}
+```
+
+Use-case: operator has absorbed a specific IRL signal and wants to inject it as structured input at the next re-entry — not just a casual note but a first-class claim the next stage should honor.
+
+### Trigger classes (operator-facing documentation)
+
+| Trigger class | Mechanism | When |
+|---|---|---|
+| Visual-change | `operator_model_inject` | After a stage renders output; operator reacts with structured claim |
+| Outside-inspiration | `operator_scratchpad_note` | DMs, conversations, conferences, dinner comments — ambient drop |
+| Cross-composition redirect | Re-invoke upstream composition with updated inputs | Between compositions at the seam; no event emitted — just a new `run_id` |
+
+### Relationship to doctrine
+
+These events are the operational instrumentation of [[builder-touch-imperative]] at the composition-runtime level. Every `operator_scratchpad_note` and `operator_model_inject` event is evidence that the operator is *in the loop* — not solo-building. Frontends may aggregate event-counts per session as a touch-metric (optional reporting surface per [[accelerated-learning-surface]] LEARN-mode legibility).
+
+---
+
 ## 3 · Frontend invariants (what the UI must honor)
 
 Minimum viable frontend consumption:
