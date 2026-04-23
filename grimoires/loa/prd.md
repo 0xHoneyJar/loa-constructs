@@ -1,293 +1,191 @@
-# PRD: Analytics Pipeline + GEO Optimization
+# Product Requirements Document — constructs-api sovereign-landing (cycle-012)
 
-**Cycle**: cycle-051
-**Created**: 2026-03-15
-**Status**: Draft
-**Context**: `grimoires/loa/context/analytics-architecture/` (5 files, 917 lines of pre-built research)
-
----
-
-## 1. Problem Statement
-
-> Sources: situation-analysis.md, gtm-site-audit.md, Discord conversation (2026-03-14)
-
-constructs.network launched publicly on X (2026-03-14). 46 web apps exist across 0xHoneyJar. **Zero analytics exist on the primary GTM site (constructs.network).** Two other sites use OpenPanel, one uses GA4 — three different tools with no unified view.
-
-The team (2 people, different timezones) is too busy for dashboards. Analytics signal must be pushed to Telegram — pre-digested, anomaly-first — or it doesn't exist.
-
-Compounding the problem: **every audited site fails AI/LLM readiness**. Zero JSON-LD structured data across all 4 audited sites. The constructs.network catalog page renders nothing to crawlers without JavaScript execution. The about page has 2/10 citability — AI systems have nothing to cite about what constructs.network is.
-
-Lily's GEO research (beacon issue #3) provides the optimization framework: content enrichment (citations, statistics, quotations) can improve AI visibility up to 40% (GEO paper, KDD 2024, peer-reviewed). But without analytics, you can't measure if optimizations work. Both analytics AND GEO optimization are needed to close the loop.
-
-### Why Now
-
-- Public launch happened. Traffic is flowing (or not) and you can't see it.
-- Lily is actively researching GEO optimization (beacon issue #3, filed 2026-03-12).
-- Analytics fragmentation across the org (3 tools, 4 sites) will get worse without standardization now.
-- The analytics → GEO → optimization feedback loop requires both halves to function.
+**Derived from**: `grimoires/loa-constructs-seed-2026-04-21/cycle-012-SEED-constructs-api-libsql-migration.md`
+**Date**: 2026-04-23
+**Cycle**: cycle-012 · constructs-api libSQL migration + surface prune
+**Dispatch mode**: `/simstim` HITL
+**Status**: Draft for Flatline review
+**Supersedes at this path**: cycle-051 analytics+GEO PRD (2026-03-15) — that cycle is closed; this path is the active-cycle PRD per simstim convention.
 
 ---
 
-## 2. Goals & Success Metrics
+## 1. Overview
 
-### Business Objectives
+Migrate the `constructs-api` service (Hono + Node.js, currently deployed on Railway with Supabase Postgres) to libSQL (Turso managed edge), concurrently pruning ~65% of the API surface that is registered but unused in production. The migration is forced by an unrecoverable Supabase billing hold on project `ccrjfpzdgiuqqwmmgrap`; the surface reduction is opportunistic — aligning the API code with the product's current state rather than faithfully porting legacy tables.
 
-| Objective | Metric | Target |
-|-----------|--------|--------|
-| Traffic visibility | constructs.network has working analytics | Week 1 |
-| Signal delivery | Daily digest arrives in Telegram | Week 1 |
-| GEO baseline | JSON-LD on all construct detail pages | Week 2 |
-| Crawlability | Catalog page server-renders content for crawlers | Week 2 |
-| Citability | About page citability score ≥ 6/10 (currently 2/10) | Week 2 |
-| Unified analytics | Top 5 apps on same analytics platform | Week 4 |
+This cycle executes doctrine [[saas-exit-vectors]] instance-1, promoting it from candidate to executed.
 
-### Non-Goals (Explicit)
+## 2. Problem statement
 
-- No real-time analytics dashboard (Telegram digest is the interface)
-- No session recordings or heatmaps (Phase 2 with PostHog if needed)
-- No analytics on all 46 apps (start with top 5)
-- No custom event tracking beyond pageviews (Phase 2)
-- No billing/monetization of analytics data
+**Operator-facing problem**: constructs.network renders "No constructs available" across all pages because `api.constructs.network/v1/constructs` returns `{"data":[],"total":0}`. Diagnosis revealed the API silently swallows `PostgresError XX000 FATAL` (Supabase pooler cannot reach paused compute) and returns empty responses. The DB has been dead; the API has been lying about it.
 
----
+**Structural problem**: THJ's Supabase organization has outstanding invoices. Project restore is blocked with *"Failed to restore project: This organization has unpaid invoices."* Multiple projects affected. The data-access gate is financial, not temporal; self-service recovery is unavailable.
 
-## 3. User & Stakeholder Context
+**Secondary problem discovered during diagnosis**: The API's schema (30 tables, 1,401 lines, 14 migrations) vastly exceeds its actual product surface. The registered routers include analytics, creator(s), teams, subscriptions, webhooks, audit, signals, public-keys, docs — all receive zero production traffic. CLI (`loa-registry`) uses 6 endpoints; UI (`constructs.network`) uses 8. Total live endpoints: ~12. Migrating the schema faithfully preserves dead weight.
 
-### Primary Users
+## 3. Goals
 
-**User A: soju (builder, primary maintainer)**
-- Works across multiple repos, timezones, and contexts simultaneously
-- Does not open dashboards — signal must come to him (Telegram preferred)
-- Needs: "did anyone visit? where from? what did they look at?"
-- Mobile-first consumption pattern
+| # | Goal | Success metric |
+|---|------|---|
+| G1 | Sever Supabase dependency | Railway env has no `DATABASE_URL`; API logs show zero `PostgresError` post-deploy |
+| G2 | Restore registry visibility on `constructs.network` | `GET /v1/constructs` returns ≥20 real constructs; UI explore page renders them |
+| G3 | Align API surface with product reality | Live routes port cleanly to libSQL; dormant routes deleted outright |
+| G4 | Maintain contract stability for remaining surface | CLI + UI's existing calls return unchanged JSON shapes |
+| G5 | Ship basic observability over constructs | View/download counters per pack; sort-by-popularity surface |
+| G6 | Execute [[saas-exit-vectors]] doctrine | Promote from candidate to executed instance-1; log doctrine-delta (git-is-code-memory) candidate |
 
-**User B: Lily (@Inkiy, marketing/GEO)**
-- Researching AI discoverability and GEO optimization
-- Needs: traffic data to validate GEO hypotheses
-- Prefers Telegram for async review
-- Filed comprehensive GEO research in beacon issue #3
+## 4. Users and stakeholders
 
-### Secondary Stakeholders
+**Primary user persona**: AI-agent-using developer browsing `constructs.network` to discover and install expert-domain packs into a Loa-based project.
 
-- **AI crawlers** (GPTBot, ClaudeBot, Googlebot) — need crawlable content + structured data
-- **Potential users** discovering constructs via AI search — need citable, enriched content
+**Secondary user persona**: pack maintainer hosting a `construct-*` repo in `0xHoneyJar` org; the API indexes their work via `/v1/admin/discover`.
 
----
+**Current user reality**: **pre-launch, no external users.** Fresh start on libSQL costs nothing experientially. No user-communication plan required. Captured as operator-confirmed answer during /simstim clarification.
 
-## 4. Functional Requirements
+**Stakeholders**: operator (@zksoju, solo), Jani (async observer; no Jani-pairing required for cycle-012); cycle-011 pre-SEED (Vercel-for-Freeside) remains queued and does not block this cycle.
 
-### FR-1: Analytics Collection (Umami Cloud)
+## 5. Functional requirements
 
-> Source: situation-analysis.md (research-backed), adversarial-review.md (revised recommendation)
+**FR1 · Public registry reads (read-only, anonymous)**
+- `GET /v1/constructs` — paginated catalog; query params: `per_page`, `page`, `q` (search), `category`, `sort` (`downloads` | `views` | `updated`), `order`
+- `GET /v1/constructs/:slug` — pack detail + embedded skills
+- `GET /v1/constructs/summary` — aggregate popularity / trending (top N by view/download count)
+- `GET /v1/categories` — list categories for navigation (if UI consumes)
+- `GET /v1/packs` — pack-only list (CLI compatibility; may alias `/v1/constructs`)
+- `GET /v1/skills` — skill-only list (CLI compatibility)
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| FR-1.1 | Set up Umami Cloud account (free tier, 1M events/month) | P0 |
-| FR-1.2 | Add Umami tracking script to `apps/explorer/app/layout.tsx` | P0 |
-| FR-1.3 | Configure Umami website for `constructs.network` | P0 |
-| FR-1.4 | Store Umami API credentials in Convex environment variables | P0 |
-| FR-1.5 | Add tracking to top 5 GTM sites (0xhoneyjar.xyz, setandforgetti.io, cubquests, + 2 more) | P1 |
+**FR2 · Observability / stats (anonymous writes)**
+- `POST /v1/constructs/:slug/view` — increment `packs.view_count` (204 No Content)
+- `POST /v1/constructs/:slug/download` — increment `packs.download_count` (204 No Content)
+- **Rate-limiting (per Flatline SKP-004 integration)**: in-memory leaky-bucket per-IP cooldown, no Redis dependency. Default: 10 req/min per IP per slug. Configurable via env. Blocks trivial rank-poisoning + cost-spike vectors without infra burden.
 
-**Decision**: Umami Cloud over self-hosted (adversarial review Finding 1-3: Prisma/PgBouncer conflict, schema migration blast radius, hosting unused dashboard). Over GA4 (adversarial review Finding 10: migration debt from dual-tracking).
+**FR3 · Admin discovery (operational)**
+- `POST /v1/admin/discover?owner=<org>&dry_run=<bool>` — triggers `runDiscovery()` which scans `construct-*` repos in the specified GitHub org (default `0xHoneyJar`), upserts into `packs` table
+- Auth: operational-token bypass (`Authorization: Bearer cto_<32+ hex>`) via existing `middleware/operational-token.ts`
 
-### FR-2: Telegram Digest Bot
+**FR4 · Health (split per Flatline SKP-003 integration)**
+- `GET /v1/health` — **liveness only**; returns 200 if server process is responsive. No DB query.
+- `GET /v1/health/ready` — **readiness**; executes a minimal DB query (`SELECT 1` or `SELECT COUNT(*) FROM packs LIMIT 1`). Returns 200 only if DB path is usable. Returns 503 on DB failure.
+- **Why**: the root incident (cycle-012 diagnosis, 2026-04-23) was a silent-DB-death + deceptive-200 failure mode. Liveness-only would recreate it. Readiness endpoint forces the DB-path check, catches Supabase-style pauses, Turso token expiry, and network partitions. Load balancers / deploy orchestrators should use readiness for routing decisions; monitors watch both.
 
-> Source: telegram-digest-spec.md, adversarial-review.md Finding 4
+**FR7 · SQL-audit inventory (per Flatline SKP-001-codex integration)**
+- L-schema-slice produces an artifact at `apps/api/drizzle/.sql-audit.md` enumerating every Postgres-flavored SQL call site that needs rewriting for SQLite/libSQL.
+- Columns: `file:line`, `pattern` (ilike / date_trunc / uuid() / jsonb-op / other), `action` (rewrite / delete-with-router / keep-as-is), `dialect-compat` (Y/N).
+- Scope transparency: the 229 `sql\`...\`` call sites include many that are portable as-is (basic CTEs, pagination). Inventory surfaces which actually break.
+- Inventory is a **review gate**, not a compliance checkbox: reviewer verifies the audit was done before approving L-schema-slice.
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| FR-2.1 | Create Telegram bot via @BotFather | P0 |
-| FR-2.2 | Create Telegram group (soju + Lily + bot) | P0 |
-| FR-2.3 | Add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` to Convex env vars | P0 |
-| FR-2.4 | Build Convex `internalAction` for Telegram message delivery (raw `fetch()`, no library) | P0 |
-| FR-2.5 | Build Convex cron for daily digest (14:00 UTC) | P0 |
-| FR-2.6 | Anomaly-first digest format: lead with changes, one-liner if steady state | P0 |
-| FR-2.7 | Merge with existing Convex data (installEvents, signals, healthObservations) | P1 |
-| FR-2.8 | Weekly summary with QuickChart.io sparkline (Sunday 14:00 UTC) | P2 |
-| FR-2.9 | Heartbeat monitoring — alert to Discord if digest not sent in 25 hours | P2 |
+**Explicitly NOT in scope (deleted from this cycle)**:
+- All auth routes (`/v1/auth/*`, OAuth, Dynamic Labs integration)
+- All user-scoped routes (`/v1/users/me`, `/v1/keys`, `/v1/installs`)
+- All dormant routers (subscriptions, webhooks, teams, creator, creators, audit, analytics, signals, public-keys, docs)
 
-### FR-3: GEO Optimization — Structured Data
+## 6. Non-functional requirements
 
-> Source: gtm-site-audit.md, geo-research-lily-beacon-3.md
+| # | Requirement |
+|---|---|
+| NFR1 | Build + deploy on Railway (existing pipeline); no infra changes required beyond env var swap |
+| NFR2 | Zero-downtime migration not required (pre-launch state); brief redeploy flicker acceptable |
+| NFR3 | libSQL connection via `@libsql/client` + Drizzle ORM (dialect: turso); matches sprawl-world dashboard precedent |
+| NFR4 | Secrets: `TURSO_DATABASE_URL` + `TURSO_AUTH_TOKEN` in Railway env (replaces `DATABASE_URL` + `DATABASE_URL_DIRECT`) |
+| NFR5 | Observability: existing logger + pino keep format; Sentry unchanged (not configured per env) |
+| NFR6 | Testing: unit tests updated; `bun test` green; contract tests for 12 live endpoints maintained |
+| NFR7 | **Backup + DR (per Flatline SKP-002 integration)**: scheduled `turso db dump` on a daily cadence, output to git-tracked `apps/api/.backups/` (or S3 if size exceeds reasonable git commit budget). Retention: 7 days rolling. Restore drill documented in `apps/api/docs/disaster-recovery.md` with a break-glass read-only fallback procedure (direct SQLite file open + read path serve). Rationale: doctrine [[saas-exit-vectors]] is explicitly "don't-repeat-the-same-lockout." A new managed dependency without a backup path would invite the same failure mode that motivated this cycle. |
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| FR-3.1 | Add `SoftwareApplication` JSON-LD to all construct detail pages (name, description, version, datePublished, author, applicationCategory, operatingSystem, offers) | P0 |
-| FR-3.2 | Add `WebSite` JSON-LD to constructs.network homepage | P0 |
-| FR-3.3 | Add `Organization` JSON-LD to about page (name, foundingDate, sameAs for Twitter/GitHub) | P1 |
-| FR-3.4 | Add `FAQPage` JSON-LD to about page answering "What is a construct?", "How do I install?", "What AI agents are supported?" | P1 |
-| FR-3.5 | Add `Organization` JSON-LD to 0xhoneyjar.xyz | P2 |
+## 7. Dependencies
 
-### FR-4: GEO Optimization — Crawlable Content
+**External**:
+- Turso account + CLI installed (`turso auth login` resolved at L-0 preflight)
+- GitHub token for `runDiscovery()` to hit GitHub API (already set in Railway prod)
+- `CONSTRUCTS_ADMIN_TOKEN` (already set in Railway prod from 2026-04-23 diagnostic work)
 
-> Source: gtm-site-audit.md ("catalog page is invisible to AI crawlers"), Lily's beacon issue #3 Section 3.1
+**Internal**:
+- `apps/api/src/services/discovery.ts` — existing service, reused post-migration
+- `apps/api/src/middleware/operational-token.ts` — existing, reused
+- `apps/api/drizzle/` — migrations reset (delete Postgres migrations, generate fresh SQLite)
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| FR-4.1 | Server-render construct catalog page — names + descriptions as crawlable HTML (not behind `AuthAwareConstructList` JS gate) | P0 |
-| FR-4.2 | Enrich about page: founding date, team info, construct count, total skills, "why we built this" narrative | P0 |
-| FR-4.3 | Add statistics to about page: "23 constructs, 150+ skills" (GEO enrichment — up to 40% AI visibility improvement per KDD 2024 paper) | P0 |
-| FR-4.4 | Add `datePublished` and `dateModified` to construct detail pages | P1 |
-| FR-4.5 | Ensure sitemap includes all 23 public constructs (currently only 3) | P1 |
+**Not dependencies** (explicitly):
+- Supabase recovery thread (operator handles separately via support email; cycle-012 does not block on it)
+- cycle-011 Vercel-for-Freeside (queued separately)
+- Jani pairing (none required)
 
-### FR-5: Analytics Standardization
+## 8. Risks
 
-> Source: gtm-site-audit.md (3 different tools across 4 sites)
+| # | Risk | Mitigation |
+|---|------|---|
+| R1 | Postgres-specific SQL (`ilike`, `date_trunc`, `::date::text`, jsonb operators) breaks on SQLite | Audit `src/services/*.ts`; rewrite 229 sql call sites as needed. Delete analytics.ts (primary date_trunc consumer). |
+| R2 | UI has latent calls to dropped endpoints that now 404 | Expected; acceptable pre-launch. Flag breaks during L-ui-smoke; fix in follow-up cycle |
+| R3 | Turso free-tier limits exceeded (500 DBs / 9GB) | Far from limits; 1 DB, <100MB expected |
+| R4 | Stats endpoints abused without rate-limiting | Defer Redis wiring; log concern. Pre-launch state means abuse cost is near-zero |
+| R5 | Orphaned imports after aggressive router delete | `rg` grep verification step in L-route-prune; `bun build` catches breaks |
+| R6 | libSQL schema-generation quirks with Drizzle (newer dialect) | Reference sprawl-world dashboard's working setup; fall back to `bun drizzle-kit push` if migration generation errors |
 
-| ID | Requirement | Priority |
-|----|-------------|----------|
-| FR-5.1 | Document Umami as the standard analytics tool for all 0xHoneyJar web properties | P1 |
-| FR-5.2 | Add Umami to 0xhoneyjar.xyz, setandforgetti.io (replace OpenPanel) | P2 |
-| FR-5.3 | Add Umami to cubquests (can coexist with GA4 during transition) | P2 |
+## 9. Non-goals (explicitly out of scope)
 
----
+- Self-hosted libSQL / `sqld` deployment (deferred to cycle-N+k when Freeside control-plane lands)
+- Historical data recovery or import from paused Supabase
+- Other THJ Supabase-paused projects
+- Auth flow overhaul (Dynamic Labs / SIwTHJ / better-auth)
+- Frontend redesign / compositions form factor
+- Analytics / metering / billing infra
 
-## 5. Technical & Non-Functional Requirements
+## 10. Acceptance criteria
 
-### Architecture
+(Mirrors SEED §3; abbreviated here. See SEED for full rationale per AC.)
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Collection Layer                          │
-│  [constructs.network] ──umami.js──► Umami Cloud (1M events) │
-│  [0xhoneyjar.xyz]     ──umami.js──►                         │
-│  [setandforgetti.io]  ──umami.js──►                         │
-│  [cubquests.com]      ──umami.js──►                         │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ Umami REST API (daily pull)
-                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  Aggregation Layer (Convex)                   │
-│  Convex cron (daily 14:00 UTC)                               │
-│  ├── Pull Umami stats per site                               │
-│  ├── Pull installEvents (existing)                           │
-│  ├── Pull signals (existing)                                 │
-│  ├── Pull healthObservations (existing)                      │
-│  ├── Compute anomalies (vs 7-day avg)                        │
-│  └── Format anomaly-first digest                             │
-└─────────────────────┬───────────────────────────────────────┘
-                      │ Telegram Bot API (sendMessage)
-                      ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Delivery Layer                            │
-│  Telegram group chat (soju + Lily + bot)                     │
-│  ├── Daily: anomaly-first digest (<800 chars)                │
-│  ├── Weekly: summary + QuickChart sparkline                  │
-│  └── Heartbeat: Discord fallback if 25h silence              │
-└─────────────────────────────────────────────────────────────┘
-```
+- **AC1**: `GET /v1/constructs` returns ≥20 constructs from libSQL
+- **AC2**: Stats surface functional (view/download increments; sort-by-popularity)
+- **AC3**: Live-surface endpoint contracts stable (JSON shapes match pre-migration)
+- **AC4**: Dormant + auth routes return 404 (not 500)
+- **AC5**: Zero Supabase dependency in Railway env or API logs
+- **AC6**: Test suite green
+- **AC7**: Deploy verified (Railway + Turso dashboard confirmation)
+- **AC8**: Doctrine amendments filed to `~/hivemind/wiki/concepts/saas-exit-vectors.md`
+- **AC9**: Builder-touch verified — operator loads `constructs.network` in browser, confirms catalog renders
 
-### Performance
+## 11. Doctrine composition (per SEED)
 
-| Metric | Target |
-|--------|--------|
-| Tracking script load impact | <10KB gzipped (Umami ~2KB) |
-| Digest delivery latency | <5 seconds from cron trigger |
-| Convex cron reliability | 99.9% (Convex SLA) |
+Load-bearing doctrines this cycle executes / affects:
+- [[saas-exit-vectors]] — **instance-1 executed** (promotes candidate → executed)
+- [[sovereign-stack]] — partial landing (Turso managed, not self-host; full sovereignty deferred)
+- [[tool-absence-as-enforcement]] — **instance-2 candidate** (dormant-router deletion)
+- [[naming-is-diagnostic]] — schema prune clarifies product shape
+- [[constructs-as-packages]] — namespace-IS-registry justifies dropping submission flow
+- [[builder-touch-imperative]] — AC9 structurally enforces
+- **git-is-code-memory** — **new doctrine-delta candidate** (operator-coined; refines [[resilience-is-remembering]] to distinguish lore-memory from code-memory)
+- [[half-done-infrastructure-migration]] — antipattern to avoid; AC1 + AC5 together enforce completion
 
-### Privacy
+## 13. Phased delivery (per Flatline SKP-007 integration) — Legs summary
 
-- No cookies (Umami is cookieless)
-- No PII stored
-- Country-level geo only (no city/IP)
-- Current privacy policy ("no third-party tracking cookies") remains accurate
-- GDPR/CCPA compliant — no consent banner needed
+Full leg table lives in SEED §2. Condensed here for PRD-level scope transparency:
 
-### Security
+| # | Leg | Approx effort | Purpose |
+|---|---|---|---|
+| L-0 | Preflight | done in dispatch | State verification, branch-cut, sprawl-world pattern check |
+| L-schema-slice | Write libSQL schema (~5 tables: packs + counters, skills, categories, discovery_runs) | 2 hrs | New schema, smaller surface |
+| L-db-client | Swap Drizzle dialect + driver | 1 hr | `postgres-js` → `@libsql/client` |
+| L-route-port | Port live handlers + add stats endpoints (with FR2 rate-limit) + health-split (FR4) | 2-3 hrs | Live surface up on libSQL |
+| L-route-prune | Delete outright: auth, keys, subscriptions, webhooks, teams, creator(s), audit, analytics, signals, public-keys, docs | 1-2 hrs | Code deletes per operator git-is-code-memory doctrine |
+| L-sql-audit | Produce `.sql-audit.md` inventory (FR7) | 30 min | Review gate for schema leg |
+| L-env-wire | Turso provision + Railway env var swap | 30 min | `DATABASE_URL` out, `TURSO_DATABASE_URL/TOKEN` in |
+| L-backup-setup | Automated `turso db dump` + DR drill doc (NFR7) | 1 hr | Break-glass read-only fallback verified |
+| L-migrate-run | `bun drizzle-kit push` + `POST /v1/admin/discover` | 30 min | libSQL populated |
+| L-ui-smoke | Browser check per AC9 | 30 min | Builder-touch |
+| L-canon-amend | Doctrine amendments to hivemind | 15 min | saas-exit-vectors instance-1 executed + git-is-code-memory candidate |
+| L-close | Findings + KANSEI | 1 hr | Cycle-013 handoff |
 
-- `TELEGRAM_BOT_TOKEN` stored in Convex dashboard (not in code)
-- Umami API key stored in Convex dashboard
-- `disable_web_page_preview: true` on all Telegram messages (prevents bot inflating own pageviews)
-- Digest cron is `internalAction` (not publicly callable)
+**Total estimated**: 10-12 hours focused work. L-schema-slice + L-route-port are sequential-critical; other legs parallelizable.
 
----
+**Rejected Flatline finding** (logged for transparency): SKP-001-gemini CRITICAL 910 *"template-artifact corruption in API contract"* — hallucinated by tertiary model; grep for `{{DOCUMENT_CONTENT}}` returns zero matches. Rejected with rationale; not integrated.
 
-## 6. Scope & Prioritization
+## 12. Out-of-scope signals for future cycles
 
-### Sprint 1 (P0 — Ship this week)
-
-| Task | Area | Estimate |
-|------|------|----------|
-| Set up Umami Cloud + add tracking to explorer | Analytics | Small |
-| Create Telegram bot + group | Delivery | Small |
-| Build Convex digest cron (daily, anomaly-first) | Delivery | Medium |
-| Add JSON-LD to construct detail pages | GEO | Medium |
-| Fix catalog page SSR (crawlable HTML) | GEO | Medium |
-| Enrich about page (dates, stats, narrative) | GEO | Medium |
-| Add WebSite JSON-LD to homepage | GEO | Small |
-
-### Sprint 2 (P1 — Next week)
-
-| Task | Area | Estimate |
-|------|------|----------|
-| Merge digest with installEvents + signals data | Analytics | Medium |
-| Add Organization JSON-LD to about page | GEO | Small |
-| Add FAQPage JSON-LD to about page | GEO | Small |
-| Expand sitemap to all 23 public constructs | GEO | Small |
-| Add datePublished/dateModified to detail pages | GEO | Small |
-| Add Umami to 0xhoneyjar.xyz + setandforgetti | Analytics | Small |
-
-### Sprint 3 (P2 — Phase 2)
-
-| Task | Area | Estimate |
-|------|------|----------|
-| Weekly summary with QuickChart sparklines | Delivery | Medium |
-| Heartbeat monitoring (Discord fallback) | Delivery | Small |
-| Add Umami to remaining GTM sites | Analytics | Medium |
-| Implement Lily's citability tagging (beacon issue #3 §1.3) | GEO | Large |
-| Organization JSON-LD for 0xhoneyjar.xyz | GEO | Small |
-
-### Out of Scope
-
-- Session recordings / heatmaps (future PostHog consideration)
-- Custom event tracking beyond pageviews
-- A/B testing infrastructure
-- Analytics for all 46 apps (start with top 5)
-- Beacon construct code changes (separate construct repo)
-- Real-time alerting (spike detection is Phase 2)
+Captured from SEED §6 handoff queue:
+- When cycle-011 Vercel-for-Freeside lands managed-apply, provision libSQL as an ECS service (zero schema work)
+- If Supabase email thread yields `pg_dump`, schedule historical-import sub-cycle
+- If builder-touch reveals UX gaps on live registry, seed a FEEL cycle for compositions form factor
+- If `[[tool-absence-as-enforcement]]` earns second-instance promotion at cycle-012 close, amend the wiki page
+- If `git-is-code-memory` doctrine-delta earns second-instance, promote to [[resilience-is-remembering]] amendment
 
 ---
 
-## 7. Risks & Dependencies
-
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| Umami Cloud free tier limits (1M events/month) | Low | Medium | 5 sites × 200 views/day = ~30K events/month. Nowhere near limit. |
-| Telegram bot token leak | Low | High | Store only in Convex dashboard, never in code. Rotate if compromised. |
-| Ad blockers blocking Umami script (~20-40% for dev audience) | High | Medium | Accept undercount. Proxy script through own domain in Phase 2. |
-| Bot traffic inflating pageviews | Medium | Medium | Umami has built-in bot filtering. Accept noisy baseline for 2 weeks. |
-| Catalog SSR change breaks existing functionality | Low | High | Test thoroughly. The current page already shows a loading state to crawlers. |
-| Digest becomes noise (Week 3 attention decay) | Medium | Medium | Anomaly-first design. One-liner if nothing notable. |
-
-### Dependencies
-
-| Dependency | Owner | Status |
-|-----------|-------|--------|
-| Umami Cloud account | soju | Not created |
-| Telegram bot (@BotFather) | soju | Not created |
-| Telegram group with Lily | soju + Lily | Not created |
-| Convex deployment (prod: quaint-anaconda-866) | soju | Existing |
-| Construct data in Convex (installEvents, signals) | — | Existing + live |
-
----
-
-## Appendix A: Related Artifacts
-
-| Artifact | Location | Content |
-|----------|----------|---------|
-| Analytics Platform Research | `grimoires/loa/context/analytics-architecture/situation-analysis.md` | 7 platforms compared, 4 eliminated, recommendation |
-| Telegram Digest Spec | `grimoires/loa/context/analytics-architecture/telegram-digest-spec.md` | Bot API research, message format, Convex cron pattern |
-| Adversarial Review | `grimoires/loa/context/analytics-architecture/adversarial-review.md` | 11 findings, revised to Umami Cloud |
-| GTM Site Audit | `grimoires/loa/context/analytics-architecture/gtm-site-audit.md` | Live audit of 4 sites + GEO assessment |
-| GEO Research (Lily) | `grimoires/loa/context/analytics-architecture/geo-research-lily-beacon-3.md` | Beacon issue #3 digested |
-| Beacon Issue #3 | `github.com/0xHoneyJar/construct-beacon/issues/3` | Lily's comprehensive GEO research |
-
-## Appendix B: Analytics Landscape Discovery
-
-| Site | Current Analytics | Target |
-|------|------------------|--------|
-| constructs.network | None | Umami Cloud |
-| 0xhoneyjar.xyz | OpenPanel | Umami Cloud (replace) |
-| setandforgetti.io | OpenPanel | Umami Cloud (replace) |
-| cubquests.com | GA4 (G-G7RZD7SNKH) | Umami Cloud (coexist) |
-| All others (42 apps) | Unknown | Future phases |
+*PRD derived 2026-04-23 from pre-SEED research + operator Q&A via `/simstim` Phase 1. Ready for Flatline Phase 2 review.*
