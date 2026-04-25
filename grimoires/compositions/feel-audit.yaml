@@ -77,9 +77,9 @@ outputs:
   - type: Signal
     destination: .run/construct-trajectory.jsonl
     description: Invocation trail for all three stages
-  - type: Artifact (derived)
+  - type: Artifact
     destination: optional — taste token file if inscribe stage added
-    description: Inscribed-taste token (cycle-005 L5-extension candidate)
+    description: Inscribed-taste token, derived (cycle-005 L5-extension candidate)
 
 compose_with:
   - artisan
@@ -116,6 +116,6 @@ references:
   - contract: grimoires/loa-constructs-seed-2026-04-21/cycle-004-L2-invocation-contract.md
   - predecessor: loa-constructs-cycle-001 .claude/constructs/compositions/feel-audit.yaml (folklore)
 
-version: 2.0
-authored_at: 2026-04-21
+version: "2.0.0"
+authored_at: "2026-04-21"
 authored_by: cycle-004 L5 (agent-walk)

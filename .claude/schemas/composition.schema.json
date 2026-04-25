@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loa.dev/schemas/composition.schema.json",
+  "title": "Loa Composition",
+  "description": "Schema for grimoires/compositions/*.yaml — runtime expert chains executed by compose-run.sh. A composition declares which constructs collaborate on what, with declared streams + iteration boundaries. The shape emerges from naming what the workflow provides; the schema enforces consistency, not prescription.",
+  "type": "object",
+  "required": ["schema_version", "kind", "name", "description", "intent", "chain"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Composition schema version. Bump on breaking changes to this schema."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["workflow", "frame"],
+      "description": "Composition kind. 'workflow' = runtime expert chain (current default, doctrine v4 §15.2). 'frame' = reserved for cycle-007+ frame-kind compositions."
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+      "minLength": 2,
+      "maxLength": 64,
+      "description": "Composition slug. Must match the filename (without .yaml extension). Kebab-case."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 20,
+      "description": "What this composition does, in one or two sentences. Lead with what it provides."
+    },
+    "intent": {
+      "type": "string",
+      "minLength": 30,
+      "description": "Operator-voice statement of the workflow's intent. The 'I want X out of this' framing in the operator's words."
+    },
+    "backend": {
+      "type": "string",
+      "enum": ["headless-tmux", "teamcreate"],
+      "description": "Runtime backend (doctrine v6 §18.4). 'headless-tmux' is cycle-006 default; 'teamcreate' ships in cycle-007."
+    },
+    "inputs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Input" },
+      "description": "Declared inputs the composition accepts. Operators bind these at invocation time."
+    },
+    "iterate": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": { "type": "integer", "minimum": 1 },
+        "description": "Pair [stage_a, stage_b] of stage numbers that iterate together."
+      },
+      "description": "Iteration loops between pairs of stages. Each pair must reference stage numbers that exist in chain[].stage. Cap behavior is runner-controlled (--max-iterations)."
+    },
+    "chain": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/Stage" },
+      "description": "Ordered list of stages. Stage numbers must be 1-indexed and contiguous."
+    },
+    "outputs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Output" },
+      "description": "Declared outputs the composition produces. Destination paths typically use .run/compose/<run_id>/..."
+    },
+    "compose_with": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$" },
+      "description": "Construct slugs this composition orchestrates. Should match the unique set of chain[].construct values."
+    },
+    "composes_symmetrically_with": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": ".+ (↔|<->) .+",
+        "description": "Symmetric pair declaration in the form 'A ↔ B' or 'A <-> B'."
+      },
+      "description": "Confirmed symmetric construct/skill pairs surfaced by GECKO §2 or by operator validation."
+    },
+    "invocation_examples": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/InvocationExample" },
+      "description": "Example operator utterances and how they resolve to this composition (or sub-chains of it)."
+    },
+    "when_to_use": {
+      "type": "string",
+      "description": "Plain-prose guidance on when this composition is the right tool. May include WHEN-NOT-TO-USE bullets."
+    },
+    "known_limitations": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Surfaced limitations — cost, reproducibility, runner gaps, etc. Empty array discouraged; honest enumeration preferred."
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "minProperties": 1,
+        "maxProperties": 1,
+        "additionalProperties": { "type": "string" },
+        "description": "Single-key reference entry. Keys are snake_case identifiers (e.g. 'doctrine', 'runner', 'exemplar_eye_hand'); values are paths or URLs."
+      },
+      "description": "Pointers to doctrine, runner scripts, exemplar compositions, related skills."
+    },
+    "operator_note": {
+      "type": "string",
+      "description": "Free-form note for downstream operators, especially when the composition serves as a teaching artifact. Use a YAML literal block scalar (|) for multi-line content."
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Composition revision number (strict semver X.Y.Z). Increment on substantive changes to chain, inputs, or outputs."
+    },
+    "authored_at": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO date (YYYY-MM-DD)."
+    },
+    "authored_by": {
+      "type": "string",
+      "description": "Who/what authored this composition. Free-form."
+    }
+  },
+  "$defs": {
+    "StreamType": {
+      "type": "string",
+      "enum": ["Signal", "Verdict", "Artifact", "Intent", "Operator-Model", "Question"],
+      "description": "Stream type per pipe doctrine. Question is reserved for cycle-007+."
+    },
+    "Mode": {
+      "type": "string",
+      "enum": ["fresh", "persistent"],
+      "description": "Stage execution mode. 'fresh' = clean subprocess per invocation (no prior context). 'persistent' = teammate accumulates register depth across iterations."
+    },
+    "Role": {
+      "type": "string",
+      "enum": ["primary", "craft-gate", "cross-reference", "cross_reference"],
+      "description": "Stage role. 'primary' = owns the substantive work. 'craft-gate' = validates against quality standard. 'cross-reference' = enriches a Verdict with second-construct context."
+    },
+    "Input": {
+      "type": "object",
+      "required": ["type", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "$ref": "#/$defs/StreamType" },
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "description": { "type": "string" },
+        "required": { "type": "boolean", "default": false },
+        "source": { "type": "string", "description": "Optional source hint (e.g., '/hivemind skill', 'operator argument')." }
+      }
+    },
+    "Output": {
+      "type": "object",
+      "required": ["type", "destination"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "$ref": "#/$defs/StreamType" },
+        "destination": { "type": "string", "description": "Path or path template. May contain <run_id> placeholder." },
+        "description": { "type": "string" },
+        "schema": { "type": "string", "description": "Optional JSON Schema path for output validation (e.g., .claude/schemas/feedback-v3.schema.json)." },
+        "notes": { "type": "string" }
+      }
+    },
+    "Stage": {
+      "type": "object",
+      "required": ["stage", "construct", "skill"],
+      "additionalProperties": false,
+      "properties": {
+        "stage": { "type": "integer", "minimum": 1, "description": "1-indexed stage number; must be contiguous within chain." },
+        "construct": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-/]*[a-z0-9]$", "description": "Construct slug (e.g. 'artisan', 'the-mint')." },
+        "skill": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$", "description": "Skill slug within the construct." },
+        "persona": { "type": "string", "pattern": "^[A-Z][A-Z_]*$", "description": "Optional persona handle (uppercase, e.g. 'ALEXANDER', 'MINT')." },
+        "mode": { "$ref": "#/$defs/Mode" },
+        "reads": { "type": "array", "items": { "$ref": "#/$defs/StreamType" } },
+        "writes": { "type": "array", "items": { "$ref": "#/$defs/StreamType" } },
+        "role": { "$ref": "#/$defs/Role" },
+        "iterates_with": { "type": "integer", "minimum": 1, "description": "Companion stage number for iteration. Must reference an entry in iterate[]." },
+        "iterate_until": { "type": "string", "description": "Termination predicate for the iteration loop (operator/runner-defined)." },
+        "notes": { "type": "string", "description": "What this stage does and why this expert was chosen." }
+      }
+    },
+    "InvocationExample": {
+      "type": "object",
+      "required": ["operator_utterance", "resolves_to"],
+      "additionalProperties": false,
+      "properties": {
+        "operator_utterance": { "type": "string", "description": "The natural-language way an operator might invoke this composition." },
+        "resolves_to": { "type": "string", "description": "What chain or sub-chain executes for this utterance." }
+      }
+    }
+  }
+}

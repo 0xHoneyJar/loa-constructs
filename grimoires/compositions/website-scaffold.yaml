@@ -228,6 +228,6 @@ references:
   - runner: .claude/scripts/compose-run.sh (cycle-006 L-backend)
   - executor: .claude/scripts/stage-executor-tmux.sh (cycle-006 L-backend)
 
-version: 1.0
-authored_at: 2026-04-23
+version: "1.0.0"
+authored_at: "2026-04-23"
 authored_by: cycle-006 L-composition (operator + agent)

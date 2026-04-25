@@ -256,6 +256,6 @@ operator_note: |
   as TDRs (stage 5), knowledge graph materialized (stage 6 — same
   shape as mibera-codex's _codex/data/graph.json).
 
-version: 1.0
-authored_at: 2026-04-25
+version: "1.0.0"
+authored_at: "2026-04-25"
 authored_by: gumi composition (collection + codex export)

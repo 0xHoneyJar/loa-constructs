@@ -14,6 +14,7 @@ These schemas provide structured output validation for Loa's agent system, ensur
 | `sdd.schema.json` | Software Design Document | `grimoires/loa/sdd.md` (YAML frontmatter) |
 | `sprint.schema.json` | Sprint Plan | `grimoires/loa/sprint.md` (YAML frontmatter) |
 | `trajectory-entry.schema.json` | Agent reasoning trace | `grimoires/loa/a2a/trajectory/*.jsonl` |
+| `composition.schema.json` | Runtime composition (workflow chain) | `grimoires/compositions/*.yaml` |
 
 ## Usage
 
