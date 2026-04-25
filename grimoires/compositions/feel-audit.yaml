@@ -22,6 +22,16 @@ intent: >
   compliance — produce an evidence-grounded Verdict that combines
   artisan's material decomposition with observer's cross-surface friction map."
 
+# Hivemind Lab labels (Dec 2025 canon). Audit work is discovery —
+# understanding what's broken before any solution is proposed.
+hivemind_labels:
+  product_area: "Design System"
+  workstream: discovery
+  jtbd:
+    category: personal
+    description: "Help Me Feel Smart — operator wants their craft validated against the canon"
+  source: team-internal
+
 inputs:
   - type: Artifact
     name: target
@@ -74,12 +84,18 @@ outputs:
     destination: .run/feedback-v3.jsonl
     schema: .claude/schemas/feedback-v3.schema.json
     description: Final feel-audit verdict with evidence chain
+    hivemind_labels:
+      artifact_type: atomic-learning
+      learning_status: directionally-correct
   - type: Signal
     destination: .run/construct-trajectory.jsonl
     description: Invocation trail for all three stages
   - type: Artifact
     destination: optional — taste token file if inscribe stage added
     description: Inscribed-taste token, derived (cycle-005 L5-extension candidate)
+    hivemind_labels:
+      artifact_type: product-spec
+      learning_status: directionally-correct
 
 compose_with:
   - artisan
@@ -116,6 +132,6 @@ references:
   - contract: grimoires/loa-constructs-seed-2026-04-21/cycle-004-L2-invocation-contract.md
   - predecessor: loa-constructs-cycle-001 .claude/constructs/compositions/feel-audit.yaml (folklore)
 
-version: "2.0.0"
+version: "2.1.0"
 authored_at: "2026-04-21"
 authored_by: cycle-004 L5 (agent-walk)

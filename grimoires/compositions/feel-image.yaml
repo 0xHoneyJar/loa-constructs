@@ -37,6 +37,17 @@ intent: >
 
 backend: headless-tmux
 
+# Hivemind Lab labels (Dec 2025 canon). Site-art delivery serves the
+# end user's first impression of brand trust + craft. JTBD: brand
+# signals "this is real, has taste" → personal: Reassure Me This Is Safe.
+hivemind_labels:
+  product_area: "Marketing Site / Brand Surface"
+  workstream: delivery
+  jtbd:
+    category: personal
+    description: "Reassure Me This Is Safe — visual craft signals the brand is real, considered, trustworthy"
+  source: team-internal
+
 inputs:
   - type: Artifact
     name: canon
@@ -145,15 +156,24 @@ outputs:
   - type: Artifact
     destination: .run/compose/<run_id>/final-image.png
     description: Final composited site-art image with brand lockup
+    hivemind_labels:
+      artifact_type: product-spec
+      learning_status: strongly-validated
   - type: Artifact
     destination: .run/compose/<run_id>/direction-brief.md
     description: ALEXANDER's full creative direction (kept for the team — internal IP context preserved here, sanitized prompt stays in stage 2)
+    hivemind_labels:
+      artifact_type: experiment-design
+      learning_status: directionally-correct
   - type: Signal
     destination: .run/compose/<run_id>/orchestrator.jsonl
     description: Pipe graph + per-stage trajectory
   - type: Verdict
     destination: .run/compose/<run_id>/curation.jsonl
     description: Per-iteration kept/killed log with reasons (selection-test evidence chain)
+    hivemind_labels:
+      artifact_type: atomic-learning
+      learning_status: directionally-correct
 
 compose_with:
   - artisan
@@ -225,6 +245,6 @@ operator_note: |
   read-only data skills over the schema. Two halves, one construct, both
   shippable. See also: collection-with-codex.yaml (the worked example).
 
-version: "1.0.0"
+version: "1.1.0"
 authored_at: "2026-04-25"
 authored_by: cycle-004 reference composition (feel→image, gumi explainer)
