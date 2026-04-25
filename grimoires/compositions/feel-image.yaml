@@ -194,35 +194,37 @@ known_limitations:
 
 references:
   - gist: https://gist.github.com/zkSoju/98d96dcb72320bfc4d43e00a6fdaa245
-  - skills:
-    - construct-artisan/skills/directing-generation/SKILL.md
-    - construct-the-mint/skills/prompting-images/SKILL.md
-    - construct-the-mint/skills/curate/SKILL.md
-    - construct-the-mint/skills/materialize/SKILL.md
-  - companion compositions:
-    - grimoires/compositions/feel-audit.yaml          # artisan ↔ observer (audit pair)
-    - grimoires/compositions/website-scaffold.yaml    # k-hole → the-easel → mint → artisan → the-arcade (full stack)
-    - construct-creator/compositions/explore-ecosystem.yaml  # CURATOR ↔ artisan (wayfinding pair)
+  - skill_directing_generation: construct-artisan/skills/directing-generation/SKILL.md
+  - skill_prompting_images: construct-the-mint/skills/prompting-images/SKILL.md
+  - skill_curate: construct-the-mint/skills/curate/SKILL.md
+  - skill_materialize: construct-the-mint/skills/materialize/SKILL.md
+  - companion_audit_pair: grimoires/compositions/feel-audit.yaml
+  - companion_full_stack: grimoires/compositions/website-scaffold.yaml
+  - companion_wayfinding_pair: construct-creator/compositions/explore-ecosystem.yaml
   - doctrine: bonfire-construct-pipe-doctrine v6 §15.2 (workflow-kind composition)
-  - operator note (for gumi · 2026-04-25):
-      Compositions are *runtime expert chains* — stitched skill calls
-      from multiple constructs, with declared streams + iteration
-      loops. They're not the gen-art-tool surface; they're what
-      runs *underneath* a tool when the tool wants to invoke
-      "directed image production" as a single capability.
-      Gumi's tool is a SURFACE (Layer manager + preview + export).
-      The construct it exports could ship its own composition that
-      wraps feel-image — e.g. `<collection>-cover.yaml` chains
-      <collection>/directing-generation (canon distilled from
-      schema + lore) → the-mint/prompting-images (executes against
-      the layer-set's reference grid) → the-mint/curate (selection
-      against the rarity/swag rubric) → the-mint/materialize
-      (locks the cover with collection wordmark). The codex
-      pattern (mibera-codex shape — browse / query / cross-reference
-      over a knowledge graph) is the OTHER half of what her tool
-      exports — read-only data skills over the schema. Two halves,
-      one construct, both shippable.
 
-version: 1.0
-authored_at: 2026-04-25
+operator_note: |
+  For gumi · 2026-04-25.
+
+  Compositions are runtime expert chains — stitched skill calls from
+  multiple constructs, with declared streams + iteration loops.
+  They're not the gen-art-tool surface; they're what runs *underneath*
+  a tool when the tool wants to invoke "directed image production" as
+  a single capability.
+
+  Gumi's tool is a SURFACE (layer manager + preview + export). The
+  construct it exports could ship its own composition that wraps
+  feel-image — e.g. <collection>-cover.yaml chains
+  <collection>/directing-generation (canon distilled from schema + lore)
+  → the-mint/prompting-images (executes against the layer-set's reference
+  grid) → the-mint/curate (selection against rarity/swag rubric) →
+  the-mint/materialize (locks the cover with collection wordmark).
+
+  The codex pattern (mibera-codex shape — browse / query / cross-reference
+  over a knowledge graph) is the OTHER half of what her tool exports —
+  read-only data skills over the schema. Two halves, one construct, both
+  shippable. See also: collection-with-codex.yaml (the worked example).
+
+version: "1.0.0"
+authored_at: "2026-04-25"
 authored_by: cycle-004 reference composition (feel→image, gumi explainer)

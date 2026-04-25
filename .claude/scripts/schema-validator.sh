@@ -163,6 +163,9 @@ detect_schema() {
     elif [[ "$file_path" == *"grimoires/loa/sprint"* ]]; then
         echo "sprint"
         return 0
+    elif [[ "$file_path" == *"grimoires/compositions/"*.yaml ]] || [[ "$file_path" == *"compositions/"*.yaml ]]; then
+        echo "composition"
+        return 0
     fi
 
     # No match
@@ -517,6 +520,23 @@ run_assertions() {
         *.jsonl)
             head -1 "$file_path" > "$temp_json"
             ;;
+        *.yaml|*.yml)
+            # Convert YAML document to JSON for schema validation
+            if command -v yq >/dev/null 2>&1; then
+                yq eval -o=json '.' "$file_path" > "$temp_json" || {
+                    [[ "$json_output" == "true" ]] && echo '{"status":"error","message":"yq YAML→JSON conversion failed","assertions":[]}' || print_error "yq conversion failed for: $file_path"
+                    return 1
+                }
+            elif command -v python3 >/dev/null 2>&1; then
+                python3 -c 'import sys, yaml, json; json.dump(yaml.safe_load(open(sys.argv[1])), sys.stdout, default=str)' "$file_path" > "$temp_json" || {
+                    [[ "$json_output" == "true" ]] && echo '{"status":"error","message":"python YAML→JSON conversion failed","assertions":[]}' || print_error "python conversion failed for: $file_path"
+                    return 1
+                }
+            else
+                [[ "$json_output" == "true" ]] && echo '{"status":"error","message":"No YAML parser available (need yq or python3 with PyYAML)","assertions":[]}' || print_error "No YAML parser available"
+                return 1
+            fi
+            ;;
         *.md)
             if ! extract_frontmatter "$file_path" > "$temp_json"; then
                 if [[ "$json_output" == "true" ]]; then
@@ -714,6 +734,23 @@ validate_file() {
         *.jsonl)
             # Validate first line for trajectory entries
             head -1 "$file_path" > "$temp_json"
+            ;;
+        *.yaml|*.yml)
+            # Convert YAML document to JSON for schema validation
+            if command -v yq >/dev/null 2>&1; then
+                yq eval -o=json '.' "$file_path" > "$temp_json" || {
+                    [[ "$json_output" == "true" ]] && echo '{"status":"error","message":"yq YAML→JSON conversion failed","assertions":[]}' || print_error "yq conversion failed for: $file_path"
+                    return 1
+                }
+            elif command -v python3 >/dev/null 2>&1; then
+                python3 -c 'import sys, yaml, json; json.dump(yaml.safe_load(open(sys.argv[1])), sys.stdout, default=str)' "$file_path" > "$temp_json" || {
+                    [[ "$json_output" == "true" ]] && echo '{"status":"error","message":"python YAML→JSON conversion failed","assertions":[]}' || print_error "python conversion failed for: $file_path"
+                    return 1
+                }
+            else
+                [[ "$json_output" == "true" ]] && echo '{"status":"error","message":"No YAML parser available (need yq or python3 with PyYAML)","assertions":[]}' || print_error "No YAML parser available"
+                return 1
+            fi
             ;;
         *.md)
             if ! extract_frontmatter "$file_path" > "$temp_json"; then
