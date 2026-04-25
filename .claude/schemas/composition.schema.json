@@ -109,6 +109,10 @@
       "type": "string",
       "description": "Free-form note for downstream operators, especially when the composition serves as a teaching artifact. Use a YAML literal block scalar (|) for multi-line content."
     },
+    "hivemind_labels": {
+      "$ref": "#/$defs/HivemindLabels",
+      "description": "Composition-level Hivemind Laboratory taxonomy. Names the user-truth context this whole workflow serves (product area + JTBD + source). Optional but encouraged — anti-spiral tether."
+    },
     "version": {
       "type": "string",
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
@@ -161,7 +165,66 @@
         "destination": { "type": "string", "description": "Path or path template. May contain <run_id> placeholder." },
         "description": { "type": "string" },
         "schema": { "type": "string", "description": "Optional JSON Schema path for output validation (e.g., .claude/schemas/feedback-v3.schema.json)." },
-        "notes": { "type": "string" }
+        "notes": { "type": "string" },
+        "hivemind_labels": {
+          "$ref": "#/$defs/HivemindLabels",
+          "description": "Per-output Hivemind Laboratory labels. Use to declare what KIND of artifact this output is (artifact_type) and how confident we are (learning_status). Composition-level labels in `hivemind_labels` apply by default; per-output overrides where needed."
+        }
+      }
+    },
+    "HivemindLabels": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Hivemind Laboratory taxonomy (CultureTech's experimentation framework, per Eileen Jun 2024). Anti-spiral tether — binds composition outputs to user truth so AI work doesn't drift from the problem it should serve.",
+      "properties": {
+        "artifact_type": {
+          "type": "string",
+          "enum": ["user-truth-canvas", "experiment-proposal", "atomic-learning", "product-spec"],
+          "description": "Hivemind Lab artifact category. user-truth-canvas = story of a user problem. experiment-proposal = the plan for testing. atomic-learning = a single reusable insight. product-spec = what + why of a feature."
+        },
+        "product_area": {
+          "type": "string",
+          "description": "Where in the product this work lives. Free-form per project (e.g., 'App Performance', 'Onboarding', 'Wallet Integration', 'Henlo Arcade')."
+        },
+        "jtbd": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Job-to-be-done. Why should users care?",
+          "properties": {
+            "category": {
+              "type": "string",
+              "enum": ["functional", "personal", "social"],
+              "description": "functional = perform an action. personal = internal feeling. social = outward expression."
+            },
+            "description": {
+              "type": "string",
+              "description": "The user job in plain language (e.g., 'Make a transaction', 'Gives me peace of mind', 'Help me look smart')."
+            }
+          },
+          "required": ["category", "description"]
+        },
+        "learning_status": {
+          "type": "string",
+          "enum": [
+            "strongly-validated",
+            "directionally-correct",
+            "cant-make-conclusion",
+            "hypothesis-failed",
+            "smol-evidence"
+          ],
+          "description": "How sure are we? strongly-validated = lots of quant+qual data. directionally-correct = supported by feedback, not data-proven. cant-make-conclusion = ambiguous. hypothesis-failed = clear evidence we were wrong. smol-evidence = single comment / tiny signal."
+        },
+        "source": {
+          "type": "string",
+          "enum": [
+            "discord-twitter-dm-feedback",
+            "analytics-anomaly",
+            "team-ideas-brainstorm",
+            "support-ticket-trending",
+            "competitor-action"
+          ],
+          "description": "How do we know this matters?"
+        }
       }
     },
     "Stage": {
