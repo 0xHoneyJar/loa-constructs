@@ -40,6 +40,19 @@ intent: >
 # via `--backend teamcreate` once cycle-007 ships that executor.
 backend: headless-tmux
 
+# Hivemind Lab labels (Dec 2025 canon). Full-stack site authoring
+# delivers production work for end users who arrive cold to a site.
+# JTBD: visitors landing for the first time need to find the why
+# (functional: Find Information) AND feel the brand is real
+# (personal: Reassure Me This Is Safe — could be either).
+hivemind_labels:
+  product_area: "New Site Build / Marketing Surface"
+  workstream: delivery
+  jtbd:
+    category: functional
+    description: "Find Information — visitor wants to learn what this is, why it matters, in under 10 seconds"
+  source: team-internal
+
 inputs:
   - type: Artifact
     name: target
@@ -180,6 +193,9 @@ outputs:
   - type: Artifact
     destination: .run/compose/<run_id>/final-product-structure.json
     description: Structured product specification — pages, nav, journey
+    hivemind_labels:
+      artifact_type: product-spec
+      learning_status: directionally-correct
   - type: Signal
     destination: .run/compose/<run_id>/orchestrator.jsonl
     description: Orchestrator trajectory (pipe graph + stream activity)
@@ -228,6 +244,6 @@ references:
   - runner: .claude/scripts/compose-run.sh (cycle-006 L-backend)
   - executor: .claude/scripts/stage-executor-tmux.sh (cycle-006 L-backend)
 
-version: "1.0.0"
+version: "1.1.0"
 authored_at: "2026-04-23"
 authored_by: cycle-006 L-composition (operator + agent)

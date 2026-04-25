@@ -46,6 +46,18 @@ intent: >
 
 backend: headless-tmux
 
+# Hivemind Lab labels (Dec 2025 canon). Construct-emitter pattern —
+# generative collection + queryable codex. Serves end users (collection
+# holders, community) whose JTBD is identity expression through traits
+# + insider belonging through lore.
+hivemind_labels:
+  product_area: "NFT Minting Flow / Collection + Codex"
+  workstream: experimentation
+  jtbd:
+    category: social
+    description: "Let Me Express My Identity — traits, lore, and provenance let holders signal who they are in this world"
+  source: team-internal
+
 inputs:
   - type: Artifact
     name: references
@@ -180,15 +192,27 @@ outputs:
       Full asset bundle — per-trait renders, manifest.json,
       knowledge-graph nodes/edges, identity stubs, ready to ship
       as a construct repo.
+    hivemind_labels:
+      artifact_type: product-spec
+      learning_status: directionally-correct
   - type: Artifact
     destination: .run/compose/<run_id>/taste.md
     description: Synthesized canon (the visual constitution)
+    hivemind_labels:
+      artifact_type: product-spec
+      learning_status: strongly-validated
   - type: Artifact
     destination: .run/compose/<run_id>/tdrs/
     description: Locked rules as TDRs (forbidden / signature / swag)
+    hivemind_labels:
+      artifact_type: atomic-learning
+      learning_status: directionally-correct
   - type: Verdict
     destination: .run/compose/<run_id>/curation.jsonl
     description: Per-iteration selection trail
+    hivemind_labels:
+      artifact_type: atomic-learning
+      learning_status: directionally-correct
   - type: Signal
     destination: .run/compose/<run_id>/orchestrator.jsonl
 
@@ -256,6 +280,6 @@ operator_note: |
   as TDRs (stage 5), knowledge graph materialized (stage 6 — same
   shape as mibera-codex's _codex/data/graph.json).
 
-version: "1.0.0"
+version: "1.1.0"
 authored_at: "2026-04-25"
 authored_by: gumi composition (collection + codex export)
