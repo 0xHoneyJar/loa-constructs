@@ -94,7 +94,7 @@ Constructs chain through **typed streams** — [Unix philosophy](https://iamchan
 `Signal` · `Verdict` · `Artifact` · `Intent` · `Operator-Model`
 
 ```yaml
-# grimoires/compositions/feel-audit.yaml — first executable composition
+# grimoires/compositions/discovery/audit-feel.yaml — canonical 3-stage reference
 kind: workflow
 chain:
   - { construct: artisan,  skill: decomposing-feel,   writes: [Signal] }
@@ -102,7 +102,7 @@ chain:
   - { construct: observer, skill: analyzing-gaps,     reads: [Verdict], writes: [Verdict] }
 ```
 
-Composition schemas are authored now; the workflow runner (`construct-compose.sh`) ships next cycle. Until then, manual chaining via three `Skill()` invocations is the execution path. The YAML is still load-bearing — it's the spec both agent and operator read before the runner exists.
+This repo owns the **schema** ([`composition.schema.json`](.claude/schemas/composition.schema.json)) + the **runner** (`compose-run.sh`) + **one canonical reference composition** (`audit-feel`) for teaching and runner smoke-tests. The full curated **registry** of compositions lives in [`loa-compositions`](https://github.com/0xHoneyJar/loa-compositions), organized by Hivemind Lab workstream (discovery / delivery / experimentation / tech-debt / sorry-for-ur-loss). One contract, two homes.
 
 Full doctrine: [`bonfire-construct-pipe-doctrine.md`](grimoires/loa-constructs-seed-2026-04-21/bonfire-construct-pipe-doctrine.md).
 
