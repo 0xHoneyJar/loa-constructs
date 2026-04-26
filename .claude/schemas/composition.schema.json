@@ -19,10 +19,10 @@
     },
     "name": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9]*-[a-z][a-z0-9]*$",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z][a-z0-9]*){1,2}$",
       "minLength": 4,
       "maxLength": 64,
-      "description": "Composition slug. Must match the filename (without .yaml extension). Strict verb-noun kebab-case (gRPC-style: 'verb-noun' reads as 'do this thing'). Examples: audit-feel, compose-art, scaffold-website, mint-collection, pause-feature, find-construct. The verb is the operator action; the noun is the target or output type."
+      "description": "Composition slug. Must match the filename (without .yaml extension). Verb-first kebab-case (gRPC-style: 'verb-noun' reads as 'do this thing'). 2-3 parts: 2-part for base compositions, 3-part for project specializations. Bases: audit-feel, direct-render, research-scaffold, mint-codex, triage-pause, find-construct. Specializations: direct-render-mibera, mint-codex-cubquest. The first word is always the operator action (verb-form); subsequent words refine target / approach / project context."
     },
     "description": {
       "type": "string",
