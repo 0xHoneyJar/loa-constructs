@@ -20,7 +20,7 @@
 
 schema_version: "1.0"
 kind: workflow
-name: compose-art
+name: direct-render
 description: >
   Eye-and-hand site-art production. Artisan distills creative
   direction from the codebase's visual canon; The Mint executes
