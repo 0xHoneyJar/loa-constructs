@@ -12,7 +12,7 @@
 
 schema_version: "1.0"
 kind: workflow                        # doctrine v4 §15.2 (vs. frame-kind)
-name: feel-audit
+name: audit-feel
 description: >
   Surface material-quality issues during FEEL sessions using
   observer critique for audit depth.

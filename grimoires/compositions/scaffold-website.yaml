@@ -23,7 +23,7 @@
 
 schema_version: "1.0"
 kind: workflow                          # doctrine v4 §15.2
-name: website-scaffold
+name: scaffold-website
 description: >
   Author-grade website scaffolding — from research to product
   structure. Seven stages, two iteration loops, one opinionated

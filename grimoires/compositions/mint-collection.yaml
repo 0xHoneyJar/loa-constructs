@@ -30,7 +30,7 @@
 
 schema_version: "1.0"
 kind: workflow
-name: collection-with-codex
+name: mint-collection
 description: >
   Generative art collection production with codex-shape construct
   export. Synthesizes taste from references, decomposes traits with
