@@ -237,6 +237,10 @@ const GIT_CONFIGS: Record<string, { gitUrl: string; gitRef: string }> = {
     gitUrl: 'https://github.com/0xHoneyJar/construct-vocabulary-bank.git',
     gitRef: 'main',
   },
+  'codex-review': {
+    gitUrl: 'https://github.com/0xHoneyJar/construct-codex-review.git',
+    gitRef: 'main',
+  },
 };
 
 interface PackManifest {
