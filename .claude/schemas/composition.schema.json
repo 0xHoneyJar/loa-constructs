@@ -9,8 +9,8 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "const": "1.0",
-      "description": "Composition schema version. Bump on breaking changes to this schema."
+      "enum": ["1.0", "1.1"],
+      "description": "Composition schema version. Enum-locked for explicit audit trail (no pattern matching). v1.0 baseline. v1.1 adds optional cycle-002 followup fields (surface_class, thinking_effort, vocabulary_governance, codex_mode) — additive only; v1.0 YAMLs validate against v1.1 unchanged. Breaking changes require major bump + migration plan. See VERSIONING.md."
     },
     "kind": {
       "type": "string",
@@ -112,6 +112,14 @@
     "hivemind_labels": {
       "$ref": "#/$defs/HivemindLabels",
       "description": "Composition-level Hivemind Laboratory taxonomy. Names the user-truth context this whole workflow serves (product area + JTBD + source). Optional but encouraged — anti-spiral tether."
+    },
+    "surface_class": {
+      "$ref": "#/$defs/SurfaceClass",
+      "description": "v1.1: Drives gating intensity, codex_mode default, iteration_cap, inline_fix permission. Canonical def in compositions/sorry-for-ur-loss/outage-triage.yaml. Top-level only — apply to stages via runner interpretation."
+    },
+    "thinking_effort": {
+      "$ref": "#/$defs/ThinkingEffortBlock",
+      "description": "v1.1: Composition-level thinking_effort canonical-def block. Per-stage stages may carry the simple string form (low|medium|high|xhigh|max) on chain[].thinking_effort. Canonical def in compositions/delivery/feel-iterate.yaml."
     },
     "version": {
       "type": "string",
@@ -263,7 +271,93 @@
         "role": { "$ref": "#/$defs/Role" },
         "iterates_with": { "type": "integer", "minimum": 1, "description": "Companion stage number for iteration. Must reference an entry in iterate[]." },
         "iterate_until": { "type": "string", "description": "Termination predicate for the iteration loop (operator/runner-defined)." },
-        "notes": { "type": "string", "description": "What this stage does and why this expert was chosen." }
+        "notes": { "type": "string", "description": "What this stage does and why this expert was chosen." },
+        "vocabulary_governance": {
+          "$ref": "#/$defs/VocabularyGovernance",
+          "description": "v1.1: Generation-as-audit-surface discipline for chrome copy stages. Canonical in triage-pause.yaml v1.8.0 + hibernate-product v1.2.0."
+        },
+        "codex_mode": {
+          "$ref": "#/$defs/CodexMode",
+          "description": "v1.1: Codex delegation vs pair-program enum on engineering-handoff stages. Canonical in outage-triage.yaml stage 3."
+        },
+        "thinking_effort": {
+          "anyOf": [
+            { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"] },
+            { "$ref": "#/$defs/ThinkingEffortBlock" }
+          ],
+          "description": "v1.1: Stage-level override. String tier (cheap, common) OR full canonical-def object (when this stage owns the family definition for the composition)."
+        }
+      }
+    },
+    "SurfaceClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v1.1 — Drives gating intensity, codex_mode default, iteration_cap, inline_fix permission. Canonical def in compositions/sorry-for-ur-loss/outage-triage.yaml.",
+      "properties": {
+        "default": { "type": "string", "enum": ["culturetech-loose", "defi-strict", "mixed", "unspecified"] },
+        "enum": { "type": "array", "items": { "type": "string" } },
+        "canonical_definition": { "type": "string" },
+        "inferred_when_unspecified": { "type": "string" },
+        "affects_in_this_composition": { "type": "array", "items": { "type": "string" } },
+        "inference": { "type": "object" },
+        "affects": { "type": "object" },
+        "rationale": { "type": "string" },
+        "invocation": { "type": "object" }
+      }
+    },
+    "ThinkingEffortBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v1.1 — Per-stage hint for adaptive-thinking-capable runtimes. Canonical def in compositions/delivery/feel-iterate.yaml.",
+      "properties": {
+        "default": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"] },
+        "enum": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"] }
+        },
+        "canonical_definition": { "type": "string" },
+        "guide": { "type": "object" },
+        "rationale": { "type": "string" },
+        "runtime_translation": { "type": "object" },
+        "promptable_steering": { "type": "string" },
+        "affects_in_this_composition": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "VocabularyGovernance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v1.1 — Generation-as-audit-surface discipline for chrome copy stages. Per Hibernation Copy Discipline brief, cycle-002 followup.",
+      "properties": {
+        "taxonomy": { "type": "object" },
+        "line_types": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "anchor": { "type": "string" },
+            "flavor": { "type": "string" }
+          }
+        },
+        "no_promises_linter": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "regex": { "type": "string" },
+            "action": { "type": "string" },
+            "rationale": { "type": "string" }
+          }
+        },
+        "bank_first_authoring": { "type": "object" },
+        "reference_brief": { "type": "string" }
+      }
+    },
+    "CodexMode": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v1.1 — Codex delegation vs pair-program enum on engineering-handoff stages. Canonical in outage-triage.yaml stage 3 + triage-pause v1.5.0 stage 6.5.",
+      "properties": {
+        "delegation": { "type": "string" },
+        "pair-program": { "type": "string" },
+        "default": { "type": "string", "enum": ["delegation", "pair-program"] }
       }
     },
     "InvocationExample": {
