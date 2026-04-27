@@ -104,7 +104,7 @@ Cross-repo consumers (e.g. `loa-compositions/.github/workflows/validate-schema.y
 
 | Schema | Current | Notes |
 |--------|---------|-------|
-| `composition.schema.json` | **1.1** | v1.1 added 2026-04-27: `surface_class`, `thinking_effort` (top-level + per-stage), `vocabulary_governance` (per-stage), `codex_mode` (per-stage). Cycle-002 followup, additive. Refactor 2026-04-27: HivemindLabels extracted to standalone schema and `$ref`'d. No version bump (consumer-facing shape unchanged). |
+| `composition.schema.json` | **1.2** | v1.1 added 2026-04-27: `surface_class`, `thinking_effort` (top-level + per-stage), `vocabulary_governance` (per-stage), `codex_mode` (per-stage). Refactor: HivemindLabels extracted to standalone schema. v1.2 (this entry) catches schema up to registry reality — adds 11 stage-level field shapes, output `emit_when`, top-level `changelog`/`depends_on`/`upstream_composition`, mode `blocking`, 4 new role enums, half-stage numbers, relaxed `name`/`persona`/`skill`/`composes_symmetrically_with`/`known_limitations`. All additive; v1.0/v1.1 YAMLs validate unchanged. |
 | `hivemind-labels.schema.json` | **1.0** | New 2026-04-27. Extracted from `composition.schema.json $defs/HivemindLabels` so it can be `$ref`'d by other schemas (prd/sdd/sprint/canvas types) and external consumers (Linear sync, dashboards, MCP wrappers) without dragging the composition schema graph behind it. |
 | `prd.schema.json` | (existing) | Pre-doctrine; no formal versioning yet. |
 | `sdd.schema.json` | (existing) | Pre-doctrine; no formal versioning yet. |
@@ -123,7 +123,8 @@ PRD/SDD/Sprint/Trajectory schemas adopt this policy on their next bump. Until th
 |---------|------|--------|-----------------|-----|
 | 1.0 | 2026-04-25 | Initial schema | — | #206 |
 | 1.1 | 2026-04-27 | Add `surface_class`, `thinking_effort`, `vocabulary_governance`, `codex_mode`. Hivemind labels deeply integrated (already in v1.0). | ✅ All v1.0 docs validate unchanged | #215 |
-| 1.1 (refactor) | 2026-04-27 | HivemindLabels extracted to standalone `hivemind-labels.schema.json` v1.0; composition references via external `$ref`. Consumer-facing shape unchanged — same fields, same enums. | ✅ All v1.0/v1.1 docs validate unchanged. ⚠ Offline consumers must now fetch both schemas. | (this PR) |
+| 1.1 (refactor) | 2026-04-27 | HivemindLabels extracted to standalone `hivemind-labels.schema.json` v1.0; composition references via external `$ref`. Consumer-facing shape unchanged — same fields, same enums. | ✅ All v1.0/v1.1 docs validate unchanged. ⚠ Offline consumers must now fetch both schemas. | #216 |
+| 1.2 | 2026-04-27 | Schema catches up to registry reality after strict ajv CI surfaced drift: stage `name`, `invokes`, `capture_method`, `brief_structure`, `transport_preference`, `verify_identifiers`, `when`, `on_absent`/`on_present_*`, `probes`; output `emit_when`; top-level `changelog`, `depends_on`, `upstream_composition`. Mode +`blocking`. Role +`dispatcher`/`engineering-handoff`/`gate`/`hard-stop`. Stage allows half-numbers (1.5, 6.5). `name` pattern widened to 5 parts. `skill` pattern allows colon (cross-construct refs like `codex:rescue`). `persona` pattern relaxed to free string. `composes_symmetrically_with` accepts unidirectional `→`. `known_limitations` accepts string OR array. | ✅ All 12 registry YAMLs validate; v1.0/v1.1 YAMLs validate unchanged. | (this PR) |
 
 ### hivemind-labels.schema.json
 
