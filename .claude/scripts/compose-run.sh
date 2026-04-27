@@ -115,6 +115,23 @@ STAGE_EXECUTOR="$SCRIPT_DIR/stage-executor-tmux.sh"
 # ---------------------------------------------------------------------------
 COMPOSITION_FILE="$COMPOSITIONS_DIR/$COMPOSITION_NAME.yaml"
 [[ -f "$COMPOSITION_FILE" ]] || die 1 "composition not found: $COMPOSITION_FILE"
+
+# Pre-dispatch schema validation. The composition must conform to
+# composition.schema.json before any LLM cost is incurred.
+# Closes the governance loop on [[contracts-as-bridges]] / composition-schema-as-bridge —
+# schema is the bridge; validation is the discipline that keeps it living.
+# Override: LOA_COMPOSE_VALIDATE=disabled (emergency only). LOA_COMPOSE_VALIDATE=warn for non-fatal.
+SCHEMA_VALIDATE_MODE="${LOA_COMPOSE_VALIDATE:-strict}"
+if [[ "$SCHEMA_VALIDATE_MODE" != "disabled" ]]; then
+  SCHEMA_VALIDATOR="$SCRIPT_DIR/schema-validator.sh"
+  if [[ -x "$SCHEMA_VALIDATOR" ]]; then
+    if ! "$SCHEMA_VALIDATOR" validate "$COMPOSITION_FILE" --mode "$SCHEMA_VALIDATE_MODE" >&2; then
+      die 1 "composition fails schema validation: $COMPOSITION_FILE
+        Override: LOA_COMPOSE_VALIDATE=disabled (emergency) or =warn (non-fatal)."
+    fi
+  fi
+fi
+
 COMPOSITION_JSON=$(yq -o=json '.' "$COMPOSITION_FILE" 2>/dev/null) \
   || die 1 "failed to parse YAML: $COMPOSITION_FILE"
 
