@@ -83,24 +83,30 @@ print_error() {
 list_schemas() {
     local json_output="${1:-false}"
 
+    # Recurse into subdirs (network/ runtime/ workflow/) added 2026-04-27.
+    # `find` portably resolves nested .schema.json files; the SCHEMA_DIR
+    # itself stays the canonical root.
+    local -a schema_files
+    while IFS= read -r f; do
+        schema_files+=("$f")
+    done < <(find "$SCHEMA_DIR" -type f -name "*.schema.json" | sort)
+
     if [[ "$json_output" == "true" ]]; then
         echo "{"
         echo "  \"schemas\": ["
         local first=true
-        for schema_file in "$SCHEMA_DIR"/*.schema.json; do
-            if [[ -f "$schema_file" ]]; then
-                local name
-                name=$(basename "$schema_file" .schema.json)
-                local title
-                title=$(jq -r '.title // "Unknown"' "$schema_file" 2>/dev/null || echo "Unknown")
+        for schema_file in "${schema_files[@]}"; do
+            local name
+            name=$(basename "$schema_file" .schema.json)
+            local title
+            title=$(jq -r '.title // "Unknown"' "$schema_file" 2>/dev/null || echo "Unknown")
 
-                if [[ "$first" == "true" ]]; then
-                    first=false
-                else
-                    echo ","
-                fi
-                printf '    {"name": "%s", "title": "%s", "path": "%s"}' "$name" "$title" "$schema_file"
+            if [[ "$first" == "true" ]]; then
+                first=false
+            else
+                echo ","
             fi
+            printf '    {"name": "%s", "title": "%s", "path": "%s"}' "$name" "$title" "$schema_file"
         done
         echo ""
         echo "  ]"
@@ -111,14 +117,12 @@ list_schemas() {
         printf "%-20s %-35s %s\n" "NAME" "TITLE" "PATH"
         printf "%-20s %-35s %s\n" "----" "-----" "----"
 
-        for schema_file in "$SCHEMA_DIR"/*.schema.json; do
-            if [[ -f "$schema_file" ]]; then
-                local name
-                name=$(basename "$schema_file" .schema.json)
-                local title
-                title=$(jq -r '.title // "Unknown"' "$schema_file" 2>/dev/null || echo "Unknown")
-                printf "%-20s %-35s %s\n" "$name" "$title" "$schema_file"
-            fi
+        for schema_file in "${schema_files[@]}"; do
+            local name
+            name=$(basename "$schema_file" .schema.json)
+            local title
+            title=$(jq -r '.title // "Unknown"' "$schema_file" 2>/dev/null || echo "Unknown")
+            printf "%-20s %-35s %s\n" "$name" "$title" "$schema_file"
         done
     fi
 }
@@ -177,10 +181,20 @@ detect_schema() {
 #######################################
 get_schema_path() {
     local schema_name="$1"
-    local schema_path="$SCHEMA_DIR/${schema_name}.schema.json"
 
-    if [[ -f "$schema_path" ]]; then
-        echo "$schema_path"
+    # Top-level lookup (cheapest, hits ~31 uncategorized schemas).
+    local top_path="$SCHEMA_DIR/${schema_name}.schema.json"
+    if [[ -f "$top_path" ]]; then
+        echo "$top_path"
+        return 0
+    fi
+
+    # Subdir lookup (network/ runtime/ workflow/) added 2026-04-27.
+    # Returns the first match; schema names are unique across the family.
+    local found
+    found=$(find "$SCHEMA_DIR" -type f -name "${schema_name}.schema.json" -print -quit 2>/dev/null)
+    if [[ -n "$found" ]]; then
+        echo "$found"
         return 0
     fi
 
