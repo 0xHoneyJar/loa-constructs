@@ -102,16 +102,23 @@ Cross-repo consumers (e.g. `loa-compositions/.github/workflows/validate-schema.y
 
 ## Versions in flight
 
-| Schema | Current | Notes |
-|--------|---------|-------|
-| `composition.schema.json` | **1.2** | v1.1 added 2026-04-27: `surface_class`, `thinking_effort` (top-level + per-stage), `vocabulary_governance` (per-stage), `codex_mode` (per-stage). Refactor: HivemindLabels extracted to standalone schema. v1.2 (this entry) catches schema up to registry reality — adds 11 stage-level field shapes, output `emit_when`, top-level `changelog`/`depends_on`/`upstream_composition`, mode `blocking`, 4 new role enums, half-stage numbers, relaxed `name`/`persona`/`skill`/`composes_symmetrically_with`/`known_limitations`. All additive; v1.0/v1.1 YAMLs validate unchanged. |
-| `hivemind-labels.schema.json` | **migrated → [loa-hivemind](https://github.com/0xHoneyJar/loa-hivemind)** | Lived here briefly (2026-04-27 morning). Migrated to its own repo same day per operator decision: *"Eileen's framework deserves its own home."* Composition schema's `$ref` now points to `https://loa.dev/hivemind/labels.schema.json`. |
-| `prd.schema.json` | (existing) | Pre-doctrine; no formal versioning yet. |
-| `sdd.schema.json` | (existing) | Pre-doctrine; no formal versioning yet. |
-| `sprint.schema.json` | (existing) | Pre-doctrine; no formal versioning yet. |
-| `trajectory-entry.schema.json` | (existing) | Pre-doctrine; no formal versioning yet. |
+| Schema | Path | Current | Notes |
+|--------|------|---------|-------|
+| `composition` | `runtime/composition.schema.json` | **1.2** | v1.1 added 2026-04-27: `surface_class`, `thinking_effort`, `vocabulary_governance`, `codex_mode`. Refactor: HivemindLabels extracted then migrated to loa-hivemind. v1.2 catches schema up to registry reality — 11 stage-level field shapes, output `emit_when`, top-level `changelog`/`depends_on`/`upstream_composition`, mode `blocking`, 4 new role enums, half-stage numbers, relaxed patterns. All additive. |
+| `hivemind-labels` | (migrated → [loa-hivemind](https://github.com/0xHoneyJar/loa-hivemind)) | — | Lived here briefly (2026-04-27 morning). Migrated to its own repo same day per operator decision: *"Eileen's framework deserves its own home."* Composition schema's `$ref` now points to `https://loa.dev/hivemind/labels.schema.json`. |
+| `construct` | `network/construct.schema.json` | (existing) | Pre-doctrine; no formal versioning yet. |
+| `pack-manifest` | `network/pack-manifest.schema.json` | (existing) | Pre-doctrine. |
+| `construct-manifest` | `network/construct-manifest.schema.json` | (existing) | Pre-doctrine. |
+| `prd` | `workflow/prd.schema.json` | (existing) | Pre-doctrine. |
+| `sdd` | `workflow/sdd.schema.json` | (existing) | Pre-doctrine. |
+| `sprint` | `workflow/sprint.schema.json` | (existing) | Pre-doctrine. |
+| `trajectory-entry` | `workflow/trajectory-entry.schema.json` | (existing) | Pre-doctrine. |
+| `feedback-v3` | `workflow/feedback-v3.schema.json` | (existing) | Pre-doctrine. |
+| (~25 others) | (top-level) | (existing) | Uncategorized — small surface or single-use; categorize when 2+ of a kind appear. |
 
-PRD/SDD/Sprint/Trajectory schemas adopt this policy on their next bump. Until then, they're treated as v1.0 implicit.
+PRD/SDD/Sprint/Trajectory/Feedback schemas adopt this policy on their next bump. Until then, they're treated as v1.0 implicit.
+
+**Layout** (2026-04-27 reorg): schemas organized by concern — `network/` (Constructs Network shape), `runtime/` (composition orchestration), `workflow/` (Loa framework gates). See [README.md](README.md) for the full map.
 
 ---
 

@@ -30,7 +30,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 FEEDBACK_FILE="${LOA_FEEDBACK_V3_FILE:-$PROJECT_ROOT/.run/feedback-v3.jsonl}"
-SCHEMA_FILE="${LOA_FEEDBACK_V3_SCHEMA:-$PROJECT_ROOT/.claude/schemas/feedback-v3.schema.json}"
+SCHEMA_FILE="${LOA_FEEDBACK_V3_SCHEMA:-$PROJECT_ROOT/.claude/schemas/workflow/feedback-v3.schema.json}"
 
 if [[ $# -lt 4 ]]; then
     echo "usage: $0 <persona> <session_id> <trigger> <findings-json> [kansei-json]" >&2

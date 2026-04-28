@@ -4,7 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCHEMA_PATH="$(dirname "$SCRIPT_DIR")/schemas/trajectory-entry.schema.json"
+SCHEMA_PATH="$(dirname "$SCRIPT_DIR")/schemas/workflow/trajectory-entry.schema.json"
 DEFAULT_TRAJECTORY_DIR="grimoires/loa/a2a/trajectory"
 
 # Colors for output
