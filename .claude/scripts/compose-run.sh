@@ -101,6 +101,23 @@ done
 [[ -n "$COMPOSITION_NAME" ]] || { usage >&2; die 1 "composition name required"; }
 
 # ---------------------------------------------------------------------------
+# TTY auto-detection (bug fix 2026-04-27)
+# ---------------------------------------------------------------------------
+# Iterate-loop's `read -r answer </dev/tty` fails silently when invoked from a
+# non-interactive parent (background shell, headless CI, scheduled remote
+# runs, the loom CLI dispatching compose-run from a subprocess, etc.) — the
+# read returns empty and the loop exits after pass 1. Auto-detect here so the
+# operator doesn't need to remember --no-interactive everywhere.
+# Explicit --no-interactive still wins; auto-detection only DOWNGRADES from
+# interactive→non-interactive, never the reverse.
+if (( INTERACTIVE )); then
+  if [[ ! -e /dev/tty ]] || ! ( : </dev/tty ) 2>/dev/null; then
+    INTERACTIVE=0
+    echo "[compose-run] no readable /dev/tty — auto-disabling iterate-loop prompts" >&2
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 # Tool dependencies
 # ---------------------------------------------------------------------------
 command -v yq >/dev/null 2>&1 || die 1 "yq (v4+) required"
