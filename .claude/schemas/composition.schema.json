@@ -112,7 +112,7 @@
       "description": "Free-form note for downstream operators, especially when the composition serves as a teaching artifact. Use a YAML literal block scalar (|) for multi-line content."
     },
     "hivemind_labels": {
-      "$ref": "https://loa.dev/schemas/hivemind-labels.schema.json",
+      "$ref": "https://loa.dev/hivemind/labels.schema.json",
       "description": "Composition-level Hivemind Laboratory taxonomy. Names the user-truth context this whole workflow serves (product area + JTBD + source). Optional but encouraged — anti-spiral tether."
     },
     "surface_class": {
@@ -209,7 +209,7 @@
           "description": "v1.2: Conditional emission predicate. Output is only produced when this condition holds (e.g., 'stage 4 verdict.passed == true', 'on_chain_failure'). Free-form prose; runner-interpreted."
         },
         "hivemind_labels": {
-          "$ref": "https://loa.dev/schemas/hivemind-labels.schema.json",
+          "$ref": "https://loa.dev/hivemind/labels.schema.json",
           "description": "Per-output Hivemind Laboratory labels. Use to declare what KIND of artifact this output is (artifact_type) and how confident we are (learning_status). Composition-level labels in `hivemind_labels` apply by default; per-output overrides where needed."
         }
       }

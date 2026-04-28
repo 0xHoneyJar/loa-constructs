@@ -105,7 +105,7 @@ Cross-repo consumers (e.g. `loa-compositions/.github/workflows/validate-schema.y
 | Schema | Current | Notes |
 |--------|---------|-------|
 | `composition.schema.json` | **1.2** | v1.1 added 2026-04-27: `surface_class`, `thinking_effort` (top-level + per-stage), `vocabulary_governance` (per-stage), `codex_mode` (per-stage). Refactor: HivemindLabels extracted to standalone schema. v1.2 (this entry) catches schema up to registry reality — adds 11 stage-level field shapes, output `emit_when`, top-level `changelog`/`depends_on`/`upstream_composition`, mode `blocking`, 4 new role enums, half-stage numbers, relaxed `name`/`persona`/`skill`/`composes_symmetrically_with`/`known_limitations`. All additive; v1.0/v1.1 YAMLs validate unchanged. |
-| `hivemind-labels.schema.json` | **1.0** | New 2026-04-27. Extracted from `composition.schema.json $defs/HivemindLabels` so it can be `$ref`'d by other schemas (prd/sdd/sprint/canvas types) and external consumers (Linear sync, dashboards, MCP wrappers) without dragging the composition schema graph behind it. |
+| `hivemind-labels.schema.json` | **migrated → [loa-hivemind](https://github.com/0xHoneyJar/loa-hivemind)** | Lived here briefly (2026-04-27 morning). Migrated to its own repo same day per operator decision: *"Eileen's framework deserves its own home."* Composition schema's `$ref` now points to `https://loa.dev/hivemind/labels.schema.json`. |
 | `prd.schema.json` | (existing) | Pre-doctrine; no formal versioning yet. |
 | `sdd.schema.json` | (existing) | Pre-doctrine; no formal versioning yet. |
 | `sprint.schema.json` | (existing) | Pre-doctrine; no formal versioning yet. |
@@ -130,7 +130,8 @@ PRD/SDD/Sprint/Trajectory schemas adopt this policy on their next bump. Until th
 
 | Version | Date | Change | Backward-compat | PR |
 |---------|------|--------|-----------------|-----|
-| 1.0 | 2026-04-27 | Initial schema. Lifted from `composition.schema.json $defs/HivemindLabels` as it existed at composition v1.1. Same fields, enums, and descriptions; standalone `$id` for cross-schema reuse. | — | (this PR) |
+| 1.0 | 2026-04-27 | Initial schema. Lifted from `composition.schema.json $defs/HivemindLabels` as it existed at composition v1.1. Same fields, enums, and descriptions; standalone `$id` for cross-schema reuse. | — | #216 |
+| migrated | 2026-04-27 | Schema **moved out of this repo** to [`0xHoneyJar/loa-hivemind`](https://github.com/0xHoneyJar/loa-hivemind). New `$id`: `https://loa.dev/hivemind/labels.schema.json` (was: `https://loa.dev/schemas/hivemind-labels.schema.json`). composition.schema.json's `$ref` updated to point to the new home. Same content; cross-cutting taxonomy gets a dedicated repo so it can evolve independently of any single consumer. | ✅ Schema content unchanged. ⚠ Consumers caching the old `$id` URL must update. | (this PR) |
 
 ---
 
