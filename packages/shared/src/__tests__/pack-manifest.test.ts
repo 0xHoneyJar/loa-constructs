@@ -886,10 +886,112 @@ describe('Substrate-Construct: type + executable + runtime + requirements + stre
     expect(result.success).toBe(false);
   });
 
-  it('rejects streams entry without subject', () => {
+  it('rejects streams object entry without subject', () => {
     const manifest = {
       ...SUBSTRATE_MANIFEST,
       streams: { reads: [{ schema: 'foo' }] },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+
+  // ── Bridgebuilder F1 backward-compat fix (cycle 2026-05-03) ──────────
+
+  it('accepts streams cycle-002 string-shape (Intent, Verdict, Artifact)', () => {
+    // construct-creator and any future skill-pack riding the cycle-002
+    // typed-streams primitive use bare strings naming the stream type.
+    // The substrate-construct's substrateStreamEntrySchema must admit BOTH
+    // shapes (z.union of string OR object) — verified here.
+    const manifest = {
+      name: 'Construct Creator',
+      slug: 'construct-creator',
+      version: '1.0.0',
+      description: 'Skill-pack that emits typed streams (cycle-002 convention)',
+      type: 'skill-pack' as const,
+      skills: [{ slug: 'creating-constructs', path: 'skills/creating-constructs/' }],
+      streams: {
+        reads: ['Intent', 'Operator-Model'],
+        writes: ['Verdict', 'Artifact', 'Signal'],
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts streams mixed shape (string + object)', () => {
+    // Forward-compat — a pack might bridge cycle-002 typed-streams AND
+    // substrate-construct Kafka subjects in the same manifest. Mixed array
+    // must pass.
+    const manifest = {
+      ...SUBSTRATE_MANIFEST,
+      streams: {
+        reads: [
+          'Intent',
+          { subject: 'agent.lore-essay.submission', schema: '@freeside-quests/protocol#SubstrateStepSubmission' },
+        ],
+        writes: ['Verdict'],
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+
+  // ── Bridgebuilder F1 + F2 superRefine tightening (cycle 2026-05-03) ──
+
+  it('rejects substrate-construct with empty runtime: {} (engine missing)', () => {
+    // Previously passed because runtime was just-non-undefined. The Bridgebuilder
+    // F1 finding caught this: runtime.engine is the load-bearing field that
+    // tells the runtime layer which engine to spawn. Empty object defeats
+    // dispatch.
+    const manifest = { ...SUBSTRATE_MANIFEST, runtime: {} };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issues = result.error.issues.map((i) => i.message);
+      expect(issues.some((m) => m.includes('runtime.engine'))).toBe(true);
+    }
+  });
+
+  it('rejects substrate-construct executable without protocol.input', () => {
+    // Doctrine emphasizes typed-input → typed-output; an executable without
+    // protocol refs is opaque. Bridgebuilder F2 finding.
+    const manifest = {
+      ...SUBSTRATE_MANIFEST,
+      executable: {
+        entry: 'src/index.ts',
+        export: 'doThing',
+        protocol: { output: 'src/protocol.ts#Output' }, // input missing
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issues = result.error.issues.map((i) => i.message);
+      expect(issues.some((m) => m.includes('executable.protocol.input'))).toBe(true);
+    }
+  });
+
+  it('rejects substrate-construct executable without protocol.output', () => {
+    const manifest = {
+      ...SUBSTRATE_MANIFEST,
+      executable: {
+        entry: 'src/index.ts',
+        export: 'doThing',
+        protocol: { input: 'src/protocol.ts#Input' }, // output missing
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issues = result.error.issues.map((i) => i.message);
+      expect(issues.some((m) => m.includes('executable.protocol.output'))).toBe(true);
+    }
+  });
+
+  it('rejects substrate-construct executable without any protocol declaration', () => {
+    const manifest = {
+      ...SUBSTRATE_MANIFEST,
+      executable: { entry: 'src/index.ts', export: 'doThing' }, // no protocol
     };
     const result = packManifestSchema.safeParse(manifest);
     expect(result.success).toBe(false);

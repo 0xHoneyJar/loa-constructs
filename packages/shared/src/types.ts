@@ -345,8 +345,14 @@ export interface PackManifest {
 
   // === Construct Lifecycle fields (FR-1, cycle-032) ===
 
-  /** Construct archetype — determines scaffold template and validation rules */
-  type?: 'skill-pack' | 'tool-pack' | 'codex' | 'template';
+  /**
+   * Construct archetype — determines scaffold template and validation rules.
+   * `substrate-construct` (NEW · cycle 2026-05-03 substrate-integration) marks
+   * executable Effect programs that take typed input and yield typed output via
+   * the Effect Requirements channel. Distinguished from `skill-pack` (markdown
+   * + slash commands) and `codex` (knowledge bases).
+   */
+  type?: 'skill-pack' | 'tool-pack' | 'codex' | 'template' | 'substrate-construct';
   /** Runtime environment requirements for tool-pack and codex types */
   runtime_requirements?: {
     runtime?: string;
@@ -383,6 +389,50 @@ export interface PackManifest {
   hooks?: {
     post_install?: string;
     post_update?: string;
+  };
+
+  // === Substrate-Construct fields (cycle 2026-05-03 substrate-integration) ===
+  // Required when type === 'substrate-construct' (enforced by superRefine on
+  // packManifestSchema in validation.ts). Drift between this interface and
+  // the Zod schema would defeat the JSON Schema/Zod symmetry — keep aligned.
+
+  /** Runtime engine declaration for substrate-constructs (executable Effect programs) */
+  runtime?: {
+    engine?: 'effect-ts' | 'vanilla-ts' | 'node';
+    engine_version?: string;
+    node_version?: string;
+  };
+  /** Executable declaration — entrypoint module + named export + per-construct protocol Schema refs */
+  executable?: {
+    entry: string;
+    export: string;
+    protocol?: {
+      input?: string;
+      output?: string;
+    };
+  };
+  /** Effect Requirements channel — typed dependencies the runtime layer injects */
+  requirements?: Array<{
+    tag: string;
+    contract?: string;
+    description?: string;
+  }>;
+  /**
+   * Stream shape declarations. Two conventions admitted:
+   * - cycle-002 string-shape (typed-stream names: Intent, Verdict, Artifact, Signal, Operator-Model)
+   * - substrate-construct object-shape (Kafka subject + envelope schema + per-construct narrowing)
+   */
+  streams?: {
+    reads?: Array<string | {
+      subject: string;
+      schema?: string;
+      narrows_to?: string;
+    }>;
+    writes?: Array<string | {
+      subject: string;
+      schema?: string;
+      from?: string;
+    }>;
   };
 
   // Inter-construct relationships (used in actual construct.yaml files)

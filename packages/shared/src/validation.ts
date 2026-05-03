@@ -379,23 +379,31 @@ export const substrateRequirementSchema = z.object({
 }).passthrough();
 
 /**
- * Single Kafka/NATS topic declaration on the read or write side.
+ * Single stream declaration on the read or write side.
  *
- * `subject` follows the three-segment routing convention
- * `{aggregate}.{noun}.{verb}` from loa-hounfour DomainEvent.
+ * Two conventions admitted (Bridgebuilder F1 backward-compat fix):
  *
- * `schema` references the over-the-wire envelope (e.g.
- * `@freeside-quests/protocol#SubstrateStepSubmission`).
+ * 1. **Cycle-002 typed-stream string** — bare string naming the typed-stream
+ *    primitive (Intent, Verdict, Artifact, Signal, Operator-Model). Used by
+ *    skill-packs (e.g. construct-creator) that consume/emit typed streams
+ *    without a Kafka subject. See `~/.loa/.claude/schemas/{stream}.schema.json`.
  *
- * `narrows_to` (read side) / `from` (write side) reference the
- * per-construct narrowing — what shape this construct works with internally.
+ * 2. **Substrate-construct object** — Kafka topic subject + envelope schema
+ *    + per-construct narrowing. Used by `type: substrate-construct` packs.
+ *    `subject` follows the three-segment routing convention
+ *    `{aggregate}.{noun}.{verb}` from loa-hounfour DomainEvent.
+ *    `schema` references the over-the-wire envelope.
+ *    `narrows_to` (read side) / `from` (write side) reference per-construct shape.
  */
-export const substrateStreamEntrySchema = z.object({
-  subject: z.string().min(1).max(200),
-  schema: z.string().max(500).optional(),
-  narrows_to: z.string().max(500).optional(),
-  from: z.string().max(500).optional(),
-}).passthrough();
+export const substrateStreamEntrySchema = z.union([
+  z.string().min(1).max(200),
+  z.object({
+    subject: z.string().min(1).max(200),
+    schema: z.string().max(500).optional(),
+    narrows_to: z.string().max(500).optional(),
+    from: z.string().max(500).optional(),
+  }).passthrough(),
+]);
 
 /**
  * NATS/Kafka topic shape declarations for substrate-constructs. Reads
@@ -543,8 +551,12 @@ export const packManifestSchema = z.object({
     scope: z.enum(['internal', 'external']).default('internal'),
   }).optional(),
 }).passthrough().superRefine((manifest, ctx) => {
-  // Substrate-Construct conditional refinement (cycle 2026-05-03):
-  // when type === 'substrate-construct', executable + runtime are required.
+  // Substrate-Construct conditional refinement (cycle 2026-05-03 · tightened
+  // per Bridgebuilder F1 + F2 review): when type === 'substrate-construct',
+  // executable + runtime are required AND each must be load-bearing (not just
+  // an empty object). Empty `runtime: {}` previously passed because `engine`
+  // was optional — that defeats the runtime layer's ability to dispatch.
+  // Empty `executable.protocol` similarly defeated typed-input/output guarantee.
   if (manifest.type === 'substrate-construct') {
     if (!manifest.executable) {
       ctx.addIssue({
@@ -552,12 +564,40 @@ export const packManifestSchema = z.object({
         message: "substrate-construct requires `executable` declaration (entry + export)",
         path: ['executable'],
       });
+    } else {
+      // executable.protocol.input + output must both be present — the
+      // doctrine emphasizes typed-input → typed-output (per OSTROM
+      // hexagonal port discipline). An executable without protocol refs is
+      // an opaque function — the runtime can't validate the wire format.
+      if (!manifest.executable.protocol?.input) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "substrate-construct requires `executable.protocol.input` (Effect Schema reference for input shape)",
+          path: ['executable', 'protocol', 'input'],
+        });
+      }
+      if (!manifest.executable.protocol?.output) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "substrate-construct requires `executable.protocol.output` (Effect Schema reference for output shape)",
+          path: ['executable', 'protocol', 'output'],
+        });
+      }
     }
     if (!manifest.runtime) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "substrate-construct requires `runtime` declaration (engine, version)",
         path: ['runtime'],
+      });
+    } else if (!manifest.runtime.engine) {
+      // runtime.engine is the load-bearing field — the runtime layer needs
+      // it to know which engine to spawn (effect-ts | vanilla-ts | node).
+      // An empty `runtime: {}` previously passed; now correctly rejected.
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "substrate-construct requires `runtime.engine` (effect-ts | vanilla-ts | node)",
+        path: ['runtime', 'engine'],
       });
     }
   }
