@@ -762,3 +762,136 @@ describe('Construct Lifecycle: meta_probe drift reconciliation', () => {
     expect(result.success).toBe(true);
   });
 });
+
+// ── Substrate-Construct schema (cycle 2026-05-03 substrate-integration) ──
+
+describe('Substrate-Construct: type + executable + runtime + requirements + streams', () => {
+  const SUBSTRATE_MANIFEST = {
+    name: 'Lore Essay Grader',
+    slug: 'lore-essay-grader',
+    version: '0.1.0',
+    description: 'BORGES-personified subjective essay grader for substrate-graded activity steps',
+    type: 'substrate-construct' as const,
+    runtime: {
+      engine: 'effect-ts' as const,
+      engine_version: '^3.10.0',
+      node_version: '>=20.0.0',
+    },
+    executable: {
+      entry: 'src/index.ts',
+      export: 'gradeLoreEssay',
+      protocol: {
+        input: 'src/protocol.ts#LoreEssayInput',
+        output: 'src/protocol.ts#LoreEssayOutput',
+      },
+    },
+    requirements: [
+      { tag: 'ModelRunner', contract: 'src/grader.ts#ModelRunner', description: 'LLM invocation port' },
+      { tag: 'Logger', contract: 'effect/Logger' },
+    ],
+    streams: {
+      reads: [
+        {
+          subject: 'agent.lore-essay.submission',
+          schema: '@freeside-quests/protocol#SubstrateStepSubmission',
+          narrows_to: 'src/protocol.ts#LoreEssayInput',
+        },
+      ],
+      writes: [
+        {
+          subject: 'agent.lore-essay.verdict',
+          schema: '@freeside-quests/protocol#SubstrateStepVerdict',
+          from: 'src/protocol.ts#LoreEssayOutput',
+        },
+      ],
+    },
+  };
+
+  it('accepts a fully-formed substrate-construct manifest', () => {
+    const result = packManifestSchema.safeParse(SUBSTRATE_MANIFEST);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts substrate-construct without skills (skills optional for this type)', () => {
+    const manifest = { ...SUBSTRATE_MANIFEST };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts skill-pack without runtime/executable (backward compat)', () => {
+    const manifest = {
+      name: 'Skill Pack',
+      slug: 'skill-pack-test',
+      version: '1.0.0',
+      description: 'A normal skill-pack manifest',
+      type: 'skill-pack' as const,
+      skills: [{ slug: 'do-thing', path: 'skills/do-thing/' }],
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects substrate-construct missing executable', () => {
+    const { executable, ...manifest } = SUBSTRATE_MANIFEST;
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issues = result.error.issues.map((i) => i.message);
+      expect(issues.some((m) => m.includes('executable'))).toBe(true);
+    }
+  });
+
+  it('rejects substrate-construct missing runtime', () => {
+    const { runtime, ...manifest } = SUBSTRATE_MANIFEST;
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const issues = result.error.issues.map((i) => i.message);
+      expect(issues.some((m) => m.includes('runtime'))).toBe(true);
+    }
+  });
+
+  it('rejects substrate-construct missing both executable and runtime', () => {
+    const { executable, runtime, ...manifest } = SUBSTRATE_MANIFEST;
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts executable on a non-substrate-construct (additive, not exclusive)', () => {
+    // Backward-compat: a skill-pack MAY ship an executable too — the
+    // conditional only enforces requiredness, not exclusivity.
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      executable: {
+        entry: 'src/index.ts',
+        export: 'doThing',
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects requirements entry without tag', () => {
+    const manifest = {
+      ...SUBSTRATE_MANIFEST,
+      requirements: [{ contract: 'effect/Logger' }],
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects executable without entry or export', () => {
+    const manifest = { ...SUBSTRATE_MANIFEST, executable: { entry: 'src/index.ts' } };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects streams entry without subject', () => {
+    const manifest = {
+      ...SUBSTRATE_MANIFEST,
+      streams: { reads: [{ schema: 'foo' }] },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+});

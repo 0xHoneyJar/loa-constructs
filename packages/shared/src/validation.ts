@@ -280,8 +280,22 @@ export const compositionPathsSchema = z.object({
 
 // ── Construct Lifecycle schemas (cycle-032, FR-1) ──────────────────
 
-/** Construct archetype */
-export const constructTypeSchema = z.enum(['skill-pack', 'tool-pack', 'codex', 'template']);
+/** Construct archetype.
+ *
+ * `substrate-construct` (NEW · cycle 2026-05-03 substrate-integration) is the
+ * pack type for executable Effect programs that take typed input and yield
+ * typed output via the Effect Requirements channel. Distinguished from
+ * `skill-pack` (markdown + slash commands loaded by Claude Code) and `codex`
+ * (knowledge bases). Substrate-constructs ship `executable`, `runtime`,
+ * `requirements`, and `streams` fields (see below).
+ */
+export const constructTypeSchema = z.enum([
+  'skill-pack',
+  'tool-pack',
+  'codex',
+  'template',
+  'substrate-construct',
+]);
 
 /** Runtime environment requirements */
 export const runtimeRequirementsSchema = z.object({
@@ -317,6 +331,83 @@ export const identitySchema = z.object({
   persona: z.string().max(500).optional(),
   expertise: z.string().max(500).optional(),
 });
+
+// ── Substrate-Construct schemas (cycle 2026-05-03 substrate-integration) ────
+
+/**
+ * Runtime engine declaration for substrate-constructs (executable Effect
+ * programs). Tells the runtime layer what engine + version + node target
+ * the executable expects.
+ */
+export const substrateRuntimeSchema = z.object({
+  engine: z.enum(['effect-ts', 'vanilla-ts', 'node']).optional(),
+  engine_version: z.string().max(50).optional(),
+  node_version: z.string().max(50).optional(),
+}).passthrough();
+
+/**
+ * Executable declaration for substrate-constructs. Names the entrypoint
+ * module + the named export to invoke + the per-construct protocol Schema
+ * references for input + output shapes.
+ *
+ * `entry` and `export` are required for substrate-construct type (enforced
+ * via the conditional refinement on packManifestSchema).
+ */
+export const substrateExecutableSchema = z.object({
+  entry: z.string().min(1).max(500),
+  export: z.string().min(1).max(200),
+  protocol: z.object({
+    input: z.string().max(500).optional(),
+    output: z.string().max(500).optional(),
+  }).passthrough().optional(),
+}).passthrough();
+
+/**
+ * Effect Requirements channel declaration. Each entry names a typed
+ * dependency the runtime layer injects per pool/tier policy. Per OSTROM
+ * hexagonal port discipline.
+ *
+ * Examples:
+ *   - { tag: "ModelRunner", contract: "src/grader.ts#ModelRunner" }
+ *   - { tag: "Logger", contract: "effect/Logger" }
+ *   - { tag: "Clock", contract: "effect/Clock" }
+ */
+export const substrateRequirementSchema = z.object({
+  tag: z.string().min(1).max(200),
+  contract: z.string().max(500).optional(),
+  description: z.string().max(500).optional(),
+}).passthrough();
+
+/**
+ * Single Kafka/NATS topic declaration on the read or write side.
+ *
+ * `subject` follows the three-segment routing convention
+ * `{aggregate}.{noun}.{verb}` from loa-hounfour DomainEvent.
+ *
+ * `schema` references the over-the-wire envelope (e.g.
+ * `@freeside-quests/protocol#SubstrateStepSubmission`).
+ *
+ * `narrows_to` (read side) / `from` (write side) reference the
+ * per-construct narrowing — what shape this construct works with internally.
+ */
+export const substrateStreamEntrySchema = z.object({
+  subject: z.string().min(1).max(200),
+  schema: z.string().max(500).optional(),
+  narrows_to: z.string().max(500).optional(),
+  from: z.string().max(500).optional(),
+}).passthrough();
+
+/**
+ * NATS/Kafka topic shape declarations for substrate-constructs. Reads
+ * describe what topics this construct subscribes to + how the envelope
+ * narrows to the per-construct input. Writes describe what topics this
+ * construct publishes + how the per-construct output broadens to the
+ * envelope.
+ */
+export const substrateStreamsSchema = z.object({
+  reads: z.array(substrateStreamEntrySchema).max(20).optional(),
+  writes: z.array(substrateStreamEntrySchema).max(20).optional(),
+}).passthrough();
 
 /**
  * Lifecycle hooks — constrained to safe script paths to prevent supply-chain attacks.
@@ -414,6 +505,13 @@ export const packManifestSchema = z.object({
   identity: identitySchema.optional(),
   hooks: lifecycleHooksSchema.optional(),
 
+  // Substrate-Construct fields (cycle 2026-05-03 substrate-integration)
+  // Required when type === 'substrate-construct' (enforced by superRefine below)
+  runtime: substrateRuntimeSchema.optional(),
+  executable: substrateExecutableSchema.optional(),
+  requirements: z.array(substrateRequirementSchema).max(20).optional(),
+  streams: substrateStreamsSchema.optional(),
+
   // Composability fields (cycle-051)
   composition_paths: compositionPathsSchema.optional(),
   governs: z.array(slugSchema).max(20).optional(),
@@ -444,7 +542,26 @@ export const packManifestSchema = z.object({
     skill: z.string().optional(),
     scope: z.enum(['internal', 'external']).default('internal'),
   }).optional(),
-}).passthrough();
+}).passthrough().superRefine((manifest, ctx) => {
+  // Substrate-Construct conditional refinement (cycle 2026-05-03):
+  // when type === 'substrate-construct', executable + runtime are required.
+  if (manifest.type === 'substrate-construct') {
+    if (!manifest.executable) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "substrate-construct requires `executable` declaration (entry + export)",
+        path: ['executable'],
+      });
+    }
+    if (!manifest.runtime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "substrate-construct requires `runtime` declaration (engine, version)",
+        path: ['runtime'],
+      });
+    }
+  }
+});
 
 /**
  * Validate a pack manifest
@@ -566,3 +683,10 @@ export type Credential = z.infer<typeof credentialSchema>;
 export type AccessLayer = z.infer<typeof accessLayerSchema>;
 export type Identity = z.infer<typeof identitySchema>;
 export type LifecycleHooks = z.infer<typeof lifecycleHooksSchema>;
+
+// Substrate-Construct types (cycle 2026-05-03 substrate-integration)
+export type SubstrateRuntime = z.infer<typeof substrateRuntimeSchema>;
+export type SubstrateExecutable = z.infer<typeof substrateExecutableSchema>;
+export type SubstrateRequirement = z.infer<typeof substrateRequirementSchema>;
+export type SubstrateStreamEntry = z.infer<typeof substrateStreamEntrySchema>;
+export type SubstrateStreams = z.infer<typeof substrateStreamsSchema>;
