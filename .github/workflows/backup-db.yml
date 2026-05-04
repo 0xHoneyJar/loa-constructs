@@ -1,0 +1,80 @@
+name: Backup Turso DB
+
+# Cycle-012 T1.10: daily Turso dump → R2 per SDD §8 / NFR7.
+# OPERATOR SETUP REQUIRED before this workflow will run successfully:
+#   - Secrets: TURSO_AUTH_TOKEN (read-only ok), R2_ACCESS_KEY_ID,
+#              R2_SECRET_ACCESS_KEY, R2_ACCOUNT_ID
+#   - Vars:    TURSO_DATABASE_NAME (default: constructs-network-prod),
+#              R2_BUCKET (default: 0xhoneyjar-backups)
+# See apps/api/docs/disaster-recovery.md for restore procedure.
+
+permissions:
+  contents: read
+
+on:
+  schedule:
+    # Daily at 03:00 UTC (low-traffic window)
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  backup:
+    name: Dump + upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      TURSO_DATABASE_NAME: ${{ vars.TURSO_DATABASE_NAME || 'constructs-network-prod' }}
+      R2_BUCKET: ${{ vars.R2_BUCKET || '0xhoneyjar-backups' }}
+    steps:
+      - name: Install Turso CLI
+        run: |
+          curl -sSfL https://get.tur.so/install.sh | bash
+          echo "$HOME/.turso" >> "$GITHUB_PATH"
+
+      - name: Preflight — check secrets
+        env:
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+        run: |
+          missing=()
+          [ -z "$TURSO_AUTH_TOKEN" ] && missing+=("TURSO_AUTH_TOKEN")
+          [ -z "$R2_ACCESS_KEY_ID" ] && missing+=("R2_ACCESS_KEY_ID")
+          [ -z "$R2_SECRET_ACCESS_KEY" ] && missing+=("R2_SECRET_ACCESS_KEY")
+          [ -z "$R2_ACCOUNT_ID" ] && missing+=("R2_ACCOUNT_ID")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing secrets: ${missing[*]} — see apps/api/docs/disaster-recovery.md §5"
+            exit 1
+          fi
+
+      - name: Dump Turso DB
+        env:
+          TURSO_AUTH_TOKEN: ${{ secrets.TURSO_AUTH_TOKEN }}
+        run: |
+          STAMP=$(date -u +%Y-%m-%d)
+          DUMP_PATH=/tmp/${TURSO_DATABASE_NAME}-${STAMP}.sql
+          turso db shell "$TURSO_DATABASE_NAME" .dump > "$DUMP_PATH"
+          gzip "$DUMP_PATH"
+          echo "ARCHIVE=${DUMP_PATH}.gz" >> "$GITHUB_ENV"
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+
+      - name: Upload to R2 (S3 API)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+        run: |
+          aws s3 cp "$ARCHIVE" \
+            "s3://${R2_BUCKET}/loa-constructs-api/${STAMP}.sql.gz" \
+            --endpoint-url "$R2_ENDPOINT" \
+            --only-show-errors
+
+      - name: Report
+        run: |
+          echo "## Backup Report" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- DB: \`${TURSO_DATABASE_NAME}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Archive: \`s3://${R2_BUCKET}/loa-constructs-api/${STAMP}.sql.gz\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Size: $(du -h "$ARCHIVE" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"

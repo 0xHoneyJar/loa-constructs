@@ -4,6 +4,7 @@
  * @see sdd.md §1.3 Technology Stack - Observability
  */
 
+import { randomUUID } from 'node:crypto';
 import * as Sentry from '@sentry/node';
 import { env, isProduction } from '../config/env.js';
 import { logger } from './logger.js';
@@ -98,7 +99,7 @@ export function captureException(error: Error | unknown, context?: ErrorContext)
     });
   }
 
-  return crypto.randomUUID();
+  return randomUUID();
 }
 
 /**
@@ -130,7 +131,7 @@ export function captureMessage(message: string, context?: ErrorContext): string 
     });
   }
 
-  return crypto.randomUUID();
+  return randomUUID();
 }
 
 /**

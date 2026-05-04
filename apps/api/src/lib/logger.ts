@@ -1,14 +1,17 @@
-import pino from 'pino';
+import pinoFactory from 'pino';
 import { env } from '../config/env.js';
 
 /**
  * Structured logger configuration
  * @see sdd.md §6.4 Logging Strategy
  */
+const pino = (pinoFactory as unknown as typeof pinoFactory & { default?: typeof pinoFactory })
+  .default ?? pinoFactory;
+
 export const logger = pino({
   level: env.LOG_LEVEL,
   formatters: {
-    level: (label) => ({ level: label }),
+    level: (label: string) => ({ level: label }),
   },
   timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
   // Pretty print in development

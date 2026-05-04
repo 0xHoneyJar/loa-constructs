@@ -1,62 +1,34 @@
-import { drizzle, type PostgresJsDatabase } from 'drizzle-orm/postgres-js';
-import postgres from 'postgres';
+import { drizzle, type LibSQLDatabase } from 'drizzle-orm/libsql';
+import { createClient } from '@libsql/client';
 import { env } from '../config/env.js';
 import * as schema from './schema.js';
-import { mockDb } from './mock.js';
 
 /**
- * Database Client
- * @see sdd-infrastructure-migration.md §3.1 Database Layer Changes
- * @see sdd-local-dev-dx.md §3.4 index.ts Modification
+ * Database client — libSQL (Turso managed edge / file:./local.db)
+ * @see sdd.md §4 Technology stack
+ * @see sdd.md §6.5 Secrets management
  *
- * Uses postgres-js driver with PgBouncer compatibility settings for Supabase.
- * - prepare: false - Required for PgBouncer transaction mode
- * - max: 10 - Connection pool size matching Railway container resources
- * - idle_timeout: 20 - Seconds before idle connection closed
- * - connect_timeout: 10 - Connection timeout in seconds
+ * Prod: TURSO_DATABASE_URL=libsql://<db>-<org>.turso.io + TURSO_AUTH_TOKEN
+ * Dev:  TURSO_DATABASE_URL=file:./local.db (no auth token required)
  *
- * Mock Mode:
- * Set DEV_MOCK_DB=true to use mock database with static responses.
- * Useful for local development without a real database connection.
+ * [[sovereign-stack]] — libSQL protocol is identical whether edge-hosted or
+ * self-hosted, so future migration to sqld on Freeside ECS is zero schema work.
  */
 
-// Check for mock mode - checked early before env validation
-const useMockDb = process.env.DEV_MOCK_DB === 'true';
+type Database = LibSQLDatabase<typeof schema>;
 
-// Type for the database - always use the real Drizzle type for type safety
-type Database = PostgresJsDatabase<typeof schema>;
-
-// Create the database connection
 function createDatabase(): Database {
-  if (useMockDb) {
-    console.log('[db] Using mock database (DEV_MOCK_DB=true)');
-    console.log('[db] Write operations will be logged and ignored');
-    // Cast mockDb to match the Drizzle type - mock mode is for development only
-    return mockDb as unknown as Database;
-  }
+  const url = env.TURSO_DATABASE_URL || 'file:./local.db';
+  const authToken = env.TURSO_AUTH_TOKEN;
 
-  // Create postgres-js client with PgBouncer compatibility
-  // In test environment without DATABASE_URL, use a dummy connection that will fail on actual queries
-  const connectionString = env.DATABASE_URL || 'postgresql://dummy:dummy@localhost:5432/dummy';
-
-  const client = postgres(connectionString, {
-    prepare: false, // Required for PgBouncer transaction mode (Supabase pooler)
-    max: 10, // Connection pool size
-    idle_timeout: 20, // Seconds before idle connection closed
-    connect_timeout: 10, // Connection timeout in seconds
-    // Set statement_timeout to prevent infinite hangs when Supabase PgBouncer
-    // pool is exhausted — it accepts TCP connections but queues queries indefinitely.
-    connection: {
-      statement_timeout: '15000', // 15 seconds in ms — fail fast instead of hang forever
-    },
+  const client = createClient({
+    url,
+    ...(authToken ? { authToken } : {}),
   });
 
-  // Create Drizzle ORM instance with schema
   return drizzle(client, { schema });
 }
 
-// Export the database instance
 export const db = createDatabase();
 
-// Export schema for use in queries
 export * from './schema.js';
