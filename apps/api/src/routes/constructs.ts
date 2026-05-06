@@ -23,6 +23,7 @@ import {
   listConstructsFromRegistry,
   getConstructBySlugFromRegistry,
 } from '../services/constructs-yaml.js';
+import { registryCacheStateMiddleware } from '../middleware/registry-cache-state.js';
 import { isSlugAvailable, createPack, getPackBySlug, getAccessContext } from '../services/packs.js';
 import { db, packs } from '../db/index.js';
 import { eq } from 'drizzle-orm';
@@ -36,6 +37,10 @@ export const constructsRouter = new Hono();
 
 // Apply rate limiting (reuse skills limiter)
 constructsRouter.use('*', skillsRateLimiter());
+
+// Stamp X-Registry-Source + X-Registry-Last-Updated on every yaml-driven response.
+// (T-1.11d · cycle constructs-network-migration · FR-1.6.7)
+constructsRouter.use('*', registryCacheStateMiddleware());
 
 // --- Schemas ---
 
