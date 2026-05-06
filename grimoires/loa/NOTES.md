@@ -1,5 +1,30 @@
 # Loa Project Notes
 
+## /ride 2026-05-05 — first full ride of loa-constructs
+
+Single-pass ride against `loa-constructs` (the distribution-plane app), branch `feat/substrate-construct-manifest-schema` @ 2a5ffefb.
+
+**Result**: 11/11 expected artifacts persisted; PRD 90% GROUNDED, SDD 85% GROUNDED.
+
+**Artifacts**:
+- `grimoires/loa/prd.md` (backed up prior cycle-051 PRD as `prd.md.pre-ride-2026-05-05`)
+- `grimoires/loa/sdd.md` (backed up prior cycle-050 SDD as `sdd.md.pre-ride-2026-05-05`)
+- `grimoires/loa/drift-report.md` — score 7.5/10 (1 ghost: `apps/explorer` lifted per cycle-007; 4 stale docs)
+- `grimoires/loa/consistency-report.md` — score 7.5/10 (3 conflicts: dual visibility-guard, skill-vs-pack APIs, vitest version drift)
+- `grimoires/loa/governance-report.md` — score 8/10
+- `grimoires/loa/reality/{index,architecture-overview,structure,api-surface,types,interfaces,entry-points}.md` (~6.9K tokens, within 8.5K budget)
+- `grimoires/loa/legacy/INVENTORY.md` (30+ docs cataloged)
+- `grimoires/loa/trajectory-audit.md`
+- `grimoires/loa/a2a/trajectory/riding-20260505.jsonl`
+
+**Counts**: 30 Drizzle tables · ~94 route handlers · 21 env vars · 30 test files · 8 SQL migrations · 0 grep-detectable TODO/FIXME markers.
+
+**Highlights for follow-up**:
+- 12 hygiene items flagged for human decision (multiple PRD candidates, SKILL.md.bak, NOTES.md.tmp, vitest version drift, dual visibility-guard, etc.)
+- `services/blacklist.ts` purpose underdocumented
+- Convex env vars (CONVEX_*) referenced but no `services/convex.ts` located
+- No ADRs found; future `--with-decisions` ride will surface a gap entry
+
 ## Sprint 2 SHIPPED — 2026-05-04 (PR #705, commit a7c50ff)
 
 L2 cost-budget-enforcer + reconciliation cron + daily snapshot job. 4 sub-sprints (2A/2B/2C/2D) implemented inline on Opus 4.7 1M context (vs Sprint 1's subagent dispatch). 92 / 92 tests pass; Sprint 1 regression 39 / 39 clean. Bridgebuilder kaironic converged in 2 iterations (0 BLOCKER, 0 HIGH_CONSENSUS both iters).
