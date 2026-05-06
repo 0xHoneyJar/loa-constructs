@@ -1,0 +1,118 @@
+# Construct Registry — source of truth for public constructs
+# Add a construct: PR to this file with git_url + metadata
+# Install: npx constructs-cli install <slug>
+#
+# All constructs listed here are PUBLIC and require no authentication.
+# Private/premium constructs are not listed and require separate access.
+
+version: 1
+
+constructs:
+  artisan:
+    git_url: https://github.com/0xHoneyJar/construct-artisan.git
+    description: "Taste made measurable — design physics, animation, accessibility"
+    category: design
+    author: 0xHoneyJar
+
+  beacon:
+    git_url: https://github.com/0xHoneyJar/construct-beacon.git
+    description: "AI-retrievable trust signals"
+    category: operations
+    author: 0xHoneyJar
+
+  beehive:
+    git_url: https://github.com/0xHoneyJar/construct-beehive.git
+    description: "User research + feedback pipeline"
+    category: analytics
+    author: 0xHoneyJar
+
+  gecko:
+    git_url: https://github.com/0xHoneyJar/construct-gecko.git
+    description: "Ecosystem intelligence — patrol, observe, diagnose, report"
+    category: observability
+    author: 0xHoneyJar
+
+  gtm-collective:
+    git_url: https://github.com/0xHoneyJar/construct-gtm-collective.git
+    description: "Go-to-market operations"
+    category: marketing
+    author: 0xHoneyJar
+
+  hardening:
+    git_url: https://github.com/0xHoneyJar/construct-hardening.git
+    description: "Full-stack security — API audit, auth audit, postmortem, triage"
+    category: security
+    author: 0xHoneyJar
+
+  herald:
+    git_url: https://github.com/0xHoneyJar/construct-herald.git
+    description: "Grounded product communications"
+    category: operations
+    author: 0xHoneyJar
+
+  k-hole:
+    git_url: https://github.com/0xHoneyJar/construct-k-hole.git
+    description: "Deep research engine — grounded search, source synthesis"
+    category: analytics
+    author: 0xHoneyJar
+
+  kansei:
+    git_url: https://github.com/0xHoneyJar/construct-kansei.git
+    description: "Animation, interaction + haptic design"
+    category: design
+    author: 0xHoneyJar
+
+  mibera-codex:
+    git_url: https://github.com/0xHoneyJar/construct-mibera-codex.git
+    description: "Living lore for 10,000 Beras"
+    category: documentation
+    author: 0xHoneyJar
+
+  noether:
+    git_url: https://github.com/0xHoneyJar/construct-noether.git
+    description: "Contract engineering — patterns, audits, deploy ceremonies"
+    category: smart-contracts
+    author: 0xHoneyJar
+
+  protocol:
+    git_url: https://github.com/0xHoneyJar/construct-protocol.git
+    description: "Verify the chain, not the frontend"
+    category: web3
+    author: 0xHoneyJar
+
+  rosenzu:
+    git_url: https://github.com/0xHoneyJar/construct-rosenzu.git
+    description: "Navigation + page transition design"
+    category: design
+    author: 0xHoneyJar
+
+  showcase:
+    git_url: https://github.com/0xHoneyJar/construct-showcase.git
+    description: "Landing page visual intelligence"
+    category: design
+    author: 0xHoneyJar
+
+  the-arcade:
+    git_url: https://github.com/0xHoneyJar/construct-the-arcade.git
+    description: "Game design as operating philosophy"
+    category: game-design
+    author: 0xHoneyJar
+
+  the-easel:
+    git_url: https://github.com/0xHoneyJar/construct-the-easel.git
+    description: "Aesthetic direction studio"
+    category: design
+    author: 0xHoneyJar
+
+  vocabulary-bank:
+    git_url: https://github.com/0xHoneyJar/construct-vocabulary-bank.git
+    description: "Voice + copy consistency"
+    category: documentation
+    author: 0xHoneyJar
+
+  # External constructs (community)
+  hypha:
+    git_url: https://github.com/0xElCapitan/hypha.git
+    description: "Berachain PoL historian"
+    category: analytics
+    author: El Capitan (apDAO)

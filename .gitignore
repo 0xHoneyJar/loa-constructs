@@ -277,3 +277,9 @@ app/ecosystem.config.js
 
 # Construct repo clones (used by seed script)
 .cache/
+
+# Registry-loader cold-start seed must be committed (T-1.11a · cycle
+# constructs-network-migration). Fails-loud if tampered (sha256 check).
+!apps/api/.cache/
+!apps/api/.cache/registry.yaml
+!apps/api/.cache/registry.yaml.sha256
