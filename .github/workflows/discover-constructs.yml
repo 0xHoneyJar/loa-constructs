@@ -1,10 +1,14 @@
 name: Discover Constructs
 
-# Runs daily and on manual trigger to find new construct-* repos in the org
-# Reports gaps between GitHub org namespace and registry
+# Runs daily and on manual trigger to find new construct-* repos in the org.
+# T-1.12 (cycle constructs-network-migration · FR-1.7): if drift is detected,
+# open a PR that appends new entries to registry.yaml (the canonical yaml
+# source per PRD v1.1 correction). NO database writes — packs/skills tables
+# were deprecated in 0014_deprecate_registry_tables.sql.
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 on:
   schedule:
@@ -16,11 +20,23 @@ on:
         description: 'GitHub org to scan'
         required: false
         default: '0xHoneyJar'
+      open_pr:
+        description: 'Open a PR if drift is detected (default true on schedule, opt-in on manual)'
+        required: false
+        default: 'true'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
 
 jobs:
   discover:
     name: Scan Namespace
     runs-on: ubuntu-latest
+    outputs:
+      missing: ${{ steps.summary.outputs.missing }}
+      bare: ${{ steps.summary.outputs.bare }}
+      drift_detected: ${{ steps.summary.outputs.drift_detected }}
 
     steps:
       - name: Checkout repository
@@ -32,6 +48,12 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq \
+            https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
       - name: Run discovery scan
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -39,6 +61,7 @@ jobs:
         run: bun tsx scripts/discover-constructs.ts --register --json > /tmp/discovery.json
 
       - name: Report results
+        id: summary
         run: |
           echo "## Construct Discovery Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -56,12 +79,13 @@ jobs:
           echo "| Bare (no manifest) | $BARE |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          DRIFT="false"
           if [ "$MISSING" -gt 0 ]; then
+            DRIFT="true"
             echo "### Missing from Registry" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
             jq -r '.register.missing[] | "- **\(.slug)** — \(.description // "no description") [\(.gitUrl)]"' /tmp/discovery.json >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "> Run \`AUTO_DISCOVER=true bun seed:forge\` to register these constructs." >> $GITHUB_STEP_SUMMARY
           fi
 
           if [ "$BARE" -gt 0 ]; then
@@ -70,8 +94,90 @@ jobs:
             jq -r '.results[] | select(.hasManifest == false) | "- **\(.slug)** — needs construct.yaml"' /tmp/discovery.json >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "$MISSING" -gt 0 ]; then
-            echo ""
-            echo "WARNING: $MISSING construct(s) with manifest not registered."
-            echo "Run: AUTO_DISCOVER=true bun seed:forge"
+          echo "missing=$MISSING" >> "$GITHUB_OUTPUT"
+          echo "bare=$BARE" >> "$GITHUB_OUTPUT"
+          echo "drift_detected=$DRIFT" >> "$GITHUB_OUTPUT"
+
+      - name: Apply discovery to registry.yaml
+        # Only mutate when drift detected AND PR-creation requested.
+        # Schedule fires "true" by default; manual workflow_dispatch can override.
+        if: |
+          steps.summary.outputs.drift_detected == 'true' &&
+          (github.event.inputs.open_pr != 'false')
+        env:
+          DISCOVERY_JSON: /tmp/discovery.json
+        run: |
+          set -euo pipefail
+          # Append each missing construct to registry.yaml under .constructs.<slug>.
+          # Idempotent: yq's `=` on an existing key is a no-op when value matches;
+          # we read pre-existing entries first and skip them.
+          jq -c '.register.missing[]' "$DISCOVERY_JSON" | while read -r entry; do
+            slug=$(echo "$entry" | jq -r '.slug')
+            git_url=$(echo "$entry" | jq -r '.gitUrl')
+            description=$(echo "$entry" | jq -r '.description // ""')
+            category=$(echo "$entry" | jq -r '.category // "uncategorized"')
+            author=$(echo "$entry" | jq -r '.author // "0xHoneyJar"')
+
+            # Skip if slug already present.
+            if yq ".constructs.\"$slug\"" registry.yaml | grep -qv '^null$'; then
+              echo "skip: $slug already present"
+              continue
+            fi
+
+            yq -i ".constructs.\"$slug\" = {
+              \"git_url\": \"$git_url\",
+              \"description\": \"$description\",
+              \"category\": \"$category\",
+              \"author\": \"$author\"
+            }" registry.yaml
+            echo "added: $slug"
+          done
+
+          # Show the diff for the PR body
+          git diff registry.yaml > /tmp/registry-diff.txt || true
+
+      - name: Open or update PR with registry diff
+        if: |
+          steps.summary.outputs.drift_detected == 'true' &&
+          (github.event.inputs.open_pr != 'false')
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: bot/discover-constructs
+          delete-branch: true
+          commit-message: |
+            chore(registry): apply discover-constructs findings (${{ steps.summary.outputs.missing }} new)
+
+            Auto-generated by .github/workflows/discover-constructs.yml.
+            T-1.12 (cycle constructs-network-migration).
+          title: |
+            chore(registry): apply discover-constructs findings (${{ steps.summary.outputs.missing }} new)
+          body: |
+            Daily discover-constructs scan found **${{ steps.summary.outputs.missing }}**
+            construct repo(s) with manifests not yet listed in `registry.yaml`,
+            and **${{ steps.summary.outputs.bare }}** bare repo(s) (no manifest yet).
+
+            This PR appends the missing entries. Review for category/author accuracy
+            before merging — the workflow defaults `category: uncategorized` and
+            `author: 0xHoneyJar` when discovery output didn't carry those fields.
+
+            On merge, `.github/workflows/registry-refresh.yml` fires the HMAC-signed
+            webhook to `api.constructs.0xhoneyjar.xyz/v1/admin/refresh-registry`,
+            invalidating the in-memory cache so `/v1/constructs` reflects the new
+            entries within ~10s.
+
+            🤖 Generated by `discover-constructs.yml` (T-1.12).
+          labels: |
+            registry
+            automated
+            cycle-network-migration
+
+      - name: Surface follow-ups
+        if: steps.summary.outputs.missing != '0' || steps.summary.outputs.bare != '0'
+        run: |
+          if [ "${{ steps.summary.outputs.missing }}" -gt 0 ]; then
+            echo "WARNING: ${{ steps.summary.outputs.missing }} construct(s) with manifest not registered. PR opened."
+          fi
+          if [ "${{ steps.summary.outputs.bare }}" -gt 0 ]; then
+            echo "WARNING: ${{ steps.summary.outputs.bare }} bare repo(s) (no manifest). Review manually."
           fi

@@ -78,13 +78,12 @@ export function decideCors(origin: string): CorsPolicyDecision {
 export const corsMiddleware = cors({
   origin: (origin) => {
     if (!origin) return null;
-    const { allow, credentials } = decideCors(origin);
+    const { allow } = decideCors(origin);
     if (!allow) return null;
-    // Hono cors() returns the literal origin (or null to deny). Credentials
-    // header is set separately via `credentials: true` factory option, but
-    // we want it conditional, so we leave `credentials` off the cors()
-    // factory call and add `Access-Control-Allow-Credentials` ourselves
-    // inside the route-level guard.
+    // Hono cors() returns the literal origin (or null to deny). The
+    // credentials header is conditional on the canonical operator-namespace
+    // origin only, so we don't set `credentials: true` on the cors() factory
+    // here — `conditionalCredentials` middleware below handles per-origin.
     return origin;
   },
   allowMethods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
