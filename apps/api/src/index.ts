@@ -4,6 +4,7 @@ import { app } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';
 import { initMonitoring, captureMessage } from './lib/monitoring.js';
+import { getRegistryLoader } from './lib/registry-loader.js';
 
 /**
  * API Server Entry Point
@@ -14,6 +15,29 @@ import { initMonitoring, captureMessage } from './lib/monitoring.js';
 
 // Initialize monitoring (Sentry, etc.)
 initMonitoring();
+
+// Boot the registry-loader (T-1.11a · cycle constructs-network-migration).
+// Cold-start seed loaded synchronously; raw.gh fetch + interval refresh
+// fire-and-forget so server startup isn't gated on GitHub reachability.
+// Failure to boot only loses the in-memory cache; serving still works
+// against the cold-start seed when the loader catches up async.
+getRegistryLoader()
+  .boot()
+  .then((state) => {
+    logger.info({
+      message: 'Registry loader booted',
+      source: state.source,
+      entries: state.entries.size,
+    });
+  })
+  .catch((err) => {
+    logger.error({
+      message: 'Registry loader boot failed',
+      error: err instanceof Error ? err.message : String(err),
+    });
+    // Don't exit — yaml-loaded endpoints will return empty until the
+    // loader recovers on its next interval refresh.
+  });
 
 const server = serve({
   fetch: app.fetch,

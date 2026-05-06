@@ -19,6 +19,10 @@ import {
   type Construct,
   type ConstructManifest,
 } from '../services/constructs.js';
+import {
+  listConstructsFromRegistry,
+  getConstructBySlugFromRegistry,
+} from '../services/constructs-yaml.js';
 import { isSlugAvailable, createPack, getPackBySlug, getAccessContext } from '../services/packs.js';
 import { db, packs } from '../db/index.js';
 import { eq } from 'drizzle-orm';
@@ -180,7 +184,13 @@ constructsRouter.get(
     const query = c.req.valid('query');
     const requestId = c.get('requestId');
 
-    const result = await listConstructs({
+    // Yaml-source read path (T-1.11e · cycle constructs-network-migration).
+    // Replaces the Postgres `packs`/`skills` query — those tables are
+    // deprecated per ADR-002 + 0014_deprecate_registry_tables.sql.
+    // Source of truth is loa-constructs/registry.yaml, fetched via
+    // registry-loader.ts, refreshed via /v1/admin/refresh-registry on
+    // PR-merge to that file.
+    const result = await listConstructsFromRegistry({
       query: query.q,
       type: query.type,
       tier: query.tier,
@@ -189,7 +199,7 @@ constructsRouter.get(
       featured: query.featured,
       page: query.page,
       limit: query.per_page,
-    }, getAccessContext(c));
+    });
 
     logger.info(
       {
@@ -263,7 +273,8 @@ constructsRouter.get('/:slug', optionalAuth(), async (c) => {
   const slug = c.req.param('slug');
   const requestId = c.get('requestId');
 
-  const construct = await getConstructBySlug(slug, getAccessContext(c));
+  // Yaml-source read path (T-1.11e). See list endpoint comment above.
+  const construct = await getConstructBySlugFromRegistry(slug);
 
   if (!construct) {
     throw Errors.NotFound('Construct');

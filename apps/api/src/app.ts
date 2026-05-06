@@ -23,6 +23,7 @@ import { signalsRouter } from './routes/signals.js';
 import { constructsRouter } from './routes/constructs.js';
 import { categoriesRouter } from './routes/categories.js';
 import { adminRouter } from './routes/admin.js';
+import { adminRefresh } from './routes/admin-refresh.js';
 import { keysRouter } from './routes/keys.js';
 import { publicKeysRouter } from './routes/public-keys.js';
 import { apiRateLimiter } from './middleware/rate-limiter.js';
@@ -150,6 +151,12 @@ v1.route('/keys', keysRouter);
 
 // Admin routes (requires admin role)
 v1.route('/admin', adminRouter);
+
+// Webhook-authenticated registry refresh (T-1.11b · cycle constructs-network-migration).
+// Mounted under /v1/admin so the operator endpoint is namespaced consistently
+// with other admin paths. Auth chain (HMAC + Postgres-backed nonce + rate-limit)
+// is internal to this router; no requireAdmin role check (HMAC IS the auth).
+v1.route('/admin', adminRefresh);
 
 // Public keys routes (JWT signature verification)
 // @see sdd-license-jwt-rs256.md §6.2 Route Registration

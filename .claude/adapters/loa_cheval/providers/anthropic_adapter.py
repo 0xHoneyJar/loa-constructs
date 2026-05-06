@@ -40,8 +40,19 @@ class AnthropicAdapter(ProviderAdapter):
             "model": request.model,
             "messages": messages,
             "max_tokens": request.max_tokens,
-            "temperature": request.temperature,
         }
+        # #641: Opus 4 deprecated `temperature` and rejects requests that include
+        # it with HTTP 400 ("temperature is deprecated for this model"). Gate the
+        # field on a per-model wire-protocol flag. Default True preserves
+        # back-compat for Claude 3, 3.5, and pre-4 Opus models.
+        # `isinstance` guard handles malformed configs (e.g. `params: "false"` or
+        # `params: [foo]` in YAML pass dataclass construction since Python type
+        # hints aren't enforced at runtime, but would raise AttributeError on
+        # `.get()`). Lenient default → treat malformed as missing → include
+        # temperature; dataclass schema validation upstream is the strict path.
+        params = model_config.params if isinstance(model_config.params, dict) else {}
+        if params.get("temperature_supported", True):
+            body["temperature"] = request.temperature
 
         if system_prompt:
             body["system"] = system_prompt

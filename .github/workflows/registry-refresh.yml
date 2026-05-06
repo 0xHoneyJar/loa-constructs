@@ -1,0 +1,82 @@
+name: Registry Refresh Webhook
+
+# T-1.0 (FR-1.7) · Cycle constructs-network-migration · ADR-006
+# Fires `POST /v1/admin/refresh-registry` on merges to main that touch the
+# canonical registry source (registry.yaml). Signed via canonical-string HMAC
+# per AWS Sig v4 pattern (prevents replay-with-modified-headers).
+#
+# Spec: grimoires/loa/sdd-constructs-network-migration-2026-05-05.md §2.1.4
+# Secret: REGISTRY_REFRESH_HMAC_SECRET (already provisioned by operator pre-T-0.0
+#   in both gh secrets and Railway env)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - registry.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  refresh:
+    name: Trigger Registry Refresh
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 1
+
+      - name: Send canonical-string HMAC webhook
+        env:
+          HMAC_SECRET: ${{ secrets.REGISTRY_REFRESH_HMAC_SECRET }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${HMAC_SECRET:-}" ]]; then
+            echo "::error::REGISTRY_REFRESH_HMAC_SECRET not set in repo secrets"
+            exit 1
+          fi
+
+          # Body — JSON payload includes commit SHA so the API can pin the
+          # gh-raw fetch to a specific revision (FR-1.6.4 integrity).
+          PAYLOAD=$(jq -nc \
+            --arg sha "$GITHUB_SHA" \
+            --arg ref "$GITHUB_REF" \
+            '{commit_sha: $sha, ref: $ref}')
+
+          # Canonical-string signature inputs (ADR-006).
+          # Order matters and MUST match server-side verification:
+          #   METHOD\nPATH\nHOST\nNONCE\nTIMESTAMP\nBODY_SHA
+          NONCE=$(uuidgen)
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          HOST="api.constructs.0xhoneyjar.xyz"
+          REQ_PATH="/v1/admin/refresh-registry"
+          METHOD="POST"
+          BODY_SHA=$(printf '%s' "$PAYLOAD" | openssl dgst -sha256 -hex | awk '{print $2}')
+
+          # The newline-joined canonical string is what gets HMAC'd.
+          CANONICAL=$(printf '%s\n%s\n%s\n%s\n%s\n%s' \
+            "$METHOD" "$REQ_PATH" "$HOST" "$NONCE" "$TIMESTAMP" "$BODY_SHA")
+          SIG=$(printf '%s' "$CANONICAL" \
+            | openssl dgst -sha256 -hmac "$HMAC_SECRET" -hex \
+            | awk '{print $2}')
+
+          echo "Refresh: nonce=$NONCE timestamp=$TIMESTAMP sha=${GITHUB_SHA:0:8}"
+
+          # POST. -fsS so we surface server errors but stay quiet on success.
+          # 401 (bad sig), 409 (replay), 429 (rate-limited), 503 (gh-raw down)
+          # all surface here and fail the job — operator gets a notification.
+          curl -fsS -X "$METHOD" "https://${HOST}${REQ_PATH}" \
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature-256: sha256=$SIG" \
+            -H "X-Refresh-Nonce: $NONCE" \
+            -H "X-Refresh-Timestamp: $TIMESTAMP" \
+            -H "Host: $HOST" \
+            -d "$PAYLOAD"
+
+          echo "Webhook accepted by api.constructs.0xhoneyjar.xyz"

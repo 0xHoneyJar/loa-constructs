@@ -81,3 +81,108 @@
   superseded_by: null
   related:
     - governance-isomorphism
+
+- id: fail-closed-cost-gate
+  term: Fail-Closed Cost Gate
+  short: >-
+    Cost-budget enforcement that NEVER permits paid operations under
+    uncertainty. Any of five failure modes (billing API stale, counter
+    inconsistent, counter drift, clock drift, provider lag) yields
+    halt-uncertainty regardless of nominal usage percent.
+  context: >-
+    Most budget enforcers in production AI systems share a flaw: when their
+    information becomes uncertain, they default to "allow" because the cost of
+    a wrong-stop (cycle halts, operator paged) feels worse than a wrong-go
+    (one extra paid call). That intuition is correct only when the worst case
+    is bounded. For cost overruns, the worst case is unbounded — a runaway
+    autonomous cycle can spend ten or a hundred times the daily cap before
+    a human notices. cycle-098 L2 inverts the default: under any of five
+    explicitly-named uncertainty modes, the verdict is halt-uncertainty.
+    The order of the five checks is severity-first
+    (counter_inconsistent then billing_stale then provider_lag then
+    clock_drift then halt-100 then warn-90 then allow), so the most-severe
+    applicable verdict wins. The implementation pattern is general: any
+    consequential gate that consumes a noisy or asynchronous signal should
+    treat "I don't know what's happening" as the strongest signal to halt,
+    not the weakest. Verdicts are hash-chain-signed with the envelope's
+    prev_hash for forensic auditability post-incident; reconciliation cron
+    cross-checks counter against billing API every 6h with BLOCKER on drift
+    over 5 percent, but counter is NOT auto-corrected — operator
+    force-reconcile is required (counter could be the wrong source).
+    Pairs with the abundance-pruning pattern from Tricorder/Loa Flatline:
+    the system halts noisily when uncertain, which is the only way to
+    surface latent observability defects in production.
+  source:
+    cycle: "cycle-098-agent-network"
+    sprint: "Sprint 2 (L2 cost-budget-enforcer)"
+    rfc: "https://github.com/0xHoneyJar/loa/issues/654"
+    date: "2026-05-04"
+  tags:
+    - architecture
+    - safety
+    - fail-closed
+    - cost-control
+    - autonomous-systems
+    - pattern
+  status: Active
+  challenges: []
+  lineage: null
+  superseded_by: null
+  related:
+    - governance-isomorphism
+    - deliberative-council
+
+- id: scheduled-cycle
+  term: Scheduled Cycle
+  short: >-
+    Generic 5-phase autonomous-cycle template (reader → decider → dispatcher →
+    awaiter → logger) with content-addressed idempotency, flock-guarded
+    concurrency, and an optional fail-closed cost gate. The skeleton on which
+    scheduled work is mounted without each implementation re-deriving the same
+    locking + audit + replay machinery.
+  context: >-
+    A common error in scheduled autonomous systems is to ship the cron
+    registration first and discover the operational invariants — overlap
+    prevention, retry-on-error, idempotency, replay — only after the second or
+    third firing wedges. cycle-098 L3 inverts the build order: the chassis
+    (locking + content-addressed cycle_id + per-phase audit envelope events +
+    L2 budget pre-check + flock + timeout-bounded phase invocation) is the
+    primary contract, and the application (what the phases DO) is plugged in
+    as five small scripts. The phase decomposition matters: separating reader
+    from decider lets you replay or audit a decision without re-fetching state;
+    separating dispatcher from awaiter lets you model long-running work
+    without holding the cron-firing context open. The content-addressed
+    cycle_id (sha256 of schedule_id || ts_bucket || canonical(dispatch_contract))
+    means "the same scheduled action at the same scheduled minute" produces
+    the same identifier regardless of where or by whom invoked — idempotency
+    becomes a property of the inputs, not of side-channel state.
+    cycle.complete is the ONLY event that gates idempotency; errored runs are
+    retried because errors are typically transient and the chassis cannot
+    distinguish "transient failure" from "permanent failure" without the
+    domain-specific phase scripts. Composition with L2 budget enforcer is
+    compose-when-available (CC-9): when L2 is enabled AND the schedule
+    declares a budget_estimate_usd, the gate runs pre-read; when L2 is absent,
+    the cycle proceeds without the gate. The pattern generalizes to any
+    bounded-effort recurring task — periodic cleanup, drift detection,
+    reconciliation, watchdog — that needs the operational invariants without
+    re-deriving them per use case.
+  source:
+    cycle: "cycle-098-agent-network"
+    sprint: "Sprint 3 (L3 scheduled-cycle-template)"
+    rfc: "https://github.com/0xHoneyJar/loa/issues/655"
+    date: "2026-05-04"
+  tags:
+    - architecture
+    - autonomous-systems
+    - scheduled-tasks
+    - idempotency
+    - concurrency
+    - audit-trail
+    - pattern
+  status: Active
+  challenges: []
+  lineage: null
+  superseded_by: null
+  related:
+    - fail-closed-cost-gate
+    - governance-isomorphism
