@@ -1399,3 +1399,122 @@ export const categories = pgTable(
     sortOrderIdx: index('idx_categories_sort_order').on(table.sortOrder),
   })
 );
+
+
+// =============================================================================
+// Cycle: constructs-network-migration
+// SDD §2.4.1 + §4.2.5 — trajectory + webhook security state
+// Migrations 0015 (trajectory_events) + 0016 (webhook_security_state)
+// =============================================================================
+
+/**
+ * Append-only event store backing the agent-to-agent trajectory transport.
+ * Per ADR-005 (Postgres + JSONL sidecar). Triggers reject UPDATE/DELETE at
+ * the SQL layer; do not call .update() or .delete() on this table from
+ * Drizzle (it will throw P0001 from the trigger).
+ */
+export const trajectoryEvents = pgTable(
+  'trajectory_events',
+  {
+    eventId: text('event_id').primaryKey(),
+    aggregateId: text('aggregate_id').notNull(),
+    // CHECK constraint enforced at SQL layer — see migration 0015. Drizzle's
+    // type model doesn't carry the enum check, so we use TEXT and validate
+    // in trajectory-emit.ts before INSERT.
+    aggregateType: text('aggregate_type').notNull(),
+    type: text('type').notNull(),
+    payload: jsonb('payload').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    actor: text('actor').notNull(),
+    contractVersion: text('contract_version').notNull(),
+    correlationId: text('correlation_id'),
+    causationId: text('causation_id'),
+    metadata: jsonb('metadata').default(sql`'{}'::jsonb`),
+    insertedAt: timestamp('inserted_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    aggregateIdx: index('trajectory_aggregate_idx').on(
+      table.aggregateId,
+      sql`${table.occurredAt} DESC`,
+    ),
+    typeIdx: index('trajectory_type_idx').on(
+      table.type,
+      sql`${table.occurredAt} DESC`,
+    ),
+  })
+);
+
+/**
+ * Read-cursor for sidecar consumers (apps/api/scripts/trajectory-flush.ts
+ * etc.). UPDATEs allowed — only trajectory_events itself is append-only.
+ */
+export const consumerCursors = pgTable('consumer_cursors', {
+  consumerSlug: text('consumer_slug').primaryKey(),
+  lastEventId: text('last_event_id')
+    .notNull()
+    .references(() => trajectoryEvents.eventId),
+  byteOffset: bigint('byte_offset', { mode: 'number' }),
+  lastReadAt: timestamp('last_read_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * Webhook replay-protection store (FR-1.6.2 / ADR-007).
+ * Postgres-backed for cross-restart durability + cross-replica safety.
+ * 5-minute TTL via expires_at; cleanup cron deletes expired rows.
+ */
+export const webhookNonces = pgTable(
+  'webhook_nonces',
+  {
+    nonce: text('nonce').primaryKey(),
+    receivedAt: timestamp('received_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (table) => ({
+    expiresIdx: index('webhook_nonces_expires_idx').on(table.expiresAt),
+  })
+);
+
+/**
+ * Token-bucket rate limiter (FR-1.6.3 / ADR-007).
+ * 60 tokens/hour per source_ip; atomic UPSERT in checkAndConsume().
+ */
+export const rateLimitBuckets = pgTable(
+  'rate_limit_buckets',
+  {
+    sourceIp: text('source_ip').primaryKey(),
+    tokens: text('tokens').notNull().default('60.0'),
+    refilledAt: timestamp('refilled_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    blockedUntil: timestamp('blocked_until', { withTimezone: true }),
+  },
+  (table) => ({
+    blockedIdx: index('rate_limit_blocked_idx')
+      .on(table.blockedUntil)
+      .where(sql`blocked_until IS NOT NULL`),
+  })
+);
+
+/**
+ * Singleton row holding the last-known-good registry payload
+ * (FR-1.6.4 / ADR-007 / ADR-008). id MUST equal 1 (CHECK constraint
+ * enforced in migration 0016). UPSERT pattern via id=1 conflict.
+ */
+export const lastKnownRegistry = pgTable('last_known_registry', {
+  id: integer('id').primaryKey(),
+  commitSha: text('commit_sha').notNull(),
+  contentHash: text('content_hash').notNull(),
+  fetchedAt: timestamp('fetched_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  payloadYaml: text('payload_yaml').notNull(),
+  entriesCount: integer('entries_count').notNull(),
+});
