@@ -10,7 +10,7 @@
 #
 # Options:
 #   --doc <path>           Document to review (required)
-#   --phase <type>         Phase type: prd, sdd, sprint, beads (required)
+#   --phase <type>         Phase type: prd, sdd, sprint, beads, spec, pr (required)
 #   --domain <text>        Domain for knowledge retrieval (auto-extracted if not provided)
 #   --interactive          Force interactive mode (overrides auto-detection)
 #   --autonomous           Force autonomous mode (overrides auto-detection)
@@ -66,6 +66,12 @@ NOTEBOOKLM_QUERY="$PROJECT_ROOT/.claude/skills/flatline-knowledge/resources/note
 DEFAULT_TIMEOUT=300
 DEFAULT_BUDGET=300  # cents ($3.00)
 DEFAULT_MODEL_TIMEOUT=120
+
+# Issue #675 (sub-issue 4): per-call max_tokens override. Empty = use the
+# downstream default (cheval.py's default 4096 / model-adapter.sh's hardcoded
+# 4096). Anthropic disconnects ~60s for max_tokens > 4096 on prompts ≥100KB —
+# operators can lower this knob for large-document reviews.
+PER_CALL_MAX_TOKENS=""
 
 # State tracking
 STATE="INIT"
@@ -343,7 +349,20 @@ get_max_iterations() {
 # Forward-compat regex VALID_MODEL_PATTERNS admits new model versions
 # without requiring code edits (per #573 operator experience with
 # gpt-5.4-codex). The regex structure ensures typos still fail fast.
-VALID_FLATLINE_MODELS=(opus gpt-5.2 gpt-5.3-codex claude-opus-4.7 claude-opus-4-7 claude-opus-4.6 claude-opus-4-6 claude-opus-4.5 claude-sonnet-4-6 gemini-2.0 gemini-2.5-flash gemini-2.5-pro)
+# VALID_FLATLINE_MODELS — Sprint-4 T4.2 (closes SDD §1.4 C4 SSOT coverage gap).
+# Now derived from .claude/defaults/model-config.yaml via gen-adapter-maps.sh
+# rather than hand-maintained. Source the generated file if available;
+# fall back to a stub allowlist if the generator hasn't run (model-adapter
+# tooling will surface the actual error path on use).
+_GENERATED_MAPS="$(dirname "${BASH_SOURCE[0]}")/generated-model-maps.sh"
+if [[ -f "$_GENERATED_MAPS" ]]; then
+    # shellcheck source=generated-model-maps.sh
+    source "$_GENERATED_MAPS"
+else
+    # Fallback (should never trigger in checked-in state — generator is run
+    # alongside YAML edits per SDD §4.3 Flow 1).
+    declare -a VALID_FLATLINE_MODELS=(opus gpt-5.3-codex claude-opus-4-7 claude-sonnet-4-6 gemini-2.5-pro)
+fi
 
 # Forward-compat patterns for provider-side verified models not yet in
 # the explicit allowlist. Operators running newer models (gpt-5.4-codex,
@@ -479,6 +498,13 @@ call_model() {
             --json-errors
             --timeout "$timeout"
         )
+
+        # Issue #675 (sub-issue 4): plumb operator-supplied max_tokens override
+        # to model-invoke (cheval --max-tokens). When unset, cheval defaults to
+        # 4096 (cheval.py:337 `args.max_tokens or 4096`).
+        if [[ -n "${PER_CALL_MAX_TOKENS:-}" ]]; then
+            args+=(--max-tokens "$PER_CALL_MAX_TOKENS")
+        fi
 
         if [[ -n "$context" && -f "$context" ]]; then
             args+=(--system "$context")
@@ -1314,7 +1340,7 @@ Usage: flatline-orchestrator.sh --doc <path> --phase <type> [options]
 
 Required:
   --doc <path>           Document to review
-  --phase <type>         Phase type: prd, sdd, sprint, beads
+  --phase <type>         Phase type: prd, sdd, sprint, beads, spec, pr
 
 Options:
   --mode <type>          Mode: review (default), red-team, inquiry
@@ -1324,6 +1350,12 @@ Options:
   --skip-consensus       Return raw reviews without consensus
   --timeout <seconds>    Overall timeout (default: 300)
   --budget <cents>       Cost budget in cents (default: 300 = \$3.00)
+  --per-call-max-tokens <N>
+                         Override max_tokens passed to each model invocation.
+                         Use 4096 for documents ≥100KB to avoid Anthropic
+                         API server-side disconnect ~60s on large prompts
+                         (issue #675). When unset, downstream defaults apply
+                         (cheval.py: 4096; model-adapter.sh: 4096).
   --json                 Output as JSON
   -h, --help             Show this help
 
@@ -1443,6 +1475,14 @@ main() {
                 budget="$2"
                 shift 2
                 ;;
+            --per-call-max-tokens)
+                # Issue #675 (sub-issue 4): operator override for downstream
+                # max_tokens. Anthropic disconnects ~60s for max_tokens > 4096
+                # on prompts ≥100KB; lower this knob to 4096 to work around
+                # the server-side cutoff for large-document reviews.
+                PER_CALL_MAX_TOKENS="$2"
+                shift 2
+                ;;
             --json)
                 json_output=true
                 shift
@@ -1496,9 +1536,21 @@ main() {
         exit 1
     fi
 
-    if [[ "$phase" != "prd" && "$phase" != "sdd" && "$phase" != "sprint" && "$phase" != "beads" && "$phase" != "spec" ]]; then
-        error "Invalid phase: $phase (expected: prd, sdd, sprint, beads, spec)"
+    if [[ "$phase" != "prd" && "$phase" != "sdd" && "$phase" != "sprint" && "$phase" != "beads" && "$phase" != "spec" && "$phase" != "pr" ]]; then
+        error "Invalid phase: $phase (expected: prd, sdd, sprint, beads, spec, pr)"
         exit 1
+    fi
+
+    # Issue #675 (sub-issue 2 + 4): warn when prompt size is in the Anthropic
+    # 60s-disconnect danger zone and the operator has not lowered max_tokens.
+    # Anthropic API drops streamed responses ~60s for max_tokens > 4096 on
+    # prompts ≥100KB (server-side cutoff, reproduced across HTTP/1.1 + HTTP/2 +
+    # httpx + curl). Workaround: --per-call-max-tokens 4096.
+    local doc_bytes doc_kb
+    doc_bytes=$(wc -c < "$doc" 2>/dev/null || echo 0)
+    doc_kb=$(( (doc_bytes + 512) / 1024 ))   # round to nearest KB
+    if [[ "$doc_bytes" -gt 102400 && -z "${PER_CALL_MAX_TOKENS:-}" ]]; then
+        echo "WARNING: Document size ${doc_kb} KB; recommend \`--per-call-max-tokens 4096\` to avoid Anthropic 60s server-side disconnect" >&2
     fi
 
     # Validate orchestrator mode
