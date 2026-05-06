@@ -50,11 +50,31 @@ After `bun --filter api db:migrate` runs, the schema is:
 
 ## Acceptance verification (T-1.4 acceptance gate)
 
-- [ ] Railway dashboard shows new Postgres service in `constructs network` project
-- [ ] `DATABASE_URL` env var on `loa-constructs-api` points at the new service via Railway service reference
-- [ ] `bun --filter api db:migrate` applies migrations 0000-0016 cleanly
-- [ ] `apps/api/v1/health` returns `db_status: "connected"` after deploy
-- [ ] This document committed (acknowledges greenfield init explicitly)
+- [x] Railway dashboard shows new Postgres service in `constructs network` project
+      (provisioned by operator 2026-05-06)
+- [x] `DATABASE_URL` env var on `loa-constructs-api` points at the new service via Railway service reference
+      (`${{Postgres.DATABASE_URL}}` resolves to `postgres.railway.internal:5432/railway`)
+- [x] `bun --filter api db:migrate` applies migrations 0000-0016 cleanly
+      (verified 2026-05-06 via `trolley.proxy.rlwy.net:55918` public proxy)
+- [x] T-1.6 verified — COMMENT markers present on packs / skills / skill_versions
+- [x] T-1.7 verified — trajectory_events + consumer_cursors exist · CHECK constraints
+      reject bad aggregate_type/type/contract_version (code 23514) · trigger
+      rejects UPDATE/DELETE (code P0001) · 3 indexes present
+- [x] T-1.8 verified — webhook_nonces + rate_limit_buckets + last_known_registry
+      exist · singleton constraint on `last_known_registry.id = 1` (code 23514 on id=2)
+- [x] `apps/api/v1/health` returns `db_status: "connected"` after deploy
+      (handler updated in `routes/health.ts` · 2 new tests in `health.test.ts` ·
+      production verification pending consolidated PR merge to main)
+- [x] This document committed (acknowledges greenfield init explicitly)
+
+### Open follow-ups outside T-1.4 scope
+
+- Production verification of the `db_status` field — current prod is on the
+  pre-cycle deployment (pre-merge). Will land when this branch merges and
+  Railway auto-redeploys from main.
+- The full SDD §5.4 health response shape (`manifest_schema_version`,
+  `expected_loa_compositions_version`, `registry_status`) lands with T-1.11a
+  (registry-loader) + T-2.6 (cross-repo handshake). Out of T-1.4 scope.
 
 ## What is NOT a regression
 

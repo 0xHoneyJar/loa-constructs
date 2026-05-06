@@ -19,11 +19,29 @@ const BUILD_TIMESTAMP = new Date(startupTime).toISOString();
 
 /**
  * GET /v1/health
- * Basic health check endpoint for load balancers and monitoring
+ * Basic health check endpoint for load balancers and monitoring.
+ *
+ * Per SDD §5.4 (cycle constructs-network-migration · T-1.4 acceptance), this
+ * endpoint surfaces `db_status` so operators can confirm the cutover landed
+ * without hitting the heavier /v1/health/ready check. A failed ping returns
+ * 200 with `db_status: 'disconnected'` (the API still serves yaml-sourced
+ * read paths even when Postgres is down — readiness probe handles 503).
  *
  * @returns 200 OK with status info
  */
-health.get('/', (c) => {
+health.get('/', async (c) => {
+  let db_status: 'connected' | 'disconnected' | 'unknown' = 'unknown';
+  try {
+    await db.execute(sql`SELECT 1`);
+    db_status = 'connected';
+  } catch (error) {
+    logger.warn({
+      msg: 'Health: database ping failed',
+      error: error instanceof Error ? error.message : String(error),
+    });
+    db_status = 'disconnected';
+  }
+
   return c.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
@@ -31,6 +49,7 @@ health.get('/', (c) => {
     build: BUILD_TIMESTAMP,
     uptime: process.uptime(),
     environment: process.env.NODE_ENV || 'development',
+    db_status,
   });
 });
 

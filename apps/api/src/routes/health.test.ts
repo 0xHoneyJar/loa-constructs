@@ -126,6 +126,7 @@ describe('Health Routes', () => {
 
   describe('GET /v1/health', () => {
     it('returns 200 with healthy status', async () => {
+      mockExecute.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
       const res = await app.request('/v1/health');
 
       expect(res.status).toBe(200);
@@ -135,6 +136,28 @@ describe('Health Routes', () => {
       expect(body).toHaveProperty('timestamp');
       expect(body).toHaveProperty('version');
       expect(body).toHaveProperty('uptime');
+    });
+
+    // T-1.4 acceptance (cycle constructs-network-migration · SDD §5.4):
+    // /v1/health surfaces db_status so operators can confirm the Postgres
+    // cutover landed without hitting the heavier /v1/health/ready check.
+    it('returns db_status: connected when DB ping succeeds', async () => {
+      mockExecute.mockResolvedValueOnce({ rows: [{ '?column?': 1 }] });
+      const res = await app.request('/v1/health');
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body).toHaveProperty('db_status', 'connected');
+    });
+
+    it('returns 200 with db_status: disconnected when DB ping fails', async () => {
+      mockExecute.mockRejectedValueOnce(new Error('Connection refused'));
+      const res = await app.request('/v1/health');
+      // /v1/health is the load-balancer probe — stays 200 so traffic still
+      // routes to the API for yaml-sourced read paths even when Postgres
+      // is down. /v1/health/ready is the 503-returning readiness probe.
+      expect(res.status).toBe(200);
+      const body = await res.json();
+      expect(body).toHaveProperty('db_status', 'disconnected');
     });
   });
 
