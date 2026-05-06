@@ -743,12 +743,21 @@ hounfour:
   flatline_tertiary_model: gemini-2.5-pro  # 3-model Flatline: Opus + GPT-5.3-codex + Gemini
 
   # Aliases — short names mapping to provider:model-id
+  #
+  # Cycle-093 sprint-4 advisory (T3.1):
+  # If you have `gpt-5.2` pinned in your `.loa.config.yaml`, consider migrating
+  # to `gpt-5.3-codex`. The 5.3 model line is on the current OpenAI Responses
+  # API path (better tool-calling, more recent training cutoff) and is what the
+  # framework's adversarial-review + bridgebuilder paths default to. The
+  # examples below have been updated to reflect this preference; gpt-5.2
+  # remains supported for operators with workload-specific reasons to pin it.
   aliases:
-    native: "claude-code:session"         # Reserved — Claude Code native runtime
-    reviewer: "openai:gpt-5.2"            # Primary review model
-    reasoning: "openai:gpt-5.2"           # Reasoning/skeptic model
-    cheap: "anthropic:claude-sonnet-4-6"  # Budget-conscious model
-    opus: "anthropic:claude-opus-4-7"     # High-quality model (retargeted from 4-6 in cycle-082)
+    native: "claude-code:session"          # Reserved — Claude Code native runtime
+    reviewer: "openai:gpt-5.3-codex"       # Primary review model (gpt-5.2 → 5.3 per T3.1)
+    reasoning: "openai:gpt-5.3-codex"      # Reasoning/skeptic model (gpt-5.2 → 5.3 per T3.1)
+    cheap: "anthropic:claude-sonnet-4-6"   # Budget-conscious model
+    opus: "anthropic:claude-opus-4-7"      # High-quality model (retargeted from 4-6 in cycle-082)
+    deep-thinker: "google:gemini-3.1-pro-preview"   # Re-added cycle-093 sprint-4
 
   # Agent bindings — which model each agent uses + requirements
   # Agents not listed here use the system defaults from model-config.yaml
@@ -1663,6 +1672,36 @@ spiral:
     enabled: true                    # Use harness vs monolithic dispatch
     max_phase_retries: 3             # Retries per gate on failure
 
+    # cycle-092 Sprint 4 (#598) — SIMSTIM heartbeat (editor of intent in-flight)
+    heartbeat:
+      enabled: true                  # Spawn heartbeat emitter daemon during cycles
+      interval_sec: 60               # Emit [HEARTBEAT] every N seconds (clamp [30, 300])
+      budget_usd: 80                 # Budget displayed in heartbeat line
+      format: editor                 # editor (3-line, default) | compact | json (S5 stretch — editor fallback + warning)
+      intent:
+        enabled: true                # Emit [INTENT <ts>] lines on phase boundary
+        sources:                     # Per-phase source-file mapping for intent text
+          IMPLEMENTATION: grimoires/loa/a2a/engineer-feedback.md
+          IMPL_FIX:       grimoires/loa/a2a/engineer-feedback.md
+          AUDIT:          grimoires/loa/a2a/auditor-sprint-feedback.md
+      confidence_cues: true          # Surface "attempt N of 3 · last chance" etc.
+      pace_baselines_min:            # Per-phase baseline for pace classification (minutes)
+        discovery: 4
+        architecture: 4
+        planning: 4
+        flatline: 2
+        implementation: 18
+        review: 4
+        audit: 4
+        impl_fix: 10
+      # SpiralPhaseComplete hook — operator-configurable per-phase notification.
+      # Deferred to post-cycle-092 work: schema reserved for forward compat,
+      # but actual dispatching from _emit_dashboard_snapshot(PHASE_EXIT) is
+      # scope-split. Env vars at dispatch time: PHASE, COST, DURATION_SEC, CYCLE_ID.
+      phase_complete_hook:
+        enabled: false               # Post-cycle-092 follow-up
+        command: ""                  # e.g. 'osascript -e ... notification' on macOS
+
     # Per-phase budget caps (claude -p --max-budget-usd)
     planning_budget_usd: 1           # PRD, SDD, Sprint (each)
     implement_budget_usd: 5          # Code + tests + commit
@@ -1877,6 +1916,12 @@ agent_teams:
 # =============================================================================
 # Automated post-merge pipeline triggered on push to main.
 # 3-layer architecture: GH Actions → claude-code-action → shell orchestrator.
+#
+# Workflow file `.github/workflows/post-merge.yml` is scaffolded automatically
+# by `mount-loa.sh` / `mount-submodule.sh` on first install (Issue #669) and
+# preserved on re-mount. Submodule installs require `submodules: recursive`
+# on actions/checkout (baked into the upstream template) so symlinked
+# `.claude/scripts/*` paths resolve at runtime.
 post_merge:
   # Master toggle — must be true for GH Actions workflow to process merges
   enabled: false
@@ -2118,3 +2163,278 @@ cta:
 #   thread_archive_days: 30   # Auto-archive open threads after N days
 #   local_source_paths:       # Local clone search paths for /constructs install
 #     - ~/Documents/GitHub/construct-{slug}
+
+# -----------------------------------------------------------------------------
+# cycle-095 — Model Currency operator surface (Sprints 1+2)
+# -----------------------------------------------------------------------------
+# All blocks are commented (defaults preserve previous behavior). Uncomment
+# to opt in.
+#
+# Pro-tier opt-in: retargets aliases declared in tier_groups.mappings to
+# their *-pro counterparts when prefer_pro_models: true. Default false
+# (cost-safety). Sprint 3 wires the flag into the config loader.
+# WARNING: enables ~5-10x cost increase on reasoning_tokens-charged calls.
+#
+# hounfour:
+#   prefer_pro_models: false        # Sprint 3 — opt-in flag
+#   experimental:
+#     # Operational kill-switch: restore pre-cycle-095 alias resolution
+#     # at config-load time. Equivalent to LOA_FORCE_LEGACY_ALIASES=1.
+#     force_legacy_aliases: false
+#     # Forward-compat policy for /v1/responses output[].type values not
+#     # in the §5.4 normalization matrix. Default "strict" raises
+#     # UnsupportedResponseShapeError; "degrade" skips the unknown block
+#     # with a once-per-process WARN.
+#     responses_unknown_shape_policy: strict
+#
+# tier_groups:
+#   mappings: {}                    # Sprint 3 populates with reviewer/reasoning -> *-pro targets
+#   denylist: []                    # alias names to opt out of retargeting
+#   max_cost_per_session_micro_usd: null   # set integer for hard per-session cap (e.g., 100000000 = $100)
+#   override_user_aliases: false    # Sprint 3 — when true, mappings WIN over user pins
+#
+# Environment-variable equivalents:
+#   LOA_FORCE_LEGACY_ALIASES=1            # operator escape hatch (alias rollback)
+#   LOA_LEGACY_ENDPOINT_FAMILY_DEFAULT=chat  # one-shot migration backstop for custom OpenAI entries
+#   LOA_RESPONSES_UNKNOWN_SHAPE_POLICY=degrade  # one-shot graceful degradation
+#   LOA_PREFER_PRO_DRYRUN=1               # preview retargets without applying (Sprint 2)
+
+# -----------------------------------------------------------------------------
+# cycle-098 — Agent-Network Primitives (Sprint 1+ — opt-in)
+# -----------------------------------------------------------------------------
+# Seven named primitives (L1..L7) for autonomous adjudication, budget,
+# scheduled cycles, trust, cross-repo reads, structured handoffs, and SOUL.
+# All primitives default to disabled. Tier validator (CC-10) classifies the
+# enabled set on boot. tier_enforcement_mode controls behavior on unsupported
+# combinations: "warn" (default) prints a warning; "refuse" halts boot.
+#
+# Currently shipped (Sprint 1):
+#   - L1 hitl-jury-panel (this section's hitl_jury_panel block)
+#   Audit-envelope shared infrastructure (.run/<primitive>-events.jsonl)
+#
+# Pending (Sprint 2..7):
+#   - L2 cost-budget-enforcer
+#   - L3 scheduled-cycle-template
+#   - L4 graduated-trust
+#   - L5 cross-repo-status-reader
+#   - L6 ostrom-handoff
+#   - L7 soul-md
+#
+# agent_network:
+#   primitives:
+#     L1:
+#       enabled: false      # opt-in; see hitl_jury_panel block below
+#     L2:
+#       enabled: false
+#     L3:
+#       enabled: false
+#     L4:
+#       enabled: false
+#     L5:
+#       enabled: false
+#     L6:
+#       enabled: false
+#     L7:
+#       enabled: false
+#
+# tier_enforcement_mode: warn   # warn (default) | refuse
+
+# -----------------------------------------------------------------------------
+# L1 hitl-jury-panel — N-panelist random-selection adjudicator
+# -----------------------------------------------------------------------------
+# When enabled, replaces routine AskUserQuestion-class decisions during
+# operator absence with a deterministic-seed jury panel. Logs all panelist
+# views BEFORE selection (auditable on crash). Protected-class decisions
+# always route to .run/protected-queue.jsonl regardless of this flag.
+#
+# Source: RFC #653; PRD §FR-L1; SDD §1.4.2 + §5.3
+#
+# hitl_jury_panel:
+#   enabled: false                         # opt-in
+#   default_panelists:
+#     - id: persona-a
+#       model: claude-opus-4-7
+#       persona_file: .claude/data/personas/persona-a.md
+#     - id: skeptic
+#       model: claude-opus-4-7
+#       persona_file: .claude/data/personas/skeptic.md
+#     - id: alternative-model
+#       model: gpt-5.3-codex
+#       persona_file: .claude/data/personas/alternative-model.md
+#   selection: random                      # random | (future: weighted | round-robin)
+#   seed_source: decision_id+context_hash  # FR-L1-3
+#   audit_log: .run/panel-decisions.jsonl
+#   default_disagreement_threshold: 0.5
+#
+# Environment variables:
+#   LOA_PANEL_AUDIT_LOG               override audit log path
+#   LOA_PANEL_PROTECTED_QUEUE         override protected-queue path
+#   LOA_PANEL_PER_PANELIST_TIMEOUT    per-panelist timeout in seconds (default 60)
+#   LOA_PANEL_MIN_PANELISTS           min surviving panelists for BOUND (default 2)
+#   LOA_PANEL_DISAGREEMENT_FN         path to caller-supplied disagreement script
+#                                      (default: no-op pass per FR-L1-6)
+
+# -----------------------------------------------------------------------------
+# L2 cost-budget-enforcer — daily token cap with fail-closed semantics
+# -----------------------------------------------------------------------------
+# When enabled, paid calls go through budget_verdict before execution. The
+# verdict is one of {allow, warn-90, halt-100, halt-uncertainty}. The fifth
+# halt-uncertainty mode covers 5 failure cases (billing API stale, counter
+# inconsistent, counter drift, clock drift, provider lag) — fail-closed under
+# all uncertainty.
+#
+# Sprint 2 ships: state machine, reconciliation cron (default 6h cadence),
+# daily snapshot job for hash-chain recovery (RPO 24h).
+#
+# Source: RFC #654; PRD §FR-L2; SDD §1.4.2 + §1.5.3 + §5.4
+#
+# cost_budget_enforcer:
+#   daily_cap_usd: 50.00                          # FR-L2-1..4 reference
+#   freshness_threshold_seconds: 300              # 5 min — billing data is "fresh"
+#   stale_halt_pct: 75                            # counter % triggering stale_halt + provider_lag
+#   clock_tolerance_seconds: 60                   # ±60s for clock_drift
+#   provider_lag_halt_seconds: 300                # 5 min provider_lag threshold
+#   billing_stale_halt_seconds: 900               # 15 min billing_stale threshold
+#   audit_log: .run/cost-budget-events.jsonl
+#   billing_observer_cmd: /path/to/observer-shim.sh   # caller-supplied UsageObserver
+#   # Sprint H2 (#708 F-005): observer cmd path MUST live under one of the
+#   # allowed_observer_paths prefixes. Defaults to .claude/scripts/observers
+#   # and .run/observers if unset. Without this allowlist, an attacker who
+#   # could set LOA_BUDGET_OBSERVER_CMD via env-var injection achieved
+#   # arbitrary execution in the L2 process. Tests can widen the allowlist
+#   # via env: LOA_BUDGET_OBSERVER_ALLOWED_PREFIXES (colon-separated).
+#   allowed_observer_paths:
+#     - .claude/scripts/observers
+#     - .run/observers
+#   per_provider_caps:                            # optional sub-caps per provider
+#     openai: 5.00
+#     anthropic: 30.00
+#   providers:                                    # used by reconciliation cron
+#     - aggregate
+#     - anthropic
+#     - openai
+#   reconciliation:
+#     interval_hours: 6                           # cron cadence (1..24)
+#     drift_threshold_pct: 5.0                    # FR-L2-5 BLOCKER threshold
+#
+# Environment variable overrides (see .claude/scripts/lib/cost-budget-enforcer-lib.sh):
+#   LOA_BUDGET_LOG                  override audit log path
+#   LOA_BUDGET_DAILY_CAP_USD        override daily cap
+#   LOA_BUDGET_DRIFT_THRESHOLD      override reconcile drift threshold pct
+#   LOA_BUDGET_FRESHNESS_SECONDS    override freshness threshold
+#   LOA_BUDGET_STALE_HALT_PCT       override stale-halt counter %
+#   LOA_BUDGET_CLOCK_TOLERANCE      override clock tolerance seconds
+#   LOA_BUDGET_LAG_HALT_SECONDS     override provider-lag threshold
+#   LOA_BUDGET_BILLING_STALE_SECONDS override billing-stale threshold
+#   LOA_BUDGET_OBSERVER_CMD         override billing-observer path
+#   LOA_BUDGET_TEST_NOW             test-only override for "now"
+#
+# To install/uninstall the reconciliation cron:
+#   .claude/scripts/budget/budget-reconcile-install.sh install
+#   .claude/scripts/budget/budget-reconcile-install.sh uninstall
+
+# -----------------------------------------------------------------------------
+# L3 scheduled-cycle-template — generic 5-phase autonomous-cycle skeleton
+# -----------------------------------------------------------------------------
+# Composes /schedule (cron registration) with the audit envelope into a
+# 5-phase contract: reader → decider → dispatcher → awaiter → logger. flock
+# guards concurrency; cycle_id (content-addressed) provides idempotency;
+# optional L2 budget pre-check halts cycles before they spend.
+#
+# Each ScheduleConfig is a small YAML pointing at the five phase scripts.
+# Worked example: .claude/skills/scheduled-cycle-template/contracts/example-schedule.yaml
+#
+# Source: RFC #655; PRD §FR-L3 (8 ACs); SDD §1.4.2 + §5.5
+#
+# scheduled_cycle_template:
+#   enabled: false                              # opt-in
+#   audit_log: .run/cycles.jsonl                # cycle.{start,phase,complete,error,lock_failed}
+#   lock_dir: .run/cycles                       # per-schedule lock files: <lock_dir>/<schedule_id>.lock
+#   lock_timeout_seconds: 30                    # flock acquire timeout (FR-L3-5)
+#   budget_pre_check: false                     # opt-in to L2 cost-budget gate (FR-L3-6, CC-9)
+#   max_cycle_seconds: 14400                    # cap on (timeout_seconds × 5 phases); rejects malicious schedules
+#   phase_path_allowed_prefixes:                # phase scripts MUST live under one of these
+#     - .claude/skills                          #   Defaults shown; canonicalized via realpath +
+#     - .run/schedules                          #   prefix-match. Add deployment-specific dirs here.
+#     - .run/cycles-contracts
+#   schedules: []                               # array of ScheduleConfig YAML paths
+#
+# Environment variable overrides (see .claude/scripts/lib/scheduled-cycle-lib.sh):
+#   LOA_CYCLES_LOG                       override audit log path
+#   LOA_L3_LOCK_DIR                      override lock directory
+#   LOA_L3_LOCK_TIMEOUT_SECONDS          override flock acquire timeout
+#   LOA_L3_BUDGET_PRECHECK_ENABLED       "1"/"true" to enable L2 gate
+#   LOA_L3_KILL_GRACE_SECONDS            grace period after timeout TERM before KILL (default 5)
+#   LOA_L3_TEST_NOW                      test-only override for "now"
+#   LOA_L3_TEST_MODE                     "1" enables test-only escape hatches (LOA_L3_L2_LIB_OVERRIDE);
+#                                          implicit when running under bats (BATS_TEST_DIRNAME set)
+#   LOA_L3_PHASE_PATH_ALLOWED_PREFIXES   colon-separated list overriding the yaml allowlist
+#   LOA_L3_PHASE_ENV_PASSTHROUGH         space-separated extra env-var names to expose to phase scripts
+#                                          (default allowlist is minimal: PATH/HOME/USER/LANG/...);
+#                                          only [A-Z_][A-Z0-9_]* names accepted
+#   LOA_L3_MAX_CYCLE_SECONDS             override max projected cycle time (default 14400)
+#   LOA_L3_L2_LIB_OVERRIDE               TEST-ONLY: path to override L2 lib for graceful-skip testing
+#
+# CLI:
+#   .claude/scripts/lib/scheduled-cycle-lib.sh invoke <schedule.yaml> [--cycle-id <id>] [--dry-run]
+#   .claude/scripts/lib/scheduled-cycle-lib.sh idempotency-check <cycle_id>
+#   .claude/scripts/lib/scheduled-cycle-lib.sh replay [<log_path>] [--cycle-id <id>]
+#
+# Cron registration is done via /schedule pointing at the `invoke` subcommand.
+
+# -----------------------------------------------------------------------------
+# Audit-log daily snapshot — RPO 24h for L1/L2 chain-critical untracked logs
+# -----------------------------------------------------------------------------
+# Sprint 2C ships the producer side of the L1/L2 hash-chain recovery loop.
+# Snapshots gzip-compress and optionally Ed25519-sign each rolling log to
+# grimoires/loa/audit-archive/<utc-date>-<primitive>.jsonl.gz; the archive
+# directory is git-tracked. The recovery side
+# (audit_recover_chain) consumes these to restore corrupted/lost logs.
+#
+# Source: SDD §3.4.4 (recovery procedure) + §3.7 (persistence policy)
+#
+# audit_snapshot:
+#   cron_expression: "0 4 * * *"          # daily at 04:00 UTC (default)
+#
+# Operator runbook: grimoires/loa/runbooks/audit-log-recovery.md
+#
+# To install/uninstall the daily snapshot cron:
+#   .claude/scripts/audit/audit-snapshot-install.sh install
+#   .claude/scripts/audit/audit-snapshot-install.sh uninstall
+
+# -----------------------------------------------------------------------------
+# Model-Health-Probe Webhook (cycle-093 §3B + cycle-099 sprint-1E.c.3.c)
+# -----------------------------------------------------------------------------
+# Optional fan-out for probe alert events. The probe POSTs the redacted audit
+# entry (already scrubbed via _redact_secrets) to the configured webhook URL,
+# fire-and-forget, with --max-time 5.
+#
+# Two dispatch paths:
+#   1. Default (legacy): raw curl with hardened defaults (--proto =https,
+#      --max-redirs 10). The webhook URL is operator-supplied dynamically and
+#      cannot be statically allowlisted (operators legitimately use Slack,
+#      PagerDuty, Discord, custom URLs). Tagged [ENDPOINT-VALIDATOR-EXEMPT].
+#   2. Opt-in (1E.c.3.c, recommended): wrapper-routed dispatch through
+#      endpoint_validator__guarded_curl with the operator-controlled
+#      .claude/scripts/lib/allowlists/webhook-hosts.json allowlist.
+#      Empty default → fail-closed; operator MUST add permitted webhook
+#      hosts before opt-in dispatch will succeed.
+#
+# Why opt-in (not always-on): operators upgrading from cycle-093 with an
+# existing webhook URL configured continue to work without action. Migrating
+# to wrapper-routed dispatch is a one-line config change PLUS adding the host
+# to webhook-hosts.json.
+#
+# model_health_probe:
+#   alert_webhook_url: ""                                # operator-supplied
+#   alert_webhook_endpoint_validator_enabled: false      # opt-in to wrapper path
+#
+# IMPORTANT — value semantics (BB iter-1 F10): the toggle accepts ONLY the
+# literal lowercase string `true` to enable the wrapper path. YAML-truthy
+# variants (`yes`, `1`, `True`, `True`/`Yes`/`On`) all fall through to the
+# legacy raw-curl path. This is INTENTIONAL fail-safe behavior — operators
+# expecting the wrapper protection MUST use lowercase `true` exactly.
+#
+# When alert_webhook_endpoint_validator_enabled: true, populate
+# .claude/scripts/lib/allowlists/webhook-hosts.json with the permitted hosts.
+# Override the allowlist path via the LOA_WEBHOOK_ALLOWLIST_PATH env var.

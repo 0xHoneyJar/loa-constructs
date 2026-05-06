@@ -175,6 +175,14 @@ def _build_provider_config(provider_name: str, config: Dict[str, Any]) -> Provid
             pricing=model_data.get("pricing"),
             api_mode=model_data.get("api_mode"),
             extra=extra,
+            params=model_data.get("params"),
+            endpoint_family=model_data.get("endpoint_family"),
+            fallback_chain=model_data.get("fallback_chain"),
+            probe_required=model_data.get("probe_required", False),
+            # cycle-096 Sprint 1 (Task 1.2 / FR-1) — Bedrock-specific fields.
+            api_format=model_data.get("api_format"),
+            fallback_to=model_data.get("fallback_to"),
+            fallback_mapping_version=model_data.get("fallback_mapping_version"),
         )
 
     return ProviderConfig(
@@ -186,6 +194,10 @@ def _build_provider_config(provider_name: str, config: Dict[str, Any]) -> Provid
         connect_timeout=prov.get("connect_timeout", 10.0),
         read_timeout=prov.get("read_timeout", 120.0),
         write_timeout=prov.get("write_timeout", 30.0),
+        # cycle-096 Sprint 1 (Task 1.2 / FR-1) — Bedrock-specific provider fields.
+        region_default=prov.get("region_default"),
+        auth_modes=prov.get("auth_modes"),
+        compliance_profile=prov.get("compliance_profile"),
     )
 
 
@@ -371,10 +383,18 @@ def cmd_invoke(args: argparse.Namespace) -> int:
         except ImportError:
             # Retry module not yet available — call directly with manual budget hooks
             # BB-405: ensure post_call runs on success, log on failure
+            # NOTE (issue #675, sub-issue 1): the redundant local
+            # `from loa_cheval.types import BudgetExceededError` previously here
+            # was deleted. Python's scoping rule made `BudgetExceededError` a
+            # function-local name throughout cmd_invoke(), and on the normal
+            # path (retry module IS available, so this `except ImportError`
+            # branch is skipped) the local was never bound — causing the outer
+            # `except BudgetExceededError as e:` below to raise UnboundLocalError
+            # and shadow the real RetriesExhaustedError. The module-scope import
+            # at the top of this file (line 27-28) is the single source of truth.
             if budget_hook:
                 status = budget_hook.pre_call(request)
                 if status == "BLOCK":
-                    from loa_cheval.types import BudgetExceededError
                     raise BudgetExceededError(spent=0, limit=0)
             result = None
             try:

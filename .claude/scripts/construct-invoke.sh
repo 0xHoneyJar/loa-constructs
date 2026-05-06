@@ -6,16 +6,29 @@
 # observability. Supports paired entry/exit rows matched by session_id.
 #
 # Usage:
-#   construct-invoke.sh entry <persona> <construct_slug>
-#   construct-invoke.sh exit  <persona> <construct_slug> <duration_ms> <outcome>
+#   construct-invoke.sh entry <persona> <construct_slug> [trigger]
+#   construct-invoke.sh exit  <persona> <construct_slug> [duration_ms] [outcome] [trigger] [session_id]
+#
+# Concurrency:
+#   The default correlator between entry and exit is a temp file keyed by
+#   (persona, construct_slug). Callers that may run parallel entries with
+#   the same key MUST capture the session_id from entry's stdout and pass
+#   it explicitly to exit (positional arg 6, or via LOA_SESSION_ID env).
+#   The temp-file fallback is racy under that condition.
 #
 # Exit Codes:
 #   0 = success (JSONL write failure is non-fatal — logs warning)
 #   1 = invalid subcommand
+#   2 = `exit` subcommand called with no resolvable session_id (sprint-bug-141
+#       #636 — pre-fix this emitted a session_id:null row + warning at exit 0;
+#       post-fix it hard-rejects so trajectory pair-matching stays clean).
+#       Callers that previously ignored exit codes MUST now thread session_id
+#       explicitly via positional arg 6 or LOA_SESSION_ID env. The temp-file
+#       LOOKUP path is preserved as silent backward-compat for sequential
+#       callers (a one-line "tempfile_fallback_used" stderr signal is emitted
+#       per call; LOA_INVOKE_FALLBACK_QUIET=1 to suppress).
 #
-# SEED: grimoires/loa-constructs-seed-2026-04-21/SEED-loa-constructs-infrastructure-cycle.md
-# Leg D: Construct Trajectory Emission
-# Cycle: loa-constructs-cycle-001
+# Cycle: loa-constructs-cycle-001 (Leg D — Construct Trajectory Emission)
 # =============================================================================
 
 set -euo pipefail
@@ -152,6 +165,12 @@ do_exit() {
   local duration_ms="${3:-}"
   local outcome="${4:-completed}"
   local trigger="${5:-}"
+  # Bridgebuilder iter-3 HIGH_CONSENSUS: explicit session_id passing is the
+  # robust correlator. Callers that need concurrency-safe pairing capture
+  # the session_id from entry's stdout and pass it via $6 (or
+  # LOA_SESSION_ID env). Filesystem-as-shared-memory remains the fallback
+  # for callers that don't yet thread the value through.
+  local explicit_session_id="${6:-${LOA_SESSION_ID:-}}"
 
   # Derive trigger from persona name if not supplied
   if [[ -z "$trigger" ]]; then
@@ -163,21 +182,49 @@ do_exit() {
     esac
   fi
 
-  # Read session_id from temp file
-  local key
-  key=$(session_key "$persona" "$construct_slug")
-  local temp_path
-  temp_path=$(session_temp_path "$key")
-
   local session_id=""
-  if [[ -f "$temp_path" ]]; then
-    session_id=$(cat "$temp_path" 2>/dev/null || echo "")
-    rm -f "$temp_path" 2>/dev/null || true
+  if [[ -n "$explicit_session_id" ]]; then
+    # Explicit value-passing — preferred, race-free correlation.
+    session_id="$explicit_session_id"
+    # Best-effort cleanup of any stale temp file from a prior run.
+    local key
+    key=$(session_key "$persona" "$construct_slug")
+    rm -f "$(session_temp_path "$key")" 2>/dev/null || true
+  else
+    # Issue #636 (sprint-bug-141): temp-file LOOKUP retained as backward-compat
+    # for callers that haven't yet threaded session_id through. PR #617
+    # deprecated this path; sprint-bug-141 completes the migration by:
+    #   - removing the per-call DEPRECATION warning emission (noise reduction)
+    #   - rejecting calls where neither explicit nor temp-file marker resolves,
+    #     instead of silently emitting `session_id: null` which broke
+    #     downstream pair-matching in trajectory analysis.
+    local key
+    key=$(session_key "$persona" "$construct_slug")
+    local temp_path
+    temp_path=$(session_temp_path "$key")
+    if [[ -f "$temp_path" ]]; then
+      session_id=$(cat "$temp_path" 2>/dev/null || echo "")
+      rm -f "$temp_path" 2>/dev/null || true
+      # Bridgebuilder iter-1 (sprint-bug-141 #636 review): per-call DEPRECATION
+      # warning was removed for noise reduction, but keeping the signal silent
+      # makes the racy path permanent. Emit ONE structured stderr line per
+      # process invocation (LOA_INVOKE_STRICT_EXIT=1 to silence) so operators
+      # auditing test logs can still see + measure fallback usage.
+      if [[ "${LOA_INVOKE_FALLBACK_QUIET:-0}" != "1" ]]; then
+        printf '[construct-invoke] info: tempfile_fallback_used persona=%s construct=%s issue=#636\n' \
+          "$persona" "$construct_slug" >&2
+      fi
+    fi
   fi
 
   if [[ -z "$session_id" ]]; then
-    echo "[construct-invoke] WARNING: no session_id found for $persona/$construct_slug — exit row will have null session_id" >&2
-    session_id="null"
+    # Hard reject — no explicit value, no env, no temp-file marker. Pre-fix
+    # silently emitted a session_id: null row that broke trajectory analysis;
+    # post-fix surfaces the misuse so the caller wires up explicit threading.
+    echo "[construct-invoke] ERROR: no session_id resolvable for $persona/$construct_slug" >&2
+    echo "[construct-invoke]   Pass explicitly: positional arg 6 OR LOA_SESSION_ID env." >&2
+    echo "[construct-invoke]   Issue #636 / sprint-bug-141 — see grimoires/loa/a2a/bug-20260504-i636-cb9b6d/triage.md" >&2
+    return 2
   fi
 
   # Validate/normalize duration_ms
@@ -198,33 +245,22 @@ do_exit() {
   local stream_type="${LOA_STREAM_TYPE:-Signal}"
   local read_mode="${LOA_READ_MODE:-orient}"
 
+  # Issue #636 (sprint-bug-141): session_id is now always non-empty (hard
+  # reject earlier prevents the empty case). The pre-fix `session_id: null`
+  # branch is removed.
   local row
-  if [[ "$session_id" == "null" ]]; then
-    row=$(jq -cn \
-      --arg event "exit" \
-      --arg persona "$persona" \
-      --arg trigger "$trigger" \
-      --arg construct_slug "$construct_slug" \
-      --arg timestamp "$ts" \
-      --argjson duration_ms "$dur_json" \
-      --arg outcome "$outcome" \
-      --arg stream_type "$stream_type" \
-      --arg read_mode "$read_mode" \
-      '{event: $event, session_id: null, persona: $persona, trigger: $trigger, construct_slug: $construct_slug, stream_type: $stream_type, read_mode: $read_mode, timestamp: $timestamp, duration_ms: $duration_ms, outcome: $outcome}')
-  else
-    row=$(jq -cn \
-      --arg event "exit" \
-      --arg session_id "$session_id" \
-      --arg persona "$persona" \
-      --arg trigger "$trigger" \
-      --arg construct_slug "$construct_slug" \
-      --arg timestamp "$ts" \
-      --argjson duration_ms "$dur_json" \
-      --arg outcome "$outcome" \
-      --arg stream_type "$stream_type" \
-      --arg read_mode "$read_mode" \
-      '{event: $event, session_id: $session_id, persona: $persona, trigger: $trigger, construct_slug: $construct_slug, stream_type: $stream_type, read_mode: $read_mode, timestamp: $timestamp, duration_ms: $duration_ms, outcome: $outcome}')
-  fi
+  row=$(jq -cn \
+    --arg event "exit" \
+    --arg session_id "$session_id" \
+    --arg persona "$persona" \
+    --arg trigger "$trigger" \
+    --arg construct_slug "$construct_slug" \
+    --arg timestamp "$ts" \
+    --argjson duration_ms "$dur_json" \
+    --arg outcome "$outcome" \
+    --arg stream_type "$stream_type" \
+    --arg read_mode "$read_mode" \
+    '{event: $event, session_id: $session_id, persona: $persona, trigger: $trigger, construct_slug: $construct_slug, stream_type: $stream_type, read_mode: $read_mode, timestamp: $timestamp, duration_ms: $duration_ms, outcome: $outcome}')
 
   emit_row "$row"
 }
@@ -242,13 +278,17 @@ main() {
       do_entry "$2" "$3" "${4:-}"
       ;;
     exit)
-      [[ $# -ge 3 ]] || { echo "Usage: construct-invoke.sh exit <persona> <construct_slug> [duration_ms] [outcome] [trigger]" >&2; exit 1; }
-      do_exit "$2" "$3" "${4:-}" "${5:-completed}" "${6:-}"
+      [[ $# -ge 3 ]] || { echo "Usage: construct-invoke.sh exit <persona> <construct_slug> [duration_ms] [outcome] [trigger] [session_id]" >&2; exit 1; }
+      do_exit "$2" "$3" "${4:-}" "${5:-completed}" "${6:-}" "${7:-}"
       ;;
     -h|--help)
       echo "Usage: construct-invoke.sh entry|exit <persona> <construct_slug> [args...]"
       echo "  entry <persona> <slug> [trigger]"
-      echo "  exit  <persona> <slug> [duration_ms] [outcome] [trigger]"
+      echo "  exit  <persona> <slug> [duration_ms] [outcome] [trigger] [session_id]"
+      echo ""
+      echo "Concurrency: pass session_id explicitly (or via LOA_SESSION_ID env)"
+      echo "for race-free correlation under parallel callers. Without it, the"
+      echo "fallback temp-file lookup races on (persona, construct) collisions."
       exit 0
       ;;
     *)

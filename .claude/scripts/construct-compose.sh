@@ -97,19 +97,10 @@ command -v yq >/dev/null 2>&1 || die 1 "yq (v4+) required — install via 'brew 
 command -v jq >/dev/null 2>&1 || die 1 "jq required"
 
 # --------------------------------------------------------------------------
-# Composition load — scans recursively for <name>.yaml under COMPOSITIONS_DIR.
-# Supports workstream-folder organization (compositions/discovery/<name>.yaml,
-# compositions/delivery/<name>.yaml, etc.) AND flat layout for backward compat.
+# Composition load
 # --------------------------------------------------------------------------
-COMPOSITION_FILE=""
-# Try flat layout first (faster, common case for legacy)
-if [[ -f "$COMPOSITIONS_DIR/$COMPOSITION_NAME.yaml" ]]; then
-  COMPOSITION_FILE="$COMPOSITIONS_DIR/$COMPOSITION_NAME.yaml"
-else
-  # Recurse into workstream subfolders
-  COMPOSITION_FILE=$(find "$COMPOSITIONS_DIR" -type f -name "$COMPOSITION_NAME.yaml" -print -quit 2>/dev/null)
-fi
-[[ -n "$COMPOSITION_FILE" && -f "$COMPOSITION_FILE" ]] || die 1 "composition not found: $COMPOSITION_NAME (searched $COMPOSITIONS_DIR recursively)"
+COMPOSITION_FILE="$COMPOSITIONS_DIR/$COMPOSITION_NAME.yaml"
+[[ -f "$COMPOSITION_FILE" ]] || die 1 "composition not found: $COMPOSITION_FILE"
 
 COMPOSITION_JSON=$(yq -o=json '.' "$COMPOSITION_FILE" 2>/dev/null) \
   || die 1 "failed to parse YAML: $COMPOSITION_FILE"
@@ -401,7 +392,7 @@ for (( i=0; i<STAGE_COUNT; i++ )); do
   outcome="completed"
   if (( exec_rc != 0 )); then
     outcome="failed"
-    "$SCRIPT_DIR/construct-invoke.sh" exit "$persona" "$construct" "$dur_ms" "$outcome" "/compose:$COMPOSITION_NAME#$stage_label" >/dev/null 2>&1 || true
+    "$SCRIPT_DIR/construct-invoke.sh" exit "$persona" "$construct" "$dur_ms" "$outcome" "/compose:$COMPOSITION_NAME#$stage_label" "$session_id" >/dev/null 2>&1 || true
     die 3 "stage $stage_label ($construct/$skill) executor exited $exec_rc"
   fi
 

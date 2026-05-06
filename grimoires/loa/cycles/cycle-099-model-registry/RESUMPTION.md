@@ -1,0 +1,509 @@
+# cycle-099-model-registry — Session Resumption Brief
+
+**Last updated**: 2026-05-06 (Sprint 1 COMPLETE; **Sprint 2A SHIPPED** — JSON Schema for model_aliases_extra + standalone validator. **Next: Sprint 2B — strict-mode loader integration**)
+**Author**: deep-name + Claude Opus 4.7 1M
+**Purpose**: Crash-recovery + cross-session continuity. Read first when resuming cycle-099 work.
+
+## 🚨 TL;DR — Sprint 1 COMPLETE; Sprint 2A SHIPPED; 13 cycle-099 PRs on main
+
+**On main (11 PRs):**
+- chore #721 (`9ef33055`) — cycle-099 ledger activation + planning artifacts (mirrors cycle-098 #679 pattern)
+- Sprint-1A #722 (`78c59568`) — bridgebuilder codegen foundation (T1.1 + T1.2)
+- Sprint-1B #723 (`7140ff1c`) — adapter migrations + drift gate + lockfile (T1.3 + T1.4 + T1.5 + T1.6 + T1.8 + T1.10 partial)
+- Sprint-1C #724 (`8b008b9b`) — codegen reproducibility matrix CI + toolchain runbook (T1.7 + T1.9) + latent-drift fix
+- Sprint-1E.a #728 (`cd1c2438`) — log-redactor (T1.13) + migrate-model-config CLI (T1.14)
+- Sprint-1E.b #729 (`fbd7c048`) — centralized endpoint validator T1.15 partial (Python canonical + bash wrapper + 8-step canonicalization + STRICT urllib.parse import-guard)
+- Sprint-1E.c.1 #730 (`43a60225`) — TS port via Python+Jinja2 codegen (T1.15 cont.) — 37 cross-runtime parity tests + drift gate with hash cross-check; closes 2 CRITICAL allowlist bypasses caught by dual-review pre-merge
+- Sprint-1E.c.2 #731 (`ada3584a`) — DNS rebinding + HTTP redirect enforcement (T1.15 cont.) — `LockedIP` + `lock_resolved_ip` / `verify_locked_ip` / `validate_redirect` / `validate_redirect_chain` + cdn_cidr_exemptions per SDD §1.9 + load-time CIDR-permissive WARN. 27 new tests with mocked DNS
+- Sprint-1E.c.3.a #732 (`848d9fac`) — bash caller migration to `endpoint_validator__guarded_curl` (T1.15 cont.) — first production wiring of the validator; 3 callers migrated; 54 new tests covering smuggling defenses + --config-auth content gate + allowlist tree-restriction + positional-URL strict-reject. Cypherpunk dual-review caught CRITICAL --config URL smuggling + HIGH allowlist tree gap pre-merge.
+- Sprint-1E.c.3.b #733 (`7815d56a`) — bash caller migration batch (T1.15 cont.) — 11 more callers + `mount-loa.sh` exempt with hardened dot-dot defense. 31 new bats. Subagent caught MEDIUM dot-dot bypass; BB iter-2 caught HIGH/MEDIUM test-logic + bash-c shell-injection pattern.
+- **Sprint-2A #737 (`ace5a206`)** — JSON Schema for `model_aliases_extra` + standalone validator helper (T2.1). 4 deliverables: `.claude/data/trajectory-schemas/model-aliases-extra.schema.json` (DD-5 path-locked, Draft 2020-12, verbatim from SDD §3.2 + dual-review hardening), `.claude/scripts/lib/validate-model-aliases-extra.{py,sh}` (Python canonical + bash twin mirroring cycle-099 endpoint-validator pattern), `tests/unit/model-aliases-extra-schema.bats` (57 contract pins). Sprint scope reduced from "T2.1 + T2.2" to T2.1 only — cycle-095's strict-mode loader for `.loa.config.yaml` top-level fields doesn't actually exist; building one for 30+ existing top-level fields is its own sprint. Subagent dual-review caught **HIGH `permissions: {}` empty-object bypass** of FR-1.4 (fix: `minProperties: 1` + allOf strengthening), **HIGH framework-default collision check missing** per IMP-004 (fix: Python-side `_check_collisions()` against `.claude/defaults/model-config.yaml`), **MEDIUM dot-dot bypass in id pattern** (fix: `not.anyOf` rejecting `\.\.` + leading/trailing meta), **MEDIUM endpoint URI advisory** (fix: `pattern: ^https://` enforced at schema layer), all pre-merge. BB iter-1 caught hardcoded `/tmp/loa-pwned` flake risk + dead helpers. BB iter-2 caught duplicate-id silent-shadow + skip-on-missing-shipped-files masking + exit-code-pin slop. Plateau at iter-2.
+- **Sprint-1D #735 (`cdedd3dd`)** — cross-runtime golden test corpus (T1.11 + T1.12) — 12 fixture YAMLs at `tests/fixtures/model-resolution/` covering each SDD §7.6.3 scenario + 3 byte-equal runtime runners (bash + python + TypeScript) parsing the same `generated-model-maps.sh` source-of-truth + 4 CI workflows including the `cross-runtime-diff.yml` byte-equality gate. Scope: Sprint 1D ships infrastructure only — runners consume `sprint_1d_query.alias` (alias-lookup subset). Full SDD §7.6.1 `input` + `expected` blocks preserved per-fixture for Sprint 2 T2.6 to extend. Each fixture's deferred markers ensure cross-runtime parity holds today. Subagent dual-review caught **CRIT-1 TS prototype walk** (`"toString" in modelIds` returned true; fixed via `Object.create(null)` + `hasOwn`), **CRITICAL-1 TS nested-object sort** (manual top-key sort doesn't recurse; fixed via `canonicalizeRecursive`), **CRITICAL-2 Python ensure_ascii=False** (Unicode escape divergence), **CRIT-3 env-override gate parity** (LOA_GOLDEN_* now mirror cycle-099 LOA_MODEL_RESOLVER_TEST_MODE pattern), **HIGH-3 pre-source sanitizer** (sources generated-model-maps.sh which would execute `$(...)`; strict-shape regex + outside-array hardening), **CRIT-2 bash YAML type discrimination** (yq `tag` check; uniform error markers across runtimes), **HIGH-1 npm ci --ignore-scripts** (preinstall RCE defense), **HIGH-2/MEDIUM-1 dead workflow_run trigger + paths filter additions**, **HIGH-4 dead explicit-pin code path** (fixture 02 now uses `anthropic:claude-opus-4-7` form). BB iter-2 plateau (one persistent false-alarm at 0.95 confidence — `local_yq` variable name mis-read as `local` keyword). 21 bats contract pins; ~448+21 cycle-099 cumulative bats. All 3 runtimes byte-equal locally + via CI cross-runtime-diff gate.
+- **Sprint-1E.c.3.c #734 (`b8dea0f5`)** — final SSRF closure (T1.15 cont.) — strict CI flip + load_allowlist host validation + opt-in webhook allowlist. Three deliverables: (1) `tools/check-no-raw-curl.sh` strict scanner with heredoc-state tracking + word-boundary regex + suppression marker; CI guard flipped from `::warning::` to `::error::` + `exit 1`. (2) `_validate_allowlist_entries` rejects sentinel hosts (`*`, `?`, FULLWIDTH ASTERISK U+FF0A, ASTERISK OPERATOR U+2217, NUL/CR/LF/TAB control bytes) at LOAD time, fail-closed with provider+index in error. (3) `_webhook_send` / `_webhook_dispatch` refactor with opt-in toggle `model_health_probe.alert_webhook_endpoint_validator_enabled` (literal-lowercase-`true` only) + `webhook-hosts.json` empty-default allowlist. **Subagent dual-review caught CRITICAL `model-adapter.sh.legacy` exempt-blindness** (3 live raw-curl invocations invisible to `*.sh`-only glob) + **HIGH FULLWIDTH-ASTERISK U+FF0A bypass** of `_validate_allowlist_entries` — both fixed pre-merge with bats coverage. **gp HIGH heredoc-string-mention + same-line-opener bypasses** also caught and fixed. BB kaironic 2-iter plateau (iter-1 caught F2/F3/F4 marker-scope + suffix-class + echo-cmdsub bypasses; iter-2 caught F13 push.paths gap). 4 exempt files now: `endpoint-validator.sh` (wrapper), `mount-loa.sh` (bootstrap), `model-health-probe.sh` (legacy webhook), `model-adapter.sh.legacy` (deferred Sprint 4 sunset).
+
+**Cumulative**: ~448 cycle-099 bats tests on main (391 prior + 57 from 1E.c.3.c: 18 host-validation + 12 webhook-opt-in + 33 strict-scan-coverage). 0 regressions. Drift-gate CI active. Strict v2 schema. Centralized endpoint-validator across Python + bash + TS with cross-runtime parity gate AND runtime DNS-rebinding defense AND **all 15 production caller paths now either funneling through wrapper OR explicitly exempt with hardened defaults + reviewer-visible rationale**. Strict CI scan blocks future raw curl/wget bypasses outside the 4-file exempt set.
+
+### Operator decision needed at session start
+
+> **Sprint 1 is COMPLETE.** All 15 sprint tasks shipped including T1.10 / T1.11 / T1.12 / T1.15 follow-ons. Cumulative ~469 cycle-099 bats tests; 0 regressions. **Next: Sprint 2** (config extension + per-skill granularity + runtime overlay).
+
+**Sprint 2 scope** (per cycle-099 sprint plan; Sprint 2A SHIPPED, 15 tasks remain):
+- ✅ T2.1 — JSON Schema (Sprint 2A #737)
+- ⏳ T2.2 — Strict-mode loader (Sprint 2B candidate)
+- ⏳ T2.3 — Python startup hook `.claude/scripts/lib/model-overlay-hook.py`
+- ⏳ T2.4 — `.run/merged-model-aliases.sh` writer (atomic-write + flock)
+- ⏳ T2.5 — `model-adapter.sh` source-with-version-mismatch
+- ⏳ T2.6 — FR-3.9 6-stage resolver (Python canonical + bash twin) — extends Sprint 1D runners
+- ⏳ T2.7 — `tier_groups.mappings` probe-confirmed defaults
+- ⏳ T2.8 — `prefer_pro_models` overlay with FR-3.4 legacy gate
+- ⏳ T2.9 — Legacy-shape backward compat
+- ⏳ T2.10 — Permissions baseline + acknowledge flag (FR-1.4)
+- ⏳ T2.11 — Endpoint allowlist integration (T1.15 wrapping)
+- ⏳ T2.12 — `model-invoke --validate-bindings` CLI
+- ⏳ T2.13 — `LOA_DEBUG_MODEL_RESOLUTION=1` tracing
+- ⏳ T2.14 — `.loa.config.yaml.example` worked examples
+- ⏳ T2.16 — `network-fs-merged-aliases.md` runbook
+
+**Sprint-2B candidate**: T2.3 + T2.4 (Python overlay hook + merged-aliases.sh writer). T2.2's "strict-mode loader" is structurally an existing-loader EXTENSION — but no such loader exists; deferred until T2.6 brings the canonical Python loader. Sprint-2B's natural slice is the runtime-overlay infrastructure that T2.6 will plug into.
+
+**Sprint 2A → Sprint 2B integration handoff**: validator at `.claude/scripts/lib/validate-model-aliases-extra.{py,sh}` is invokable today. `validate(config, schema, block_path, framework_ids)` returns `(is_valid, errors, block_present)`. Sprint 2B's loader will call this at the right moment in the agent-startup sequence + plumb the validator into a CI gate.
+
+Dependency chain: Sprint 2's T2.6 (full FR-3.9 resolver) extends Sprint 1D's runners — replacing the `deferred_to: "sprint-2-T2.6"` markers with real `resolution_path` arrays. The cross-runtime-diff gate from 1D becomes the parity guarantee for the full resolver. Sprint 2A's schema becomes the input-validation layer for the resolver.
+
+**Followup-issues filed at merge** (BB iter-1 deferred LOWs to track in cycle-100 hardening sprint or Sprint 4 sunset):
+- `model-adapter.sh.legacy` SSRF migration (BB iter-2 F5) — defer to Sprint 4 legacy sunset
+- Scanner CRLF/BOM shebang detection (BB iter-2 F1) — cycle-100 hardening
+- ANSI-C $'...' string heredoc-state tracking (BB iter-2 F2) — cycle-100 hardening
+- `command -v` / `which` bypass via aliasing (cypherpunk LOW) — cycle-100 hardening
+- ports-field load-time validation (BB iter-2 F12 PRAISE-suggestion) — cycle-100 if needed
+
+---
+
+## What's on main (cycle-099 inventory)
+
+### Sprint-1A — codegen foundation (`78c59568`)
+
+| Artifact | Path | Notes |
+|---|---|---|
+| Bun-compatible codegen | `.claude/skills/bridgebuilder-review/scripts/gen-bb-registry.ts` | 549 LOC; reads model-config.yaml via yq subprocess; emits TS |
+| Generated truncation | `.claude/skills/bridgebuilder-review/resources/core/truncation.generated.ts` | TOKEN_BUDGETS map |
+| Generated config registry | `.claude/skills/bridgebuilder-review/resources/config.generated.ts` | MODEL_REGISTRY map |
+| Build pipeline | `.claude/skills/bridgebuilder-review/package.json::scripts.build` | `npm run build` invokes codegen before tsc |
+| Drift-check entrypoint | `npm run gen-bb-registry:check` (exits 3 on stale) | Consumed by sprint-1B drift-gate |
+| 33 bats tests | `tests/unit/gen-bb-registry-codegen.bats` | T1-T12 categories incl. prototype-pollution guard |
+| tsx pinned | BB skill `package.json` devDeps | Closes supply-chain via `node_modules/.bin/tsx` |
+
+### Sprint-1B — adapter migrations + drift gate (`7140ff1c`)
+
+| Artifact | Path | Notes |
+|---|---|---|
+| Resolver lib | `.claude/scripts/lib/model-resolver.sh` | `resolve_alias` / `resolve_provider_id`; override gated behind `LOA_MODEL_RESOLVER_TEST_MODE=1` |
+| RT model-adapter migration | `.claude/scripts/red-team-model-adapter.sh` | Sources resolver; prefer-resolver-fallback-to-local |
+| RT cvds migration | `.claude/scripts/red-team-code-vs-design.sh` | `--model "$_opus_model_id"` (resolved via resolve_alias) |
+| Default adapter migration | `.claude/scripts/model-adapter.sh` | Same pattern; cycle-082 keys preserved |
+| Lockfile | `.claude/defaults/model-config.yaml.checksum` | SHA256 hex; verified by drift-gate |
+| Drift-gate workflow | `.github/workflows/model-registry-drift.yml` | 3 jobs: lockfile-checksum, bash-codegen-check, ts-codegen-check |
+| 6 lockfile tests | `tests/integration/lockfile-checksum.bats` | L1-L5 |
+| 25 sentinel tests | `tests/integration/legacy-adapter-still-works.bats` | S1-S6 covering all migrations |
+
+### Sprint-1E.c.3.a — bash caller migration (`848d9fac`)
+
+| Artifact | Path | Notes |
+|---|---|---|
+| `endpoint_validator__guarded_curl` helper | `.claude/scripts/lib/endpoint-validator.sh` | New ~250 LOC. argv: `--allowlist <PATH>` (tree-restricted) + `--config-auth <FILE>` (content-gated) + `--url <URL>` + caller curl args. Hardened defaults: `--proto =https / --proto-redir =https / --max-redirs 10` |
+| Per-caller allowlists | `.claude/scripts/lib/allowlists/{loa-providers,loa-anthropic-docs,openai}.json` | Narrow allowlists per caller domain (model APIs / oracle docs / openai-only) |
+| `model-health-probe.sh` migration | `.claude/scripts/model-health-probe.sh` | 2 of 3 curl sites migrated (provider POST/GET); webhook (3rd) keeps raw curl with `[ENDPOINT-VALIDATOR-EXEMPT]` rationale + `--proto =https / --max-redirs 10` hardening; SSRF-rejection stderr captured to tempfile + `log_warn` audit emit |
+| `anthropic-oracle.sh` migration | `.claude/scripts/anthropic-oracle.sh` | `fetch_source` migrated; `--tlsv1.2 --fail-with-body` preserved |
+| `lib-curl-fallback.sh` migration | `.claude/scripts/lib-curl-fallback.sh` | `call_api` migrated (transitively closes `gpt-review-api.sh`); auth tempfile via `--config-auth`; exit 78 + 64 = NO retry |
+| Smuggling defenses | `.claude/scripts/lib/endpoint-validator.sh` | `--config` / `-K` / `-K?*` / `--next` / `-:` REJECTED in caller args (cypherpunk CRITICAL); `--config-auth` file content-gated to `header = "..."` lines only (rejects `url=` / `next=` / `output=` / CR-byte / backslash-injection); positional URL strict-reject (any `^https?://` arg) |
+| Allowlist tree-restriction | same | `realpath -e` resolves allowlist; rejects out-of-tree (cypherpunk HIGH); `LOA_ENDPOINT_VALIDATOR_TEST_MODE=1 + LOA_ENDPOINT_VALIDATOR_TEST_ALLOWLIST_DIR` test-only escape (cycle-098 L3 pattern) |
+| 54 wrapper tests | `tests/integration/endpoint-validator-guarded-curl.bats` | G1-G8 (24): wrapper invariants + acceptance/rejection + argv parsing + exit-code propagation + ordering pin + sourcing API stability. S1 (4): smuggling-flag rejection. S2 (10): --config-auth content gate. T1 (4): allowlist tree-restriction. S3 (3): glued-form smuggling (--config=PATH, -KPATH, -K=PATH). S4 (4): positional URL rejection + false-positive guard. S5 (2): --config-auth argv position pin. S6 (3): strict-reject design boundary (--referer/--proxy/-e https://x rejected) |
+
+### Sprint-1E.c.2 — DNS rebinding + redirect enforcement (`ada3584a`)
+
+| Artifact | Path | Notes |
+|---|---|---|
+| `LockedIP` dataclass | `.claude/scripts/lib/endpoint-validator.py` | Frozen; `__post_init__` normalizes host (lowercase + trailing-dot strip) + ipaddress-validates ip + initial_ips. Forge defense at construction. |
+| Error hierarchy | same | `EndpointDnsError` base; `DnsResolutionError` (getaddrinfo failure) + `DnsRebindingError` (rebinding / blocked-range / port-pivot) subclasses |
+| `lock_resolved_ip()` | same | Resolve once, check ALL records (Happy Eyeballs defense), apply `cdn_cidr_exemptions` per SDD §1.9 (relaxing semantics — IPs in CIDR skip blocked-range check) |
+| `verify_locked_ip()` | same | Re-resolve; accept if any locked initial_ip in fresh records (CDN round-robin tolerance); else raise DnsRebindingError |
+| `validate_redirect()` | same | Same-host + **same-port** + same-IP enforcement; rejects port-pivot via redirect even when alt-port allowlisted |
+| `validate_redirect_chain()` | same | Per-hop validation against locked endpoint; bounded by `max_hops` (default 10 per RFC 7231 §6.4) — prevents unbounded redirect-chain DoS |
+| Load-time CIDR-permissive WARN | `_warn_overly_permissive_cidr` | Emits `[ALLOWLIST-OVERLY-PERMISSIVE]` on stderr for `cdn_cidr_exemptions` entries with prefix /0../4 (catches `0.0.0.0/0` copy-paste defeat) |
+| 27 DNS-rebinding tests | `tests/integration/endpoint-validator-dns-rebinding.bats` | L (lock × 3) + V (verify × 3) + R (redirect × 4) + C (cdn_exemption × 4) + H (Happy Eyeballs × 1) + N (normalize/forge × 2) + P (port-pivot × 1) + X (chain × 3) + B (errors/warn × 2) + I (IPv6 × 4) |
+| Dedicated CI | `.github/workflows/cycle099-sprint-1e-c2-dns-tests.yml` | timeout-minutes: 5; mocked DNS (offline) |
+
+### Sprint-1E.c.1 — TS port via Python+Jinja2 codegen (`43a60225`)
+
+| Artifact | Path | Notes |
+|---|---|---|
+| Jinja2 template | `.claude/scripts/lib/codegen/endpoint-validator.ts.j2` | ~430 LOC TS validator with `{{ }}` substitutions for canonical-Python constants |
+| Python emit module | `.claude/adapters/loa_cheval/codegen/emit_endpoint_validator_ts.py` | spec_loader → constant extraction → render → `--check` mode does byte-diff + canonical-source-hash cross-check (catches tampered-canonical scenario) |
+| Generated TS | `.claude/skills/bridgebuilder-review/resources/lib/endpoint-validator.generated.ts` | 489 LOC; DO NOT EDIT — header carries SHA-256 of canonical Python source |
+| 37 parity tests | `tests/integration/endpoint-validator-ts-parity.bats` | 8 acceptance + 28 rejection (E1-E20 + E21-E28 review-remediation: percent-encoded dots, Unicode dots, soft-hyphen, backslash, IPv4-octal, IPv6 zone-id, IPv4-compat IPv6) + 1 drift gate |
+| Dedicated CI | `.github/workflows/cycle099-sprint-1e-c-ts-tests.yml` | Two jobs: drift gate (--check) + parity tests (bats + tsx via BB skill node_modules) |
+| Surrogate-aware filter | `_ts_escape_cp` in emit module | non-BMP codepoints use `\u{XXXXX}` brace form (cypherpunk MEDIUM remediation) |
+| Authority pre-parse gate | `_validate_authority` in canonical Python | unified gate rejects `%`/`\\`/Unicode dot equivalents/soft-hyphen/zero-width controls/obfuscated IPv4 octets BEFORE either parser normalizes — closes 2 CRITICAL allowlist bypasses |
+
+### Sprint-1E.b — centralized endpoint validator (`fbd7c048`)
+
+| Artifact | Path | Notes |
+|---|---|---|
+| Validator (Python canonical) | `.claude/scripts/lib/endpoint-validator.py` | ~370 LOC; 8-step pipeline + IPv4 literal block (incl. AWS IMDS + RFC 1918 + decimal/hex/octal obfuscation) + userinfo reject + raw-control-byte gate (CR/LF/TAB/NUL pre-urlsplit); stdlib + idna 3.13 |
+| Validator (bash wrapper) | `.claude/scripts/lib/endpoint-validator.sh` | Subprocess delegate hardened against argv smuggling (`--` separator + python -I) and BASH_SOURCE symlink swap (realpath -e + tree-confinement) |
+| Test allowlist fixture | `tests/fixtures/endpoint-validator/allowlist.json` | Mirror of cycle-099 production providers (openai/anthropic/google/bedrock × 3 regions) |
+| 72 cross-runtime tests | `tests/integration/endpoint-validator-cross-runtime.bats` | E0 userinfo, E1-E8 step rejection, A1-A9 acceptance, B1-B2 wrapper hardening, C1-C8 stream contract, P1-P2 parity |
+| Dedicated CI | `.github/workflows/cycle099-sprint-1e-b-tests.yml` | Two jobs: parity tests + STRICT Python urllib.parse import-guard (5 import patterns; scope: .claude/{adapters,scripts,skills,commands,hooks}/ + tests/ + scripts/ if exists) |
+| Pre-existing baseline | `.github/workflows/lint-pre-existing-urllib.txt` | 3 entries: bedrock_adapter.py, test_bedrock_redaction_adversarial.py, mock_server.py. Cycle-100 expiry target |
+
+### Sprint-1E.a — hardening primitives (`cd1c2438`)
+
+| Artifact | Path | Notes |
+|---|---|---|
+| Log-redactor (Python canonical) | `.claude/scripts/lib/log-redactor.py` | Stdlib-only; URL userinfo + 6 query-param secret patterns; case-insensitive name match with case preservation |
+| Log-redactor (bash twin) | `.claude/scripts/lib/log-redactor.sh` | POSIX BRE; explicit `[Aa]`-style case classes; sed line-by-line; cross-runtime byte-identical |
+| Migrate CLI driver | `.claude/scripts/loa-migrate-model-config.py` | argparse + ruamel.yaml + jsonschema; O_NOFOLLOW + 0o600 output; distinct error codes (MIGRATION-PRODUCED vs CONFIG-V2-INVALID) |
+| Migrate lib (pure) | `.claude/scripts/lib/model-config-migrate.py` | `migrate_v1_to_v2()` + `detect_schema_version()`; deepcopy-safe; field-level report list |
+| v2 JSON Schema | `.claude/data/schemas/model-config-v2.schema.json` | Strict `additionalProperties:false` at root + providers + modelEntry + agentBinding + permissionsBlock; agentBinding forbids tier-tag in `model:` field |
+| 37 log-redactor tests | `tests/integration/log-redactor-cross-runtime.bats` | T1-T12 SDD §5.6.4 corpus + T8.4 caller-contract pin |
+| 37 migrate tests | `tests/integration/migrate-model-config.bats` | M1-M18 incl. M13 security (symlink, mode, !!python/object), M14 tier_groups edges, M15 pure-function, M16 distinct error codes, M18 strict-mode |
+| Dedicated CI | `.github/workflows/cycle099-sprint-1e-tests.yml` | ruamel.yaml + jsonschema pinned; runs both bats + production smoke against `.claude/defaults/model-config.yaml` + cycle-026 perms |
+
+### Sprint-1C — matrix CI + runbook (`8b008b9b`)
+
+| Artifact | Path | Notes |
+|---|---|---|
+| Matrix CI | `.github/workflows/model-registry-drift.yml::ts-codegen-check` | `[ubuntu-latest, macos-latest]` with platform-aware SHA256-pinned yq |
+| Toolchain runbook | `grimoires/loa/runbooks/codegen-toolchain.md` | 168 lines; per-platform install steps; pinned versions |
+| Verification script | `tools/check-codegen-toolchain.sh` | `_version_ge` via `sort -V`; CI invokes it on matrix runners |
+| Bash codegen drift fix | `.claude/scripts/generated-model-maps.sh` | +5 lines for `claude-sonnet-4-5-20250929` (sprint-1A latent regression) |
+
+---
+
+## Brief A — Sprint 1D (cross-runtime golden corpus, T1.11 + T1.12)
+
+Paste into a fresh Claude Code session:
+
+```
+Read grimoires/loa/cycles/cycle-099-model-registry/RESUMPTION.md FIRST and the section "Brief A". Then ship Sprint 1D.
+
+Sprint-1D scope (T1.11 + T1.12 per cycle-099 sprint.md §1):
+  - 12 golden fixture files at tests/fixtures/model-resolution/ covering
+    SDD §7.6.3 scenarios: happy-path tier-tag, explicit-pin, missing-tier-
+    fail-closed, legacy-shape-deprecation, override-conflict, extra-only-
+    model, empty-config, unicode-operator-id, prefer-pro-overlay, extra-vs-
+    override-collision, tiny-tier-anthropic, degraded-mode-readonly
+  - 3 cross-runtime runners that consume the fixture corpus identically:
+      tests/python/golden_resolution.py
+      tests/bash/golden_resolution.bats
+      tests/typescript/golden_resolution.test.ts
+  - 4 CI workflows:
+      .github/workflows/python-runner.yml
+      .github/workflows/bash-runner.yml
+      .github/workflows/bun-runner.yml
+      .github/workflows/cross-runtime-diff.yml
+    The cross-runtime-diff job downloads all three runners' artifacts and
+    asserts byte-equality. Mismatch fails the build (SDD §7.6.2).
+
+Caveat — the FR-3.9 6-stage resolver is sprint-2 scope. The 1D runners
+should test what CURRENTLY exists (the codegen-derived MODEL_PROVIDERS /
+MODEL_IDS lookup and the new generated-model-maps.sh / config.generated.ts
+output) — i.e., the SUBSET of FR-3.9 behavior that's already implemented.
+Sprint 2 will extend the corpus + runners as the full resolver lands.
+
+Continue Path: cut feat/cycle-099-sprint-1d from main (8b008b9b+).
+
+Tooling already in place from sprint-1C:
+  - bats v1.10+ (existing repo dependency)
+  - Python 3.13 (cheval venv per .claude/scripts/lib/cheval-venv/)
+  - tsx via BB skill node_modules (npx --no-install tsx works after npm ci)
+  - pyyaml (cheval requirement) — for the python runner
+  - yq pinned v4.52.4 with darwin-arm64 SHA256
+
+Quality-gate chain (sprint-1A/1B/1C precedent):
+  1. Implement test-first: write golden_resolution.bats first as the canonical
+     reference, then port to python and TS verifying byte-equal output
+  2. Subagent review (general-purpose) + audit (paranoid cypherpunk) in parallel
+  3. Bridgebuilder kaironic INLINE via .claude/skills/bridgebuilder-review/resources/entry.sh --pr <N>
+  4. Admin-squash after kaironic plateau (typical: 2 iterations for code PRs)
+
+Slice if needed:
+  - 1D.a: 12 fixtures + bats runner + bash-runner.yml (smallest, fastest gate)
+  - 1D.b: python runner + python-runner.yml
+  - 1D.c: TS runner + bun-runner.yml + cross-runtime-diff.yml
+
+Refs: SDD §7.6.3 (fixture corpus); Flatline SDD pass #1 SKP-002 CRITICAL 890
+(this is the resolution).
+```
+
+---
+
+## Brief B — Sprint 1E.c.2 (DNS rebinding + redirect enforcement) — SHIPPED at #731 ada3584a
+
+Sprint-1E.a (T1.13 + T1.14) SHIPPED at #728 cd1c2438. Sprint-1E.b (T1.15 partial — Python canonical + bash wrapper + 8-step pipeline) SHIPPED at #729 fbd7c048. Sprint-1E.c.1 (T1.15 cont. — TS port via Jinja2 codegen) SHIPPED at #730 43a60225. **Sprint-1E.c.2 (T1.15 cont. — DNS rebinding + redirect enforcement) SHIPPED at #731 ada3584a.** **Sprint-1E.c.3.a (T1.15 cont. — first 3 bash callers + smuggling defenses) SHIPPED at #732 848d9fac.** Remaining T1.15 follow-ons: 1E.c.3.b remaining ~11 callers + 1E.c.3.c CI guard flip (Brief C below).
+
+## Brief C — Sprint 1E.c.3.b (remaining bash callers) + 1E.c.3.c (CI guard flip)
+
+Sprint-1E.c.3.a SHIPPED at #732 848d9fac with the wrapper + 3 callers (model-health-probe, anthropic-oracle, lib-curl-fallback). Remaining:
+- 1E.c.3.b: ~11 scripts (`flatline-{semantic-similarity,learning-extractor,proposal-review,validate-learning,error-handler}.sh`, `constructs-*.sh`, `check-updates.sh`, `license-validator.sh`, `mount-loa.sh` (special-case bootstrap), `lib-curl-fallback`-style helpers)
+- 1E.c.3.c: flip CI guard `.github/workflows/cycle099-sprint-1e-b-tests.yml` from informational warning to STRICT failure (curl/wget outside endpoint-validator.sh fails build); remove pre-existing-curl baseline if no entries left
+
+Plus deferred from 1E.c.3.a:
+- HIGH-2: reject `host: "*"` / `host: ""` at load time in `load_allowlist` (Python canonical) — defense-in-depth even though tree-restriction now closes the realistic substitution vector
+- MEDIUM (webhook): opt-in webhook-host allowlist (`.claude/scripts/lib/allowlists/webhook-hosts.json`, empty by default; opt-in via `.loa.config.yaml`)
+- LOW (subprocess DoS): batch-validate or document a probe-interval floor for hot-loop callers
+
+The wrapper + smuggling defenses are stable; this sprint is straightforward "apply the same pattern to N more files".
+
+Paste into a fresh Claude Code session:
+
+```
+Read grimoires/loa/cycles/cycle-099-model-registry/RESUMPTION.md FIRST and the section "Brief C". Then ship Sprint 1E.c.3.b.
+
+Sprint-1E.c.3.b scope — Bash caller migration, remaining ~11 scripts:
+  1E.c.3.a SHIPPED at #732 848d9fac. Wrapper + smuggling defenses + 3
+  callers landed. Apply the same pattern (source endpoint-validator.sh +
+  swap raw `curl` to `endpoint_validator__guarded_curl --allowlist X
+  --config-auth Y --url Z [args]`) to:
+    .claude/scripts/flatline-semantic-similarity.sh   (OpenAI embedding API)
+    .claude/scripts/flatline-learning-extractor.sh    (multi-model)
+    .claude/scripts/flatline-proposal-review.sh       (multi-model)
+    .claude/scripts/flatline-validate-learning.sh     (multi-model)
+    .claude/scripts/flatline-error-handler.sh         (retry helper — verify it actually shells out)
+    .claude/scripts/check-updates.sh                  (github.com framework version check)
+    .claude/scripts/constructs-*.sh                   (construct registry fetches)
+    .claude/scripts/license-validator.sh
+    .claude/scripts/mount-loa.sh                      (special case — see below)
+    .claude/scripts/lib-content.sh                    (if it shells out)
+  mount-loa.sh special case: bootstrap script CAN'T depend on .venv being
+  present. Either (a) carve out with [ENDPOINT-VALIDATOR-EXEMPT] rationale +
+  raw curl with --proto =https + github.com explicit URL match, OR (b) defer
+  it as the LAST migration after the validator's Python dep ships separately.
+
+Sprint-1E.c.3.c scope — flip CI guard:
+  Edit .github/workflows/cycle099-sprint-1e-b-tests.yml: change the
+  `endpoint-validator-import-guard::Bash — informational scan for curl/wget`
+  step from `::warning::` (advisory) to `::error::` + `exit 1` (blocking).
+  Should remain only ONE allowlist exception: `.claude/scripts/lib/
+  endpoint-validator.sh` (the wrapper itself). Remove the
+  lint-pre-existing-curl baseline file if no entries remain.
+  (~30 min if 1E.c.3.b is clean.)
+
+Continue Path: cut feat/cycle-099-sprint-1E.c.3.b from main (848d9fac+).
+
+Reference: 1E.c.3.a's endpoint-validator-guarded-curl.bats (54 tests) is
+the template for caller-migration smoke tests. The wrapper API is stable;
+new callers need only:
+  - source .claude/scripts/lib/endpoint-validator.sh (after lib-security.sh)
+  - declare a CALLER_ALLOWLIST="${LOA_OVERRIDE:-$SCRIPT_DIR/lib/allowlists/<name>.json}"
+  - swap `curl args URL` → `endpoint_validator__guarded_curl --allowlist X --url URL args`
+  - if caller uses --config (auth tempfile), swap to --config-auth
+  - if caller uses --next or -:, refactor (forbidden)
+  - smoke-test the caller still works
+
+Quality-gate chain (same as 1A/1B/1C/1E.a/1E.b/1E.c.1/1E.c.2/1E.c.3.a):
+  1. Implement test-first (smoke tests for each migrated caller)
+  2. Subagent dual-review (general-purpose + paranoid cypherpunk) in parallel
+  3. Bridgebuilder kaironic INLINE via .claude/skills/bridgebuilder-review/resources/entry.sh --pr <N>
+     (typical 2-iter convergence; iter-1 catches real defects, iter-2 cosmetic)
+  4. Admin-squash after plateau (--admin --squash --delete-branch)
+  5. RESUMPTION.md + memory update
+
+Reference patterns from Sprint-1E.b (#729):
+  - .claude/scripts/lib/endpoint-validator.py canonical pipeline (8 steps
+    + IPv4 obfuscation + userinfo reject + control-byte gate)
+  - .claude/scripts/lib/endpoint-validator.sh wrapper hardening pattern
+    (`--` separator, realpath -e tree-confinement, python -I isolated)
+  - tests/integration/endpoint-validator-cross-runtime.bats — 72 tests:
+    E1-E8 step rejection codes, B1-B2 wrapper hardening, C6-C8 stream
+    contract, P1-P2 byte-equal parity helpers
+  - .github/workflows/cycle099-sprint-1e-b-tests.yml — STRICT urllib.parse
+    import-guard with scope pre-filter (existing dirs only — closes the
+    `set -e` × `grep -2-on-missing-dir` race that bit me locally)
+  - .github/workflows/lint-pre-existing-urllib.txt — baseline-with-comments
+    pattern for migration debt tracking
+
+Tooling already in place:
+  - .venv has idna 3.13 + ruamel.yaml + jsonschema pinned
+  - For 1E.c.1 jinja2: pip install jinja2>=3.1 in .venv on first sub-PR
+  - For 1E.c.2 socket.getaddrinfo + httpx: stdlib only; no new deps
+  - bats v1.10+, jq, yq pinned (cycle-099 sprint-1C runbook)
+
+Quality-gate chain (same as 1A/1B/1C/1E.a/1E.b):
+  1. Implement test-first (bats parity test + golden corpus before code)
+  2. Subagent dual-review (general-purpose + paranoid cypherpunk) in parallel
+  3. Bridgebuilder kaironic INLINE via .claude/skills/bridgebuilder-review/resources/entry.sh
+     (typical 2-iter convergence for code PRs)
+  4. Admin-squash after plateau
+  5. RESUMPTION.md update + memory write
+
+Sprint-1E.b remediation lessons worth carrying forward:
+  - `set -e` + `grep -rEln` against a missing dir → exit 2 fatal under bash -e
+    Pre-filter scope arrays via `for d in ...; do [[ -d $d ]] && scope+=$d; done`
+    BEFORE expanding into argv. Local interactive-shell smoke MISSES this; the
+    workflow's default `bash -e` shell is the canonical CI test environment.
+  - Stream-contract: rejection JSON to STDERR (per SDD §6.2), acceptance JSON
+    to STDOUT. Bats `_validate_both` that does `2>&1` merge HIDES regressions.
+    Add explicit C6/C7/C8 tests that capture only one stream at a time.
+  - `python -I` (isolated mode) on subprocess invocations: ignores PYTHONPATH
+    + user-site to defend against env-var-injected interpreter modules.
+  - `realpath -e` + tree-confinement check before sourcing/exec'ing sibling
+    scripts: prevents BASH_SOURCE symlink-swap attacks.
+  - argv smuggling defense: bash wrappers MUST insert `--` before user-
+    supplied URL/path values so argparse can't reinterpret them as flags.
+    Pattern: `flags=("${@:1:$last_idx}"); url="${!#}"; "$py" "$tool" "${flags[@]}" -- "$url"`
+  - Subagent verdict-counting at iter-2: persistent false-alarm = plateau
+    signal. Sprint-1E.b iter-1+iter-2 BB both flagged the same imaginary
+    "import urllib.parse" regex miss (verified by manual grep). Document
+    the false alarm in commit and admin-squash.
+  - Production-yaml smoke gate caught schema-vs-reality drift in 1E.a;
+    matches the same pattern in 1E.b (real provider URLs in fixture).
+
+Refs: SDD §1.9.1 (endpoint validator) + §6.5 (8-step canonicalization);
+Flatline SDD pass #2 SKP-006 CRITICAL 870 + pass #3 IMP-002 HIGH_CONSENSUS 880.
+```
+
+---
+
+## Brief D — Sprint 2B (T2.3 + T2.4 — Python overlay hook + merged-aliases.sh writer)
+
+**Status as of 2026-05-06**: cycle-099 Sprint 1 COMPLETE (12 PRs). Sprint 2A SHIPPED (#737 `ace5a206`). 13 cycle-099 PRs total on main; HEAD at `75321b90` (RESUMPTION.md update post Sprint 2A merge).
+
+Sprint-2B scope (T2.3 + T2.4 per cycle-099 sprint.md §Sprint 2):
+
+- **T2.3** — Python startup hook `.claude/scripts/lib/model-overlay-hook.py` per SDD §1.4.4 + DD-4. Reads merged config (SoT ∪ operator extras), validates `model_aliases_extra` via Sprint 2A's `validate-model-aliases-extra.py`, writes `.run/merged-model-aliases.sh` for bash consumers. Uses cheval venv per §10.1.4.
+- **T2.4** — `.run/merged-model-aliases.sh` writer with:
+  - Atomic-write via tempfile in same directory + `os.rename(2)` (cross-filesystem `rename` is non-atomic; SDD §1.4.4 explicitly forbids `${TMPDIR:-/tmp}`)
+  - flock exclusive/shared semantics on `.run/merged-model-aliases.sh.lock` per FR-1.9
+  - SHA256 invalidation under shared lock; skip regen if input hash matches header
+  - Monotonic version header (incrementing on each successful write)
+  - `shlex.quote()` shell-escape for operator-controlled values per SDD §3.5
+  - `chmod 0600` on the temp file BEFORE `rename()` (avoid brief world-readable window)
+
+Acceptance criteria (cycle-099 sprint.md AC-S2.7 + AC-S2.8 + AC-S2.9 + AC-S2.12):
+
+- AC-S2.7 — `tests/integration/merged-aliases-shell-escape.bats` passes — operator-controlled values escaped via `shlex.quote()` survive bash sourcing without injection
+- AC-S2.8 — `tests/integration/flock-network-fs-detection.bats` passes — NFS/SMB detection blocklist refuses without `LOA_ALLOW_NETWORK_FS_FOR_MERGED_ALIASES=1`
+- AC-S2.9 — `tests/unit/model-overlay-hook.py.test` passes (pytest unit tests)
+- AC-S2.12 — `tests/integration/overlay-resolution-latency.bats` p95 ≤50ms warm cache, p95 ≤500ms cold (NFR-Perf-1; SDD §7.5.1)
+
+**T2.5 follow-on**: `model-adapter.sh` updated to source `.run/merged-model-aliases.sh` with version-mismatch detection (re-read after exclusive-lock acquisition on mismatch). May ride alongside 2B or split out.
+
+**Sprint 2A handoff (already in place):**
+
+- Schema: `.claude/data/trajectory-schemas/model-aliases-extra.schema.json`
+- Validator API: `validate(config, schema, block_path, framework_ids) -> (is_valid, errors, block_present)`
+  - `block_present` distinguishes "operator hasn't opted in" (vacuous success) from "operator opted in and config valid"
+  - Sprint 2B's hook calls this BEFORE constructing the merged-aliases output
+- Validator CLI: `--config / --block / --schema / --framework-defaults / --no-collision-check / --json / --quiet`
+- Exit codes: 0 valid · 78 invalid · 64 usage error
+- Bash twin: `.claude/scripts/lib/validate-model-aliases-extra.sh` (mirrors endpoint-validator pattern)
+
+Cut: `feat/cycle-099-sprint-2B` from main (`75321b90`+).
+
+Quality-gate chain (cycle-099 standard, established across 13 PRs):
+
+1. **Implement test-first**: AC-S2.7 / AC-S2.8 / AC-S2.9 / AC-S2.12 bats files first. Each test should have positive control + named regression IDs (cycle-099 traceability convention).
+2. **Subagent dual-review** (general-purpose + paranoid cypherpunk) IN PARALLEL via `Agent({subagent_type: "general-purpose", run_in_background: true})`. Paranoid cypherpunk catches CRITICAL/HIGH security bypasses pre-merge across cycle-099 (e.g., `permissions:{}` FR-1.4 bypass on Sprint 2A, `*.sh`-only-glob CRITICAL on Sprint 1D).
+3. **Bridgebuilder kaironic INLINE**: `.claude/skills/bridgebuilder-review/resources/entry.sh --pr <N>`. Typical 2-iter plateau for code PRs; iter-1 catches real defects, iter-2 catches polish + plateau-signal false alarms (persistent low-confidence findings = plateau).
+4. **Admin-squash** after plateau: `gh pr merge <N> --admin --squash --delete-branch`.
+5. **Update RESUMPTION.md + memory** entries.
+
+Specific SDD references for T2.3/T2.4:
+
+- SDD §1.4.4 — `model-overlay-hook.py` purpose + concurrency + atomic-write + 0600 permission
+- SDD §3.5 — `merged-aliases.sh` shape spec (shell-escape rules, version header)
+- SDD §6.3 — flock acquisition order (shared first; upgrade to exclusive if write needed); 5s shared / 30s exclusive timeouts; env-var configurable via `LOA_OVERLAY_LOCK_TIMEOUT_*_MS`
+- SDD §6.6 — NFS/SMB advisory-flock hazard; `LOA_ALLOW_NETWORK_FS_FOR_MERGED_ALIASES=1` opt-in
+- SDD §6.3.2 — degraded read-only fallback default; `LOA_OVERLAY_STRICT=1` opt-in for fail-closed; stale-lock recovery via `kill -0` PID check; NFR-Op-6 contract
+- SDD §7.5.1 — latency measurement methodology
+
+Known cycle-099 gotchas to pre-empt (memory entries available):
+
+- **Cross-runtime parity traps** (`feedback_cross_runtime_parity_traps.md`) — JSON Unicode (`ensure_ascii=False`), nested-key-sort recursion, JS `in`-walks-prototype, YAML scalar type semantics, bash sourcing executes shell metas. Even though Sprint 2B is Python+bash (no TS yet), the patterns apply.
+- **Charclass dot-dot bypass** (`feedback_charclass_dotdot_bypass.md`) — pair `[a-zA-Z0-9._-]+` regex with `[[ "$input" != *..* ]]` companion check; Sprint 2A's schema added `not.anyOf` rejection. Apply same pattern in T2.4's id usage.
+- **Allowlist tree-restriction** (`feedback_allowlist_tree_restriction.md`) — env-var overrides MUST require explicit TEST_MODE gate (mirroring `LOA_MODEL_RESOLVER_TEST_MODE` + `BATS_TEST_DIRNAME`).
+- **Curl --config smuggling** (`feedback_curl_config_smuggling.md`) — N/A for 2B (no HTTP); reference for any wrapper-pattern reuse.
+- **Subshell export gotcha** (`feedback_subshell_export_gotcha.md`) — bash `export` inside `$(...)` doesn't propagate; T2.4's atomic-write logic should call helpers BEFORE entering subshells.
+- **Stash safety** (`.claude/rules/stash-safety.md`) — never pipe `git stash` output through `tail`; never append `|| true`. Use `stash_with_guard` helper. T2.4's tests around lock-recovery must respect this if they shell out to git.
+
+Backwards-compat invariants (cycle-099 G-2):
+
+- **Cycle-098 vintage `.loa.config.yaml`** (without any of the new top-level fields) MUST resolve identically before/after Sprint 2B (AC-S2.3 in cycle-099 sprint.md). T2.3's hook MUST short-circuit gracefully when no `model_aliases_extra` block exists (vacuous success — Sprint 2A's validator already returns `(True, [], False)` for this case).
+- **Production `.claude/defaults/model-config.yaml`** loads through the hook without errors. Add a smoke test step against the real production yaml in the dedicated CI workflow (cycle-099 §`Production-yaml smoke-test` lesson from sprint-1E.a).
+
+Beads still UNHEALTHY/MIGRATION_NEEDED ([#661](https://github.com/0xHoneyJar/loa/issues/661)). `--no-verify` policy active. Each commit MUST carry `[NO-VERIFY-RATIONALE: ...]` tag.
+
+Slice if context-tight:
+  - 2B.a: T2.3 only (Python hook, no writer side effects yet — validate-and-print mode)
+  - 2B.b: T2.4 writer (atomic + flock + SHA256 + shlex.quote)
+  - 2B.c: T2.5 model-adapter.sh sourcing integration
+
+Conversation-budget discipline (cycle-099 lesson): T2.4's atomic-write + flock + shell-escape surface is the trickiest in Sprint 2; if subagent dual-review catches a CRITICAL flock or atomic-rename bug pre-merge, allocate buffer for 3-iter BB convergence. If iter-1 plateau-signals (anthropic-only because OpenAI/Google APIs intermittently 404/error, but iter-2 confirms), call plateau early.
+
+After Sprint-2B ships:
+  - Sprint-2C candidate: T2.6 (FR-3.9 6-stage resolver, Python canonical + bash twin) — extends Sprint 1D's golden corpus runners with full `resolution_path` arrays
+  - Sprint-2D: T2.7 (tier_groups defaults) + T2.8 (prefer_pro_models overlay)
+  - Sprint-2E: T2.9 (legacy compat) + T2.10 (permissions baseline)
+  - Sprint-2F: T2.11 (endpoint allowlist integration with cycle-099 sprint-1E validator)
+  - Sprint-2G: T2.12 (model-invoke --validate-bindings) + T2.13 (LOA_DEBUG_MODEL_RESOLUTION)
+  - Sprint-2H: T2.14 (operator example block) + T2.16 (network-fs runbook)
+
+---
+
+## Open backlog at session-end (2026-05-06)
+
+### Sprint 1 remaining
+
+- **T1.10 unfinished bats**: bridgebuilder-dist-drift.bats + perf-bench.bats. Sprint-1A landed gen-bb-registry-codegen.bats; sprint-1B landed legacy-adapter-still-works.bats. Two more deliverables per SDD §7.2 still owed. **Defer to sprint-1D OR sprint-1E.c bundle** (small, can ride alongside).
+
+### Sprint 1 deferred to follow-ups
+
+- **macos arm64 hardcoding** (BB iter-1 F3 + iter-2 F5 from sprint-1C): pin to `macos-14` instead of `macos-latest` for deterministic arch.
+- **yq upstream checksums URL** (BB iter-2 F2 from sprint-1C): cross-reference https://github.com/mikefarah/yq/releases/download/v4.52.4/checksums in the workflow comment for audit ergonomics.
+- **Composite action for yq install** (BB iter-2 F8 from sprint-1C): three workflows currently duplicate the install step. Repository-local action could DRY this up.
+- **`local alias=` shadows builtin** (sprint-1B review H1): cosmetic; rename to `_alias`.
+- **Workflow_dispatch trigger for drift gate** (sprint-1C review process): catches "drift introduced before the gate landed" race.
+- **Sprint-1E.a leftovers** (BB iter-2, all LOW or recycled, deferred):
+  - F4: T8.2/T8.3 caller-contract docs discoverability — log-redactor module docstring already documents the URL-only scope; consider README/operator-doc snippet
+  - F5: M13.3 umask defense-in-depth — Python `os.O_CREAT, mode=0o600` ALREADY enforces; the test pins it via the bash-side `stat`. Could add a parallel test that explicitly inspects Python's `os.stat()` result.
+  - F6: pip-install-without-hashes — matches existing repo convention (jcs-conformance.yml, bedrock-contract-smoke.yml); deferred as repo-wide hardening cycle
+  - F7: T1.2 mixed `_redact_both` + `_assert_parity` — uniformly migrate remaining sites to `_assert_redacts_to`
+  - F8: smoke-test partial-write defense — add a `[ -s /tmp/migrated.yaml ]` size check after the migrate call
+  - F12: M11.1 brittleness — replace `grep -E '^[a-z_]+:'` with a parser-based first-key check via ruamel.yaml
+
+### Sprint 2+ scope (downstream of Sprint 1 completion)
+
+- Sprint 2 — Config extension (`model_aliases_extra`) + per-skill granularity (`skill_models`) + runtime overlay (`.run/merged-model-aliases.sh`)
+- Sprint 3 — Personas + docs migration + DD-1 Option B model-permissions codegen + bridgebuilder dist regen
+- Sprint 4 (gated at T4.4) — Legacy adapter sunset
+
+### Beads
+
+UNHEALTHY/MIGRATION_NEEDED ([#661](https://github.com/0xHoneyJar/loa/issues/661)) unchanged across all 10 PRs (#721/#722/#723/#724/#728/#729/#730/#731/#732/#733). `--no-verify` policy active per cycle-099 sprint plan §`--no-verify` Safety Policy. Each PR commit message carries the `[NO-VERIFY-RATIONALE: ...]` audit-trail tag.
+
+---
+
+## Patterns established this session (worth remembering)
+
+1. **Subagent dual-review (general-purpose + paranoid cypherpunk) in parallel** caught real bugs across all four sub-sprints. Paranoid cypherpunk specifically caught: `__proto__` prototype-shadowing (1A), `LOA_MODEL_RESOLVER_GENERATED_MAPS_OVERRIDE` ungated arbitrary-bash-source (1B), unverified macOS yq SHA256 (1C), `additionalProperties` schema gap + symlink-clobber on output write (1E.a). General-purpose specifically caught: silent regression of `claude-sonnet-4-5-20250929` (1A), brittle source-line regex pin (1B), advisory-only version-comparison-script (1C), input-dict mutation in "pure" function + tier_groups absent/partial-fill gaps + tautological assertion (1E.a).
+
+2. **Bridgebuilder kaironic 2-iter convergence** held empirically. Each PR plateaued in 2 iterations including 1E.a.
+
+3. **The vacuous-green-via-fixture-syntax-error pattern** (BB iter-1 F1 on PR #723): a security-test fixture with a bash syntax error means the negative assertion passes for the wrong reason (file fails to parse before the attack code runs). **Fix template**: add a positive-control sentinel that proves the payload WOULD fire if the gate were absent.
+
+4. **The drift-gate-cannot-catch-its-own-introducing-PR race** (sprint-1A → 1B → 1C surfacing): SDD R-5 in the wild. Sprint-1C remediated retroactively via gen-adapter-maps regen. Sprint-1D follow-up should add `workflow_dispatch` post-merge gate.
+
+5. **Inline implementation pattern with subagent quality gates** continues to outperform `/run` autopilot for sliced sub-sprints. Sprint 1A/1B/1C/1E.a all used the inline-then-subagent-review-then-BB-kaironic-then-admin-squash flow.
+
+6. **Conversation-budget discipline**: future sessions should slice sprints further before starting. 1E.a was sliced cleanly from 1E.b at session start, so the remaining endpoint validator can ship as a small follow-up rather than getting bundled in mid-session.
+
+7. **Production-yaml smoke-test in CI catches schema-vs-reality drift** (sprint-1E.a): the strict v2 schema initially rejected legitimate cycle-095 production fields (compliance_profile null, api_format dict for Bedrock per-capability mapping). Without the dedicated CI step that runs the migrator against `.claude/defaults/model-config.yaml`, this would have surfaced only when an operator hit it in the field. **Fix template**: every schema-tightening PR must include a smoke-test step that runs against the most-permissive real-world fixture available.
+
+8. **Heredoc shell-injection-into-Python-source surface** (sprint-1E.a BB iter-1 F2): bats tests using `"$PYTHON" - <<EOF` (unquoted) interpolate every `$VAR` into the embedded Python source. If any path contains a quote, `$`, or `\`, the embedded code can break or be injected. **Fix template**: helper function `_python_assert` that exports paths via env vars + uses quoted heredoc `<<'EOF'`, with the embedded Python reading via `os.environ["PATH_VAR"]`. See `tests/integration/migrate-model-config.bats` for the canonical pattern.
+
+9. **`set -e` × `grep -2-on-missing-dir` interaction** (sprint-1E.b CI fix): GitHub Actions default shell is `bash -e {0}`; `grep -rEln '...' missing-dir/` exits 2 (path-not-found), and `set -e` aborts the workflow step. Local interactive shells without `set -e` swallow the same condition, so the bug surfaces only in CI. **Fix template**: pre-filter scope arrays via `for d in ...; do [[ -d "$d" ]] && scope+=("$d"); done` before expanding into `grep` argv. Robust to repo-level path changes; future scope additions don't require workflow edits to remove non-existent paths.
+
+10. **Stream-contract testing at the CLI surface** (sprint-1E.b gp M1 + cypherpunk LOW 3): bats helpers that capture `2>&1` (merged stdout + stderr) cannot detect regressions in stream-placement contracts. Per SDD §6.2 errors emit on stderr; my JSON-mode rejection-tests would have passed even if the validator emitted JSON-rejection on stdout. **Fix template**: separate test cases that capture only one stream at a time and assert the OTHER is empty: `out=$(... 2>"$WORK_DIR/err"); err=$(cat "$WORK_DIR/err")`. Add C6/C7/C8-style tests at every CLI's stream boundary.
+
+11. **Persistent false-alarm = kaironic plateau** (sprint-1E.b BB iter-1+iter-2 F1): the same finding flagged by BB across two iterations, manually verified to be incorrect, is a strong plateau signal. Don't burn a third iteration trying to "fix" something the regex already handles. Document the false alarm in the commit message + admin-squash.
+
+12. **TS-vs-Python parser-confusion is the central risk of multi-runtime validators** (sprint-1E.c.1 cypherpunk CRITICAL × 2): the URL constructor in JS silently percent-decodes `%2E` to `.`, normalizes Unicode dot equivalents (U+FF0E, U+3002, U+FF61), and folds backslashes — all behaviors that diverge from Python's `urlsplit`. **Fix template**: a unified pre-parse gate (`_validate_authority`) that rejects parser-confusion vectors in BOTH runtimes, applied to the RAW URL string before either parser sees it. Sprint-1E.c.1 ships `_AUTHORITY_FORBIDDEN_CHARS` containing `%`, `\`, three Unicode dots, soft-hyphen, and zero-width / bidi controls. Plus `_has_obfuscated_ipv4_octet` for leading-zero / 0x-prefix octets. Both reviewers (cypherpunk CRITICAL × 2 + general-purpose HIGH × 4) caught this pre-merge — without dual-review, sprint-1E.c.1 would have shipped a working SSRF allowlist bypass.
+
+13. **Codegen surrogate trap for non-BMP codepoints** (sprint-1E.c.1 cypherpunk MEDIUM): naive Jinja2 emission `\u{{ '%04x' | format(cp) }}` works for BMP (≤ U+FFFF) but silently corrupts for non-BMP (e.g., U+E0001 → emits `11`, which JS parses as U+E000 followed by literal "11"). **Fix template**: a `_ts_escape_cp` filter that uses `\u{XXXXX}` brace form for codepoints > 0xFFFF. Latent bug today (Python's `_PATH_CONTROL_CHARS` are all in BMP), but a future addition would silently break the TS port without the filter.
+
+14. **Drift-gate hash cross-check beats text-diff alone** (sprint-1E.c.1 gp MEDIUM): a codegen `--check` mode that only does `fresh_text != committed_text` byte-diff catches the common "forgot to regenerate" case but misses a tampered-canonical-with-matching-regen scenario. **Fix template**: extract the embedded `Source content hash:` header from the committed file and compare against a fresh hash of the canonical Python source — fail with `[BB-CODEGEN-HASH-DRIFT]` if they don't match. Forces operator review of any canonical edit.
+
+15. **Spec-vs-impl semantic inversion is a HIGH-severity bug class** (sprint-1E.c.2 gp+cypherpunk HIGH 1): the SDD specified `cdn_cidr_exemptions` with RELAXING semantics (resolved IP in CIDR → SKIP blocked-range check, for CDN-via-Cloudflare reconciliation); my initial implementation introduced `cidr_ranges` with INVERTED REQUIRE-MATCH semantics. Operators reading the SDD would configure the spec'd field name; my code silently ignored it. **Fix template**: when adding security-related allowlist/blocklist fields, ALWAYS verify the field name AND the predicate (relaxing-vs-tightening) match the SDD verbatim. Adding undocumented schema extensions is a documentation-vs-code drift surface that operator misconfig will exercise.
+
+16. **Happy Eyeballs records[0] gambit on dual-stack hosts** (sprint-1E.c.2 cypherpunk MEDIUM): `getaddrinfo` returns mixed AF_INET/AF_INET6 records in resolver-determined order. Naive `records[0]` extraction picks the first; OS-level connect (RFC 8305 Happy Eyeballs) prefers IPv6 when available. An attacker DNS that returns [public_v4, blocked_v6] could lock the public IPv4 (passes blocked-range check) while the actual TCP connect lands on the blocked v6. **Fix template**: validate ALL records in the set against blocked-range, not just records[0]. The CDN-CIDR exemption applies per-record. `lock_resolved_ip` iterates the full record list before returning.
+
+17. **Forge-defense at dataclass `__post_init__`** (sprint-1E.c.2 cypherpunk LOW): `frozen=True` prevents MUTATION but not CONSTRUCTION. A future caller deserializing a `LockedIP` from a JSON state file (or any other persistence path) can construct one with garbage IP fields, bypassing the `lock_resolved_ip` blocked-range check entirely. **Fix template**: validate fields in `__post_init__` (e.g., `ipaddress.ip_address(self.ip)` parses cleanly) so deserialization paths fail-fast at construction. The dataclass becomes a true validated invariant carrier instead of a passive struct.
+
+18. **`curl --config` URL smuggling vector** (sprint-1E.c.3.a cypherpunk CRITICAL): a curl wrapper that validates URL but lets caller pass `--config` is broken — curl config files honor `url = "..."` and `next` directives, allowing a tampered tempfile to smuggle additional URLs past the allowlist. `lib-security.sh::write_curl_auth_config` blocks the most obvious vector (newline injection in API key) at write time, but defense-in-depth says the WRAPPER must also: (a) reject caller-passed `--config` / `-K` / `--next` / `-:` outright, (b) require auth files via a NEW `--config-auth` flag that pre-parses the file and rejects anything other than `header = "..."` lines + comments + blanks. **Fix template**: a wrapper-flag-pair that separates "validated input file" from "raw curl args" so curl never sees the bag-of-flags shape that allows config-file smuggling. Also reject CR (0x0D) bytes — line-based grep would otherwise miss CR-only line endings that hide smuggled directives.
+
+19. **Positional URL strict-reject as design boundary** (sprint-1E.c.3.a BB iter-1 MEDIUM, accepted at iter-2 F8 SPECULATION): a wrapper that takes `--url <URL>` + `[curl_args...]` MUST also reject naked `https?://` strings in caller args. curl treats positional args as additional URLs to fetch alongside `--url`'s target — `endpoint_validator__guarded_curl --url valid https://evil` would fetch BOTH. The trade-off: strict-reject catches naked positionals but ALSO rejects legitimate flag-VALUES like `--referer https://x` and `--proxy https://x`. For Loa's caller set this is correct (none use those flags); document the bound as failing tests rather than a comment so future callers see the design constraint explicitly.
+
+20. **Allowlist tree-restriction matters even with caller-controlled defaults** (sprint-1E.c.3.a cypherpunk HIGH): caller scripts default the allowlist path via `${LOA_CALLER_ALLOWLIST:-$lib_dir/allowlists/foo.json}` — but env var override means an attacker who controls env can substitute. The realistic threat is operator-self-pwning, but defense-in-depth via `realpath -e` resolution + tree-restriction (path MUST be under `.claude/scripts/lib/allowlists/`) closes the substitution surface entirely. Test-mode escape via `LOA_ENDPOINT_VALIDATOR_TEST_MODE=1` + `LOA_ENDPOINT_VALIDATOR_TEST_ALLOWLIST_DIR` (gated AND requires both — partial test mode does NOT trigger escape, mirroring cycle-098 L3 pattern).
+
+21. **Captured stderr for SSRF audit visibility** (sprint-1E.c.3.a gp LOW): a curl-wrapping script that does `2>/dev/null` on the wrapper call swallows the validator's structured rejection JSON. Operators tampering with provider URL would see only "transient HTTP_STATUS=0" with no SSRF breadcrumb. **Fix template**: capture wrapper stderr to a tempfile, and on `curl_rc==78` emit ONE structured `log_warn` line (`[ENDPOINT-VALIDATOR-REJECT]` + url + provider + first 400 bytes of validator stderr). Same surface as the existing audit-log pattern in `model-health-probe.sh`.

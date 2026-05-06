@@ -19,6 +19,14 @@ dist/
 out/
 .next/
 
+# Bridgebuilder ships its compiled dist to submodule consumers
+# (#607: multi-model-pipeline.js and other newer modules were getting
+# silently ignored by the `dist/` pattern above, causing ERR_MODULE_NOT_FOUND
+# when the skill runs from a submodule consumer). The skill's dist/ IS
+# shipping infrastructure — un-ignore it explicitly.
+!.claude/skills/bridgebuilder-review/dist/
+!.claude/skills/bridgebuilder-review/dist/**
+
 # Environment variables
 .env
 .env.local
@@ -158,7 +166,17 @@ grimoires/loa/decisions.yaml
 # Sprint Ledger (project-specific cycle/sprint history)
 # Created by /plan-and-analyze, tracks development cycles per-project
 grimoires/loa/ledger.json
-grimoires/loa/ledger.json.bak
+# Planning-artifact backups (ledger/sprint/prd/sdd, any depth, any -bak variant).
+# Use git tags / cycle archive directories for rollback; never commit .bak files.
+# See cycle-098 NOTES decision-trail for the convention rationale.
+grimoires/loa/**/ledger.json*.bak
+grimoires/loa/**/ledger.json.*-bak
+grimoires/loa/**/sprint*.md*.bak
+grimoires/loa/**/sprint*.md.*-bak
+grimoires/loa/**/prd*.md*.bak
+grimoires/loa/**/prd*.md.*-bak
+grimoires/loa/**/sdd*.md*.bak
+grimoires/loa/**/sdd*.md.*-bak
 
 # Archived development cycles (project-specific history)
 grimoires/loa/archive/
