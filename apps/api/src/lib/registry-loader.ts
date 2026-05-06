@@ -262,8 +262,16 @@ export class RegistryLoader {
     }
 
     if (res.status === 304) {
-      // Not modified — same content as last fetch.
-      this.state = { ...this.state, fetched_at: new Date().toISOString() };
+      // Not modified — same content as last fetch. Bridgebuilder F015 closure:
+      // promote source to 'fresh' since the server has affirmed our cached
+      // content is still current. Previously left source as-is, which left
+      // misleading 'cold-start' labels on cached content that had been
+      // re-validated by GitHub.
+      this.state = {
+        ...this.state,
+        fetched_at: new Date().toISOString(),
+        source: 'fresh',
+      };
       return this.state;
     }
 
@@ -370,6 +378,15 @@ export class RegistryLoader {
     const content_hash = sha256(body);
 
     // Integrity check — committed sha256 vs computed sha256 of the seed.
+    //
+    // Bridgebuilder F008 disclosure: this is a CORRUPTION-DETECTION mechanism,
+    // NOT cryptographic authenticity. Both the seed and the .sha256 file live
+    // in the same repo, so any actor with write access can update them in
+    // lockstep. The runtime fetch path uses HMAC-signed webhooks for stronger
+    // guarantees; this cold-start path's tamper resistance is bounded by repo
+    // ACLs + branch protection. For stronger cold-start authenticity, sign the
+    // seed with the maintainer-root-pubkey at .claude/data/maintainer-root-pubkey.txt
+    // (deferred to a follow-on hardening pass).
     if (existsSync(this.opts.seedHashPath)) {
       const expected = readFileSync(this.opts.seedHashPath, 'utf8').trim();
       if (expected && expected !== content_hash) {

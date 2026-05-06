@@ -10,6 +10,14 @@ permissions:
   contents: write
   pull-requests: write
 
+# Bridgebuilder F002 closure: serialize concurrent workflow runs so two
+# scheduled+manual triggers can't clobber each other's bot/discover-constructs
+# branch updates. cancel-in-progress=false to let the in-flight run finish
+# (peter-evans/create-pull-request handles branch reuse cleanly on next run).
+concurrency:
+  group: discover-constructs
+  cancel-in-progress: false
+
 on:
   schedule:
     # Daily at 06:00 UTC
@@ -109,14 +117,22 @@ jobs:
         run: |
           set -euo pipefail
           # Append each missing construct to registry.yaml under .constructs.<slug>.
-          # Idempotent: yq's `=` on an existing key is a no-op when value matches;
-          # we read pre-existing entries first and skip them.
+          # Idempotent: skip slugs already present.
+          #
+          # Bridgebuilder F003/F004 closure: pass values via env + strenv() so
+          # description/category/author are bytes-safe (no shell-quote injection
+          # if a discovered repo carries a `"` or `\` in its GitHub description),
+          # and validate slug against a strict regex before path-interpolating.
           jq -c '.register.missing[]' "$DISCOVERY_JSON" | while read -r entry; do
             slug=$(echo "$entry" | jq -r '.slug')
-            git_url=$(echo "$entry" | jq -r '.gitUrl')
-            description=$(echo "$entry" | jq -r '.description // ""')
-            category=$(echo "$entry" | jq -r '.category // "uncategorized"')
-            author=$(echo "$entry" | jq -r '.author // "0xHoneyJar"')
+
+            # Slug validation — reject anything that isn't lowercase-alnum +
+            # hyphens. discover-constructs.ts SHOULD already produce well-formed
+            # slugs, but treat this workflow's input as untrusted at the boundary.
+            if [[ ! "$slug" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+              echo "::warning::skipping malformed slug: $slug"
+              continue
+            fi
 
             # Skip if slug already present.
             if yq ".constructs.\"$slug\"" registry.yaml | grep -qv '^null$'; then
@@ -124,12 +140,26 @@ jobs:
               continue
             fi
 
-            yq -i ".constructs.\"$slug\" = {
-              \"git_url\": \"$git_url\",
-              \"description\": \"$description\",
-              \"category\": \"$category\",
-              \"author\": \"$author\"
-            }" registry.yaml
+            # Pass values via env + strenv() to avoid shell-quote interpolation.
+            # The slug path interpolation is now safe because of the regex above.
+            git_url=$(echo "$entry" | jq -r '.gitUrl')
+            description=$(echo "$entry" | jq -r '.description // ""')
+            category=$(echo "$entry" | jq -r '.category // "uncategorized"')
+            author=$(echo "$entry" | jq -r '.author // "0xHoneyJar"')
+
+            export DC_GIT_URL="$git_url"
+            export DC_DESCRIPTION="$description"
+            export DC_CATEGORY="$category"
+            export DC_AUTHOR="$author"
+
+            yq -i "
+              .constructs.\"$slug\" = {
+                \"git_url\": strenv(DC_GIT_URL),
+                \"description\": strenv(DC_DESCRIPTION),
+                \"category\": strenv(DC_CATEGORY),
+                \"author\": strenv(DC_AUTHOR)
+              }
+            " registry.yaml
             echo "added: $slug"
           done
 

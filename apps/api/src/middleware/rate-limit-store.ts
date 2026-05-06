@@ -109,8 +109,16 @@ export function rateLimitStoreMiddleware(
     try {
       result = await check(sourceIp);
     } catch (e) {
+      // Bridgebuilder F016 closure: explicit ops-awareness signal so a
+      // rate-limit-store outage is visible to monitoring (not just buried
+      // as a generic warn). The 'failOpen' field lets log aggregators
+      // alert on this specific signal without false-positives from other
+      // RateLimit logs.
       logger.error({
-        msg: 'RateLimit: store error',
+        msg: 'RateLimit: store error · failing open',
+        failOpen: true,
+        sourceIp,
+        path: c.req.path,
         error: e instanceof Error ? e.message : String(e),
       });
       // Fail open on store errors — webhook auth still requires HMAC + nonce,
