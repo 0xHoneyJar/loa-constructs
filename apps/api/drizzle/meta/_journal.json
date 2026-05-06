@@ -99,6 +99,27 @@
       "when": 1745400000001,
       "tag": "0013_visibility_transitions",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1778035491000,
+      "tag": "0014_deprecate_registry_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1778035491001,
+      "tag": "0015_trajectory_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1778035491002,
+      "tag": "0016_webhook_security_state",
+      "breakpoints": true
     }
   ]
 }
