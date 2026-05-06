@@ -11,6 +11,40 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // --- Mock setup (must come before app import) ---
 
+// Registry-loader mock (cycle constructs-network-migration · T-1.11e).
+// The /v1/constructs list and slug-detail handlers were ported from the
+// Postgres `packs` query path to the yaml-sourced registry-loader. Tests
+// that exercise those handlers populate `registryEntries` to seed the
+// fake loader. Tests that exercise other endpoints (filters tests still
+// using the DB mock) are unaffected — the loader returns whatever is in
+// the map, including empty.
+let registryEntries: Map<string, {
+  slug: string;
+  git_url: string;
+  description: string;
+  category: string;
+  author: string;
+}> = new Map();
+
+vi.mock('../lib/registry-loader.js', () => ({
+  getRegistryLoader: () => ({
+    getRegistry: () => ({
+      entries: registryEntries,
+      source: 'fresh',
+      fetched_at: new Date().toISOString(),
+      commit_sha: null,
+      content_hash: 'test',
+      etag: null,
+    }),
+    getEntry: (slug: string) => registryEntries.get(slug),
+    health: () => ({
+      source: 'fresh',
+      last_updated: new Date().toISOString(),
+      entries_count: registryEntries.size,
+    }),
+  }),
+}));
+
 // Select call tracking — each db.select() call consumes the next result
 let selectResults: unknown[][] = [];
 let selectCallIndex = 0;
@@ -266,6 +300,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   selectResults = [];
   selectCallIndex = 0;
+  registryEntries.clear();
 });
 
 describe('Constructs Routes', () => {
@@ -438,19 +473,15 @@ describe('Constructs Routes', () => {
 
   describe('GET /v1/constructs/:slug', () => {
     it('returns detail for existing construct', async () => {
-      const pack = mockPackRow();
-      const version = mockVersionRow();
-      const owner = mockOwnerRow();
-
-      // getConstructBySlug: first tries packs, then skills
-      // fetchPackAsConstruct: pack query, version query, owner query, identity query, verification query
-      selectResults = [
-        [pack],     // pack by slug
-        [version],  // latest version
-        [owner],    // owner
-        [],         // identity
-        [],         // verification
-      ];
+      // T-1.11e: route now reads from registry-loader, not packs DB.
+      // Populate the mocked registry with the test entry.
+      registryEntries.set('observer', {
+        slug: 'observer',
+        git_url: 'https://github.com/0xHoneyJar/construct-observer.git',
+        description: 'User research + feedback pipeline',
+        category: 'analytics',
+        author: '0xHoneyJar',
+      });
 
       const res = await app.request('/v1/constructs/observer');
 
@@ -459,7 +490,9 @@ describe('Constructs Routes', () => {
       expect(body).toHaveProperty('data');
       expect(body).toHaveProperty('request_id');
       expect(body.data).toHaveProperty('slug', 'observer');
-      expect(body.data).toHaveProperty('name', 'Beehive');
+      // Yaml-source defaults: name = slug (the registry doesn't carry name
+      // separately yet; it'll come from per-construct manifests later).
+      expect(body.data).toHaveProperty('name', 'observer');
       expect(body.data).toHaveProperty('type', 'pack');
       expect(body.data).toHaveProperty('visibility', 'public');
     });
@@ -481,10 +514,15 @@ describe('Constructs Routes', () => {
 
   describe('HEAD /v1/constructs/:slug', () => {
     it('returns 200 with empty body for existing construct', async () => {
-      // constructExists: select pack with visibility fields, then canAccessPack check
-      selectResults = [
-        [{ id: 'pack-1', visibility: 'public', ownerId: 'user-1', ownerType: 'user', status: 'published' }], // pack exists
-      ];
+      // T-1.11e: route reads from registry-loader. Populate the entry so
+      // the slug-detail handler returns 200; HEAD strips the body.
+      registryEntries.set('observer', {
+        slug: 'observer',
+        git_url: 'https://github.com/0xHoneyJar/construct-observer.git',
+        description: 'User research + feedback pipeline',
+        category: 'analytics',
+        author: '0xHoneyJar',
+      });
 
       const res = await app.request('/v1/constructs/observer', {
         method: 'HEAD',
