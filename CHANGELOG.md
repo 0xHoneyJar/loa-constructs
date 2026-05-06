@@ -5,6 +5,17 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.39.0] — 2026-05-06 — Sprint 1 critical path — webhook substrate + registry-loader + yaml-source read path
+
+## Sprint Plan: cycle-network-migration · Sprint 1 — partial
+
+### Added
+
+- **cycle-network-migration**: Sprint 1 critical path — webhook substrate + registry-loader + yaml-source read path (#225)
+
+_Source: PR #225_
+
+
 ## [2.27.0] - 2026-04-22
 
 ### Why This Release
