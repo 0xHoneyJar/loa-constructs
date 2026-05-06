@@ -45,6 +45,13 @@ WORKDIR /app
 # Copy built dist
 COPY --from=builder --chown=nodejs:nodejs /app/apps/api/dist ./dist
 
+# Copy registry-loader cold-start seed (T-1.11a · cycle constructs-network-migration).
+# Path mirrors the source layout (apps/api/.cache/) because the registry-loader
+# resolves DEFAULT_SEED_PATH via process.cwd() + 'apps/api/.cache/registry.yaml'.
+# Without this, /v1/constructs returns total=0 because boot() throws on missing seed
+# and the in-memory cache stays empty until the first successful raw.gh fetch.
+COPY --from=builder --chown=nodejs:nodejs /app/apps/api/.cache ./apps/api/.cache
+
 # Copy production node_modules from builder (already pruned)
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
 
