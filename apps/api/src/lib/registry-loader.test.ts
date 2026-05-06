@@ -312,6 +312,107 @@ describe('RegistryLoader recovery — stale → fresh', () => {
   });
 });
 
+describe('RegistryLoader GH rate-limit fallback (T-1.11c · FR-1.6.6)', () => {
+  let tmp: string;
+  const originalToken = process.env.GITHUB_TOKEN;
+
+  beforeEach(() => {
+    tmp = mkdtempSync(join(tmpdir(), 'registry-loader-test-'));
+    vi.clearAllMocks();
+    process.env.GITHUB_TOKEN = 'ghs_test-token-abc123';
+  });
+  afterEach(() => {
+    if (originalToken === undefined) delete process.env.GITHUB_TOKEN;
+    else process.env.GITHUB_TOKEN = originalToken;
+  });
+
+  it('switches to Authorization header when X-RateLimit-Remaining drops below threshold', async () => {
+    const { seedPath, seedHashPath } = setupSeed(tmp, SAMPLE_YAML);
+    const calls: Array<{ url: string; init: RequestInit | undefined }> = [];
+    const fetchImpl = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      // First response: low remaining → trip the fallback flag for the NEXT call.
+      if (calls.length === 1) {
+        return Promise.resolve(
+          new Response(FRESH_YAML, {
+            status: 200,
+            headers: { 'x-ratelimit-remaining': '5' },
+          }),
+        );
+      }
+      // Second+ response: just return fresh.
+      return Promise.resolve(mkResponse(FRESH_YAML));
+    });
+
+    const loader = new RegistryLoader({
+      seedPath,
+      seedHashPath,
+      fetchImpl,
+      refreshIntervalMs: 0,
+    });
+    await loader.boot();
+    expect(loader.__isUsingAuthFallback()).toBe(true);
+
+    // Second call should include Authorization header.
+    await loader.refresh();
+    const secondCallHeaders = (calls[1]?.init?.headers ?? {}) as Record<string, string>;
+    expect(secondCallHeaders['Authorization']).toBe('Bearer ghs_test-token-abc123');
+  });
+
+  it('does not switch when GITHUB_TOKEN is unset', async () => {
+    delete process.env.GITHUB_TOKEN;
+    const { seedPath, seedHashPath } = setupSeed(tmp, SAMPLE_YAML);
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(FRESH_YAML, {
+        status: 200,
+        headers: { 'x-ratelimit-remaining': '3' },
+      }),
+    );
+
+    const loader = new RegistryLoader({
+      seedPath,
+      seedHashPath,
+      fetchImpl,
+      refreshIntervalMs: 0,
+    });
+    await loader.boot();
+    // Flag stays false — no token to fall back to.
+    expect(loader.__isUsingAuthFallback()).toBe(false);
+  });
+
+  it('stays in plain-fetch mode when X-RateLimit-Remaining is healthy', async () => {
+    const { seedPath, seedHashPath } = setupSeed(tmp, SAMPLE_YAML);
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(FRESH_YAML, {
+        status: 200,
+        headers: { 'x-ratelimit-remaining': '4500' },
+      }),
+    );
+
+    const loader = new RegistryLoader({
+      seedPath,
+      seedHashPath,
+      fetchImpl,
+      refreshIntervalMs: 0,
+    });
+    await loader.boot();
+    expect(loader.__isUsingAuthFallback()).toBe(false);
+  });
+
+  it('handles missing X-RateLimit-Remaining header gracefully (no fallback trip)', async () => {
+    const { seedPath, seedHashPath } = setupSeed(tmp, SAMPLE_YAML);
+    const fetchImpl = vi.fn().mockResolvedValue(mkResponse(FRESH_YAML));
+    const loader = new RegistryLoader({
+      seedPath,
+      seedHashPath,
+      fetchImpl,
+      refreshIntervalMs: 0,
+    });
+    await loader.boot();
+    expect(loader.__isUsingAuthFallback()).toBe(false);
+  });
+});
+
 describe('RegistryLoader.health and getEntry', () => {
   let tmp: string;
   beforeEach(() => {

@@ -105,9 +105,24 @@ const DEFAULT_SEED_HASH_PATH = resolvePath(
 const DEFAULT_FETCH_TIMEOUT_MS = 5_000;
 const DEFAULT_REFRESH_INTERVAL_MS = 5 * 60 * 1_000;
 
+/**
+ * GH rate-limit fallback threshold (T-1.11c · FR-1.6.6).
+ * When raw.githubusercontent.com returns X-RateLimit-Remaining < this,
+ * subsequent fetches add `Authorization: Bearer $GITHUB_TOKEN` so we
+ * graduate from the 60-req/hour anonymous quota to the 5000-req/hour
+ * authenticated quota (which Railway env already has provisioned).
+ */
+const RATE_LIMIT_FALLBACK_THRESHOLD = 10;
+
 export class RegistryLoader {
   private state: RegistryState | null = null;
   private timer: ReturnType<typeof setInterval> | null = null;
+  /**
+   * Sticky flag — once we observed a low rate-limit-remaining, all subsequent
+   * fetches use Authorization. Reset only on process restart (intentional —
+   * the budget resets hourly anyway).
+   */
+  private useAuthFallback = false;
   private readonly opts: Required<Omit<LoaderOptions, 'fetchImpl' | 'fetchUrl' | 'seedPath' | 'seedHashPath'>> & {
     fetchUrl: string;
     seedPath: string;
@@ -124,6 +139,11 @@ export class RegistryLoader {
       refreshIntervalMs: opts.refreshIntervalMs ?? DEFAULT_REFRESH_INTERVAL_MS,
       fetchImpl: opts.fetchImpl ?? globalThis.fetch.bind(globalThis),
     };
+  }
+
+  /** Test-only: read sticky auth-fallback state. */
+  __isUsingAuthFallback(): boolean {
+    return this.useAuthFallback;
   }
 
   /**
@@ -196,6 +216,12 @@ export class RegistryLoader {
     if (this.state.etag && !commit_sha) {
       headers['If-None-Match'] = this.state.etag;
     }
+    // T-1.11c (FR-1.6.6) — once we've seen a low rate-limit-remaining,
+    // attach Bearer auth so subsequent fetches use the 5000/hr authenticated
+    // quota instead of the 60/hr anonymous one.
+    if (this.useAuthFallback && process.env.GITHUB_TOKEN) {
+      headers['Authorization'] = `Bearer ${process.env.GITHUB_TOKEN}`;
+    }
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.opts.fetchTimeoutMs);
@@ -208,6 +234,31 @@ export class RegistryLoader {
       });
     } finally {
       clearTimeout(timeout);
+    }
+
+    // T-1.11c (FR-1.6.6) — graduate to authenticated quota if we're close
+    // to the anonymous-tier ceiling. One-shot trip: stays sticky until
+    // process restart. We check on every response (200, 304, even non-2xx)
+    // since GitHub returns the rate-limit headers across all status codes.
+    const remaining = res.headers.get('x-ratelimit-remaining');
+    if (
+      remaining !== null &&
+      Number.isFinite(Number(remaining)) &&
+      Number(remaining) < RATE_LIMIT_FALLBACK_THRESHOLD &&
+      !this.useAuthFallback
+    ) {
+      if (process.env.GITHUB_TOKEN) {
+        this.useAuthFallback = true;
+        logger.warn({
+          msg: 'Registry: GH rate-limit low, switching to authenticated quota',
+          remaining: Number(remaining),
+        });
+      } else {
+        logger.warn({
+          msg: 'Registry: GH rate-limit low but GITHUB_TOKEN unset (no fallback)',
+          remaining: Number(remaining),
+        });
+      }
     }
 
     if (res.status === 304) {
