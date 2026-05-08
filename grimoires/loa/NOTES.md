@@ -1128,3 +1128,64 @@ The pre-existing `grimoires/loa/prd.md` and `sdd.md` describe **cycle-098 Agent-
 - Grounding: 91.4% PRD, 95.2% SDD (target >80% met)
 - 0 hallucinations detected in self-audit
 - 15 gaps catalogued for human resolution
+
+---
+
+## 2026-05-08 — Cheval Headless + Construct Bounded-Context Substrate (simstim cycle)
+
+Single session, ~5h, three workstreams:
+
+### 1. Loa framework update + cheval headless adapters
+
+- /update-loa pulled 1.130.0 (125 commits, 200 framework files merged, 23 upstream-only CI workflows stripped, 1 conflict resolved `--ours` on `.loa.config.yaml`). Stash-and-restore preserved 24 in-progress TTRPG-skills + 9 modified scripts.
+- Verified all three cheval headless adapters (claude/codex/gemini) work via `model-invoke --model <provider-headless>:<model_id>` direct pin form.
+- **System Zone patch** (operator-authorized): added `^(claude|codex|gemini)-headless:.+$` regex to `flatline-orchestrator.sh:VALID_MODEL_PATTERNS` so flatline routes through cheval headless. Filed [loa#793](https://github.com/0xHoneyJar/loa/issues/793) requesting upstream landing of the regex addition.
+- Set `hounfour.flatline_routing: true` + flatline/red-team `models.*` to `<provider>-headless:<model_id>` pin form. Verified routing via 3 successful Flatline runs at $0 cost.
+
+### 2. simstim run against 3 context artifacts
+
+Ran [Phase 0] preflight → [Phase 6] flatline-sprint review against:
+- `construct-bounded-context-runtime-audit.md` (anchor: 12 invariants + envelopes)
+- `construct-runtime-schema-alignment.md` (layer model: Loa/Hounfour/Finn/Constructs/Composition)
+- `rfc-construct-composition-prd-flow.md` (downstream PRD-flow integration; treated as Non-Goal)
+
+Output:
+- `prd.md` (375 lines, 32KB) — anchored on bounded-context substrate; 13 FRs; tier-conditional G3 reframe; 20 Phase 2 Flatline findings + 8 Phase 3.5 Bridgebuilder + 17 Phase 4 Flatline findings integrated
+- `sdd.md` (1078 lines, 60KB) — sibling-not-extension composition with cycle-098 audit envelope; tier-conditional isolation honesty; explicit hash-chain algorithm with worked example; argv-array invocation (closes command-injection); platform-specific surface table; HTTPS CONNECT-only proxy; provider memory disable in cheval adapters
+- `sprint.md` (380 lines, 29KB) — 7 sprints (S0 contract → S6 docs); CONTRACT vs RUNNER split lines preserved per SDD §11.1; Sprint 4 effort revised 9→17 days post-Flatline; machine-readable DAG at `.run/sprint-dag.yaml`; telemetry retention contract; state-migration runbook scoped
+
+### 3. Key reframes from the review chain
+
+- **Tier-conditional isolation honesty** (Flatline SDD CRITICAL ×6): substrate's contract layer is strong everywhere (envelope, validation, hash chain). Isolation is tier-conditional: strict (Linux+bwrap+CAP_NET_ADMIN) is security-gated; advisory (LD_PRELOAD/dyld/in-process) is informational, not a security boundary. Substrate ships honest about its limits.
+- **Sibling-not-extension composition** (Bridgebuilder PRAISE): construct envelope shape composes JCS hash-chain with cycle-098 audit envelope rather than extending it. Each contract evolves independently.
+- **Runner-vs-contract split lines** (Bridgebuilder REFRAME-1): SDD §11.1 labels each migration item as CONTRACT (portable: schemas, validators, hash core) or RUNNER (local: stage executor, isolation, dry-run). Future package extraction is a refactor, not redesign.
+- **Provider memory features bypass session-id** (Flatline SDD HIGH-5): Anthropic memory tool, OpenAI ChatGPT memory, Gemini saved-info recall context across sessions. Cheval adapters now pass per-provider memory-disable flags as part of `mode: fresh`.
+
+### 4. Archived prior-cycle artifacts
+
+- `prd.md` (cycle-051 Analytics + GEO) → `prd-analytics-geo-2026-03-15.md`
+- `sdd.md` (cycle-050 SprawlOS) → `sdd-cycle-050-sprawlos-2026-03-13.md`
+- `sprint.md` (cycle-050 SprawlOS) → `sprint-cycle-050-sprawlos-2026-03-13.md`
+
+### 5. Pause point
+
+simstim state at `.run/simstim-state.json`:
+- simstim_id: `simstim-20260508-96627a1c`
+- state: `RUNNING`
+- last completed phase: `flatline_sprint` (Phase 6 of 10)
+- next: Phase 7 (`/run sprint-plan`) — multi-week implementation, NOT this session
+
+To resume: `/simstim --resume`. Phase 7 will dispatch `/run sprint-plan` against the 7-sprint sequence; substrate will land over weeks via the implement→review→audit cycle.
+
+### 6. Session deliverables
+
+Uncommitted in working tree (intentional):
+- 3 simstim artifacts: `grimoires/loa/{prd,sdd,sprint}.md`
+- `.loa.config.yaml` (cheval headless wiring)
+- `.claude/scripts/flatline-orchestrator.sh` (System Zone patch — pending loa#793)
+- 3 archived dated artifacts in `grimoires/loa/`
+- 6 review/finding JSON files in `.run/`
+- `.run/bridge-reviews/design-review-cycle-construct-bounded-context.{md,json}`
+- This NOTES.md entry
+
+In-progress work from prior sessions (preserved through stash-and-restore): TTRPG-themed skills (arneson, gygax, cabal, delve, etc.), 7 modified scripts/schemas, pre-ride backups, `apps/api/local.db`.
