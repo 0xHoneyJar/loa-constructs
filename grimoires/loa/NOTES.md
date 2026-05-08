@@ -1,5 +1,31 @@
 # Loa Project Notes
 
+## Decision Log — 2026-05-08 (cycle-construct-bounded-context Sprint 1)
+
+### `[ENVELOPE-CHAIN-BROKEN]` deferred from S1-T1 to Sprint 2 (S2-T2/T5)
+
+The S1-T1 acceptance lists 6 typed errors the stream-graph validator should reject. Five land in Sprint 1 (`[STREAM-NO-PRODUCER]`, `[STREAM-SCHEMA-MISMATCH]`, `[STAGE-OUT-OF-DOMAIN]`, `[ITERATION-NO-MAX]`, `[ITERATION-NO-TERMINATION]`). The sixth — `[ENVELOPE-CHAIN-BROKEN]` — is deferred to Sprint 2.
+
+Why: this error class manifests during full-run replay, not pre-execution. The validator detects it by walking the prior-stage handoff envelope chain and verifying each `prev_hash` matches the recomputed `invocation_hash` of the prior envelope (per SDD §3.1). That walk semantics live in `envelope-chain.sh` (Sprint 2 / S2-T2 + S2-T5). Wiring it into the stream-graph validator before the chain library exists would require duplicating the walk logic — pulled forward, owned twice, then refactored at Sprint 2 anyway.
+
+The deferral was documented in the partial Sprint 1 commit `dfa8a912`'s message and is now formally entered here per the implement-skill AC verification gate (cycle-057 / closes #475 — `[ACCEPTED-DEFERRED]` requires a NOTES.md entry).
+
+When Sprint 2 lands `envelope-chain.sh`, add a fixture (or .json envelope sequence) at `tests/composition/validators/fixtures/envelope-chain-broken.invalid.yaml` (or similar) and an assertion to `tests/composition/validators/run.bats`.
+
+### `select(length > 0)` jq pattern silently drops parent objects
+
+If you write `jq -n '{x: ($var | select(length > 0))}'` and `$var` is empty, the *entire* object construction produces no output. Cause: `select` filters out the value rather than returning null; in object-constructor context that filters the whole object. Sprint 1 hit this twice (`construct-validate.sh` and `strict-tier-prereq.sh`) and both fixes use `(if ($var | length) > 0 then $var else null end)`.
+
+For future contributors: prefer `if/then/else` over `select` when constructing objects with optional fields. `select` is for filtering streams, not for shaping a single output.
+
+### Tier resolution lives in `construct-validate.sh`, downstream callers must adapt
+
+`.claude/scripts/construct-validate.sh --json` output shape changed in S1-T4 from `[finding, ...]` to `{tier, tier_reason, runner_eligibility, contract_path, worst_severity, findings: [...]}`. Pre-Sprint-1 callers reading the array form will break. compose-run + butterfreezone-construct-gen.sh + the loom skill need to adapt during their next touch (Sprint 2/3 for compose-run, Sprint 6 for the rest).
+
+This is a deliberate semver-minor break — `construct-validate.sh` is the canonical tier-resolver per SDD §3.4, so the tier metadata must be at top-level rather than buried in findings.
+
+---
+
 ## Sprint 2 SHIPPED — 2026-05-04 (PR #705, commit a7c50ff)
 
 L2 cost-budget-enforcer + reconciliation cron + daily snapshot job. 4 sub-sprints (2A/2B/2C/2D) implemented inline on Opus 4.7 1M context (vs Sprint 1's subagent dispatch). 92 / 92 tests pass; Sprint 1 regression 39 / 39 clean. Bridgebuilder kaironic converged in 2 iterations (0 BLOCKER, 0 HIGH_CONSENSUS both iters).

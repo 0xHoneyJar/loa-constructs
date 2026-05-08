@@ -10,23 +10,26 @@ Reads a composition YAML, builds a directed graph of stages where edges encode
 diagnostics for every detected violation. Used by `lib/compose-stream-graph.sh`
 as the algorithmic core.
 
-This Sprint-1 cut covers four of the six S1-T1 acceptance error classes:
+This validator covers five of the six S1-T1 acceptance error classes:
 
     [STREAM-NO-PRODUCER]       — a stage reads a stream with no upstream producer
                                   (and it isn't supplied as composition.inputs[])
     [STREAM-SCHEMA-MISMATCH]   — a stage reads stream type X expecting schema_id Y,
                                   but the upstream produces type X with schema_id Z
                                   (mismatch detected when both sides declare schema_id)
+    [STAGE-OUT-OF-DOMAIN]      — a stage's declared domain.primary does not match
+                                  the construct manifest's domain.primary or appear
+                                  in its domain.supporting[] (S1-T4)
     [ITERATION-NO-MAX]         — composition.iterate[] is non-empty but
                                   composition.max_iterations is missing
     [ITERATION-NO-TERMINATION] — composition.iterate[] is non-empty but
                                   composition.terminate_when is missing
 
-Two additional error classes from S1-T1 acceptance are deferred to follow-on
-Sprint 1 work because they need cross-cutting infrastructure not yet shipped:
+The remaining acceptance error class is deferred to its natural home:
 
-    [STAGE-OUT-OF-DOMAIN]    — needs construct-manifest resolution per S1-T4
-    [ENVELOPE-CHAIN-BROKEN]  — lives with envelope-chain.sh in Sprint 2 (S2-T2/T5)
+    [ENVELOPE-CHAIN-BROKEN]    — lives with envelope-chain.sh in Sprint 2
+                                  (S2-T2/T5). Reaches the validator surface only
+                                  during full-run replay, not during pre-exec.
 
 Output is a structured JSON report:
 
@@ -76,6 +79,7 @@ class StageView:
     skill: str | None
     reads: list[dict[str, Any]] = field(default_factory=list)
     writes: list[dict[str, Any]] = field(default_factory=list)
+    declared_domain_primary: str | None = None
 
     @property
     def stage_id(self) -> str:
@@ -153,6 +157,15 @@ def _extract_stages(composition: dict[str, Any]) -> list[StageView]:
             raise _err_usage(f"chain[{stage_num}].reads must be a list")
         if not isinstance(writes_raw, list):
             raise _err_usage(f"chain[{stage_num}].writes must be a list")
+        # Optional stage-level domain.primary (composition.schema.json line 386).
+        # When omitted, stage falls back to the construct manifest's domain;
+        # mismatch only meaningful when the stage explicitly declares a primary.
+        domain_primary: str | None = None
+        domain_block = raw.get("domain")
+        if isinstance(domain_block, dict):
+            cand = domain_block.get("primary")
+            if isinstance(cand, str) and cand:
+                domain_primary = cand
         stages.append(
             StageView(
                 stage=stage_num,
@@ -160,6 +173,7 @@ def _extract_stages(composition: dict[str, Any]) -> list[StageView]:
                 skill=skill if isinstance(skill, str) else None,
                 reads=[_normalize_stream_entry(r) for r in reads_raw],
                 writes=[_normalize_stream_entry(w) for w in writes_raw],
+                declared_domain_primary=domain_primary,
             )
         )
     # Sort by stage number — supports v1.2 half-stages (1.5, 6.5).
@@ -186,6 +200,58 @@ def _extract_external_inputs(composition: dict[str, Any]) -> dict[str, set[str |
         elif isinstance(entry, str):
             out.setdefault(entry, set()).add(None)
     return out
+
+
+# ---------------------------------------------------------------------------
+# Manifest resolution (S1-T4 — for [STAGE-OUT-OF-DOMAIN])
+# ---------------------------------------------------------------------------
+
+
+def _resolve_manifest(slug: str, packs_dir: Path) -> dict[str, Any] | None:
+    """Read <packs_dir>/<slug>/construct.yaml; return None if missing.
+
+    The validator does NOT fall back to legacy contract files here — those are
+    consulted by construct-validate.sh (S1-T4). Stream-graph validation
+    operates on the manifest's declared domain only; a missing manifest yields
+    a structured warning rather than a hard error so partially-installed
+    compositions still validate the rest of the graph."""
+    candidate = packs_dir / slug / "construct.yaml"
+    if not candidate.is_file():
+        return None
+    try:
+        import yaml  # type: ignore[import-untyped]
+    except ImportError:
+        return None
+    try:
+        data = yaml.safe_load(candidate.read_text())
+    except yaml.YAMLError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _manifest_domain_set(manifest: dict[str, Any]) -> set[str]:
+    """Compute the set of domain tags the manifest authorises for its stages.
+
+    Accepts:
+      - object form: {primary, supporting[], ...}  ← canonical post-Sprint 0
+      - string form: 'craft'                       ← legacy single-tag
+      - array form: [tag1, tag2]                   ← brownfield migration
+    Returns empty set when manifest has no parseable domain block."""
+    domain = manifest.get("domain")
+    if isinstance(domain, str):
+        return {domain}
+    if isinstance(domain, list):
+        return {x for x in domain if isinstance(x, str)}
+    if isinstance(domain, dict):
+        out: set[str] = set()
+        primary = domain.get("primary")
+        if isinstance(primary, str) and primary:
+            out.add(primary)
+        for tag in domain.get("supporting", []) or []:
+            if isinstance(tag, str):
+                out.add(tag)
+        return out
+    return set()
 
 
 # ---------------------------------------------------------------------------
@@ -296,25 +362,98 @@ def _check_streams(
     return diagnostics
 
 
+def _check_stage_domain(
+    stages: list[StageView], packs_dir: Path
+) -> tuple[list[Diagnostic], list[Diagnostic]]:
+    """Confirm each stage's declared domain.primary is honored by the manifest.
+
+    Returns (errors, warnings). A missing manifest yields a warning (so partial
+    installs still validate everything else); a manifest with no domain block
+    also yields a warning (legacy pack — construct-validate enforces tier
+    severity). A manifest WITH a domain block plus a stage WITH a declared
+    primary that doesn't match is a hard [STAGE-OUT-OF-DOMAIN] error."""
+    errors: list[Diagnostic] = []
+    warnings: list[Diagnostic] = []
+    cache: dict[str, dict[str, Any] | None] = {}
+    for stage in stages:
+        if stage.declared_domain_primary is None:
+            continue
+        slug = stage.construct
+        if slug not in cache:
+            cache[slug] = _resolve_manifest(slug, packs_dir)
+        manifest = cache[slug]
+        if manifest is None:
+            warnings.append(
+                Diagnostic(
+                    code="[STAGE-OUT-OF-DOMAIN]",
+                    stage_id=stage.stage_id,
+                    message=(
+                        f"stage {stage.stage_id} declares domain.primary "
+                        f"'{stage.declared_domain_primary}' but the construct "
+                        f"manifest for '{slug}' is not installed at "
+                        f"{packs_dir}/{slug}/construct.yaml — domain attribution "
+                        f"unverified."
+                    ),
+                )
+            )
+            continue
+        manifest_set = _manifest_domain_set(manifest)
+        if not manifest_set:
+            warnings.append(
+                Diagnostic(
+                    code="[STAGE-OUT-OF-DOMAIN]",
+                    stage_id=stage.stage_id,
+                    message=(
+                        f"stage {stage.stage_id} declares domain.primary "
+                        f"'{stage.declared_domain_primary}' but construct "
+                        f"manifest for '{slug}' has no domain block — "
+                        f"attribution unverified (legacy pack)."
+                    ),
+                )
+            )
+            continue
+        if stage.declared_domain_primary not in manifest_set:
+            errors.append(
+                Diagnostic(
+                    code="[STAGE-OUT-OF-DOMAIN]",
+                    stage_id=stage.stage_id,
+                    message=(
+                        f"stage {stage.stage_id} declares domain.primary "
+                        f"'{stage.declared_domain_primary}' but construct "
+                        f"'{slug}' authorises only {sorted(manifest_set)} "
+                        f"(domain.primary + domain.supporting[])."
+                    ),
+                )
+            )
+    return errors, warnings
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
 
-def validate(composition_path: Path) -> dict[str, Any]:
+def validate(
+    composition_path: Path, packs_dir: Path | None = None
+) -> dict[str, Any]:
     composition = _load_yaml(composition_path)
     stages = _extract_stages(composition)
     external_inputs = _extract_external_inputs(composition)
 
     errors: list[Diagnostic] = []
+    warnings: list[Diagnostic] = []
     errors.extend(_check_iteration(composition))
     errors.extend(_check_streams(stages, external_inputs))
+    if packs_dir is not None:
+        domain_errors, domain_warnings = _check_stage_domain(stages, packs_dir)
+        errors.extend(domain_errors)
+        warnings.extend(domain_warnings)
 
     return {
         "ok": len(errors) == 0,
         "composition_path": str(composition_path),
         "errors": [d.to_dict() for d in errors],
-        "warnings": [],
+        "warnings": [d.to_dict() for d in warnings],
         "stages": [
             {
                 "id": s.stage_id,
@@ -322,18 +461,40 @@ def validate(composition_path: Path) -> dict[str, Any]:
                 "construct": s.construct,
                 "reads": s.reads,
                 "writes": s.writes,
+                "declared_domain_primary": s.declared_domain_primary,
             }
             for s in stages
         ],
     }
 
 
+def _default_packs_dir() -> Path | None:
+    """Walk up from this file to find <repo>/.claude/constructs/packs."""
+    here = Path(__file__).resolve()
+    for ancestor in (here.parent, *here.parents):
+        candidate = ancestor / ".claude" / "constructs" / "packs"
+        if candidate.is_dir():
+            return candidate
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Validate a Loa composition's stream graph (S1-T1).",
+        description="Validate a Loa composition's stream graph (S1-T1, S1-T4).",
     )
     parser.add_argument(
         "composition", type=Path, help="Path to the composition YAML"
+    )
+    parser.add_argument(
+        "--packs-dir",
+        type=Path,
+        default=None,
+        help="Construct packs root for domain resolution (default: auto-locate)",
+    )
+    parser.add_argument(
+        "--no-domain-check",
+        action="store_true",
+        help="Skip [STAGE-OUT-OF-DOMAIN] check (S1-T4)",
     )
     parser.add_argument(
         "--json", action="store_true", help="Emit JSON report (default)"
@@ -343,8 +504,15 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    packs_dir: Path | None = None
+    if not args.no_domain_check:
+        packs_dir = args.packs_dir or _default_packs_dir()
+        # When auto-locate fails, fall through with packs_dir=None — domain
+        # check is skipped silently rather than failing closed (lets the
+        # validator run on machines without a packs install).
+
     try:
-        report = validate(args.composition)
+        report = validate(args.composition, packs_dir=packs_dir)
     except _ExitWith as exc:
         print(exc.message, file=sys.stderr)
         return exc.code
