@@ -99,7 +99,7 @@ The split lines (CONTRACT vs RUNNER, per SDD §11.1) are honored in the sprint s
 
 ---
 
-## Sprint 2: Envelope Builder + Hash Chain + Dry-Run
+## Sprint 2: Envelope Builder + Hash Chain + Dry-Run ✓ APPROVED
 
 **Goal**: Envelopes are real, content-addressed, hash-chained. Dry-run renders per-stage envelopes for visibility before enforcement.
 
@@ -109,12 +109,12 @@ The split lines (CONTRACT vs RUNNER, per SDD §11.1) are honored in the sprint s
 
 | ID | Task | Acceptance | Estimate |
 |---|---|---|---|
-| S2-T1 | Author `lib/envelope-builder.sh` per SDD §4.2 | Builds invocation + handoff envelopes from composition + manifest + upstream handoffs; populates all FR-1.2 / FR-2.2 fields | 1.5 days |
-| S2-T2 | Author `lib/envelope-chain.sh` implementing the §3.1 hash algorithm (worked example) | Two-pass hash construction (no self-reference), prev_hash topology per §3.1 chain diagram, JCS canonicalization via `lib/jcs.sh` | 1.5 days |
-| S2-T3 | Implement `composition_id` deterministic derivation per IMP-001 / SDD §3.1 | Two YAMLs with different content produce different ids; same YAML produces same id across formatting changes | 0.5 day |
-| S2-T4 | Author `compose-run.sh --dry-run --explain-context [--json]` per SDD §4.7 | Output validates against `dry-run-fixture.schema.json`; prints per-stage envelope preview, missing schemas, undeclared reads/writes, isolation viability | 1.5 days |
-| S2-T5 | Hash chain validation at run startup + per-stage + replay | Chain-break detection produces `[ENVELOPE-CHAIN-BROKEN]`; replay re-canonicalizes and verifies | 1 day |
-| S2-T6 | Test fixtures + sentinel test for tampering (mutate persisted envelope, verify chain-break detected) | Tampering tests pass; chain integrity verified on round-trip | 1 day |
+| ✓ S2-T1 | Author `lib/envelope-builder.sh` per SDD §4.2 | Builds invocation + handoff envelopes from composition + manifest + upstream handoffs; populates all FR-1.2 / FR-2.2 fields | 1.5 days |
+| ✓ S2-T2 | Author `lib/envelope-chain.sh` implementing the §3.1 hash algorithm (worked example) | Two-pass hash construction (no self-reference), prev_hash topology per §3.1 chain diagram, JCS canonicalization via `lib/jcs.sh` | 1.5 days |
+| ✓ S2-T3 | Implement `composition_id` deterministic derivation per IMP-001 / SDD §3.1 | Two YAMLs with different content produce different ids; same YAML produces same id across formatting changes | 0.5 day |
+| ✓ S2-T4 | Author `compose-run.sh --dry-run --explain-context [--json]` per SDD §4.7 (lib/compose-dry-run.sh standalone; compose-run.sh wiring deferred to S3) | Output validates against `dry-run-fixture.schema.json`; prints per-stage envelope preview, missing schemas, undeclared reads/writes, isolation viability | 1.5 days |
+| ✓ S2-T5 | Hash chain validation at run startup + per-stage + replay (library entry; integration in S3) | Chain-break detection produces `[ENVELOPE-CHAIN-BROKEN]`; replay re-canonicalizes and verifies | 1 day |
+| ✓ S2-T6 | Test fixtures + sentinel test for tampering (mutate persisted envelope, verify chain-break detected) | Tampering tests pass; chain integrity verified on round-trip | 1 day |
 
 **Sprint 2 Acceptance**:
 - Dry-run on `audit-feel` produces full envelope chain preview
