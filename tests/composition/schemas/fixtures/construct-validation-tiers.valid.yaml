@@ -1,0 +1,41 @@
+# Smoke test: the canonical tier config at .claude/data/construct-validation-tiers.yaml
+# should be structurally similar to this fixture. The Sprint 0 verifier loads both
+# and confirms they share the same shape (schema_version: 1, default_tier present,
+# tiers.{strict,compatibility,advisory} populated).
+schema_version: 1
+default_tier: advisory
+
+tiers:
+  strict:
+    description: "Test tier — minimal."
+    cutoff_date: "2026-05-08"
+    explicit_packs: ["artisan"]
+    enforcement:
+      domain_block: required
+      streams: required
+      capabilities: required
+      context_policy: required
+      out_of_domain: required
+      compatibility_contract: forbidden
+
+  compatibility:
+    description: "Test tier — compatibility."
+    requires_contract: true
+    contract_path_template: ".claude/data/legacy-domain-contracts/{slug}.yaml"
+    enforcement:
+      domain_block: contract
+      streams: contract
+      capabilities: contract
+      context_policy: contract
+      out_of_domain: contract
+      starter_contract_rejected: true
+
+  advisory:
+    description: "Test tier — advisory."
+    enforcement:
+      domain_block: warn
+      streams: warn
+      capabilities: warn
+      context_policy: warn
+      out_of_domain: warn
+      runner_eligibility: golden_path_blocked

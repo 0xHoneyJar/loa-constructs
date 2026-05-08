@@ -1,0 +1,24 @@
+{
+  "_test_intent": "Rejection case: status=failure but error is null. Schema's allOf rule (status != success → error required object) must reject.",
+  "schema_version": "loa.construct.handoff.v0",
+  "run_id": "run_test_invalid_002",
+  "composition_id": "audit-feel.yaml@sha256:a3f2b1d4e5c6",
+  "stage_id": "audit-feel.stage-1",
+  "stage_pass": 1,
+  "construct_slug": "artisan",
+  "skill": "decomposing-feel",
+  "status": "failure",
+  "outputs": [],
+  "summary": {
+    "visible_to_operator": true,
+    "text": "Stage failed."
+  },
+  "next_allowed_reads": [],
+  "error": null,
+  "partial_outputs": {
+    "disposition": "discarded",
+    "count": 0
+  },
+  "prev_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000abc",
+  "handoff_hash": "sha256:0000000000000000000000000000000000000000000000000000000000005678"
+}

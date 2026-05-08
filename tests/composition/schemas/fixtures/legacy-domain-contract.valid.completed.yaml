@@ -1,0 +1,53 @@
+schema_version: loa.network.legacy-domain-contract.v0
+validation_tier: compatibility
+construct_slug: example-legacy-pack
+
+generated_from:
+  manifest_path: ".claude/constructs/packs/example-legacy-pack/MANIFEST.yaml"
+  manifest_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000001"
+  generated_at: "2026-05-08T20:00:00Z"
+  bootstrap_version: "0.1.0"
+
+domain:
+  primary: legacy-routing
+  supporting: [coordination]
+  ubiquitous_language:
+    - "router"
+    - "downstream"
+
+streams:
+  reads:
+    - type: Intent
+      schema_id: "loa.stream.Intent.v1"
+  writes:
+    - type: Signal
+      schema_id: "loa.stream.Signal.v1"
+
+capabilities:
+  filesystem:
+    reads: ["grimoires/loa/**"]
+    writes: [".run/compose/**"]
+  network:
+    egress: []
+  env: ["PATH", "HOME"]
+  mcp_tools: []
+
+context_policy:
+  include_prior_transcript: false
+  include_unread_stage_outputs: false
+  include_unlisted_grimoires: false
+  llm_session_strategy: fresh
+
+# S0-T3 acceptance: out_of_domain MUST have at least 1 entry; invariants MUST have at least 1 entry.
+# This valid fixture has both populated. The starter-only invalid fixture has them empty.
+out_of_domain:
+  - "Does not own primary user-facing routing — defers to artisan for material judgments."
+  - "Does not write to grimoires/loa/sdd.md (handoff only)."
+
+invariants:
+  - "Every routing decision is logged to .run/compose/<run_id>/routing.signal.jsonl."
+
+operator_signoff:
+  operator: "test-operator"
+  completed_at: "2026-05-08T20:30:00Z"
+  notes: "Test fixture; valid completed contract for schema verification."

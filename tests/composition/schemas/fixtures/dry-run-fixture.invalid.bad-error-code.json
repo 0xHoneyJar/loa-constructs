@@ -1,0 +1,30 @@
+{
+  "_test_intent": "Rejection case: Diagnostic.code does not match the bracketed-uppercase pattern. Schema rejects with regex failure.",
+  "composition": {
+    "path": "compositions/audit-feel.yaml",
+    "composition_id": "audit-feel.yaml@sha256:a3f2b1d4e5c6"
+  },
+  "stages": [
+    {
+      "stage_id": "audit-feel.stage-1",
+      "construct": "artisan",
+      "skill": "decomposing-feel",
+      "mode": "fresh",
+      "invocation_envelope_preview": {},
+      "allowed_files": [],
+      "missing_schemas": [],
+      "domain_conflicts": [],
+      "isolation_assessment": {
+        "ok": false,
+        "vectors_covered": []
+      }
+    }
+  ],
+  "warnings": [],
+  "errors": [
+    {
+      "code": "lowercase-error-code-bad",
+      "message": "This should fail because code does not match ^\\[[A-Z][A-Z0-9_-]+\\]$"
+    }
+  ]
+}

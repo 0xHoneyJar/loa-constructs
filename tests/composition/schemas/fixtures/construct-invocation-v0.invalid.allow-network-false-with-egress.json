@@ -1,0 +1,33 @@
+{
+  "_test_intent": "Rejection case: allow_network=false but allowed_egress non-empty. Schema's allOf rule (allow_network=false → allowed_egress maxItems 0) must reject.",
+  "schema_version": "loa.construct.invocation.v0",
+  "run_id": "run_test_invalid_001",
+  "composition_id": "audit-feel.yaml@sha256:a3f2b1d4e5c6",
+  "stage_id": "audit-feel.stage-1",
+  "stage_pass": 1,
+  "construct": {
+    "slug": "artisan",
+    "version": "1.0.0",
+    "skill": "decomposing-feel"
+  },
+  "domain": { "primary": "interface-craft" },
+  "mode": "fresh",
+  "input_streams": [],
+  "allowed_context": {},
+  "context_policy": {
+    "include_prior_transcript": false,
+    "include_unread_stage_outputs": false,
+    "include_unlisted_grimoires": false,
+    "allowed_read_paths": [],
+    "allowed_write_paths": [],
+    "allowed_env_vars": [],
+    "allow_network": false,
+    "allowed_egress": ["api.example.com:443"],
+    "llm_session_strategy": "fresh",
+    "allowed_mcp_tools": [],
+    "isolation_tier": "advisory"
+  },
+  "output_contract": { "writes": [] },
+  "prev_hash": null,
+  "invocation_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000abc"
+}
