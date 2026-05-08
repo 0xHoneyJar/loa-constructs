@@ -1,0 +1,16 @@
+{
+  "findings": [],
+  "metadata": {
+    "type": "review",
+    "model": "codex-headless:gpt-5.5",
+    "sprint_id": "sprint-1",
+    "timestamp": "2026-05-08T23:24:09Z",
+    "status": "malformed_response",
+    "degraded": false,
+    "hallucination_filter": {
+      "applied": false,
+      "downgraded": 0,
+      "reason": "no_findings"
+    }
+  }
+}

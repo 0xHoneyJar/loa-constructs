@@ -68,7 +68,7 @@ The split lines (CONTRACT vs RUNNER, per SDD §11.1) are honored in the sprint s
 
 ---
 
-## Sprint 1: Validators — Pre-Exec, Post-Exec, Prereq
+## Sprint 1: Validators — Pre-Exec, Post-Exec, Prereq ✓ APPROVED (review)
 
 **Goal**: Schema-validated compositions. Contract-violation detection. Strict-tier prerequisite check that fails closed at flag-set time.
 
@@ -78,12 +78,12 @@ The split lines (CONTRACT vs RUNNER, per SDD §11.1) are honored in the sprint s
 
 | ID | Task | Acceptance | Estimate |
 |---|---|---|---|
-| S1-T1 | Author `lib/compose-stream-graph.{sh,py}` per SDD §4.1 | Validator builds DAG from composition; rejects every error class (`[STREAM-NO-PRODUCER]`, `[STREAM-SCHEMA-MISMATCH]`, `[STAGE-OUT-OF-DOMAIN]`, `[ENVELOPE-CHAIN-BROKEN]`, `[ITERATION-NO-MAX]`, `[ITERATION-NO-TERMINATION]`) | 2 days |
-| S1-T2 | Author `lib/output-gate.sh` per SDD §4.4 (post-exec output validator) | Validator confirms: writes contract match, schema validation, hash recompute, domain.produced_by attribution, output count match. Failure produces `[OUTPUT-CONTRACT-VIOLATION]` | 1.5 days |
-| S1-T3 | Author strict-tier prerequisite check per FR-4.4 + SDD §6.5b | Detects `bwrap`, `CAP_NET_ADMIN`, provider memory-disable flag support; aborts with `[STRICT-TIER-PREREQ-MISSING]` exit 78 | 1 day |
-| S1-T4 | Extend `construct-validate.sh` for tiered enforcement per SDD §3.4 | Strict packs fail closed without full domain block; compatibility packs require contract; advisory packs warn-only and `runner_eligibility: golden_path_blocked` | 1 day |
-| S1-T5 | Pre-flight check for `audit_signed: true` per SDD §6.3 (audit-keys bootstrap) | Aborts with `[AUDIT-KEYS-NOT-BOOTSTRAPPED]` exit 78 + runbook reference if keys missing | 0.5 day |
-| S1-T6 | Test fixtures: 6 composition YAMLs that should fail validation (one per error class) + 1 golden-path composition that should pass | All test fixtures behave per spec | 1 day |
+| ✓ S1-T1 | Author `lib/compose-stream-graph.{sh,py}` per SDD §4.1 | Validator builds DAG from composition; rejects every error class (`[STREAM-NO-PRODUCER]`, `[STREAM-SCHEMA-MISMATCH]`, `[STAGE-OUT-OF-DOMAIN]`, `[ENVELOPE-CHAIN-BROKEN]` ⏸ deferred to S2, `[ITERATION-NO-MAX]`, `[ITERATION-NO-TERMINATION]`) | 2 days |
+| ✓ S1-T2 | Author `lib/output-gate.sh` per SDD §4.4 (post-exec output validator) | Validator confirms: writes contract match, schema validation, hash recompute, domain.produced_by attribution, output count match. Failure produces `[OUTPUT-CONTRACT-VIOLATION]` | 1.5 days |
+| ✓ S1-T3 | Author strict-tier prerequisite check per FR-4.4 + SDD §6.5b | Detects `bwrap`, `CAP_NET_ADMIN`, provider memory-disable flag support; aborts with `[STRICT-TIER-PREREQ-MISSING]` exit 78 | 1 day |
+| ✓ S1-T4 | Extend `construct-validate.sh` for tiered enforcement per SDD §3.4 | Strict packs fail closed without full domain block; compatibility packs require contract; advisory packs warn-only and `runner_eligibility: golden_path_blocked` | 1 day |
+| ✓ S1-T5 | Pre-flight check for `audit_signed: true` per SDD §6.3 (audit-keys bootstrap) | Aborts with `[AUDIT-KEYS-NOT-BOOTSTRAPPED]` exit 78 + runbook reference if keys missing | 0.5 day |
+| ✓ S1-T6 | Test fixtures: 6 composition YAMLs that should fail validation (one per error class) + 1 golden-path composition that should pass (5 of 6 + golden-path; envelope-chain-broken deferred to S2) | All test fixtures behave per spec | 1 day |
 
 **Sprint 1 Acceptance**:
 - 6 typed errors all reproducible on synthetic compositions
