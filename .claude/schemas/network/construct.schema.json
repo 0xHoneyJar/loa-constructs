@@ -5,6 +5,52 @@
   "description": "Schema for construct.yaml — the root manifest of a standalone construct repository. Extends the pack manifest format with identity, repository metadata, and lifecycle hooks for git-based distribution.",
   "type": "object",
   "required": ["schema_version", "name", "slug", "version"],
+  "allOf": [
+    {
+      "description": "S0-T7. When validation_tier is 'strict', the manifest MUST carry a full domain block: object form with primary, ubiquitous_language (non-empty), owns.streams (non-empty), owns.invariants (non-empty), out_of_domain (non-empty). Legacy string/array forms of domain are rejected at this tier. Top-12 packs and any pack created after the cutoff_date in construct-validation-tiers.yaml fall here.",
+      "if": {
+        "properties": { "validation_tier": { "const": "strict" } },
+        "required": ["validation_tier"]
+      },
+      "then": {
+        "required": ["domain"],
+        "properties": {
+          "domain": {
+            "type": "object",
+            "required": ["primary", "ubiquitous_language", "owns", "out_of_domain"],
+            "properties": {
+              "primary": { "type": "string", "minLength": 1 },
+              "ubiquitous_language": {
+                "type": "array",
+                "minItems": 1
+              },
+              "owns": {
+                "type": "object",
+                "required": ["streams", "invariants"],
+                "properties": {
+                  "streams": {
+                    "type": "array",
+                    "minItems": 1
+                  },
+                  "invariants": {
+                    "type": "array",
+                    "minItems": 1
+                  }
+                }
+              },
+              "out_of_domain": {
+                "type": "array",
+                "minItems": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "description": "S0-T7 / SDD §2.4. When validation_tier is 'compatibility', the manifest MAY omit the domain block (the contract at .claude/data/legacy-domain-contracts/<slug>.yaml supplies it). Schema does not enforce contract presence here — that is the validator's job, since it has filesystem access to check the contract path."
+    }
+  ],
   "properties": {
     "schema_version": {
       "type": "integer",
@@ -32,6 +78,12 @@
       "minLength": 10,
       "maxLength": 500,
       "description": "Construct description (10-500 characters)"
+    },
+    "short_description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160,
+      "description": "Short registry/listing description"
     },
     "author": {
       "oneOf": [
@@ -148,6 +200,24 @@
       },
       "description": "Required packs that must be installed"
     },
+    "compose_with": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["slug", "relationship"],
+        "properties": {
+          "slug": { "type": "string" },
+          "relationship": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Why this construct composes with the referenced construct"
+          }
+        },
+        "additionalProperties": false
+      },
+      "maxItems": 50,
+      "description": "Known composition relationships with other constructs"
+    },
     "identity": {
       "type": "object",
       "properties": {
@@ -188,17 +258,95 @@
       "additionalProperties": false,
       "description": "Quick start command suggestion"
     },
+    "validation_tier": {
+      "type": "string",
+      "enum": ["strict", "compatibility", "advisory"],
+      "description": "S0-T7 / SDD §3.4. Tier this manifest opts into. 'strict' = full domain block required (enforced by conditional below). 'compatibility' = domain may be omitted from manifest if a contract exists at .claude/data/legacy-domain-contracts/<slug>.yaml. 'advisory' (or omitted) = warn-only validation; pack cannot run in golden-path compositions. Resolved at validation time against .claude/data/construct-validation-tiers.yaml — the manifest field is the construct author's declaration, the tier config is the framework's enforcement record."
+    },
     "domain": {
-      "type": "array",
-      "items": { "type": "string", "maxLength": 50 },
-      "maxItems": 10,
-      "description": "Domain tags for MoE routing (#119)"
+      "description": "Construct bounded context. Legacy string/array forms are accepted as routing tags; the object form is the recommended DDD contract for ownership, language, and boundaries.",
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Legacy single routing tag"
+        },
+        {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 50 },
+          "maxItems": 10,
+          "description": "Legacy routing tags for MoE routing (#119)"
+        },
+        {
+          "type": "object",
+          "required": ["primary"],
+          "properties": {
+            "primary": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Primary bounded context this construct owns"
+            },
+            "supporting": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 80 },
+              "maxItems": 20,
+              "description": "Adjacent domains this construct may read from or collaborate with"
+            },
+            "ubiquitous_language": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 100 },
+              "maxItems": 50,
+              "description": "Terms of art this construct uses in prompts, streams, events, and docs"
+            },
+            "owns": {
+              "type": "object",
+              "properties": {
+                "entities": {
+                  "type": "array",
+                  "items": { "type": "string", "maxLength": 100 },
+                  "maxItems": 50
+                },
+                "streams": {
+                  "type": "array",
+                  "items": { "type": "string", "maxLength": 120 },
+                  "maxItems": 50
+                },
+                "events": {
+                  "type": "array",
+                  "items": { "type": "string", "maxLength": 120 },
+                  "maxItems": 50
+                },
+                "invariants": {
+                  "type": "array",
+                  "items": { "type": "string", "maxLength": 300 },
+                  "maxItems": 50
+                }
+              },
+              "additionalProperties": false,
+              "description": "Domain objects and rules this construct is responsible for preserving"
+            },
+            "out_of_domain": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 200 },
+              "maxItems": 50,
+              "description": "Capabilities, decisions, data, or side effects this construct must hand off instead of owning"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "expertise": {
       "type": "array",
       "items": { "type": "string", "maxLength": 100 },
       "maxItems": 20,
       "description": "Expertise declarations for intent matching (#119)"
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Capability metadata. Prefer fields that can map to Hounfour CapabilitySchema: skill_id, input_modes, output_modes, models, latency, and cost hints."
     },
     "golden_path": {
       "type": "object",
@@ -278,8 +426,66 @@
     },
     "type": {
       "type": "string",
-      "enum": ["skill-pack", "tool-pack", "codex", "template"],
+      "enum": ["skill-pack", "tool-pack", "codex", "template", "substrate-construct"],
       "description": "Construct archetype — determines scaffold template and validation rules"
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Runtime requirements or hints only. Concrete session management, sandboxing, persistence, and model invocation belong to the runtime layer."
+    },
+    "executable": {
+      "type": "object",
+      "required": ["entry"],
+      "properties": {
+        "entry": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Relative path to construct program entrypoint"
+        },
+        "export": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Named export to execute"
+        },
+        "protocol": {
+          "type": "object",
+          "properties": {
+            "input": { "type": "string", "maxLength": 500 },
+            "output": { "type": "string", "maxLength": 500 }
+          },
+          "additionalProperties": false,
+          "description": "Typed input/output schemas exposed by the executable"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Effect/program entrypoint declaration for substrate constructs"
+    },
+    "requirements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["tag", "contract"],
+        "properties": {
+          "tag": {
+            "type": "string",
+            "maxLength": 120,
+            "description": "Effect service tag or runtime dependency name"
+          },
+          "contract": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "Type or schema contract the runtime must satisfy"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 500
+          }
+        },
+        "additionalProperties": false
+      },
+      "maxItems": 50,
+      "description": "Runtime-injected dependencies. Constructs declare these ports; runtimes provide implementations."
     },
     "runtime_requirements": {
       "type": "object",
@@ -297,6 +503,33 @@
       },
       "additionalProperties": false,
       "description": "Runtime environment requirements for tool-pack and codex types"
+    },
+    "context_policy": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["fresh", "persistent", "blocking"],
+          "description": "Requested context mode; enforcement belongs to the runtime/composition runner"
+        },
+        "allowed_context": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 50
+        },
+        "forbidden_context": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 50
+        },
+        "persistence_scope": {
+          "type": "string",
+          "enum": ["none", "stage", "construct", "composition", "tenant"],
+          "description": "Maximum persistence scope this construct may rely on"
+        }
+      },
+      "additionalProperties": false,
+      "description": "Declarative context boundaries used by isolated runtimes and composition runners."
     },
     "paths": {
       "type": "object",

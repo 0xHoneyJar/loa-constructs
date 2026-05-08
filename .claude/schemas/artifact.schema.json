@@ -50,6 +50,25 @@
       "type": "object",
       "description": "Free-form producer metadata — descriptions, tags, version labels.",
       "additionalProperties": true
+    },
+    "domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary"],
+      "properties": {
+        "primary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "S0-T8. Domain attribution for this artifact — bounded-context tag of the construct that produced it."
+        },
+        "produced_by": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "S0-T8. Optional construct slug attribution. Distinct from existing 'producer' field which carries the operational handle; 'produced_by' inside domain is the bounded-context attribution. Both may be set."
+        }
+      },
+      "description": "S0-T8 / cycle-construct-bounded-context Sprint 0. Optional domain block. Existing Artifact payloads without this field continue to validate."
     }
   }
 }

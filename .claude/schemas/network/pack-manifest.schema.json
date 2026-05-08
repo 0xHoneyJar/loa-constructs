@@ -152,10 +152,78 @@
       "description": "Quick start hint for post-install guidance"
     },
     "domain": {
-      "type": "array",
-      "items": { "type": "string", "maxLength": 50 },
-      "maxItems": 10,
-      "description": "Domain tags for MoE routing (#119)"
+      "description": "Construct bounded context. Legacy string/array forms are accepted as routing tags; the object form is the recommended DDD contract for ownership, language, and boundaries.",
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 50,
+          "description": "Legacy single routing tag"
+        },
+        {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 50 },
+          "maxItems": 10,
+          "description": "Legacy routing tags for MoE routing (#119)"
+        },
+        {
+          "type": "object",
+          "required": ["primary"],
+          "properties": {
+            "primary": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80,
+              "description": "Primary bounded context this construct owns"
+            },
+            "supporting": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 80 },
+              "maxItems": 20,
+              "description": "Adjacent domains this construct may read from or collaborate with"
+            },
+            "ubiquitous_language": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 100 },
+              "maxItems": 50,
+              "description": "Terms of art this construct uses in prompts, streams, events, and docs"
+            },
+            "owns": {
+              "type": "object",
+              "properties": {
+                "entities": {
+                  "type": "array",
+                  "items": { "type": "string", "maxLength": 100 },
+                  "maxItems": 50
+                },
+                "streams": {
+                  "type": "array",
+                  "items": { "type": "string", "maxLength": 120 },
+                  "maxItems": 50
+                },
+                "events": {
+                  "type": "array",
+                  "items": { "type": "string", "maxLength": 120 },
+                  "maxItems": 50
+                },
+                "invariants": {
+                  "type": "array",
+                  "items": { "type": "string", "maxLength": 300 },
+                  "maxItems": 50
+                }
+              },
+              "additionalProperties": false,
+              "description": "Domain objects and rules this construct is responsible for preserving"
+            },
+            "out_of_domain": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 200 },
+              "maxItems": 50,
+              "description": "Capabilities, decisions, data, or side effects this construct must hand off instead of owning"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
     },
     "expertise": {
       "type": "array",

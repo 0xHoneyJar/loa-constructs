@@ -58,6 +58,25 @@
     "orient": {
       "type": "string",
       "description": "3-5 line variant of this verdict. Satisfies orient-latency consumers."
+    },
+    "domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary"],
+      "properties": {
+        "primary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "S0-T8. Domain attribution for this verdict — bounded-context tag of the construct that emitted it. Aligns with construct manifest domain.primary or composition stage domain.primary."
+        },
+        "produced_by": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "S0-T8. Optional construct slug attribution for cross-stage tracing. The runtime substrate fills this in at handoff time when emitting Verdict streams."
+        }
+      },
+      "description": "S0-T8 / cycle-construct-bounded-context Sprint 0. Optional domain block. Existing Verdict payloads without this field continue to validate."
     }
   }
 }
