@@ -1,19 +1,206 @@
 # cycle-098-agent-network — Session Resumption Brief
 
-**Last updated**: 2026-05-04 (Sprint 1 + 1.5 + 2 + 3 + H1 + H2 + /bug #711 ALL SHIPPED; **next: cycle-099 model-registry refactor (URGENT) OR Sprint 4 L4 graduated-trust (resumable)**)
+**Last updated**: 2026-05-08 (Sprint 1..7 + H1 + H2 + /bug #711 ALL SHIPPED — **CYCLE-098 COMPLETE**)
 **Author**: deep-name + Claude Opus 4.7 1M
 **Purpose**: Crash-recovery + cross-session continuity. Read first when resuming cycle-098 work.
 
-## 🚨 TL;DR — All today's hardening shipped; two paths forward
+## 🎉 TL;DR — Sprint 7 SHIPPED 2026-05-08; CYCLE-098 COMPLETE (L1-L7 all on main)
 
-**Today's wins on main (5 PRs):**
+**2026-05-08 session win — Sprint 7 (PR #775, merge `9957f938`) — L7 soul-identity-doc foundation SHIPPED.** FR-L7-1..7 + NFR-Sec3 (prescriptive-section rejection). 4-commit branch (7A schema+lib+events 34 tests, 7B SessionStart hook 16 tests, 7C SKILL+CLI+cross-primitive+lore+CLAUDE.md 8 tests, 7-rem pre-merge remediation 16 tests + BB iter-1 4-MED inline fixes) totaling **74 cumulative L7 tests green**.
+
+Pre-BB substantive review caught **2 CRIT + 4 HIGH** (closed in `5677da7e`):
+- **CRIT-1+2** test-mode gate too permissive (BATS_TMPDIR alone bypassed) → strict gate requires BOTH `LOA_SOUL_TEST_MODE=1` + bats marker (`BATS_TEST_FILENAME` or `BATS_VERSION`). Same pattern class as cycle-099 #761 / L4. **L6's prototype carries the same dead-code clause; tracked in #776.**
+- **HIGH-1** hook honored absolute / `..` `path:` in `.loa.config.yaml` — surfaced `/etc/passwd` as `<untrusted-content>` in pure production mode → realpath-canonicalize + REPO_ROOT containment + `..` substring rejection.
+- **HIGH-2** Unicode prescriptive-pattern bypass (FULLWIDTH `Ｍ Ｕ Ｓ Ｔ` and zero-width `M​UST`) → NFKC normalize + Cf-strip before pattern match.
+- **HIGH-3** context-isolation `\x1eREPORT\x1e` sentinel leak in surfaced body (pre-existing in L6 codepath; bash `$(...)` strips trailing newlines, breaking parameter-expansion split on the empty-report common case) → drop trailing-newline requirement; benefits L6 too.
+- **HIGH-4** audit blinded by control-byte heading (ANSI/control bytes in section heading → schema reject → `soul_emit` exits non-zero → hook's `\|\| true` silenced; body still surfaced in warn-mode while audit chain blinded) → scrub headings (drop C0/C1/zero-width; replace disallowed chars with `_`) before lists.
+
+Optimist HIGH closures:
+- **OPT-HIGH-1** `audit-retention-policy.yaml` realigned (was describing `SOUL.md` operator content; actual audit log is `.run/soul-events.jsonl`).
+- **OPT-HIGH-2** SessionStart hook unwired in `.claude/settings.json` (L6 same gap; documented in SKILL.md; canonical wiring tracked in #776).
+
+BB kaironic iter-1 (Anthropic-only consensus per cycle-098 API-unavailability plateau pattern; OpenAI timeout + Google network error): **0 BLOCKER, 0 HIGH_CONS, 4 MED + 5 LOW + 5 PRAISE + 1 REFRAME**. The 4 MED were genuine test-correctness bugs (F7 inverted grep semantics, F3 production-test didn't exercise gate, F9 T-CHAIN-3 tautology, F10 T-ISOLATION-1 swallowed handoff_write errors) — closed inline in `3b20a71f`. Plateau called: pre-BB review was substantive (2 CRIT + 4 HIGH), BB iter-1 had no BLOCKER/HIGH_CONSENSUS, mechanical fixes wouldn't trigger new findings.
+
+**LOW deferred to follow-up issue #776** (~6 cosmetic items + L6 inheritance: hook wiring + test-mode gate dead-code clause).
+
+**Sprint 7D (50+ adversarial jailbreak vectors) DEFERRED to its own cycle.** That's curatorial security-research work qualitatively different from the bash/python lib shipped in 7A/7B/7C. The previous Claude's handoff explicitly granted permission to question the framing for exactly this scope decision; operator confirmed split at session start.
+
+**Cumulative cycle-098 tests on main: 690+ (existing) + 74 (Sprint 7) = 764+. 0 regressions in any prior sprint.**
+
+## 🚦 Next: Cycle-100 — Adversarial Jailbreak Corpus (50+ vectors for L6/L7 SessionStart sanitization)
+
+Sprint 7D was carved out of cycle-098 because the corpus is qualitatively different work (security research + curation, not engineering). Per SDD §1.9.3.2 Layer 4: 50+ documented attack vectors at `tests/red-team/jailbreak/` covering role-switch, indirect injection via Markdown, Unicode obfuscation, encoded payloads, multi-turn conditioning. CI gate: every PR touching `prompt_isolation` / L6 / L7 / SessionStart hook MUST pass jailbreak suite.
+
+When cycle-100 opens (likely needs its own session for context budget):
+- Survey OWASP LLM Top 10 (LLM01: Prompt Injection)
+- Mine public jailbreak corpora (DAN, Anthropic red-team papers)
+- Reuse L6 6E E4-E6 / C9-C10 runtime-construction pattern (`_make_evil_body` keeps trigger strings out of bats source files)
+- Quality over count — 100 well-curated vectors with expected sanitization outcomes is better than 200 superficial ones
+- Defensible against cypherpunk pushback on every vector's inclusion
+
+Open follow-ups before cycle-100 opens:
+- **#776**: cycle-098 sprint-7 follow-up — LOW batch (~6 cosmetic) + L6 inheritance (hook wiring + test-mode gate)
+- **Cycle archive** (next chore): close cycle-098 ledger, archive grimoires/loa/cycles/cycle-098-agent-network/
+
+## 🗄️ Sprint 7 SHIPPED — archived brief
+
+The original Sprint 7 brief has been archived (now executed and merged in PR #775). Sub-sprint slicing (7A/7B/7C/7-rem with 7D deferred), design pinpoints, and quality-gate chain are preserved in the merged PR description (https://github.com/0xHoneyJar/loa/pull/775) and commit history (`b2e48a8a` 7A → `4146eeaa` 7B → `dc9d6721` 7C → `5677da7e` review-remediation → `3b20a71f` BB-iter1 fixes → squashed at `9957f938`).
+
+## 🚨 TL;DR — Sprint 6 SHIPPED 2026-05-08; only L7 remains (HISTORICAL — superseded above)
+
+**2026-05-07/08 session wins**:
+- **Sprint 6 (PR #771, merge `1b820a0f`) — L6 structured-handoff SHIPPED.** FR-L6-1..7 + same-machine guardrail (SDD §1.7.1) + lore + CLAUDE.md. **90 cumulative tests** across 5 sub-sprint files (6A 27 + 6B 17 + 6C 17 + 6D 11 + 6E 18). Subagent dual-review (general-purpose + paranoid cypherpunk in parallel) caught **3 CRIT + 7 HIGH + 12 MED** — all CRIT/HIGH and 6 MED closed inline pre-BB; remaining MED + LOW (~22 items) deferred to a follow-up issue. Bridgebuilder iter-1 (Anthropic-only consensus per cycle-098 API-unavailability plateau pattern): 0 BLOCKER, 0 HIGH_CONSENSUS, 5 MED + 14 LOW + 4 PRAISE; 5 MED + 1 LOW (BB-F8) closed inline. Patterns extended: env-var test-mode gate (`_handoff_test_mode_active` + `_handoff_check_env_override`, 8 security-critical env vars gated, mirrors L4 cycle-099 #761), explicit-rollback in atomic_publish (replaced trap-based ERR rollback that proved fragile under bats `run`), filename-shape regex pinning in INDEX consumers (defense-in-depth against forged rows), JSONSchema control-byte rejection in slug fields (closes Python `re.$`-accepts-`\n` bypass with INDEX row-injection PoC pinned in test E6), bootstrap-pending state for absent OPERATORS.md (mirrors audit-envelope BOOTSTRAP-PENDING).
+- **Sprint 5 (PR #767) — L5 cross-repo-status-reader SHIPPED.** FR-L5-1..7. 43 cumulative tests (26 sprint + 17 cypherpunk-remediation). Cypherpunk audit caught 1 CRIT (p95 heredoc RCE via cache-poisoned `_latency_seconds`) + 3 HIGH (cache shape poisoning, invalidate-all over-deletion, mktemp TOCTOU) + 7 MED — all CRIT/HIGH and selected MED closed pre-merge. BB iter-1 plateau (0 BLOCKER, 0 HIGH_CONS, 1 HIGH + 1 MEDIUM closed inline; #768 follow-up filed). Patterns extended: shell-opt save/restore helpers (`_l5_save_shell_opts`); `_audit_primitive_id_for_log` extended for L5 (`cross-repo-status*` → `L5`).
+- **Sprint 4 (PR #764) — L4 graduated-trust SHIPPED.** Per-(scope, capability, actor) trust ledger (FR-L4-1..8). 118 cumulative tests. Cypherpunk audit caught 2 CRIT (seal bypass via marker, cooldown_until forgery) + 6 HIGH + 3 MED — all closed pre-merge with the `fc3ad7f0` remediation pass. Pre-existing audit-envelope `_audit_recover_from_git` path-resolution bug (basename vs repo-relative) fixed during 4C.
+
+**Earlier wins on main:**
 - Sprint 3 (PR #712, `3e9c2f7`) — L3 scheduled-cycle-template
-- chore PR #715 — RESUMPTION update
-- Sprint H1 (PR #716, `d8eca75`) — signed-mode harness, closes #706 + #713
-- Sprint H2 (PR #717, `430d1e4`) — observer allowlist + audit-snapshot strict-pin + chain-valid fixture, closes #708 substantives
-- /bug #711 (PR #718, `4a576da`) — gpt-review hook recursion + 429 diagnostic + insufficient_quota short-circuit
+- Sprint H1 (PR #716, `d8eca75`) — signed-mode harness
+- Sprint H2 (PR #717, `430d1e4`) — observer allowlist + audit-snapshot strict-pin
+- /bug #711 (PR #718, `4a576da`) — gpt-review hook recursion + 429 diagnostic
+- cycle-099 entire registry-refactor cycle SHIPPED (Sprints 1-2F). See cycle-099 RESUMPTION for that full ladder.
 
-**Cumulative: 480+ tests on main; 0 regressions.**
+**Cumulative cycle-098 tests on main: 690+ ; 0 regressions.**
+
+---
+
+## 🚦 Brief: Sprint 7 (L7 soul-identity-doc — LARGE, likely needs its own session)
+
+Paste into a fresh Claude Code session:
+
+```
+Read grimoires/loa/cycles/cycle-098-agent-network/RESUMPTION.md FIRST and the section "Brief: Sprint 7 (L7 soul-identity-doc, LARGE)". Sprints 1+1.5+2+3+4+5+6+H1+H2+/bug #711 ALL SHIPPED on main (cycle-098 cumulative tests: 690+).
+
+Today's main HEAD: 1b820a0f (Sprint 6 merged).
+Cycle-098 status: L1+L2+L3+L4+L5+L6 SHIPPED; ONLY L7 REMAINS.
+
+Execute Sprint 7: L7 soul-identity-doc per PRD FR-L7-1..N (#653/#660 — confirm via PRD). Compose with:
+  - 1A audit envelope (soul.surface event — define payload schema)
+  - 1C lib/context-isolation-lib.sh::sanitize_for_session_start (already extended for L7 in Sprint 1C — surface_max_chars default 2000)
+  - 6 SessionStart hook pattern (mirror .claude/hooks/session-start/loa-l6-surface-handoffs.sh structure)
+
+Branch: feat/cycle-098-sprint-7 from origin/main (1b820a0f).
+
+Sub-sprint slicing (4-slice pattern; Sprint 7 is LARGER — adversarial corpus is its own slice):
+  - 7A: SOUL.md schema + frontmatter validator + lib (FR-L7 schema; required sections per SDD §1.4.2: ## What I am / What I am not / Voice / Discipline / Influences; optional: ## Refusals / Glossary / Provenance)
+  - 7B: surface_soul_identity SessionStart hook integration via sanitize_for_session_start("L7", content) — mirror L6 pattern
+  - 7C: /loa soul validate CLI + operator-time validation; cycle integration tests (L1 ↔ L4 ↔ L6 ↔ L7 cross-primitive ACs from SDD §6)
+  - 7D: ADVERSARIAL JAILBREAK CORPUS at tests/red-team/jailbreak/ (50+ documented attack vectors per SDD §1.9.3.2 Layer 4) — role-switch, indirect injection via Markdown, Unicode obfuscation, encoded payloads, multi-turn conditioning. CI gate: every PR touching prompt_isolation/L6/L7/SessionStart MUST pass jailbreak suite.
+
+Quality gate chain (full Sprint 4+5+6 pattern):
+  1. /implement test-first × 4 sub-sprints
+  2. Subagent dual-review IN PARALLEL (general-purpose + paranoid cypherpunk via Agent run_in_background:true)
+     - Cypherpunk threat model for L7: SOUL.md is OPERATOR-WRITTEN but reaches session via SessionStart hook; verify schema validation strict-mode + sanitize layer match L6's discipline. Probe the jailbreak corpus completeness.
+  3. Remediation pass — fix HIGH/MEDIUM inline; defer LOW to follow-up issue
+  4. Bridgebuilder kaironic INLINE (.claude/skills/bridgebuilder-review/resources/entry.sh --pr <N>)
+     - Expect API-unavailability plateau (OpenAI + Google often error; Anthropic-only consensus is plateau-ready per cycle-098 sprints 4/5/6 precedent)
+  5. Address BB iter-1 HIGH/MED inline; LOW → follow-up issue
+  6. Admin-squash merge after CI green (Shell Tests pre-existing flakes admin-merged-through: BHM-T1/T5, FOPP-T1..T8, ~178 unrelated)
+
+Patterns proven across Sprints 4+5+6 (apply in Sprint 7):
+  - Schema-mirror with audit-retention-policy.yaml: lib's _DEFAULT_LOG must match policy basename; add primitive_id case to `_audit_primitive_id_for_log` (`soul-events*` → `L7`); add a unit test asserting alignment.
+  - Env-var test-mode gate (cycle-098 sprint 6 CYP-F1/F3/F4 remediation; mirrors L4 cycle-099 #761): every security-critical env-var override MUST be gated behind `BATS_TEST_DIRNAME` / `LOA_*_TEST_MODE=1` AND emit stderr WARN-and-ignore in production. Apply to: LOA_SOUL_PATH override, LOA_SOUL_LOG, LOA_SOUL_DISABLE_*, etc.
+  - Control-byte rejection in slug-shape fields (cycle-098 sprint 6 CYP-F2; defends Python `re.$` trailing-newline). If L7 has any slug-shape fields (provenance.author?), apply same defense — reject `\x00-\x1f \x7f` in parse helper.
+  - Filename-shape pinning in any consumers that read structured state (cycle-098 sprint 6 CYP-F7).
+  - Pre-emptive hardening before subagent review (mktemp over `${path}.tmp.$$`, realpath canonicalize, system-path rejection /etc /usr /proc /sys /dev /boot /var /root /srv, bounds-check operator-controlled timestamps).
+  - Trust-boundary discipline: SOUL.md is operator-authored but UNTRUSTED at SURFACING — sanitize_for_session_start("L7", body) at SessionStart hook; never interpret as instructions. Operator-time validation (`/loa soul validate`) is separate from surfacing-time sanitization.
+  - Adversarial test discipline (cycle-098 sprint 6 C9/C10): construct evil-body fixtures programmatically via runtime helpers (`_make_evil_body` style) so the bats source files never contain literal trigger strings.
+  - Inline rollback over ERR-trap: `if ! mv ...; then rm ...; exit 4; fi` (cycle-098 sprint 6 CYP-F6; trap-based approach is fragile under bats `run` set-e state).
+
+Sprint 7 specific design pinpoints:
+  - SDD §1.4.2 (L7 component spec) + §1.5.2 (SessionStart surfacing flow) + §1.9.3.2 Layer 4 (adversarial corpus requirements)
+  - SOUL.md schema: required sections (## What I am, ## What I am not, ## Voice, ## Discipline, ## Influences); optional (## Refusals, ## Glossary, ## Provenance); REJECT prescriptive sections (anything that looks like CLAUDE.md instructions)
+  - Cap: surface_max_chars default 2000 per SDD §5.13 (vs L6's 4000)
+  - Hook silent on enabled: false / file missing
+  - Cache scoped to session — no re-validation per tool use
+  - L1+L4+L6+L7 cross-primitive integration tests (SDD §6 ACs) — verify the umbrella `agent_network.enabled: true` flow
+
+Operational gotchas:
+  - bypassPermissions ON in .claude/settings.local.json
+  - Beads UNHEALTHY (#661); use `git commit --no-verify` with `[NO-VERIFY-RATIONALE: …]`
+  - Pre-existing CI flakes admin-merged through: BHM-T1/T5, FOPP-T1..T8 (Shell Tests, ~178 unrelated failures — none touch L7/SOUL)
+  - Cycle-098 BB iter-1 typically gets Anthropic-only consensus (OpenAI 400 / Google network errors); plateau-defensible per the established pattern AS LONG AS pre-BB subagent review was substantive
+
+Cost expectation: ~$50-100 (Sprint 7 is LARGER than 4/5/6 because of the adversarial corpus and cross-primitive integration tests — likely needs a fresh session for context budget).
+
+Begin: `git fetch origin main && git checkout -b feat/cycle-098-sprint-7 origin/main`. Read PRD §FR-L7 + SDD §1.4.2 (L7 component) + SDD §5.9 (L7 API spec) + SDD §1.9.3.2 Layer 4 (adversarial corpus) for full task list + ACs. Slice 7A.
+```
+
+After Sprint 7 ships: cycle-098-agent-network is COMPLETE (L1-L7 all SHIPPED). Next steps: cycle-archive + post-cycle hardening sweeps.
+
+---
+
+## 🗄️ Sprint 6 SHIPPED — archived brief
+
+The original Sprint 6 brief has been archived (now executed and merged in PR #771). The full sprint-6 scope ladder, sub-sprint slicing, design pinpoints, and the full quality-gate chain are preserved in the merged PR description and the commit history (`152a554c` 6A → `a4bf56ac` 6B → `d56bae84` 6C → `f5193fb9` 6D → `e9444029` 6E review-remediation → `1fa2381b` BB-iter1 fixes → squashed at `1b820a0f`).
+
+---
+
+## 🚦 Brief: Sprint 6 (L6 structured-handoff, MEDIUM) — ARCHIVED, kept for reference
+
+Paste into a fresh Claude Code session:
+
+```
+Read grimoires/loa/cycles/cycle-098-agent-network/RESUMPTION.md FIRST and the section "Brief: Sprint 6 (L6 structured-handoff, MEDIUM)". Sprints 1+1.5+2+3+4+5+H1+H2+/bug #711 ALL SHIPPED on main (cycle-098 cumulative tests: 600+).
+
+Today's main HEAD: 0db09254 (post Sprint 5 RESUMPTION chore).
+Cycle-098 status: L1+L2+L3+L4+L5 SHIPPED; L6+L7 remain.
+
+Execute Sprint 6: L6 structured-handoff per PRD FR-L6-1..8 (#658). Compose with:
+  - 1A audit envelope (handoff.write event)
+  - 1A `lib/context-isolation-lib.sh::sanitize_for_session_start` (Sprint 1 helper for SessionStart surfacing)
+  - 1B operator-identity.sh + OPERATORS.md (verify_operators flag; strict mode rejects from/to not in OPERATORS.md)
+  - 1A `lib/jcs.sh` (content-addressable handoff_id via SHA-256 of canonical-JSON)
+  - 4 graduated-trust (compose-when-available; from/to reference L4 actor identity)
+
+Branch: feat/cycle-098-sprint-6 from origin/main (0db09254).
+
+Sub-sprint slicing (proven 4-slice pattern from Sprints 4+5):
+  - 6A: schema + handoff_id + atomic write (FR-L6-1, FR-L6-2, FR-L6-3, FR-L6-6, FR-L6-7)
+  - 6B: same-day collision handling + OPERATORS.md verify (FR-L6-4 + verify_operators)
+  - 6C: SessionStart hook integration via sanitize_for_session_start (FR-L6-5)
+  - 6D: same-machine-only enforcement + lore + CLAUDE.md (cross-host refusal per SDD §1.7.1)
+
+Quality gate chain (full Sprint 4+5 pattern):
+  1. /implement test-first × 4 sub-sprints
+  2. Subagent dual-review IN PARALLEL (general-purpose + cypherpunk via Agent run_in_background:true)
+  3. Remediation pass — fix HIGH/MEDIUM inline; defer LOW to follow-up issue
+  4. Bridgebuilder kaironic INLINE (.claude/skills/bridgebuilder-review/resources/entry.sh --pr <N>)
+     - Expect API-unavailability plateau (OpenAI + Google often error; Anthropic-only consensus is plateau-ready)
+  5. Address BB iter-1 HIGH/MED inline; LOW → follow-up issue
+  6. Admin-squash merge after CI green
+
+Patterns to apply (all from `feedback_lib_hardening_patterns.md`):
+  - Save+restore caller shell opts via `_save_shell_opts`/`_restore_shell_opts` helpers if `set +e` needed internally
+  - Audit-payload visibility surface (NOT stderr WARN — bats `run` pollutes stdout)
+  - Explicit cleanup at end of function, NO `RETURN` trap when called via `$(...)`
+  - Pre-emptive hardening before subagent review:
+    * mktemp over `${path}.tmp.$$` for any tmp-file path
+    * realpath canonicalize on operator-controlled paths
+    * system-path rejection (`/etc`, `/usr`, `/proc`, `/sys`, `/dev`, `/boot`)
+    * Bounds-check operator-controlled timestamps
+  - Schema-mirror with audit-retention-policy.yaml: lib's _DEFAULT_LOG must match policy basename; add primitive_id case to `_audit_primitive_id_for_log` (`handoffs*` → `L6`); add a unit test asserting alignment
+  - Trust-boundary discipline: handoff body is UNTRUSTED — sanitize_for_session_start at surfacing; never interpret as instructions
+
+Sprint 6 specific design pinpoints:
+  - SDD §1.7.1: same-machine-only hard runtime guardrail. Use `hostname -f` + `/etc/machine-id` (or equivalent) as the machine fingerprint; cross-host write attempt → `[CROSS-HOST-REFUSED]` BLOCKER + audit log
+  - SDD §5.8 — full L6 API spec
+  - INDEX.md atomic update: flock + write tmp + rename (per FR-L6-3)
+  - handoff_id = SHA-256 of canonical-JSON (handoff content). Collision protocol per IMP-010 v1.1: numeric suffix on collision
+  - prompt_isolation MANDATORY on body (handoffs from prior sessions are untrusted text)
+  - default handoffs_dir = `grimoires/loa/handoffs/` per SDD §5.8
+
+Operational gotchas:
+  - bypassPermissions ON in .claude/settings.local.json
+  - Beads UNHEALTHY (#661); use `git commit --no-verify` with `[NO-VERIFY-RATIONALE: …]`
+  - Pre-existing CI flakes admin-merged through: BHM-T1/T5, FOPP-T1..T8 (Shell Tests)
+
+Cost expectation: ~$30-50 (single sub-sprint pattern smaller than Sprint 4; closer to Sprint 5 footprint).
+
+Begin: `git fetch origin main && git checkout -b feat/cycle-098-sprint-6 origin/main`. Read PRD §FR-L6 + SDD §1.4.2 (L6 component) + SDD §5.8 (L6 API spec) for full task list + ACs. Slice 6A.
+
+After Sprint 6 ships: only Sprint 7 remains (L7 soul-identity-doc + cycle integration tests + adversarial jailbreak corpus — LARGE — likely needs its own session).
+```
 
 ### Operator priority (2026-05-04 session-end)
 
