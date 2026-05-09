@@ -1,5 +1,51 @@
-Sprint 3: Subscription Management
-Status: COMPLETED
-Date: 2025-12-30
-Senior Lead: APPROVED (All good)
-Security Audit: APPROVED - LETS FUCKING GO
+Sprint 3 (Stage Executor — Advisory Tier) — cycle-construct-bounded-context — PARTIAL
+
+Completed: 2026-05-09T00:04:27Z
+Branch: cycle/construct-bounded-context
+Commit: 7df4e793
+Beads: bd-nobi.4 (closed with partial-complete annotation)
+Status: PARTIAL — 4 of 9 tasks shipped; 5 deferred with clear forward owners.
+
+Implementation: APPROVED (Senior Tech Lead) — All good (with noted concerns)
+Security Audit: APPROVED - LETS FUCKING GO (Paranoid Cypherpunk Auditor)
+
+Quality gate verdict: PARTIAL PASS (4 of 9) through full implement → review → audit cycle.
+
+Tasks Shipped (4 of 9):
+- ✓ S3-T1: argv-array invocation (closes Flatline CRITICAL command-injection)
+- ✓ S3-T2: env scrub via env -i + allowed_env_vars allowlist (FR-4.1)
+- ✓ S3-T7: path canonicalization via realpath/python3 + PROJECT_ROOT containment (closes Flatline HIGH-3 symlink)
+- ✓ S3-T8: post-exec output-gate integration (composes Sprint 1 S1-T2)
+
+Tasks Deferred (5 of 9, capability-gap rationale):
+- ⏸ S3-T3: fresh-pty wrapping → Sprint 4 (kernel-enforced via bwrap binds)
+- ⏸ S3-T4: LD_PRELOAD/DYLD_INSERT_LIBRARIES allowlist → Sprint 4 (kernel-enforced)
+- ⏸ S3-T5: cheval provider memory-disable flags → Sprint 6 (depends on cheval extension; Sprint 1 audit's CONCERN-1)
+- ⏸ S3-T6: LLM session ID per stage → Sprint 6 (depends on cheval extension)
+- ⏸ S3-T9: audit-feel golden path E2E → Sprint 6 (depends on audit-feel composition install)
+
+Findings tracked forward (non-blocking):
+- Reviewer (3 concerns): mock mode is only path bats-tested; canonicalization arrays unused (dead code);
+  cheval skill env-allowlist not yet documented.
+- Reviewer (1 assumption): canonicalized arrays computed but unused — half-built enforcement.
+- Reviewer (1 alternative): "partial sprint" framing chosen over "Sprint 3a renaming" for ledger continuity.
+- Auditor (3 MEDIUM carry-forward + 1 LOW NEW):
+  - F1 slug path traversal (Sprint 1+2 inherited; Sprint 3 NOT vulnerable — uses PROJECT_ROOT containment)
+  - F2 schema_id absolute-path traversal (Sprint 1 inherited; output-gate not modified)
+  - F3 JCS fallback breadth (Sprint 2 inherited via output-gate + envelope-builder reuse)
+  - F4 NEW: dead-code canonicalization arrays — wire enforcement OR remove
+
+Sprint 6 hardening bundle: ~70 LOC across 4 areas closes all current findings.
+
+Test status:
+- Sprint 3 runner suite: 7/7 pass
+- Sprint 1+2+3 combined: 39/39 pass
+- Sprint 0 schema-validation gate: pass=9 fail=0 skip=0 (regression-clean)
+- Total: 48/48 tests passing
+
+Verdict: implementation 4-of-9 + reviewed + audited. Advance to Sprint 4 for strict-tier executor.
+The deferred tasks (S3-T3+T4) are naturally Sprint 4's; S3-T5+T6+T9 land in Sprint 6's combined work.
+
+Reviewer report: grimoires/loa/a2a/sprint-3/reviewer.md
+Engineer feedback (review): grimoires/loa/a2a/sprint-3/engineer-feedback.md
+Auditor feedback: grimoires/loa/a2a/sprint-3/auditor-sprint-feedback.md

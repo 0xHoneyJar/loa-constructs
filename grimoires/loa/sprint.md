@@ -130,7 +130,7 @@ The split lines (CONTRACT vs RUNNER, per SDD §11.1) are honored in the sprint s
 
 ---
 
-## Sprint 3: Stage Executor (Advisory Tier)
+## Sprint 3: Stage Executor (Advisory Tier) ⏸ PARTIAL APPROVED (4 of 9)
 
 **Goal**: Compositions run end-to-end on advisory tier. No security claims beyond contract + validation; isolation is informational.
 
