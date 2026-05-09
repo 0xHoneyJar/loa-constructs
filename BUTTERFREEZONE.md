@@ -61,20 +61,20 @@ graph TD
     api[api]
     apps[apps]
     audits[audits]
+    compositions[compositions]
+    cycles[cycles]
     docs[docs]
     evals[evals]
     grimoires[grimoires]
-    lib[lib]
-    packages[packages]
     Root[Project Root]
     Root --> api
     Root --> apps
     Root --> audits
+    Root --> compositions
+    Root --> cycles
     Root --> docs
     Root --> evals
     Root --> grimoires
-    Root --> lib
-    Root --> packages
 ```
 Directory structure:
 ```
@@ -86,6 +86,16 @@ Directory structure:
 ./apps/api
 ./apps/docs
 ./audits
+./compositions
+./cycles
+./cycles/cycle-309722a219
+./cycles/cycle-309725186c
+./cycles/cycle-309728dd1b
+./cycles/cycle-309806767c
+./cycles/cycle-30980925d5
+./cycles/cycle-309811b105
+./cycles/cycle-30990251ff
+./cycles/cycle-31047133ca
 ./docs
 ./docs/architecture
 ./docs/archive
@@ -98,16 +108,6 @@ Directory structure:
 ./docs/tutorials
 ./evals
 ./evals/baselines
-./evals/fixtures
-./evals/graders
-./evals/harness
-./evals/results
-./evals/suites
-./evals/tasks
-./evals/tests
-./grimoires
-./grimoires/artisan
-./grimoires/beacon
 ```
 
 ## Interfaces
@@ -182,19 +182,21 @@ Directory structure:
 | `api/` | 3 | API endpoints | \u2014 |
 | `apps/` | 15719 | Uapps | \u2014 |
 | `audits/` | 1 | Uaudits | \u2014 |
+| `compositions/` | 1 | Ucompositions | \u2014 |
+| `cycles/` | 45 | Documentation | \u2014 |
 | `docs/` | 49 | Documentation | \u2014 |
 | `evals/` | 122 | Benchmarking and regression framework for the Loa agent development system. Ensures framework changes don't degrade agent behavior through | [evals/README.md](evals/README.md) |
-| `grimoires/` | 1030 | Home to all grimoire directories for the Loa | [grimoires/README.md](grimoires/README.md) |
+| `grimoires/` | 1036 | Home to all grimoire directories for the Loa | [grimoires/README.md](grimoires/README.md) |
 | `lib/` | 1 | Source code | \u2014 |
 | `packages/` | 1176 | Upackages | \u2014 |
 | `scripts/` | 36 | Utility scripts | \u2014 |
-| `tests/` | 550 | Test suites | \u2014 |
+| `tests/` | 553 | Test suites | \u2014 |
 | `tools/` | 3 | Utools | \u2014 |
 
 ## Verification
 <!-- provenance: CODE-FACTUAL -->
 - Trust Level: **L2 — CI Verified**
-- 553 test files across 1 suite
+- 556 test files across 1 suite
 - CI/CD: GitHub Actions (14 workflows)
 - Linting: ESLint configured
 - Security: SECURITY.md present
@@ -239,16 +241,16 @@ Available commands:
 - `npm run test` — turbo
 - `npm run test:coverage` — turbo
 <!-- ground-truth-meta
-head_sha: d9a9ad3bc118b7897670e6df9a4c30f610491785
-generated_at: 2026-05-09T01:56:42Z
+head_sha: f3cecde3826e5894ec180d9ddd3992d3a994b96a
+generated_at: 2026-05-09T16:25:16Z
 generator: butterfreezone-gen v1.0.0
 sections:
   agent_context: f6cbbb733fad20b570081293245b10a69209411de598e86bc2c6d86fbda2df10
   capabilities: 4b62d222e5aaf2083317bf600ba3f019afeb0698d303f2bf7509a2cec59b11b9
-  architecture: e1d2eacbde1cc866202d876e3f650a1432a8b43987e3d32ca8cc4cdba9e0d026
+  architecture: 6daad447e2220a822052437eab179dc79b17413a123636bd0b070035d5823e32
   interfaces: b50b0e09bda2d8f39e3b0d7e0914a966457386f37d823677a3a7d490881d24bc
-  module_map: 30de6d94a041b75076d71532c71d80dd78cdf095dcdb16fcecd24b941c299c7d
-  verification: c574241585a536659944219c050e39c51798aecb17df1e1edff9ec3bd80b069f
+  module_map: 86db6f5d7aaac62475e10da48868688d840200542125238db6dedb745f013a86
+  verification: 96d9d021ae37b016d9d180cfd3e2660601a18614b38cc2420acfd5ad44e41abd
   agents: ca263d1e05fd123434a21ef574fc8d76b559d22060719640a1f060527ef6a0b6
   ecosystem: 2dc951cf4baf045c490819286fb4c5b11166efc12c58ea26517656b5f1171bde
   culture: f73380f93bb4fadf36ccc10d60fc57555914363fc90e4f15b4dc4eb92bd1640f

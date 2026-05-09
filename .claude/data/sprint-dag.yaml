@@ -1,0 +1,506 @@
+# .run/sprint-dag.yaml
+# Machine-readable task dependency graph for the Bounded-Context Substrate initiative.
+# Closes Flatline IMP-002 (beads integration + DAG materialization).
+# Sprint plan §Beads Integration + Machine-Readable Dependency Graph.
+#
+# Schema: each task declares id, sprint, title, depends_on[], blocks[].
+# Consumed by: sprint runner (parallelization), beads CLI (task creation order).
+
+schema_version: 1
+cycle: "cycle/bounded-context-polish"
+generated_at: "2026-05-09"
+
+tasks:
+  # Sprint 0 — Schemas + Tier Config
+  - id: S0-T1
+    sprint: 0
+    title: "Author construct-invocation-v0 schema"
+    priority: high
+    depends_on: []
+    blocks: [S2-T1, S2-T2, S3-T1]
+    layer: CONTRACT
+    status: completed
+
+  - id: S0-T2
+    sprint: 0
+    title: "Author construct-handoff-v0 schema"
+    priority: high
+    depends_on: []
+    blocks: [S2-T1, S2-T2]
+    layer: CONTRACT
+    status: completed
+
+  - id: S0-T3
+    sprint: 0
+    title: "Author legacy-domain-contract schema"
+    priority: medium
+    depends_on: []
+    blocks: [S6-T1, S6-T3]
+    layer: CONTRACT
+    status: completed
+
+  - id: S0-T4
+    sprint: 0
+    title: "Author construct-validation-tiers.yaml"
+    priority: high
+    depends_on: []
+    blocks: [S1-T4, S6-T2]
+    layer: CONTRACT
+    status: completed
+
+  - id: S0-T5
+    sprint: 0
+    title: "Author dry-run-fixture.schema.json"
+    priority: medium
+    depends_on: []
+    blocks: [S2-T4]
+    layer: CONTRACT
+    status: completed
+
+  - id: S0-T6
+    sprint: 0
+    title: "Extend composition.schema.json with context_policy fields"
+    priority: high
+    depends_on: []
+    blocks: [S1-T1, S3-T2, S3-T4]
+    layer: CONTRACT
+    status: completed
+
+  - id: S0-T7
+    sprint: 0
+    title: "Extend construct.schema.json for strict-tier domain requirements"
+    priority: high
+    depends_on: []
+    blocks: [S1-T4, S6-T2]
+    layer: CONTRACT
+    status: completed
+
+  - id: S0-T8
+    sprint: 0
+    title: "Extend stream schemas with domain extension fields"
+    priority: medium
+    depends_on: []
+    blocks: [S1-T2, S4-T5]
+    layer: CONTRACT
+    status: completed
+
+  # Sprint 1 — Validators
+  - id: S1-T1
+    sprint: 1
+    title: "Author lib/compose-stream-graph.sh + .py"
+    priority: high
+    depends_on: [S0-T1, S0-T2, S0-T6]
+    blocks: [S2-T4, S3-T8, S3-T9]
+    layer: CONTRACT
+    status: completed
+
+  - id: S1-T2
+    sprint: 1
+    title: "Author lib/output-gate.sh"
+    priority: high
+    depends_on: [S0-T1, S0-T2, S0-T8]
+    blocks: [S3-T8]
+    layer: CONTRACT
+    status: completed
+
+  - id: S1-T3
+    sprint: 1
+    title: "Author strict-tier prerequisite check"
+    priority: high
+    depends_on: [S0-T4]
+    blocks: [S4-T1, S4-T2]
+    layer: CONTRACT
+    status: completed
+
+  - id: S1-T4
+    sprint: 1
+    title: "Extend construct-validate.sh for tiered enforcement"
+    priority: high
+    depends_on: [S0-T4, S0-T7]
+    blocks: [S6-T2, S6-T3]
+    layer: CONTRACT
+    status: completed
+
+  - id: S1-T5
+    sprint: 1
+    title: "Pre-flight check for audit_signed:true"
+    priority: medium
+    depends_on: [S0-T1]
+    blocks: [S3-T9]
+    layer: CONTRACT
+    status: completed
+
+  - id: S1-T6
+    sprint: 1
+    title: "Test fixtures: 6 failing compositions + 1 golden-path"
+    priority: high
+    depends_on: [S1-T1, S1-T2, S1-T3]
+    blocks: [S3-T9]
+    layer: CONTRACT
+    status: completed
+
+  # Sprint 2 — Envelope Builder + Hash Chain + Dry-Run
+  - id: S2-T1
+    sprint: 2
+    title: "Author lib/envelope-builder.sh"
+    priority: high
+    depends_on: [S0-T1, S0-T2, S1-T1]
+    blocks: [S3-T9, S5-T1]
+    layer: RUNNER
+    status: completed
+
+  - id: S2-T2
+    sprint: 2
+    title: "Author lib/envelope-chain.sh (hash algorithm)"
+    priority: high
+    depends_on: [S0-T1, S0-T2]
+    blocks: [S2-T3, S3-T9, S5-T1]
+    layer: CONTRACT
+    status: completed
+
+  - id: S2-T3
+    sprint: 2
+    title: "Implement composition_id deterministic derivation"
+    priority: high
+    depends_on: [S2-T2]
+    blocks: [S3-T9, S5-T1]
+    layer: CONTRACT
+    status: completed
+
+  - id: S2-T4
+    sprint: 2
+    title: "Author compose-run.sh --dry-run --explain-context"
+    priority: medium
+    depends_on: [S0-T5, S1-T1, S2-T1, S2-T2]
+    blocks: [S3-T9, S5-T6]
+    layer: RUNNER
+    status: completed
+
+  - id: S2-T5
+    sprint: 2
+    title: "Hash chain validation at startup + per-stage + replay"
+    priority: high
+    depends_on: [S2-T2]
+    blocks: [S3-T9]
+    layer: RUNNER
+    status: completed
+
+  - id: S2-T6
+    sprint: 2
+    title: "Test fixtures: tampering sentinel test"
+    priority: high
+    depends_on: [S2-T2, S2-T5]
+    blocks: []
+    layer: RUNNER
+    status: completed
+
+  # Sprint 3 — Stage Executor (Advisory Tier)
+  - id: S3-T1
+    sprint: 3
+    title: "Refactor stage-executor-tmux.sh to argv-array invocation"
+    priority: critical
+    depends_on: [S0-T1, S2-T1]
+    blocks: [S3-T9, S4-T1]
+    layer: RUNNER
+    status: partial
+
+  - id: S3-T2
+    sprint: 3
+    title: "Implement env scrub (env -i + allowed_env_vars allowlist)"
+    priority: high
+    depends_on: [S0-T6]
+    blocks: [S3-T9, S4-T1]
+    layer: RUNNER
+    status: partial
+
+  - id: S3-T3
+    sprint: 3
+    title: "Implement fresh-pty via script -q /dev/null (argv form)"
+    priority: medium
+    depends_on: []
+    blocks: [S3-T9]
+    layer: RUNNER
+    status: partial
+
+  - id: S3-T4
+    sprint: 3
+    title: "Implement advisory-tier filesystem allowlist (LD_PRELOAD / DYLD)"
+    priority: medium
+    depends_on: [S0-T6]
+    blocks: [S3-T9]
+    layer: RUNNER
+    status: partial
+
+  - id: S3-T5
+    sprint: 3
+    title: "Provider memory disable in cheval adapters"
+    priority: high
+    depends_on: []
+    blocks: [S3-T9, S4-T5]
+    layer: RUNNER
+    status: partial
+
+  - id: S3-T6
+    sprint: 3
+    title: "New LLM session ID per stage"
+    priority: medium
+    depends_on: []
+    blocks: [S3-T9]
+    layer: RUNNER
+    status: partial
+
+  - id: S3-T7
+    sprint: 3
+    title: "Path canonicalization via realpath (symlink traversal fix)"
+    priority: high
+    depends_on: []
+    blocks: [S3-T9, S4-T5]
+    layer: RUNNER
+    status: partial
+
+  - id: S3-T8
+    sprint: 3
+    title: "Wire output validator (Sprint 1) into stage executor"
+    priority: high
+    depends_on: [S1-T2, S3-T1]
+    blocks: [S3-T9]
+    layer: RUNNER
+    status: partial
+
+  - id: S3-T9
+    sprint: 3
+    title: "audit-feel golden path end-to-end on advisory tier"
+    priority: high
+    depends_on: [S3-T1, S3-T2, S3-T3, S3-T4, S3-T5, S3-T6, S3-T7, S3-T8]
+    blocks: [S4-T5, S4-T6]
+    layer: RUNNER
+    status: open
+
+  # Sprint 4 — Strict Tier + Adversarial Suite
+  - id: S4-T1
+    sprint: 4
+    title: "Implement bwrap integration for filesystem namespace"
+    priority: high
+    depends_on: [S1-T3, S3-T1]
+    blocks: [S4-T5, S4-T6]
+    layer: RUNNER
+    status: open
+
+  - id: S4-T2
+    sprint: 4
+    title: "Implement Linux network namespace (--unshare-net + proxy bind)"
+    priority: high
+    depends_on: [S1-T3, S4-T3]
+    blocks: [S4-T5, S4-T7]
+    layer: RUNNER
+    status: open
+
+  - id: S4-T3
+    sprint: 4
+    title: "Author lib/egress-filter.py (CONNECT-only proxy)"
+    priority: high
+    depends_on: []
+    blocks: [S4-T2, S4-T4, S4-T5]
+    layer: RUNNER
+    status: completed
+
+  - id: S4-T4
+    sprint: 4
+    title: "Sentinel test: egress-proxy-die failure mode"
+    priority: medium
+    depends_on: [S4-T3]
+    blocks: []
+    layer: RUNNER
+    status: open
+
+  - id: S4-T5
+    sprint: 4
+    title: "12 adversarial test compositions with explicit per-test contracts"
+    priority: critical
+    depends_on: [S3-T9, S4-T1, S4-T3]
+    blocks: [S4-T6]
+    layer: RUNNER
+    status: open
+
+  - id: S4-T6
+    sprint: 4
+    title: "CI matrix with untrusted-code isolation (composition-strict-linux)"
+    priority: high
+    depends_on: [S4-T5]
+    blocks: []
+    layer: RUNNER
+    status: open
+
+  - id: S4-T7
+    sprint: 4
+    title: "Bwrap network design enumeration (DNS, IPv6, loopback, raw protocols)"
+    priority: high
+    depends_on: [S4-T2]
+    blocks: []
+    layer: RUNNER
+    status: open
+
+  - id: S4-T8
+    sprint: 4
+    title: "Author strict-tier-deployment.md runbook"
+    priority: medium
+    depends_on: []
+    blocks: []
+    layer: DOCS
+    status: completed
+
+  # Sprint 5 — Persistent State + Iteration Auditor
+  - id: S5-T1
+    sprint: 5
+    title: "Author lib/persistent-state.sh"
+    priority: high
+    depends_on: [S2-T1, S2-T2, S2-T3]
+    blocks: [S5-T2, S5-T3, S5-T4]
+    layer: RUNNER
+    status: completed
+
+  - id: S5-T2
+    sprint: 5
+    title: "Implement TTL policy (write vs access) with state-poisoning safeguard"
+    priority: high
+    depends_on: [S5-T1]
+    blocks: [S5-T3]
+    layer: RUNNER
+    status: completed
+
+  - id: S5-T3
+    sprint: 5
+    title: "Author compose-state-gc.sh with GC race coordination"
+    priority: medium
+    depends_on: [S5-T1, S5-T2]
+    blocks: [S5-T4]
+    layer: RUNNER
+    status: completed
+
+  - id: S5-T4
+    sprint: 5
+    title: "Sentinel test: gc-vs-running-composition.sh"
+    priority: medium
+    depends_on: [S5-T3]
+    blocks: []
+    layer: RUNNER
+    status: completed
+
+  - id: S5-T5
+    sprint: 5
+    title: "Author compose-iteration-audit.sh Phase 1 (enumerate)"
+    priority: medium
+    depends_on: []
+    blocks: [S5-T6]
+    layer: RUNNER
+    status: completed
+
+  - id: S5-T6
+    sprint: 5
+    title: "Implement compose-run --dry-run --iteration-mode=dual Phase 2"
+    priority: medium
+    depends_on: [S2-T4, S5-T5]
+    blocks: [S5-T7]
+    layer: RUNNER
+    status: completed
+
+  - id: S5-T7
+    sprint: 5
+    title: "Implement opt-in iteration_mode: stream_edge flag"
+    priority: low
+    depends_on: [S5-T6]
+    blocks: []
+    layer: RUNNER
+    status: completed
+
+  - id: S5-T8
+    sprint: 5
+    title: "Iteration validation (max_iterations + terminate_when)"
+    priority: high
+    depends_on: [S1-T1]
+    blocks: []
+    layer: CONTRACT
+    status: completed
+
+  # Sprint 6 — Manifest Migration + Docs
+  - id: S6-T1
+    sprint: 6
+    title: "Author legacy-contract-bootstrap.sh"
+    priority: medium
+    depends_on: [S0-T3, S1-T4]
+    blocks: [S6-T3]
+    layer: RUNNER
+    status: completed
+
+  - id: S6-T2
+    sprint: 6
+    title: "Author full domain block for top-12 packs"
+    priority: high
+    depends_on: [S0-T4, S0-T7, S1-T4]
+    blocks: []
+    layer: DATA
+    status: completed
+
+  - id: S6-T3
+    sprint: 6
+    title: "Generate starter compatibility contracts for legacy packs"
+    priority: medium
+    depends_on: [S6-T1]
+    blocks: []
+    layer: DATA
+    status: completed
+
+  - id: S6-T4
+    sprint: 6
+    title: "Author construct-usage-rank.sh"
+    priority: medium
+    depends_on: []
+    blocks: []
+    layer: RUNNER
+    status: completed
+
+  - id: S6-T5
+    sprint: 6
+    title: "Author grimoires/loa/runbooks/envelope-schema-migration.md"
+    priority: medium
+    depends_on: [S0-T1, S0-T2, S2-T2]
+    blocks: []
+    layer: DOCS
+    status: completed
+
+  - id: S6-T6
+    sprint: 6
+    title: "Update audit-keys-bootstrap.md for composition audit_signed flag"
+    priority: low
+    depends_on: [S1-T5]
+    blocks: []
+    layer: DOCS
+    status: completed
+
+  - id: S6-T7
+    sprint: 6
+    title: "Author grimoires/loa/runbooks/context-policy-guide.md"
+    priority: medium
+    depends_on: [S0-T6]
+    blocks: []
+    layer: DOCS
+    status: completed
+
+  - id: S6-T8
+    sprint: 6
+    title: "Update BUTTERFREEZONE.md with substrate availability"
+    priority: low
+    depends_on: []
+    blocks: []
+    layer: DOCS
+    status: open
+
+# Parallelization hints for sprint runner
+parallelization:
+  - group: sprint_4_5_parallel
+    description: "Sprint 5 can run in parallel with Sprint 4 (independent codebases)"
+    sprints: [4, 5]
+  - group: sprint_6_manifests_parallel
+    description: "Sprint 6 T2 manifest authoring can parallelize across 12 packs"
+    tasks: [S6-T2]
+    parallelism: 4

@@ -1,5 +1,23 @@
 # Loa Project Notes
 
+## Cycle Closure — 2026-05-09 (cycle-construct-bounded-context — DONE)
+
+**Outcome**: substrate v2.40.0 shipped via PR #226 (75989416, 7 sprints, 84/84 tests). Spiral follow-up cycle terminated on `quality_gate_failure` circuit breaker (IMPL_EVIDENCE_MISSING). Manual recovery via PR #228 cherry-picked the 8 valuable artifacts the spiral did produce: audit-feel composition + 4 operator runbooks + sprint-dag + telemetry config + egress-filter (~2,141 lines total). Issue #227 tracks the remaining substrate consumer migration work.
+
+### Spiral failure mode worth remembering
+
+The IMPL_FIX loop wrote 4 stub libs to `lib/{envelope-builder,envelope-chain,output-gate,persistent-state}.sh` to satisfy a sprint-plan path-evidence check that was hallucinated in the first place — the real files existed at `.claude/scripts/lib/*` (the v2.40.0 substrate canonical location, 465+ lines each). The fix-loop should reconcile sprint-plan paths against the filesystem before writing stubs to placate evidence checks. File against the spiraling skill if you hit this pattern again.
+
+### Validator caught real bug in spiral output (autopoietic feedback loop worked)
+
+The spiral's audit-feel.yaml emitted `[STREAM-NO-PRODUCER]` from substrate's own `compose-stream-graph.sh`: missing `inputs:` block + hyphenated `Operator-Model` (canonical is PascalCase `OperatorModel`). 5-line fix during recovery, then validates clean (3 stages, 0 errors), dry-run produces `composition_id=audit-feel.yaml@sha256:e1994339d0d3`. The substrate critiquing its own spiral-generated artifacts is the dynamic the cycle wanted to prove.
+
+### Framework sync state
+
+Local main pre-recovery had 126 unpushed framework commits from a prior `/update-loa` that was never pushed — local main was 126 ahead AND 1 behind origin/main (the 1 behind = PR #226 substrate merge). Resolved by `git checkout -B main origin/main` then re-running `/update-loa`, producing one clean integration commit (130111b1) that pulls cycle-098/099/100 + cycle-102 sprint-1A/B/C + bridgebuilder fixes onto v2.40.0 baseline. Lesson: push immediately after `/update-loa`, don't let local main accumulate framework commits.
+
+---
+
 ## Decision Log — 2026-05-08 (cycle-construct-bounded-context Sprint 1)
 
 ### `[ENVELOPE-CHAIN-BROKEN]` deferred from S1-T1 to Sprint 2 (S2-T2/T5)
