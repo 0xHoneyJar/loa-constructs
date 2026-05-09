@@ -127,6 +127,99 @@ json.dump(e, open('$TMPDIR_FIX/inv-strict.json', 'w'), indent=2)
   [[ "$output" == *'"ok": true'* ]]
 }
 
+# --- end-to-end integration (closes Bridgebuilder B-003) ---------------------
+
+@test "INTEGRATION: live-mode skill writes real Verdict, runner+output-gate validates round-trip" {
+  # Build a fake skill that writes a SCHEMA-CONFORMING Verdict to the contract destination.
+  # This exercises the full envelope-builder → runner (live mode, not mock) → output-gate
+  # pipeline without requiring a live LLM. Closes Bridgebuilder finding B-003: the gap
+  # between unit-tested-in-pieces and integration-tested-as-a-whole.
+  cat > "$TMPDIR_FIX/fake-skill.sh" <<'EOF'
+#!/usr/bin/env bash
+# Fake skill: emits a Verdict-shaped output at the contract destination.
+# Args[0] = absolute path to write the Verdict JSON.
+set -euo pipefail
+dest="$1"
+mkdir -p "$(dirname "$dest")"
+cat > "$dest" <<JSON
+{
+  "stream_type": "Verdict",
+  "schema_version": "1.0.0",
+  "timestamp": "2026-05-08T22:00:00Z",
+  "source": "fake-skill:integration-test",
+  "verdict": "integration-test approved"
+}
+JSON
+echo "skill produced $dest"
+EOF
+  chmod +x "$TMPDIR_FIX/fake-skill.sh"
+
+  # Reshape the invocation: change output_contract to Verdict + destination matching skill arg.
+  output_dest="$TMPDIR_FIX/output/integration.verdict.json"
+  jq --arg dest "$output_dest" '
+    .output_contract.writes = [{
+      "type": "Verdict",
+      "schema_id": "loa.stream.Verdict.v1",
+      "destination": $dest,
+      "required": true
+    }]
+  ' "$TMPDIR_FIX/inv-final.json" > "$TMPDIR_FIX/inv-int.json"
+  python3 -c "
+import json, hashlib
+e = json.load(open('$TMPDIR_FIX/inv-int.json'))
+e.pop('invocation_hash', None)
+canonical = json.dumps(e, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+e['invocation_hash'] = 'sha256:' + hashlib.sha256(canonical).hexdigest()
+json.dump(e, open('$TMPDIR_FIX/inv-int.json', 'w'), indent=2)
+"
+
+  # Run the runner in LIVE mode (no LOA_STAGE_MOCK), with the fake skill as the cmd.
+  # The skill's argv[1] is the destination path the runner pulled from the contract.
+  run "$RUNNER" \
+    --invocation "$TMPDIR_FIX/inv-int.json" \
+    --manifest "$TMPDIR_FIX/manifest.yaml" \
+    --quiet \
+    --skill-cmd "$TMPDIR_FIX/fake-skill.sh" "$output_dest"
+
+  # The runner should:
+  #   1. invoke the skill via env -i + argv-array (no shell injection)
+  #   2. find the Verdict written to disk
+  #   3. compute its JCS hash
+  #   4. build the handoff envelope with the computed hash
+  #   5. invoke output-gate which re-computes the same hash + validates schema
+  #   6. exit 0 with a success-status handoff
+  [ "$status" -eq 0 ]
+
+  # Verify handoff exists with success status + Verdict output entry
+  run_id=$(jq -r '.run_id' "$TMPDIR_FIX/inv-int.json")
+  stage_id=$(jq -r '.stage_id' "$TMPDIR_FIX/inv-int.json")
+  handoff="$REPO_ROOT/.run/compose/$run_id/envelopes/${stage_id}.handoff.json"
+  [ -f "$handoff" ]
+  jq -e '.status == "success"' "$handoff" >/dev/null
+  jq -e '.outputs[0].type == "Verdict"' "$handoff" >/dev/null
+  jq -e '.outputs[0].schema_id == "loa.stream.Verdict.v1"' "$handoff" >/dev/null
+  jq -e '.outputs[0].hash | startswith("sha256:")' "$handoff" >/dev/null
+  jq -e '.outputs[0].domain.produced_by == "artisan"' "$handoff" >/dev/null
+
+  # Verify the hash in the handoff matches the JCS-recompute of the file content.
+  # This is the load-bearing integration assertion: envelope-builder + runner + output-gate
+  # all agree on the same canonicalization → same hash.
+  reported_hash=$(jq -r '.outputs[0].hash' "$handoff")
+  recomputed=$(python3 -c "
+import json, hashlib
+data = json.loads(open('$output_dest').read())
+canonical = json.dumps(data, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
+print('sha256:' + hashlib.sha256(canonical).hexdigest())
+")
+  [ "$reported_hash" = "$recomputed" ]
+
+  # Verify the handoff itself round-trips through chain validation.
+  run "$REPO_ROOT/.claude/scripts/lib/envelope-chain.sh" validate \
+    --envelopes "$TMPDIR_FIX/inv-int.json" "$handoff"
+  [ "$status" -eq 0 ]
+  [[ "$output" == *'"ok": true'* ]]
+}
+
 # --- env scrub (S3-T2) -------------------------------------------------------
 
 @test "env scrub: subprocess sees only allowed env vars" {
