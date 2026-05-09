@@ -14,6 +14,10 @@
 # (substrate-shape only; no LLM call). Live cheval execution is Sprint 3+ work.
 
 setup() {
+  # Closes Bridgebuilder F005: skip-on-missing python3 (the runner uses python3
+  # for portable JCS hash recompute + envelope-finalization in test fixtures).
+  command -v python3 >/dev/null 2>&1 || skip "python3 not available"
+  command -v jq >/dev/null 2>&1 || skip "jq not available"
   REPO_ROOT="$(cd "${BATS_TEST_DIRNAME:-tests/composition/runner}/../../.." && pwd -P)"
   RUNNER="$REPO_ROOT/.claude/scripts/lib/stage-runner-advisory.sh"
   BUILDER="$REPO_ROOT/.claude/scripts/lib/envelope-builder.sh"
