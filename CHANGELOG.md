@@ -5,6 +5,20 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.0] — 2026-05-09 — Sprint 0 foundation — zones.yaml + 5 runbooks + INDEX.md + 4 upstream issues + tag BLOCKER closed
+
+
+**Cycle-0** of `loa-constructs` — the project's first numbered cycle. Sprint 0 (foundation) of a 3-sprint zone-hygiene & system-boundary-restoration cycle.
+
+**Reframe note**: anchored by an operator-authored audit doc (`grimoires/loa/context/loa-constructs-release-hygiene-audit-2026-05-09.md`, 17 KB, 9 findings). During simstim discovery the operator reframed the audit's "context hygiene" framing as **zone-boundary leakage between Loa-framework, loa-constructs-project, and operator-personal artifacts**. The audit's evidence holds; cycle-0's deliverable is restoring the zones the audit didn't yet name.
+
+### Added
+
+- **cycle-0-zone-hygiene**: Sprint 0 foundation — zones.yaml + 5 runbooks + INDEX.md + 4 upstream issues + tag BLOCKER closed (#229)
+
+_Source: PR #229_
+
+
 ## [2.41.0] — 2026-05-09 — spiral recovery — audit-feel composition + 4 runbooks + egress-filter + telemetry config
 
 
