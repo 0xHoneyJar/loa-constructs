@@ -1969,7 +1969,8 @@ flatline_protocol:
   models:
     primary: opus
     secondary: gpt-5.5-pro          # most powerful OpenAI (was gpt-5.3-codex)
-    tertiary: gemini-3.1-pro-preview  # most powerful Gemini Pro (was gemini-2.5-pro)
+    tertiary: google:gemini-3.1-pro-preview  # provider-pinned form per readiness check; bare alias 'gemini-3.1-pro' isn't registered so `google:<model_id>` is the disambiguating syntax
+
   thresholds:
     high_consensus: 700
     disputed_delta: 300
