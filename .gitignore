@@ -117,6 +117,10 @@ temp/
 grimoires/loa/context/*
 !grimoires/loa/context/README.md
 !grimoires/loa/context/composition-audit.json
+# cycle-0 T0.4: INDEX.md is the active-context allowlist; tracked so it's
+# visible to all operators/agents. Per-file classifications inside still
+# gitignored (operator-private by default — line above).
+!grimoires/loa/context/INDEX.md
 
 # ck semantic search state (embeddings cache, indexes)
 # Large machine-specific files that rebuild automatically
