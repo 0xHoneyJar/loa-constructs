@@ -5,6 +5,21 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.43.0] — 2026-05-09 — Sprint 1 — Path B claim amendment + version-domain naming + zone-boundary CI check
+
+
+Cycle-0 Sprint 1 (re-opened after PR #229 squash-merge auto-closed the original [PR #230](https://github.com/0xHoneyJar/loa-constructs/pull/230)). Same content, rebased onto post-merge main.
+
+```
+sprint 1 — claim/reality match + zone CI assertion
+
+### Added
+
+- **cycle-0 sprint-1**: Path B claim amendment + version-domain naming + zone-boundary CI check + BB review fixes (#232)
+
+_Source: PR #232_
+
+
 ## [2.41.0] — 2026-05-09 — spiral recovery — audit-feel composition + 4 runbooks + egress-filter + telemetry config
 
 
