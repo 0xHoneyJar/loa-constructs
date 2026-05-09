@@ -52,11 +52,28 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+# Sibling-module loads: jcs-fallback (S6-H2) + path-safety (S6-H1).
+_THIS_DIR = Path(__file__).resolve().parent
+_JCS_SPEC = importlib.util.spec_from_file_location(
+    "_jcs_fallback", _THIS_DIR / "jcs-fallback.py"
+)
+_jcs_fallback = importlib.util.module_from_spec(_JCS_SPEC)
+sys.modules["_jcs_fallback"] = _jcs_fallback
+_JCS_SPEC.loader.exec_module(_jcs_fallback)
+
+_PATH_SAFETY_SPEC = importlib.util.spec_from_file_location(
+    "_path_safety", _THIS_DIR / "path-safety.py"
+)
+_path_safety = importlib.util.module_from_spec(_PATH_SAFETY_SPEC)
+sys.modules["_path_safety"] = _path_safety
+_PATH_SAFETY_SPEC.loader.exec_module(_path_safety)
 
 
 # ---------------------------------------------------------------------------
@@ -138,26 +155,13 @@ def _load_yaml(path: Path, label: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def _jcs_canonical_bytes(value: Any) -> bytes:
-    """RFC 8785 JCS canonicalization. Prefers `rfc8785` package (cycle-098
-    canonical); falls back to a JSON-only canonical form (`sort_keys=True`,
-    `separators=(',',':')`) when the package is unavailable. The fallback
-    is sufficient for outputs that contain only objects, arrays, strings,
-    booleans, null, and integers (no floats) — which is the substrate's
-    output payload contract — but loses ECMAScript ToNumber semantics if a
-    payload ever carries a float. Operator can install rfc8785 via
-    `pip install rfc8785` to remove the fallback."""
-    try:
-        import rfc8785  # type: ignore[import-untyped]
-    except ImportError:
-        return json.dumps(
-            value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-        ).encode("utf-8")
-    return rfc8785.dumps(value)
+def _jcs_canonical_bytes(value: Any, *, audit_signed: bool = False) -> bytes:
+    """JCS canonicalizer — delegates to lib/jcs-fallback.py (S6-H2)."""
+    return _jcs_fallback.jcs_canonical_bytes(value, audit_signed=audit_signed)
 
 
 def _sha256_hex(data: bytes) -> str:
-    return "sha256:" + hashlib.sha256(data).hexdigest()
+    return _jcs_fallback.sha256_hex(data)
 
 
 # ---------------------------------------------------------------------------
@@ -166,31 +170,38 @@ def _sha256_hex(data: bytes) -> str:
 
 
 def _stream_schema_path(schema_id: str, schemas_dir: Path) -> Path:
-    """Map `loa.stream.<Type>.v<N>` → `<schemas_dir>/<type-lower>.schema.json`.
+    """Map `loa.stream.<Type>.v<N>` → `<schemas_dir>/<type-kebab>.schema.json`.
 
-    For Sprint 1 the substrate carries a single schema file per stream type
-    (Signal, Verdict, Artifact, Intent, OperatorModel). When schema_version-aware
-    files arrive (Sprint 5+ migrations), the resolver gains a versioned lookup;
-    until then the v* component is informational and validates against the
-    current schema."""
-    parts = schema_id.split(".")
-    if len(parts) != 4 or parts[0] != "loa" or parts[1] != "stream" or not parts[3].startswith("v"):
-        raise _err_usage(f"unrecognized schema_id format '{schema_id}'")
-    type_name = parts[2]
-    # Map ClassCase → kebab-case file name (e.g. OperatorModel → operator-model).
-    snake_chars: list[str] = []
-    for i, ch in enumerate(type_name):
-        if ch.isupper() and i > 0:
-            snake_chars.append("-")
-        snake_chars.append(ch.lower())
-    file_stem = "".join(snake_chars)
-    candidate = schemas_dir / f"{file_stem}.schema.json"
-    if not candidate.is_file():
+    Sprint 6 hardening (S6-H3, closes F2): delegates to
+    lib/path-safety.safe_resolve_schema_path which:
+      - validates schema_id against SCHEMA_ID_RE (`^loa\\.stream\\.[A-Za-z]+\\.v[0-9]+$`)
+      - validates parts[2] (Type) against SCHEMA_TYPE_RE (`^[A-Za-z]+$`)
+        — closes the absolute-path traversal vector (`loa.stream./etc/passwd.v1`)
+      - canonicalizes via realpath + verifies containment under schemas_dir
+
+    Returns None on validation failure → caller raises a structured error.
+    """
+    resolved = _path_safety.safe_resolve_schema_path(schemas_dir, schema_id)
+    if resolved is None:
+        # Distinguish "format invalid" (usage error) from "schema file missing"
+        # (env error) by re-checking the regex; the safe resolver collapses
+        # both into None for a uniform contract.
+        if not _path_safety.validate_slug(schema_id, kind="schema-id"):
+            raise _err_usage(f"unrecognized or unsafe schema_id '{schema_id}'")
+        # Format was valid but file missing or out-of-bounds.
+        # Recompute file_stem here for the error message.
+        parts = schema_id.split(".")
+        type_name = parts[2]
+        snake_chars: list[str] = []
+        for i, ch in enumerate(type_name):
+            if ch.isupper() and i > 0:
+                snake_chars.append("-")
+            snake_chars.append(ch.lower())
+        file_stem = "".join(snake_chars)
         raise _err_env(
-            f"stream schema for '{schema_id}' not found at {candidate}; "
-            f"expected '{file_stem}.schema.json' under {schemas_dir}"
+            f"stream schema for '{schema_id}' not found at {schemas_dir}/{file_stem}.schema.json"
         )
-    return candidate
+    return resolved
 
 
 def _validate_payload_against_schema(payload: Any, schema: dict[str, Any]) -> str | None:

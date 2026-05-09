@@ -210,20 +210,35 @@ def _extract_external_inputs(composition: dict[str, Any]) -> dict[str, set[str |
 def _resolve_manifest(slug: str, packs_dir: Path) -> dict[str, Any] | None:
     """Read <packs_dir>/<slug>/construct.yaml; return None if missing.
 
-    The validator does NOT fall back to legacy contract files here — those are
-    consulted by construct-validate.sh (S1-T4). Stream-graph validation
-    operates on the manifest's declared domain only; a missing manifest yields
-    a structured warning rather than a hard error so partially-installed
-    compositions still validate the rest of the graph."""
-    candidate = packs_dir / slug / "construct.yaml"
-    if not candidate.is_file():
+    Sprint 6 hardening (S6-H1, closes F1): delegates to
+    lib/path-safety.safe_resolve_pack_path which validates slug + realpath-
+    contains under packs_dir. The validator does NOT fall back to legacy
+    contract files here — those are consulted by construct-validate.sh.
+    Stream-graph validation operates on the manifest's declared domain only;
+    a missing or unsafe manifest yields a structured warning rather than a
+    hard error so partially-installed compositions still validate the rest
+    of the graph."""
+    # Lazy import — keeps this module's CLI fast when no domain check fires.
+    import importlib.util as _importlib_util
+    _here = Path(__file__).resolve().parent
+    _ps_spec = _importlib_util.spec_from_file_location(
+        "_path_safety", _here / "path-safety.py"
+    )
+    if _ps_spec is None or _ps_spec.loader is None:
+        return None
+    _path_safety = _importlib_util.module_from_spec(_ps_spec)
+    sys.modules["_path_safety"] = _path_safety
+    _ps_spec.loader.exec_module(_path_safety)
+
+    resolved = _path_safety.safe_resolve_pack_path(packs_dir, slug)
+    if resolved is None:
         return None
     try:
         import yaml  # type: ignore[import-untyped]
     except ImportError:
         return None
     try:
-        data = yaml.safe_load(candidate.read_text())
+        data = yaml.safe_load(resolved.read_text())
     except yaml.YAMLError:
         return None
     return data if isinstance(data, dict) else None

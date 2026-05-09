@@ -60,11 +60,24 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
+
+# Sibling-module load: jcs-fallback.py (S6-H2 shared canonicalizer).
+# Same loading pattern as envelope-builder uses for envelope-chain.
+_THIS_DIR = Path(__file__).resolve().parent
+_JCS_SPEC = importlib.util.spec_from_file_location(
+    "_jcs_fallback", _THIS_DIR / "jcs-fallback.py"
+)
+if _JCS_SPEC is None or _JCS_SPEC.loader is None:  # pragma: no cover
+    raise SystemExit("ENV: cannot locate jcs-fallback.py adjacent to envelope-chain.py")
+_jcs_fallback = importlib.util.module_from_spec(_JCS_SPEC)
+sys.modules["_jcs_fallback"] = _jcs_fallback
+_JCS_SPEC.loader.exec_module(_jcs_fallback)
 
 
 # ---------------------------------------------------------------------------
@@ -91,25 +104,17 @@ def _err_usage(message: str) -> _ExitWith:
 # ---------------------------------------------------------------------------
 
 
-def _jcs_canonical_bytes(value: Any) -> bytes:
-    """RFC 8785 JCS canonicalization. Uses `rfc8785` package when available
-    (cycle-098 canonical); falls back to JSON-only canonical (sort_keys +
-    separators) when missing. The fallback is byte-equivalent for the
-    substrate's no-float payload contract.
+def _jcs_canonical_bytes(value: Any, *, audit_signed: bool = False) -> bytes:
+    """JCS canonicalizer — delegates to lib/jcs-fallback.py (S6-H2 closes F3+B-002).
 
-    Operators wanting full RFC 8785 strictness install `rfc8785` via pip.
+    Single shared definition across the substrate. When audit_signed=True and
+    rfc8785 is missing, raises JCSStrictModeRequired (caller MUST handle).
     """
-    try:
-        import rfc8785  # type: ignore[import-untyped]
-    except ImportError:
-        return json.dumps(
-            value, sort_keys=True, separators=(",", ":"), ensure_ascii=False
-        ).encode("utf-8")
-    return rfc8785.dumps(value)
+    return _jcs_fallback.jcs_canonical_bytes(value, audit_signed=audit_signed)
 
 
 def _sha256_hex(data: bytes) -> str:
-    return "sha256:" + hashlib.sha256(data).hexdigest()
+    return _jcs_fallback.sha256_hex(data)
 
 
 # ---------------------------------------------------------------------------

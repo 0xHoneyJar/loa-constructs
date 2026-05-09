@@ -84,6 +84,14 @@ envelope_chain = importlib.util.module_from_spec(_CHAIN_SPEC)
 sys.modules["envelope_chain"] = envelope_chain
 _CHAIN_SPEC.loader.exec_module(envelope_chain)
 
+# Sprint 6 hardening: shared path-safety helper (S6-H1).
+_PATH_SAFETY_SPEC = importlib.util.spec_from_file_location(
+    "_path_safety", _THIS_DIR / "path-safety.py"
+)
+_path_safety = importlib.util.module_from_spec(_PATH_SAFETY_SPEC)
+sys.modules["_path_safety"] = _path_safety
+_PATH_SAFETY_SPEC.loader.exec_module(_path_safety)
+
 
 # ---------------------------------------------------------------------------
 # I/O helpers
@@ -138,11 +146,17 @@ def _stage_block(composition: dict[str, Any], stage_num: int) -> dict[str, Any]:
 
 
 def _resolve_manifest(slug: str, packs_dir: Path) -> dict[str, Any] | None:
-    candidate = packs_dir / slug / "construct.yaml"
-    if not candidate.is_file():
+    """Resolve <packs_dir>/<slug>/construct.yaml safely.
+
+    Sprint 6 hardening (S6-H1, closes F1): delegates to
+    lib/path-safety.safe_resolve_pack_path which validates slug + realpath-
+    contains under packs_dir. Returns None on validation failure (caller
+    treats as "manifest absent")."""
+    resolved = _path_safety.safe_resolve_pack_path(packs_dir, slug)
+    if resolved is None:
         return None
     try:
-        return _load_yaml(candidate, f"manifest for {slug}")
+        return _load_yaml(resolved, f"manifest for {slug}")
     except _ExitWith:
         return None
 
@@ -202,6 +216,27 @@ def build_invocation(
     cp = stage.get("context_policy") or {}
     if not isinstance(cp, dict):
         cp = {}
+
+    # Sprint 6 hardening (S6-H4, closes Bridgebuilder B-001): tier-cap.
+    # The runner trusts the invocation envelope's isolation_tier. If the
+    # composition declares top-level `isolation_tier: strict` but the stage
+    # declares `isolation_tier: advisory`, the runner would accept the
+    # advisory invocation and bypass the strict-tier prereq gate. Cap each
+    # stage's tier at the composition's top-level setting at envelope-build
+    # time so the runner's stage-level read is always authoritative.
+    _TIER_RANK = {"advisory": 0, "compatibility": 1, "strict": 2}
+
+    def _tier_max(*tiers: str) -> str:
+        """Return the most-restrictive (highest-rank) tier from the inputs."""
+        valid = [t for t in tiers if isinstance(t, str) and t in _TIER_RANK]
+        if not valid:
+            return "advisory"
+        return max(valid, key=lambda t: _TIER_RANK[t])
+
+    composition_tier = composition.get("isolation_tier")
+    stage_tier = cp.get("isolation_tier", "advisory")
+    capped_tier = _tier_max(stage_tier, composition_tier or "advisory")
+
     context_policy = {
         "include_prior_transcript": bool(cp.get("include_prior_transcript", False)),
         "include_unread_stage_outputs": bool(cp.get("include_unread_stage_outputs", False)),
@@ -211,7 +246,7 @@ def build_invocation(
         "allowed_env_vars": list(cp.get("allowed_env_vars", []) or []),
         "allow_network": bool(cp.get("allow_network", False)),
         "allowed_egress": list(cp.get("allowed_egress", []) or []),
-        "isolation_tier": cp.get("isolation_tier", "advisory"),
+        "isolation_tier": capped_tier,
         "network_isolation_class": cp.get("network_isolation_class", "none"),
         "llm_session_strategy": cp.get("llm_session_strategy", "fresh"),
         "allowed_mcp_tools": list(cp.get("allowed_mcp_tools", []) or []),
