@@ -5,6 +5,101 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.41.0] — 2026-05-09 — spiral recovery — audit-feel composition + 4 runbooks + egress-filter + telemetry config
+
+
+Recovers genuine value from an autonomous `/spiral` run that hit a `quality_gate_failure` circuit breaker. Closes 4 cycle deferrals from v2.40.0 (audit-feel composition installation; substantial operator runbooks; egress filter; telemetry schema/retention config). Drops the spiral's 4 hallucinated stub libraries.
+
+The autopoietic feedback loop worked: spiral produced an artifact, the substrate's own validator caught a real bug in it (`[STREAM-NO-PRODUCER]` on the audit-feel composition), recovery fixed it, substrate now accepts it.
+
+### Added
+
+- **post-v2.40.0**: spiral recovery — audit-feel composition + 4 runbooks + egress-filter + telemetry config (#228)
+- **cycle-102 sprint-1C**: curl-mock harness substrate (closes #808 + DISS-002 + DISS-003) (#816)
+- **cycle-102 sprint-1B**: HIGH fast-follows — T1B.1 + T1B.2 + T1B.4 (model swap, format_checker, redaction contract) (#813)
+- **cycle-102 sprint-1 partial**: typed errors + probe cache + A1+A2 live-bug fix (#803)
+- **bridgebuilder**: #796 / vision-013 — per-PR self-review opt-in (#797)
+- **cycle-102**: kickoff — Loa Model-Integration FAANG-Grade Stabilization (#795)
+- **cycle-100**: sprint-3 — cycle-098 regression vectors + differential oracle (#790) [skip-template-guard]
+- **cycle-098**: sprint-7 — L7 soul-identity-doc foundation (FR-L7-1..7 + NFR-Sec3) (#775)
+- **cycle-098**: sprint-6 — L6 structured-handoff (FR-L6-1..8) (#771)
+- **cycle-098**: sprint-5 — L5 cross-repo-status-reader (FR-L5-1..7) (#767)
+- **cycle-098**: sprint-4 — L4 graduated-trust (FR-L4-1..8) (#764)
+- **cycle-099-sprint-2F**: model-invoke --validate-bindings + LOA_DEBUG_MODEL_RESOLUTION (T2.12+T2.13) (#760)
+- **cycle-099-sprint-2E**: tier_groups defaults + prefer_pro wiring (T2.7+T2.8) (#750)
+- **cycle-099-sprint-2D.d**: SC-14 property suite (T2.6 closure) (#748)
+- **cheval**: subscription-auth headless adapters — codex + gemini + claude (#727)
+- **cycle-099-sprint-2D.c**: TS port via Python+Jinja2 codegen (T2.6 cont.) (#741)
+- **cycle-099-sprint-2D**: FR-3.9 6-stage canonical resolver + bash twin (T2.6 partial) (#740)
+- **cycle-099-sprint-2C**: model-adapter.sh overlay integration (T2.5) (#739)
+- **cycle-099-sprint-2B**: model-overlay-hook + writer + 4 AC tests (T2.3+T2.4) (#738)
+- **cycle-099-sprint-2A**: JSON Schema for model_aliases_extra + standalone validator (T2.1) (#737)
+- **cycle-099-sprint-1D**: cross-runtime golden test corpus + 3 runners + diff CI gate (T1.11+T1.12) (#735)
+- **cycle-099-sprint-1E.c.3.c**: final SSRF closure — strict CI flip + host wildcard rejection + webhook opt-in (T1.15 cont.) (#734)
+- **cycle-099-sprint-1E.c.3.b**: bash caller migration batch + smuggling-defense remediation (T1.15 cont.) (#733)
+- **cycle-099-sprint-1E.c.3.a**: bash caller migration to endpoint_validator__guarded_curl (T1.15 cont.) (#732)
+- **cycle-099-sprint-1E.c.2**: DNS rebinding + redirect enforcement (T1.15 cont.) (#731)
+- **cycle-099-sprint-1E.c.1**: TS port via Python+Jinja2 codegen (T1.15 cont.) (#730)
+- **cycle-099-sprint-1E.b**: centralized endpoint validator (T1.15 partial) (#729)
+- **cycle-099-sprint-1E.a**: log-redactor + migrate-model-config CLI (T1.13 + T1.14) (#728)
+- **cycle-099-sprint-1C**: codegen reproducibility matrix CI + toolchain runbook (#724)
+- **cycle-099-sprint-1B**: adapter migrations + drift gate + lockfile (#723)
+- **cycle-099-sprint-1A**: bridgebuilder codegen foundation (T1.1 + T1.2) (#722)
+- **cycle-098-sprint-3**: L3 scheduled-cycle-template — 5-phase chassis + flock + idempotency + L2 budget gate (#712)
+- **cycle-098-sprint-2**: L2 cost-budget-enforcer + reconciliation cron + daily snapshot (#705)
+- **cycle-098**: sprint-1 — L1 hitl-jury-panel + cross-cutting infrastructure (#693)
+- **cycle-098**: planning artifacts (PRD v1.3, SDD v1.5, sprint plan, decisions) (#678)
+- **cycle-096**: AWS Bedrock provider + provider-plugin hardening (#652) (#662)
+- **cycle-095**: model currency — gpt-5.5 + Haiku 4.5 + Gemini 3 + cost guardrails [Sprints 1+2] (#649)
+- **cycle-094 sprint-2**: test infra + filter + SSOT close-out (G-5..G-E2E) (#638)
+- **cycle-094 sprint-1**: probe + portability hardening (G-1..G-4) (#632)
+- construct onramp (cycle-005 L5) + connectivity tooling migration (cycle-006 L-migrate) (#617)
+- **cycle-093 sprint-4**: model registry currency + E2E gate (T2.1 + T2.3 + T3.1) (#631)
+- **cycle-093 sprint-3B**: probe resilience + bypass governance + CI workflows + runbook (T2.2 part 2) (#629)
+- **cycle-093**: Loa stabilization sprints 1-3A — harness + dist + hallucination filter + probe foundation
+- **sprint-3A**: health-probe core — model availability probe foundation (T2.2)
+- **sprint-2**: dissenter hallucination filter — close #618 signal/noise
+- **sprint-1**: harness adversarial wiring — close #605 silent no-op
+
+### Fixed
+
+- **bridgebuilder**: #799 + #800 — trust-origin preservation + broken-symlink disambiguation (#801)
+- **bridgebuilder**: #789 — preserve diagnostic context in TS adapter errors (#792)
+- **semver-bump**: handle prerelease tags (vX.Y.Z-{alpha,beta,rc}.N) (#785)
+- **cheval**: #774 — typed connection-loss classification + operator-facing strings (#781)
+- **model-adapter**: #782 — route gpt-5.5 / gpt-5.5-pro to /v1/responses (#783)
+- **cycle-098**: follow-up #776 — L6 strict test-mode gate + hook wiring + LOW polish (#778)
+- **cycle-099**: #761 _stage1_explicit_pin rejects URL-shape values (closes Sprint 2F V15 xfail) (#763)
+- **cheval**: #755 submodule symlinks + #756 alias validation + #759 degraded consensus (#762)
+- **cycle-099**: pin LC_ALL=C in gen-adapter-maps.sh for locale-immune codegen (#754)
+- **model-routing**: top OpenAI/Gemini models accessible from BB + red team + flatline (#752)
+- **bridgebuilder-review**: route gpt-5.5* to /v1/responses (endpoint_family fix) (#751)
+- **#711**: gpt-review hook recursion + 429 diagnostic surfacing (#718)
+- **t2-t3**: hardening bundle — close #636 + #681 + #687 + #691 + #692 (#703)
+- **pipeline**: TIER 1 bundle — close #674 + #633 + #676 (#634 already-fixed) (#700)
+- **post-merge**: close #697 — gt_regen arg mismatch + CHANGELOG cross-scope leak (#699)
+- **model-adapter**: large-payload hardening — sprint-bug-131 (#675) (#677)
+- **post-merge**: scaffold workflow on mount + submodules:recursive (#669) (#671)
+- bug batch — post-PR + post-merge + portability (6 issues) (#670)
+- **cycle-097**: quick wins — NC-9, NC-10, NC-5, F002 + plugin guide A1 (#666)
+- **cheval**: Opus 4 temperature gate + Google/Gemini API key allowlist (#641) (#645)
+- **mount**: structural version resolver — kill /mount stale-stamp regression class (#640) (#644)
+- **ci**: npm ci before bridgebuilder dist smoke import test (#637) (#643)
+- **bug-skill**: pick safe sprint-id via helper that consults disk + origin (#646)
+- **model-registry**: activate Opus 4 temperature gate + restore gemini-2.5 aliases (#647)
+- **tests**: flatline-model-validation array extraction (was 7/15 fail) (#648)
+- **spiral**: close #622 + #623 — scheduling-gate honors enabled, dispatch sees per-cycle env (#639)
+- **sprint-3A**: anthropic-version header (kaironic iter-3) (#624)
+- **sprint-3A**: add anthropic-version header to /v1/messages probes
+- restore sprint-1 and sprint-2 code accidentally removed in bf457d1
+- **sprint-3A**: auth refactor — CI cross-platform lint + audit M-1 remediation
+- **sprint-2**: de-hardcode /home/merlin/ path in hallucination-filter test
+- **sprint-3A**: hermetic test isolation — LOA_TRAJECTORY_DIR + LOA_AUDIT_LOG overrides
+- **sprint-2**: bridgebuilder dist ship gap — close #607 ERR_MODULE_NOT_FOUND
+
+_Source: PR #228_
+
+
 ## [2.27.0] - 2026-04-22
 
 ### Why This Release
