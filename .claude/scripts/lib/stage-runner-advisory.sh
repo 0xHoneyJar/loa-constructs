@@ -261,11 +261,19 @@ canonical = json.dumps(data, sort_keys=True, separators=(',', ':'), ensure_ascii
 print('sha256:' + hashlib.sha256(canonical).hexdigest())
 ")
   output_uri="$output_dest"
+  # Domain extraction with legacy-form tolerance. Closes E2E bug found post-merge
+  # of v2.40.0: `jq '.domain.primary'` errors when manifest's domain is array-form
+  # (`domain: [tag]`) which is the default form across the existing 22+ legacy packs.
+  # Single jq expression branches on `domain | type` to handle all three forms.
   manifest_json=$(yq -o=json '.' "$MANIFEST" 2>/dev/null || echo '{}')
-  domain_primary=$(echo "$manifest_json" | jq -r '.domain.primary // empty' 2>/dev/null)
-  if [[ -z "$domain_primary" || "$domain_primary" == "null" ]]; then
-    domain_primary=$(echo "$manifest_json" | jq -r 'if (.domain | type) == "array" then .domain[0] // empty else .domain // empty end' 2>/dev/null)
-  fi
+  domain_primary=$(echo "$manifest_json" | jq -r '
+    if has("domain") then
+      if (.domain | type) == "object" then (.domain.primary // "")
+      elif (.domain | type) == "array" then ((.domain // []) | first // "")
+      elif (.domain | type) == "string" then .domain
+      else "" end
+    else "" end
+  ' 2>/dev/null) || domain_primary=""
   [[ -z "$domain_primary" || "$domain_primary" == "null" ]] && domain_primary="general"
 
   outputs_json=$(jq -n \
@@ -318,8 +326,16 @@ data = json.loads(open('$dest').read())
 canonical = json.dumps(data, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode()
 print('sha256:' + hashlib.sha256(canonical).hexdigest())
 ")
+      # Same legacy-form-tolerant extraction as the mock-mode path above.
       manifest_json=$(yq -o=json '.' "$MANIFEST" 2>/dev/null || echo '{}')
-      domain_primary=$(echo "$manifest_json" | jq -r '.domain.primary // "general"' 2>/dev/null)
+      domain_primary=$(echo "$manifest_json" | jq -r '
+        if has("domain") then
+          if (.domain | type) == "object" then (.domain.primary // "")
+          elif (.domain | type) == "array" then ((.domain // []) | first // "")
+          elif (.domain | type) == "string" then .domain
+          else "" end
+        else "" end
+      ' 2>/dev/null) || domain_primary=""
       [[ -z "$domain_primary" || "$domain_primary" == "null" ]] && domain_primary="general"
       outputs_json=$(echo "$outputs_json" | jq \
         --arg type "$typ" \
