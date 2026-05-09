@@ -1,5 +1,22 @@
 # compositions/audit-feel.yaml — Golden-path bounded-context composition
 # =====================================================================
+#
+# ⚠️  ISOLATION TIER: ADVISORY (documentation, not enforcement)
+# ---------------------------------------------------------------------
+# Every stage below sets `isolation_tier: advisory`. In advisory mode
+# `allow_network: false`, `allowed_egress: []`, and the path allowlists
+# are intent declarations — the substrate logs violations but does NOT
+# kernel-enforce them. Constructs are trusted to honor the contract.
+#
+# To get kernel-level enforcement, upgrade stages to `isolation_tier:
+# strict` (requires bwrap + CAP_NET_ADMIN + cheval — see
+# `grimoires/loa/runbooks/strict-tier-deployment.md`). Strict is the
+# correct setting for untrusted-artifact audits running in CI; advisory
+# is the right setting for trusted operator-driven runs where the
+# hint-as-documentation value outweighs the deployment overhead of
+# strict prereqs. F4 banner per BB review 2026-05-09.
+# ---------------------------------------------------------------------
+#
 # Surfaces material-quality issues during FEEL sessions using observer's
 # audit depth on top of artisan's feel lens.
 #
