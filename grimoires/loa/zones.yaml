@@ -1,0 +1,207 @@
+# grimoires/loa/zones.yaml — System Zone Manifest for loa-constructs
+# =====================================================================
+#
+# This file is the **single source of truth** for which paths in this
+# repo belong to which zone. All other tools (validators, hooks, review
+# skills, /update-loa, sync-constructs.sh) MUST read from this file
+# rather than embedding zone rules.
+#
+# Authority: cycle-0 SDD §1 (Zone Manifest)
+# Cycle-0 PRD: grimoires/loa/prd.md (LOCAL — gitignored per project convention)
+# Anchor audit: grimoires/loa/context/loa-constructs-release-hygiene-audit-2026-05-09.md
+# Upstream Loa issue (zone-aware /update-loa filter): #818
+#
+# Cycle-0 ships THIS instance. The schema (zones.schema.yaml) and the
+# enforcement hook (zone-write-guard.sh) live upstream in Loa framework
+# and ship via /update-loa once Issue #818 lands. Until then, this file
+# is documentation-only on enforcement.
+# =====================================================================
+
+schema_version: "1.0"
+project: loa-constructs
+last_updated: "2026-05-09"
+last_reviewed_by: "@janitooor"
+cycle: cycle-0-zone-hygiene
+
+# ---------------------------------------------------------------------
+# ZONES — three ownership partitions
+# ---------------------------------------------------------------------
+
+zones:
+  # ============= PROJECT ZONE =============
+  # Content owned and edited by loa-constructs maintainers.
+  # /update-loa MUST NOT add/modify these paths during framework merges.
+  # Project work CAN edit these freely.
+  project:
+    description: "loa-constructs maintainer-owned content; never modified by upstream framework merges"
+    write_actors:
+      - "operator (interactive session)"
+      - "/run sprint-plan"
+      - "/implement"
+      - "github-actions[bot] (release pipeline)"
+      - "post-merge-orchestrator.sh"
+    review_target: true  # bridgebuilder-review, audit-sprint, review-sprint operate on this zone
+    tracked_paths:
+      # Application code
+      - "apps/**"
+      - "compositions/**"
+
+      # Project's own cycle history (project-zone, not framework's cycle dirs)
+      - "grimoires/loa-constructs-*/**"
+
+      # Project planning artifacts (NB: prd*.md / sdd*.md / sprint*.md /
+      # NOTES.md / decisions.yaml are gitignored per project convention —
+      # see .gitignore:169-172. They live LOCALLY but in project zone semantically)
+      - "grimoires/loa/visions/**"
+      - "grimoires/loa/runbooks/**"
+      - "grimoires/loa/a2a/**"
+      - "grimoires/loa/zones.yaml"
+      - "grimoires/loa/context/INDEX.md"
+      - "grimoires/loa/context/loa-constructs-release-hygiene-audit-2026-05-09.md"
+      # Other tracked context/ files added by Sprint 0 T0.3 classification
+
+      # Project identity files
+      - "BUTTERFREEZONE.md"
+      - "README.md"
+      - "CHANGELOG.md"
+
+      # Project config + build
+      - ".github/**"
+      - "package.json"
+      - "tsconfig*.json"
+      - "turbo.json"
+      - ".gitignore"
+      - ".gitattributes"
+      - ".env.example"
+      - ".loa.config.yaml"
+      - "bun.lock"
+
+  # ============= FRAMEWORK ZONE =============
+  # Content managed by upstream Loa framework via /update-loa.
+  # Project work MUST NOT modify these paths (NO boundary 11).
+  # Use .claude/overrides/ or .loa.config.yaml for project-side framework customization.
+  framework:
+    description: "upstream Loa framework content; flows in via /update-loa, never modified by project work"
+    write_actors:
+      - "/update-loa"
+    review_target: false  # framework files are reviewed at upstream Loa, not here
+    tracked_paths:
+      - ".claude/loa/**"
+      - ".claude/scripts/**"
+      - ".claude/skills/**"      # ONLY those declared in pack manifests; loose files = Issue #819
+      - ".claude/commands/**"    # ONLY those from Loa framework; loose files = Issue #819
+      - ".claude/data/**"
+      - ".claude/protocols/**"
+      - ".claude/rules/**"
+      - ".claude/hooks/**"
+      - ".claude/defaults/**"
+      - ".claude/adapters/**"
+      - ".claude/overrides/**"   # project's customization layer; framework SDD §X.Y
+      - ".loa-version.json"
+      - "PROCESS.md"
+
+  # ============= OPERATOR-PRIVATE ZONE =============
+  # Personal exploration, vault references, scratchpad.
+  # Gitignored — never enter shared substrate context.
+  # Loa context-loading skills (e.g., /plan-and-analyze) MUST NOT load these.
+  operator-private:
+    description: "operator-personal scratch + vault-derived doctrine; gitignored, never in shared agent context"
+    write_actors:
+      - "operator (interactive session, off-the-record)"
+    review_target: false
+    tracked: false  # all paths gitignored
+    paths:
+      - "grimoires/loa/private/**"
+      - "grimoires/loa/context/private/**"
+      - "grimoires/loa/{prd,sdd,sprint,NOTES}*.md"  # planning artifacts (per project convention)
+      - "grimoires/loa/decisions.yaml"
+      - "grimoires/loa/BEAUVOIR.md"
+      - "grimoires/loa/SOUL.md"
+      - ".run/bridge-reviews/**"  # transient review artifacts
+      - ".run/spiral-state.json*"
+      - ".run/simstim-state.json"
+
+# ---------------------------------------------------------------------
+# FORBIDDEN ZONE WRITES — the contract
+# ---------------------------------------------------------------------
+# When zone-write-guard.sh ships upstream (Issue #818 F1), it reads this
+# section and blocks PreToolUse:Write/Edit operations that violate it.
+# Until then, this is advisory-only enforcement.
+
+forbidden_zone_writes:
+  # Project work cannot modify framework zone
+  - actor: "/run sprint-plan"
+    forbidden_writes_to: framework
+    reason: "framework is upstream-managed; project commits cannot modify it. Use .claude/overrides/ or .loa.config.yaml for project-side framework customization."
+
+  - actor: "/implement"
+    forbidden_writes_to: framework
+    reason: "same — implement runs project-side code, not framework changes"
+
+  - actor: "operator (interactive session)"
+    forbidden_writes_to: framework
+    reason: "interactive operator changes to framework zone become un-tracked drift; use .claude/overrides/ or file an upstream Loa issue"
+
+  # /update-loa cannot leak framework's own project state into this project
+  - actor: "/update-loa"
+    forbidden_writes_to: project
+    reason: "framework updates cannot leak Loa-the-framework's own project files (its cycle dirs, its README, its CHANGELOG) into downstream's history. Use .gitattributes merge=ours for project files that exist upstream. THIS IS THE BUG TRACKED BY ISSUE #818."
+
+  - actor: "/update-loa"
+    forbidden_writes_to: operator-private
+    reason: "operator-private is local-only; framework merges should never touch it"
+
+  # sync-constructs.sh cannot drop loose pack files outside manifest declarations
+  - actor: "sync-constructs.sh"
+    forbidden_writes_to_paths:
+      - ".claude/skills/*"     # only manifest-declared paths
+      - ".claude/commands/*"   # only manifest-declared paths
+    forbidden_unless: "path is declared in the installing pack's manifest.yaml"
+    reason: "loose files have no removal path on uninstall + no provenance trail. THIS IS THE BUG TRACKED BY ISSUE #819."
+
+# ---------------------------------------------------------------------
+# REVIEW-SKILL ZONE FILTER (defensive — until upstream support lands)
+# ---------------------------------------------------------------------
+# Review skills (bridgebuilder-review, audit-sprint, review-sprint, flatline)
+# should filter their input set to project-zone paths only. Currently
+# unsupported in Loa; tracked as upstream concern in Issue #818 F1.
+#
+# Project-side workaround: when invoking a review skill manually, pass
+# `--include-paths` filtered by these patterns:
+#   $(yq '.zones.project.tracked_paths[]' grimoires/loa/zones.yaml)
+
+review_input_filter:
+  default_zone: project
+  excluded_zones:
+    - framework
+    - operator-private
+  rationale: |
+    Reviews of framework files are framework-side concerns; project's review
+    budget shouldn't be spent on them. Reviews of operator-private files leak
+    operator-personal content into shared review artifacts.
+
+# ---------------------------------------------------------------------
+# CYCLE-0 OPEN ITEMS
+# ---------------------------------------------------------------------
+# These are tracked here because they're zone-related but require operator
+# decisions during cycle-0 Sprint 0/1/2 execution.
+
+open_items:
+  - id: ttrpg-skill-disposition
+    sprint: 0  # T0.3 inventory + Sprint 2 T2.3 disposition
+    description: "13+ untracked skills + 8+ untracked commands in .claude/{skills,commands}/. Per-file disposition: pack-declared (track) / operator-private (move to grimoires/loa/private/) / delete."
+    blocks: AC-4
+
+  - id: framework-cycle-strip-option
+    sprint: 2  # T2.1
+    description: "Strip framework cycle dirs (cycle-093/094/098/099/100/102) from project main. Option A (git rm only), B (history rewrite), or C (archive branch). Default A; B/C requires operator approval."
+    blocks: AC-2
+    requires_operator_approval: true
+    approval_artifact: "grimoires/loa/runbooks/framework-deleak-strategy-decision.md"
+
+  - id: validator-reality-path
+    sprint: 1  # T1.1 — DECIDED at design phase
+    description: "Path B (soften v2.40.0 archive claim language) selected over Path A (wire framework validator)."
+    decided_at: "2026-05-09 (Bridgebuilder design review MEDIUM-2)"
+    decided_by: "operator standing autonomy"
+    artifact: "grimoires/loa/runbooks/validator-reality-decision.md"  # pending — Sprint 1
