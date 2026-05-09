@@ -24,22 +24,7 @@ out/
 # silently ignored by the `dist/` pattern above, causing ERR_MODULE_NOT_FOUND
 # when the skill runs from a submodule consumer). The skill's dist/ IS
 # shipping infrastructure — un-ignore it explicitly.
-!.claude/skills/bridgebuilder-review/dist/
-!.claude/skills/bridgebuilder-review/dist/**
-
-# Bridgebuilder ships its compiled dist to submodule consumers
-# (#607: multi-model-pipeline.js and other newer modules were getting
-# silently ignored by the `dist/` pattern above, causing ERR_MODULE_NOT_FOUND
-# when the skill runs from a submodule consumer). The skill's dist/ IS
-# shipping infrastructure — un-ignore it explicitly.
-!.claude/skills/bridgebuilder-review/dist/
-!.claude/skills/bridgebuilder-review/dist/**
-
-# Bridgebuilder ships its compiled dist to submodule consumers
-# (#607: multi-model-pipeline.js and other newer modules were getting
-# silently ignored by the `dist/` pattern above, causing ERR_MODULE_NOT_FOUND
-# when the skill runs from a submodule consumer). The skill's dist/ IS
-# shipping infrastructure — un-ignore it explicitly.
+# (cycle-0 T0.5: deduplicated from 3 identical blocks per audit Finding 9)
 !.claude/skills/bridgebuilder-review/dist/
 !.claude/skills/bridgebuilder-review/dist/**
 
@@ -132,6 +117,10 @@ temp/
 grimoires/loa/context/*
 !grimoires/loa/context/README.md
 !grimoires/loa/context/composition-audit.json
+# cycle-0 T0.4: INDEX.md is the active-context allowlist; tracked so it's
+# visible to all operators/agents. Per-file classifications inside still
+# gitignored (operator-private by default — line above).
+!grimoires/loa/context/INDEX.md
 
 # ck semantic search state (embeddings cache, indexes)
 # Large machine-specific files that rebuild automatically
@@ -317,3 +306,32 @@ app/ecosystem.config.js
 !apps/api/.cache/
 !apps/api/.cache/registry.yaml
 !apps/api/.cache/registry.yaml.sha256
+
+# =====================================================================
+# cycle-0 zone-hygiene additions (2026-05-09)
+# Operator-private zone (per grimoires/loa/zones.yaml::operator-private)
+# Loa context-loading skills MUST NOT load these.
+# =====================================================================
+
+# Operator-personal scratchpad + vault-derived doctrine
+grimoires/loa/private/
+grimoires/loa/context/private/
+
+# Transient runtime state (review artifacts, spiral archives, simstim state,
+# .run/cycles workspace dirs). All are ephemeral per-run.
+.run/bridge-reviews/
+.run/spiral-state.json.archive-*
+.run/spiral-state.json.failed-*
+.run/spiral-state.json.stub-*
+.run/cycles/
+
+# Local apps DBs (not source-of-truth)
+apps/api/local.db
+apps/*/local.db
+
+# Bytecode caches (Python). Project shouldn't commit these.
+__pycache__/
+*.pyc
+*.pyo
+
+# (.DS_Store + Thumbs.db already covered above; not re-added)

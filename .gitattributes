@@ -48,6 +48,31 @@ grimoires/loa/NOTES.md merge=ours
 grimoires/loa/ledger.json merge=ours
 
 # =============================================================================
+# CYCLE-0 ZONE-HYGIENE PROTECTION (2026-05-09 — defense-in-depth for Issue #818)
+# =============================================================================
+# These paths are project-zone per grimoires/loa/zones.yaml. Loa framework's own
+# main branch ALSO uses some of these paths for ITS OWN project state (its cycle
+# dirs, its visions, its runbooks). Without merge=ours, /update-loa would propagate
+# framework's project files into this project's history (the leak tracked by
+# upstream Issue #818).
+#
+# Until Issue #818 lands a zone-aware merge filter in /update-loa, these
+# .gitattributes rules are the interim defense. Sprint 2 also strips the
+# existing residue (cycle-093/094/098/099/100/102 dirs).
+
+# Project's own cycle dirs (NOT framework's). Framework's leaked cycle-NNN dirs
+# get stripped in cycle-0 Sprint 2; this rule prevents re-introduction via merge.
+grimoires/loa/cycles/** merge=ours
+
+# Project's vision registry, runbooks, zone manifest — all project-zone
+grimoires/loa/visions/** merge=ours
+grimoires/loa/runbooks/** merge=ours
+grimoires/loa/zones.yaml merge=ours
+
+# Project's context allowlist (the INDEX.md is project-authored)
+grimoires/loa/context/INDEX.md merge=ours
+
+# =============================================================================
 # CI/CD WORKFLOW FILES
 # =============================================================================
 # GitHub Actions workflow files require the `workflow` OAuth scope to push.
