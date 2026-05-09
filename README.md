@@ -1,8 +1,16 @@
 # Constructs Network
 
-[![version](https://img.shields.io/badge/network-v2.25.0-8B5CF6)](CHANGELOG.md)
+<!-- version-domain: construct-registry · cycle-0 T1.2 · post-merge pipeline should keep this in sync per Issue #821 E -->
+[![version](https://img.shields.io/badge/construct--registry-v2.41.0-8B5CF6)](CHANGELOG.md)
 [![doctrine](https://img.shields.io/badge/pipe_doctrine-v4-blue)](grimoires/loa-constructs-seed-2026-04-21/bonfire-construct-pipe-doctrine.md)
 [![license](https://img.shields.io/badge/license-AGPL--3.0-green)](LICENSE.md)
+
+<!-- Version surface map (cycle-0 T1.2-T1.4):
+       construct-registry: v2.41.0  (this badge — the network's release cycle)
+       monorepo-package:   v1.5.0   (package.json — historical, separate version domain)
+       loa-framework:      v1.130.0 (.loa-version.json — upstream framework, syncs via /update-loa)
+     Each version surface names its domain at the point of use. -->
+
 
 > a construct is expertise you install. constructs pipe like unix stages. what's active is always checkable.
 

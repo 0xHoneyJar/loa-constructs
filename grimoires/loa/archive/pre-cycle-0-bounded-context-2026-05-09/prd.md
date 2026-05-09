@@ -1,5 +1,9 @@
 # PRD: Construct Bounded-Context Runtime Substrate
 
+> **⚠ Cycle-0 amendment (2026-05-09 — Path B per design review MEDIUM-2)**
+>
+> This PRD describes the v2.40.0 substrate as designed. Some enforcement claims (tiered domain validation, starter-only contract rejection, strict-tier `domain.primary` enforcement) describe **planned** behavior; the project-side validator (`.claude/scripts/construct-validate.sh`) currently enforces tier metadata only. Hard enforcement is deferred to cycle-1+ pending upstream Loa Issue B' (validator-side fix). See `grimoires/loa/runbooks/validator-reality-decision.md` for the cycle-0 decision record + reactivation triggers. The substrate (84/84 tests passing, v2.40.0 shipped) IS doing useful work — these claims name a future tightening, not a present guarantee.
+
 **Cycle**: cycle-construct-bounded-context (TBD)
 **Created**: 2026-05-08
 **Revised**: 2026-05-08 (post-Flatline review v2)

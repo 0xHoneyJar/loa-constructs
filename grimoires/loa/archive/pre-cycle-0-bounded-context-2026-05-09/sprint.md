@@ -1,5 +1,9 @@
 # Sprint Plan: Construct Bounded-Context Runtime Substrate
 
+> **⚠ Cycle-0 amendment (2026-05-09 — Path B per design review MEDIUM-2)**
+>
+> Acceptance criteria referencing tiered domain enforcement, starter-only contract rejection, and validator-side hard checks should be read as **`[ACCEPTED-DEFERRED — Path B selection per cycle-0 design review]`**. The substrate's executable enforcement is tier metadata only at the project side; hard enforcement awaits upstream Loa Issue B'. See `grimoires/loa/runbooks/validator-reality-decision.md`.
+
 **Cycle**: cycle-construct-bounded-context (TBD — final ID assigned at cycle creation)
 **Created**: 2026-05-08
 **Status**: Draft (simstim Phase 5)
