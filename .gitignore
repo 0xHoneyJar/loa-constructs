@@ -56,6 +56,56 @@ out/
 .claude/skills/observer-*
 .claude/commands/gtm-*.md
 .claude/commands/review-gtm.md
+
+# cycle-0 T2.3: operator-private TTRPG construct packs (interim — until
+# upstream Issue #823 lands project-level construct-exclude list).
+# These packs live in operator's global ~/.loa/constructs/packs/ store and
+# get sync'd into every Loa-mounted project by sync-constructs.sh. The
+# operator wants them globally but NOT surfaced in this project's tree.
+# NB: TTRPG skill entries in .claude/skills/<name> are symlinks (not dirs),
+# so patterns are written WITHOUT trailing slash to match symlinks too.
+.claude/skills/arneson
+.claude/skills/attune
+.claude/skills/augury
+.claude/skills/braunstein
+.claude/skills/cabal
+.claude/skills/delve
+.claude/skills/distill
+.claude/skills/fragment
+.claude/skills/gygax-status
+.claude/skills/homebrew
+.claude/skills/improvise
+.claude/skills/lore
+.claude/skills/narrate
+.claude/skills/scene
+.claude/skills/scry
+.claude/skills/voice
+.claude/commands/arneson.md
+.claude/commands/attune.md
+.claude/commands/augury.md
+.claude/commands/cabal.md
+.claude/commands/delve.md
+.claude/commands/gygax.md
+.claude/commands/homebrew.md
+.claude/commands/lore.md
+.claude/commands/scry.md
+# Also gitignore the underlying pack symlinks at .claude/constructs/packs/
+.claude/constructs/packs/arneson
+.claude/constructs/packs/attune
+.claude/constructs/packs/augury
+.claude/constructs/packs/braunstein
+.claude/constructs/packs/cabal
+.claude/constructs/packs/delve
+.claude/constructs/packs/distill
+.claude/constructs/packs/fragment
+.claude/constructs/packs/gygax
+.claude/constructs/packs/homebrew
+.claude/constructs/packs/improvise
+.claude/constructs/packs/lore
+.claude/constructs/packs/narrate
+.claude/constructs/packs/scene
+.claude/constructs/packs/scry
+.claude/constructs/packs/voice
 .claude/commands/sync-from-gtm.md
 .claude/registry/
 
