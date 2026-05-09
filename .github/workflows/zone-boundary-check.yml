@@ -1,0 +1,159 @@
+name: Zone Boundary Check
+
+# cycle-0 T1.6 (Sprint 1) — addresses Bridgebuilder design review MEDIUM-F5/F6/F11
+#
+# Purpose: invariant assertion that zone boundaries (per grimoires/loa/zones.yaml)
+# held after the most recent commit, regardless of how the change arrived.
+#
+# Catches /update-loa sync commits that leak framework-zone files into project
+# paths (per upstream Issue #818). Complements .gitattributes merge=ours
+# (which only protects merge-time conflicts, not fast-forwards / rebases /
+# subtree pulls / cherry-picks).
+#
+# Failure modes this CI catches that .gitattributes does NOT:
+# - clean ADD operations during a merge (merge=ours only fires on conflict)
+# - rebase replay (driver bypassed entirely)
+# - fast-forward merge (no driver invocation)
+# - squash merge (no driver invocation if no conflict)
+# - cherry-pick (different code path)
+# - subtree pull / git read-tree vendoring
+
+on:
+  push:
+    branches:
+      - main
+      - 'cycle/**'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  zone-boundary-assertion:
+    name: Verify project-zone integrity post-sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout (with parent commit for diff)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Detect /update-loa sync commit
+        id: detect-sync
+        run: |
+          # /update-loa commits have message starting with "chore: update Loa framework"
+          # (per existing pattern in commit history)
+          msg=$(git log -1 --pretty=%s)
+          echo "Latest commit subject: $msg"
+          if echo "$msg" | grep -qE "^chore: update Loa framework"; then
+            echo "is_sync_commit=true" >> "$GITHUB_OUTPUT"
+            echo "🔄 Detected /update-loa sync commit"
+          else
+            echo "is_sync_commit=false" >> "$GITHUB_OUTPUT"
+            echo "✓ Not a sync commit; standard branch protection applies"
+          fi
+
+      - name: Read zones.yaml project-zone paths
+        id: read-zones
+        run: |
+          if [[ ! -f grimoires/loa/zones.yaml ]]; then
+            echo "::warning::grimoires/loa/zones.yaml not found; cycle-0 may not yet be merged. Skipping zone check."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          paths=$(yq '.zones.project.tracked_paths[]' grimoires/loa/zones.yaml | tr '\n' '|' | sed 's/|$//')
+          echo "Project-zone paths: $paths"
+          echo "paths=$paths" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Verify project-zone integrity (sync-commit case)
+        if: steps.detect-sync.outputs.is_sync_commit == 'true' && steps.read-zones.outputs.skip == 'false'
+        run: |
+          # Get list of files changed in the latest commit
+          changed=$(git diff --name-only HEAD~1 HEAD)
+          if [[ -z "$changed" ]]; then
+            echo "✓ No file changes in this commit; nothing to check"
+            exit 0
+          fi
+          echo "Files changed in sync commit:"
+          echo "$changed" | sed 's/^/  /'
+          echo ""
+
+          # Build glob-match list of project-zone paths
+          IFS='|' read -ra zone_globs <<< "${{ steps.read-zones.outputs.paths }}"
+
+          violations=0
+          while IFS= read -r file; do
+            for glob in "${zone_globs[@]}"; do
+              # Convert ** glob to find-style match
+              # Handle exact matches + dir-prefix matches
+              if [[ "$file" == "$glob" ]] || [[ "$file" == ${glob%%/\*\*} ]] || [[ "$glob" == *"/**"* && "$file" == ${glob%%/\*\*}/* ]]; then
+                echo "::error file=$file::[ZONE-LEAK-DETECTED] /update-loa sync commit modified project-zone path: $file (matches glob: $glob)"
+                violations=$((violations + 1))
+              fi
+            done
+          done <<< "$changed"
+
+          if [[ $violations -gt 0 ]]; then
+            echo ""
+            echo "::error::Zone boundary violated: $violations project-zone path(s) modified by /update-loa sync commit."
+            echo "::error::This is the leak pattern tracked by upstream Loa Issue #818."
+            echo "::error::Workaround: revert the offending commit, manually filter the merge, or add merge=ours rule for the path."
+            exit 1
+          fi
+          echo "✓ Zone boundary held: no project-zone paths modified by sync commit"
+
+      - name: Verify framework-zone integrity (project-commit case)
+        if: steps.detect-sync.outputs.is_sync_commit == 'false' && steps.read-zones.outputs.skip == 'false'
+        run: |
+          # Get framework-zone paths
+          fw_paths=$(yq '.zones.framework.tracked_paths[]' grimoires/loa/zones.yaml | tr '\n' '|' | sed 's/|$//')
+          echo "Framework-zone paths: $fw_paths"
+
+          # Get list of files changed in the latest commit
+          changed=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          if [[ -z "$changed" ]]; then
+            echo "✓ No file changes; nothing to check"
+            exit 0
+          fi
+
+          # Whitelist for known-allowed framework-zone modifications:
+          # - .claude/overrides/ (project's customization layer)
+          # - .loa.config.yaml (project config that lives outside .claude/ but is project-customizable)
+          IFS='|' read -ra fw_globs <<< "$fw_paths"
+
+          violations=0
+          while IFS= read -r file; do
+            # Skip allowed override paths
+            [[ "$file" == .claude/overrides/* ]] && continue
+            [[ "$file" == .loa.config.yaml ]] && continue
+            for glob in "${fw_globs[@]}"; do
+              if [[ "$file" == "$glob" ]] || [[ "$glob" == *"/**"* && "$file" == ${glob%%/\*\*}/* ]]; then
+                echo "::warning file=$file::[FRAMEWORK-ZONE-WRITE] project commit modified framework-zone path: $file (matches glob: $glob)"
+                violations=$((violations + 1))
+              fi
+            done
+          done <<< "$changed"
+
+          if [[ $violations -gt 0 ]]; then
+            echo ""
+            echo "::warning::$violations framework-zone path(s) modified by project commit."
+            echo "::warning::Per NO boundary 11 (zones.yaml), framework zone is upstream-managed."
+            echo "::warning::Use .claude/overrides/ or .loa.config.yaml for project-side customization."
+            echo "::warning::This is a WARNING (not blocking) until upstream Issue #818 F1 ships zone-write-guard.sh."
+            # Don't fail the build — warning only until F1 ships
+          else
+            echo "✓ Framework zone integrity held"
+          fi
+
+      - name: Skip notice (zones.yaml absent)
+        if: steps.read-zones.outputs.skip == 'true'
+        run: |
+          echo "::notice::Zone boundary check skipped (zones.yaml not present). This is expected on branches predating cycle-0."

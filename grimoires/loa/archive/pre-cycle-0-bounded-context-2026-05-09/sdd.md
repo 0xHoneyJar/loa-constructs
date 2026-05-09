@@ -1,5 +1,9 @@
 # SDD: Construct Bounded-Context Runtime Substrate
 
+> **⚠ Cycle-0 amendment (2026-05-09 — Path B per design review MEDIUM-2)**
+>
+> Sections describing tier-conditional validator behavior, domain-block overlay enforcement, and legacy-contract validation describe **planned** semantics. The project-side `.claude/scripts/construct-validate.sh` currently enforces tier metadata only. Hard enforcement is deferred pending upstream Loa Issue B'. See `grimoires/loa/runbooks/validator-reality-decision.md`.
+
 **Cycle**: cycle-construct-bounded-context (TBD)
 **Created**: 2026-05-08
 **Status**: Draft (simstim Phase 3 — Architecture)
