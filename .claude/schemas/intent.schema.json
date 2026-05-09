@@ -51,25 +51,6 @@
     "read_mode": {
       "type": "string",
       "enum": ["glance", "orient", "intervene"]
-    },
-    "domain": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["primary"],
-      "properties": {
-        "primary": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 80,
-          "description": "S0-T8. Domain attribution for this intent — bounded-context tag the operator is targeting. Lets the orchestrator route to constructs aligned with that domain."
-        },
-        "produced_by": {
-          "type": "string",
-          "maxLength": 80,
-          "description": "S0-T8. For Intent specifically, this is rarely populated (the operator is the producer); included for shape symmetry with the other 4 stream types."
-        }
-      },
-      "description": "S0-T8 / cycle-construct-bounded-context Sprint 0. Optional domain block. Existing Intent payloads without this field continue to validate."
     }
   }
 }
