@@ -1,0 +1,159 @@
+# compositions/audit-feel.yaml — Golden-path bounded-context composition
+# =====================================================================
+# Surfaces material-quality issues during FEEL sessions using observer's
+# audit depth on top of artisan's feel lens.
+#
+# This is the bounded-context-aware v2 of the composition, incorporating
+# context_policy, isolation_tier, and envelope contract fields from the
+# substrate SDD (Sprint 3 S3-T9 golden-path target).
+#
+# Supersedes: grimoires/compositions/discovery/audit-feel.yaml (doctrine-only)
+# =====================================================================
+
+schema_version: "1.1"
+kind: workflow
+name: audit-feel
+description: >
+  Surface material-quality issues during FEEL sessions using
+  observer critique for audit depth.
+
+intent: >
+  Audit a UI component, interaction pattern, or artifact for craft-feel
+  compliance — produce an evidence-grounded Verdict combining artisan's
+  material decomposition with observer's cross-surface friction map.
+
+# ---- Substrate fields (bounded-context substrate, Sprint 0+) -----
+
+audit_signed: false            # set true to enable cycle-098 Ed25519 chain
+persistent_state_ttl_policy: write  # write (default) | access
+
+# ---- Stages -------------------------------------------------------
+
+chain:
+  - stage_id: audit-feel.stage-1
+    stage: 1
+    construct: artisan
+    skill: decomposing-feel
+    reads: [Artifact, Operator-Model]
+    writes: [Signal]
+    role: primary
+
+    context_policy:
+      include_prior_transcript: false
+      include_unread_stage_outputs: false
+      include_unlisted_grimoires: false
+      allowed_read_paths:
+        - ".claude/constructs/packs/artisan/skills/decomposing-feel/**"
+        - "grimoires/loa/runs/{{run_id}}/input/**"
+        - "{{target_artifact}}"
+      allowed_write_paths:
+        - ".run/compose/{{run_id}}/stage-1/output/**"
+      allowed_env_vars:
+        - PATH
+        - HOME
+        - LANG
+        - LC_ALL
+      allow_network: false
+      allowed_egress: []
+      llm_session_strategy: fresh
+      allowed_mcp_tools: []
+      isolation_tier: advisory      # strict requires Linux+bwrap+CAP_NET_ADMIN
+
+    output_contract:
+      writes:
+        - type: Signal
+          schema_id: "loa.stream.Signal.v1"
+          destination: ".run/compose/{{run_id}}/stage-1/output/decomposition.signal.json"
+          required: true
+
+  - stage_id: audit-feel.stage-2
+    stage: 2
+    construct: artisan
+    skill: scoring-experience
+    reads: [Signal]
+    writes: [Verdict]
+    role: primary
+
+    context_policy:
+      include_prior_transcript: false
+      include_unread_stage_outputs: false
+      include_unlisted_grimoires: false
+      allowed_read_paths:
+        - ".claude/constructs/packs/artisan/skills/scoring-experience/**"
+        - ".run/compose/{{run_id}}/stage-1/output/**"
+      allowed_write_paths:
+        - ".run/compose/{{run_id}}/stage-2/output/**"
+      allowed_env_vars:
+        - PATH
+        - HOME
+        - LANG
+        - LC_ALL
+      allow_network: false
+      allowed_egress: []
+      llm_session_strategy: fresh
+      allowed_mcp_tools: []
+      isolation_tier: advisory
+
+    output_contract:
+      writes:
+        - type: Verdict
+          schema_id: "loa.stream.Verdict.v1"
+          destination: ".run/compose/{{run_id}}/stage-2/output/scored.verdict.json"
+          required: true
+
+  - stage_id: audit-feel.stage-3
+    stage: 3
+    construct: observer
+    skill: analyzing-gaps
+    reads: [Verdict, Signal]
+    writes: [Verdict]
+    role: cross-reference
+
+    context_policy:
+      include_prior_transcript: false
+      include_unread_stage_outputs: false
+      include_unlisted_grimoires: false
+      allowed_read_paths:
+        - ".claude/constructs/packs/observer/skills/analyzing-gaps/**"
+        - ".run/compose/{{run_id}}/stage-1/output/**"
+        - ".run/compose/{{run_id}}/stage-2/output/**"
+      allowed_write_paths:
+        - ".run/compose/{{run_id}}/stage-3/output/**"
+      allowed_env_vars:
+        - PATH
+        - HOME
+        - LANG
+        - LC_ALL
+      allow_network: false
+      allowed_egress: []
+      llm_session_strategy: fresh
+      allowed_mcp_tools: []
+      isolation_tier: advisory
+
+    output_contract:
+      writes:
+        - type: Verdict
+          schema_id: "loa.stream.Verdict.v1"
+          destination: ".run/compose/{{run_id}}/stage-3/output/enriched.verdict.json"
+          required: true
+
+# ---- Outputs (composition-level) -----------------------------------
+
+outputs:
+  - type: Verdict
+    destination: ".run/feedback-v3.jsonl"
+    schema: ".claude/schemas/streams/loa.stream.Verdict.v1.schema.json"
+    description: Final feel-audit verdict with evidence chain
+  - type: Signal
+    destination: ".run/construct-trajectory.jsonl"
+    description: Invocation trail for all three stages
+
+# ---- Composition metadata ------------------------------------------
+
+compose_with:
+  - artisan
+  - observer
+
+version: "3.0.0"
+authored_at: "2026-05-09"
+authored_by: "cycle-spiral-20260509 (bounded-context substrate sprint 6)"
