@@ -5,6 +5,22 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.40.0] — 2026-05-09 — substrate (Sprints 0-3, 5, 6-hardening)
+
+## Cycle: construct-bounded-context
+
+### Added
+
+- **cycle-construct-bounded-context**: substrate (Sprints 0-3, 5, 6-hardening) (#226)
+
+### Fixed
+
+- **sprint-1**: wire T-1.11d cache-state middleware into /v1/constructs router
+- **deploy**: include registry-loader cold-start seed in production image
+
+_Source: PR #226_
+
+
 ## [2.27.0] - 2026-04-22
 
 ### Why This Release
