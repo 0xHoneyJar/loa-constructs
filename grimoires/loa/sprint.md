@@ -200,7 +200,7 @@ The split lines (CONTRACT vs RUNNER, per SDD §11.1) are honored in the sprint s
 
 ---
 
-## Sprint 5: Persistent State + Iteration Auditor
+## Sprint 5: Persistent State + Iteration Auditor ⏸ PARTIAL APPROVED (5 of 8)
 
 **Goal**: Persistent state with collision-free composite key, atomic-rename writes, GC-flock coordination. Iteration auditor with dual-run + L1/L2/L3 diff.
 

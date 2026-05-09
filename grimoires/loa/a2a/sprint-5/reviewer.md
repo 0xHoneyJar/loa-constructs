@@ -1,208 +1,166 @@
-# Sprint 5: Dashboard Authentication - Implementation Report
+# Sprint 5 Implementation Report (Partial)
 
-**Sprint**: Sprint 5 - Dashboard Authentication
-**Status**: IMPLEMENTATION_COMPLETE
-**Date**: 2025-12-31
-**Engineer**: Claude (implementing-tasks)
+**Sprint**: Sprint 5 — Persistent State + Iteration Auditor
+**Cycle**: cycle-construct-bounded-context (simstim-20260508-96627a1c)
+**Branch**: `cycle/construct-bounded-context`
+**Beads**: `bd-nobi.6`
+**Date**: 2026-05-08
+**Commit**: `19e4eb09`
+**Status**: PARTIAL — 5 of 8 tasks shipped + 1 stub. S5-T6/T7 deferred to Sprint 5b.
 
-## Summary
+> Stale prior-cycle artifacts superseded.
 
-Implemented complete frontend authentication system for the Loa Skills Registry dashboard. Created reusable UI components, auth pages with OAuth support, and JWT-based session management.
+---
+
+## Executive Summary
+
+Sprint 5 lands the persistent-state surface + iteration-auditor enumerate phase. The substrate now carries:
+- **Composite-key persistent state** (project_id × composition_id × construct_slug × skill_slug × stage_id × schema_version) with atomic-rename writes + flock-coordinated concurrent access.
+- **State-poisoning safeguard**: foreign-construct extension rejected with `[STATE-OWNERSHIP-VIOLATION]` (closes Flatline HIGH).
+- **TTL policy**: `write` (default) + `access` (opt-in) per SDD §3.3.
+- **Race-coordinated GC**: re-read-under-lock + mtime grace + flock 0-timeout.
+- **Iteration auditor Phase 1**: walks compositions, enforces FR-7.2 mandate.
+
+3 lib files (~1023 lines) + 2 bats suites (~335 lines, 19 tests). Combined matrix: **68/68 tests** (Sprint 1+2+3+5 bats + Sprint 0 schema gate).
+
+---
+
+## AC Verification
+
+### Sprint 5 SHIPPED acceptance
+
+> **AC-5.A**: Persistent state survives GC race in sentinel test.
+
+✓ Met. `tests/composition/state/run.bats:115-149` — manual lock-holder in background subshell + concurrent GC. Asserts `total_skipped_locked >= 1` AND state file exists. Exercises real flock semantics.
+
+> **AC-5.B**: Two compositions invoking same skill at different stages have independent state.
+
+✓ Met. `tests/composition/state/run.bats:96-114` — same construct + skill + composition_id, different stage_id → distinct paths via composite key.
+
+### Sprint 5 DEFERRED acceptance
+
+> **AC-5.C**: Iteration dual-run produces L1+L2+L3 diff layers.
+
+⏸ Deferred to Sprint 5b. The `--phase dual-run` STUB documents the L1/L2/L3 protocol + delegates legacy-baseline preview. Full integration requires Sprint 3+4 executor maturity to run BOTH `persistent_leak` AND `stream_edge` semantics.
+
+> **AC-5.D**: Opt-in iteration flag respected.
+
+⏸ Deferred to Sprint 5b. Auditor SURFACES `iteration_mode` field; runtime ENFORCEMENT lands with S5-T6.
+
+### Per-task (5 of 8 + 1 stub + 1 closed-loop)
+
+| ID | Status | Evidence |
+|---|---|---|
+| ✓ S5-T1 | Met | composite key + atomic-rename + flock; tests 1-4 |
+| ✓ S5-T2 | Met | write/access policy + ownership safeguard; tests 5-8 |
+| ✓ S5-T3 | Met | flock + mtime grace + re-read; tests 10-12 |
+| ✓ S5-T4 | Met | sentinel test 13 |
+| ✓ S5-T5 | Met | enumerate phase; iteration tests 1-5 |
+| ⏸ S5-T6 | Stub | dual-run STUB documents L1/L2/L3; full → 5b |
+| ⏸ S5-T7 | Stub | iteration_mode SURFACED; runtime → 5b |
+| ✓ S5-T8 | Closed loop | Sprint 1's compose-stream-graph; auditor surfaces at corpus level |
+
+---
 
 ## Tasks Completed
 
-### T5.1: Auth Layout - Centered card with branding
+### S5-T1 — `lib/persistent-state.sh` (~520 lines)
 
-**Files Created**:
-- `apps/web/src/app/(auth)/layout.tsx`
+API: `init / set / get / extend / path`. Composite key encoded as filesystem path (FR-5.1). Atomic-rename writes (close Flatline IMP-009 + HIGH on torn reads): write `.tmp` → fsync → rename. Portable flock via util-linux binary + mkdir fallback.
 
-**Implementation**:
-- Created route group `(auth)` for auth pages
-- Centered card layout with gradient background
-- Logo and branding header
-- Footer with copyright
-- Responsive styling for mobile/desktop
+### S5-T2 — TTL policy + state-poisoning safeguard
 
-### T5.2: Login Page - Form with OAuth buttons
+`write` (default): TTL = last_updated + ttl_seconds. `access` (opt-in): TTL = last_accessed + ttl_seconds. Foreign-construct extension → `[STATE-OWNERSHIP-VIOLATION]` exit 1. Audit trail records construct + skill on every TTL extension.
 
-**Files Created**:
-- `apps/web/src/app/(auth)/login/page.tsx`
-- `apps/web/src/components/ui/button.tsx`
-- `apps/web/src/components/ui/input.tsx`
-- `apps/web/src/components/ui/label.tsx`
-- `apps/web/src/components/ui/checkbox.tsx`
-- `apps/web/src/components/ui/card.tsx`
+### S5-T3 — `lib/compose-state-gc.sh` (~273 lines)
 
-**Implementation**:
-- OAuth buttons for GitHub and Google
-- Email/password form with React Hook Form
-- Zod validation schema
-- Remember me checkbox
-- Forgot password link
-- Error state handling
-- Loading states during submission
-- Register link in footer
+Daily cron pass. flock `-n -x` (0-timeout). RE-READ ttl_expires + mtime under lock. Skip if held / mtime within 4h grace. JSON summary buckets: deleted / skipped_locked / skipped_mtime / skipped_alive / errors.
 
-### T5.3: Register Page - Form with validation
+**Subshell gotcha** (lines 97-115 documented): `( flock ; cmd ) 9>file` subshell drops parent array updates. Fix: `exec 9>file` in parent shell, run flock against FD 9 directly.
 
-**Files Created**:
-- `apps/web/src/app/(auth)/register/page.tsx`
+### S5-T4 — Sentinel test
 
-**Implementation**:
-- Full name, email, password fields
-- Password confirmation with match validation
-- Password strength requirements:
-  - Minimum 8 characters
-  - At least one uppercase letter
-  - At least one lowercase letter
-  - At least one number
-- Terms of service acceptance checkbox
-- OAuth buttons for quick registration
-- Redirects to email verification after success
+`tests/composition/state/run.bats:115-149`. Background subshell holds lock; concurrent GC verifies `total_skipped_locked >= 1` AND state survives. Both flock + mkdir-fallback paths covered.
 
-### T5.4: Password Reset Pages - Forgot and reset flows
+### S5-T5 — `lib/compose-iteration-audit.sh` Phase 1 (~231 lines)
 
-**Files Created**:
-- `apps/web/src/app/(auth)/forgot-password/page.tsx`
-- `apps/web/src/app/(auth)/reset-password/page.tsx`
-- `apps/web/src/app/(auth)/verify-email/page.tsx`
+Walks `compositions/`, `loa-compositions/compositions/`, fixtures. Reports `has_max_iterations` + `has_terminate_when` + `iteration_mode` + `compliant` per composition. Exit 1 if any violation.
 
-**Implementation**:
+Phase 2 (`--phase dual-run`) STUB: documents L1/L2/L3 layered-diff protocol, delegates legacy-baseline preview to compose-dry-run.
 
-**Forgot Password**:
-- Email input with validation
-- Success state showing "check your email" message
-- API integration with `/v1/auth/forgot-password`
+---
 
-**Reset Password**:
-- Token validation from URL query params
-- New password form with confirmation
-- Password strength validation
-- Success state with sign-in link
-- Invalid token handling
-- Suspense boundary for useSearchParams
+## Technical Highlights
 
-**Verify Email**:
-- Token-based verification flow
-- Auto-verification when token present in URL
-- Pending verification state (after registration)
-- Resend verification email functionality
-- Success/error states
-- Suspense boundary for useSearchParams
+**1. Subshell-vs-array gotcha**. `( flock ; cmd ) 9>file` is the textbook pattern but loses array updates because the body runs in a subshell. Fix: `exec 9>file` in parent shell. Documented inline; load-bearing for future `_with_lock` patterns.
 
-### T5.5: Auth Provider - JWT handling and session
+**2. Portable fsync via python3**. macOS lacks GNU `stat -c` and `realpath -m`. Sprint 5 leans into Sprint 3's existing python3 fallback pattern: `os.fsync(os.open(path, O_RDONLY))`.
 
-**Files Created**:
-- `apps/web/src/contexts/auth-context.tsx`
-- `apps/web/src/components/auth/protected-route.tsx`
-- `apps/web/src/hooks/use-auth.ts`
+**3. `${VAR:-{}}` parsing gotcha**. Bash parses `${OPT_PAYLOAD:-{}}` as `${OPT_PAYLOAD:-{}` + literal `}` — yields `{}}` instead of `{}`. Fix: explicit conditional. Documented inline.
 
-**Files Modified**:
-- `apps/web/src/app/layout.tsx` - Added AuthProvider wrapper
+**4. Composite key collision avoidance**. Path encodes ALL six components; same skill at different stages within the SAME composition → distinct paths. Test 9 proves empirically.
 
-**Implementation**:
+**5. Audit trail append-only at JSON layer**. Operators inspect lifecycle without instrumenting the runner. Optional read-auditing via `LOA_PERSISTENT_STATE_AUDIT_READS=1`.
 
-**AuthContext**:
-- User state management (id, email, name, role, emailVerified)
-- `login(email, password, rememberMe)` - authenticate user
-- `register(email, password, name)` - create new account
-- `logout()` - clear session
-- `refreshToken()` - refresh JWT
-- Token storage in cookies (js-cookie)
-- Remember me (30-day expiry) vs session cookies
-- Auto-refresh on mount
-- Periodic token refresh (every 14 minutes)
-- Secure cookie settings in production
+---
 
-**ProtectedRoute Component**:
-- Requires authentication to render children
-- Optional `requireEmailVerified` prop
-- Optional `allowedRoles` array for role-based access
-- Loading state while checking auth
-- Redirect to appropriate pages:
-  - `/login` if not authenticated
-  - `/verify-email` if email not verified
-  - `/unauthorized` if role not allowed
+## Testing Summary
 
-**useAuth Hook**:
-- Re-export from context for cleaner imports
-- Type exports for User interface
+| Suite | Count | Status |
+|---|---|---|
+| state | 13 | ✓ 13/13 |
+| iteration | 6 | ✓ 6/6 |
+| **Sprint 5** | **19** | **✓ 19/19** |
+| Sprint 1+2+3 carryforward | 40 | ✓ 40/40 |
+| Sprint 0 schema gate | 9 | ✓ 9/9 |
+| **Combined** | **68** | **✓ 68/68** |
 
-## Dependencies Added
+---
 
-```json
-{
-  "@radix-ui/react-checkbox": "^1.3.3",
-  "@radix-ui/react-label": "^2.1.7",
-  "@radix-ui/react-slot": "^1.2.3",
-  "class-variance-authority": "^0.7.1",
-  "js-cookie": "^3.0.5",
-  "react-hook-form": "^7.56.4",
-  "zod": "^3.25.56",
-  "@hookform/resolvers": "^5.0.1",
-  "@types/js-cookie": "^3.0.7"
-}
+## Known Limitations
+
+1. **Dual-run + iteration_mode enforcement deferred to Sprint 5b** — both depend on Sprint 3+4 executor maturity.
+2. **Slug regex permits `@:` for composition_id** — broader than Sprint 1+2 pattern; needed for SHA-suffixed composition_ids. Sprint 6 hardening's `lib/path-safety.py` must accommodate.
+3. **mkdir-fallback flock has degraded shared semantics** — production SHOULD have flock installed.
+4. **Empty leaf-dir cleanup best-effort** — GC removes version-leaf only; higher dirs left for operator cron.
+5. **fsync is python3-best-effort** — strict-tier (Sprint 4) might want stronger durability.
+
+---
+
+## Verification Steps
+
+```bash
+# 1. All Sprint 5 tests
+bats tests/composition/state/run.bats tests/composition/iteration/run.bats
+
+# 2. Full regression
+bats tests/composition/{state,iteration,runner,envelopes,validators,preflight,output-gate}/run.bats
+.claude/scripts/composition-schema-validate.sh
+
+# 3. End-to-end persistent-state demo
+KEY=(--project-id demo --composition-id 'demo@sha256:abc' --construct-slug artisan --skill-slug decomposing-feel --stage-id demo.stage-1 --schema-version v1)
+.claude/scripts/lib/persistent-state.sh init "${KEY[@]}" --payload-json '{"counter":0}'
+.claude/scripts/lib/persistent-state.sh set "${KEY[@]}" --payload-json '{"counter":1}'
+.claude/scripts/lib/persistent-state.sh get "${KEY[@]}" | jq '.payload'
+.claude/scripts/lib/persistent-state.sh extend "${KEY[@]}" --calling-construct observer --calling-skill foo
+# → [STATE-OWNERSHIP-VIOLATION], exit 1
+
+# 4. GC + iteration audit
+.claude/scripts/lib/compose-state-gc.sh --dry-run --json | jq '.summary'
+.claude/scripts/lib/compose-iteration-audit.sh --phase enumerate --json | jq '{compositions_with_iterate, compliant}'
 ```
 
-## Architecture Decisions
+---
 
-1. **Route Group (auth)**: Using Next.js route groups to share layout without affecting URL structure
+## Open Items / Recommendations
 
-2. **shadcn/ui Pattern**: Components follow shadcn/ui patterns with cva for variants, making them easy to extend
+1. **Sprint 5b**: lands S5-T6 dual-run + S5-T7 runtime enforcement once executors are mature.
+2. **Sprint 6 hardening**: slug regex broadened for `@:` (composition_id) in `lib/path-safety.py`. State path's composite-key join becomes a 4th caller of the safety helper.
+3. **`compose-state-gc.sh` cron wiring** is operator-side; script is idempotent + dry-run-friendly.
+4. **fsync durability boundary** — strict-tier may want full filesystem sync at composition boundary.
 
-3. **Cookie Storage**: JWT tokens stored in cookies rather than localStorage for:
-   - HttpOnly capability (future enhancement)
-   - Automatic inclusion in requests
-   - Better security against XSS
+---
 
-4. **Suspense Boundaries**: Pages using `useSearchParams` wrapped in Suspense for Next.js 14 compatibility
+## Feedback Addressed
 
-5. **Form Validation**: Zod schemas for runtime validation + React Hook Form for form state management
-
-## Testing
-
-- **TypeScript**: Typecheck passes (`pnpm run typecheck`)
-- **API Tests**: All 76 existing tests pass
-- **Build**: Build fails due to external Google Fonts timeout (network issue, not code)
-
-## Files Summary
-
-| Path | Type | Purpose |
-|------|------|---------|
-| `apps/web/src/app/(auth)/layout.tsx` | New | Auth layout with branding |
-| `apps/web/src/app/(auth)/login/page.tsx` | New | Login page |
-| `apps/web/src/app/(auth)/register/page.tsx` | New | Registration page |
-| `apps/web/src/app/(auth)/forgot-password/page.tsx` | New | Password reset request |
-| `apps/web/src/app/(auth)/reset-password/page.tsx` | New | Password reset completion |
-| `apps/web/src/app/(auth)/verify-email/page.tsx` | New | Email verification |
-| `apps/web/src/components/ui/button.tsx` | New | Button component |
-| `apps/web/src/components/ui/input.tsx` | New | Input component |
-| `apps/web/src/components/ui/label.tsx` | New | Label component |
-| `apps/web/src/components/ui/checkbox.tsx` | New | Checkbox component |
-| `apps/web/src/components/ui/card.tsx` | New | Card component |
-| `apps/web/src/contexts/auth-context.tsx` | New | Auth context provider |
-| `apps/web/src/components/auth/protected-route.tsx` | New | Protected route wrapper |
-| `apps/web/src/hooks/use-auth.ts` | New | Auth hook export |
-| `apps/web/src/app/layout.tsx` | Modified | Added AuthProvider |
-
-## API Integration
-
-All pages integrate with Sprint 2 auth endpoints:
-- `POST /v1/auth/register` - Registration
-- `POST /v1/auth/login` - Login
-- `POST /v1/auth/refresh` - Token refresh
-- `POST /v1/auth/logout` - Logout
-- `POST /v1/auth/forgot-password` - Request reset
-- `POST /v1/auth/reset-password` - Complete reset
-- `POST /v1/auth/verify` - Email verification
-- `GET /v1/auth/me` - Get current user
-
-## Notes for Review
-
-1. OAuth redirects point to `/v1/auth/{provider}` - actual OAuth callback implementation would be needed on backend
-
-2. Email resend functionality calls `/v1/auth/resend-verification` which may need to be implemented on backend
-
-3. `NEXT_PUBLIC_API_URL` environment variable needs to be set for production
-
-4. Consider adding HttpOnly cookies via API response headers for enhanced security
+First reviewer for Sprint 5 in this cycle. Bridgebuilder PR-level findings (B-001 tier-cap, B-002 JCS dup, B-003 ✓ closed, B-004 schema_id intent) carry forward to Sprint 6 hardening bundle. Sprint 5 introduces a 4th call site for slug-as-path-component (composite key join), expanding F1 hardening scope by ONE caller.
