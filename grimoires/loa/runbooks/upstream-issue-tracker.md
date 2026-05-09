@@ -70,6 +70,17 @@
 - **Downstream**: cycle-0 Sprint 1 manually bumps README badge; T0.1 runbook reconciles tag mismatch (Option A); cycle-0 Phase 7 deferred /run sprint-plan, operator-drives directly
 - **Link**: https://github.com/0xHoneyJar/loa/issues/821
 
+### #822 — sync-constructs.sh: project-level pack-exclude list
+
+- **Filed**: 2026-05-09 (cycle-0 Sprint 2 T2.3 finding)
+- **Subsystem**: `sync-constructs.sh` mirroring flow
+- **Status**: OPEN
+- **Symptom**: operator's `~/.loa/constructs/packs/` mirrors into every Loa-mounted project. Operator wants some packs (operator-personal: TTRPG, exploration tools) GLOBALLY but NOT surfaced in specific projects. No filter mechanism currently exists.
+- **Evidence (loa-constructs)**: 16 TTRPG packs (arneson, gygax, cabal, delve, homebrew, lore, scry, attune, narrate, scene, voice, braunstein, distill, fragment, improvise, augury) sync'd into project's `.claude/{skills,commands,constructs/packs}/` despite being operator-personal.
+- **Suggested fix**: `.loa.config.yaml::constructs.exclude_packs[]` (project-level pack exclude list); sync-constructs.sh skips symlink creation + prunes existing symlinks for excluded packs
+- **Downstream**: cycle-0 Sprint 2 T2.3 added explicit gitignore entries for the 16 TTRPG packs at all 3 symlink locations. Brittle — each new TTRPG pack needs a new gitignore entry. Durable fix is upstream.
+- **Link**: https://github.com/0xHoneyJar/loa/issues/822
+
 ---
 
 ## Status Summary
@@ -77,10 +88,11 @@
 | Issue | Subsystem | Status | Cycle-0 Workaround |
 |---|---|---|---|
 | #817 | spiraling | OPEN | PR #228 cherry-pick |
-| #818 | update-loa | OPEN | zones.yaml + .gitattributes + Sprint 2 strip |
-| #819 | sync-constructs | OPEN | Sprint 2 inventory + disposition |
+| #818 | update-loa | OPEN | zones.yaml + .gitattributes + Sprint 2 strip + zone-boundary CI |
+| #819 | sync-constructs | OPEN | Sprint 2 inventory + gitignore enumeration |
 | #820 | flatline | OPEN | google: pin form + manual .env source |
 | #821 | workflow orchestration | OPEN | reconciliation runbook + manual badge bump + operator-driven cycle |
+| #822 | sync-constructs | OPEN | gitignore enumeration of TTRPG packs |
 
 ---
 
