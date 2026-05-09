@@ -6,6 +6,18 @@
   "type": "object",
   "required": ["schema_version", "kind", "name", "description", "intent", "chain"],
   "additionalProperties": false,
+  "allOf": [
+    {
+      "description": "S0-T6 / FR-7.2. When iterate[] is non-empty, both max_iterations and terminate_when are required at the composition level. Without them the runner would loop unbounded and the stream-graph validator emits [ITERATION-NO-MAX] / [ITERATION-NO-TERMINATION].",
+      "if": {
+        "properties": { "iterate": { "type": "array", "minItems": 1 } },
+        "required": ["iterate"]
+      },
+      "then": {
+        "required": ["max_iterations", "terminate_when"]
+      }
+    }
+  ],
   "properties": {
     "schema_version": {
       "type": "string",
@@ -53,7 +65,36 @@
         "items": { "type": "integer", "minimum": 1 },
         "description": "Pair [stage_a, stage_b] of stage numbers that iterate together."
       },
-      "description": "Iteration loops between pairs of stages. Each pair must reference stage numbers that exist in chain[].stage. Cap behavior is runner-controlled (--max-iterations)."
+      "description": "Iteration loops between pairs of stages. Each pair must reference stage numbers that exist in chain[].stage. Cap behavior is runner-controlled (--max-iterations). S0-T6: when iterate is non-empty, max_iterations and terminate_when become required at the composition level (FR-7.2)."
+    },
+    "iteration_mode": {
+      "type": "string",
+      "enum": ["persistent_leak", "stream_edge"],
+      "default": "persistent_leak",
+      "description": "S0-T6 / FR-7.4. Iteration semantics. 'persistent_leak' (default, legacy): teammate context accumulates across iterations and may leak between stages. 'stream_edge' (opt-in): iteration boundaries are stream edges only — no transcript bleed. The flag exists so we can flip the default later with telemetry-backed confidence; until then, both semantics are supported with explicit opt-in."
+    },
+    "max_iterations": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000,
+      "description": "S0-T6 / FR-7.2. Maximum iteration passes before the runner halts the loop. Required when iterate[] is non-empty. Without it, runs would loop unbounded — validator emits [ITERATION-NO-MAX]."
+    },
+    "terminate_when": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600,
+      "description": "S0-T6 / FR-7.2. Termination predicate evaluated by the runner each iteration pass. Free-form prose; runner-interpreted. Required when iterate[] is non-empty. Validator emits [ITERATION-NO-TERMINATION] when iterate is non-empty and this is missing."
+    },
+    "audit_signed": {
+      "type": "boolean",
+      "default": false,
+      "description": "S0-T6 / FR-6 / SDD §6.3. Opt-in to cycle-098 audit_emit_signed envelope chain. When true, runtime requires bootstrapped audit keys (pre-flight check S1-T5 emits [AUDIT-KEYS-NOT-BOOTSTRAPPED] otherwise)."
+    },
+    "persistent_state_ttl_policy": {
+      "type": "string",
+      "enum": ["write", "access"],
+      "default": "write",
+      "description": "S0-T6 / SDD §3.3. TTL semantics for persistent state writes from this composition. 'write' (default): TTL = last_updated + ttl_seconds; reads do not extend. 'access' (opt-in): any read or write extends TTL. Predictable lifecycle vs forgiving lifecycle tradeoff per Redis EXPIRE conventions."
     },
     "chain": {
       "type": "array",
@@ -168,6 +209,112 @@
       "enum": ["fresh", "persistent", "blocking"],
       "description": "Stage execution mode. 'fresh' = clean subprocess per invocation (no prior context). 'persistent' = teammate accumulates register depth across iterations. 'blocking' (v1.2) = stage halts the chain on emit, waits for explicit operator continuation (used in triage / sorry-for-ur-loss workstreams)."
     },
+    "Domain": {
+      "description": "Stage bounded context override or declaration. Legacy string/array forms are accepted as routing tags; object form is preferred for DDD-aware isolation.",
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 80
+        },
+        {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 80 },
+          "maxItems": 20
+        },
+        {
+          "type": "object",
+          "required": ["primary"],
+          "properties": {
+            "primary": { "type": "string", "minLength": 1, "maxLength": 80 },
+            "supporting": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 80 },
+              "maxItems": 20
+            },
+            "ubiquitous_language": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 100 },
+              "maxItems": 50
+            },
+            "out_of_domain": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 200 },
+              "maxItems": 50
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ContextPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "$ref": "#/$defs/Mode" },
+        "allowed_context": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 50
+        },
+        "forbidden_context": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 50
+        },
+        "persistence_scope": {
+          "type": "string",
+          "enum": ["none", "stage", "construct", "composition", "tenant"]
+        },
+        "isolation_tier": {
+          "type": "string",
+          "enum": ["strict", "compatibility", "advisory"],
+          "description": "S0-T6 / SDD §3.4 §6.5b. Tier under which this stage runs. Resolved at composition load time from .claude/data/construct-validation-tiers.yaml; per-stage override allowed but capped at the construct's manifest tier."
+        },
+        "allowed_egress": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9.-]+:[0-9]+$",
+            "maxLength": 300
+          },
+          "maxItems": 50,
+          "description": "S0-T6 / FR-13.1. Host:port allowlist for network egress. When unset or empty, no egress permitted. Strict tier enforces via netns + CONNECT proxy; advisory enforces via HTTP_PROXY env."
+        },
+        "network_isolation_class": {
+          "type": "string",
+          "enum": ["kernel", "cooperative", "none"],
+          "description": "S0-T6. Achieved isolation class (NOT requested) — captured at envelope build time so handoff/audit can attest reality. 'kernel' = bwrap+netns; 'cooperative' = HTTP_PROXY-aware; 'none' = no enforcement."
+        },
+        "llm_session_strategy": {
+          "type": "string",
+          "enum": ["fresh", "continue"],
+          "description": "S0-T6 / FR-4.3. Per-stage LLM session policy. 'fresh' = new session id + provider memory disable (verified strict / attempted advisory). 'continue' = explicit opt-in to reuse, banned in mode:fresh stages."
+        },
+        "allowed_mcp_tools": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 50,
+          "description": "S0-T6 / FR-4.1. MCP tool allowlist enforced via cheval adapter. Empty = no tools."
+        },
+        "allowed_env_vars": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$", "maxLength": 64 },
+          "maxItems": 100,
+          "description": "S0-T6 / FR-4.1. Env var allowlist. Subprocess runs under env -i + only these names passed through."
+        }
+      },
+      "description": "Stage-local context boundaries. Runners enforce these when constructing the invocation envelope. S0-T6 added isolation_tier, allowed_egress, network_isolation_class, llm_session_strategy, allowed_mcp_tools, allowed_env_vars per cycle-construct-bounded-context Sprint 0.",
+      "allOf": [
+        {
+          "description": "S0-T6: when allowed_egress is non-empty, isolation_tier MUST be set so the runner knows which enforcement mechanism to apply.",
+          "if": {
+            "properties": { "allowed_egress": { "type": "array", "minItems": 1 } },
+            "required": ["allowed_egress"]
+          },
+          "then": { "required": ["isolation_tier"] }
+        }
+      ]
+    },
     "Role": {
       "type": "string",
       "enum": [
@@ -236,6 +383,19 @@
           "description": "Optional persona handle. v1.0/v1.1 convention: uppercase (e.g. 'ALEXANDER', 'MINT'). v1.2 relaxes to free-form string — registry has lowercase ('codex'), hyphenated ('CODEX-RESCUE'), and prose-tagged values."
         },
         "mode": { "$ref": "#/$defs/Mode" },
+        "domain": {
+          "$ref": "#/$defs/Domain",
+          "description": "Optional stage-level bounded context. Defaults to the construct manifest domain when omitted."
+        },
+        "context_policy": {
+          "$ref": "#/$defs/ContextPolicy",
+          "description": "Optional stage-level context policy. Defaults to the construct manifest or runner policy when omitted."
+        },
+        "contract_version": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Optional Hounfour/Loa contract version used for this stage invocation envelope."
+        },
         "reads": { "type": "array", "items": { "$ref": "#/$defs/StreamType" } },
         "writes": { "type": "array", "items": { "$ref": "#/$defs/StreamType" } },
         "role": { "$ref": "#/$defs/Role" },

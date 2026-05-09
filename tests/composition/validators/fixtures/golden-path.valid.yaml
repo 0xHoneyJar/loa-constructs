@@ -1,0 +1,27 @@
+# Golden-path composition fixture. Validator must accept (errors[] empty).
+# Two stages where stage 2 reads what stage 1 writes; no iteration; no schema mismatch.
+schema_version: "1.2"
+kind: workflow
+name: validator-golden-path
+description: Minimal two-stage composition for the S1-T1 validator's golden-path test.
+intent: Validate that the stream-graph validator accepts a well-formed composition without complaint.
+
+inputs:
+  - type: Intent
+    name: operator_intent
+
+chain:
+  - stage: 1
+    construct: artisan
+    skill: decomposing-feel
+    reads:
+      - type: Intent
+    writes:
+      - type: Signal
+  - stage: 2
+    construct: observer
+    skill: observing-users
+    reads:
+      - type: Signal
+    writes:
+      - type: Verdict

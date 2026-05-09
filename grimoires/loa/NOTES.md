@@ -1,5 +1,31 @@
 # Loa Project Notes
 
+## Decision Log — 2026-05-08 (cycle-construct-bounded-context Sprint 1)
+
+### `[ENVELOPE-CHAIN-BROKEN]` deferred from S1-T1 to Sprint 2 (S2-T2/T5)
+
+The S1-T1 acceptance lists 6 typed errors the stream-graph validator should reject. Five land in Sprint 1 (`[STREAM-NO-PRODUCER]`, `[STREAM-SCHEMA-MISMATCH]`, `[STAGE-OUT-OF-DOMAIN]`, `[ITERATION-NO-MAX]`, `[ITERATION-NO-TERMINATION]`). The sixth — `[ENVELOPE-CHAIN-BROKEN]` — is deferred to Sprint 2.
+
+Why: this error class manifests during full-run replay, not pre-execution. The validator detects it by walking the prior-stage handoff envelope chain and verifying each `prev_hash` matches the recomputed `invocation_hash` of the prior envelope (per SDD §3.1). That walk semantics live in `envelope-chain.sh` (Sprint 2 / S2-T2 + S2-T5). Wiring it into the stream-graph validator before the chain library exists would require duplicating the walk logic — pulled forward, owned twice, then refactored at Sprint 2 anyway.
+
+The deferral was documented in the partial Sprint 1 commit `dfa8a912`'s message and is now formally entered here per the implement-skill AC verification gate (cycle-057 / closes #475 — `[ACCEPTED-DEFERRED]` requires a NOTES.md entry).
+
+When Sprint 2 lands `envelope-chain.sh`, add a fixture (or .json envelope sequence) at `tests/composition/validators/fixtures/envelope-chain-broken.invalid.yaml` (or similar) and an assertion to `tests/composition/validators/run.bats`.
+
+### `select(length > 0)` jq pattern silently drops parent objects
+
+If you write `jq -n '{x: ($var | select(length > 0))}'` and `$var` is empty, the *entire* object construction produces no output. Cause: `select` filters out the value rather than returning null; in object-constructor context that filters the whole object. Sprint 1 hit this twice (`construct-validate.sh` and `strict-tier-prereq.sh`) and both fixes use `(if ($var | length) > 0 then $var else null end)`.
+
+For future contributors: prefer `if/then/else` over `select` when constructing objects with optional fields. `select` is for filtering streams, not for shaping a single output.
+
+### Tier resolution lives in `construct-validate.sh`, downstream callers must adapt
+
+`.claude/scripts/construct-validate.sh --json` output shape changed in S1-T4 from `[finding, ...]` to `{tier, tier_reason, runner_eligibility, contract_path, worst_severity, findings: [...]}`. Pre-Sprint-1 callers reading the array form will break. compose-run + butterfreezone-construct-gen.sh + the loom skill need to adapt during their next touch (Sprint 2/3 for compose-run, Sprint 6 for the rest).
+
+This is a deliberate semver-minor break — `construct-validate.sh` is the canonical tier-resolver per SDD §3.4, so the tier metadata must be at top-level rather than buried in findings.
+
+---
+
 ## Sprint 2 SHIPPED — 2026-05-04 (PR #705, commit a7c50ff)
 
 L2 cost-budget-enforcer + reconciliation cron + daily snapshot job. 4 sub-sprints (2A/2B/2C/2D) implemented inline on Opus 4.7 1M context (vs Sprint 1's subagent dispatch). 92 / 92 tests pass; Sprint 1 regression 39 / 39 clean. Bridgebuilder kaironic converged in 2 iterations (0 BLOCKER, 0 HIGH_CONSENSUS both iters).
@@ -1128,3 +1154,64 @@ The pre-existing `grimoires/loa/prd.md` and `sdd.md` describe **cycle-098 Agent-
 - Grounding: 91.4% PRD, 95.2% SDD (target >80% met)
 - 0 hallucinations detected in self-audit
 - 15 gaps catalogued for human resolution
+
+---
+
+## 2026-05-08 — Cheval Headless + Construct Bounded-Context Substrate (simstim cycle)
+
+Single session, ~5h, three workstreams:
+
+### 1. Loa framework update + cheval headless adapters
+
+- /update-loa pulled 1.130.0 (125 commits, 200 framework files merged, 23 upstream-only CI workflows stripped, 1 conflict resolved `--ours` on `.loa.config.yaml`). Stash-and-restore preserved 24 in-progress TTRPG-skills + 9 modified scripts.
+- Verified all three cheval headless adapters (claude/codex/gemini) work via `model-invoke --model <provider-headless>:<model_id>` direct pin form.
+- **System Zone patch** (operator-authorized): added `^(claude|codex|gemini)-headless:.+$` regex to `flatline-orchestrator.sh:VALID_MODEL_PATTERNS` so flatline routes through cheval headless. Filed [loa#793](https://github.com/0xHoneyJar/loa/issues/793) requesting upstream landing of the regex addition.
+- Set `hounfour.flatline_routing: true` + flatline/red-team `models.*` to `<provider>-headless:<model_id>` pin form. Verified routing via 3 successful Flatline runs at $0 cost.
+
+### 2. simstim run against 3 context artifacts
+
+Ran [Phase 0] preflight → [Phase 6] flatline-sprint review against:
+- `construct-bounded-context-runtime-audit.md` (anchor: 12 invariants + envelopes)
+- `construct-runtime-schema-alignment.md` (layer model: Loa/Hounfour/Finn/Constructs/Composition)
+- `rfc-construct-composition-prd-flow.md` (downstream PRD-flow integration; treated as Non-Goal)
+
+Output:
+- `prd.md` (375 lines, 32KB) — anchored on bounded-context substrate; 13 FRs; tier-conditional G3 reframe; 20 Phase 2 Flatline findings + 8 Phase 3.5 Bridgebuilder + 17 Phase 4 Flatline findings integrated
+- `sdd.md` (1078 lines, 60KB) — sibling-not-extension composition with cycle-098 audit envelope; tier-conditional isolation honesty; explicit hash-chain algorithm with worked example; argv-array invocation (closes command-injection); platform-specific surface table; HTTPS CONNECT-only proxy; provider memory disable in cheval adapters
+- `sprint.md` (380 lines, 29KB) — 7 sprints (S0 contract → S6 docs); CONTRACT vs RUNNER split lines preserved per SDD §11.1; Sprint 4 effort revised 9→17 days post-Flatline; machine-readable DAG at `.run/sprint-dag.yaml`; telemetry retention contract; state-migration runbook scoped
+
+### 3. Key reframes from the review chain
+
+- **Tier-conditional isolation honesty** (Flatline SDD CRITICAL ×6): substrate's contract layer is strong everywhere (envelope, validation, hash chain). Isolation is tier-conditional: strict (Linux+bwrap+CAP_NET_ADMIN) is security-gated; advisory (LD_PRELOAD/dyld/in-process) is informational, not a security boundary. Substrate ships honest about its limits.
+- **Sibling-not-extension composition** (Bridgebuilder PRAISE): construct envelope shape composes JCS hash-chain with cycle-098 audit envelope rather than extending it. Each contract evolves independently.
+- **Runner-vs-contract split lines** (Bridgebuilder REFRAME-1): SDD §11.1 labels each migration item as CONTRACT (portable: schemas, validators, hash core) or RUNNER (local: stage executor, isolation, dry-run). Future package extraction is a refactor, not redesign.
+- **Provider memory features bypass session-id** (Flatline SDD HIGH-5): Anthropic memory tool, OpenAI ChatGPT memory, Gemini saved-info recall context across sessions. Cheval adapters now pass per-provider memory-disable flags as part of `mode: fresh`.
+
+### 4. Archived prior-cycle artifacts
+
+- `prd.md` (cycle-051 Analytics + GEO) → `prd-analytics-geo-2026-03-15.md`
+- `sdd.md` (cycle-050 SprawlOS) → `sdd-cycle-050-sprawlos-2026-03-13.md`
+- `sprint.md` (cycle-050 SprawlOS) → `sprint-cycle-050-sprawlos-2026-03-13.md`
+
+### 5. Pause point
+
+simstim state at `.run/simstim-state.json`:
+- simstim_id: `simstim-20260508-96627a1c`
+- state: `RUNNING`
+- last completed phase: `flatline_sprint` (Phase 6 of 10)
+- next: Phase 7 (`/run sprint-plan`) — multi-week implementation, NOT this session
+
+To resume: `/simstim --resume`. Phase 7 will dispatch `/run sprint-plan` against the 7-sprint sequence; substrate will land over weeks via the implement→review→audit cycle.
+
+### 6. Session deliverables
+
+Uncommitted in working tree (intentional):
+- 3 simstim artifacts: `grimoires/loa/{prd,sdd,sprint}.md`
+- `.loa.config.yaml` (cheval headless wiring)
+- `.claude/scripts/flatline-orchestrator.sh` (System Zone patch — pending loa#793)
+- 3 archived dated artifacts in `grimoires/loa/`
+- 6 review/finding JSON files in `.run/`
+- `.run/bridge-reviews/design-review-cycle-construct-bounded-context.{md,json}`
+- This NOTES.md entry
+
+In-progress work from prior sessions (preserved through stash-and-restore): TTRPG-themed skills (arneson, gygax, cabal, delve, etc.), 7 modified scripts/schemas, pre-ride backups, `apps/api/local.db`.

@@ -1,5 +1,40 @@
-Sprint 2: Authentication System
-Completed: 2025-12-30
+Sprint 2 (Envelope Builder + Hash Chain + Dry-Run) — cycle-construct-bounded-context
 
-Reviewer: APPROVED (engineer-feedback.md)
-Auditor: APPROVED - LETS FUCKING GO (auditor-sprint-feedback.md)
+Completed: 2026-05-08T23:50:05Z
+Branch: cycle/construct-bounded-context
+Commit: 5fcd5c96
+Beads: bd-nobi.3 closed
+
+Implementation: APPROVED (Senior Tech Lead) — All good (with noted concerns)
+Security Audit: APPROVED - LETS FUCKING GO (Paranoid Cypherpunk Auditor)
+
+Quality gate verdict: PASS through full implement → review → audit cycle.
+
+Tasks Completed:
+- S2-T1: lib/envelope-builder.{sh,py} — invocation + handoff envelope construction
+- S2-T2: lib/envelope-chain.{sh,py} — two-pass self-hash + chain validation
+- S2-T3: composition_id deterministic derivation (per IMP-001)
+- S2-T4: lib/compose-dry-run.{sh,py} — dry-run engine, schema-conforming output
+- S2-T5: chain validation at run startup + per-stage + replay (library entry)
+- S2-T6: 14 bats tests (incl. [ENVELOPE-CHAIN-BROKEN] body+linkage tamper)
+
+[ENVELOPE-CHAIN-BROKEN] error class deferred from Sprint 1 (S1-T1 deferral): CLOSED.
+
+Findings tracked forward (non-blocking):
+- Reviewer (3 concerns + 1 assumption + 1 alternative): JCS fallback breadth grew (3→4 sites);
+  slug path traversal recurs; sibling-module loading sys.modules registration dependency.
+- Auditor (3 MEDIUM): F1 slug path traversal in envelope-builder._resolve_manifest (Sprint 1 inherited);
+  F2 schema_id absolute-path traversal (unchanged); F3 JCS fallback breadth grew 1→4 sites (NEW).
+  All defense-in-depth, mitigated upstream by composition.schema.json + handoff schema regex.
+  Sprint 6 hardening: 3 shared utility files (~60 LOC) close all 3 findings.
+
+Test status:
+- Sprint 2 envelopes matrix: 14/14 pass
+- Sprint 1 + 2 combined: 32/32 pass
+- Sprint 0 schema-validation gate: pass=9 fail=0 skip=0 (regression-clean)
+
+Verdict: implementation complete + reviewed + audited. Ready to advance to Sprint 3.
+
+Reviewer report: grimoires/loa/a2a/sprint-2/reviewer.md
+Engineer feedback (review): grimoires/loa/a2a/sprint-2/engineer-feedback.md
+Auditor feedback: grimoires/loa/a2a/sprint-2/auditor-sprint-feedback.md

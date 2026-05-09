@@ -1,0 +1,79 @@
+# Construct Validation Tier Configuration
+#
+# Source of truth for FR-3.3 / SDD §3.4. Sprint 0 (S0-T4).
+#
+# Tiers govern how strictly construct-validate.sh and the runtime substrate
+# enforce contract obligations on each pack:
+#
+#   strict          New packs (after cutoff_date) and the curated top-12.
+#                   Must ship a full domain block. Cannot run via golden-path
+#                   without it. No compatibility-contract escape hatch.
+#
+#   compatibility   Legacy packs that opt in via a hand-curated contract at
+#                   .claude/data/legacy-domain-contracts/<slug>.yaml. Bootstrap
+#                   only contracts (empty out_of_domain or invariants) are
+#                   rejected — operator must complete.
+#
+#   advisory        Pre-substrate packs without a contract. Validation warns
+#                   but does not fail; cannot participate in golden-path
+#                   compositions (audit-feel and similar).
+#
+# Resolution order: explicit_packs in strict > compatibility (any pack with a
+# contract file present) > default_tier.
+
+schema_version: 1
+default_tier: advisory
+
+# Tier definitions
+tiers:
+  strict:
+    description: "New packs (post-cutoff date) and top-12 high-use packs."
+    cutoff_date: "2026-05-08"  # Packs CREATED after this date default to strict, not advisory.
+    explicit_packs:
+      # Top-12 from FR-3.2 telemetry (frozen for Sprint 0; re-rank per cycle via S6-T4)
+      - artisan
+      - observer
+      - protocol
+      - beacon
+      - mibera-codex
+      - k-hole
+      - the-easel
+      - gecko
+      - crucible
+      - hardening
+      - kansei
+      - showcase
+    enforcement:
+      domain_block: required
+      streams: required
+      capabilities: required
+      context_policy: required
+      out_of_domain: required
+      compatibility_contract: forbidden  # Strict packs MUST NOT have a contract file; presence is an error.
+      runner_eligibility: golden_path_allowed
+
+  compatibility:
+    description: "Legacy packs that opt into bounded-context mode via generated contract."
+    requires_contract: true
+    contract_path_template: ".claude/data/legacy-domain-contracts/{slug}.yaml"
+    enforcement:
+      domain_block: contract       # Contract supplies the domain block; manifest may omit.
+      streams: contract
+      capabilities: contract
+      context_policy: contract
+      out_of_domain: contract
+      starter_contract_rejected: true  # Bootstrap-only (empty out_of_domain / invariants) cannot run.
+      runner_eligibility: golden_path_allowed
+
+  advisory:
+    description: "Pre-substrate packs without contract; warn-only, cannot run in golden-path validation."
+    enforcement:
+      domain_block: warn
+      streams: warn
+      capabilities: warn
+      context_policy: warn
+      out_of_domain: warn
+      runner_eligibility: golden_path_blocked  # Cannot participate in audit-feel + similar golden compositions.
+
+# Re-ranking cadence: see grimoires/loa/sprint.md "Open Questions Carried Forward" Q#3.
+# The top-12 list above is frozen for Sprint 0; tooling for re-rank lands in Sprint 6 (S6-T4).

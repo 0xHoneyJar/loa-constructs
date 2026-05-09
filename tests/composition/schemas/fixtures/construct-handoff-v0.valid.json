@@ -1,0 +1,34 @@
+{
+  "schema_version": "loa.construct.handoff.v0",
+  "run_id": "run_test_2026_05_08_001",
+  "composition_id": "audit-feel.yaml@sha256:a3f2b1d4e5c6",
+  "stage_id": "audit-feel.stage-1",
+  "stage_pass": 1,
+  "construct_slug": "artisan",
+  "skill": "decomposing-feel",
+  "status": "success",
+  "outputs": [
+    {
+      "type": "Signal",
+      "uri": ".run/compose/run_test_2026_05_08_001/stage-1/output/decomposition.signal.json",
+      "schema_id": "loa.stream.Signal.v1",
+      "hash": "sha256:0000000000000000000000000000000000000000000000000000000000001234",
+      "domain": {
+        "primary": "interface-craft",
+        "produced_by": "artisan"
+      }
+    }
+  ],
+  "summary": {
+    "visible_to_operator": true,
+    "text": "Material/motion/rhythm factors extracted from target surface."
+  },
+  "next_allowed_reads": ["Signal"],
+  "error": null,
+  "partial_outputs": {
+    "disposition": "discarded",
+    "count": 0
+  },
+  "prev_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000abc",
+  "handoff_hash": "sha256:0000000000000000000000000000000000000000000000000000000000005678"
+}

@@ -1,0 +1,52 @@
+{
+  "composition": {
+    "path": "compositions/audit-feel.yaml",
+    "composition_id": "audit-feel.yaml@sha256:a3f2b1d4e5c6"
+  },
+  "stages": [
+    {
+      "stage_id": "audit-feel.stage-1",
+      "construct": "artisan",
+      "skill": "decomposing-feel",
+      "mode": "fresh",
+      "invocation_envelope_preview": {
+        "schema_version": "loa.construct.invocation.v0",
+        "stage_id": "audit-feel.stage-1",
+        "construct": { "slug": "artisan", "version": "1.0.0", "skill": "decomposing-feel" },
+        "domain": { "primary": "interface-craft" },
+        "mode": "fresh"
+      },
+      "allowed_files": [
+        ".claude/constructs/packs/artisan/skills/decomposing-feel/**",
+        "grimoires/loa/runs/run_test_001/**"
+      ],
+      "missing_schemas": [],
+      "domain_conflicts": [],
+      "isolation_assessment": {
+        "ok": true,
+        "vectors_covered": ["env", "tmux", "llm_session", "transcript"],
+        "vectors_uncovered": ["filesystem", "network"],
+        "tier": "advisory"
+      },
+      "persistence_scope": null,
+      "iteration_role": null
+    }
+  ],
+  "warnings": [
+    {
+      "code": "[ADVISORY-FILESYSTEM-COOPERATIVE]",
+      "message": "Stage 1 runs on advisory tier — filesystem isolation is cooperative-only.",
+      "stage_id": "audit-feel.stage-1"
+    }
+  ],
+  "errors": [],
+  "platform": {
+    "os": "darwin",
+    "bwrap_available": false,
+    "cap_net_admin": false,
+    "provider_memory_disable_supported": {
+      "claude-headless": true,
+      "codex-headless": true
+    }
+  }
+}

@@ -1,0 +1,39 @@
+# S0-T3 KEY ACCEPTANCE TEST: schema rejects starter-only contracts.
+# Bootstrap script (legacy-contract-bootstrap.sh, lands in S6-T1) emits this
+# shape: empty out_of_domain[] and empty invariants[]. Schema MUST reject
+# this with a minItems:1 violation on both arrays.
+schema_version: loa.network.legacy-domain-contract.v0
+validation_tier: compatibility
+construct_slug: example-starter-pack
+
+generated_from:
+  manifest_path: ".claude/constructs/packs/example-starter-pack/MANIFEST.yaml"
+  manifest_hash: "sha256:0000000000000000000000000000000000000000000000000000000000000002"
+  generated_at: "2026-05-08T20:00:00Z"
+  bootstrap_version: "0.1.0"
+
+domain:
+  primary: starter-domain
+
+streams:
+  reads: []
+  writes: []
+
+capabilities:
+  filesystem:
+    reads: []
+    writes: []
+  network:
+    egress: []
+  env: []
+  mcp_tools: []
+
+context_policy:
+  include_prior_transcript: false
+  include_unread_stage_outputs: false
+  include_unlisted_grimoires: false
+  llm_session_strategy: fresh
+
+# Both arrays empty — operator has not yet curated. Schema rejects.
+out_of_domain: []
+invariants: []

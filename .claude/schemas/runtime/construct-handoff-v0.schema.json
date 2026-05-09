@@ -1,0 +1,222 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "loa.construct.handoff.v0",
+  "title": "ConstructHandoffEnvelope",
+  "description": "Per-stage handoff envelope for the Construct Bounded-Context Runtime Substrate (cycle-construct-bounded-context, SDD §3.2). Captures the stage's verdict on its own work: status, produced outputs, summary, next-allowed reads, partial-output disposition, and chain linkage to the paired invocation envelope. Schema version: v0 (initial).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "composition_id",
+    "stage_id",
+    "stage_pass",
+    "construct_slug",
+    "skill",
+    "status",
+    "outputs",
+    "summary",
+    "next_allowed_reads",
+    "partial_outputs",
+    "prev_hash",
+    "handoff_hash"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "loa.construct.handoff.v0",
+      "description": "Schema id literal."
+    },
+    "run_id": {
+      "type": "string",
+      "pattern": "^run_[A-Za-z0-9_-]{1,128}$",
+      "maxLength": 140
+    },
+    "composition_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_./-]+@sha256:[0-9a-f]{12,64}$",
+      "maxLength": 256
+    },
+    "stage_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_-]+\\.stage-[0-9]+$",
+      "maxLength": 128
+    },
+    "stage_pass": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "construct_slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+    },
+    "skill": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "failure", "timeout", "cancelled", "refused"],
+      "description": "FR-12.1: terminal stage outcome. 'refused' = construct rejected the invocation pre-execution (e.g., out-of-domain check fired). 'cancelled' = operator-initiated halt. Each enum value has distinct downstream semantics for the stream-graph validator."
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "uri", "schema_id", "hash"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": ["Signal", "Verdict", "Artifact", "Intent", "OperatorModel"]
+          },
+          "uri": {
+            "type": "string",
+            "maxLength": 400,
+            "description": "Path of the produced stream payload (must match output_contract.writes[].destination unless status != success and partial_outputs.disposition allows)."
+          },
+          "schema_id": {
+            "type": "string",
+            "pattern": "^loa\\.stream\\.[A-Za-z]+\\.v[0-9]+$",
+            "maxLength": 80
+          },
+          "hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "description": "Hash of the produced payload at write time. Re-verified by post-exec output validator (SDD §4.4)."
+          },
+          "domain": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["primary", "produced_by"],
+            "properties": {
+              "primary": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80,
+                "description": "Domain tag of the produced stream (S0-T8 / FR-11.5: domain attribution)."
+              },
+              "produced_by": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80,
+                "description": "Construct slug that produced this output. Cross-checked against construct_slug; mismatch is allowed only when the stage explicitly declares delegation in its output_contract."
+              }
+            }
+          }
+        }
+      },
+      "maxItems": 50,
+      "description": "Stream outputs the stage actually produced. On status=success, must satisfy invocation envelope's output_contract (post-exec validator)."
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["visible_to_operator", "text"],
+      "properties": {
+        "visible_to_operator": {
+          "type": "boolean",
+          "description": "If false, summary text is internal-only (audit log + downstream stage). If true, surfaced in operator-facing run report."
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 4000,
+          "description": "Human-readable stage summary. Bounded length so an entire run summary fits in operator review at a glance."
+        }
+      }
+    },
+    "next_allowed_reads": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["Signal", "Verdict", "Artifact", "Intent", "OperatorModel"]
+      },
+      "maxItems": 5,
+      "uniqueItems": true,
+      "description": "Stream types the next stage is permitted to consume from this stage. Computed by stream-graph validator at composition load; persisted in handoff for replay."
+    },
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message", "recoverable"],
+          "properties": {
+            "code": {
+              "type": "string",
+              "pattern": "^\\[[A-Z][A-Z0-9_-]+\\]$",
+              "maxLength": 80,
+              "description": "Bracketed typed error code matching the stream-graph validator and post-exec validator vocabulary (e.g. [STREAM-NO-PRODUCER], [OUTPUT-CONTRACT-VIOLATION], [POLICY-VIOLATION-WRITE], [STAGE-OUT-OF-DOMAIN], [ENVELOPE-CHAIN-BROKEN])."
+            },
+            "message": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "Operator-facing diagnostic. Sanitized for credentials/keys per shared lib."
+            },
+            "recoverable": {
+              "type": "boolean",
+              "description": "If true, the run-mode loop may retry the stage; if false, run halts."
+            }
+          }
+        }
+      ],
+      "description": "Populated when status != success. Null otherwise."
+    },
+    "partial_outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disposition", "count"],
+      "properties": {
+        "disposition": {
+          "type": "string",
+          "enum": ["discarded", "quarantined", "marked_non_consumable"],
+          "description": "What the runner did with outputs the stage produced before failing. 'discarded' = deleted. 'quarantined' = moved to .run/quarantine/. 'marked_non_consumable' = retained at original path with marker file so downstream stages refuse to read."
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Number of partial outputs (always 0 on status=success)."
+        }
+      }
+    },
+    "prev_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Links to invocation_hash of the paired invocation envelope (same stage_id + stage_pass). Per SDD §3.1 chain topology: handoff.prev_hash == its_invocation.invocation_hash."
+    },
+    "handoff_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Self-hash. Two-pass: canonicalize envelope WITHOUT this field, sha256, set."
+    }
+  },
+  "allOf": [
+    {
+      "description": "When status is not 'success', error MUST be a populated object.",
+      "if": {
+        "properties": { "status": { "not": { "const": "success" } } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": { "error": { "type": "object" } },
+        "required": ["error"]
+      }
+    },
+    {
+      "description": "When status is 'success', error MUST be null and partial_outputs.count MUST be 0.",
+      "if": {
+        "properties": { "status": { "const": "success" } },
+        "required": ["status"]
+      },
+      "then": {
+        "properties": {
+          "error": { "type": "null" },
+          "partial_outputs": {
+            "properties": { "count": { "const": 0 } }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+# Rejection case: stage 2 reads Signal expecting schema_id v2, but stage 1 produces
+# Signal with schema_id v1. Validator must emit [STREAM-SCHEMA-MISMATCH].
+schema_version: "1.2"
+kind: workflow
+name: validator-stream-schema-mismatch
+description: Schema_id mismatch between producer and consumer of the same stream type.
+intent: Validate that [STREAM-SCHEMA-MISMATCH] fires when consumer schema_id doesn't match producer's.
+
+chain:
+  - stage: 1
+    construct: artisan
+    skill: decomposing-feel
+    reads: []
+    writes:
+      - type: Signal
+        schema_id: loa.stream.Signal.v1
+  - stage: 2
+    construct: observer
+    skill: observing-users
+    reads:
+      - type: Signal
+        schema_id: loa.stream.Signal.v2  # mismatches stage 1's v1
+    writes: []

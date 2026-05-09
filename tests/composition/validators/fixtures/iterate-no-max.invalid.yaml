@@ -1,0 +1,26 @@
+# Rejection case: composition declares iterate[[1, 2]] but omits max_iterations
+# AND terminate_when. Validator must emit BOTH [ITERATION-NO-MAX] and [ITERATION-NO-TERMINATION].
+# Closes audit Sprint 0 Finding #2 (missing automated fixture for iterate constraint).
+schema_version: "1.2"
+kind: workflow
+name: validator-iterate-no-max
+description: iterate[] non-empty without max_iterations or terminate_when.
+intent: Validate that defense-in-depth iteration enforcement at the validator layer fires.
+
+iterate:
+  - [1, 2]
+# DELIBERATELY MISSING: max_iterations, terminate_when
+
+chain:
+  - stage: 1
+    construct: artisan
+    skill: decomposing-feel
+    reads: []
+    writes:
+      - type: Signal
+  - stage: 2
+    construct: observer
+    skill: observing-users
+    reads:
+      - type: Signal
+    writes: []

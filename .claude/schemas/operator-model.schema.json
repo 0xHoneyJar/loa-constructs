@@ -58,6 +58,25 @@
     "read_mode": {
       "type": "string",
       "enum": ["glance", "orient", "intervene"]
+    },
+    "domain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary"],
+      "properties": {
+        "primary": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "S0-T8. Domain attribution for this Operator-Model row — bounded-context tag of the work the operator is currently engaged in. Lets stages calibrate to the active domain rather than the operator's full expertise surface."
+        },
+        "produced_by": {
+          "type": "string",
+          "maxLength": 80,
+          "description": "S0-T8. For Operator-Model specifically, this typically points at the construct that synthesized the model (e.g. hivemind, gecko); the operator is the source of expertise but the construct is the producer of the row."
+        }
+      },
+      "description": "S0-T8 / cycle-construct-bounded-context Sprint 0. Optional domain block. Existing Operator-Model payloads without this field continue to validate."
     }
   }
 }

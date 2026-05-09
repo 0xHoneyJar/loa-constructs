@@ -1,0 +1,21 @@
+# Rejection case: stage 2 reads 'Verdict' but no upstream stage or composition.inputs[]
+# produces it. Validator must emit [STREAM-NO-PRODUCER].
+schema_version: "1.2"
+kind: workflow
+name: validator-stream-no-producer
+description: Stage 2 reads Verdict that nobody produces — validator should reject.
+intent: Validate that [STREAM-NO-PRODUCER] is emitted when reads have no upstream producer.
+
+chain:
+  - stage: 1
+    construct: artisan
+    skill: decomposing-feel
+    reads: []
+    writes:
+      - type: Signal
+  - stage: 2
+    construct: observer
+    skill: observing-users
+    reads:
+      - type: Verdict   # nobody produces this
+    writes: []

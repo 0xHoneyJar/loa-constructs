@@ -1,4 +1,51 @@
-Sprint 5: Dashboard Authentication
-Completed: 2025-12-31
-Approved by: Paranoid Cypherpunk Security Auditor
-Verdict: APPROVED - LETS FUCKING GO
+Sprint 5 (Persistent State + Iteration Auditor) — cycle-construct-bounded-context — PARTIAL
+
+Completed: 2026-05-09T02:21:06Z
+Branch: cycle/construct-bounded-context
+Commit: 19e4eb09
+Beads: bd-nobi.6 (closed with partial-complete annotation)
+Status: PARTIAL — 5 of 8 tasks shipped + 1 stub (S5-T6 dual-run; full integration → Sprint 5b).
+
+Implementation: APPROVED (Senior Tech Lead) — All good (with noted concerns)
+Security Audit: APPROVED - LETS FUCKING GO (Paranoid Cypherpunk Auditor)
+
+Quality gate verdict: PARTIAL PASS through full implement → review → audit cycle.
+
+Tasks Shipped (5 of 8):
+- ✓ S5-T1: lib/persistent-state.sh — composite key + atomic-rename + flock
+- ✓ S5-T2: TTL policy (write/access) + state-poisoning safeguard
+- ✓ S5-T3: lib/compose-state-gc.sh — race-coordinated GC
+- ✓ S5-T4: gc-vs-running-composition sentinel test
+- ✓ S5-T5: lib/compose-iteration-audit.sh — Phase 1 enumerate
+- ✓ S5-T8: iteration validation closed loop (Sprint 1's compose-stream-graph + auditor surfaces at corpus level)
+
+Tasks Deferred (3 of 8 + 1 stub):
+- ⏸ S5-T6 dual-run with L1/L2/L3 diff: STUB shipped at --phase dual-run; full integration → Sprint 5b
+- ⏸ S5-T7 opt-in iteration_mode runtime enforcement: auditor surfaces flag; runtime → Sprint 5b
+                  (S5-T8 closed loop above; mandate enforcement at validator layer)
+
+Findings tracked forward (non-blocking):
+- Reviewer (3 concerns): subshell-vs-array gotcha repeating risk; gotchas scattered across reviewer.md files; F1 caller count grew 3→4.
+- Reviewer (1 assumption): --ttl-clock-skew-seconds is test-mode flag, not operational.
+- Reviewer (1 alternative): TTL extension audit-trail could carry invocation_hash for forensic traceability.
+- Auditor (4 carry-forward MEDIUM + 1 NEW LOW):
+  - F1 slug path traversal (Sprint 1+2 inherited; Sprint 5 ADDS defense-in-depth via _validate_slug)
+  - F2 schema_id absolute-path traversal (Sprint 1 inherited; output-gate not modified)
+  - F3 JCS fallback breadth (Sprint 2 inherited; Sprint 5 doesn't add new sites)
+  - B-001 tier-cap not enforced at runner boundary (PR Bridgebuilder; tracked Sprint 6)
+  - F5 NEW LOW: --ttl-clock-skew-seconds operational risk; gate behind LOA_GC_TEST_MODE
+
+Sprint 6 hardening bundle: ~120 LOC across 6 areas closes all current findings.
+
+Test status:
+- Sprint 5 state suite: 13/13 pass
+- Sprint 5 iteration suite: 6/6 pass
+- Combined Sprint 1+2+3+5: 59/59 pass
+- Sprint 0 schema-validation gate: pass=9 fail=0 skip=0 (regression-clean)
+- Total: 68/68 tests passing
+
+Verdict: implementation 5-of-8 + reviewed + audited. Ready to advance to Sprint 6 hardening bundle.
+
+Reviewer report: grimoires/loa/a2a/sprint-5/reviewer.md
+Engineer feedback (review): grimoires/loa/a2a/sprint-5/engineer-feedback.md
+Auditor feedback: grimoires/loa/a2a/sprint-5/auditor-sprint-feedback.md

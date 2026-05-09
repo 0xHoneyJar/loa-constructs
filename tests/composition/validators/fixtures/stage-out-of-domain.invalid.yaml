@@ -1,0 +1,27 @@
+# Rejection case: stage 1 declares domain.primary 'security' but the artisan
+# construct manifest authorises {design} (legacy single-tag form). Validator
+# must emit [STAGE-OUT-OF-DOMAIN].
+# Sprint 1 (S1-T4 + S1-T6) — closes the third-of-six S1-T1 acceptance error
+# class. The remaining unrepresented class ([ENVELOPE-CHAIN-BROKEN]) is the
+# natural responsibility of envelope-chain.sh in Sprint 2 — the validator
+# only sees it during full-run replay.
+schema_version: "1.2"
+kind: workflow
+name: validator-stage-out-of-domain
+description: Stage declares domain.primary unauthorised by the construct manifest.
+intent: Validate that the stream-graph validator refuses stages whose declared bounded context does not match the construct's manifest domain.
+
+inputs:
+  - type: Intent
+    name: operator_intent
+
+chain:
+  - stage: 1
+    construct: artisan
+    skill: decomposing-feel
+    domain:
+      primary: security  # artisan only authorises 'design' — this MUST trip the gate
+    reads:
+      - type: Intent
+    writes:
+      - type: Signal
