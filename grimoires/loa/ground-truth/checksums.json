@@ -1,9 +1,8 @@
 {
-  "generated_at": "2026-05-09T18:46:39Z",
-  "git_sha": "5be8b868e1e704cb3071e5e246ab82aaa8531194",
+  "generated_at": "2026-05-09T20:48:03Z",
+  "git_sha": "b397a3ec38b7147b7bb9a51635e6f002def48958",
   "algorithm": "sha256",
   "files": {
-    "README.md": "e04be6ad67b917e7b7365273c32c0b8636e25d9e029f2fba04caac815b40a7da",
-    "apps/api/src/index.ts": "b24ade2409fd7580f30c4bbcb2758120302bafd0873cfdab572444389bd83e95"
+    "grimoires/loa/reality/README.md": "cec7549e6f34591ddd6d0aca39a2879d90b02c459a5c327da3c3cbd1f59c795a"
   }
 }
