@@ -1,5 +1,18 @@
-# Composition · feel-audit
+# Composition · feel-audit  [DEPRECATED 2026-05-09 — see redirect below]
 # ================================================================
+# DEPRECATED: superseded by `compositions/audit-feel.yaml` (v3.0.0,
+# bounded-context substrate, schema_version 1.1). The v3 file adds
+# context_policy, isolation_tier, output_contract, persistent_state_ttl_policy,
+# and inputs[] declaration — substrate-runner-ready. This v2 is doctrine-only.
+#
+# DO NOT install or invoke this file. The runner registry resolves
+# `audit-feel` to `compositions/audit-feel.yaml`. This file is retained
+# as a doctrine breadcrumb for the v1 → v2 → v3 evolution trail.
+#
+# Migration: nothing to migrate — operators were never wired against
+# this v2; cycle-005/006 typed-streams work bypassed it.
+# ----------------------------------------------------------------
+#
 # First workflow-kind composition authored per doctrine v4 §15.2.
 # Surfaces material-quality issues during FEEL sessions using
 # observer's audit depth on top of artisan's feel lens.
@@ -9,6 +22,10 @@
 #             (folklore-only, gitignored, prose-shape). This v2 is
 #             checkable + doctrine-conformant + runner-ready.
 # ================================================================
+
+deprecated: true
+deprecated_at: "2026-05-09"
+deprecated_in_favor_of: "compositions/audit-feel.yaml"
 
 schema_version: "1.0"
 kind: workflow                        # doctrine v4 §15.2 (vs. frame-kind)

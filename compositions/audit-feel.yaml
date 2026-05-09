@@ -7,7 +7,11 @@
 # context_policy, isolation_tier, and envelope contract fields from the
 # substrate SDD (Sprint 3 S3-T9 golden-path target).
 #
-# Supersedes: grimoires/compositions/discovery/audit-feel.yaml (doctrine-only)
+# Supersedes: grimoires/compositions/discovery/audit-feel.yaml (doctrine-only,
+#             marked `deprecated: true` in the same change). Resolver picks
+#             this file by namespace+name; the predecessor is retained as a
+#             doctrine breadcrumb (the v1 folklore → v2 doctrine → v3 substrate
+#             evolution trail). LOW-3 disambiguation per BB review 2026-05-09.
 # =====================================================================
 
 schema_version: "1.1"
@@ -56,10 +60,16 @@ chain:
       include_prior_transcript: false
       include_unread_stage_outputs: false
       include_unlisted_grimoires: false
+      # MEDIUM-2 fix (BB review 2026-05-09): orchestrator MUST stage the
+      # operator-supplied target_artifact under runs/{{run_id}}/input/
+      # before stage-1 starts. Do NOT interpolate {{target_artifact}}
+      # directly into a path glob — target_artifact is a typed Artifact
+      # envelope, not a path string. Type-confused interpolation is the
+      # Log4Shell bug shape (CVE-2021-44228). The egress filter bounds
+      # blast radius, but the contract should be explicit at this layer.
       allowed_read_paths:
         - ".claude/constructs/packs/artisan/skills/decomposing-feel/**"
         - "grimoires/loa/runs/{{run_id}}/input/**"
-        - "{{target_artifact}}"
       allowed_write_paths:
         - ".run/compose/{{run_id}}/stage-1/output/**"
       allowed_env_vars:
@@ -152,12 +162,22 @@ chain:
           required: true
 
 # ---- Outputs (composition-level) -----------------------------------
+#
+# LOW-1 fix (BB review 2026-05-09): both stage-2 and stage-3 emit
+# `Verdict` with the same schema_id. The composition-level output
+# binding therefore needs an explicit `source_stage` to disambiguate
+# which producer is canonical. Without it, type-only resolution would
+# match whichever artifact the resolver finds first (Kafka topic-
+# compaction primary-key shape). When loa.stream.EnrichedVerdict.v1
+# exists, prefer renaming stage-3's output type — that is the cleaner
+# self-documenting fix. Until then, source_stage carries the contract.
 
 outputs:
   - type: Verdict
+    source_stage: audit-feel.stage-3
     destination: ".run/feedback-v3.jsonl"
     schema: ".claude/schemas/streams/loa.stream.Verdict.v1.schema.json"
-    description: Final feel-audit verdict with evidence chain
+    description: Final feel-audit verdict with evidence chain (stage-3 enriched)
   - type: Signal
     destination: ".run/construct-trajectory.jsonl"
     description: Invocation trail for all three stages
