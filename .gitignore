@@ -326,7 +326,7 @@ grimoires/loa/context/private/
 .run/cycles/
 
 # Local apps DBs (not source-of-truth)
-apps/api/local.db
+# (cycle-0 T1.0 / BB review F3: apps/api/local.db dropped — shadowed by apps/*/local.db glob)
 apps/*/local.db
 
 # Bytecode caches (Python). Project shouldn't commit these.

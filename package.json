@@ -2,7 +2,7 @@
   "name": "loa-constructs",
   "private": true,
   "version": "1.5.0",
-  "description": "SaaS platform for distributing, licensing, and monetizing AI agent constructs",
+  "description": "SaaS platform for distributing, licensing, and monetizing AI agent constructs. NB: this `version` field is the monorepo-package version domain (historical bun/turbo workspace tag); the canonical construct-registry release version is shown in README.md badge + CHANGELOG.md and on GitHub Releases (currently v2.41.0). See cycle-0 README version-surface map.",
   "workspaces": ["apps/*", "packages/*"],
   "packageManager": "bun@1.3.11",
   "engines": {
