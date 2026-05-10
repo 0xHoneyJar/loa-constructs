@@ -64,7 +64,7 @@ do_validate() {
         for field in name slug version description; do
             if [[ "$manifest_file" == *.yaml ]]; then
                 local val
-                val=$(yq -r ".$field // empty" "$manifest_file" 2>/dev/null || true)
+                val=$(yq -r ".$field // \"\"" "$manifest_file" 2>/dev/null || true)
                 [[ -z "$val" ]] && has_fields=false
             else
                 local val
@@ -87,7 +87,7 @@ do_validate() {
     if [[ -n "$manifest_file" ]]; then
         local version
         if [[ "$manifest_file" == *.yaml ]]; then
-            version=$(yq -r '.version // empty' "$manifest_file" 2>/dev/null || true)
+            version=$(yq -r '.version // ""' "$manifest_file" 2>/dev/null || true)
         else
             version=$(jq -r '.version // empty' "$manifest_file" 2>/dev/null || true)
         fi
@@ -159,7 +159,7 @@ do_validate() {
     if [[ -n "$manifest_file" ]]; then
         local license_field
         if [[ "$manifest_file" == *.yaml ]]; then
-            license_field=$(yq -r '.license // empty' "$manifest_file" 2>/dev/null || true)
+            license_field=$(yq -r '.license // ""' "$manifest_file" 2>/dev/null || true)
         else
             license_field=$(jq -r '.license // empty' "$manifest_file" 2>/dev/null || true)
         fi
