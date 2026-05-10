@@ -156,17 +156,21 @@ if [[ "$(echo "$COMP_JSON" | jq -r '._error // ""')" != "" ]]; then
     exit 1
 fi
 
-# Validate against composition schema if available
+# Validate against composition schema if available.
+# Pass JSON + schema-path via argv to avoid Python-heredoc injection (BB review F001).
+# Using argv is safe because Python receives sys.argv strings as raw — no shell
+# metachars or quote-breaking can survive into Python source.
 if [[ -f "$COMPOSE_SCHEMA" ]]; then
-    VALIDATE_RESULT="$(python3 - <<PYEOF
+    VALIDATE_RESULT="$(python3 - "$COMP_JSON" "$COMPOSE_SCHEMA" <<'PYEOF'
 import json, sys
 try:
     import jsonschema
 except ImportError:
     print(json.dumps({"ok": False, "reason": "jsonschema_not_installed"}))
     sys.exit(0)
-comp = json.loads('''$COMP_JSON''')
-with open("$COMPOSE_SCHEMA") as f:
+comp = json.loads(sys.argv[1])
+schema_path = sys.argv[2]
+with open(schema_path) as f:
     schema = json.load(f)
 validator = jsonschema.Draft202012Validator(schema)
 errors = sorted(validator.iter_errors(comp), key=lambda e: list(e.absolute_path))

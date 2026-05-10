@@ -316,12 +316,17 @@ def render(slug: str, manifest: dict) -> str:
     template_text = TEMPLATE_PATH.read_text()
     tpl = string.Template(template_text)
 
+    # BB review F005: use a content-addressable sentinel that cannot collide with
+    # legitimate adapter content (sha256-shaped placeholder). Compute the real
+    # checksum from canonical_input AFTER substitution but BEFORE the sentinel
+    # rewrite, so the hash is deterministic and the rewrite is exactly one match.
+    checksum_sentinel = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
     placeholders = {
         "GEN_VERSION": GEN_VERSION,
         "GEN_TIMESTAMP": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "MANIFEST_PATH": str(manifest_relpath),
         "MANIFEST_CHECKSUM": manifest_checksum,
-        "ADAPTER_CHECKSUM": "PLACEHOLDER",
+        "ADAPTER_CHECKSUM": checksum_sentinel,
         "SLUG": slug,
         "NAME": name,
         "DESCRIPTION_QUOTED": description_quoted,
@@ -362,7 +367,12 @@ def render(slug: str, manifest: dict) -> str:
     else:
         canonical_input = rendered
     adapter_checksum = "sha256:" + hashlib.sha256(canonical_input.encode()).hexdigest()
-    rendered = rendered.replace("PLACEHOLDER", adapter_checksum, 1)
+    # BB review F005: replace the sha256-shaped sentinel exactly once. The sentinel
+    # is content-addressable and cannot collide with persona prose or manifest values
+    # (it's the literal "sha256:0..0"), so a 1-shot replace is safe.
+    if checksum_sentinel not in rendered:
+        raise RuntimeError(f"adapter-generator: checksum sentinel missing for {slug}")
+    rendered = rendered.replace(checksum_sentinel, adapter_checksum, 1)
 
     return rendered
 
