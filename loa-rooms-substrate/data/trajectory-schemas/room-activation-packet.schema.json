@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://0xhoneyjar.dev/loa/schemas/room-activation-packet.schema.json",
+  "title": "Room Activation Packet",
+  "description": "Pre-spawn invocation envelope for a Loa construct room (FR-4.6). Persisted at .run/rooms/<room_id>.json. room_id is content-addressable (SHA-256 of JCS-canonical packet body without room_id field).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "room_id",
+    "cycle_id",
+    "construct_slug",
+    "mode",
+    "invocation_path",
+    "expected_output_type",
+    "created_at",
+    "created_by"
+  ],
+  "properties": {
+    "room_id": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "description": "Content-addressable id (sha256 of JCS-canonical packet body without room_id)."
+    },
+    "cycle_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "construct_slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "persona": {
+      "type": ["string", "null"],
+      "maxLength": 64,
+      "description": "Optional persona pin. If null, adapter default applies."
+    },
+    "mode": {
+      "enum": ["room", "studio"],
+      "description": "Default 'room'. Studio means natural-language synthesis allowed for this invocation."
+    },
+    "invocation_path": {
+      "enum": ["at_mention", "agent_call", "room_packet"],
+      "description": "Tracks how the room is being activated. Sprint 0 finding: 'agent_call' does not work for project agents — use 'at_mention' or 'room_packet' (which itself surfaces via @-mention)."
+    },
+    "inputs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "ref"],
+        "properties": {
+          "type": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "ref": { "type": "string", "minLength": 1, "maxLength": 1024 },
+          "hash": {
+            "type": ["string", "null"],
+            "pattern": "^sha256:[a-f0-9]{64}$"
+          }
+        }
+      },
+      "description": "Echoes prior stage's output_refs when chained."
+    },
+    "expected_output_type": {
+      "enum": ["Signal", "Verdict", "Artifact", "Intent", "Operator-Model"]
+    },
+    "expected_handoff_path": {
+      "type": ["string", "null"],
+      "maxLength": 1024,
+      "description": "Where the produced handoff packet should be written. Null for default convention."
+    },
+    "composition_run_id": {
+      "type": ["string", "null"],
+      "maxLength": 128
+    },
+    "stage_index": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 255
+    },
+    "forbidden_context": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "description": "Paths/refs the construct MUST NOT load. Behavioral enforcement this cycle; runtime enforcement deferred to future cycle (acknowledged limitation)."
+    },
+    "allowed_skills": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*$",
+        "maxLength": 64
+      },
+      "description": "Subset of construct's declared skills that this room may invoke. Empty array means all declared skills allowed."
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$"
+    },
+    "created_by": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Operator handle, composition runner id, or other producing entity."
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+(?:\\.[0-9]+)?$",
+      "description": "Schema version. Defaults to 1.0 if absent."
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "room_id": "sha256:0c40b6b071931bcd582c878ff7b15fd41a3439557b5ddfd9d8f042f856a53ecb",
+  "cycle_id": "simstim-20260509-aead9136",
+  "construct_slug": "artisan",
+  "persona": "ALEXANDER",
+  "mode": "room",
+  "invocation_path": "at_mention",
+  "inputs": [],
+  "expected_output_type": "Verdict",
+  "expected_handoff_path": null,
+  "composition_run_id": null,
+  "stage_index": null,
+  "forbidden_context": [],
+  "allowed_skills": [
+    "scoring-experience",
+    "decomposing-feel"
+  ],
+  "created_at": "2026-05-09T22:00:00Z",
+  "created_by": "test-fixture-generator"
+}
