@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://0xhoneyjar.dev/loa/schemas/construct-handoff.schema.json",
+  "title": "Construct Handoff Packet",
+  "description": "Structured artifact emitted at every construct boundary crossing in a composition. Three-tier field policy (required / recommended / optional) per PRD FR-3.1abc. See grimoires/loa/sdd.md §2.4.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "construct_slug",
+    "output_type",
+    "verdict",
+    "invocation_mode",
+    "cycle_id"
+  ],
+  "properties": {
+    "construct_slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "Loa construct identifier. Required tier."
+    },
+    "output_type": {
+      "enum": ["Signal", "Verdict", "Artifact", "Intent", "Operator-Model"],
+      "description": "Stream type the construct emitted. Required tier."
+    },
+    "verdict": {
+      "type": "object",
+      "description": "Construct-specific structured payload. May be empty {} but key MUST be present. Required tier."
+    },
+    "invocation_mode": {
+      "enum": ["room", "studio", "headless"],
+      "description": "How the construct was invoked. Required tier."
+    },
+    "cycle_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Identifier for the encompassing cycle (e.g., simstim ID, bridge ID). Required tier."
+    },
+    "persona": {
+      "type": ["string", "null"],
+      "maxLength": 64,
+      "description": "Embodied persona, if any (e.g., ALEXANDER). Recommended tier."
+    },
+    "output_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/typedRef" },
+      "description": "Outputs the construct produced (file refs, packet refs, content-addressable hashes). Recommended tier."
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1024
+      },
+      "description": "Citations: file:line refs, transcript excerpts, prior packet IDs. Recommended tier."
+    },
+    "domain": {
+      "type": ["string", "null"],
+      "maxLength": 64,
+      "description": "Bounded-context domain (e.g., 'visual-surface'). Optional tier."
+    },
+    "agent_id": {
+      "type": ["string", "null"],
+      "description": "Claude Code subagent ID when interactive. Null when headless. Optional tier."
+    },
+    "transcript_path": {
+      "type": ["string", "null"],
+      "description": "Local-machine path to subagent transcript. See SDD §2.4.1a access policy. Optional tier."
+    },
+    "transcript_excerpt": {
+      "type": ["string", "null"],
+      "maxLength": 4096,
+      "description": "Sanitized highlights for cross-tool sharing. Preferred over transcript_path when packets cross machine boundaries. Optional tier."
+    },
+    "input_refs": {
+      "type": "array",
+      "maxItems": 256,
+      "items": { "$ref": "#/$defs/typedRef" },
+      "description": "Inputs the construct consumed. Optional tier."
+    },
+    "open_questions": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      },
+      "description": "AskUserQuestion-class items the construct deferred. Optional tier."
+    },
+    "gates_passed": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/gate" },
+      "description": "Gates the construct met. Optional tier."
+    },
+    "gates_failed": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/gate" },
+      "description": "Gates the construct failed (with reason). Optional tier."
+    },
+    "composition_run_id": {
+      "type": ["string", "null"],
+      "maxLength": 128,
+      "description": "Composition run identifier when chained. Optional tier."
+    },
+    "stage_index": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "maximum": 255,
+      "description": "Zero-based stage index in a composition. Optional tier."
+    },
+    "created_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]{1,9})?Z$",
+      "description": "RFC 3339 UTC timestamp with explicit Z. Validator MAY auto-populate if missing. Optional tier."
+    },
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+(?:\\.[0-9]+)?$",
+      "description": "Schema version of this packet. Always 1.x.y for this cycle. Optional tier (defaults to 1.0)."
+    }
+  },
+  "$defs": {
+    "typedRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "ref"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64,
+          "description": "Reference category (e.g., file, packet, transcript, url, sha256)."
+        },
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024,
+          "description": "The reference itself (path, id, url)."
+        },
+        "hash": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "description": "SHA-256 content hash for content-addressable refs. Null when not applicable."
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gate_name", "status"],
+      "properties": {
+        "gate_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "status": {
+          "enum": ["passed", "failed", "skipped", "deferred"]
+        },
+        "reason": {
+          "type": ["string", "null"],
+          "maxLength": 1024
+        }
+      }
+    }
+  }
+}

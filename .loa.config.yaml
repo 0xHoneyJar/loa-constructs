@@ -1708,7 +1708,7 @@ cta:
 # Hounfour — Model-Heterogeneous Agent Routing (cycle-026)
 hounfour:
   flatline_routing: false   # Route Flatline/GPT-review through model-invoke (cheval.py)
-  flatline_tertiary_model: gemini-3.1-pro-preview  # 3-model Flatline: Opus + GPT-5.5-pro + Gemini-3.1-pro
+  flatline_tertiary_model: google:gemini-3.1-pro-preview  # 3-model Flatline: provider-pinned form (bare alias 'gemini-3.1-pro-preview' isn't registered; readiness reads this field first per #756)
 
   # Per-subsystem feature flags (all default true — opt-out)
   feature_flags:
