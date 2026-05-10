@@ -1,11 +1,39 @@
 # loa-rooms-substrate
 
 > a substrate that puts every loa construct into an isolated room.
+> kids in a classroom, each with a role, passing envelopes that show how they thought.
 
 [![status](https://img.shields.io/badge/status-experimental-yellow)](#status)
 [![type](https://img.shields.io/badge/type-substrate-blueviolet)](#what-this-is)
 [![runtime](https://img.shields.io/badge/runtime-claude--code--native--subagents-blue)](#runtime-target)
 [![scope](https://img.shields.io/badge/scope-pan--construct-green)](#what-this-is)
+[![thesis](https://img.shields.io/badge/thesis-observability--first-orange)](#the-thesis-observability)
+
+---
+
+## The thesis: observability
+
+The point of a runtime substrate isn't to make agents work — agents work fine. The point is to make their work **legible to an outside observer**.
+
+The originating brief framed this as a school-handoff metaphor: a classroom of students, each with a specific role, passes envelopes between desks. To delegate work cleanly, the teacher has to be able to **read into the envelopes** and see how each student is thinking — not just what they wrote on the front. When chains of agents pass results to each other, the bug almost never lives in any single agent. It lives in the gap between *what one agent thought it was producing* and *what the next agent thought it was receiving*. That gap is invisible until envelopes carry a WHY.
+
+This pack enforces three observability invariants:
+
+1. **No handoffs without WHY.** Every handoff packet has a required `why.rationale` field (≥32 characters of stated reasoning). The validator rejects packets without it. School rule: you don't pass a note without showing your work.
+
+2. **Stated reasoning is suspect — pair with cross-validation.** Per the [Anthropic NLA paper (2026)](https://transformer-circuits.pub/2026/nla/), models maintain internal beliefs that diverge from their verbalized outputs. Confabulation produces plausible-sounding rationales that contain verifiable factual errors. The substrate addresses this by pairing the rationale (which can lie) with **cross-validation signals**:
+   - `why.decisions_considered` — what options were weighed and rejected (verifiable against actual behavior)
+   - `why.tools_used` — what tools the construct invoked, with purpose (verifiable against the transcript)
+   - `why.confidence` — self-reported confidence (calibratable over time)
+   - `why.alternative_verdicts` — counterfactuals (catches over-confidence)
+
+   An outside observer can compare stated decisions against tool-call traces and surface divergence.
+
+3. **WHY surfaces at the top of the reply, not buried in files.** Each adapter instructs the construct to put its rationale at the head of the response, before any output. Files persist for replay; the human reading the orchestrator transcript sees the WHY first.
+
+The handoff packet schema enforces (1) at validation time. The adapter template enforces (2) and (3) by construction. Future-cycle work: an observability station that visualizes envelope chains and flags rationale-vs-behavior divergence (zero-native.dev or successor).
+
+This is what the brief meant by "the operator cannot reliably see *this construct was spawned* in the Claude Code UI" — the goal isn't UI affordance for its own sake, it's making reasoning visible enough to debug.
 
 ---
 
@@ -240,6 +268,31 @@ This pack distills the deliverables of the `cycle-construct-rooms` cycle (May 20
 Source brief: "Loa-First Construct Invocation Boundaries" — operator-private; activation receipt declared at simstim cycle entry; expiry: cycle close.
 
 ---
+
+## Model routing & token cost (open design)
+
+Each generated adapter currently emits `model: inherit` in its frontmatter — meaning the spawned subagent inherits the parent session's model and thinking effort. If your operator session is running **opus + high thinking**, every spawned construct also runs opus + high thinking. With 31 constructs and any composition that touches a few of them, token cost compounds quickly.
+
+This is an open architectural concern, not solved by this pack:
+
+- **What constructs *should* do (operator's stated direction):** model selection should be **task-adaptive** and routed via Hounfour (`loa-hounfour@8.3.1`, the L2 protocol layer). A construct typically shouldn't need to declare which model runs it — research-class tasks route to opus, craft-class to sonnet, action-class to haiku, and an operator can always override. Hounfour's intelligence-routing contract is still being specified ([@janitooor](https://github.com/janitooor) is working through the details); the substrate cannot bake in a final answer until that lands.
+
+- **What constructs *can* do today (interim):**
+  - **Per-adapter override**: edit a generated `.claude/agents/construct-X.md` to set `model: sonnet` (or `haiku-4-5`, etc.) — but regeneration overwrites unless the manifest `adapter.model` field is set.
+  - **Per-manifest override**: set `adapter.model: <alias>` in a construct's `construct.yaml` (v4 schema field). Generator honors it.
+  - **Global default override**: set `LOA_ROOMS_DEFAULT_MODEL` env var (e.g., `LOA_ROOMS_DEFAULT_MODEL=sonnet bash construct-adapter-gen.sh`) — generator uses it for any construct without an explicit `adapter.model`. Not yet implemented; future-cycle work.
+
+- **What the substrate explicitly does NOT decide:** which model a given construct should use. `loa-rooms-substrate` is mechanism, not opinion. When Hounfour's routing contract finalizes, it becomes the source of truth; the substrate's job is to render whatever model decision Hounfour produces into the adapter frontmatter.
+
+If you've just deployed the global mirror and your token cost is climbing, the immediate lever is:
+
+```bash
+# Quick interim mass-override of the global mirror only (does not affect future regens)
+sed -i.bak 's|^model: inherit$|model: sonnet|' ~/.claude/agents/construct-*.md
+rm -f ~/.claude/agents/construct-*.md.bak
+```
+
+Re-running `cp .claude/agents/construct-*.md ~/.claude/agents/` from loa-constructs will revert this — until either the manifest declares `adapter.model` per-construct, or the global config knob lands.
 
 ## Trade-offs (the honest version)
 

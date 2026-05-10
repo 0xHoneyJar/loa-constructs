@@ -3,5 +3,8 @@
   "output_type": "Verdict",
   "verdict": {},
   "invocation_mode": "room",
-  "cycle_id": "simstim-20260509-aead9136"
+  "cycle_id": "simstim-20260509-aead9136",
+  "why": {
+    "rationale": "Required-only fixture: minimal handoff with empty verdict for schema-conformance testing. The why field carries the rationale that this packet is intentionally sparse to exercise the validator's required-tier path."
+  }
 }

@@ -10,7 +10,8 @@
     "output_type",
     "verdict",
     "invocation_mode",
-    "cycle_id"
+    "cycle_id",
+    "why"
   ],
   "properties": {
     "construct_slug": {
@@ -37,6 +38,65 @@
       "minLength": 1,
       "maxLength": 128,
       "description": "Identifier for the encompassing cycle (e.g., simstim ID, bridge ID). Required tier."
+    },
+    "why": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rationale"],
+      "description": "REQUIRED. The construct's stated reasoning for the verdict. Per the school-handoff metaphor: an envelope is not a delivery, it is a thought process made visible. No handoffs without WHY. Per the Anthropic NLA paper (transformer-circuits.pub/2026/nla), stated reasoning can confabulate — so the WHY field is paired with cross-validation signals (decisions_considered, decisions_rejected, tools_used) that an outside observer can use to detect divergence between stated and actual reasoning.",
+      "properties": {
+        "rationale": {
+          "type": "string",
+          "minLength": 32,
+          "maxLength": 4096,
+          "description": "Plain-language explanation of WHY this verdict was reached. Should answer: what was the construct's interpretation of the input? What considerations did it weigh? What governed its conclusion? Minimum 32 chars enforces this is not a placeholder."
+        },
+        "decisions_considered": {
+          "type": "array",
+          "maxItems": 16,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["option", "outcome"],
+            "properties": {
+              "option": { "type": "string", "minLength": 1, "maxLength": 256 },
+              "outcome": { "enum": ["taken", "rejected", "deferred"] },
+              "reason": { "type": ["string", "null"], "maxLength": 512 }
+            }
+          },
+          "description": "Decisions the construct weighed during reasoning. Cross-validation signal — outside observer can verify whether the stated rationale aligns with which options were actually considered."
+        },
+        "tools_used": {
+          "type": "array",
+          "maxItems": 32,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tool"],
+            "properties": {
+              "tool": { "type": "string", "minLength": 1, "maxLength": 64 },
+              "purpose": { "type": ["string", "null"], "maxLength": 256 },
+              "count": { "type": ["integer", "null"], "minimum": 0 }
+            }
+          },
+          "description": "Tools the construct invoked during reasoning. Cross-validation signal — if rationale claims 'I checked the canonical schema' but tools_used lacks a Read of the schema file, the stated reasoning may be confabulated."
+        },
+        "confidence": {
+          "type": ["string", "null"],
+          "enum": [null, "low", "medium", "high"],
+          "description": "Construct's self-reported confidence in the verdict. Null when not assessed."
+        },
+        "alternative_verdicts": {
+          "type": "array",
+          "maxItems": 8,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "description": "Other verdicts the construct could have produced and why they were not chosen. Surfacing alternatives catches over-confidence."
+        }
+      }
     },
     "persona": {
       "type": ["string", "null"],

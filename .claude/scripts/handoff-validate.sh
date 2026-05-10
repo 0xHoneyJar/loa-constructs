@@ -92,8 +92,13 @@ if ! [[ "$THRESHOLD" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 
-# Required tier per PRD FR-3.1
-REQUIRED_FIELDS=("construct_slug" "output_type" "verdict" "invocation_mode" "cycle_id")
+# Required tier per PRD FR-3.1 + cycle-rooms-observatory amendment (no handoffs without WHY)
+# 'why' enforces the school-handoff metaphor: every envelope must include the
+# student's stated thought process, not just the answer. Per the NLA paper
+# (transformer-circuits.pub/2026/nla), stated reasoning is suspect — but
+# absence of stated reasoning is dispositive: an envelope without WHY cannot
+# be debugged, retraced, or chain-validated.
+REQUIRED_FIELDS=("construct_slug" "output_type" "verdict" "invocation_mode" "cycle_id" "why")
 RECOMMENDED_FIELDS=("persona" "output_refs" "evidence")
 
 # Run JSON Schema validation via python

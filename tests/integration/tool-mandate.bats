@@ -182,7 +182,11 @@ Here is my analysis. Returning the structured handoff packet:
   "cycle_id": "simstim-20260509-aead9136",
   "persona": "ALEXANDER",
   "output_refs": [],
-  "evidence": ["test fixture"]
+  "evidence": ["test fixture"],
+  "why": {
+    "rationale": "Test fixture for stop-hook handoff collection. Verdict score 4 reflects the test inputs; rationale exists to satisfy the no-handoffs-without-why requirement.",
+    "confidence": "low"
+  }
 }
 ```
 
@@ -246,7 +250,10 @@ EOF
   "cycle_id": "test",
   "persona": "ALEXANDER",
   "output_refs": [{"type": "verdict", "ref": "test"}],
-  "evidence": ["test"]
+  "evidence": ["test"],
+  "why": {
+    "rationale": "Validation-path fixture for the stop-hook test. The why is not the substantive output; it exists to keep the packet schema-valid so the test can verify validation.ok=true."
+  }
 }
 ```
 EOF

@@ -34,5 +34,15 @@
   "gates_failed": [],
   "composition_run_id": "20260510-parity-pair",
   "stage_index": 0,
-  "created_at": "2026-05-10T01:32:14Z"
+  "created_at": "2026-05-10T01:32:14Z",
+  "why": {
+    "rationale": "Surface scored 4/5: structure holds (typography hierarchy, baseline grid honored), behavior is correct, but motion uses ease-in-out where springs are warranted given the visual mass. Chroma exceeds institutional range. Verdict prescribes specific deltas (mass/stiffness/damping triple, chroma cap) rather than directional guidance because the corrections are measurable.",
+    "decisions_considered": [
+      {"option": "Defer motion to a later pass", "outcome": "rejected", "reason": "motion-mass mismatch is a structural finding, not styling"}
+    ],
+    "tools_used": [
+      {"tool": "Read", "purpose": "inspect surface taste tokens", "count": 2}
+    ],
+    "confidence": "high"
+  }
 }
