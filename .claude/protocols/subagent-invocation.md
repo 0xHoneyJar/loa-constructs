@@ -170,7 +170,7 @@ When a blocking verdict is returned:
 ### Directory Structure
 
 ```
-.claude/subagents/
+.claude/agents/loa-validator-
 ├── README.md                    # Overview and usage
 ├── architecture-validator.md    # SDD compliance
 ├── security-scanner.md          # Vulnerability detection
@@ -179,7 +179,7 @@ When a blocking verdict is returned:
 
 ### Loading Process
 
-1. Read subagent file from `.claude/subagents/`
+1. Read subagent file from `.claude/agents/loa-validator-`
 2. Parse YAML frontmatter for metadata
 3. Extract checks from `<checks>` section
 4. Use `<output_format>` as report template
@@ -207,7 +207,7 @@ output_path: string   # Report location template
 ### Subagent Not Found
 
 ```
-Error: Subagent 'unknown-validator' not found in .claude/subagents/
+Error: Subagent 'unknown-validator' not found in .claude/agents/loa-validator-
 Available subagents: architecture-validator, security-scanner, test-adequacy-reviewer
 ```
 
@@ -261,6 +261,6 @@ LOA_SUBAGENTS_BLOCKING=0          # Ignore blocking verdicts (not recommended)
 
 ## Related Documentation
 
-- `.claude/subagents/README.md` - Subagent overview
+- `.claude/agents/loa-validators-README.md` - Subagent overview
 - `.claude/commands/validate.md` - /validate command
 - `.claude/protocols/feedback-loops.md` - Quality gate pipeline

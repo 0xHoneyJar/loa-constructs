@@ -148,7 +148,7 @@ Subagents integrate with Loa's existing feedback loop:
 
 ## Creating Custom Subagents
 
-1. Create a new `.md` file in `.claude/subagents/`
+1. Create a new `.md` file in `.claude/agents/loa-validator-`
 2. Follow the YAML frontmatter format above
 3. Define checks specific to your validation needs
 4. Add to the `/validate` command if needed

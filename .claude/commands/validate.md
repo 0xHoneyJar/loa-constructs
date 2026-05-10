@@ -45,7 +45,7 @@ Run intelligent validation subagents to check implementation quality before revi
    - If explicit path provided, use it
    - Else, extract files from current sprint in `sprint.md`
    - Else, use `git diff HEAD~1 --name-only`
-3. **Load Subagent**: Read from `.claude/subagents/{type}.md`
+3. **Load Subagent**: Read from `.claude/agents/loa-validator-{type}.md`
 4. **Execute Checks**: Run validation checks on scoped files
 5. **Generate Report**: Write to `grimoires/loa/a2a/subagent-reports/{type}-{date}.md`
 6. **Summarize**: Display findings in response

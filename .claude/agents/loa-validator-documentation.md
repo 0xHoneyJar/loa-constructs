@@ -1,9 +1,9 @@
 ---
-name: documentation-coherence
+name: loa-validator-documentation
 version: 1.0.0
 description: Validate documentation is updated atomically with each task
 context: fork
-agent: Explore
+# legacy field removed: agent: Explore
 triggers:
   - after: implementing-tasks
   - before: reviewing-code
@@ -15,8 +15,15 @@ severity_levels:
   - NEEDS_UPDATE
   - ACTION_REQUIRED
 output_path: grimoires/loa/a2a/subagent-reports/documentation-coherence-{type}-{id}-{date}.md
+model: inherit
+tools: Read, Grep, Glob, Bash
+loa:
+  legacy_path: .claude/subagents/documentation-coherence.md
+  agent_class: validator
+  cycle:
+    migrated_in: simstim-20260509-aead9136
+    sprint: cycle-construct-rooms-sprint-6
 ---
-
 # Documentation Coherence
 
 <objective>

@@ -1,9 +1,9 @@
 ---
-name: security-scanner
+name: loa-validator-security
 version: 1.0.0
 description: Detect security vulnerabilities early in implementation before review
 context: fork
-agent: Explore
+# legacy field removed: agent: Explore
 triggers:
   - after: implementing-tasks
   - before: reviewing-code
@@ -14,8 +14,15 @@ severity_levels:
   - MEDIUM
   - LOW
 output_path: grimoires/loa/a2a/subagent-reports/security-scan-{date}.md
+model: inherit
+tools: Read, Grep, Glob, Bash
+loa:
+  legacy_path: .claude/subagents/security-scanner.md
+  agent_class: validator
+  cycle:
+    migrated_in: simstim-20260509-aead9136
+    sprint: cycle-construct-rooms-sprint-6
 ---
-
 # Security Scanner
 
 <objective>

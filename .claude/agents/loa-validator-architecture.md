@@ -1,9 +1,9 @@
 ---
-name: architecture-validator
+name: loa-validator-architecture
 version: 1.0.0
 description: Verify implementation matches SDD specifications and detect architectural drift
 context: fork
-agent: Explore
+# legacy field removed: agent: Explore
 triggers:
   - after: implementing-tasks
   - before: reviewing-code
@@ -13,8 +13,15 @@ severity_levels:
   - DRIFT_DETECTED
   - CRITICAL_VIOLATION
 output_path: grimoires/loa/a2a/subagent-reports/architecture-validation-{date}.md
+model: inherit
+tools: Read, Grep, Glob, Bash
+loa:
+  legacy_path: .claude/subagents/architecture-validator.md
+  agent_class: validator
+  cycle:
+    migrated_in: simstim-20260509-aead9136
+    sprint: cycle-construct-rooms-sprint-6
 ---
-
 # Architecture Validator
 
 <objective>

@@ -1,9 +1,9 @@
 ---
-name: test-adequacy-reviewer
+name: loa-validator-test-adequacy
 version: 1.0.0
 description: Assess test quality and coverage to ensure adequate testing before review
 context: fork
-agent: Explore
+# legacy field removed: agent: Explore
 triggers:
   - after: implementing-tasks
   - before: reviewing-code
@@ -14,8 +14,15 @@ severity_levels:
   - WEAK
   - INSUFFICIENT
 output_path: grimoires/loa/a2a/subagent-reports/test-adequacy-{date}.md
+model: inherit
+tools: Read, Grep, Glob, Bash
+loa:
+  legacy_path: .claude/subagents/test-adequacy-reviewer.md
+  agent_class: validator
+  cycle:
+    migrated_in: simstim-20260509-aead9136
+    sprint: cycle-construct-rooms-sprint-6
 ---
-
 # Test Adequacy Reviewer
 
 <objective>
