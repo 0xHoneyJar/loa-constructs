@@ -10,7 +10,7 @@ status: planned
 ## Scope
 
 - Author new construct `construct-codex-review` (separate repo, follows construct-the-easel shape)
-- Author composition `code-implement-and-review.yaml` in loa-compositions/compositions/delivery/
+- Author composition `code-implement-and-review.yaml` in construct-compositions/compositions/delivery/
 - Vendor `lib-codex-exec.sh` from loa-constructs into the new construct (version-pinned, attribution)
 - Lean SWE-focused single-persona reviewer (FAGAN placeholder); explicitly NOT overlapping with Flatline
 - Locally-owned schema (`codex-review-finding.schema.json`) — respects contracts-as-bridges by living with the impl
@@ -22,7 +22,7 @@ status: planned
 
 ## Prior session
 
-Session 1 (2026-04-25): yesterday's loa-compositions cycle landed `composition.schema.json` v1.0 + 5 compositions normalized. Schema-ownership doctrine settled in `composition-schema-as-bridge.md` — schema stays in loa-constructs, consumed via cross-repo CI.
+Session 1 (2026-04-25): yesterday's construct-compositions cycle landed `composition.schema.json` v1.0 + 5 compositions normalized. Schema-ownership doctrine settled in `composition-schema-as-bridge.md` — schema stays in loa-constructs, consumed via cross-repo CI.
 
 Last working session (2026-04-26 evening): henlo-monorepo perf pass dispatched via codex-rescue. Worked great as IMPLEMENTER but no adversarial review gate. That's the gap this construct fills.
 

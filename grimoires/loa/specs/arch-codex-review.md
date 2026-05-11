@@ -470,7 +470,7 @@ Public `$id` URL via GitHub Pages on the construct repo. Follows the contracts-a
 
 ### YAML
 
-`loa-compositions/compositions/delivery/code-implement-and-review.yaml`:
+`construct-compositions/compositions/delivery/code-implement-and-review.yaml`:
 
 ```yaml
 schema_version: "1.0"
@@ -624,8 +624,8 @@ authored_by: kickoff session 1 — codex-review
 |---|---|---|---|
 | `construct-codex-review/` | NEW REPO (entire) | Low — isolated | new |
 | `loa-constructs/registry.yaml` | MODIFIED — add codex-review entry | Low — append-only | loa-constructs |
-| `loa-compositions/compositions/delivery/code-implement-and-review.yaml` | NEW | Low — isolated | loa-compositions |
-| `loa-compositions/docs/SHAPES.md` | OPTIONAL: document implement-review pair as observed pattern | Low | loa-compositions |
+| `construct-compositions/compositions/delivery/code-implement-and-review.yaml` | NEW | Low — isolated | construct-compositions |
+| `construct-compositions/docs/SHAPES.md` | OPTIONAL: document implement-review pair as observed pattern | Low | construct-compositions |
 | `loa-constructs/.claude/scripts/lib-codex-exec.sh` | UNCHANGED — vendored into construct repo with version-pin attribution | Zero | loa-constructs |
 | Existing /gpt-review scripts in loa-constructs | UNCHANGED — stay soft-retired | Zero | loa-constructs |
 | Flatline ecosystem | UNCHANGED — different responsibility | Zero | loa-constructs |
@@ -650,7 +650,7 @@ authored_by: kickoff session 1 — codex-review
 10. **Author `skills/reviewing-files/SKILL.md` + `index.yaml`** — secondary skill.
 11. **Author bats tests** — only assertions that reflect actual behavior. Start with happy-path + 1-2 error cases. NO aspirational tests.
 12. **Register in `loa-constructs/registry.yaml`** — add codex-review entry under `constructs:`.
-13. **Author `loa-compositions/compositions/delivery/code-implement-and-review.yaml`** — pair codex-rescue + codex-review with iterate [[1, 2]].
+13. **Author `construct-compositions/compositions/delivery/code-implement-and-review.yaml`** — pair codex-rescue + codex-review with iterate [[1, 2]].
 14. **Run the composition end-to-end** on a real diff (henlo-monorepo would be the natural test bed — last night's perf pass left a clear "this should have had a review gate" gap).
 15. **Verify the gate fires meaningfully** — run on intentionally buggy code, confirm CHANGES_REQUIRED returned with actionable findings.
 
@@ -697,7 +697,7 @@ bash scripts/codex-review-api.sh review-diff test-fixtures/buggy.diff
 # Expected: verdict CHANGES_REQUIRED, ≥1 finding with current/fixed code
 
 # Composition end-to-end:
-cd ~/bonfire/loa-compositions
+cd ~/bonfire/construct-compositions
 yq eval '.' compositions/delivery/code-implement-and-review.yaml > /dev/null   # YAML valid
 # Validate against composition.schema.json
 ajv validate -s https://raw.githubusercontent.com/0xHoneyJar/loa-constructs/main/.claude/schemas/composition.schema.json -d compositions/delivery/code-implement-and-review.yaml.json
@@ -727,7 +727,7 @@ loa compose-run code-implement-and-review --task "fix the off-by-one in foo.ts"
 | Vendor source — auth + redaction | `loa-constructs/.claude/scripts/lib-security.sh` (cycle-033) |
 | Vendor source — token budget + priority | `loa-constructs/.claude/scripts/lib-content.sh` (PR #235, Bridgebuilder Finding #1 extraction) |
 | Reference wrapper (study, don't fork) | `loa-constructs/.claude/scripts/gpt-review-api.sh` (302 lines, has deprecation warning) |
-| Existing composition example (pattern reference) | `~/bonfire/loa-compositions/compositions/delivery/feel-iterate.yaml` |
+| Existing composition example (pattern reference) | `~/bonfire/construct-compositions/compositions/delivery/feel-iterate.yaml` |
 | Bonfire vs loa-constructs sync status | **identical** — `diff` returns empty. Source from loa-constructs. |
 
 ---
