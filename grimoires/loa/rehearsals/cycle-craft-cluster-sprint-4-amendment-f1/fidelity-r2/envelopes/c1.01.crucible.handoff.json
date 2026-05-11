@@ -1,0 +1,31 @@
+{
+  "construct_slug": "crucible",
+  "output_type": "Verdict",
+  "verdict": "five-of-five-met-substrate-precedence-honest",
+  "invocation_mode": "Form-A",
+  "cycle_id": "cycle-craft-cluster-sprint-4-fidelity-r2",
+  "persona": null,
+  "dispatch_timestamps": {
+    "dispatched_at": "2026-05-11T03:37:10Z",
+    "returned_at": "2026-05-11T03:37:47Z",
+    "duration_ms": 36513
+  },
+  "why": {
+    "rationale": "All five taste claims are MET in shipped code. Exit codes split cleanly at lines 204 (schema=1) and 299 (semantic=2) with resolver-missing folded into the exit-2 path at :237-241 — no silent pass. Surface modes route precisely through a case statement at surface-envelope.sh:226-267 with the 6 declared fields wired into _emit_summary and 24-line/80-col caps enforced defensively. Pattern routing reads at COMPOSITION_VALIDATE (compose-dispatch.sh:184) and gates the chain[] vs RELAY_LOOP branches via PAIR_RELAY_FLOW with no cross-contamination. RELAY_LOOP writes all three artifact classes per cycle and the four declared convergence_state values are the only terminal options. Substrate-canonical precedence is uniform: substrate first, host fallback, explicit error if neither — never silent.",
+    "decisions_considered": [
+      "Whether resolver-missing at pair-relay-validate.sh:237-241 truly produces exit 2 — traced through aggregation at :266 and exit at :299, confirmed",
+      "Whether interactive mode satisfies all three side-channels — FIFO :236-241, WAITING-OPERATOR flag :237+:242, aggregator entry :243, cleanup :264-265 all present",
+      "Whether 'running' could leak as a terminal convergence_state — guard at :678 converts it to 'completed-max-cycles' before final write at :681",
+      "Whether the surface-envelope substrate/host lookup at compose-dispatch.sh:438-446 fails silently — explicit ERROR + exit 1 at :443-445 confirms honest degradation",
+      "Whether _emit_summary draws only from the 6 declared SDD fields — verified construct_slug/persona/verdict/why.rationale/why.decisions_considered/why.tools_used at :122-128, nothing else"
+    ],
+    "claim_verdicts": [
+      {"claim": "CLAIM-1-exit-codes", "status": "met", "evidence": "pair-relay-validate.sh:204 exits 1 on schema-fail; :299 exits 2 on semantic-fail; resolver-missing branch :237-241 emits semantic error that aggregates through :266-272 into the exit-2 path — no silent pass."},
+      {"claim": "CLAIM-2-three-modes", "status": "met", "evidence": "surface-envelope.sh:226-267 case statement: silent (noop :228), summary (_emit_summary :231), interactive (summary + FIFO :240 + WAITING-OPERATOR flag :242 + aggregator :243 + cleanup :264). _emit_summary :122-128 draws only the 6 declared fields; 24-line cap :160; 80-col cap :164."},
+      {"claim": "CLAIM-3-pattern-routing", "status": "met", "evidence": "compose-dispatch.sh:184 reads .pattern at COMPOSITION_VALIDATE; :186-193 sets PAIR_RELAY_FLOW; :195 gates chain[] path; :410 closes it with fi; :412+ runs pair-relay branch. The two paths are mutually exclusive by structural fi-gating."},
+      {"claim": "CLAIM-4-relay-loop-artifacts", "status": "met", "evidence": "compose-dispatch.sh per cycle: stage_enter :578, stage_exit :645, envelope at HANDOFF_PATH :576, relay-state.json writes :561/:565/:574/:615/:635/:674/:681. Terminal convergence_state in {completed-max-cycles :679, halted-no-handoff :670, handoff-invalid :635, blocked-on-stage :615}; :678 guard prevents 'running' from leaking as terminal."},
+      {"claim": "CLAIM-5-substrate-precedence", "status": "met", "evidence": "compose-dispatch.sh:65-70 declares SUBSTRATE/HOST pairs for schema+validator+surface-envelope; :429-446 resolves substrate-first/host-fallback/explicit-error. pair-relay-validate.sh:33-34 DEFAULT_SCHEMA(substrate)/HOST_SCHEMA_FALLBACK; :86-101 enforces same order with explicit ERROR on both missing — never silent."}
+    ],
+    "tools_used": ["Bash:ls scripts dir", "Read:pair-relay-validate.sh (full)", "Read:surface-envelope.sh (full)", "Read:compose-dispatch.sh (full)"]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "run_id": "fidelity-r2",
+  "pattern": "pair-relay",
+  "artifact_name": "fidelity-audit-verdict",
+  "max_cycles": 3,
+  "sequence_length": 3,
+  "current_cycle": 1,
+  "current_stage": 2,
+  "completed_cycles": [1],
+  "convergence_state": "completed-operator-judged",
+  "started_at": "2026-05-11T03:36:39Z",
+  "updated_at": "2026-05-11T03:38:54Z",
+  "real_total_elapsed_ms": 135000,
+  "per_stage_dispatch_ms": [30730, 36513, 62140],
+  "dispatch_method": "real-agent-via-Agent-tool",
+  "f1_amendment": true,
+  "convergence_note": "Operator-judged convergence at end of cycle 1 per SDD §2.4: convergence_criteria text is met (all 5 taste claims INTENTIONAL by stage 2 verdict). Cycle 2 and 3 budget intentionally not consumed — the substrate's halted-no-handoff state from r1 was the mechanical readout when cycle 2 had no operator-staged handoffs; here in r2 the operator (this autonomous agent) terminates after cycle 1 because the convergence_criteria is satisfied, which is the documented operator gate."
+}

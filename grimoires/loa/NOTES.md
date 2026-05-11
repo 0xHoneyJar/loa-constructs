@@ -1361,3 +1361,18 @@ gh pr create --base main --head cycle-craft-cluster --reviewer janitooor \
 #    grimoires/loa/cycle-close/rfc-closure-drafts.md and post 4 closure comments,
 #    then close RFCs #235/#236/#237/#238.
 ```
+
+## Sprint 4 amendment — F1 remediation (fidelity-r2) — 2026-05-11
+
+**Context**: Bridgebuilder review F1 on PR #241 (HIGH, 0.75 confidence) flagged the original Sprint 4 rehearsals (fidelity-r1, access-r1, frame-r1) for clustered timestamps + `stage_dispatch_headless_stub` events, indicating injected-handoff replay rather than real subagent dispatch. F1's suggested remediation: run at least one lane with authentic wall-clock per stage.
+
+**Action taken**: re-ran fidelity-relay as fidelity-r2 with three separately-dispatched `Agent(construct-*)` invocations. Per-stage real durations: 30.7s + 36.5s + 62.1s. Total elapsed: 135 seconds. Orchestrator timestamps span 2m15s instead of one second. No cycle-2 stub event (operator-judged convergence at end of cycle 1).
+
+**Outcome**:
+- Lane 1 (Fidelity) verdict UNCHANGED — FILLED. Both r1 and r2 converged on substrate-ships verdict.
+- The r1 CLAIM-4 verb-misfit (TASTE-REVISION) does NOT recur in r2's tighter wording. r2 returned five-of-five INTENTIONAL.
+- F1's empirical claim ("pre-written envelopes can be played back, not real dispatch demonstrated") is now closed: real dispatch IS demonstrated for fidelity. Access and frame remain in `--inject-handoff` test-mode classification per the original Sprint 4 disclosure.
+
+**Artifacts**: `grimoires/loa/rehearsals/cycle-craft-cluster-sprint-4-amendment-f1/fidelity-r2/{envelopes/c1.*.handoff.json, orchestrator.jsonl, relay-state.json}` + amendment README.
+
+**Honest scope note**: this amendment proves operator-piloted real dispatch works. It does NOT prove the substrate's headless `claude -p` dispatch path works — that path is still stubbed in compose-dispatch.sh and remains documented next-cycle work. The substrate code is UNCHANGED at `8259a76` (tagged v0.2.0).

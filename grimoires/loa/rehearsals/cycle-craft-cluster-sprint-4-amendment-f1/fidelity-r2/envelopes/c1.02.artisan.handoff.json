@@ -1,0 +1,34 @@
+{
+  "construct_slug": "artisan",
+  "output_type": "Verdict",
+  "verdict": "five-of-five-intentional-substrate-converged",
+  "invocation_mode": "Form-A",
+  "cycle_id": "cycle-craft-cluster-sprint-4-fidelity-r2",
+  "persona": "ALEXANDER",
+  "dispatch_timestamps": {
+    "dispatched_at": "2026-05-11T03:37:50Z",
+    "returned_at": "2026-05-11T03:38:52Z",
+    "duration_ms": 62140
+  },
+  "why": {
+    "rationale": "Spot-checked all five claims against substrate source. CLAIM-1 exit codes (pair-relay-validate.sh:204/:299/:237-241) hold; resolver-missing routes through the exit-2 path with no silent pass. CLAIM-2 three-mode surface (surface-envelope.sh:226-267) renders six declared fields with 24-line/80-col caps intact. CLAIM-3 pattern routing (compose-dispatch.sh:184-195/:410) is structurally mutually exclusive via fi-gating, not runtime check. CLAIM-4 RELAY_LOOP terminal guard (:678-680) verifiably prevents 'running' leakage; the r2 wording 'writes' matches the implementation verb cleanly — the r1 'removes' gotcha does NOT recur. CLAIM-5 substrate-precedence (:429-446) shows substrate-first, host-fallback, ERROR-on-both-missing. All MET. Ship.",
+    "decisions_considered": [
+      "Verify r2 CLAIM-4 wording avoids r1 verb-misfit (verified — 'writes' matches code)",
+      "Spot-check terminal-state guard at :678 (verified — running -> completed-max-cycles)",
+      "Check pattern-routing mutual exclusion structurally (verified — fi-gated, not runtime)",
+      "Confirm substrate-precedence has explicit ERROR not silent fallback (verified at :434/:444)",
+      "Decide whether to file taste-revision for any wording drift (none warranted)"
+    ],
+    "claim_terminal_verdicts": [
+      {"claim": "CLAIM-1-exit-codes", "terminal": "intentional", "reason": "Three exit paths (1 schema, 2 semantic, 2 resolver-missing-folded) verified at :204/:299/:237-241; no silent-pass path exists."},
+      {"claim": "CLAIM-2-three-modes", "terminal": "intentional", "reason": "silent/summary/interactive case-dispatched at :226-267; the six summary fields render exactly per :122-128; 24-line + 80-col caps enforced at :160/:164."},
+      {"claim": "CLAIM-3-pattern-routing", "terminal": "intentional", "reason": "Pattern read at :184 sets PAIR_RELAY_FLOW; chain[] branch wrapped in `if PAIR_RELAY_FLOW==0 ... fi` (:195/:410); pair-relay branch starts at :412. Structurally impossible to run both."},
+      {"claim": "CLAIM-4-relay-loop-artifacts", "terminal": "intentional", "reason": "stage_enter:578 / stage_exit:645 / envelope:576 / relay-state.json writes throughout (:574/:615/:635/:674/:681); :678-680 terminal guard converts lingering 'running' to 'completed-max-cycles'. r2 verb 'writes' matches implementation — r1 'removes' misfit does not recur."},
+      {"claim": "CLAIM-5-substrate-precedence", "terminal": "intentional", "reason": "Lookup at :429-446: substrate-first (:429/:439), host-fallback (:431/:441), explicit ERROR + exit 1 when both missing (:434/:444). Never silent."}
+    ],
+    "convergence": "converged",
+    "residual_gap_seed": null,
+    "f1_amendment_note": "This is the F1 remediation rehearsal for PR #241; the substrate's pair-relay behavior survives a fresh-eyes audit with all five taste claims intentional — no fix-required findings, no taste-revisions, and the r1 CLAIM-4 verb-misfit does not recur in r2 wording.",
+    "tools_used": ["Read", "Bash", "gh pr view", "grep"]
+  }
+}

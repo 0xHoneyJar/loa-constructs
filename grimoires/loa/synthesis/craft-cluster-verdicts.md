@@ -10,10 +10,11 @@
 ## Lane 1: Fidelity (RFC #237)
 
 **Composition**: `fidelity-relay` (artisan:ALEXANDER → crucible:null → artisan:ALEXANDER)
-**Rehearsal surface**: construct-rooms-substrate v0.2.0-rc.1 — `scripts/{pair-relay-validate,surface-envelope,compose-dispatch}.sh` audited against SDD §2.1 declared intent.
-**Run ID**: `fidelity-r1`
-**Envelopes**: `grimoires/loa/rehearsals/cycle-craft-cluster-sprint-4/.run/compose/fidelity-r1/envelopes/c1.{00.artisan,01.crucible,02.artisan}.handoff.json`
-**Verdict**: **FILLED**
+**Rehearsal surface**: construct-rooms-substrate v0.2.0 — `scripts/{pair-relay-validate,surface-envelope,compose-dispatch}.sh` audited against SDD §2.1 declared intent.
+**Run IDs**: `fidelity-r1` (initial, injected-handoff test mode) + `fidelity-r2` (F1 amendment, real-agent dispatch with authentic wall-clock per stage)
+**Envelopes** (r1): `grimoires/loa/rehearsals/cycle-craft-cluster-sprint-4/.run/compose/fidelity-r1/envelopes/c1.{00.artisan,01.crucible,02.artisan}.handoff.json`
+**Envelopes** (r2): `grimoires/loa/rehearsals/cycle-craft-cluster-sprint-4-amendment-f1/fidelity-r2/envelopes/c1.{00.artisan,01.crucible,02.artisan}.handoff.json`
+**Verdict**: **FILLED** (both runs converged; r2 closed the F1 wall-clock-authenticity gap)
 
 **Detail**:
 
@@ -23,7 +24,25 @@ Stage 1 (crucible, validate-shipped) walked all five claims against shipped code
 
 The single PARTIAL was CLAIM-4 — the artisan's original taste-claim said the WAITING-OPERATOR aggregator entry would be "removed" on FIFO read/timeout. Crucible found that the flag *file* IS removed (`:264`) but the `.run/waiting-on-operator.jsonl` aggregator is append-only by design — the script appends a follow-up `envelope.operator-responded` event at `:265` as a lifecycle-close rather than removing the prior entry. Stage 2 (artisan, confirm-intent) returned a TASTE-REVISION verdict: append-only-as-load-bearing is correct; "remove" was the wrong verb in the original taste declaration; revise next-cycle vocabulary; ship the substrate as-is.
 
-The lane is FILLED. The substrate v0.2.0-rc.1 ships. The vocabulary refinement (the "append-close" pattern needs a named principle in next-cycle taste vocabulary) is queued as a next-cycle declared-taste improvement, not as a substrate bug.
+The lane is FILLED. The substrate v0.2.0 ships. The vocabulary refinement (the "append-close" pattern needs a named principle in next-cycle taste vocabulary) is queued as a next-cycle declared-taste improvement, not as a substrate bug.
+
+### Amendment — fidelity-r2 (F1 remediation)
+
+After PR #241 opened, Bridgebuilder review F1 (HIGH, 0.75 confidence) flagged the r1 orchestrator timestamps as clustered in a single second — the script processes pre-staged handoffs in milliseconds, so the trace doesn't reflect any meaningful elapsed time. F1's suggestion: run at least one lane with real subagent dispatch and authentic per-stage wall-clock.
+
+fidelity-r2 addresses F1 directly. Three fresh `construct-*` Agent invocations with real LLM compute:
+
+- Stage 0 (artisan, ALEXANDER, declare-taste): 30,730ms — verdict `schema-surface-parity-with-honest-degradation`
+- Stage 1 (crucible, no persona, validate-shipped): 36,513ms — verdict `five-of-five-met-substrate-precedence-honest`
+- Stage 2 (artisan, ALEXANDER, confirm-intent): 62,140ms — verdict `five-of-five-intentional-substrate-converged`
+
+Total real elapsed: 135 seconds across the relay. Orchestrator trace timestamps span 03:36:39Z → 03:38:54Z. No `stage_dispatch_headless_stub` event (r2 doesn't attempt a cycle 2 because the stage-2 verdict already declares INTENTIONAL on all five claims — operator-judged convergence per SDD §2.4, which is the documented termination shape). The convergence_state is `completed-operator-judged`, distinct from r1's mechanical `halted-no-handoff`.
+
+What r2 changes about Lane 1's verdict: nothing structural — both runs converged. What r2 strengthens: the empirical claim that the pair-relay primitive carries real subagent dispatch (not just injected-handoff replay) is now backed by authentic timing evidence. The r1 CLAIM-4 verb-misfit ("remove" v "append-close") that surfaced as TASTE-REVISION does NOT recur in r2's tighter wording — the audit pass on r2 returned five-of-five INTENTIONAL.
+
+Honest scope note: r2 proves operator-piloted real dispatch works. It does NOT prove the substrate's headless `claude -p` dispatch path works (still stubbed — `sprint_4_completes_this` is the substrate's own marker for that work). r2 also does NOT exercise the full multi-cycle convergence loop in code — convergence remains operator-judged in this cycle, with mechanical convergence-check as a named future extension.
+
+Full amendment docs: [`grimoires/loa/rehearsals/cycle-craft-cluster-sprint-4-amendment-f1/README.md`](../rehearsals/cycle-craft-cluster-sprint-4-amendment-f1/README.md).
 
 ---
 

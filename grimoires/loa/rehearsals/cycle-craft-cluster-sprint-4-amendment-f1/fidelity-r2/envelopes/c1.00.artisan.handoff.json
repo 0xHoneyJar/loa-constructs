@@ -1,0 +1,29 @@
+{
+  "construct_slug": "artisan",
+  "output_type": "Verdict",
+  "verdict": "schema-surface-parity-with-honest-degradation",
+  "invocation_mode": "Form-A",
+  "cycle_id": "cycle-craft-cluster-sprint-4-fidelity-r2",
+  "persona": "ALEXANDER",
+  "dispatch_timestamps": {
+    "dispatched_at": "2026-05-11T03:36:39Z",
+    "returned_at": "2026-05-11T03:37:09Z",
+    "duration_ms": 30730
+  },
+  "why": {
+    "rationale": "Good for this substrate means the SDD-declared contract is a load-bearing fence in the shipped code, not decorative documentation. Three things must visibly hold: (1) every cross-field semantic rule SDD §2.1.1 names produces a deterministic exit code in pair-relay-validate.sh — schema=1, semantic=2, OK=0 — with no silent passes when the resolver is absent. (2) The three modes SDD §2.1.3 names in surface-envelope.sh each have observable wall-clock evidence — summary's <=24x<=80 stderr, interactive's FIFO+WAITING-OPERATOR side-channel, silent's audit-only path. (3) compose-dispatch.sh's RELAY_LOOP routes 'pair-relay' pattern via state-machine — not via duck-typed fallthrough to 'parallel'. Degradation must be loud: missing resolver fails closed, missing host validator fails open with a named fallback.",
+    "decisions_considered": [
+      "Audit declared contract vs. shipped behavior (taken) vs. audit composition YAML semantics only (rejected — F1 critique demands wall-clock realism, which lives in execution paths not YAML)",
+      "Cite specific exit codes + filenames + line-anchored behaviors (taken) vs. cite SDD section numbers (rejected — too coarse for crucible to issue a binary verdict)",
+      "Cap at 4 claims with file-level evidence each (taken) vs. enumerate every SDD §2.1 sub-bullet (rejected — violates 3-5 cap and dilutes signal)",
+      "Treat 'honest degradation' as a first-class taste claim (taken) — resolver-missing must NOT silently pass per pair-relay-validate.sh:240-241; this is structural, not cosmetic",
+      "Frame taste in ALEXANDER's named-principle voice: schema-as-fence, mode-as-material, state-machine-as-structure (taken) vs. neutral spec language (rejected — persona authority is the point of this stage)"
+    ],
+    "tools_used": [
+      "Layered cognition: structure-before-behavior — read SDD §2.1.1 schema before §2.1.3 surfacing modes",
+      "Cross-validation: compare each SDD prescription against a specific line-range in the shipped script",
+      "Levels-of-Scale principle: claim 1 governs the validator alone, claim 3 governs cross-script routing, claim 5 governs cross-installation lookup — three altitudes, no overlap",
+      "Honest-degradation lens: every claim names what loud failure looks like, so crucible can detect silent-pass divergence"
+    ]
+  }
+}
