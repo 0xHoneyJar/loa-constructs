@@ -1714,7 +1714,7 @@ hounfour:
   feature_flags:
     google_adapter: true     # Enable Google provider adapter
     deep_research: true      # Enable Deep Research models (Interactions API)
-    flatline_routing: true    # Route Flatline through Hounfour (same as top-level)
+    flatline_routing: true    # Route Flatline through Hounfour. Precedence: feature_flags wins over hounfour.flatline_routing (top-level). Keep both in sync; if they diverge, this nested value is authoritative.
     metering: true           # Enable BudgetEnforcer cost tracking
     thinking_traces: true    # Include thinking config in request bodies
     jam_geometry: false      # Enable Jam multi-model parallel review (opt-in)
