@@ -91,7 +91,7 @@ Enum is explicit. Every supported version is named. Adding one is a one-line, re
 
 ## Consumer responsibilities
 
-Cross-repo consumers (e.g. `loa-compositions/.github/workflows/validate-schema.yml`) should:
+Cross-repo consumers (e.g. `construct-compositions/.github/workflows/validate-schema.yml`) should:
 
 - Fetch the schema by raw URL (`$id` form): `https://raw.githubusercontent.com/0xHoneyJar/loa-constructs/main/.claude/schemas/composition.schema.json` (until the `loa.dev` domain is wired).
 - Pin to a known-good commit when stability matters more than freshness; bump the pin on schema PR.

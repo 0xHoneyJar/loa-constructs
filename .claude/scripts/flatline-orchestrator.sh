@@ -386,6 +386,7 @@ VALID_MODEL_PATTERNS=(
     '^claude-(opus|sonnet|haiku)-[0-9]+[-.][0-9]+$'  # anthropic: claude-opus-4-7, claude-sonnet-4-6
     '^gemini-[0-9]+\.[0-9]+(-flash|-pro)?$'  # google: gemini-2.5-pro, gemini-2.5-flash
     '^(opus|sonnet|haiku)$'                  # short anthropic aliases (DISS-002: anchored alternation)
+    '^(claude|codex|gemini)-headless:.+$'    # cheval subscription-auth headless adapters (loa#793) — re-applied 2026-05-10 after /update-loa revert
 )
 
 validate_model() {

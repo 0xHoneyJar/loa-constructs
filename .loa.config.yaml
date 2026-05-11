@@ -1707,14 +1707,14 @@ cta:
 
 # Hounfour — Model-Heterogeneous Agent Routing (cycle-026)
 hounfour:
-  flatline_routing: false   # Route Flatline/GPT-review through model-invoke (cheval.py)
-  flatline_tertiary_model: google:gemini-3.1-pro-preview  # 3-model Flatline: provider-pinned form (bare alias 'gemini-3.1-pro-preview' isn't registered; readiness reads this field first per #756)
+  flatline_routing: true    # Route Flatline/GPT-review through model-invoke (cheval.py) — subscription routing per cycle-098/099
+  flatline_tertiary_model: gemini-headless:gemini-3.1-pro-preview  # 3-model Flatline: headless pin form (subscription auth, no API key)
 
   # Per-subsystem feature flags (all default true — opt-out)
   feature_flags:
     google_adapter: true     # Enable Google provider adapter
     deep_research: true      # Enable Deep Research models (Interactions API)
-    flatline_routing: false   # Route Flatline through Hounfour (same as top-level)
+    flatline_routing: true    # Route Flatline through Hounfour. Precedence: feature_flags wins over hounfour.flatline_routing (top-level). Keep both in sync; if they diverge, this nested value is authoritative.
     metering: true           # Enable BudgetEnforcer cost tracking
     thinking_traces: true    # Include thinking config in request bodies
     jam_geometry: false      # Enable Jam multi-model parallel review (opt-in)
@@ -1967,9 +1967,9 @@ flatline_protocol:
     sdd: true
     sprint: true
   models:
-    primary: opus
-    secondary: gpt-5.5-pro          # most powerful OpenAI (was gpt-5.3-codex)
-    tertiary: google:gemini-3.1-pro-preview  # provider-pinned form per readiness check; bare alias 'gemini-3.1-pro' isn't registered so `google:<model_id>` is the disambiguating syntax
+    primary: claude-headless:claude-opus-4-7      # subscription auth via cheval; no ANTHROPIC_API_KEY needed
+    secondary: codex-headless:gpt-5.5             # subscription auth via cheval; no OPENAI_API_KEY needed
+    tertiary: gemini-headless:gemini-3.1-pro-preview  # subscription auth via cheval; no GOOGLE_API_KEY needed
 
   thresholds:
     high_consensus: 700
@@ -1979,18 +1979,18 @@ flatline_protocol:
   max_iterations: 5
   # Phase 2.5: Adversarial cross-model review (PR #552 enforcement gate)
   # When enabled, `/review-sprint` and `/audit-sprint` invoke a cross-model
-  # dissenter (gpt-5.3-codex by default) and produce adversarial-{review,audit}.json.
+  # dissenter (codex-headless by default) and produce adversarial-{review,audit}.json.
   # The PreToolUse:Write hook at .claude/hooks/safety/adversarial-review-gate.sh
   # blocks COMPLETED marker writes when enabled but the artifact is missing.
   # Emergency override: LOA_ADVERSARIAL_REVIEW_ENFORCE=false.
   code_review:
     enabled: true
-    model: gpt-5.5-pro              # most powerful OpenAI (was gpt-5.3-codex)
+    model: codex-headless:gpt-5.5    # subscription auth via cheval
     budget_cents: 150
     timeout_seconds: 60
   security_audit:
     enabled: true
-    model: gpt-5.5-pro              # most powerful OpenAI (was gpt-5.3-codex)
+    model: codex-headless:gpt-5.5    # subscription auth via cheval
     budget_cents: 150
     timeout_seconds: 60
   secret_scanning:

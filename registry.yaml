@@ -110,6 +110,12 @@ constructs:
     category: documentation
     author: 0xHoneyJar
 
+  rooms-substrate:
+    git_url: https://github.com/0xHoneyJar/construct-rooms-substrate.git
+    description: "Substrate that puts every Loa construct into an isolated Claude Code subagent room — adapter generator, composition runner, handoff packets, observability hooks"
+    category: substrate
+    author: 0xHoneyJar
+
   # External constructs (community)
   hypha:
     git_url: https://github.com/0xElCapitan/hypha.git
