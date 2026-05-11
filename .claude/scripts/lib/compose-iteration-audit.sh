@@ -62,11 +62,11 @@ phase_enumerate() {
 
   # Walk every composition file under the configured roots. Look in:
   #   - $PROJECT_ROOT/compositions/**/*.yaml (canonical)
-  #   - $PROJECT_ROOT/loa-compositions/compositions/**/*.yaml (loom-managed)
+  #   - $PROJECT_ROOT/construct-compositions/compositions/**/*.yaml (loom-managed)
   #   - $PROJECT_ROOT/tests/composition/validators/fixtures/**/*.yaml (fixtures)
   declare -a search_dirs=(
     "$ROOT/compositions"
-    "$ROOT/loa-compositions/compositions"
+    "$ROOT/construct-compositions/compositions"
     "$ROOT/tests/composition/validators/fixtures"
   )
 
