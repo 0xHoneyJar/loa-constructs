@@ -116,6 +116,14 @@ Full doctrine: [`bonfire-construct-pipe-doctrine.md`](grimoires/loa-constructs-s
 
 ---
 
+## Cluster index
+
+Cycles that ship a **bundle of related composition lanes** index their per-lane verdicts here.
+
+- [**Craft Cluster**](clusters/craft.md) (cycle-craft-cluster, 2026-05-11) — pair-relay primitive ([RFC #235](https://github.com/0xHoneyJar/loa-constructs/issues/235)) plus three reference compositions over existing constructs: `fidelity-relay`, `access-relay`, `frame-relay`. Substrate: [construct-rooms-substrate v0.2.0](https://github.com/0xHoneyJar/construct-rooms-substrate/releases/tag/v0.2.0). Zero new construct repos.
+
+---
+
 ## Create
 
 Three files. Push. Done.

@@ -1,0 +1,23 @@
+{
+  "construct_slug": "kansei",
+  "output_type": "Verdict",
+  "verdict": "exit-code-fluent-only",
+  "invocation_mode": "Form-A",
+  "cycle_id": "cycle-craft-cluster-sprint-4-access",
+  "persona": null,
+  "why": {
+    "rationale": "These surfaces are written for an operator who reads exit-code tables before invoking, who can hold three numeric exit-codes plus three surface_modes plus two execution forms in working memory at once, and who already knows what an 'envelope' is, what 'FIFO-blocking wait' means, and that 'Form A vs Form B' refers to something elsewhere. The CLI never greets, never offers a single happy-path example, never describes what happens visibly to the operator at the keyboard. It is fluent in itself but mute to anyone arriving without the SDD. The exclusion is not knowledge-gap — it is the absence of any warmth or arrival ritual that would let a non-fluent operator orient before being graded by an exit code.",
+    "decisions_considered": [
+      "Whether 'no example invocation in --help' counts as feel-exclusion or doc-debt — landed on feel",
+      "Whether to count jargon ('FIFO', 'side-channel', 'Form A') separately from missing arrival",
+      "Whether silent failure modes (interactive timeout exit 2 with envelope still surfaced) belong here",
+      "Whether to name the operator-with-screenreader profile — declined (would be speculation)"
+    ],
+    "tools_used": [
+      "reading --help blocks as if arriving cold, no prior context",
+      "scanning for arrival rituals (greeting, example, 'try this first')",
+      "feeling the temperature of the comment-block prose",
+      "imagining a non-SDD-fluent operator hitting each exit code"
+    ]
+  }
+}

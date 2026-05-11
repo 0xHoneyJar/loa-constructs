@@ -1,0 +1,24 @@
+{
+  "construct_slug": "artisan",
+  "output_type": "Verdict",
+  "verdict": "narrate-before-grade",
+  "invocation_mode": "Form-A",
+  "cycle_id": "cycle-craft-cluster-sprint-4-access",
+  "persona": "ALEXANDER",
+  "why": {
+    "rationale": "The CLI grades but does not narrate — every --help opens with an exit-code table the way a courthouse opens with case numbers. The exclusions all share one root: the surface speaks in verdicts before it speaks in verbs. My posture is to add a single 'narration band' above each existing block — a 2-3 line prose preface, a quickstart example, a state-orienting subcommand, an inline gloss for §-references, and a visible timeout warning. None of these rebuild the CLI; they soften the leading edge. Exit codes stay sovereign at the bottom where graders look. Operators arriving cold get a verb before a number. Density preserved, approachability added.",
+    "decisions_considered": [
+      "Inline gloss vs hyperlink to PRD — chose gloss because terminal --help cannot click",
+      "Rewrite exit-code tables vs prepend narration — chose prepend to keep validator contracts intact",
+      "Add a new orient subcommand vs extend --help — chose subcommand (status/last-run) because state belongs in a verb",
+      "Auto-detect tmux/foreground vs warn on invocation — chose visible pre-flight warn line; auto-detect is invisible magic",
+      "Progressive disclosure via --verbose vs always-show short example — chose always-show one example"
+    ],
+    "tools_used": [
+      "Read (surface-envelope.sh, compose-dispatch.sh, pair-relay-validate.sh --help blocks)",
+      "Christopher Alexander — Levels of Scale (narration above grade)",
+      "Ken Kocienda — 'Try this first' as creative-selection foothold",
+      "Edward Tufte — small multiples / dim trailing citation"
+    ]
+  }
+}

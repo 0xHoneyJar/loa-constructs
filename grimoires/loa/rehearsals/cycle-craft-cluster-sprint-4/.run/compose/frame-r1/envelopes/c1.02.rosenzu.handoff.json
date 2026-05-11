@@ -1,0 +1,24 @@
+{
+  "construct_slug": "rosenzu",
+  "output_type": "Verdict",
+  "verdict": "strategy-pattern-with-leaky-defaults",
+  "invocation_mode": "Form-A",
+  "cycle_id": "cycle-craft-cluster-sprint-4-frame",
+  "persona": "LYNCH",
+  "why": {
+    "rationale": "This surface IS the Strategy Pattern: a shared context (vestibule lines 47-160) selects between interchangeable execution strategies (parallel vs sequential) at a single dispatch point (line 184). Route-language: a shared vestibule that opens onto two hallways via one decision-desk is the spatial form of strategy-dispatch. But the canonical form requires symmetric door-shapes (both strategies as peer functions, both writing comparable state, one filename schema parameterized by ring) and explicit selection (no silent default into door-A). The current shape leaks: door-A is inlined while door-B is functional, schemas diverge, and the desk routes by omission. The pattern is RIGHT; the realization is asymmetric. Recommendation: live-with for v0.2.0-rc.1; refactor toward peer-callable strategies next cycle.",
+    "decisions_considered": [
+      "strategy-pattern (interchangeable algorithms behind common interface)",
+      "tagged-union-dispatch (variant types with exhaustive match)",
+      "pluggable-execution-model (registry of named executors)",
+      "template-method (skeleton with overridable steps)",
+      "chain-of-responsibility (sequential handlers, fall-through)"
+    ],
+    "tools_used": [
+      "pattern-lexicon matching (GoF strategy vs alternatives)",
+      "route-language translation (vestibule->context, doors->strategies, desk->selector)",
+      "symmetry test (peer-callable check across the two strategies)",
+      "ship-vs-tend triage (cosmetic asymmetry vs blocking defect)"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "run_id": "frame-r1",
+  "pattern": "pair-relay",
+  "artifact_name": "macro-pattern-recommendation",
+  "max_cycles": 3,
+  "sequence_length": 3,
+  "current_cycle": 3,
+  "current_stage": 2,
+  "completed_cycles": [
+    1
+  ],
+  "convergence_state": "halted-no-handoff",
+  "updated_at": "2026-05-11T03:16:04Z"
+}

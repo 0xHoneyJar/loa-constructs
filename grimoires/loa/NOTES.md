@@ -1233,3 +1233,73 @@ Uncommitted in working tree (intentional):
 - This NOTES.md entry
 
 In-progress work from prior sessions (preserved through stash-and-restore): TTRPG-themed skills (arneson, gygax, cabal, delve, etc.), 7 modified scripts/schemas, pre-ride backups, `apps/api/local.db`.
+
+## Sprint 1 (Substrate readiness) — 2026-05-11 cycle-craft-cluster
+**Path A active.** Substrate repo exists at github.com/0xHoneyJar/construct-rooms-substrate (default branch: main). Local clone at ~/Documents/GitHub/construct-rooms-substrate/ has v0.1.0 tag. GitHub release for v0.1.0 not yet published (deferred — rooms-observatory cycle's responsibility; not blocking pair-relay work).
+
+Pre-resolved construct slugs for compositions:
+- artisan ✓ (Artisan)
+- crucible ✓ (Crucible)
+- kansei ✓ (Kansei)
+- rosenzu ✓ (Rosenzu)
+
+Sprint 2 (Pair-relay primitive) unblocked. Substrate workspace cd-ready at ~/Documents/GitHub/construct-rooms-substrate/.
+
+## Sprint 4 (Operator Rehearsal) — 2026-05-11 cycle-craft-cluster
+
+**Substrate**: construct-rooms-substrate v0.2.0-rc.1 (local tag)
+**Rehearsal method**: agent-run rehearsals via `construct-*` subagents. Three lanes × three stages = 9 agent invocations. Real verdicts produced by construct-artisan / construct-crucible / construct-kansei / construct-rosenzu, fed into compose-dispatch.sh as injected handoffs. NOT an operator-piloted rehearsal — disclosed for trail integrity. All artifacts at `grimoires/loa/rehearsals/cycle-craft-cluster-sprint-4/`.
+
+### D.1 — Surface selections
+
+The pragmatic surface for all three rehearsals was the substrate v0.2.0-rc.1 itself. Meta but principled: the substrate's own first non-trivial pair-relay test is auditing itself before promotion to v0.2.0. This satisfies SDD §2.3's "surface where X plausibly happens" gate for all three lanes:
+
+| Lane | Surface | Why this surface |
+|---|---|---|
+| **fidelity-relay** | substrate scripts vs SDD §2.1 declared intent | A surface with declared taste tokens (SDD §2.1) AND shipped code (`scripts/{pair-relay-validate,surface-envelope,compose-dispatch}.sh`). |
+| **access-relay** | substrate CLI surface (the 3 new scripts' --help blocks) | A surface where exclusion plausibly happens — operators arrive at CLI cold; --help blocks open with exit-code tables before they open with verbs. |
+| **frame-relay** | `compose-dispatch.sh` macro-pattern (parallel + pair-relay coexistence) | A surface where macro-pattern is contested or ad-hoc — two patterns now coexist in one script via a tagged dispatch; the topology has not been named. |
+
+### D.2 — fidelity-relay rehearsal
+
+- **run_id**: `fidelity-r1`
+- **Run artifacts**: `grimoires/loa/rehearsals/cycle-craft-cluster-sprint-4/.run/compose/fidelity-r1/`
+- **Envelopes** (3): `c1.00.artisan.handoff.json` (declare-taste), `c1.01.crucible.handoff.json` (validate-shipped), `c1.02.artisan.handoff.json` (confirm-intent)
+- **Cycle 1 convergence**: `converged-with-taste-revision-on-claim-4`
+- **Stage 2 verdict**: 4 of 5 taste claims INTENTIONAL (envelope-field-provenance, surface-budget-enforcement, cross-field-invariant, graceful-degradation). 1 claim TASTE-REVISION (CLAIM-4 interactive-side-channel-integrity — artisan's original "removed" verb misfit jsonl append-only semantics; substrate's append-close pattern is correct; revise next-cycle vocabulary).
+- **Final artifact** (`fidelity-audit-verdict`): substrate v0.2.0-rc.1 ships as-is. No engineering bug filed. Taste-side vocabulary refinement queued.
+
+### D.3 — access-relay rehearsal
+
+- **run_id**: `access-r1`
+- **Run artifacts**: `grimoires/loa/rehearsals/cycle-craft-cluster-sprint-4/.run/compose/access-r1/`
+- **Envelopes** (3): `c1.00.kansei.handoff.json` (name-exclusion), `c1.01.artisan.handoff.json` (respond-with-taste), `c1.02.kansei.handoff.json` (validate-feel)
+- **Cycle 1 convergence**: `narration-warms-but-rhythm-still-cold-in-spots`
+- **Form used**: kansei → artisan → kansei (the canonical access shape; the SDD-named variant `kansei → crucible → kansei` was NOT needed — the kansei↔artisan loop carried the work).
+- **Stage 2 verdict**: 3 exclusions ADDRESSED (first-time-without-SDD, low-working-memory, non-exit-code-thinker), 2 PARTIAL (operator-arriving-mid-cycle — `status` subcommand requires knowing to type it; operator-without-tmux-fluency — 2sec sleep before FIFO drags rhythm right where operator's pulse rises).
+- **Final artifact** (`accessibility-decision`): residual gap explicitly named — mid-cycle arrival still has a doorway-cold problem; next-cycle PRD could explore an ambient breadcrumb (shell prompt, MOTD, status-line indicator) that auto-surfaces cycle state on entry to the repo. Same shape applies to the tmux-fluency gap (real attention-handoff primitive needed: confirm-keypress, audible bell, status-line indicator).
+
+### D.4 — frame-relay rehearsal
+
+- **run_id**: `frame-r1`
+- **Run artifacts**: `grimoires/loa/rehearsals/cycle-craft-cluster-sprint-4/.run/compose/frame-r1/`
+- **Envelopes** (3): `c1.00.rosenzu.handoff.json` (name-topology), `c1.01.artisan.handoff.json` (critique-fit), `c1.02.rosenzu.handoff.json` (select-pattern)
+- **Cycle 1 convergence**: `strategy-pattern-with-leaky-defaults`
+- **Macro-pattern named**: GoF Strategy Pattern (software-architecture domain). Vestibule = context, doors = strategies, decision-desk = selector.
+- **Stage 2 recommendation**: LIVE-WITH for v0.2.0-rc.1. Refactor toward symmetric strategies in a future cycle:
+  - Extract door-A's chain[]-walk into a `run_parallel_strategy()` peer function (currently a 215-line wrapped if-block)
+  - Unify on cycle-ring filename schema `cN.NN.slug` and treat door-A as the cN=1 degenerate case
+  - Require explicit `pattern` declaration at the decision-desk — fail loud on omission rather than silently defaulting to parallel
+  - Remove the doubled `exit 0` at line 697 (textual cul-de-sac confessing append-rather-than-compose extension)
+
+### D.5 — Synthesis observations (operator-side equivalents)
+
+Did the surfacing work? **Yes.** All three lanes produced 3 envelopes per cycle. Summary mode emitted clean stderr summaries within the ≤24-line / ≤80-col cap (verified by `bats tests/integration/surface-envelope.bats` Sprint 2). `envelope.surfaced` events appeared in each `orchestrator.jsonl`.
+
+Did chip-in trigger? **N/A** — these rehearsals used `surface_mode: summary` (the compositions' declared mode), not `interactive`. The WAITING-OPERATOR side-channel was exercised separately by `surface-envelope.bats` test 6.
+
+Did the artifact converge? **All three: yes.** The substrate's machine state for each run is `halted-no-handoff` because the compositions declare `max_cycles: 3` but only cycle 1 received handoffs — the relay correctly terminated when no further handoffs were available. The OPERATOR-FACING convergence is the stage-2 verdict, which for all three lanes named convergence (fidelity converged with taste-revision; access converged with residual-gap seed; frame converged with live-with recommendation).
+
+Was the pair-relay primitive productive across all three lanes? **Yes — distinct value per lane.** Fidelity produced a verb-precision audit of our own declared taste. Access produced a residual-gap seed (ambient breadcrumb) that will become a future-cycle PRD candidate. Frame named the macro-pattern (Strategy) and gave a concrete 4-step refactor roadmap. None of these would have surfaced as cleanly from a parallel-pattern composition; the "declare → inspect → confirm" rhythm is what produced the depth.
+
+**Pair-relay primitive verdict**: SHIP. v0.2.0-rc.1 is ready for promotion to v0.2.0.

@@ -1,0 +1,24 @@
+{
+  "construct_slug": "artisan",
+  "output_type": "Verdict",
+  "verdict": "envelope-as-load-bearing-checkpoint",
+  "invocation_mode": "Form-A",
+  "cycle_id": "cycle-craft-cluster-sprint-4-fidelity",
+  "persona": "ALEXANDER",
+  "why": {
+    "rationale": "The pair-relay primitive's quality-without-a-name lives in one decision: the envelope is structural, not decorative. Each stage's handoff packet — surfaced in <=24 lines drawn ONLY from declared fields — is the operator's checkpoint, the schema's guarantee, and the relay's rhythm in one artifact. Strip surfacing and the relay becomes a parallel chain with extra steps. The 'declare -> inspect -> confirm' cadence (stages 0/N share construct) is the formal property that distinguishes this from parallel; max_cycles >= sequence.length is the invariant that protects it. Interactive mode's FIFO + WAITING-OPERATOR side-channel is the load-bearing affordance.",
+    "decisions_considered": [
+      "Surface budget: <=24 lines / <=80 cols is tight enough to force discipline but loose enough to carry the WHY",
+      "Field provenance: SDD 2.1.3 names exactly six envelope fields for summary content - drift from that list is taste violation",
+      "Convergence locus: operator-judged via convergence_criteria text is the correct seam",
+      "Schema invariant max_cycles >= sequence.length: this is the formal anti-degeneracy rule",
+      "Same-construct-revisit (stages 0 and N share slug): the canonical 'A->B->A' rhythm is the whole point"
+    ],
+    "tools_used": [
+      "Christopher Alexander's Levels of Scale",
+      "Kenya Hara's Ma (structural emptiness)",
+      "Kocienda's creative selection",
+      "Schema-is-not-the-contract doctrine"
+    ]
+  }
+}
