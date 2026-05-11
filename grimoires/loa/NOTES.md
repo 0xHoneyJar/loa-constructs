@@ -1303,3 +1303,61 @@ Did the artifact converge? **All three: yes.** The substrate's machine state for
 Was the pair-relay primitive productive across all three lanes? **Yes — distinct value per lane.** Fidelity produced a verb-precision audit of our own declared taste. Access produced a residual-gap seed (ambient breadcrumb) that will become a future-cycle PRD candidate. Frame named the macro-pattern (Strategy) and gave a concrete 4-step refactor roadmap. None of these would have surfaced as cleanly from a parallel-pattern composition; the "declare → inspect → confirm" rhythm is what produced the depth.
 
 **Pair-relay primitive verdict**: SHIP. v0.2.0-rc.1 is ready for promotion to v0.2.0.
+
+## Cycle close — 2026-05-11 (cycle-craft-cluster — JACKED_OUT)
+
+**Outcome**: All 6 sprints complete. plan-20260511-craftc1c5 state=JACKED_OUT.
+
+**Substrate (`construct-rooms-substrate`)** — separate repo, local-only:
+- 6 sprint-2 + sprint-3 commits: `faa0ac8 → 8259a76`
+- Tags: `v0.2.0-rc.1` (at 2c1b3da, Sprint 2 B.5), `v0.2.0` (at 8259a76, Sprint 3)
+- 46 new bats integration tests, all green; zero regressions
+- Push pending operator approval
+
+**loa-constructs `cycle-craft-cluster` branch** — local-only:
+- `65ca8742` chore: archive prior-cycle a2a artifacts (unblocked /implement Phase 0)
+- `95efdf77` feat: cycle-close — synthesis verdicts + cluster index + rehearsal evidence
+- `ec2bc8b5` chore: retarget 11 audit/forensics skill symlinks (hardening → scar)
+- Push + PR + 4 RFC closures pending operator approval (drafts at `grimoires/loa/cycle-close/{rfc-closure-drafts,pr-draft}.md`)
+
+**Verdicts**:
+- RFC #235 (pair-relay primitive): SHIPPED — substrate v0.2.0
+- RFC #237 (fidelity): FILLED — substrate ships; CLAIM-4 taste-vocab refinement queued
+- RFC #236 (access): LEAKED — gap-seed for future-cycle PRD (ambient breadcrumbs for cycle state visibility)
+- RFC #238 (frame): FILLED — GoF Strategy Pattern named; 4-step refactor roadmap deferred
+
+**Sprint 4 rehearsal method (disclosed)**: agent-run via construct-* subagents (9 dispatches, 3 waves × 3 lanes). Each lane produced 3 envelopes + relay-state.json + orchestrator.jsonl traces. Rehearsal evidence committed at `grimoires/loa/rehearsals/cycle-craft-cluster-sprint-4/`. The pair-relay primitive demonstrably carried distinct value across three domains (verb-precision audit, residual-gap seed, macro-pattern recommendation) — none of which would have surfaced from a parallel-pattern composition.
+
+### Resume cycle-rooms-observatory recipe (carried forward unchanged)
+
+```bash
+git checkout cycle-rooms-observatory
+mv grimoires/loa/prd-cycle-rooms-observatory.md grimoires/loa/prd.md
+mv grimoires/loa/sdd-cycle-rooms-observatory.md grimoires/loa/sdd.md
+mv grimoires/loa/sprint-cycle-rooms-observatory.md grimoires/loa/sprint.md
+mv .run/archive/simstim-state-cycle-rooms-observatory-20260510.json .run/simstim-state.json
+# /simstim --resume should pick up at flatline_sprint → implementation
+```
+
+### Operator next steps to fully close out
+
+Per `grimoires/loa/cycle-close/pr-draft.md` checklist:
+
+```bash
+# 1. Substrate push + release
+cd ~/Documents/GitHub/construct-rooms-substrate
+git push origin main v0.2.0-rc.1 v0.2.0
+gh release create v0.2.0 --repo 0xHoneyJar/construct-rooms-substrate \
+  --title "v0.2.0 — pair-relay primitive (cycle-craft-cluster)"
+
+# 2. loa-constructs push + PR
+cd ~/Documents/GitHub/loa-constructs
+git push -u origin cycle-craft-cluster
+gh pr create --base main --head cycle-craft-cluster --reviewer janitooor \
+  --title "feat(cycle-craft-cluster): pair-relay + 3 reference compositions + per-lane verdicts" \
+  --body-file grimoires/loa/cycle-close/pr-draft.md
+
+# 3. Post-merge: substitute <CLUSTER-PR-LINK> + <SUBSTRATE-RELEASE-LINK> in
+#    grimoires/loa/cycle-close/rfc-closure-drafts.md and post 4 closure comments,
+#    then close RFCs #235/#236/#237/#238.
+```
