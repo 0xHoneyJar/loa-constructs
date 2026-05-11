@@ -3,20 +3,20 @@
 > **Mode**: ARCH (Ostrom) + craft lens (Alexander minimal)
 > **Date**: 2026-04-25
 > **Authors**: cycle-002 followup convergence (operator + Claude Opus 4.7)
-> **Kickoff**: this is the spec for the dedicated session that fixes composition.schema.json sync drift relative to loa-compositions YAMLs
+> **Kickoff**: this is the spec for the dedicated session that fixes composition.schema.json sync drift relative to construct-compositions YAMLs
 
 ---
 
 ## TL;DR
 
-The cycle-002 followup added four schema-shaped fields to `loa-compositions` YAMLs (`vocabulary_governance`, `surface_class`, `thinking_effort`, `codex_mode`) over PRs #4–#7 plus three new compositions (hibernate-product, ground-and-craft, feel-iterate). **None of those updated `composition.schema.json` in `loa-constructs`.** The schema's `additionalProperties: false` makes today's loa-compositions YAMLs technically schema-invalid; no CI catches the drift because no validation runs against schema in either repo.
+The cycle-002 followup added four schema-shaped fields to `construct-compositions` YAMLs (`vocabulary_governance`, `surface_class`, `thinking_effort`, `codex_mode`) over PRs #4–#7 plus three new compositions (hibernate-product, ground-and-craft, feel-iterate). **None of those updated `composition.schema.json` in `loa-constructs`.** The schema's `additionalProperties: false` makes today's construct-compositions YAMLs technically schema-invalid; no CI catches the drift because no validation runs against schema in either repo.
 
-**This is a synchronization problem, not an ownership problem.** The earlier framing ("move the schema to loa-compositions") was reconsidered after Phase 1 dig surfaced that:
+**This is a synchronization problem, not an ownership problem.** The earlier framing ("move the schema to construct-compositions") was reconsidered after Phase 1 dig surfaced that:
 - composition.schema.json is one of a coherent **schema family** (prd / sdd / sprint / trajectory / composition) in loa-constructs/.claude/schemas/
 - loa-constructs IS the engine that validates these documents — schemas are engine-side contracts, not registry-owned
 - The friction is "YAML drifted from schema and nothing caught it," not "schema lives in the wrong repo"
 
-**Fix:** keep the schema in `loa-constructs`, bump it to v1.1 with the cycle-002 fields added explicitly, and add CI in `loa-compositions` that fetches the public `$id` URL and validates every YAML on PR.
+**Fix:** keep the schema in `loa-constructs`, bump it to v1.1 with the cycle-002 fields added explicitly, and add CI in `construct-compositions` that fetches the public `$id` URL and validates every YAML on PR.
 
 ---
 
@@ -25,10 +25,10 @@ The cycle-002 followup added four schema-shaped fields to `loa-compositions` YAM
 What MUST NOT CHANGE:
 
 1. **The schema family in `loa-constructs/.claude/schemas/` stays cohesive.** All five canonical doc-type schemas (prd / sdd / sprint / trajectory-entry / composition) live together. No asymmetric extraction.
-2. **Public `$id` URL is the authoritative reference.** `https://loa.dev/schemas/composition.schema.json` is how external consumers (loa-compositions CI, future Herald composition tooling, third-party engines) reach the contract. Don't break the URL.
-3. **`loa-compositions` is a registry of YAMLs, not a schema authority.** It conforms to the upstream contract; it doesn't author it.
-4. **Backward compatibility for existing loa-compositions YAMLs.** PRs #2–#7 shipped 7 compositions already. Schema bump must NOT invalidate any of them (additive changes only).
-5. **Engine reads schema, doesn't own its evolution.** When loa-compositions PRs add new YAML shapes, the schema in loa-constructs catches up via PR; the schema is the consensus contract, not unilateral.
+2. **Public `$id` URL is the authoritative reference.** `https://loa.dev/schemas/composition.schema.json` is how external consumers (construct-compositions CI, future Herald composition tooling, third-party engines) reach the contract. Don't break the URL.
+3. **`construct-compositions` is a registry of YAMLs, not a schema authority.** It conforms to the upstream contract; it doesn't author it.
+4. **Backward compatibility for existing construct-compositions YAMLs.** PRs #2–#7 shipped 7 compositions already. Schema bump must NOT invalidate any of them (additive changes only).
+5. **Engine reads schema, doesn't own its evolution.** When construct-compositions PRs add new YAML shapes, the schema in loa-constructs catches up via PR; the schema is the consensus contract, not unilateral.
 
 ---
 
@@ -39,14 +39,14 @@ What MUST NOT CHANGE:
 | `loa-constructs/.claude/schemas/composition.schema.json` | Bump to v1.1, add 4 new top-level / per-stage field shapes | LOW — additive only; existing fields unchanged |
 | `loa-constructs/.claude/schemas/README.md` | Document the v1.1 additions | LOW — docs |
 | `loa-constructs/grimoires/compositions/*.yaml` | (None — internal canonical compositions don't use the new fields yet) | NONE |
-| `loa-compositions/.github/workflows/validate-schema.yml` | NEW — fetches `$id` URL + validates all YAMLs | LOW — pure CI add |
-| `loa-compositions/scripts/validate-yaml.ts` | NEW — local equivalent for `bun run validate` | LOW — new file |
-| `loa-compositions/package.json` | Add `validate` script + `ajv` / `js-yaml` devDeps | LOW — new deps in devDependencies |
-| `loa-compositions/README.md` | Update schema badge from `1.0` → `1.1` and link | COSMETIC |
-| `loa-compositions/compositions/**/*.yaml` (~10 files) | Bump `schema_version: "1.0"` → `"1.1"` field | LOW — one-line change per file |
+| `construct-compositions/.github/workflows/validate-schema.yml` | NEW — fetches `$id` URL + validates all YAMLs | LOW — pure CI add |
+| `construct-compositions/scripts/validate-yaml.ts` | NEW — local equivalent for `bun run validate` | LOW — new file |
+| `construct-compositions/package.json` | Add `validate` script + `ajv` / `js-yaml` devDeps | LOW — new deps in devDependencies |
+| `construct-compositions/README.md` | Update schema badge from `1.0` → `1.1` and link | COSMETIC |
+| `construct-compositions/compositions/**/*.yaml` (~10 files) | Bump `schema_version: "1.0"` → `"1.1"` field | LOW — one-line change per file |
 | `loa-constructs/grimoires/loa/tracks/session-1-composition-schema-sync-kickoff.md` | NEW — session continuity record | NONE |
 
-**What breaks if wrong:** If schema bump is non-backward-compatible, all 10 loa-compositions YAMLs fail validation immediately on next CI run. Reversibility: revert the schema PR; YAMLs continue working without validation. Low total risk because no production system depends on schema validation today (this PR introduces validation FOR THE FIRST TIME).
+**What breaks if wrong:** If schema bump is non-backward-compatible, all 10 construct-compositions YAMLs fail validation immediately on next CI run. Reversibility: revert the schema PR; YAMLs continue working without validation. Low total risk because no production system depends on schema validation today (this PR introduces validation FOR THE FIRST TIME).
 
 ---
 
@@ -66,7 +66,7 @@ What MUST NOT CHANGE:
                                              │ HTTPS fetch
                                              ▼
                                   ┌──────────────────────────────┐
-                                  │  loa-compositions (registry) │
+                                  │  construct-compositions (registry) │
                                   │  ─────────────────────────   │
                                   │  .github/workflows/           │
                                   │    validate-schema.yml        │ ← CI fetches schema
@@ -80,7 +80,7 @@ What MUST NOT CHANGE:
 **Three-tier model preserved:**
 - Tier 1: `construct-*` repos — surface area for each construct
 - Tier 2: `loa-constructs` — Constructs Network: registry + engine + schema family
-- Tier 3: `loa-compositions` — registry of composition YAMLs that conform to the schema family
+- Tier 3: `construct-compositions` — registry of composition YAMLs that conform to the schema family
 
 ---
 
@@ -218,7 +218,7 @@ The `ground-canon` stage (added v1.6.0 to triage-pause and v1.1.0 to hibernate-p
 }
 ```
 
-Existing v1.0 YAMLs in loa-compositions get a one-line bump to `schema_version: "1.1"` in this migration PR.
+Existing v1.0 YAMLs in construct-compositions get a one-line bump to `schema_version: "1.1"` in this migration PR.
 
 ---
 
@@ -228,7 +228,7 @@ Existing v1.0 YAMLs in loa-compositions get a one-line bump to `schema_version: 
 
 ```bash
 cd ~/Documents/GitHub/loa-constructs && git checkout -b schema-v1.1-cycle-002-fields
-cd ~/bonfire/loa-compositions  && git checkout -b add-schema-validation-ci
+cd ~/bonfire/construct-compositions  && git checkout -b add-schema-validation-ci
 ```
 
 ### Step 1 — Bump composition.schema.json to v1.1 (loa-constructs)
@@ -253,9 +253,9 @@ Document the v1.1 addition. Reference the canonical compositions where each fiel
 - `vocabulary_governance` → triage-pause.yaml v1.8.0 + hibernate-product v1.2.0
 - `codex_mode` → outage-triage.yaml v1.1.0 stage 3 + triage-pause v1.5.0 stage 6.5
 
-### Step 3 — Add validation CI in loa-compositions
+### Step 3 — Add validation CI in construct-compositions
 
-Create `/Users/zksoju/bonfire/loa-compositions/.github/workflows/validate-schema.yml`:
+Create `/Users/zksoju/bonfire/construct-compositions/.github/workflows/validate-schema.yml`:
 
 ```yaml
 name: Validate composition YAMLs against schema
@@ -274,9 +274,9 @@ jobs:
       - run: bun run validate:compositions
 ```
 
-### Step 4 — Add local validator in loa-compositions
+### Step 4 — Add local validator in construct-compositions
 
-Create `/Users/zksoju/bonfire/loa-compositions/scripts/validate-compositions.ts`:
+Create `/Users/zksoju/bonfire/construct-compositions/scripts/validate-compositions.ts`:
 
 ```typescript
 import { readdir, readFile } from "fs/promises";
@@ -329,9 +329,9 @@ async function walkYaml(dir: string): Promise<string[]> {
 main();
 ```
 
-### Step 5 — Add devDeps + npm script (loa-compositions)
+### Step 5 — Add devDeps + npm script (construct-compositions)
 
-Edit `/Users/zksoju/bonfire/loa-compositions/package.json` — add:
+Edit `/Users/zksoju/bonfire/construct-compositions/package.json` — add:
 
 ```json
 {
@@ -347,11 +347,11 @@ Edit `/Users/zksoju/bonfire/loa-compositions/package.json` — add:
 }
 ```
 
-If loa-compositions has no package.json today, create a minimal one:
+If construct-compositions has no package.json today, create a minimal one:
 
 ```json
 {
-  "name": "loa-compositions",
+  "name": "construct-compositions",
   "private": true,
   "type": "module",
   "scripts": { "validate:compositions": "bun scripts/validate-compositions.ts" },
@@ -359,7 +359,7 @@ If loa-compositions has no package.json today, create a minimal one:
 }
 ```
 
-### Step 6 — Bump schema_version in all YAMLs (loa-compositions)
+### Step 6 — Bump schema_version in all YAMLs (construct-compositions)
 
 For each YAML in `compositions/**/*.yaml`:
 
@@ -380,9 +380,9 @@ Files to touch (~10):
 
 Bump only the ones using v1.1 fields. Files without new fields stay at v1.0 (backward-compat).
 
-### Step 7 — Update README badges (loa-compositions)
+### Step 7 — Update README badges (construct-compositions)
 
-Edit `/Users/zksoju/bonfire/loa-compositions/README.md`:
+Edit `/Users/zksoju/bonfire/construct-compositions/README.md`:
 
 ```markdown
 [![schema](https://img.shields.io/badge/schema-1.1-8B5CF6)](https://github.com/0xHoneyJar/loa-constructs/blob/main/.claude/schemas/composition.schema.json)
@@ -391,7 +391,7 @@ Edit `/Users/zksoju/bonfire/loa-compositions/README.md`:
 ### Step 8 — Run validation locally before pushing
 
 ```bash
-cd ~/bonfire/loa-compositions
+cd ~/bonfire/construct-compositions
 bun install
 bun run validate:compositions
 # Expect: ✓ all YAMLs pass
@@ -403,9 +403,9 @@ Two PRs, sequenced:
 
 **PR A (loa-constructs):** "schema: composition.schema.json v1.1 — cycle-002 followup additions"
 
-**PR B (loa-compositions):** "validate: add schema-validation CI + bump v1.1 fields" — depends on PR A merging first (CI fetches the live schema URL).
+**PR B (construct-compositions):** "validate: add schema-validation CI + bump v1.1 fields" — depends on PR A merging first (CI fetches the live schema URL).
 
-Operator-authorized direct merge per the cycle-002 precedent (loa-compositions PRs #2–#7).
+Operator-authorized direct merge per the cycle-002 precedent (construct-compositions PRs #2–#7).
 
 ---
 
@@ -415,7 +415,7 @@ After both PRs merge:
 
 ```bash
 # Schema validates current YAMLs
-cd ~/bonfire/loa-compositions && bun run validate:compositions  # → all pass
+cd ~/bonfire/construct-compositions && bun run validate:compositions  # → all pass
 
 # Schema URL is current
 curl -s https://loa.dev/schemas/composition.schema.json | jq '.properties.schema_version.enum'
@@ -454,10 +454,10 @@ curl -s https://loa.dev/schemas/composition.schema.json | jq '.properties.schema
 | Public $id URL | `https://loa.dev/schemas/composition.schema.json` |
 | Validator script (existing, construct-graph) | `loa-constructs/scripts/validate-composition.ts` (NOT a JSON-schema validator — for ghost-wire detection) |
 | schema-validator.sh tool | `loa-constructs/.claude/scripts/schema-validator.sh` |
-| Compositions registry | `loa-compositions/compositions/**/*.yaml` |
-| Composition tower (sorry-for-ur-loss) | `loa-compositions/compositions/sorry-for-ur-loss/{triage-pause,outage-triage,hibernate-product}.yaml` |
-| Composition tower (delivery) | `loa-compositions/compositions/delivery/{feel-iterate,ground-and-craft,direct-render}.yaml` |
-| Cycle-002 followup PRs | loa-compositions PRs #3, #4, #5, #6, #7 + henlo-monorepo PRs #20, #21, #22 |
+| Compositions registry | `construct-compositions/compositions/**/*.yaml` |
+| Composition tower (sorry-for-ur-loss) | `construct-compositions/compositions/sorry-for-ur-loss/{triage-pause,outage-triage,hibernate-product}.yaml` |
+| Composition tower (delivery) | `construct-compositions/compositions/delivery/{feel-iterate,ground-and-craft,direct-render}.yaml` |
+| Cycle-002 followup PRs | construct-compositions PRs #3, #4, #5, #6, #7 + henlo-monorepo PRs #20, #21, #22 |
 | Operator's mental model memory | `~/.claude/projects/-Users-zksoju-Documents-GitHub-henlo-monorepo/memory/feedback_schema_ownership_registry_owns_its_contract.md` |
 
 ---

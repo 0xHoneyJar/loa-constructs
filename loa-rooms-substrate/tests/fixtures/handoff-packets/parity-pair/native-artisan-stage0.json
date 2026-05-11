@@ -1,0 +1,38 @@
+{
+  "construct_slug": "artisan",
+  "output_type": "Verdict",
+  "verdict": {
+    "score": 4,
+    "axes": {"structure": 4, "behavior": 5, "motion": 3, "material": 4},
+    "summary": "Structure holds; motion needs springs not curves.",
+    "prescriptions": [
+      "Replace 300ms ease-in-out with {mass: 1.2, stiffness: 180, damping: 14}",
+      "Tighten institutional palette: cap chroma at 0.04 above L=0.65"
+    ]
+  },
+  "invocation_mode": "room",
+  "cycle_id": "simstim-20260509-aead9136",
+  "persona": "ALEXANDER",
+  "output_refs": [
+    {"type": "verdict", "ref": "artisan:visual-surface:scoring", "hash": null}
+  ],
+  "evidence": [
+    "tests/fixtures/sample-surface.png:42",
+    "Property cited: Levels of Scale (Alexander 15)"
+  ],
+  "domain": "visual-surface",
+  "agent_id": "agent-7f3d2a8e1b9c4f6d",
+  "transcript_path": "/Users/zksoju/.claude/projects/-Users-zksoju-Documents-GitHub-loa-constructs/abc123/subagents/agent-7f3d2a8e1b9c4f6d.jsonl",
+  "transcript_excerpt": "Structure assessment: typographic hierarchy holds at 4px baseline; motion uses ease-in-out where springs are warranted...",
+  "input_refs": [
+    {"type": "artifact", "ref": "tests/fixtures/sample-surface.png", "hash": null}
+  ],
+  "open_questions": [],
+  "gates_passed": [
+    {"gate_name": "schema_valid", "status": "passed", "reason": null}
+  ],
+  "gates_failed": [],
+  "composition_run_id": "20260510-parity-pair",
+  "stage_index": 0,
+  "created_at": "2026-05-10T01:30:00Z"
+}

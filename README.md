@@ -110,7 +110,7 @@ chain:
   - { construct: observer, skill: analyzing-gaps,     reads: [Verdict], writes: [Verdict] }
 ```
 
-This repo owns the **schema** ([`composition.schema.json`](.claude/schemas/composition.schema.json)) + the **runner** (`compose-run.sh`) + **one canonical reference composition** (`audit-feel`) for teaching and runner smoke-tests. The full curated **registry** of compositions lives in [`loa-compositions`](https://github.com/0xHoneyJar/loa-compositions), organized by Hivemind Lab workstream (discovery / delivery / experimentation / tech-debt / sorry-for-ur-loss). One contract, two homes.
+This repo owns the **schema** ([`composition.schema.json`](.claude/schemas/composition.schema.json)) + the **runner** (`compose-run.sh`) + **one canonical reference composition** (`audit-feel`) for teaching and runner smoke-tests. The full curated **registry** of compositions lives in [`construct-compositions`](https://github.com/0xHoneyJar/construct-compositions), organized by Hivemind Lab workstream (discovery / delivery / experimentation / tech-debt / sorry-for-ur-loss). One contract, two homes.
 
 Full doctrine: [`bonfire-construct-pipe-doctrine.md`](grimoires/loa-constructs-seed-2026-04-21/bonfire-construct-pipe-doctrine.md).
 

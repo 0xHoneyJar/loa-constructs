@@ -1,9 +1,9 @@
 ---
-name: goal-validator
+name: loa-validator-goal
 version: 1.0.0
 description: Verify PRD goals are achieved through implementation
 context: fork
-agent: Explore
+# legacy field removed: agent: Explore
 triggers:
   - after: implementing-tasks
   - before: reviewing-code (final sprint only)
@@ -13,8 +13,15 @@ severity_levels:
   - GOAL_AT_RISK
   - GOAL_BLOCKED
 output_path: grimoires/loa/a2a/subagent-reports/goal-validation-{date}.md
+model: inherit
+tools: Read, Grep, Glob, Bash
+loa:
+  legacy_path: .claude/subagents/goal-validator.md
+  agent_class: validator
+  cycle:
+    migrated_in: simstim-20260509-aead9136
+    sprint: cycle-construct-rooms-sprint-6
 ---
-
 # Goal Validator
 
 <objective>

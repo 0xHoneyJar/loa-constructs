@@ -1,0 +1,33 @@
+{
+  "construct_slug": "artisan",
+  "output_type": "Verdict",
+  "verdict": {
+    "score": 4,
+    "axes": {"weight": 4, "rhythm": 5, "material": 3},
+    "summary": "Surface meets craft baseline; consider tightening rhythm-weight coupling."
+  },
+  "invocation_mode": "room",
+  "cycle_id": "simstim-20260509-aead9136",
+  "persona": "ALEXANDER",
+  "output_refs": [
+    {"type": "verdict", "ref": "artisan:visual-surface:scoring", "hash": null}
+  ],
+  "evidence": [
+    "grimoires/loa/sdd.md:42",
+    "previous-handoff:abc123"
+  ],
+  "domain": "visual-surface",
+  "agent_id": null,
+  "transcript_path": null,
+  "input_refs": [
+    {"type": "artifact", "ref": "tests/fixtures/sample-surface.png", "hash": null}
+  ],
+  "open_questions": [],
+  "gates_passed": [
+    {"gate_name": "schema_valid", "status": "passed", "reason": null}
+  ],
+  "gates_failed": [],
+  "composition_run_id": null,
+  "stage_index": 0,
+  "created_at": "2026-05-09T22:00:00Z"
+}

@@ -1,0 +1,248 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://0xhoneyjar.dev/loa/schemas/construct-manifest-v4.schema.json",
+  "title": "Construct Manifest v4",
+  "description": "Schema for .claude/constructs/packs/<slug>/construct.yaml. v4 adds optional 'tools' and 'adapter' blocks. Backward compatible with v3: validator default-applies v4 defaults to v3 manifests; missing v4 fields are informational warnings, not failures.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "slug",
+    "name",
+    "version",
+    "description"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "enum": [3, 4],
+      "description": "Schema version. v4 adds tools + adapter blocks (optional). v3 manifests remain valid; validator emits informational warnings for missing v4 fields."
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+(?:-[A-Za-z0-9-]+)?$",
+      "description": "SemVer."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2048
+    },
+    "short_description": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "type": {
+      "enum": ["skill-pack", "substrate-construct", "codex"],
+      "description": "Construct type. v3 packs typically use 'skill-pack'."
+    },
+    "author": { "type": "string", "maxLength": 128 },
+    "license": { "type": "string", "maxLength": 64 },
+    "visibility": { "enum": ["public", "private", "premium"] },
+    "personas": {
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_-]*$",
+        "maxLength": 64
+      }
+    },
+    "skills": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["slug"],
+        "properties": {
+          "slug": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$",
+            "maxLength": 64
+          },
+          "path": { "type": "string", "maxLength": 256 }
+        }
+      }
+    },
+    "tools": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v4 addition. Tool allowlist/denylist for native subagent adapter generation. See SDD §2.1.1.",
+      "properties": {
+        "allowlist": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "description": "Tools the construct may use. If empty/absent, generator infers from skills + baseline."
+        },
+        "denylist": {
+          "type": "array",
+          "maxItems": 64,
+          "items": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "description": "Tools the construct MUST NOT use (e.g., k-hole forbids WebSearch)."
+        },
+        "required": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "string", "minLength": 1, "maxLength": 64 },
+          "description": "Tools the construct MUST use at least once (positive mandate)."
+        },
+        "inherit_baseline": {
+          "type": "boolean",
+          "default": true,
+          "description": "If true, prepend Read/Grep/Glob/Bash to allowlist."
+        }
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v4 addition. Native-agent adapter metadata for generator. See SDD §2.1.1 + §2.2.",
+      "properties": {
+        "description_hint": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "description": "Natural-language hint surfaced in Claude Code's @-mention typeahead."
+        },
+        "color": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]{1,32}$",
+          "description": "UI color hint."
+        },
+        "model": {
+          "type": "string",
+          "maxLength": 64,
+          "description": "Model alias or 'inherit'. Defaults to 'inherit'."
+        },
+        "foreground_default": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether spawned subagents default to foreground (operator-visible) vs background (independent)."
+        },
+        "invocation_modes": {
+          "type": "array",
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": { "enum": ["room", "studio"] },
+          "description": "Subset of {room, studio}. Default [room]. 'studio' allows natural-language synthesis without claiming construct authority."
+        }
+      }
+    },
+    "reads": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "enum": ["Signal", "Verdict", "Artifact", "Intent", "Operator-Model"] }
+    },
+    "writes": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "enum": ["Signal", "Verdict", "Artifact", "Intent", "Operator-Model"] }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "events": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "emits": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string", "minLength": 1, "maxLength": 256 },
+              {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "type": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "description": { "type": "string" },
+                  "data_schema": { "type": ["object", "string"] }
+                }
+              }
+            ]
+          }
+        },
+        "consumes": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string", "minLength": 1, "maxLength": 256 },
+              {
+                "type": "object",
+                "additionalProperties": true,
+                "properties": {
+                  "event": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "type": { "type": "string", "minLength": 1, "maxLength": 256 },
+                  "description": { "type": "string" }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 32,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "maxLength": 32 }
+    },
+    "composes_with": {
+      "type": "array",
+      "maxItems": 64,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "maxLength": 64 }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "substrate-construct only (lore-essay-grader pattern). Optional for skill-pack."
+    },
+    "executable": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "substrate-construct only."
+    },
+    "requirements": {
+      "type": "array",
+      "items": { "type": "object" },
+      "description": "substrate-construct only."
+    },
+    "streams": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "substrate-construct only or v4 stream metadata."
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "object", "additionalProperties": true }
+        ]
+      }
+    },
+    "persona_path": {
+      "type": ["string", "null"]
+    },
+    "quick_start": {
+      "oneOf": [
+        { "type": ["string", "null"] },
+        { "type": "object", "additionalProperties": true }
+      ]
+    }
+  }
+}

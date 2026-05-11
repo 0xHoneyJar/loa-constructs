@@ -176,7 +176,7 @@ Agents MUST update NOTES.md at these points:
 <!-- Absolute paths only - retrieve full content on-demand via JIT -->
 | Identifier | Purpose | Last Verified |
 |------------|---------|---------------|
-| ${PROJECT_ROOT}/.claude/subagents/security-scanner.md | Security scanner subagent | 15:45:00Z |
+| ${PROJECT_ROOT}/.claude/agents/loa-validator-security.md | Security scanner subagent | 15:45:00Z |
 
 ### Pending Questions
 <!-- Carry forward across sessions -->

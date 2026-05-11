@@ -1,0 +1,151 @@
+schema_version: 4
+slug: loa-rooms-substrate
+name: Loa Rooms Substrate
+version: 0.1.0
+type: skill-pack
+short_description: "Substrate that puts every Loa construct into an isolated Claude Code subagent room"
+description: |
+  loa-rooms-substrate provides the runtime substrate for invoking any Loa
+  construct as a Claude Code native subagent inside an isolated 'room' — a
+  named, traced, packet-emitting invocation boundary. It ships the adapter
+  generator, composition runner, handoff packet schemas, validators, and
+  observability hooks. It is opt-in substrate; operators install it when
+  they want native-subagent-based construct invocation alongside (or
+  instead of) Loa framework's existing in-session L1-L5 construct support.
+
+  This pack is mechanism, not expertise. It has no persona, no skills of
+  its own, no domain knowledge. It provides infrastructure that any
+  installed Loa construct can use.
+
+author: 0xHoneyJar
+license: AGPL-3.0
+visibility: public
+repository:
+  url: https://github.com/0xHoneyJar/loa-rooms-substrate
+  homepage: https://constructs.network/constructs/loa-rooms-substrate
+
+# Substrate packs do NOT declare personas — they have no embodiment.
+personas: []
+
+# Substrate packs do NOT declare expertise skills — they ship runtime tooling.
+# The 'skills' below are operator-facing scripts that this pack contributes;
+# they are NOT skills in the SKILL.md sense.
+# Pack-shipped scripts live in scripts/ and are sourced into the consumer
+# repo's .claude/scripts/ at install time.
+skills: []
+
+# This pack does not consume or produce typed Loa streams of its own —
+# it provides the infrastructure on which other constructs' streams flow.
+reads: []
+writes: []
+
+# No gates declared — the pack does not introduce workflow gates.
+gates: {}
+
+# No events emitted/consumed by the pack itself.
+events:
+  emits: []
+  consumes: []
+
+tags:
+  - substrate
+  - runtime
+  - native-subagent
+  - composition
+  - rooms
+  - infrastructure
+
+# Constructs this pack composes WITH — meaning constructs that benefit from
+# being installed alongside this substrate. In practice this is "all of them"
+# since the substrate is pan-construct, but the explicit list helps the
+# registry surface the pack as a runtime-addition.
+composes_with:
+  # All construct slugs benefit; not enumerated to avoid drift. The composes_with
+  # contract is satisfied by the manifest tag 'substrate' — registry can do the
+  # join.
+
+# Files this pack contributes when installed.
+# These paths are RELATIVE to the consumer repo's project root.
+# At install time, the construct sync mechanism copies pack contents into
+# the consumer's `.claude/` substrate paths.
+contributes:
+  scripts:
+    - scripts/construct-adapter-gen.sh        # → .claude/scripts/
+    - scripts/handoff-validate.sh             # → .claude/scripts/
+    - scripts/room-packet-validate.sh         # → .claude/scripts/
+    - scripts/construct-manifest-validate.sh  # → .claude/scripts/
+    - scripts/handoff-parity-check.sh         # → .claude/scripts/
+    - scripts/compose-dispatch.sh             # → .claude/scripts/
+    - scripts/migrate-subagents-to-agents.sh  # → .claude/scripts/
+    - scripts/migrate-subagents-verify.sh     # → .claude/scripts/
+    - scripts/lib/adapter-generator.py        # → .claude/scripts/lib/
+    - scripts/lib/construct-handoff-lib.sh    # → .claude/scripts/lib/
+  templates:
+    - templates/construct-adapter.template.md # → .claude/scripts/templates/
+  data:
+    - data/schemas/construct-manifest-v4.schema.json     # → .claude/data/schemas/
+    - data/trajectory-schemas/construct-handoff.schema.json         # → .claude/data/trajectory-schemas/
+    - data/trajectory-schemas/room-activation-packet.schema.json    # → .claude/data/trajectory-schemas/
+  hooks:
+    - hooks/subagent-start/loa-tool-mandate.sh    # → .claude/hooks/subagent-start/
+    - hooks/subagent-stop/loa-handoff-collect.sh  # → .claude/hooks/subagent-stop/
+  docs:
+    - docs/runtime/construct-adapters.md  # → docs/runtime/
+
+# Tests bundled with the pack — run via bats from consumer repo to verify
+# the substrate is functional after install.
+tests:
+  type: bats
+  suites:
+    - tests/integration/composition-pilot.bats       # T2 + T3 + T4 (8 tests)
+    - tests/integration/headless-parity.bats         # T5 (7 tests)
+    - tests/integration/pilot-adapter-discovery.bats # T1 (10 tests)
+    - tests/integration/tool-mandate.bats            # T6 + T7 + M-3 (10 tests)
+  fixtures: tests/fixtures/
+
+# Dependencies — system-level requirements operators must have available.
+requirements:
+  - tag: claude-code
+    contract: "claude --version >= 2.1.0"
+    description: "Claude Code CLI; project agents loaded from .claude/agents/"
+  - tag: python
+    contract: "python3 >= 3.10 with jsonschema, pyyaml, rfc8785 packages"
+    description: "Used by adapter-generator.py + validators"
+  - tag: bash
+    contract: "bash >= 4.0"
+    description: "All scripts use bash with set -euo pipefail"
+  - tag: yq
+    contract: "yq >= 4.0"
+    description: "YAML parsing in scripts"
+  - tag: jq
+    contract: "jq >= 1.6"
+    description: "JSON construction + manipulation"
+
+# Post-install steps the consumer repo runs once after sync.
+post_install:
+  - description: "Generate adapters for every construct in .claude/constructs/packs/"
+    command: "bash .claude/scripts/construct-adapter-gen.sh"
+  - description: "Verify adapters register with Claude Code"
+    command: "claude agents | grep -c construct-"
+  - description: "Optionally wire SubagentStart/Stop hooks per .claude/hooks/SUBAGENT-HOOKS-INSTALLATION.md"
+    command: "cat .claude/hooks/SUBAGENT-HOOKS-INSTALLATION.md"
+    optional: true
+
+# What this pack does NOT do, machine-readable for tooling that wants to
+# reason about runtime targets.
+non_goals:
+  - "Process isolation / sandboxing (deferred)"
+  - "Non-Claude-Code runtimes (separate pack experiments)"
+  - "Replacement for Loa framework's L1-L5 in-session construct support"
+  - "New construct expertise (use construct-creator instead)"
+  - "Network/registry infrastructure (Loa Constructs Network owns that)"
+  - "Workflow / mode prescription (operator OS, golden path stay as is)"
+
+# Origin metadata — not load-bearing for the registry, useful for trace.
+origin:
+  cycle: simstim-20260509-aead9136
+  cycle_pr: https://github.com/0xHoneyJar/loa-constructs/pull/234
+  closes_rfc_relationship: |
+    Composes with — does not address — loa#452. The framework's L1-L5
+    in-session construct support (cycle-051 / loa#454) is the canonical
+    construct contract; this pack is an additional runtime experiment.

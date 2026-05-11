@@ -1,0 +1,18 @@
+schema_version: "1.0"
+kind: workflow
+name: artisan-observe-handoff
+description: "Sprint 2 pilot composition — artisan emits a Verdict on a UI surface; observer consumes the Verdict and produces a user-truth Verdict in response. Two visible rooms in operator session via Form A dispatch."
+intent: "Validate two-stage handoff via packets (not transcripts) per PRD T4 acceptance"
+chain:
+  - stage: 1
+    construct: artisan
+    skill: scoring-experience
+    persona: ALEXANDER
+    reads: []
+    writes: [Verdict]
+  - stage: 2
+    construct: observer
+    skill: level-3-diagnostic
+    persona: KEEPER
+    reads: [Verdict]
+    writes: [Verdict]
