@@ -1,0 +1,23 @@
+{
+  "construct_slug": "crucible",
+  "output_type": "Verdict",
+  "verdict": "fidelity-met-with-one-partial-on-claim-4-aggregator-semantics",
+  "invocation_mode": "Form-A",
+  "cycle_id": "cycle-craft-cluster-sprint-4-fidelity",
+  "persona": null,
+  "why": {
+    "rationale": "Four of five declared taste claims match shipped code with cited file:line evidence. CLAIM-4 (interactive-side-channel-integrity) is partial: the flag file IS removed on FIFO read or timeout (surface-envelope.sh:264), but the .run/waiting-on-operator.jsonl aggregator is append-only — instead of 'removing' the waiting entry, the script appends a follow-up 'envelope.operator-responded' event (line 265). The claim's literal 'removed' verb misfits jsonl semantics; the intent (lifecycle closure visible in aggregator) is met. All other invariants hold including exit-code 1/2 split, 80-col/24-line caps, field provenance, and graceful-degradation on surface failure.",
+    "decisions_considered": [
+      "Whether jsonl-append-as-lifecycle-close satisfies the 'removed' verb in CLAIM-4 (concluded: partial)",
+      "Whether line 265's _aggregator_append running unconditionally after timeout counts as 'cleanup'",
+      "Whether CLAIM-3's slug-resolution needed --no-resolve carve-out verification",
+      "Whether CLAIM-5's `2>/dev/null` on surface call violates graceful degradation",
+      "Whether CLAIM-1's textwrap of rationale counts as 'inferred field'"
+    ],
+    "tools_used": [
+      "Read (surface-envelope.sh, pair-relay-validate.sh, compose-dispatch.sh)",
+      "Bash ls",
+      "manual cross-reference against claim wording"
+    ]
+  }
+}

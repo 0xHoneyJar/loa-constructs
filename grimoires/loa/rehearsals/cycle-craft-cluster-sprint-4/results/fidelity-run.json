@@ -1,0 +1,13 @@
+{
+  "run_id": "fidelity-r1",
+  "pattern": "pair-relay",
+  "artifact_name": "fidelity-audit-verdict",
+  "max_cycles": 3,
+  "sequence_length": 3,
+  "stages_dispatched": 3,
+  "completed_cycles": [
+    1
+  ],
+  "convergence_state": "halted-no-handoff",
+  "exit_code": 0
+}

@@ -1,0 +1,24 @@
+{
+  "construct_slug": "rosenzu",
+  "output_type": "Verdict",
+  "verdict": "two-doors-one-vestibule",
+  "invocation_mode": "Form-A",
+  "cycle_id": "cycle-craft-cluster-sprint-4-frame",
+  "persona": "LYNCH",
+  "why": {
+    "rationale": "The operator enters one vestibule — argv parse, mode detection, run_id, RUN_DIR setup — then hits a single decision-point at line 184: read .pattern. Two doors open from there. Door A (parallel) is a straight hallway: walk chain[] once, one envelope per stage, exit. Door B (pair-relay) is a turnstile chamber: walk sequence[] N times, c1.00 / c1.01 / c2.00 envelope-naming carves cycle-rings into the floor. The decision is invisible at the front desk — the operator can't tell which door they'll be sent through until the YAML is parsed. Both doors share the vestibule but diverge into mutually-exclusive corridors guarded by `if PAIR_RELAY_FLOW == 0 ... fi` wrapping 215 lines of the older hallway.",
+    "decisions_considered": [
+      "switch-yard (rejected — implies parallel tracks; this is sequential gate)",
+      "fork-in-the-road (rejected — too neutral; doesn't name the asymmetry)",
+      "elevator-with-two-floors (rejected — implies same shape at both destinations)",
+      "branch-room-with-shared-foyer (close, but understates the data-shape asymmetry)",
+      "two-doors-one-vestibule (taken — names the topological truth)"
+    ],
+    "tools_used": [
+      "Read (full script, single pass)",
+      "route-language translation (each if/for reframed as door/hallway/turnstile)",
+      "asymmetry-detection (compared filename schemas: 2-component vs 3-component)",
+      "default-tracing (which door does an unmarked ticket lead to?)"
+    ]
+  }
+}

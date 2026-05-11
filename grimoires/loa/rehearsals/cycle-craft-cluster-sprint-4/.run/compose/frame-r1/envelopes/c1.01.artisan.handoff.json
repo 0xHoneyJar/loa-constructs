@@ -1,0 +1,24 @@
+{
+  "construct_slug": "artisan",
+  "output_type": "Verdict",
+  "verdict": "vestibule-honest-but-hallways-betray-symmetry",
+  "invocation_mode": "Form-A",
+  "cycle_id": "cycle-craft-cluster-sprint-4-frame",
+  "persona": "ALEXANDER",
+  "why": {
+    "rationale": "The entry foyer (lines 47-160) is genuine shared furniture — arg-parse, mode-detect, RUN_DIR, log_event all live where every visitor can use them. But past the decision-desk the topology degrades: door-A is wrapped in a giant if-block (195-410) rather than extracted as a function, so it cannot be called from door-B and cannot share its room-packet construction logic. The two doors therefore reimplement the same flow with cosmetic differences (flat 2-digit vs cycle-ringed 3-component filenames; bare vs sidecar-state walks). The default-ticket at line 184 makes the older door silently authoritative — new visitors must speak the new word or they fall through. The doubled `exit 0` at 696-697 is the building's confession that door-B was nailed onto the back wall.",
+    "decisions_considered": [
+      "wrapped-if vs extracted-function for door-A's flow",
+      "sidecar relay-state.json vs unifying both doors under one state model",
+      "flat NN.slug vs cN.NN.slug envelope naming (treating cycle=1 as the unifying case)",
+      "default 'parallel' ticket vs requiring explicit pattern declaration",
+      "substrate-first path resolution for pair-relay only (door-A has no equivalent)"
+    ],
+    "tools_used": [
+      "Read (compose-dispatch.sh full file)",
+      "Christopher Alexander — Levels of Scale + addition extending grammar",
+      "Kenya Hara — ma as load-bearing interval",
+      "Ken Kocienda — concrete artifacts as the unit of judgment"
+    ]
+  }
+}

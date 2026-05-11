@@ -1708,7 +1708,7 @@ cta:
 # Hounfour — Model-Heterogeneous Agent Routing (cycle-026)
 hounfour:
   flatline_routing: false   # Route Flatline/GPT-review through model-invoke (cheval.py)
-  flatline_tertiary_model: gemini-3.1-pro-preview  # 3-model Flatline: Opus + GPT-5.5-pro + Gemini-3.1-pro
+  flatline_tertiary_model: gemini-3.1-pro  # 3-model Flatline: Opus + GPT-5.5-pro + Gemini-3.1-pro (use registered alias, not 'preview' suffix)
 
   # Per-subsystem feature flags (all default true — opt-out)
   feature_flags:
@@ -1969,7 +1969,7 @@ flatline_protocol:
   models:
     primary: opus
     secondary: gpt-5.5-pro          # most powerful OpenAI (was gpt-5.3-codex)
-    tertiary: google:gemini-3.1-pro-preview  # provider-pinned form per readiness check; bare alias 'gemini-3.1-pro' isn't registered so `google:<model_id>` is the disambiguating syntax
+    tertiary: gemini-3.1-pro  # registered alias (was 'google:gemini-3.1-pro-preview' — both forms failed readiness check 2026-05-11 cycle-craft-cluster; bare registered alias is the working form)
 
   thresholds:
     high_consensus: 700
