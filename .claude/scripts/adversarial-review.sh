@@ -271,6 +271,76 @@ validate_finding() {
   ' > /dev/null 2>&1
 }
 
+# cycle-102 sprint-1F (#814 / KF-004 closure): companion to validate_finding
+# that returns a specific reject reason on stdout. Used by the rejection
+# sidecar so operators triaging "0 findings + N silent rejections" can see
+# WHY each payload was dropped without re-running the dissenter.
+#
+# Returns empty string on stdout if valid; first-failing-rule reason if not.
+# Mirrors validate_finding's rule order so the boolean fast-path stays the
+# canonical truth and the reason path is diagnostic-only.
+_validate_finding_reason() {
+  local finding="$1"
+  local type="$2"
+
+  local valid_severities
+  if [[ "$type" == "review" ]]; then
+    valid_severities='["BLOCKING","ADVISORY"]'
+  else
+    valid_severities='["CRITICAL","HIGH","MEDIUM","LOW"]'
+  fi
+  local valid_categories='["injection","authz","data-loss","null-safety","concurrency","type-error","resource-leak","error-handling","spec-violation","performance","secrets","xss","ssrf","deserialization","crypto","info-disclosure","rate-limiting","input-validation","config","other"]'
+
+  echo "$finding" | jq -r --argjson sevs "$valid_severities" --argjson cats "$valid_categories" '
+    if (.id // null) == null or (.id | type) != "string" then
+      "missing-or-non-string-id"
+    elif (.severity // null) == null then
+      "missing-severity"
+    elif ((.severity | IN($sevs[])) | not) then
+      "severity-not-in-enum (got: \(.severity // "null"))"
+    elif (.category // null) == null then
+      "missing-category"
+    elif ((.category | IN($cats[])) | not) then
+      "category-not-in-enum (got: \(.category // "null"))"
+    elif (.description // null) == null or (.description | type) != "string" or (.description | length) == 0 then
+      "missing-or-empty-description"
+    elif (.failure_mode // null) == null or (.failure_mode | type) != "string" or (.failure_mode | length) == 0 then
+      "missing-or-empty-failure_mode"
+    else
+      ""
+    end
+  ' 2>/dev/null
+}
+
+# cycle-102 sprint-1F (#814 / KF-004 closure): write a rejected-finding entry
+# to the per-sprint sidecar JSONL. One entry per rejected finding, append-only
+# within a single process_findings invocation. Schema:
+#   {ts_utc, sprint_id, type, model, index, reject_reason, payload}
+# Caller MUST have ensured the sidecar parent dir exists and (optionally)
+# truncated the file at the start of process_findings.
+_write_rejected_sidecar() {
+  local sidecar_path="$1"
+  local finding="$2"
+  local reject_reason="$3"
+  local index="$4"
+  local sprint_id="$5"
+  local type="$6"
+  local model="$7"
+
+  [[ -n "$sidecar_path" ]] || return 0
+
+  jq -nc \
+    --argjson f "$finding" \
+    --arg r "${reject_reason:-unknown-reason}" \
+    --argjson idx "$index" \
+    --arg sid "$sprint_id" \
+    --arg t "$type" \
+    --arg m "$model" \
+    --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+    '{ts_utc: $ts, sprint_id: $sid, type: $t, model: $m, index: $idx, reject_reason: $r, payload: $f}' \
+    >> "$sidecar_path" 2>/dev/null || true
+}
+
 # =============================================================================
 # Anchor Validation Pipeline (SDD Section 5)
 # =============================================================================
@@ -544,13 +614,58 @@ invoke_dissenter() {
   local user_prompt_file="$2"
   local model="$3"
   local timeout="$4"
+  # cycle-109 Sprint 2 T2.5 — optional sidecar path. When provided,
+  # LOA_VERDICT_QUALITY_SIDECAR is exported for the cheval subprocess
+  # so the verdict_quality envelope lands in this file. Backward-compat:
+  # callers that don't pass the arg get the legacy non-sidecar behavior.
+  local vq_sidecar="${5:-}"
 
-  "$SCRIPT_DIR/model-adapter.sh" \
-    --model "$model" \
-    --mode dissent \
-    --input "$user_prompt_file" \
-    --context "$system_prompt_file" \
-    --timeout "$timeout"
+  if [[ -n "$vq_sidecar" ]]; then
+    LOA_VERDICT_QUALITY_SIDECAR="$vq_sidecar" \
+      "$SCRIPT_DIR/model-adapter.sh" \
+      --model "$model" \
+      --mode dissent \
+      --input "$user_prompt_file" \
+      --context "$system_prompt_file" \
+      --timeout "$timeout"
+  else
+    "$SCRIPT_DIR/model-adapter.sh" \
+      --model "$model" \
+      --mode dissent \
+      --input "$user_prompt_file" \
+      --context "$system_prompt_file" \
+      --timeout "$timeout"
+  fi
+}
+
+# cycle-109 Sprint 2 T2.5 — verdict_quality multi-attempt aggregator.
+# Shells out to the canonical Python aggregator
+# (loa_cheval.verdict.aggregate per SDD §5.2.1) on the list of per-attempt
+# envelope files collected during the fallback_chain walk. Bash never
+# reimplements the merge logic — drift impossible by construction.
+#
+# Usage:
+#   _adv_aggregate_envelopes <file1> [<file2> ...]
+#     Echoes aggregated multi-voice envelope JSON (compact) to stdout.
+#     Returns 0 on success, non-zero when no valid envelope files supplied.
+#
+# Skips missing / empty / malformed-JSON files silently — adversarial-
+# review's fallback walk may produce zero or partial envelopes when
+# cheval is older / a write failed / the sidecar mechanism is unavailable.
+_adv_aggregate_envelopes() {
+  local f
+  local -a valid_files=()
+  for f in "$@"; do
+    [[ -s "$f" ]] || continue
+    if jq empty < "$f" 2>/dev/null; then
+      valid_files+=("$f")
+    fi
+  done
+  if [[ ${#valid_files[@]} -eq 0 ]]; then
+    return 1
+  fi
+  PYTHONPATH="$PROJECT_ROOT/.claude/adapters" \
+    python3 -m loa_cheval.verdict.aggregate "${valid_files[@]}"
 }
 
 # =============================================================================
@@ -592,11 +707,92 @@ process_findings() {
     parsed="$content"
   fi
 
+  # KF-011 fix (closes second observation 2026-05-17): reasoning-class models
+  # (gpt-5.5-pro, gpt-5.5, opus-4-7) now routinely emit a conversational
+  # preamble BEFORE the JSON envelope, e.g.:
+  #   "Using the `ubs` review skill because... I'll keep the final response
+  #    to the requested JSON shape.\n{"findings":[...]}"
+  # Direct jq on the full content fails because `.findings` doesn't exist at
+  # the top level of "prose\n{json}". Extract the first balanced JSON object
+  # containing "findings" using Python's json.JSONDecoder.raw_decode, which
+  # handles arbitrarily nested envelopes safely. Falls back to original
+  # `parsed` if no embedded envelope is found (preserves prior behavior for
+  # the literal-JSON path).
+  if ! echo "$parsed" | jq -e '.findings' >/dev/null 2>&1; then
+    local extracted
+    extracted=$(echo "$content" | python3 -c '
+import sys, json
+text = sys.stdin.read()
+decoder = json.JSONDecoder()
+i = 0
+while i < len(text):
+    if text[i] == "{":
+        try:
+            obj, _ = decoder.raw_decode(text[i:])
+            if isinstance(obj, dict) and "findings" in obj:
+                print(json.dumps(obj))
+                break
+        except json.JSONDecodeError:
+            pass
+    i += 1
+' 2>/dev/null || echo "")
+    if [[ -n "$extracted" ]]; then
+      parsed="$extracted"
+    fi
+  fi
+
   # STATE 2: Malformed response
   local findings_array
   findings_array=$(echo "$parsed" | jq -r '.findings // empty' 2>/dev/null || echo "")
   if [[ -z "$findings_array" ]]; then
     log "Malformed response: missing 'findings' key"
+
+    # KF-011 diagnostic capture (issue #930).
+    # When LOA_ADVERSARIAL_DEBUG=1, write the raw response body to a sidecar
+    # so future fixes can disambiguate between (a) prompt-schema drift,
+    # (b) parser brittleness on wrapped envelopes, (c) reasoning-class
+    # meta-commentary. Pipes through log-redactor for NFR-Sec-1.
+    # Default behavior (env unset) is unchanged — no observable change.
+    if [[ "${LOA_ADVERSARIAL_DEBUG:-0}" == "1" ]]; then
+      local debug_dir="$PROJECT_ROOT/grimoires/loa/a2a/${sprint_id}"
+      mkdir -p "$debug_dir" 2>/dev/null || true
+      # Slug the model name to a filesystem-safe form (provider:id has `:`).
+      # Use `__` so the namespace boundary stays visible in filenames
+      # (single `_` would be ambiguous with literal underscores in model ids).
+      local model_slug
+      model_slug=$(echo "$model" | sed 's|:|__|g; s|/|__|g')
+      # Slug colons out of the ISO timestamp too — `:` is illegal in
+      # filenames on Windows/FAT and confuses cross-platform tarball
+      # extraction. Replace with `-` for human readability.
+      local timestamp_slug
+      timestamp_slug=$(echo "$timestamp" | tr ':' '-')
+      local debug_file="$debug_dir/adversarial-debug-${model_slug}-${timestamp_slug}.txt"
+      local redactor="$PROJECT_ROOT/.claude/scripts/lib/log-redactor.sh"
+      {
+        echo "# KF-011 debug capture (LOA_ADVERSARIAL_DEBUG=1)"
+        echo "# model: $model"
+        echo "# sprint_id: $sprint_id"
+        echo "# type: $type"
+        echo "# timestamp: $timestamp"
+        echo "# ---"
+        echo "## raw_response (model-adapter envelope):"
+        echo "$raw_response"
+        echo ""
+        echo "## extracted content (.content field):"
+        echo "$content"
+        echo ""
+        echo "## parsed (post markdown-fence strip):"
+        echo "$parsed"
+      } | (
+        if [[ -x "$redactor" ]]; then
+          "$redactor"
+        else
+          cat
+        fi
+      ) > "$debug_file" 2>/dev/null || true
+      log "KF-011 debug: raw response captured to $debug_file"
+    fi
+
     jq -n \
       --arg type "$type" --arg model "$model" --arg sid "$sprint_id" \
       --arg ts "$timestamp" \
@@ -618,8 +814,29 @@ process_findings() {
   fi
 
   # STATE 4: Populated findings — validate and process
+  #
+  # cycle-102 sprint-1F (#814 / KF-004 closure): rejected-finding sidecar.
+  # When validate_finding rejects a payload, the payload is preserved in
+  # `adversarial-rejected-${type}.jsonl` alongside the main output. This
+  # closes the silent-rejection observability gap that vision-024 named as
+  # the third consensus-classification failure mode and that the operator's
+  # suspicion-lens interjections caught manually across cycle-102.
+  #
+  # Sidecar is truncated at start of every process_findings invocation
+  # (idempotent within a single run; multiple runs on the same sprint do
+  # NOT accumulate). Disable via LOA_ADVERSARIAL_REJECT_SIDECAR_DISABLE=1
+  # (env opt-out for environments that can't write the sidecar).
+  local rejected_sidecar=""
+  if [[ -z "${LOA_ADVERSARIAL_REJECT_SIDECAR_DISABLE:-}" ]]; then
+    local rej_dir="$PROJECT_ROOT/grimoires/loa/a2a/${sprint_id}"
+    mkdir -p "$rej_dir" 2>/dev/null || true
+    rejected_sidecar="$rej_dir/adversarial-rejected-${type}.jsonl"
+    : > "$rejected_sidecar" 2>/dev/null || rejected_sidecar=""
+  fi
+
   local validated_findings="[]"
   local i=0
+  local rejected_count=0
   while [[ $i -lt $finding_count ]]; do
     local finding
     finding=$(echo "$parsed" | jq ".findings[$i]")
@@ -630,10 +847,19 @@ process_findings() {
       validated=$(validate_anchor "$finding" "$type" "$diff_files")
       validated_findings=$(echo "$validated_findings" | jq --argjson f "$validated" '. + [$f]')
     else
-      log "Rejected invalid finding at index $i"
+      local reject_reason
+      reject_reason=$(_validate_finding_reason "$finding" "$type")
+      log "Rejected invalid finding at index $i: ${reject_reason:-unknown-reason}"
+      _write_rejected_sidecar "$rejected_sidecar" "$finding" "$reject_reason" "$i" "$sprint_id" "$type" "$model"
+      rejected_count=$((rejected_count + 1))
     fi
     i=$((i + 1))
   done
+
+  # cycle-102 sprint-1F: surface aggregate rejection count in the main
+  # output's metadata so consumers (operator, /audit-sprint, BB triage) see
+  # the rejection signal without needing to grep stderr or open the sidecar.
+  # The sidecar path is also surfaced for one-jump triage.
 
   # Extract token/cost metadata from model-adapter response
   local tokens_in tokens_out cost latency
@@ -642,15 +868,26 @@ process_findings() {
   cost=$(echo "$raw_response" | jq -r '.cost_usd // 0')
   latency=$(echo "$raw_response" | jq -r '.latency_ms // 0')
 
+  # Compute relative path to sidecar from PROJECT_ROOT (cleaner for downstream
+  # logs / triage). Empty string when sidecar disabled.
+  local rejected_sidecar_rel=""
+  if [[ -n "$rejected_sidecar" ]]; then
+    rejected_sidecar_rel="${rejected_sidecar#"$PROJECT_ROOT/"}"
+  fi
+
   jq -n \
     --argjson findings "$validated_findings" \
     --arg type "$type" --arg model "$model" --arg sid "$sprint_id" \
     --arg ts "$timestamp" \
     --argjson ti "$tokens_in" --argjson to "$tokens_out" \
     --argjson cost "$cost" --argjson lat "$latency" \
+    --argjson rejc "$rejected_count" \
+    --arg rejs "$rejected_sidecar_rel" \
     '{findings: $findings, metadata: {type: $type, model: $model, sprint_id: $sid,
       timestamp: $ts, tokens_input: $ti, tokens_output: $to, cost_usd: $cost,
-      latency_ms: $lat, status: "reviewed", degraded: false}}'
+      latency_ms: $lat, status: "reviewed", degraded: false,
+      rejected_count: $rejc,
+      rejected_sidecar: (if $rejs == "" then null else $rejs end)}}'
 }
 
 # =============================================================================
@@ -1072,13 +1309,145 @@ main() {
     exit 0
   fi
 
-  # Invoke dissenter
-  local raw_response="" api_exit=0
-  raw_response=$(invoke_dissenter "$_ADVERSARIAL_WORKDIR/system-prompt.txt" "$_ADVERSARIAL_WORKDIR/user-prompt.txt" "$model" "$timeout") || api_exit=$?
+  # cycle-102 sprint-1F: model-fallback chain.
+  #
+  # Invoke the configured primary model. If the result is `malformed_response`
+  # or `api_failure` (the empty-content failure modes that have plagued
+  # cycle-102 — KF-002, Sprint 1B T1B.4 manual swap), retry with the next
+  # model in the fallback chain. Each model is tried at most once. The first
+  # model that returns parseable findings (or `clean` = legitimate
+  # zero-findings response) becomes canonical for the rest of the pipeline
+  # (hallucination filter, output write, trajectory log).
+  #
+  # The fallback chain is built from (in priority order):
+  #   1. The configured primary model (--model arg or
+  #      flatline_protocol.{type}.model)
+  #   2. flatline_protocol.{type}.fallback_chain (operator-curated list,
+  #      optional)
+  #   3. flatline_protocol.models.{secondary, tertiary} (already part of
+  #      the multi-model PRD/SDD review chain — repurposed here as the
+  #      default fallback when no explicit fallback_chain is configured)
+  #
+  # Duplicates are deduped (same model only tried once even if it appears
+  # in multiple sources). Empty/null entries are skipped.
+  #
+  # Operator opt-out: set LOA_ADVERSARIAL_DISABLE_FALLBACK=1 (env) or
+  # flatline_protocol.{type}.fallback_chain: [] (empty list in config).
+  # When opted out, behavior reverts to single-model invocation.
+  #
+  # Result annotation: metadata.model_attempts records [<model>:<status>, …]
+  # for the entire chain that was tried; metadata.final_model records which
+  # model produced the canonical result. Single-model invocations (one entry,
+  # one final) preserve back-compat with consumers that read metadata.model.
+  local -a fallback_chain=()
+  fallback_chain+=("$model")
+  if [[ -z "${LOA_ADVERSARIAL_DISABLE_FALLBACK:-}" ]]; then
+    # Build extension list from config. yq returns one entry per line for arrays.
+    local fallback_yaml
+    fallback_yaml=$(yq eval -e ".flatline_protocol.${type//-/_}.fallback_chain[]?" "$CONFIG_FILE" 2>/dev/null || true)
+    # Map type→config key (review uses code_review; audit uses security_audit)
+    local config_key="code_review"; [[ "$type" == "audit" ]] && config_key="security_audit"
+    if [[ -z "$fallback_yaml" ]]; then
+      fallback_yaml=$(yq eval -e ".flatline_protocol.${config_key}.fallback_chain[]?" "$CONFIG_FILE" 2>/dev/null || true)
+    fi
+    if [[ -n "$fallback_yaml" ]]; then
+      while IFS= read -r m; do
+        [[ -n "$m" && "$m" != "null" ]] && fallback_chain+=("$m")
+      done <<< "$fallback_yaml"
+    else
+      # No explicit fallback_chain — fall back to flatline_protocol.models.*
+      local m_secondary m_tertiary
+      m_secondary=$(yq eval ".flatline_protocol.models.secondary // \"\"" "$CONFIG_FILE" 2>/dev/null || echo "")
+      m_tertiary=$(yq eval ".flatline_protocol.models.tertiary // \"\"" "$CONFIG_FILE" 2>/dev/null || echo "")
+      [[ -n "$m_secondary" && "$m_secondary" != "null" ]] && fallback_chain+=("$m_secondary")
+      [[ -n "$m_tertiary" && "$m_tertiary" != "null" ]] && fallback_chain+=("$m_tertiary")
+    fi
+  fi
 
-  # Process findings (4-state machine)
-  local result
-  result=$(process_findings "$raw_response" "$type" "$model" "$sprint_id" "$api_exit" "$diff_files")
+  # Dedupe (preserve order)
+  local -a deduped=()
+  local seen=""
+  for m in "${fallback_chain[@]}"; do
+    if [[ ",$seen," != *",$m,"* ]]; then
+      deduped+=("$m")
+      seen="$seen,$m"
+    fi
+  done
+  fallback_chain=("${deduped[@]}")
+
+  log "Fallback chain: ${fallback_chain[*]}"
+
+  # Invocation loop
+  local raw_response="" api_exit=0 result="" final_model=""
+  local -a model_attempts=()
+  # cycle-109 Sprint 2 T2.5 — per-attempt verdict_quality sidecar paths.
+  # Each invoke_dissenter call gets a unique path; the envelope cheval
+  # writes lands there and is collected for aggregation after the loop.
+  local -a vq_attempt_files=()
+  local -a vq_cleanup_files=()
+  local try_model status
+  local _vq_tmpdir="${_ADVERSARIAL_WORKDIR:-${TMPDIR:-/tmp}}"
+
+  for try_model in "${fallback_chain[@]}"; do
+    api_exit=0
+    # Allocate per-attempt sidecar path under the adversarial workdir so
+    # parallel adversarial-review invocations don't collide.
+    local vq_sidecar
+    vq_sidecar="$_vq_tmpdir/vq-${type}-${try_model//[^A-Za-z0-9_-]/_}-$$-$RANDOM.json"
+    raw_response=$(invoke_dissenter "$_ADVERSARIAL_WORKDIR/system-prompt.txt" "$_ADVERSARIAL_WORKDIR/user-prompt.txt" "$try_model" "$timeout" "$vq_sidecar") || api_exit=$?
+    # Collect the per-attempt envelope (if cheval wrote one).
+    if [[ -s "$vq_sidecar" ]]; then
+      vq_attempt_files+=("$vq_sidecar")
+      vq_cleanup_files+=("$vq_sidecar")
+    fi
+    result=$(process_findings "$raw_response" "$type" "$try_model" "$sprint_id" "$api_exit" "$diff_files")
+    status=$(echo "$result" | jq -r '.metadata.status // "unknown"' 2>/dev/null || echo "unknown")
+    model_attempts+=("${try_model}:${status}")
+
+    if [[ "$status" != "malformed_response" && "$status" != "api_failure" ]]; then
+      final_model="$try_model"
+      break
+    fi
+    log "Model $try_model returned $status; trying next in fallback chain (if any)"
+  done
+
+  if [[ -z "$final_model" ]]; then
+    # All models failed; final_model = last attempted (canonical for the failure record)
+    final_model="${fallback_chain[-1]}"
+    log "Fallback chain exhausted — all ${#fallback_chain[@]} models returned malformed_response or api_failure"
+  fi
+
+  # Annotate result with the chain that was tried + which model won.
+  # Single-model behavior (one attempt, one final): metadata.model still
+  # equals final_model; consumers that read .metadata.model continue to work.
+  result=$(echo "$result" | jq \
+    --argjson attempts "$(printf '%s\n' "${model_attempts[@]}" | jq -R . | jq -s .)" \
+    --arg fm "$final_model" \
+    '.metadata.model_attempts = $attempts | .metadata.final_model = $fm')
+
+  # cycle-109 Sprint 2 T2.5 — aggregate per-attempt verdict_quality
+  # envelopes via the canonical Python aggregator (SDD §5.2.1). The
+  # aggregator embeds chain_health (worst-of-N), voices_dropped[] entries
+  # from failed attempts, and a status that surfaces #807 / #823 / #868
+  # class regressions explicitly. Fail-soft: legacy / pre-T2.3 cheval emits
+  # produce empty vq_attempt_files; in that case result.verdict_quality
+  # stays absent (downstream consumers handle).
+  if [[ ${#vq_attempt_files[@]} -gt 0 ]]; then
+    local _vq_agg
+    if _vq_agg=$(_adv_aggregate_envelopes "${vq_attempt_files[@]}" 2>/dev/null); then
+      if [[ -n "$_vq_agg" ]]; then
+        result=$(echo "$result" | jq --argjson vq "$_vq_agg" \
+          '.verdict_quality = $vq')
+      fi
+    else
+      log "[vq-aggregate] aggregator unavailable or returned no output; result emitted without verdict_quality"
+    fi
+  fi
+  # Clean up per-attempt sidecar tmp files
+  local _vqf
+  for _vqf in "${vq_cleanup_files[@]}"; do
+    rm -f "$_vqf" 2>/dev/null || true
+  done
 
   # cycle-093 T1.3 (#618): post-process hallucination filter.
   # Downgrades findings that reference `{{DOCUMENT_CONTENT}}`-family tokens
@@ -1093,4 +1462,11 @@ main() {
   echo "$result"
 }
 
-main "$@"
+# cycle-109 Sprint 2 T2.5 — source-vs-exec guard. When the script is
+# sourced (e.g. by a bats helper that wants to test individual functions
+# in isolation), main() must NOT auto-run; the sourcing caller invokes
+# it explicitly or skips it. Standard bash idiom: BASH_SOURCE[0]==$0 iff
+# script was executed directly.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    main "$@"
+fi

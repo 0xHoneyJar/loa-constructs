@@ -9,7 +9,7 @@
 #   - persona handles (with identity file paths)
 #   - skill inventory (slug → SKILL.md title + description)
 #   - command inventory (name → description)
-#   - composability (composes_with + symmetric compositions)
+#   - composability (compose_with + symmetric compositions)
 #   - streams reads/writes (doctrine §3 pipe compatibility)
 #   - grimoires read/write paths (SEED §12 — "grimoire path IS the interface")
 #   - install instructions
@@ -78,7 +78,11 @@ SCHEMA_VERSION=$(get '.schema_version')
 # --------------------------------------------------------------------------
 # Personas — merge construct.yaml `personas:` list + identity/<HANDLE>.md
 # --------------------------------------------------------------------------
-mapfile -t yaml_personas < <(echo "$PACK_JSON" | jq -r '(.personas // [])[] | select(. != "")')
+# macOS default bash is 3.2 (no mapfile/readarray) — use portable while-read.
+yaml_personas=()
+while IFS= read -r _line; do
+  [[ -n "$_line" ]] && yaml_personas+=("$_line")
+done < <(echo "$PACK_JSON" | jq -r '(.personas // [])[] | select(. != "")')
 declare -a identity_files=()
 if [[ -d "$PACK_PATH/identity" ]]; then
   while IFS= read -r f; do
@@ -154,12 +158,17 @@ done < <(echo "$PACK_JSON" | jq -c '(.commands // [])[]' | LC_ALL=C sort)
 
 # --------------------------------------------------------------------------
 # Composes with
+# Issue #244 bug #1 + #2: canonical schema field is `compose_with` (no
+# trailing s). Each entry may be a plain string slug OR an object of
+# {slug, relationship}. Object form renders as `slug — relationship`.
 # --------------------------------------------------------------------------
 composes_block=""
 while IFS= read -r x; do
   [[ -z "$x" ]] && continue
   composes_block+="- $x"$'\n'
-done < <(echo "$PACK_JSON" | jq -r '(.composes_with // [])[]' | LC_ALL=C sort -u)
+done < <(echo "$PACK_JSON" \
+  | jq -r '(.compose_with // [])[] | if type == "string" then . else "\(.slug)\(if .relationship then " — \(.relationship)" else "" end)" end' \
+  | LC_ALL=C sort -u)
 [[ -z "$composes_block" ]] && composes_block="_None declared._"$'\n'
 
 # --------------------------------------------------------------------------
@@ -189,7 +198,11 @@ grimoires_writes=$(echo "$PACK_JSON" | jq -r '((.composition_paths.writes // .gr
 
 # Fallback scan: if neither list is declared, grep construct.yaml for grimoires/ paths
 if [[ -z "$grimoires_reads$grimoires_writes" ]]; then
-  mapfile -t fallback_paths < <(grep -oE 'grimoires/[A-Za-z0-9._-]+[/A-Za-z0-9._-]*' "$YAML" 2>/dev/null | LC_ALL=C sort -u)
+  # macOS default bash is 3.2 (no mapfile/readarray) — use portable while-read.
+  fallback_paths=()
+  while IFS= read -r _line; do
+    [[ -n "$_line" ]] && fallback_paths+=("$_line")
+  done < <(grep -oE 'grimoires/[A-Za-z0-9._-]+[/A-Za-z0-9._-]*' "$YAML" 2>/dev/null | LC_ALL=C sort -u)
   if (( ${#fallback_paths[@]} > 0 )); then
     grimoires_writes=$(printf '%s\n' "${fallback_paths[@]}")
   fi
@@ -240,7 +253,9 @@ fi
 if (( ${#yaml_personas[@]} > 0 )) || (( ${#identity_files[@]} > 0 )); then
   doc+="## Personas"$'\n\n'
   declare -a seen=()
-  for p in "${yaml_personas[@]}" "${identity_files[@]}"; do
+  # bash 3.2 + set -u: ${array[@]} on empty array errors when only one of the
+  # two arrays in this combined expansion is non-empty. Use safe guard.
+  for p in ${yaml_personas[@]+"${yaml_personas[@]}"} ${identity_files[@]+"${identity_files[@]}"}; do
     if [[ "$p" == *.md ]]; then
       handle=$(basename "$p" .md)
       rel=${p#$PACK_PATH/}

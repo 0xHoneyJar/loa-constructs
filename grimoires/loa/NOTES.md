@@ -1376,3 +1376,50 @@ gh pr create --base main --head cycle-craft-cluster --reviewer janitooor \
 **Artifacts**: `grimoires/loa/rehearsals/cycle-craft-cluster-sprint-4-amendment-f1/fidelity-r2/{envelopes/c1.*.handoff.json, orchestrator.jsonl, relay-state.json}` + amendment README.
 
 **Honest scope note**: this amendment proves operator-piloted real dispatch works. It does NOT prove the substrate's headless `claude -p` dispatch path works — that path is still stubbed in compose-dispatch.sh and remains documented next-cycle work. The substrate code is UNCHANGED at `8259a76` (tagged v0.2.0).
+
+## sprint-bug-144 — butterfreezone gen/validate (issue #244) — 2026-05-17
+
+**Bug ID**: 20260517-i244-9c87bf · **Beads**: bd-jwzz · **Status**: ready-for-review
+
+Four defects + auto-routing closed test-first. 8 new bats cases, 90/90 ok on Darwin (82 preexisting + 8 new).
+
+### Root-cause split (corrected from reporter's framing on 2 of 4)
+
+| Bug | Reporter's framing | Real root cause | Fix anchor |
+|---|---|---|---|
+| #1 field-name typo | "wild yamls have typo" | schema is canonical (`compose_with`); script + doc-comment drifted | construct-gen.sh:12, :163-168 |
+| #2 object-vs-string | (correct as filed) | jq filter dumps `{slug, relationship}` as raw JSON | same site |
+| #3 wrong-shape output on packs | (correct as filed) | generic gen doesn't detect skill-pack repos | gen.sh:2320-2342 (exec delegation) |
+| #3a `Uconstraints` garble | (operator-discovered sub-bug) | `sed 's/^./\U&/'` is GNU-only; BSD emits literal `U` | gen.sh:426, :586, :1410, :1805 |
+| #4 "year-2026 quirk" | inverted | `date -d` is GNU-only; BSD errors out → epoch-0 → 20590 days | validate.sh:458-499 `_parse_iso8601_to_epoch` |
+
+### Decision Log
+
+- **2026-05-17**: NO legacy-alias path for `composes_with`. Script reads canonical only; typo triggers high-severity finding in `construct-validate.sh`.
+- **2026-05-17**: `exec`-based delegation (not function call) for skill-pack routing. Inherits stdin/stdout/exit code cleanly; user flags forward via `"$@"`.
+- **2026-05-17**: 4-adapter ISO8601 parser (python3 → gdate → BSD date -j → GNU date -d). Returns 0 only on true parse failure.
+- **2026-05-17**: Fixtures inlined into test bodies (not under `tests/fixtures/butterfreezone/bug-244/` as sprint plan specified). Matches existing convention.
+- **OPERATOR-OVERRIDE 2026-05-17**: Reporter reply posted on #244 BEFORE PR landed (sprint.md L132 specified after). Reporter is the operator; framing correction first prevents wasted review.
+
+### Technical Debt surfaced (out of scope this sprint)
+
+- TEND-mode sweep: full repo grep for `date -d` and `sed.*\\[UL]` to catch other portability landmines.
+- CI matrix push gate: `.github/workflows/bats-tests.yml` requires `workflow` OAuth scope. (Resolved: operator's token has workflow scope.)
+
+### CI MACOS Follow-Up (2026-05-17, commit 393cfec7)
+
+First CI run after PR #245 push surfaced **pre-existing bash 3.2 incompatibility** masked by local dev (Homebrew bash 5.x in PATH first):
+
+- `butterfreezone-construct-gen.sh:81, :197` used `mapfile` (bash 4+)
+- `butterfreezone-gen.sh` uses `declare -A` in 5 places (bash 4+)
+- macOS GitHub runner default `/bin/bash` is 3.2 (GPLv3 holdout)
+
+**Fix**: `brew install bash` step in workflow + prepend `/opt/homebrew/bin` to GITHUB_PATH. Scripts unchanged structurally (declare -A kept; they deliberately target modern bash). Defensive `mapfile→while-read` + `${arr[@]+...}` empty-array guards added as portability hygiene but the workflow fix is what gets CI green.
+
+Result: `bats / ubuntu-latest: pass` (46s) + `bats / macos-latest: pass` (47s).
+
+### Pre-existing failure (not blocked, not my surface)
+
+PR #245 statusCheckRollup shows `Vercel: failure` for the `loa-constructs-explorer` deployment. Confirmed via `gh api .../commits/main/status` that this was failing on main HEAD BEFORE this PR. Out of sprint scope.
+
+Sprint reviewer report: `grimoires/loa/a2a/bug-20260517-i244-9c87bf/reviewer.md` (AC verification inline).

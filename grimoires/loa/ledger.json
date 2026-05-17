@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "active_cycle": "cycle-051",
-  "global_sprint_counter": 65,
+  "active_cycle": null,
+  "global_sprint_counter": 144,
   "cycles": [
     {
       "id": "cycle-025",
@@ -840,6 +840,21 @@
       "context": "grimoires/loa/context/analytics-architecture/",
       "sprints": [],
       "archived_at": "2026-05-09T18:46:44Z"
+    },
+    {
+      "id": "cycle-bug-20260517-i244-9c87bf",
+      "label": "Bug Fix — butterfreezone gen/validate — 4 bugs + auto-detect routing",
+      "type": "bugfix",
+      "status": "completed",
+      "source_issue": "https://github.com/0xHoneyJar/loa-constructs/issues/244",
+      "created_at": "2026-05-17T19:10:28Z",
+      "sprints": [
+        "sprint-bug-144"
+      ],
+      "triage": "grimoires/loa/a2a/bug-20260517-i244-9c87bf/triage.md",
+      "sprint_plan": "grimoires/loa/a2a/bug-20260517-i244-9c87bf/sprint.md",
+      "completed_at": "2026-05-17T20:10:00Z",
+      "pr": 245
     }
   ]
 }

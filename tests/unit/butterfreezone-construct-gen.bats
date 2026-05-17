@@ -274,3 +274,111 @@ MD
     grep -v "^- Generated at:" "$BATS_TEST_TMPDIR/with-ts.md" > "$BATS_TEST_TMPDIR/with-ts-stripped.md"
     diff -q "$BATS_TEST_TMPDIR/no-ts.md" "$BATS_TEST_TMPDIR/with-ts-stripped.md"
 }
+
+# =============================================================================
+# Issue #244 bug #1 + #2 — compose_with is canonical, must read `compose_with`
+# (no trailing s), and must render object-form entries as `slug — relationship`
+# instead of dumping raw JSON-prettified text.
+# =============================================================================
+
+build_pack_with_compose_with_objects() {
+    cat > "$PACK/construct.yaml" <<'YAML'
+schema_version: "1.0.0"
+slug: test-pack
+name: Test Pack
+version: "0.1.0"
+description: Pack used for butterfreezone generator unit tests.
+short_description: Generator test fixture
+author: Tests
+license: MIT
+personas:
+  - ALEXANDER
+skills:
+  - slug: doing-things
+    path: skills/doing-things/
+compose_with:
+  - slug: construct-artisan
+    relationship: ALEXANDER craft lens for taste decisions
+  - slug: construct-the-arcade
+    relationship: OSTROM systems lens for blast-radius checks
+  - slug: construct-k-hole
+    relationship: STAMETS dig lens for resonance-guided research
+reads:
+  - Artifact
+writes:
+  - Verdict
+YAML
+    mkdir -p "$PACK/skills/doing-things"
+    cat > "$PACK/skills/doing-things/SKILL.md" <<'MD'
+---
+name: doing-things
+description: A skill that does things in service of the test pack.
+---
+# Doing Things
+MD
+}
+
+@test "bfz-construct-gen: compose_with object-form renders slug — relationship bullets (bug #244-2)" {
+    build_pack_with_compose_with_objects
+    "$SCRIPT" "$PACK" >/dev/null
+
+    # Each object-form entry must render as `- slug — relationship` (em-dash
+    # continuation), NOT as raw JSON like `-   "slug": "construct-artisan",`.
+    grep -qE '^- construct-artisan — ALEXANDER craft lens' "$PACK/CONSTRUCT-README.md"
+    grep -qE '^- construct-the-arcade — OSTROM systems lens' "$PACK/CONSTRUCT-README.md"
+    grep -qE '^- construct-k-hole — STAMETS dig lens' "$PACK/CONSTRUCT-README.md"
+
+    # Negative assertion: no JSON-stringified leakage (raw `{` `}` or quoted
+    # field names inside the composes block).
+    ! grep -qE '^- \{' "$PACK/CONSTRUCT-README.md"
+    ! grep -qE '^- "(slug|relationship)":' "$PACK/CONSTRUCT-README.md"
+}
+
+@test "bfz-construct-gen: canonical compose_with field is read (bug #244-1)" {
+    cat > "$PACK/construct.yaml" <<'YAML'
+schema_version: "1.0.0"
+slug: test-pack
+name: Test Pack
+version: "0.1.0"
+description: Pack used for canonical field-name test.
+short_description: Generator test fixture
+author: Tests
+license: MIT
+compose_with:
+  - construct-artisan
+  - construct-observer
+skills: []
+commands: []
+YAML
+    "$SCRIPT" "$PACK" >/dev/null
+
+    grep -qF "construct-artisan" "$PACK/CONSTRUCT-README.md"
+    grep -qF "construct-observer" "$PACK/CONSTRUCT-README.md"
+    # The fallback must NOT fire — entries are declared.
+    ! grep -qF "_None declared._" "$PACK/CONSTRUCT-README.md"
+}
+
+@test "bfz-construct-gen: legacy typo composes_with is ignored, renders _None declared._ (bug #244-1)" {
+    cat > "$PACK/construct.yaml" <<'YAML'
+schema_version: "1.0.0"
+slug: test-pack
+name: Test Pack
+version: "0.1.0"
+description: Pack used for typo-rejection test.
+short_description: Generator test fixture
+author: Tests
+license: MIT
+composes_with:
+  - construct-artisan
+  - construct-observer
+skills: []
+commands: []
+YAML
+    run "$SCRIPT" "$PACK"
+    [ "$status" -eq 0 ]
+
+    # After the fix, the script reads ONLY the canonical `compose_with`.
+    # The typo field is treated as absent → fallback fires.
+    grep -qF "_None declared._" "$PACK/CONSTRUCT-README.md"
+    ! grep -qF "construct-artisan" "$PACK/CONSTRUCT-README.md"
+}

@@ -1,0 +1,22 @@
+{
+  "findings": [],
+  "metadata": {
+    "type": "audit",
+    "model": "gemini-3.1-pro",
+    "sprint_id": "sprint-bug-144",
+    "timestamp": "2026-05-17T20:08:12Z",
+    "status": "api_failure",
+    "degraded": true,
+    "error": "API call failed with exit code 1",
+    "model_attempts": [
+      "gpt-5.5-pro:api_failure",
+      "gemini-3.1-pro:api_failure"
+    ],
+    "final_model": "gemini-3.1-pro",
+    "hallucination_filter": {
+      "applied": false,
+      "downgraded": 0,
+      "reason": "no_findings"
+    }
+  }
+}

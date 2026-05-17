@@ -433,3 +433,65 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" == *"up-to-date"* ]] || [[ "${lines[*]}" == *"up-to-date"* ]]
 }
+
+# =============================================================================
+# Issue #244 bug #3 — skill-pack repos must auto-route to
+# butterfreezone-construct-gen.sh instead of producing wrong-shape output via
+# the generic generator.
+# =============================================================================
+
+@test "bfz-gen: skill-pack repo (construct.yaml type=skill-pack) routes to construct-gen (bug #244-3)" {
+    # Build a minimal skill-pack at MOCK_REPO root.
+    cat > "$MOCK_REPO/construct.yaml" <<'YAML'
+schema_version: "1.0.0"
+slug: routing-fixture
+type: skill-pack
+name: Routing Fixture
+version: "0.2.0"
+description: Skill-pack fixture for auto-routing test.
+short_description: Routing fixture
+author: Tests
+license: MIT
+skills: []
+commands: []
+YAML
+    git add -A && git commit -q -m "Add construct.yaml" 2>/dev/null || true
+
+    run "$SCRIPT" --stdout
+    [ "$status" -eq 0 ]
+
+    # Construct-gen emits a CONSTRUCT-README with the pack name as an H1, and
+    # does NOT emit the generic `# API Surface` block.
+    [[ "$output" == *"Routing Fixture"* ]]
+    # Construct-gen output contains the "Composes with" section header; the
+    # generic gen does not.
+    [[ "$output" == *"Composes with"* ]]
+    # Negative: the generic gen would have written `type: framework`. After
+    # routing, the construct-gen path emits no AGENT-CONTEXT block at all
+    # (different shape entirely).
+    [[ "$output" != *"type: framework"* ]]
+}
+
+# =============================================================================
+# Issue #244 bug #3a — `sed 's/^./\U&/'` is GNU-only. On BSD sed, `\U` is the
+# literal char `U` rather than an uppercase-next escape. The strategy-4
+# directory-name fallback in infer_module_purpose() must capitalize portably.
+# =============================================================================
+
+@test "bfz-gen: infer_module_purpose capitalizes directory name without 'U' prefix on BSD (bug #244-3a)" {
+    # Create a directory with NO descriptive files (no README, no manifest, no
+    # tests) — forces the strategy-4 fallback (capitalize directory name) in
+    # infer_module_purpose.
+    mkdir -p "$MOCK_REPO/constraints"
+    echo "raw line one" > "$MOCK_REPO/constraints/data.txt"
+    echo "raw line two" > "$MOCK_REPO/constraints/more.txt"
+    git add -A && git commit -q -m "Add constraints dir" 2>/dev/null || true
+
+    "$SCRIPT" --output "$MOCK_REPO/BUTTERFREEZONE.md" 2>/dev/null
+
+    # On BSD sed, the bug produces `Uconstraints` (literal 'U' prefix from the
+    # `\U` escape being treated as a literal char, not a capitalize directive).
+    # After the fix, the capitalized form must appear and the buggy form must not.
+    ! grep -qE 'Uconstraints' "$MOCK_REPO/BUTTERFREEZONE.md"
+    grep -qE 'Constraints' "$MOCK_REPO/BUTTERFREEZONE.md"
+}

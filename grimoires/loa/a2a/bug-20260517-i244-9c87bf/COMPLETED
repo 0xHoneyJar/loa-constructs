@@ -1,0 +1,11 @@
+sprint-bug-144 — APPROVED · CI green
+Date: 2026-05-17
+Auditor: paranoid-cypherpunk
+PR: https://github.com/0xHoneyJar/loa-constructs/pull/245
+Beads: bd-jwzz (closed, security-approved)
+Review: APPROVED-WITH-CONCERNS (4 follow-up, non-blocking)
+Audit: 0 CRITICAL · 0 HIGH · 1 MEDIUM (M-1 yq supply-chain pin) · 1 LOW (L-1 markdown injection)
+Phase 2.5: api_failure (KF-011); artifacts recorded; single-model assessment per protocol fallback
+CI matrix: bats / ubuntu-latest: pass · bats / macos-latest: pass (after follow-up commit 393cfec7 for bash 4+ install on macOS)
+Pre-existing failure (not introduced): Vercel deploy of loa-constructs-explorer (was already failing on main HEAD before this PR)
+Closes: issue #244
