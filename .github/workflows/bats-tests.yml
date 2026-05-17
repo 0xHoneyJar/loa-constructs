@@ -49,7 +49,14 @@ jobs:
       - name: Install bats (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install bats-core jq yq
+          # bash: scripts use bash 4+ features (mapfile, declare -A). macOS
+          # default /bin/bash is 3.2 (GPLv3 holdout). Install Homebrew bash
+          # and ensure /opt/homebrew/bin is on PATH before /bin.
+          brew install bash bats-core jq yq
+
+      - name: Prepend /opt/homebrew/bin to PATH (macOS)
+        if: runner.os == 'macOS'
+        run: echo "/opt/homebrew/bin" >> "$GITHUB_PATH"
 
       - name: Install yq (Linux)
         if: runner.os == 'Linux'
@@ -59,6 +66,7 @@ jobs:
 
       - name: Verify tool versions
         run: |
+          echo "bash: $(/usr/bin/env bash --version | head -1)"
           bats --version
           jq --version
           yq --version

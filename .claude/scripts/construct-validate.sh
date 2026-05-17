@@ -112,8 +112,12 @@ else
     fi
 
     # skills[].path resolution
-    mapfile -t skills < <(echo "$PACK_JSON" | jq -r '(.skills // [])[] | .path // empty')
-    for s in "${skills[@]}"; do
+    # macOS default bash is 3.2 (no mapfile/readarray) — use portable while-read.
+    skills=()
+    while IFS= read -r _line; do
+      [[ -n "$_line" ]] && skills+=("$_line")
+    done < <(echo "$PACK_JSON" | jq -r '(.skills // [])[] | .path // empty')
+    for s in ${skills[@]+"${skills[@]}"}; do
       [[ -z "$s" ]] && continue
       if [[ ! -d "$PACK_PATH/$s" && ! -L "$PACK_PATH/$s" ]]; then
         emit_finding high skill_path "skills[].path does not resolve: $s" "$PACK_YAML"
@@ -121,8 +125,11 @@ else
     done
 
     # Commands consistency (if declared) — every commands[].path must exist
-    mapfile -t cmd_paths < <(echo "$PACK_JSON" | jq -r '(.commands // [])[] | .path // empty')
-    for c in "${cmd_paths[@]}"; do
+    cmd_paths=()
+    while IFS= read -r _line; do
+      [[ -n "$_line" ]] && cmd_paths+=("$_line")
+    done < <(echo "$PACK_JSON" | jq -r '(.commands // [])[] | .path // empty')
+    for c in ${cmd_paths[@]+"${cmd_paths[@]}"}; do
       [[ -z "$c" ]] && continue
       if [[ ! -f "$PACK_PATH/$c" ]]; then
         emit_finding high command_path "commands[].path does not resolve: $c" "$PACK_YAML"
@@ -176,8 +183,9 @@ else
 fi
 
 # Exit-code calculation
+# bash 3.2 + set -u: ${array[@]} on empty array errors. Use safe guard.
 worst="info"
-for row in "${FINDINGS[@]}"; do
+for row in ${FINDINGS[@]+"${FINDINGS[@]}"}; do
   sev=$(echo "$row" | jq -r '.severity')
   case "$sev" in
     critical) worst="critical" ;;
