@@ -1,0 +1,72 @@
+name: Bats Tests
+
+# Cross-platform bats matrix.
+# Added per sprint-bug-144 (issue #244): the butterfreezone portability fixes
+# (BSD `date -d`, BSD `sed \U`) would green-pass on Linux runners without ever
+# exercising the BSD path that birthed the bugs. The macOS leg is the test
+# that matters.
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.claude/scripts/**'
+      - '.claude/lib/**'
+      - 'tests/unit/**.bats'
+      - 'tests/fixtures/**'
+      - '.github/workflows/bats-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - '.claude/scripts/**'
+      - '.claude/lib/**'
+      - 'tests/unit/**.bats'
+      - 'tests/fixtures/**'
+      - '.github/workflows/bats-tests.yml'
+
+jobs:
+  bats:
+    name: bats / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Install bats (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y bats jq
+
+      - name: Install bats (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install bats-core jq yq
+
+      - name: Install yq (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo wget -q -O /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+
+      - name: Verify tool versions
+        run: |
+          bats --version
+          jq --version
+          yq --version
+          python3 --version
+
+      - name: Run butterfreezone bats suite
+        run: |
+          bats tests/unit/butterfreezone-construct-gen.bats \
+               tests/unit/butterfreezone-gen.bats \
+               tests/unit/butterfreezone-validate.bats \
+               tests/unit/construct-validate.bats

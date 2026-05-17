@@ -9,7 +9,7 @@
 #   - persona handles (with identity file paths)
 #   - skill inventory (slug → SKILL.md title + description)
 #   - command inventory (name → description)
-#   - composability (composes_with + symmetric compositions)
+#   - composability (compose_with + symmetric compositions)
 #   - streams reads/writes (doctrine §3 pipe compatibility)
 #   - grimoires read/write paths (SEED §12 — "grimoire path IS the interface")
 #   - install instructions
@@ -154,12 +154,17 @@ done < <(echo "$PACK_JSON" | jq -c '(.commands // [])[]' | LC_ALL=C sort)
 
 # --------------------------------------------------------------------------
 # Composes with
+# Issue #244 bug #1 + #2: canonical schema field is `compose_with` (no
+# trailing s). Each entry may be a plain string slug OR an object of
+# {slug, relationship}. Object form renders as `slug — relationship`.
 # --------------------------------------------------------------------------
 composes_block=""
 while IFS= read -r x; do
   [[ -z "$x" ]] && continue
   composes_block+="- $x"$'\n'
-done < <(echo "$PACK_JSON" | jq -r '(.composes_with // [])[]' | LC_ALL=C sort -u)
+done < <(echo "$PACK_JSON" \
+  | jq -r '(.compose_with // [])[] | if type == "string" then . else "\(.slug)\(if .relationship then " — \(.relationship)" else "" end)" end' \
+  | LC_ALL=C sort -u)
 [[ -z "$composes_block" ]] && composes_block="_None declared._"$'\n'
 
 # --------------------------------------------------------------------------

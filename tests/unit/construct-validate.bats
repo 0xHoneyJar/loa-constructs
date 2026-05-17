@@ -284,3 +284,30 @@ MD
     run "$SCRIPT" "$PACK" --strict
     [ "$status" -eq 0 ]
 }
+
+# -----------------------------------------------------------------------------
+# Issue #244 bug #1 (stretch): schema-drift gate for `composes_with` typo.
+# Canonical schema field is `compose_with` (no trailing s).
+# -----------------------------------------------------------------------------
+@test "construct-validate: composes_with typo is flagged (bug #244-1 stretch)" {
+    build_clean_pack
+    cat >> "$PACK/construct.yaml" <<'YAML'
+composes_with:
+  - construct-artisan
+YAML
+    run "$SCRIPT" "$PACK"
+    # high-severity finding => non-zero exit
+    [ "$status" -ne 0 ]
+    [[ "$output" == *"composes_with"* ]]
+    [[ "$output" == *"compose_with"* ]]
+}
+
+@test "construct-validate: canonical compose_with passes (bug #244-1 stretch)" {
+    build_clean_pack
+    cat >> "$PACK/construct.yaml" <<'YAML'
+compose_with:
+  - construct-artisan
+YAML
+    run "$SCRIPT" "$PACK"
+    [ "$status" -eq 0 ]
+}

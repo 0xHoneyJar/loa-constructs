@@ -292,3 +292,80 @@ EOF
     # Should have no PASS/FAIL output
     [[ "$output" != *"PASS"* ]]
 }
+
+# =============================================================================
+# Issue #244 bug #4 — `date -d` is GNU-only. On BSD (macOS), date errors out
+# and the `|| echo 0` swallows the failure, yielding gen_epoch=0 → diff_days
+# ≈ 20590 (~56 years). Freshness must parse ISO8601 portably.
+# =============================================================================
+
+@test "validate: freshness parses ISO8601 portably on Darwin and Linux (bug #244-4)" {
+    # Write a minimal BUTTERFREEZONE.md whose ground-truth-meta declares a
+    # generated_at exactly 1 day before the current system clock. After the
+    # fix, the validator should report `1 days old`, NOT `20590 days old`.
+    local one_day_ago
+    if date -u -d "1 day ago" +%Y-%m-%dT%H:%M:%SZ >/dev/null 2>&1; then
+        one_day_ago=$(date -u -d "1 day ago" +%Y-%m-%dT%H:%M:%SZ)
+    elif date -u -v-1d +%Y-%m-%dT%H:%M:%SZ >/dev/null 2>&1; then
+        one_day_ago=$(date -u -v-1d +%Y-%m-%dT%H:%M:%SZ)
+    else
+        skip "neither GNU nor BSD date supports the test-host date arithmetic needed"
+    fi
+
+    cat > "$MOCK_REPO/BUTTERFREEZONE.md" <<EOF
+<!-- AGENT-CONTEXT
+name: freshness-fixture
+type: framework
+purpose: Test fixture for issue #244 bug #4.
+key_files: [README.md]
+interfaces:
+  core: []
+  project: []
+dependencies: []
+ecosystem: []
+capability_requirements:
+  - filesystem: read
+-->
+
+# freshness-fixture
+
+## Architecture
+<!-- provenance: CODE-FACTUAL -->
+\`\`\`
+fixture
+\`\`\`
+Trivial fixture to exercise the freshness parser.
+
+## Key Capabilities
+<!-- provenance: CODE-FACTUAL -->
+- one
+- two
+- three
+
+## Verification
+
+- Word count: minimum check
+- Provenance: provenance tags
+- Existence: file exists
+- Required sections: structure check
+- Recency: freshness check
+
+<!-- ground-truth-meta
+generated_at: $one_day_ago
+checksum: deadbeefcafebabe
+-->
+EOF
+
+    run "$SCRIPT" --file "$MOCK_REPO/BUTTERFREEZONE.md"
+    [ "$status" -eq 0 ] || [ "$status" -eq 1 ]  # may fail on other gates; we only care about freshness
+
+    # The freshness line must report a small number of days, NOT the 20590-ish
+    # value that gen_epoch=0 produces.
+    [[ "$output" != *"20590 days"* ]]
+    [[ "$output" != *"20589 days"* ]]
+    [[ "$output" != *"20591 days"* ]]
+
+    # Positive: the diff should be exactly 1 day (modulo clock-tick timing).
+    # Accept 0, 1, or 2 days for robustness against test-machine clock skew.
+    grep -qE 'days old \(threshold|0 days old|1 days old|2 days old' <<< "$output"
+}

@@ -101,6 +101,16 @@ else
       [[ -z "$val" ]] && emit_finding high required_field "construct.yaml missing required field '$field'" "$PACK_YAML"
     done
 
+    # Field-name drift gate (issue #244 bug #1): canonical schema field is
+    # `compose_with` (no trailing s). The legacy typo `composes_with` was
+    # silently honored by older butterfreezone-construct-gen.sh; flag it at
+    # validation time so authors fix it before publish.
+    if echo "$PACK_JSON" | jq -e '.composes_with != null' >/dev/null 2>&1; then
+      emit_finding high field_name \
+        "construct.yaml uses 'composes_with' (typo). Canonical field is 'compose_with' (no trailing s). See .claude/schemas/network/construct.schema.json." \
+        "$PACK_YAML"
+    fi
+
     # skills[].path resolution
     mapfile -t skills < <(echo "$PACK_JSON" | jq -r '(.skills // [])[] | .path // empty')
     for s in "${skills[@]}"; do
