@@ -13,11 +13,11 @@
 Fix four defects in the butterfreezone script family and route skill-pack repos through `butterfreezone-construct-gen.sh` automatically, with failing bats tests proving each fix. Land a single corrective PR that updates all four scripts in lockstep, leaving the canonical `compose_with` schema untouched.
 
 ### Deliverables
-- [ ] Failing bats tests reproducing each of the four bugs (added BEFORE any script edit)
-- [ ] Source code fixes for `butterfreezone-construct-gen.sh`, `butterfreezone-gen.sh`, `butterfreezone-validate.sh` (and optional `construct-validate.sh` stretch)
-- [ ] All existing bats tests in `tests/unit/butterfreezone-*.bats` pass (no regressions)
-- [ ] Triage analysis document (already written: `grimoires/loa/a2a/bug-20260517-i244-9c87bf/triage.md`)
-- [ ] Reporter reply drafted (covers inverted-framing correction + platform-not-calendar note for bug #4)
+- [x] Failing bats tests reproducing each of the four bugs (added BEFORE any script edit) — 8 new cases across 4 .bats files
+- [x] Source code fixes for `butterfreezone-construct-gen.sh`, `butterfreezone-gen.sh`, `butterfreezone-validate.sh` (and optional `construct-validate.sh` stretch shipped)
+- [x] All existing bats tests in `tests/unit/butterfreezone-*.bats` pass (no regressions) — 90/90 ok on Darwin
+- [x] Triage analysis document (already written: `grimoires/loa/a2a/bug-20260517-i244-9c87bf/triage.md`)
+- [x] Reporter reply drafted (covers inverted-framing correction + platform-not-calendar note for bug #4) — posted issue #244 comment 4472208254
 
 ### Technical Tasks
 
@@ -132,13 +132,13 @@ Draft a reply on issue #244 using `/smol` (smol-comms-register):
 - Posted only after PR is up so reporter can review the fix in context
 
 ### Acceptance Criteria
-- [ ] All 6 new bats tests pass (Tasks 1+2+3+4)
-- [ ] Existing bats suite in `tests/unit/butterfreezone-*.bats` and `tests/unit/construct-validate*.bats` passes
-- [ ] No regressions in CI bats matrix on both Darwin and Linux runners
-- [ ] All four reported bugs no longer reproduce (verified by re-running the reporter's repro steps against the patched scripts)
-- [ ] Fix addresses root causes (schema-vs-script drift; BSD-vs-GNU portability; routing precedence), not symptoms
-- [ ] Triage analysis document committed alongside the PR
-- [ ] Reporter reply drafted and queued (posting gated on PR landing)
+- [x] All 6 new bats tests pass (Tasks 1+2+3+4) — verified Darwin
+- [x] Existing bats suite in `tests/unit/butterfreezone-*.bats` and `tests/unit/construct-validate*.bats` passes — 82 preexisting + 8 new = 90/90 ok
+- [⚠] No regressions in CI bats matrix on both Darwin and Linux runners — Darwin verified locally; Linux pending CI activation when `.github/workflows/bats-tests.yml` runs on the PR
+- [x] All four reported bugs no longer reproduce (verified by re-running the reporter's repro steps against the patched scripts) — end-to-end sanity on `construct-the-arcade`
+- [x] Fix addresses root causes (schema-vs-script drift; BSD-vs-GNU portability; routing precedence), not symptoms
+- [x] Triage analysis document committed alongside the PR — force-added per AC#6 (small .gitignore policy exception)
+- [x] Reporter reply drafted and queued (posting gated on PR landing) — operator-override: posted before PR per their authorization to prevent wasted-effort review
 
 ### Risk Notes
 - **System Zone authorization**: this sprint authorizes writes to `.claude/scripts/*.sh` per the bugfix exception path. The PR carries `triage.md` as the auth artifact. No `.claude/loa/CLAUDE.loa.md` edits are involved.
