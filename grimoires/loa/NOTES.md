@@ -1404,6 +1404,22 @@ Four defects + auto-routing closed test-first. 8 new bats cases, 90/90 ok on Dar
 ### Technical Debt surfaced (out of scope this sprint)
 
 - TEND-mode sweep: full repo grep for `date -d` and `sed.*\\[UL]` to catch other portability landmines.
-- CI matrix push gate: `.github/workflows/bats-tests.yml` requires `workflow` OAuth scope. Agent committed; operator must push under own auth.
+- CI matrix push gate: `.github/workflows/bats-tests.yml` requires `workflow` OAuth scope. (Resolved: operator's token has workflow scope.)
+
+### CI MACOS Follow-Up (2026-05-17, commit 393cfec7)
+
+First CI run after PR #245 push surfaced **pre-existing bash 3.2 incompatibility** masked by local dev (Homebrew bash 5.x in PATH first):
+
+- `butterfreezone-construct-gen.sh:81, :197` used `mapfile` (bash 4+)
+- `butterfreezone-gen.sh` uses `declare -A` in 5 places (bash 4+)
+- macOS GitHub runner default `/bin/bash` is 3.2 (GPLv3 holdout)
+
+**Fix**: `brew install bash` step in workflow + prepend `/opt/homebrew/bin` to GITHUB_PATH. Scripts unchanged structurally (declare -A kept; they deliberately target modern bash). Defensive `mapfile→while-read` + `${arr[@]+...}` empty-array guards added as portability hygiene but the workflow fix is what gets CI green.
+
+Result: `bats / ubuntu-latest: pass` (46s) + `bats / macos-latest: pass` (47s).
+
+### Pre-existing failure (not blocked, not my surface)
+
+PR #245 statusCheckRollup shows `Vercel: failure` for the `loa-constructs-explorer` deployment. Confirmed via `gh api .../commits/main/status` that this was failing on main HEAD BEFORE this PR. Out of sprint scope.
 
 Sprint reviewer report: `grimoires/loa/a2a/bug-20260517-i244-9c87bf/reviewer.md` (AC verification inline).

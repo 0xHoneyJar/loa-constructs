@@ -134,7 +134,7 @@ Draft a reply on issue #244 using `/smol` (smol-comms-register):
 ### Acceptance Criteria
 - [x] All 6 new bats tests pass (Tasks 1+2+3+4) — verified Darwin
 - [x] Existing bats suite in `tests/unit/butterfreezone-*.bats` and `tests/unit/construct-validate*.bats` passes — 82 preexisting + 8 new = 90/90 ok
-- [⚠] No regressions in CI bats matrix on both Darwin and Linux runners — Darwin verified locally; Linux pending CI activation when `.github/workflows/bats-tests.yml` runs on the PR
+- [x] No regressions in CI bats matrix on both Darwin and Linux runners — CI green on PR #245 (`bats / ubuntu-latest: pass` + `bats / macos-latest: pass`). macOS leg required follow-up commit 393cfec7 to install Homebrew bash 5.x (scripts use `declare -A` which is bash 4+; macOS default bash is 3.2)
 - [x] All four reported bugs no longer reproduce (verified by re-running the reporter's repro steps against the patched scripts) — end-to-end sanity on `construct-the-arcade`
 - [x] Fix addresses root causes (schema-vs-script drift; BSD-vs-GNU portability; routing precedence), not symptoms
 - [x] Triage analysis document committed alongside the PR — force-added per AC#6 (small .gitignore policy exception)
