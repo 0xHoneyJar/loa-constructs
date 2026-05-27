@@ -1,0 +1,16 @@
+{
+  "source_repo": "0xHoneyJar/construct-laboratory-substrate",
+  "source_branch": "main",
+  "source_commit": "2bd219ad5259d1ba9421366118261bafd4560ad8",
+  "previous_source_commit": "1a0a776c4d5bb7f00870ba7d2f1bc15de5960488",
+  "schema_path_in_source": ".claude/schemas/labels.schema.json",
+  "schema_blob_sha": "2887af2289c7884ea1215a1af06377983debc7c4",
+  "schema_id": "https://loa.dev/hivemind/labels.schema.json",
+  "vendored_at": "2026-05-20",
+  "last_pin_bump_at": "2026-05-27",
+  "last_pin_bump_by": "TEND-cycle session (operator-confirmed)",
+  "vendored_by": "run-sprint-plan (cycle-001 S1.1)",
+  "status": "VENDORED — byte-faithful copy fetched from 0xHoneyJar/construct-laboratory-substrate (was hivemind-laboratory):.claude/schemas/labels.schema.json at main HEAD. Pin bumped @1a0a776 → @2bd219ad on 2026-05-27 following the consolidation PR #4 merge (validator + templates + schemas now in canonical home). Bump-on-merge rule from prior status note honored.",
+  "oq3_note": "Canonical diverged from SDD §3.2 reconstruction: 11 artifact_type values (not 6 — adds atomic-learning, incident-postmortem, competitor-analysis, user-interview-synthesis, technical-rfc, launch-plan, meeting-notes; drops feature-request, tech-debt as artifact types); workstream has 'sorry-for-ur-loss' (not 'operations'); 4 source values; NO top-level required array; additionalProperties:false; carries an optional schema_version property. Validator reads enums from this file, never hard-codes them.",
+  "naming_note": "Repo RENAMED hivemind-laboratory → construct-laboratory-substrate 2026-05-21 (the 'rename musing' executed; GitHub redirects the old name + sha 1a0a776 is preserved). The schema's own description still says it 'lives in 0xHoneyJar/loa-hivemind' — a stale internal string, not the canonical home; the operator's pin (construct-laboratory-substrate) is authoritative."
+}

@@ -404,6 +404,14 @@ __pycache__/
 *.pyo
 
 # (.DS_Store + Thumbs.db already covered above; not re-added)
+
+# Codex CLI artifacts (one-shot init 2026-05-12; not part of Loa or Claude Code).
+# .agents/skills/ is a partial mirror of .claude/skills/ that Codex generated;
+# .codex/ + AGENTS.md are Codex's own working files. None should be tracked.
+.agents/
+.codex/
+AGENTS.md
+
 #
 # NOTE (update-loa @ 2026-05-27): upstream loa/main cycle-106 sprint-1 T1.6
 # added framework template hygiene entries here (grimoires/loa/cycles/,

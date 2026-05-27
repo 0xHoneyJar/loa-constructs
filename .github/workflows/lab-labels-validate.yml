@@ -1,0 +1,101 @@
+name: Lab Labels Validate
+
+# Validates the `hivemind:` YAML block on Lab-shaped artifacts (PRs + issues)
+# against the canonical labels.schema.json v1.0 (vendored at scripts/lab/).
+#
+# #248 Phase A — issue-body validation (this workflow).
+# #248 Phase B — applied-GH-label validation (depends on #247 Gate 1 first).
+#
+# Lab membership is opt-in: a PR/issue without a `hivemind:` block exits 0
+# (NOT a failure — the lab is one register; routine engineering uses another).
+# This workflow only fails when a `hivemind:` block exists AND the values drift
+# from the canonical taxonomy.
+#
+# Doctrine: surface user truth + confidence; never decide. The labels are
+# legibility. Drift in labels = drift in legibility = treat it as a real signal.
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+    paths-ignore:
+      - '**/*.md'
+  issues:
+    types: [opened, edited, reopened]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue number to validate (manual run)'
+        required: true
+        type: string
+
+jobs:
+  validate-labels:
+    name: Validate hivemind labels
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install yq
+        run: |
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+          yq --version
+
+      - name: Resolve target body
+        id: target
+        env:
+          GH_EVENT_NAME: ${{ github.event_name }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          MANUAL_ISSUE: ${{ github.event.inputs.issue_number }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/lab
+          case "$GH_EVENT_NAME" in
+            pull_request)
+              printf '%s' "$PR_BODY" > /tmp/lab/body.md
+              echo "kind=pr" >> "$GITHUB_OUTPUT"
+              echo "id=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+              ;;
+            issues)
+              printf '%s' "$ISSUE_BODY" > /tmp/lab/body.md
+              echo "kind=issue" >> "$GITHUB_OUTPUT"
+              echo "id=${{ github.event.issue.number }}" >> "$GITHUB_OUTPUT"
+              ;;
+            workflow_dispatch)
+              gh issue view "$MANUAL_ISSUE" --repo "${{ github.repository }}" --json body \
+                | jq -r '.body' > /tmp/lab/body.md
+              echo "kind=manual" >> "$GITHUB_OUTPUT"
+              echo "id=$MANUAL_ISSUE" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Detect hivemind block presence
+        id: detect
+        run: |
+          if grep -qE '^hivemind:[[:space:]]*$' /tmp/lab/body.md; then
+            echo "has_block=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_block=false" >> "$GITHUB_OUTPUT"
+            echo "No hivemind: block found — body is not a Lab-shaped artifact. Skipping validation (lab membership is opt-in)."
+          fi
+
+      - name: Validate hivemind labels
+        if: steps.detect.outputs.has_block == 'true'
+        run: |
+          bash scripts/lab/validate-hivemind-labels.sh /tmp/lab/body.md
+
+      - name: Result note
+        if: always() && steps.detect.outputs.has_block == 'true'
+        run: |
+          echo "Lab artifact validated against canonical labels.schema.json v1.0"
+          echo "Schema pin: $(jq -r '.source_commit' scripts/lab/labels.schema.json.pin)"
+          echo "Doctrine: surface user truth + confidence; never decide. Drift = real signal."
