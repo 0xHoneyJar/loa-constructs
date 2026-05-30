@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "learnings-construct.schema.json",
+  "title": "Construct-Clew Ledger Line",
+  "type": "object",
+  "required": ["id", "tier", "type", "trigger", "target", "verified", "distilled_at"],
+  "additionalProperties": false,
+  "properties": {
+    "id":        { "type": "string", "pattern": "^lrn-[0-9]{8}-[a-z0-9-]+$" },
+    "tier":      { "type": "string", "const": "construct" },
+    "type":      { "type": "string", "enum": ["correction", "pattern", "gap", "friction", "improvement", "anti_pattern"] },
+    "trigger":   { "type": "string", "maxLength": 500,
+                   "description": "VERBATIM operator quote — LOCAL ONLY, redacted before any export (FR-8)" },
+    "solution":  { "type": "string", "maxLength": 2000,
+                   "description": "Generalized fix; the GENERALITY gate (FR-3) strips project-specifics before this leaves" },
+    "target": {
+      "type": "object",
+      "required": ["skill_slug", "construct"],
+      "additionalProperties": false,
+      "properties": {
+        "skill_slug": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "construct":  { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "line_hint":  { "type": "string", "maxLength": 500,
+                        "description": "CONTEXTUAL TEXT SNIPPET for fuzzy/patch-context match — NEVER integer coordinates (prd.md §9 FR-1)" },
+        "confirmed":  { "type": "boolean", "default": false,
+                        "description": "false = QUARANTINED (classifier-captured, awaiting operator confirm at distill, FR-2)" }
+      }
+    },
+    "tags":          { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } },
+    "verified":      { "type": "boolean", "default": false },
+    "captured_by":   { "type": "string", "enum": ["clew-marker", "reaction-classifier"], "default": "clew-marker" },
+    "captured_at":   { "type": "string", "format": "date-time" },
+    "distilled_at":  { "type": ["string", "null"], "format": "date-time", "default": null,
+                       "description": "Idempotency stamp — non-null = already reduced, skip on re-run" },
+    "distill_status":{ "type": "string",
+                       "enum": ["pending", "proposed", "skipped_archived", "rejected_generality", "rejected_redaction"],
+                       "default": "pending" }
+  }
+}

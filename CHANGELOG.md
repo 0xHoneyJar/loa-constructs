@@ -5,6 +5,12 @@ All notable changes to the Loa Skills Registry will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **construct-clew Sprint 1 (cycle-052)**: the trajectory→construct learning loop, Phase 1 capture surface. A `>>clew@<construct>[/<skill>]: <why>` marker appends a verbatim-preserving, schema-validated learning to a per-construct append-only `LEARNINGS.jsonl` ledger (external global store, `0600`, single slug→path resolver, exit `0/2/3` contract). Re-populate (`populate-global-store.sh`) preserves the ledger **byte-identically** under a stable shared lock (`scripts/clew/clew-lock.sh`) so a concurrent capture is never silently clobbered. Construct-ecosystem-local — no base-Loa change. `scripts/clew/` (schema, `ledger-append.sh`, `loa-clew-capture.sh`, 21 bats tests). Hook registration in `.claude/settings.json` is a deferred operator step (see `scripts/clew/README.md`). (`feat/construct-clew`)
+
 ## [2.41.0] — 2026-05-09 — spiral recovery — audit-feel composition + 4 runbooks + egress-filter + telemetry config
 
 

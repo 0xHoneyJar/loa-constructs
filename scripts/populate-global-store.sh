@@ -28,6 +28,42 @@ GLOBAL_STORE="${LOA_GLOBAL_STORE:-${HOME}/.loa/constructs}"
 GLOBAL_PACKS="${GLOBAL_STORE}/packs"
 GLOBAL_META="${GLOBAL_STORE}/global.json"
 
+# Shared construct-clew ledger lock — coordinate the preserve→rm→restore below with
+# concurrent `ledger_append` captures (SDD §3.5). Degrade to unlocked (current
+# behavior) if the helper is absent.
+if [[ -f "${SCRIPT_DIR}/clew/clew-lock.sh" ]]; then
+    # shellcheck source=scripts/clew/clew-lock.sh
+    source "${SCRIPT_DIR}/clew/clew-lock.sh"
+else
+    clew_run_locked() { shift 3; [[ "${1:-}" == "--" ]] && shift; "$@"; }
+fi
+
+# Re-copy one pack from cache, preserving its construct-clew ledger byte-identically
+# across the destructive clean. Called under the stable ledger lock (clew_run_locked).
+_clew_populate_pack() {
+    local dest="$1" repo_dir="$2"
+    local keep="" allowed_dir allowed_file
+    # Preserve the pack-root ledger (outside the allowlist copy) before the clean.
+    if [[ -f "${dest}/LEARNINGS.jsonl" ]]; then
+        keep="$(mktemp -d)"
+        cp -p "${dest}/LEARNINGS.jsonl" "${keep}/LEARNINGS.jsonl"
+    fi
+    rm -rf "$dest"
+    mkdir -p "$dest"
+    for allowed_dir in "${ALLOWED_DIRS[@]}"; do
+        [[ -d "${repo_dir}/${allowed_dir}" ]] && cp -R "${repo_dir}/${allowed_dir}" "${dest}/${allowed_dir}"
+    done
+    for allowed_file in "${ALLOWED_ROOT_FILES[@]}"; do
+        [[ -f "${repo_dir}/${allowed_file}" ]] && cp "${repo_dir}/${allowed_file}" "${dest}/${allowed_file}"
+    done
+    # Restore the preserved ledger byte-identically (SDD §3.5 invariant).
+    if [[ -n "$keep" ]]; then
+        cp -p "${keep}/LEARNINGS.jsonl" "${dest}/LEARNINGS.jsonl"
+        chmod 0600 "${dest}/LEARNINGS.jsonl"
+        rm -rf "$keep"
+    fi
+}
+
 DRY_RUN=false
 JSON_OUTPUT=false
 ONLY_SLUGS=()
@@ -177,23 +213,14 @@ main() {
             continue
         fi
 
-        # Clean destination and recreate
-        rm -rf "$dest"
-        mkdir -p "$dest"
-
-        # Copy allowed directories
-        for allowed_dir in "${ALLOWED_DIRS[@]}"; do
-            if [[ -d "${repo_dir}/${allowed_dir}" ]]; then
-                cp -R "${repo_dir}/${allowed_dir}" "${dest}/${allowed_dir}"
-            fi
-        done
-
-        # Copy allowed root files
-        for allowed_file in "${ALLOWED_ROOT_FILES[@]}"; do
-            if [[ -f "${repo_dir}/${allowed_file}" ]]; then
-                cp "${repo_dir}/${allowed_file}" "${dest}/${allowed_file}"
-            fi
-        done
+        # Clean+recopy the pack, holding the STABLE shared ledger lock so a
+        # concurrent `>>clew` capture during this preserve→rm→restore window is
+        # serialized and never silently clobbered (SDD §3.5 / §6.1). 30s wait, then
+        # proceed loud (a capture should hold the lock for <10ms).
+        if ! clew_run_locked "$GLOBAL_PACKS" "$slug" 30 -- _clew_populate_pack "$dest" "$repo_dir"; then
+            log "  ⚠ clew: ledger lock contended for ${slug}; pack re-copied without lock coordination"
+            _clew_populate_pack "$dest" "$repo_dir"
+        fi
 
         # Compute content hash
         local hash
