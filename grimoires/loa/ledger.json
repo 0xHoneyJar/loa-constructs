@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "active_cycle": "cycle-051",
-  "global_sprint_counter": 65,
+  "active_cycle": "cycle-053",
+  "global_sprint_counter": 68,
   "cycles": [
     {
       "id": "cycle-025",
@@ -44,7 +44,10 @@
       "completed_at": "2026-02-17T18:35:00Z",
       "created_at": "2026-02-17T18:00:00Z",
       "sprints": [
-        "sprint-bug-4"
+        {
+          "local_label": "sprint-bug-4",
+          "status": "completed"
+        }
       ],
       "triage": "grimoires/loa/a2a/bug-20260217-i361-140a19/triage.md",
       "sprint_plan": "grimoires/loa/a2a/bug-20260217-i361-140a19/sprint.md"
@@ -134,7 +137,10 @@
       "created_at": "2026-02-19T02:15:00Z",
       "completed_at": "2026-02-19T03:20:00Z",
       "sprints": [
-        "sprint-bug-5"
+        {
+          "local_label": "sprint-bug-5",
+          "status": "completed"
+        }
       ],
       "triage": "grimoires/loa/a2a/bug-20260219-i367-ed7140/triage.md",
       "sprint_plan": "grimoires/loa/a2a/bug-20260219-i367-ed7140/sprint.md"
@@ -422,7 +428,10 @@
       "fix_commit": "cf67cd3",
       "fix_pr": 330,
       "sprints": [
-        "sprint-bug-331"
+        {
+          "local_label": "sprint-bug-331",
+          "status": "completed"
+        }
       ],
       "triage": "grimoires/loa/a2a/bug-20260215-i331-merge-delete/triage.md",
       "sprint_plan": "grimoires/loa/a2a/bug-20260215-i331-merge-delete/sprint.md"
@@ -839,7 +848,73 @@
       "foundation": "cycle-050",
       "context": "grimoires/loa/context/analytics-architecture/",
       "sprints": [],
-      "archived_at": "2026-05-09T18:46:44Z"
+      "archived_at": "2026-05-09T18:46:44Z",
+      "archived": "2026-05-30T21:57:40Z",
+      "archive_path": "/Users/zksoju/Documents/GitHub/loa-constructs/grimoires/loa/archive/2026-05-30-cycle-051"
+    },
+    {
+      "id": "cycle-052",
+      "label": "construct-clew — Construct Distillation Loop",
+      "status": "archived",
+      "created": "2026-05-30T21:57:41Z",
+      "archived": "2026-05-31T02:47:30Z",
+      "archive_path": "/Users/zksoju/Documents/GitHub/loa-constructs/grimoires/loa/archive/2026-05-30-construct-clew-phase1",
+      "prd": "grimoires/loa/prd.md",
+      "sdd": "grimoires/loa/sdd.md",
+      "sprints": [
+        {
+          "global_id": 1,
+          "local_label": "Capture + Ledger (loa-constructs)",
+          "status": "completed",
+          "created": "2026-05-30T21:58:09Z",
+          "completed": "2026-05-30T23:05:55Z"
+        },
+        {
+          "global_id": 2,
+          "local_label": "Distill + Gates (loa-constructs)",
+          "status": "completed",
+          "created": "2026-05-30T21:58:09Z",
+          "completed": "2026-05-31T01:37:14Z"
+        },
+        {
+          "global_id": 3,
+          "local_label": "Ratify + Propagate + Surface (upstream + pilot)",
+          "status": "completed",
+          "created": "2026-05-30T21:58:10Z",
+          "completed": "2026-05-31T02:43:52Z"
+        }
+      ]
+    },
+    {
+      "id": "cycle-053",
+      "label": "compose-as-workflow — Compositions as Claude Code Workflows",
+      "status": "active",
+      "created": "2026-05-31T17:58:52Z",
+      "prd": "grimoires/loa/prd.md",
+      "sdd": "grimoires/loa/sdd.md",
+      "sprints": [
+        {
+          "global_id": "sprint-66",
+          "local_label": "Foundation — vendored adapter-gen + hitl_by_nature schema field",
+          "status": "planned",
+          "created": "2026-05-31T17:58:52Z"
+        },
+        {
+          "global_id": "sprint-67",
+          "local_label": "The Engine — transpiler + cut algorithm + segment emission",
+          "status": "planned",
+          "created": "2026-05-31T17:58:52Z"
+        },
+        {
+          "global_id": "sprint-68",
+          "local_label": "The Human Half + Pilot E2E — segment-runner, clew-at-seam, compat stream, code-implement-and-review",
+          "status": "planned",
+          "created": "2026-05-31T17:58:52Z"
+        }
+      ]
     }
-  ]
+  ],
+  "last_updated": "2026-05-31T17:58:52Z",
+  "next_sprint_number": 4,
+  "version": "1.0.0"
 }
