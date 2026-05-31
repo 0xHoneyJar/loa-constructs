@@ -21,8 +21,8 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "enum": ["1.0", "1.1", "1.2"],
-      "description": "Composition schema version. Enum-locked for explicit audit trail (no pattern matching). v1.0 baseline. v1.1 adds optional cycle-002 followup fields (surface_class, thinking_effort, vocabulary_governance, codex_mode). v1.2 catches schema up to registry reality — adds optional stage shapes (name, invokes, capture_method, brief_structure, transport_preference, verify_identifiers, ground-canon predicates), output emit_when, top-level changelog/depends_on/upstream_composition, plus mode+blocking and role+dispatcher/engineering-handoff/gate/hard-stop enums. All additive; v1.0/v1.1 YAMLs validate unchanged. Breaking changes require major bump + migration plan. See VERSIONING.md."
+      "enum": ["1.0", "1.1", "1.2", "1.3"],
+      "description": "Composition schema version. Enum-locked for explicit audit trail (no pattern matching). v1.0 baseline. v1.1 adds optional cycle-002 followup fields (surface_class, thinking_effort, vocabulary_governance, codex_mode). v1.2 catches schema up to registry reality — adds optional stage shapes (name, invokes, capture_method, brief_structure, transport_preference, verify_identifiers, ground-canon predicates), output emit_when, top-level changelog/depends_on/upstream_composition, plus mode+blocking and role+dispatcher/engineering-handoff/gate/hard-stop enums. v1.3 (cycle-053, authorized C053.OP-S1) adds the optional Stage.hitl_by_nature boolean — the compose-as-CC-workflow cut algorithm reads it to mark a stage the operator inherently performs by hand outside the agent loop (a third seam class, alongside mode:blocking and the gate roles). All additive; v1.0/v1.1/v1.2 YAMLs validate unchanged. Breaking changes require major bump + migration plan. See VERSIONING.md."
     },
     "kind": {
       "type": "string",
@@ -401,6 +401,7 @@
         "role": { "$ref": "#/$defs/Role" },
         "iterates_with": { "type": "integer", "minimum": 1, "description": "Companion stage number for iteration. Must reference an entry in iterate[]." },
         "iterate_until": { "type": "string", "description": "Termination predicate for the iteration loop (operator/runner-defined)." },
+        "hitl_by_nature": { "type": "boolean", "default": false, "description": "v1.3 (cycle-053, authorized C053.OP-S1): marks a stage the operator inherently performs BY HAND, outside the autonomous agent loop — hand a prompt to a web image tool, eyeball a deploy, sign a transaction. It carries no gate role and no blocking mode, yet it is a seam. The compose-as-CC-workflow cut algorithm treats it as a seam (is_seam := mode=='blocking' OR role in {hard-stop, craft-gate, gate} OR hitl_by_nature==true); the segment-runner NEVER automates it into an autonomous span. Optional; absence == false. Additive — never narrows existing compositions." },
         "notes": { "type": "string", "description": "What this stage does and why this expert was chosen." },
         "vocabulary_governance": {
           "$ref": "#/$defs/VocabularyGovernance",
