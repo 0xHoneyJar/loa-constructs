@@ -1,4 +1,4 @@
-# construct-clew — Sprint 1 (Capture + Ledger)
+# construct-clew — the construct distillation loop (capture → ledger → distill → ratify → PR → surface)
 
 The trajectory → construct learning loop. **Phase 1, construct-ecosystem-local**
 (SDD §10 Q2 A2): everything lives in `loa-constructs`; nothing is a base-Loa PR.
@@ -108,8 +108,50 @@ allowed-tools: [Write, Edit]
 # agent: omitted (or general-purpose) — NEVER Plan/Explore
 ```
 
+## Propagate + Ratify + Surface (Sprint 3 — `ratify.sh`, `propose-construct-learning.sh`, `surface.sh`)
+
+The human-gated cross-repo half of the loop. A `PROPOSAL.diff` is **inert** until an operator ratifies it; ratification drafts a PR to the *targeted construct's own* canonical repo (never base-Loa). This is the **only** place construct-clew data crosses the machine boundary.
+
+```bash
+# RATIFY (Task 3.1, FR-4) — the force-chain gate. Inert until run.
+scripts/clew/ratify.sh approve --construct artisan --skill inscribing-taste   # → draft PR (via C5)
+scripts/clew/ratify.sh approve --construct artisan --skill inscribing-taste --dry-run
+scripts/clew/ratify.sh reject  --construct artisan --skill inscribing-taste   # → .rejected; re-surfaces silently
+scripts/clew/ratify.sh ignore  --construct artisan --skill inscribing-taste   # → no-op; re-surfaces ≤once/session
+
+# PROPAGATE (C5/C6, FR-5/FR-6) — archived guard FIRST, then auth pre-flight, then PR.
+scripts/clew/propose-construct-learning.sh --construct artisan --skill inscribing-taste            # draft PR
+scripts/clew/propose-construct-learning.sh --construct artisan --skill inscribing-taste --dry-run  # resolve+preflight only
+
+# SURFACE (C7, FR-7) — degrade-to-silence readers.
+scripts/clew/surface.sh pending   # L6 handoff: "N proposals pending" + uninstall flags (≤once/session)
+scripts/clew/surface.sh landed    # SessionStart line: "N corrections drafted (PR in flight)"
+scripts/clew/surface.sh flags     # the FR-6 uninstall-flag reader (consumes the archived-guard flag)
+```
+
+**Order is non-bypassable (SDD §5.3):** resolve canonical from `construct.yaml::repository.url` → **C6 archived guard** (`gh repo view --json isArchived`; archived → SKIP, write `distill_status=skipped_archived`, emit uninstall flag, PROMPT operator, exit 0) → **C5 auth pre-flight** (`gh auth status`; not authed / 403 → exit 4 *before* any side effect) → assemble PR body from the already-redacted `RATIONALE.md` + inert `PROPOSAL.diff` (field allowlist — the verbatim `trigger` quote is never read here) → **draft a REAL branch-based PR**.
+
+**The PR is a real branch, not a body-only `gh pr create`** (DISS-001): clone the canonical to a temp worktree → locate `skills/<skill>/SKILL.md` → `patch`-apply `PROPOSAL.diff` → commit on `clew/<skill>-<diff-hash>` → push → `gh pr create --repo <canonical> --head <branch> --base <default> --draft`. A `[CONTEXT-AMBIGUOUS]` proposal (no resolvable hunk) is **refused**, never pushed. **Phase-1 scope:** assumes push access to the canonical (true for the `0xHoneyJar` org — every construct canonical). Fork-based PRs for third-party constructs are a documented **Phase-2** extension.
+
+- **Force chain (NFR):** no path applies a `PROPOSAL.diff` to an *installed/local* skill or sets `verified:true`. The diff only reaches a canonical via a reviewable draft PR (CODEOWNERS merge gate). `ratify.sh approve` is the only route to a PR.
+- **Idempotent boundary crossing (DISS-002):** on a successful PR a proposal-local `<dir>/.drafted` (PR url + ids + diff-hash) is written; re-running `propose`/`approve` prints `ALREADY_DRAFTED` and drafts **no** second PR; `surface pending` stops listing it.
+- **Content-specific rejection (DISS-003):** `ratify.sh reject` stores the rejected `PROPOSAL.diff` hash in `<dir>/.rejected`; `approve`/`surface` honor it **only while the diff is unchanged**. A re-distilled (different-hash) proposal for the same construct/skill resurfaces normally — a rejection never buries future corrections.
+- **gh + git are injectable** via `LOA_CLEW_GH` / `LOA_CLEW_GIT` (tests point them at stubs that log every call — "no PR against an archived repo", "real branch pushed", "no second PR" are all asserted on the call logs).
+- **Side-files co-locate with the pending dir:** `<pending>/.clew-uninstall-flags.jsonl` (FR-6 flag, read by `surface.sh flags`) and `<pending>/.clew-drafted.jsonl` (C7 "in flight" log). Override via `LOA_CLEW_FLAGS_FILE` / `LOA_CLEW_DRAFTED_LOG`.
+
+### ⚠ Live finding — `observer` canonical is ARCHIVED (renamed `construct-beehive`)
+
+The SDD named `observer` as a live PR-path pilot. Live `gh` check (2026-05-31): `construct-observer` **redirects to `construct-beehive` and `isArchived:true`**. So the C6 guard correctly SKIPs it — observer is now a *real* archived-case, not a live target. **The live pilot is `artisan`** (`construct-artisan`, `isArchived:false`), proven via the genuine capture→distill→propose `--dry-run` chain. `smol-comms-register` (the worked-example target) has **no canonical repo** on GitHub — it is golden-diff-only, never PR'd.
+
+## Deferred System-Zone registration (Sprint 3)
+
+The propagate/ratify/surface **logic** is native (`scripts/clew/*.sh`). Two System-Zone touches remain deferred (consistent with this repo's native-clew practice — Sprint 1's hook + Sprint 2's distill skill are likewise documented-but-unregistered):
+
+1. **`/skill-audit --approve <construct>-<skill>`** — extend `.claude/commands/skill-audit.md` to parse `<construct>-<skill>` and shell out to `scripts/clew/ratify.sh approve --construct … --skill …`. The native helper uses explicit `--construct`/`--skill` flags to avoid the hyphen-split ambiguity (`a-b-c` could be construct `a` + skill `b-c` or construct `a-b` + skill `c`); the command layer owns the parse.
+2. **SessionStart hook** — register `scripts/clew/surface.sh landed` (and a session-end `surface.sh pending`) under `.claude/settings.json` `hooks.SessionStart` so corrections-landed / proposals-pending surface automatically. Until registered, both are invokable directly and fully tested.
+
 ## Tests
 
 ```bash
-bats scripts/clew/tests/
+bats scripts/clew/tests/          # 59 tests: Sprint 1 (capture+ledger) + Sprint 2 (distill+gates) + Sprint 3 (propagate+ratify+surface)
 ```
