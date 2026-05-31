@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "active_cycle": null,
-  "global_sprint_counter": 65,
+  "active_cycle": "cycle-053",
+  "global_sprint_counter": 68,
   "cycles": [
     {
       "id": "cycle-025",
@@ -884,9 +884,37 @@
           "completed": "2026-05-31T02:43:52Z"
         }
       ]
+    },
+    {
+      "id": "cycle-053",
+      "label": "compose-as-workflow — Compositions as Claude Code Workflows",
+      "status": "active",
+      "created": "2026-05-31T17:58:52Z",
+      "prd": "grimoires/loa/prd.md",
+      "sdd": "grimoires/loa/sdd.md",
+      "sprints": [
+        {
+          "global_id": "sprint-66",
+          "local_label": "Foundation — vendored adapter-gen + hitl_by_nature schema field",
+          "status": "planned",
+          "created": "2026-05-31T17:58:52Z"
+        },
+        {
+          "global_id": "sprint-67",
+          "local_label": "The Engine — transpiler + cut algorithm + segment emission",
+          "status": "planned",
+          "created": "2026-05-31T17:58:52Z"
+        },
+        {
+          "global_id": "sprint-68",
+          "local_label": "The Human Half + Pilot E2E — segment-runner, clew-at-seam, compat stream, code-implement-and-review",
+          "status": "planned",
+          "created": "2026-05-31T17:58:52Z"
+        }
+      ]
     }
   ],
-  "last_updated": "2026-05-31T02:47:31Z",
+  "last_updated": "2026-05-31T17:58:52Z",
   "next_sprint_number": 4,
   "version": "1.0.0"
 }

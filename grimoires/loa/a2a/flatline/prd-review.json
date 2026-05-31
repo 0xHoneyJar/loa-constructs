@@ -1,56 +1,236 @@
 {
-  "phase": "prd",
-  "document": "grimoires/loa/prd.md",
-  "cycle": "cycle-029",
-  "timestamp": "2026-02-19T20:15:00Z",
   "consensus_summary": {
-    "high_consensus_count": 3,
-    "disputed_count": 2,
+    "high_consensus_count": 6,
+    "disputed_count": 3,
     "low_value_count": 0,
-    "blocker_count": 0,
-    "model_agreement_percent": 78
+    "blocker_count": 9,
+    "model_agreement_percent": 72,
+    "models": 3,
+    "tertiary_items": 0,
+    "confidence": "full"
   },
   "high_consensus": [
     {
-      "id": "HC-1",
-      "title": "Constraint enforcement is documentation, not code",
-      "description": "PRD assumes programmatic constraint enforcement (isConstructWorkflowActive function). Actual enforcement is through: (1) CLAUDE.md prompt instructions, (2) command pre-flight .md templates, (3) safety hooks. FR-2/FR-3 must specify which layer yielding occurs at.",
-      "scores": {"opus": 850, "gpt": 820},
-      "recommendation": "Rewrite FR-2/FR-3 to specify three enforcement layers: constraints.json gets construct_yield field for CLAUDE.md rendering, command .md files get conditional pre-flight checks, hooks unchanged.",
-      "integrated": true
+      "id": "IMP-001",
+      "description": "Clear contradiction between Phase 1 scope and FR-2 would directly mislead implementation sequencing. Low documentation cost and high downstream value for SDD and sprint planning.",
+      "gpt_score": 910,
+      "opus_score": 890,
+      "tertiary_score": 900,
+      "delta": 20,
+      "average_score": 900,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "HIGH"
     },
     {
-      "id": "HC-2",
-      "title": "condense in schema but out of scope",
-      "description": "FR-1 schema lists condense as gate value but Section 7 marks condense implementation as out of scope. Creates dead value in reader.",
-      "scores": {"opus": 780, "gpt": 740},
-      "recommendation": "Remove condense from this cycle's reader. Schema accepts it but treats as full with logged advisory. Full condense behavior deferred to loa-constructs#129.",
-      "integrated": true
+      "id": "IMP-002",
+      "description": "The primary success metric is currently not falsifiable. Defining baseline window, target delta, and data source is essential for review and audit gates, with modest specification cost.",
+      "gpt_score": 875,
+      "opus_score": 860,
+      "tertiary_score": 850,
+      "delta": 15,
+      "average_score": 867.5,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "HIGH"
     },
     {
-      "id": "HC-3",
-      "title": "FR-4 assumes CLI flags, skills take sprint IDs",
-      "description": "FR-4 proposes --criteria-source parameter but review/audit are skill invocations taking sprint IDs, not CLI commands with flags.",
-      "scores": {"opus": 750, "gpt": 710},
-      "recommendation": "Replace --criteria-source with construct manifest detection. When review-sprint detects active construct, reads criteria from construct's declared source. No new CLI parameter.",
-      "integrated": true
+      "id": "IMP-003",
+      "description": "An unconsumed uninstall flag creates contract ambiguity and likely implementation waste. Either wiring a reader or removing the side effect is a clean, high-value scope correction.",
+      "gpt_score": 820,
+      "opus_score": 870,
+      "tertiary_score": 880,
+      "delta": 50,
+      "average_score": 845,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "HIGH"
+    },
+    {
+      "id": "IMP-004",
+      "description": "Target resolution is necessary for classifier-captured events to enter the clustering path. This is slightly less urgent if classifier is Phase 2 only, but still important to prevent a known silent failure mode.",
+      "gpt_score": 805,
+      "opus_score": 780,
+      "tertiary_score": 820,
+      "delta": 25,
+      "average_score": 792.5,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "HIGH"
+    },
+    {
+      "id": "IMP-005",
+      "description": "Pilot pass/fail criteria beyond one happy-path diff would make graduation materially more reliable. Valuable, though exact thresholds may be easier to finalize during SDD than PRD.",
+      "gpt_score": 735,
+      "opus_score": 900,
+      "tertiary_score": 950,
+      "delta": 165,
+      "average_score": 817.5,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "HIGH"
+    },
+    {
+      "id": "IMP-008",
+      "description": "The upstream proposal-generator dependency is a real scheduling and blocking risk. Making it explicit in dependencies and risks would reduce pilot ambiguity with low cost.",
+      "gpt_score": 720,
+      "opus_score": 720,
+      "tertiary_score": 810,
+      "delta": 0,
+      "average_score": 720,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "HIGH"
     }
   ],
   "disputed": [
     {
-      "id": "D-1",
-      "title": "FR-4 scope too large for this cycle",
-      "description": "6+ hard coupling points in review/audit skills. Full decoupling is substantial refactoring.",
-      "scores": {"opus": 720, "gpt": 380},
-      "resolution": "pending_user_decision"
+      "id": "IMP-009",
+      "description": "Cross-project visibility affects the promised operator experience, but may be acceptable as current-project-only for an initial pilot if explicitly scoped. Worth clarifying before implementation.",
+      "gpt_score": 655,
+      "opus_score": 0,
+      "tertiary_score": 620,
+      "delta": 655,
+      "average_score": 655,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "DISPUTED"
     },
     {
-      "id": "D-2",
-      "title": "Data/Lore direct vs required inconsistency",
-      "description": "Section 9 shows implement: direct for Data/Lore but schema only allows implement: required.",
-      "scores": {"opus": 650, "gpt": 300},
-      "resolution": "pending_user_decision"
+      "id": "IMP-010",
+      "description": "Precise permissions are cheap to specify and useful for auditability, especially with potentially private captured context. Not strategically central, but high ROI due low implementation cost.",
+      "gpt_score": 665,
+      "opus_score": 0,
+      "tertiary_score": 450,
+      "delta": 665,
+      "average_score": 665,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "DISPUTED"
+    },
+    {
+      "id": "IMP-011",
+      "description": "Phase 2 graduation depends on empirical classifier data, and Phase 1 is the right time to collect it in shadow mode. Without this, the later decision remains speculative.",
+      "gpt_score": 840,
+      "opus_score": 0,
+      "tertiary_score": 860,
+      "delta": 840,
+      "average_score": 840,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "DISPUTED"
     }
   ],
-  "blockers": []
+  "low_value": [],
+  "blockers": [
+    {
+      "id": "SKP-002",
+      "concern": "Archived canonical handling conflicts with the chosen Phase 1 pilot because the pilot target is archived, yet FR-6 says archived repositories must be skipped and never PR'd.",
+      "severity": "HIGH",
+      "severity_score": 735,
+      "why_matters": "The MVP may fail its own proof path or silently test a non-representative exception. If the pilot requires operator-private mirror routing, that is currently an open question, not a decided requirement.",
+      "location": "FR-6, Phase 1 MVP, Open Question 6",
+      "recommendation": "Pick a live canonical construct for the pilot or explicitly make operator-private mirror routing part of Phase 1 with clear approval, audit, and propagation semantics.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-002",
+      "concern": "Brittleness of line-coordinate `line_hint` in distributed sync",
+      "severity": "HIGH",
+      "severity_score": 750,
+      "why_matters": "Referencing target locations via literal `line_hint` integers is highly volatile. If a construct receives an upstream sync (or manual operator edit) before the `distill` chronos job runs, the line numbers will drift. The generated `PROPOSAL.diff` will either fail to apply or, worse, apply cleanly to the wrong logic block, corrupting the skill.",
+      "location": "FR-1 Capture surface & FR-3 Distill",
+      "recommendation": "Require `line_hint` to be a contextual text snippet (e.g., surrounding AST node or literal text chunk) rather than purely integer coordinates, allowing the distill step to use fuzzy matching or `patch` context logic to locate the correct insertion point.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-008",
+      "concern": "Capture via inline `>>clew` preserves verbatim quotes but does not address privacy, secret redaction, or sensitive operator context flowing into construct repos or PR rationales.",
+      "severity": "HIGH",
+      "severity_score": 710,
+      "why_matters": "Verbatim session snippets may include private context, credentials, proprietary strategy, or actor-private memory. Propagating them into canonical construct repositories or PRs could leak sensitive information.",
+      "location": "FR-2 Trigger, FR-3 RATIONALE.md, FR-5 Cross-repo propagation",
+      "recommendation": "Add a redaction and classification gate before writing or exporting captured quotes. Define what fields may leave the local ledger, and require RATIONALE.md to summarize sensitive evidence rather than inline it.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-001",
+      "concern": "Embodiment-detection has no reliable signal yet the entire PRIMARY trigger and a major success metric depend on it",
+      "severity": "CRITICAL",
+      "severity_score": 850,
+      "why_matters": "Section 5 explicitly states 'no reliable signal exists for which construct am I currently being' and labels it load-bearing. If Phase 2 is gated on a 'measured embodiment-detection rate' but no detection mechanism, baseline, or measurement methodology is specified, Phase 2 is structurally blocked and the loop's value prop (closing the trajectory→construct path at scale) cannot be validated. The FR-2(a) reaction-classifier branch may silently misattribute learnings to the wrong construct, poisoning LEARNINGS.jsonl across the ecosystem.",
+      "location": "§4 FR-2, §5 Embodiment detection, §7 Risks row 1, §8 Q4",
+      "recommendation": "Before /architect, define (a) the candidate detection signals (persona file load? slash-command? @-mention? operator declaration?), (b) the measurement method and ground-truth source, (c) a misattribution containment policy (e.g. quarantine LEARNINGS until distill-time operator confirms target.construct). Make Phase 2 contingent on a written graduation criterion, not a TBD threshold.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-003",
+      "concern": "FR-6 archived guard skips PR creation but does not specify how the operator learns the construct was skipped or how the captured learning is preserved",
+      "severity": "HIGH",
+      "severity_score": 720,
+      "why_matters": "5/47 repos are archived including the pilot target. If distill silently skips archived canonicals, the LEARNINGS.jsonl entry either (a) sits un-distilled forever and re-triggers distill on every cron run (noise), (b) gets marked distilled with no output (silent loss), or (c) routes to an operator-private mirror with no documented resolution rule (§8 Q6 is open). 'Flag the construct for uninstall' has no defined mechanism — flag where, surfaced when, by what? The Phase 1 pilot will hit this on day one.",
+      "location": "§4 FR-6, §8 Q6",
+      "recommendation": "Specify (a) the skip-state marker in LEARNINGS.jsonl (e.g. `distill_status: skipped_archived`), (b) the surfacing channel for the uninstall flag (L6 handoff? SessionStart line? a NOTES.md append?), (c) the default behavior for archived-canonical-with-live-mirror — auto-route, prompt, or refuse — at least as a Phase 1 default even if §8 Q6 stays open for v2.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-002",
+      "concern": "Ledger location fork (§8 Q1) is unresolved but determines security, sync semantics, and divergence risk — deferring it to SDD may be too late",
+      "severity": "HIGH",
+      "severity_score": 760,
+      "why_matters": "External global store and in-repo store have incompatible threat models and sync invariants. External (`~/.loa/constructs/packs/<slug>/LEARNINGS.jsonl`) survives re-seed but is invisible to CODEOWNERS/PR review and lives on a single operator's machine (single point of loss, no audit trail across operators). In-repo is version-matched and reviewable but collides with FR-5's 'edit canonical, sync propagates' model — sync would either overwrite un-distilled lines or require a carve-out that re-introduces the very 'edit both' divergence the loop is designed to fix. Picking wrong forces a costly migration after Phase 1 ships.",
+      "location": "§5 Storage/permissions, §8 Q1",
+      "recommendation": "Resolve before SDD or scope Phase 1 to one location with an explicit reversibility plan. Document the sync carve-out semantics (which paths are skipped during re-seed) and the multi-operator story (does the loop work if two operators embody the same construct on different machines?).",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-003",
+      "concern": "Misalignment of project-level 4-gate filter applied to constructs",
+      "severity": "HIGH",
+      "severity_score": 720,
+      "why_matters": "The existing `continuous-learning` 4-gate filter is calibrated to capture local project logic and avoid polluting global state. Constructs, by definition, require high abstraction and cross-project generality. Applying project-level gates directly to constructs risks poisoning the construct with hyper-specific project logic, or falsely rejecting valid architectural heuristics.",
+      "location": "FR-3 Distill",
+      "recommendation": "Parameterize or fork the 4-gate filter to include a 'Generality/Abstraction Gate' specifically for `tier: construct` evaluation, ensuring project-specific domain data is stripped before ratification.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-001",
+      "concern": "Missing cross-repo GitHub authentication scopes",
+      "severity": "CRITICAL",
+      "severity_score": 850,
+      "why_matters": "FR-5 requires `proposal-generator.sh` to open PRs against third-party construct vendor repositories. The operator's current GitHub token may only have permissions for `0xHoneyJar/loa` or their immediate project. Without explicit multi-repo or `public_repo` token scopes, the automated PR generation will fail silently or crash the loop, completely breaking the cross-repo propagation goal.",
+      "location": "FR-5 Cross-repo propagation",
+      "recommendation": "Add a pre-flight auth check in the `distilling-construct-learnings` skill that verifies `gh auth status` has the necessary scopes for the resolved `TARGET_REPO` before attempting to generate the PR.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-001",
+      "concern": "The PRD leaves the ledger location undecided while making storage, sync safety, permissions, and distillation semantics depend on that choice.",
+      "severity": "HIGH",
+      "severity_score": 760,
+      "why_matters": "If the SDD chooses poorly or inconsistently, learnings may be clobbered by re-sync, detached from construct versions, duplicated across mirrors, or inaccessible to the distill job. This is foundational state design, not an implementation detail.",
+      "location": "FR-1, Technical & Non-Functional, Open Question 1",
+      "recommendation": "Resolve the ledger location before sprint planning. Define one canonical write path, ownership rules, sync exclusion behavior, migration behavior, and how line ids remain stable across construct moves or mirrors.",
+      "source": "tertiary_skeptic"
+    }
+  ],
+  "degraded": false,
+  "degraded_model": null,
+  "confidence": "full",
+  "phase": "prd",
+  "document": "grimoires/loa/prd.md",
+  "domain": " prd construct distillation loop",
+  "tertiary_model_used": "gemini-headless:gemini-3.1-pro-preview",
+  "tertiary_status": "active",
+  "execution": {
+    "mode": "interactive",
+    "mode_reason": "Default (no explicit mode specified)",
+    "run_id": null
+  },
+  "timestamp": "2026-05-30T21:39:54Z",
+  "metrics": {
+    "total_latency_ms": 104000,
+    "cost_cents": 0,
+    "cost_usd": 0
+  }
 }

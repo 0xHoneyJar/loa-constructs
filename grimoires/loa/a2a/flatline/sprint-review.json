@@ -1,26 +1,222 @@
 {
-  "phase": "sprint",
-  "document": "grimoires/loa/sprint.md",
-  "timestamp": "2026-03-12T21:11:03Z",
   "consensus_summary": {
-    "high_consensus_count": 6,
-    "disputed_count": 0,
+    "high_consensus_count": 5,
+    "disputed_count": 2,
     "low_value_count": 0,
     "blocker_count": 10,
-    "model_agreement_percent": 100,
+    "model_agreement_percent": 80,
     "models": 3,
+    "tertiary_items": 0,
     "confidence": "full"
   },
-  "high_consensus_integrated": ["IMP-001", "IMP-002", "IMP-003", "IMP-006", "IMP-007", "IMP-008"],
-  "blocker_decisions": {
-    "SKP-001_timeline": "rejected — agent-implemented, sprints are guides not commitments",
-    "SKP-002_key_sync": "integrated — added reconciliation note to T1.5",
-    "SKP-002_security": "partially_integrated — rate limiting + rotation already in SDD",
-    "SKP-003_pii": "rejected — already addressed in SDD §9.4",
-    "SKP-004_dedup": "rejected — already improved in SDD, good enough for Phase 1",
-    "SKP-005_atomicity": "integrated — atomic counter note added to T1.3",
-    "SKP-007_screenshot": "accepted — removed from T4.1, deferred",
-    "SKP-009_replay": "partially_integrated — origin validation added to T1.4",
-    "SKP-003_bcrypt": "integrated — 60s cache added to T1.4 via IMP-007"
+  "high_consensus": [
+    {
+      "id": "IMP-001",
+      "description": "Valuable risk-control addition. A schema-version rollback playbook is low-cost and addresses a plausible downstream compatibility failure, though the additive nature of the bump lowers urgency somewhat.",
+      "gpt_score": 720,
+      "opus_score": 820,
+      "tertiary_score": 850,
+      "delta": 100,
+      "average_score": 770,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "HIGH"
+    },
+    {
+      "id": "IMP-002",
+      "description": "Critical. The validator is load-bearing for the validate-before-emit guarantee; naming the path, CLI contract, and exit-code semantics prevents a core NFR from becoming aspirational. Low implementation cost relative to risk reduction.",
+      "gpt_score": 910,
+      "opus_score": 880,
+      "tertiary_score": 900,
+      "delta": 30,
+      "average_score": 895,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "HIGH"
+    },
+    {
+      "id": "IMP-003",
+      "description": "Critical. This protects the System-Zone write boundary with mechanical verification instead of convention. The test is straightforward and directly supports the stated gating discipline.",
+      "gpt_score": 880,
+      "opus_score": 860,
+      "tertiary_score": 950,
+      "delta": 20,
+      "average_score": 870,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "HIGH"
+    },
+    {
+      "id": "IMP-004",
+      "description": "Valuable. A pilot needs explicit stop rules and artifact preservation criteria, especially where compatibility with compose-run.sh is central. Slightly less critical because coexistence already reduces blast radius.",
+      "gpt_score": 760,
+      "opus_score": 780,
+      "tertiary_score": 800,
+      "delta": 20,
+      "average_score": 770,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "HIGH"
+    },
+    {
+      "id": "IMP-007",
+      "description": "Critical. The return-value contract is a dependency for both transpiler output and the later guard. Hoisting it avoids circular implementation pressure and reduces rework across Sprint 2 and Sprint 3.",
+      "gpt_score": 890,
+      "opus_score": 720,
+      "tertiary_score": 860,
+      "delta": 170,
+      "average_score": 805,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "HIGH"
+    }
+  ],
+  "disputed": [
+    {
+      "id": "IMP-009",
+      "description": "Valuable scope-control finding. Deferring stream_edge if unused would reduce Sprint 2 risk and avoid implementing unexercised behavior. Confidence is somewhat limited because the pilot and registry needs may already justify it.",
+      "gpt_score": 700,
+      "opus_score": 0,
+      "tertiary_score": 720,
+      "delta": 700,
+      "average_score": 700,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "DISPUTED"
+    },
+    {
+      "id": "IMP-010",
+      "description": "Critical. A compat JSONL stream consumed by an existing tailing tool needs crash-safe line emission; otherwise the integration can fail despite matching envelope shape. Acceptance criteria around atomic append behavior are appropriate and inexpensive.",
+      "gpt_score": 830,
+      "opus_score": 0,
+      "tertiary_score": 840,
+      "delta": 830,
+      "average_score": 830,
+      "source": "gpt_scored",
+      "would_integrate": true,
+      "agreement": "DISPUTED"
+    }
+  ],
+  "low_value": [],
+  "blockers": [
+    {
+      "id": "SKP-001",
+      "concern": "Command injection vulnerability in clew-at-seam shell execution",
+      "severity": "CRITICAL",
+      "severity_score": 850,
+      "why_matters": "Task 3.4 shells out to `loa-clew-capture.sh` using the operator steer text. Even though the security considerations state that steer text is treated as data and never evaluated, if the runner passes this text to a shell interpreter via string interpolation instead of using safe argument arrays, a malicious or malformed `>>clew` steer could execute arbitrary commands.",
+      "location": "Sprint 3: Task 3.4 (clew-at-seam handler)",
+      "recommendation": "Ensure the segment runner executes `loa-clew-capture.sh` strictly using process execution APIs with explicit argument arrays (e.g., `child_process.spawn` or `execFile` with `shell: false` in Node.js), completely avoiding shell interpretation of the steer text.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-002",
+      "concern": "Core runtime assumptions about Claude Code dynamic workflows, structured output behavior, `AskUserQuestion`, and headless segment execution are not validated before being made load-bearing in Sprint 2 and Sprint 3.",
+      "severity": "CRITICAL",
+      "severity_score": 850,
+      "why_matters": "If the assumed workflow APIs or headless behavior differ from the plan, the transpiler and segment-runner architecture may fail after multiple sprints of implementation.",
+      "location": "Executive Summary; Sprint 2 deliverables; Sprint 3 Task 3.1 and 3.2",
+      "recommendation": "Add a Sprint 0 or Sprint 1 P0 probe that runs a minimal real workflow using `agent()`, `pipeline()`, structured output, a segment handoff, and a human seam before implementing the full transpiler.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-002",
+      "concern": "No rollback or migration plan for the `schema_version` enum bump v1.2 → v1.3 if a downstream consumer (the 33 agents, the registry, or external repos with vendored schemas) hard-codes v1.2 acceptance. Task 1.4(c) only proves existing registry YAMLs validate; it does not prove existing *validators* across the broader ecosystem accept v1.3-tagged YAMLs.",
+      "severity": "HIGH",
+      "severity_score": 720,
+      "why_matters": "loa-constructs is consumed by ~29 construct-namespaced repos and synced to 9 repos via `~/.loa/constructs/packs/`. A schema_version that downstream pinned validators reject as 'unknown enum' breaks compositions in production silently — validators typically fail-closed.",
+      "location": "Sprint 1, Acceptance Criteria, Task 1.4",
+      "recommendation": "Add a Task 1.4(d): enumerate all known schema consumers (grep `schema_version` across `~/.loa/constructs/packs/**` and the 33 agent files); confirm each accepts forward enum values OR document them as needing coordinated upgrade. Add a rollback step that pins schema_version back to v1.2 as a single revert commit.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-002",
+      "concern": "Silent error masking via sync-throw try/catch to null wrap",
+      "severity": "HIGH",
+      "severity_score": 750,
+      "why_matters": "Task 3.6 wraps stage bodies to catch synchronous exceptions and return `null`. While this prevents the runner from crashing outright, it silently masks critical failures such as OOM, network disconnects, or unexpected missing data. Downstream stages will receive `null` inputs without context, leading to cascading logical corruption and invalid state being treated as a successful 'degraded' run.",
+      "location": "Sprint 3: Task 3.6 (sync-throw stage-body wrap)",
+      "recommendation": "Do not silently swallow exceptions. Instead of returning `null`, return an explicit Error object or a strongly-typed 'failed' status that the runner can intercept. The seam protocol should then alert the operator of the crash rather than continuing blindly.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-001",
+      "concern": "Sprint 1 Task 1.3 mutates a System-Zone file (`composition.schema.json`) under cycle-authorization, but the plan does not specify the exact authorization marker, reviewer, or rollback path for the schema enum bump. CLAUDE.md NEVER rules forbid `.claude/` writes without explicit authorization receipt, and a 'cycle-authorized' phrase is not equivalent to the C109.OP-S3-style operator-approval marker the codebase uses elsewhere.",
+      "severity": "HIGH",
+      "severity_score": 760,
+      "why_matters": "Without a concrete operator-approval marker (signed, dated, named), the System-Zone write can be challenged at audit and reverted. Reviewers cannot distinguish authorized v1.3 bump from drift. A bad enum bump propagates to every downstream validator across 268 repos.",
+      "location": "Sprint 1, Task 1.3; Cycle-level authorization block at top of plan",
+      "recommendation": "Replace 'cycle-authorized' with a concrete marker ID (e.g. `C053.OP-S1.SCHEMA`) signed in `grimoires/loa/cycles/cycle-053/authorizations.md`, name the reviewer (per CLAUDE.md, @janitooor), and document the revert command (`git revert <sha>`) + the cross-repo validator-compatibility check before merge.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-009",
+      "concern": "The plan preserves `cap_reached` versus `converged`, but does not define the full state machine for seam outcomes and transitions.",
+      "severity": "HIGH",
+      "severity_score": 710,
+      "why_matters": "Without a formal outcome model, future seam kinds or degraded handoffs may be collapsed into approval-like states, recreating the exact risk the plan calls out.",
+      "location": "Sprint 3 Acceptance Criteria; Risk R4; Task 3.8",
+      "recommendation": "Define a seam outcome enum and transition table covering converged, cap_reached, degraded_handoff, operator_reject, operator_edit, clew_failure, and retry.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-001",
+      "concern": "The plan treats embedded sprint text as sufficient authorization for gated System-Zone writes, but does not define an enforceable gate, reviewer check, or rollback path before mutating `.claude/` files.",
+      "severity": "HIGH",
+      "severity_score": 760,
+      "why_matters": "A mistaken or overly broad `.claude/` mutation can alter runtime behavior across sessions and agents, and the plan's own governance model classifies this as a high-control area.",
+      "location": "Cycle-level authorizations; Sprint 1 Task 1.3; Sprint 2 Task 2.6",
+      "recommendation": "Add an explicit pre-merge gate: exact file diff allowlist, reviewer approval requirement, rollback instructions, and CI check that rejects any `.claude/` writes outside the two authorized paths.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-003",
+      "concern": "The plan writes to global home locations such as `~/.claude/agents/` and `~/.loa/constructs/.../LEARNINGS.jsonl` from tests and runtime paths without isolation.",
+      "severity": "HIGH",
+      "severity_score": 790,
+      "why_matters": "CI or local test runs can pollute operator-global state, create nondeterministic results, overwrite user files, or leak local learnings into unrelated sessions.",
+      "location": "Sprint 1 Acceptance Criteria; Sprint 3 Acceptance Criteria; clew-at-seam handler",
+      "recommendation": "Require sandboxed home overrides for tests, add explicit environment variables for agent and learning paths, and verify no test writes to the real operator home.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-004",
+      "concern": "The statement that composition YAML is 'data, never eval'd' underestimates injection risk because YAML content is transformed into executable ESM scripts and prompt strings.",
+      "severity": "CRITICAL",
+      "severity_score": 870,
+      "why_matters": "Unescaped stage names, roles, construct slugs, prompt bodies, output paths, or metadata could break generated JavaScript, alter workflow behavior, or write outside intended directories.",
+      "location": "Sprint 2 Security Considerations; Task 2.3 segment emission; Task 2.4 persistent variables",
+      "recommendation": "Define a code-generation safety contract: structured AST/string escaping, path normalization, slug allowlists, reserved identifier handling, snapshot tests for adversarial YAML, and rejection of unsafe fields before emit.",
+      "source": "tertiary_skeptic"
+    },
+    {
+      "id": "SKP-005",
+      "concern": "The sync-throw guard converts thrown stage failures to `null`, which can mask real defects and allow downstream logic to treat failed work as an ordinary empty result.",
+      "severity": "HIGH",
+      "severity_score": 720,
+      "why_matters": "Silent degradation can cause false success, incomplete artifacts, or incorrect human handoffs, especially when `if (!impl) break` is treated as a normal loop exit.",
+      "location": "Sprint 3 Task 3.6; Acceptance Criteria for sync-throw guard",
+      "recommendation": "Return a typed degraded Verdict with error class, stage id, and recoverability instead of raw `null`; require downstream code to branch on explicit failure state.",
+      "source": "tertiary_skeptic"
+    }
+  ],
+  "degraded": false,
+  "degraded_model": null,
+  "confidence": "full",
+  "phase": "sprint",
+  "document": "grimoires/loa/sprint.md",
+  "domain": " executive summary the product",
+  "tertiary_model_used": "gemini-headless:gemini-3.1-pro-preview",
+  "tertiary_status": "active",
+  "execution": {
+    "mode": "interactive",
+    "mode_reason": "Default (no explicit mode specified)",
+    "run_id": null
+  },
+  "timestamp": "2026-05-31T18:07:24Z",
+  "metrics": {
+    "total_latency_ms": 96000,
+    "cost_cents": 0,
+    "cost_usd": 0
   }
 }

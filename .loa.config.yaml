@@ -1530,9 +1530,9 @@ flatline_protocol:
   # Models for adversarial review
   models:
     # Primary model (default: Claude Opus 4.6)
-    primary: "opus"
-    # Secondary model (default: GPT-5.2)
-    secondary: "gpt-5.2"
+    primary: "claude-headless:claude-opus-4-7"   # provider-qualified → subscription
+    # Secondary model (subscription-headless codex)
+    secondary: "codex-headless:gpt-5.5"
     # Tertiary model (future, optional)
     # tertiary: "gemini-2.0"
 
@@ -1708,7 +1708,7 @@ cta:
 # Hounfour — Model-Heterogeneous Agent Routing (cycle-026)
 hounfour:
   flatline_routing: false   # Route Flatline/GPT-review through model-invoke (cheval.py)
-  flatline_tertiary_model: gemini-3.1-pro  # 3-model Flatline: Opus + GPT-5.5-pro + Gemini-3.1-pro (use registered alias, not 'preview' suffix)
+  flatline_tertiary_model: gemini-headless:gemini-3.1-pro-preview  # provider-qualified → subscription (bare names resolve to http_api which needs API keys, 2026-05-30)
 
   # Per-subsystem feature flags (all default true — opt-out)
   feature_flags:
@@ -1738,6 +1738,8 @@ hounfour:
       read_timeout: 600.0
       models:
         claude-opus-4-7:
+          auth_type: headless   # cycle-110 §3.2 required; subscription-auth (no API key)
+          dispatch_group: anthropic-claude
           capabilities: [chat, tools, function_calling, thinking_traces]
           context_window: 200000
           pricing:
@@ -1746,6 +1748,8 @@ hounfour:
           extra:
             effort: high
         claude-sonnet-4-6:
+          auth_type: headless   # cycle-110 §3.2 required; subscription-auth (no API key)
+          dispatch_group: anthropic-claude
           capabilities: [chat, tools, function_calling]
           context_window: 200000
           pricing:
@@ -1756,6 +1760,8 @@ hounfour:
       read_timeout: 600.0
       models:
         gpt-5.5:
+          auth_type: headless   # cycle-110 §3.2 required; subscription-auth (no API key)
+          dispatch_group: openai-gpt
           capabilities: [chat, code]
           context_window: 400000
           token_param: max_completion_tokens
@@ -1769,12 +1775,16 @@ hounfour:
       read_timeout: 600.0
       models:
         gemini-3.1-pro-preview:
+          auth_type: headless   # cycle-110 §3.2 required; subscription-auth (no API key)
+          dispatch_group: google-gemini
           capabilities: [chat, thinking_traces]
           context_window: 1048576
           pricing:
             input_per_mtok: 0
             output_per_mtok: 0
         gemini-3-flash-preview:
+          auth_type: headless   # cycle-110 §3.2 required; subscription-auth (no API key)
+          dispatch_group: google-gemini
           capabilities: [chat]
           context_window: 1048576
           pricing:
@@ -1967,9 +1977,9 @@ flatline_protocol:
     sdd: true
     sprint: true
   models:
-    primary: opus
-    secondary: gpt-5.5-pro          # most powerful OpenAI (was gpt-5.3-codex)
-    tertiary: gemini-3.1-pro  # registered alias (was 'google:gemini-3.1-pro-preview' — both forms failed readiness check 2026-05-11 cycle-craft-cluster; bare registered alias is the working form)
+    primary: claude-headless:claude-opus-4-7   # provider-qualified → subscription (bare 'opus' → anthropic http_api, no API key)
+    secondary: codex-headless:gpt-5.5          # provider-qualified → subscription (dodges OpenAI quota on the http_api path)
+    tertiary: gemini-headless:gemini-3.1-pro-preview  # provider-qualified → subscription
 
   thresholds:
     high_consensus: 700
