@@ -59,6 +59,55 @@ this sprint (the `/implement` skill — and creative-latitude rules — forbid a
 Until registered, the hook is fully testable and invokable directly
 (`scripts/clew/loa-clew-capture.sh '>>clew@artisan: ...'`) but does not fire on live prompts.
 
+## Distill (Sprint 2 — `distill.sh`)
+
+The cold-path reducer. Reads un-distilled ledger lines → clusters by `target.skill_slug`
+→ runs the **generality** (FR-3) + **redaction** (FR-8) gates → fuzzy-matches `target.line_hint`
+against the target `SKILL.md` → emits an **inert** `PROPOSAL.diff` + a **redacted** `RATIONALE.md`
+to `grimoires/loa/skills-pending/<construct>-<skill>/` → stamps `distilled_at` idempotently.
+It **never** applies an edit and **never** lets a verbatim operator quote leave the ledger.
+
+```bash
+scripts/clew/distill.sh run --construct <slug>            # Chronos gate: only if ≥5 un-distilled
+scripts/clew/distill.sh run --construct <slug> --force    # manual: distill now
+# unit surfaces (testable):
+scripts/clew/distill.sh match <skill.md> "<line_hint>"    # MATCH n | AMBIGUOUS n,.. | NOMATCH
+scripts/clew/distill.sh propose <skill.md> '<json>' <out> # gates + match + emit
+```
+
+- **Fuzzy match** is keyword-overlap on `line_hint`. ≥2 equally-good lines → `[CONTEXT-AMBIGUOUS]`
+  (the proposal is a marker, not a hunk) — never guess-applies. The operator resolves at ratify.
+- **Trigger (Chronos)**: manual `--force`, or `--min N` (default 5) un-distilled — never per-turn.
+  The full L3 `scheduled-cycle-template` 5-phase wiring is **deferred** (over-engineered for Phase 1).
+
+### ⚠ FR-8 redaction — and a real framework bug found en route
+
+The verbatim operator `trigger` quote is **structurally excluded** from every export via an explicit
+jq field allowlist (`{id,type,solution,target.skill_slug,tags}` MAY leave; `trigger`/operator context
+MUST stay local). A re-run assertion confirms no trigger appears in any `RATIONALE.md`.
+
+**`redact-export.sh`'s BLOCK rules silently no-op on macOS.** They use `grep -P` (Perl regex), and BSD
+grep has no `-P`; the `2>/dev/null` swallows the error, so **every secret (ghp/AKIA/sk-/JWT/private-key)
+passes the BLOCK gate with exit 0 on macOS.** Confirmed by running the script as a subprocess. We therefore
+do **not** trust redact-export's exit code for secrets — `distill.sh` runs its own **BSD-safe `grep -E`**
+secret check on the fields that leave (`_dist_has_secret`), and routes un-redactable secrets to
+`distill_status=rejected_redaction`. (redact-export is still used for its working path/email REDACT.)
+**This is a `0xHoneyJar/loa` framework security bug worth filing.**
+
+## Deferred System-Zone registration (Sprint 2)
+
+The distill **logic** is native (`scripts/clew/distill.sh`). Registering it as a `/distill-constructs`
+command / `distilling-construct-learnings` skill is the deferred System-Zone step. If/when registered,
+the SKILL.md frontmatter MUST declare write capability without a read-only agent type (per
+`.claude/rules/skill-invariants.md`):
+
+```yaml
+capabilities:
+  write_files: true
+allowed-tools: [Write, Edit]
+# agent: omitted (or general-purpose) — NEVER Plan/Explore
+```
+
 ## Tests
 
 ```bash
