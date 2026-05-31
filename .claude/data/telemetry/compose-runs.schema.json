@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "loa.telemetry.compose-run.v1",
   "title": "Composition Run Telemetry Record",
-  "description": "One JSONL record per compose-run.sh invocation. Stored at .run/telemetry/compose-runs.jsonl. Retention: 90 days per sprint.md §Telemetry.",
+  "description": "One JSONL record per composition run. Stored at .run/telemetry/compose-runs.jsonl. Retention: 90 days per sprint.md §Telemetry.",
   "type": "object",
   "required": [
     "schema_version",

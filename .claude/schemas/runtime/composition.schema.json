@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://loa.dev/schemas/composition.schema.json",
   "title": "Loa Composition",
-  "description": "Schema for grimoires/compositions/*.yaml — runtime expert chains executed by compose-run.sh. A composition declares which constructs collaborate on what, with declared streams + iteration boundaries. The shape emerges from naming what the workflow provides; the schema enforces consistency, not prescription.",
+  "description": "Schema for grimoires/compositions/*.yaml — runtime expert chains executed by the Form C runtime (construct-rooms-substrate compose-dispatch.sh --form-c). A composition declares which constructs collaborate on what, with declared streams + iteration boundaries. The shape emerges from naming what the workflow provides; the schema enforces consistency, not prescription.",
   "type": "object",
   "required": ["schema_version", "kind", "name", "description", "intent", "chain"],
   "additionalProperties": false,

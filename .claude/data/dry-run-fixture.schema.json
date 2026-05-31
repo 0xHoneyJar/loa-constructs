@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "loa.runtime.dry-run-fixture.v0",
   "title": "DryRunFixture",
-  "description": "Output structure for `compose-run.sh --dry-run --explain-context [--json]` per SDD §4.7. CI gate (IMP-007): merges blocked when any composition's dry-run produces non-empty errors. Sprint 0 (S0-T5) ships the schema; the renderer that emits this format lands in Sprint 2 (S2-T4).",
+  "description": "Output structure for a composition `--dry-run --explain-context [--json]` per SDD §4.7. CI gate (IMP-007): merges blocked when any composition's dry-run produces non-empty errors. Sprint 0 (S0-T5) ships the schema; the renderer that emits this format lands in Sprint 2 (S2-T4).",
   "type": "object",
   "additionalProperties": false,
   "required": ["composition", "stages", "warnings", "errors"],

@@ -69,7 +69,7 @@
 #
 #   persistent-state.sh path <key-args>
 #     Print the canonical state file path; exit 0 whether or not it exists.
-#     Useful for cron sweeps (compose-state-gc.sh) that walk the persistent
+#     Useful for cron sweeps that walk the persistent
 #     directory.
 #
 # Key-args (positional, in order):
@@ -113,7 +113,7 @@ _now_iso() { date -u +"%Y-%m-%dT%H:%M:%SZ"; }
 
 _iso_to_epoch() {
   # Portable ISO8601 → epoch seconds. macOS `date` rejects -d; we fall back
-  # to python3 since Sprint 1 already requires it for compose-stream-graph.
+  # to python3 since Sprint 1 already requires it for other lib helpers.
   python3 -c 'import sys, datetime; print(int(datetime.datetime.fromisoformat(sys.argv[1].replace("Z", "+00:00")).timestamp()))' "$1"
 }
 

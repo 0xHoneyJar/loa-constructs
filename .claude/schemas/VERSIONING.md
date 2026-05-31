@@ -73,7 +73,7 @@ These invariants hold for any version of any schema in this directory:
 1. **The `$id` URL is permanent.** Major versions get a new file, not a moved URL. External consumers cache by URL.
 2. **The schema family stays cohesive in `loa-constructs/.claude/schemas/`.** No asymmetric extraction. (See `composition-schema-as-bridge.md` invariants.)
 3. **Schemas describe shape, not narrative.** Prose belongs in YAML `notes` and Markdown docs, not in validation rules.
-4. **Validation runs at the substrate boundary**, not after work. `compose-run.sh` validates pre-dispatch (governance closure 2026-04-27).
+4. **Validation runs at the substrate boundary**, not after work. the Form C runtime validates pre-dispatch — before any token spend (governance closure 2026-04-27).
 
 ---
 

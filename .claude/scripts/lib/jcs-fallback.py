@@ -3,7 +3,7 @@
 jcs-fallback.py — Sprint 6 (S6-H2) — shared JCS canonicalizer
 
 Closes the cycle's carry-forward Finding F3 (JCS fallback breadth grew to
-4 sites: envelope-chain, envelope-builder, output-gate, compose-dry-run)
+3 sites: envelope-chain, envelope-builder, output-gate)
 AND Bridgebuilder B-002 (JCS canonicalization defined twice — divergence
 risk if a future contributor optimizes one but not the other).
 
@@ -33,7 +33,7 @@ API:
 Backward-compatibility shim:
 
     Each existing site (envelope-chain.py, envelope-builder.py,
-    output-gate.py, compose-dry-run.py) keeps its `_jcs_canonical_bytes`
+    output-gate.py) keeps its `_jcs_canonical_bytes`
     function name BUT delegates to this module via importlib.util. Net
     diff at each callsite: ~4 lines (drop the local definition, add the
     import + delegate).
