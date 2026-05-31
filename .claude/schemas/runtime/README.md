@@ -4,7 +4,7 @@ Schemas for **how constructs from the network compose at runtime**.
 
 | Schema | What it validates |
 |---|---|
-| `composition.schema.json` | A runtime expert chain — staged construct collaboration, declared streams, iteration loops. Consumed by `compose-run.sh`. |
+| `composition.schema.json` | A runtime expert chain — staged construct collaboration, declared streams, iteration loops. Consumed by the Form C runtime (`compose-dispatch.sh --form-c`). |
 
 **Doctrine**: per [composition-schema-as-bridge](https://github.com/zkSoju/hivemind/blob/main/wiki/concepts/composition-schema-as-bridge.md), the composition schema is the bridge between the network (constructs) and curated registries (loa-compositions). One contract, two homes.
 

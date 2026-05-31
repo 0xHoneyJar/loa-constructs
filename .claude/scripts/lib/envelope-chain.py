@@ -39,7 +39,7 @@ Chain topology (per SDD §3.1):
 
 The library is consumed by:
   - lib/envelope-builder.sh (S2-T1) — to compute hashes when constructing envelopes
-  - compose-run.sh (S2-T5) — to validate the chain at run startup + per-stage
+  - the composition runner — to validate the chain at run startup + per-stage
   - tests/composition/envelopes/run.bats (S2-T6) — for tampering-detection tests
 
 CLI shapes:

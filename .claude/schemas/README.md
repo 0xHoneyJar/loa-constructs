@@ -18,7 +18,7 @@ Schemas are organized by **concern**:
 │   └── construct-manifest.schema.json construct extension points
 │
 ├── runtime/           ← Runtime orchestration
-│   └── composition.schema.json        runtime expert chains (compose-run.sh consumes)
+│   └── composition.schema.json        runtime expert chains (the Form C runtime consumes)
 │
 ├── workflow/          ← Loa framework workflow gates
 │   ├── prd.schema.json                Product Requirements Document

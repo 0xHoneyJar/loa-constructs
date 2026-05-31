@@ -3,7 +3,7 @@
 path-safety.py — Sprint 6 (S6-H1) — shared slug + realpath containment helper
 
 Closes the cycle's carry-forward Finding F1 (slug path traversal in 4 caller
-sites): compose-stream-graph._resolve_manifest, envelope-builder._resolve_manifest,
+sites): envelope-builder._resolve_manifest,
 output-gate._stream_schema_path, persistent-state._validate_slug.
 
 Single helper. Parameterized regex per call-site shape. Realpath-bounded
