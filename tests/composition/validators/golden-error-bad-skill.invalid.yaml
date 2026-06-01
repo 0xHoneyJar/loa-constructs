@@ -1,0 +1,19 @@
+# Golden-error fixture — cycle-053 FR-1 (sprint-69).
+# Purpose: prove the schema produces a FIELD-NAMED error (mentions `skill`), not silence,
+# when a stage carries an invalid skill value. This is the #9 "silently strict" footgun
+# the on-ramp hardening closes: `AskUserQuestion` (PascalCase) is rejected by the
+# $defs.Stage.skill pattern ^[a-z0-9][a-z0-9:_/-]*[a-z0-9]$. The fixture is otherwise
+# valid (all required top-level fields present; stage+construct present) so the ONLY
+# validation error points at `skill`.
+#
+# NOT a real composition — lives under tests/ so the CI gate (which globs
+# grimoires/compositions/** or compositions/**) never picks it up.
+schema_version: "1.3"
+kind: workflow
+name: golden-error-bad-skill
+description: "Golden-error fixture: a stage with an invalid uppercase skill must yield a field-named error, not silence."
+intent: "Test fixture for the cycle-053 FR-1 field-named-error acceptance criterion. Not a runnable composition."
+chain:
+  - stage: 1
+    construct: artisan
+    skill: AskUserQuestion
