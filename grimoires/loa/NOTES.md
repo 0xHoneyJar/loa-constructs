@@ -1,5 +1,22 @@
 # Loa Project Notes
 
+## ▶ RESUME HERE — 2026-06-01 (cycle-053 compose on-ramp · paused, all saved)
+
+**Where it stands:**
+- **PR [#252](https://github.com/0xHoneyJar/loa-constructs/pull/252)** (OPEN, draft) on branch `feat/compose-onramp-fr1` = the clean sprint-69 slice (FR-1 `chain.items` guidance + golden-error fixture, 34 lines, off current `origin/main`). **Real Bridgebuilder posted** a 3-voice headless consensus review on it: **0 blockers**, 1 high-consensus + 1 disputed finding. Address the disputed finding before marking ready (optional).
+- **`feat/compose-as-workflow`** (the branch carrying the full session, LOCAL only, 32 ahead of local main) = framework update v1.173.0, cheval lane restore, run-bridge readiness (config dedup + BB headless triad + System Zone bypass patch + dist rebuild), planning trilogy (`prd/sdd/sprint-cycle-053-*`), sprint-69 impl. NOT pushed (306 ahead of origin/main, mostly framework updates — don't PR as-is).
+
+**Next steps (pick up cold):**
+1. **Mark #252 ready / merge** the onramp slice (or address its 1 disputed BB finding first). Additive, +0-delta, FR-7-step-1 safe.
+2. **sprint-70** (loa-constructs): adopt `Ajv2020 validate-strict.ts` as validator (OQ-A, exit **0/1** not 3), `.known-broken/` baseline of the 3 invalids (T70.3), local CI gate (T70.4) + intentional-invalid fixture (T70.5) + **the golden-error/sibling-keyword CI assertions the BB review flagged (T70.6)**. Plan: `grimoires/loa/sprint-cycle-053-compose-onramp-hardening.md`.
+3. **sprint-71** (CROSS-REPO, `0xHoneyJar/construct-compositions`): persona-bot fix + start-here exemplar + downstream gate, ALL one PR, only AFTER sprint-69 is on `loa-constructs@main` (FR-7 step 2). Separate construct-compositions session.
+
+**Re-run the real Bridgebuilder** on a PR (the repaired lane): `cd <repo-root> && BRIDGEBUILDER_MODEL=claude-headless node .claude/skills/bridgebuilder-review/dist/main.js --repo 0xHoneyJar/loa-constructs --pr <N>` (add `--dry-run` to preview). MUST run from repo root (cheval.py path is cwd-relative). Needs the headless config + dist patch that live on `feat/compose-as-workflow`.
+
+**Open follow-ups (not blocking):** flatline_protocol + continuous_learning config dedup (divergent keys, careful); BB primary runs Sonnet via claude-headless (operator-overridable to opus); upstream loa #978 (mktemp) / #979 (auth_type migration) filed; bridge-orchestrator hardcodes `grimoires/loa/sprint.md` (symlinked locally — file an indirection issue).
+
+---
+
 ## Session Continuity — 2026-06-01 (sprint-69 IMPLEMENTED — compose on-ramp FR-1+FR-4)
 
 **Status**: sprint-69 (cycle-053 compose on-ramp hardening) IMPLEMENTED + verified (bridge iteration 1; operator chose "iteration 1 then reassess"). The additive, downstream-safe core. sprint-70/71 untouched. Report: `grimoires/loa/a2a/sprint-69/reviewer.md` (gitignored). **Next: real 3-voice headless BB review on the changes, then reassess.**
