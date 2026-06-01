@@ -1,5 +1,30 @@
 # Loa Project Notes
 
+## Session Continuity — 2026-06-01 (`compose on-ramp hardening` PRD — /plan discovery)
+
+**Status**: PRD WRITTEN at `grimoires/loa/prd-cycle-053-compose-onramp-hardening.md` (per-cycle name; generic `prd.md` stays deleted per #229). Discovery ran under **ultracode** via grounding workflow `wf_f896a606-0e8` (12 agents, 1.58M tokens: 6 grounders → 5 adversarial verifiers → synthesis). **Next: `/architect`** (or steer/adjust).
+
+**⚠️ Cycle-placement open**: `active_cycle: cycle-053` already owns the **compose-as-workflow RUNTIME** sprint plan (sprint-66/67/68 — transpile/cut/seam). This on-ramp-hardening effort is the complementary **schema/authoring** twin. /architect or /sprint-plan must decide: new sprints under cycle-053, or its own cycle. NOT yet resolved.
+
+**Settled forks** (do not relitigate): OQ-1 = **schema-as-truth** (mechanically proven — verifier ran the real broken exemplar through live `compose-cut.py`, interactive→blocking/`hitl_by_nature` maps to 5 clean seams, zero function loss); OQ-4 = **chain-only** (no `kind:graph`).
+
+**Operator decisions (/plan gate 2026-06-01)**: OQ-2 → **properties-only** (no new required; non-breaking, +0 delta verified across 13 files/4 repos); cross-repo scope → **BOTH repos** (schema in loa-constructs; persona-bot fix + minimal exemplar in `0xHoneyJar/construct-compositions`; CI gates + version-pin both sides — "fail loudly where it matters"); invalid baseline → **baseline known-valid + gate no-NEW-regressions** (pre-existing invalids = follow-up).
+
+### Decision Log (PRD discovery) — two brief claims CORRECTED by adversarial verification
+- **V3 REFUTED the exemplar audit**: `persona-bot-creative-direction.yaml` IS invalid (11 violations, confirmed) but **`ground-and-craft.yaml` is VALID** — the brief headline (L36-39) mislabeled it; the brief self-contradicts at L174. → FR-2 targets persona-bot ONLY; ground-and-craft untouched (NG-6).
+- **V4 REFUTED the consumer list**: `loa-freeside` is **NOT** a schema consumer (zero `LOA_COMPOSE_SCHEMA` hits — it's a substrate env var); `pair-relay-validate.sh` validates a *different* schema. The real, unlisted consumer is **`0xHoneyJar/construct-compositions`** (23-composition bonfire registry; own CI validates against this schema by checking out `loa-constructs@main`). → §3 rewritten; FR-6 spans both repos; freeside struck (NG-7).
+- **V1/V2/V5 HOLD**: OQ-1 coherent; G-5 properties-only non-breaking (+0 delta); G-1 property set all read-by-runtime, none invented.
+- **bd-1o9 is stale**: the brief's `reconcile_with` cites `bd-1o9.*` as compose builder tasks — actually the `constructs.network` empty-catalog bug (cycle-013). Compose work tracked via context package + git.
+- **Tooling reality (verified)**: `ajv` absent on these machines → FR-5 must pin a full validator; baseline NOT all-green (`feel-image.yaml`, `collection-with-codex.yaml`, `audit-feel×3` already invalid).
+
+### Flatline review attempt (2026-06-01) — lane down; salvaged via direct Gemini
+- **Flatline could NOT produce a verdict.** Two blockers: (1) **OpenAI quota exhausted** → GPT voice `insufficient_quota` (operator billing); (2) **macOS `mktemp` portability bug** in `flatline-orchestrator.sh` — templates with a suffix after `XXXXXX` don't expand on BSD/macOS → literal-`XXXXXX` temp files + cross-run "File exists" collisions → corrupts verdict-quality aggregation even when opus+gemini succeed. Net consensus = degraded/empty (`prd-final_consensus.json` status FAILED). **Did NOT confabulate a verdict.**
+- **Cheval config fix applied (operator-approved)**: added `auth_type: headless` + `dispatch_group: {anthropic|openai|google}-subscription` to all 5 custom-headless model entries in `.loa.config.yaml` (cycle-110 §3.2 required them; the 2026-05-30 fix in `project_cheval_subscription_routing.md` was NOT present in the live config — lost/reverted). `cheval load_config` now clean.
+- **Salvage**: ran a direct `gemini-3.1-pro` adversarial pass via `python3 .claude/adapters/cheval.py --agent reviewing-code --model gemini-3.1-pro --input <prd>` (bypasses the dead GPT quota + the broken orchestrator). 3 valid findings hardened the PRD (FR-7 landing sequence, §5 sibling-keyword prohibition, FR-6 baseline mechanism); 2 findings (CI pubkey-pin, compose-doctor dependency) were **confabulations caught by verify-don't-trust** (CI is `ref: main`; compose-doctor reads schema directly).
+- **Upstream bugs to file (`0xHoneyJar/loa`)**: (1) `flatline-orchestrator.sh` mktemp BSD/macOS non-expansion; (2) recurring `.loa.config.yaml` custom-headless `auth_type`/`dispatch_group` drift. Memory: update `project_cheval_subscription_routing.md`.
+
+---
+
 ## Session Continuity — 2026-05-31 (cycle-053 `compose-as-workflow` Sprint Plan)
 
 **Status**: Sprint plan WRITTEN for the new `compose-as-workflow` cycle (cycle-052 `construct-clew` is archived). `grimoires/loa/sprint.md` overwrote the stale cycle-052 plan. 3 sprints (`sprint-66/67/68`), 2.5d each. **Next: `/build` (or `/run sprint-plan`) to begin Sprint 1.**

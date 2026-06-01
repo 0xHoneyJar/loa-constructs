@@ -1738,6 +1738,8 @@ hounfour:
       read_timeout: 600.0
       models:
         claude-opus-4-7:
+          auth_type: headless
+          dispatch_group: anthropic-subscription
           capabilities: [chat, tools, function_calling, thinking_traces]
           context_window: 200000
           pricing:
@@ -1746,6 +1748,8 @@ hounfour:
           extra:
             effort: high
         claude-sonnet-4-6:
+          auth_type: headless
+          dispatch_group: anthropic-subscription
           capabilities: [chat, tools, function_calling]
           context_window: 200000
           pricing:
@@ -1756,6 +1760,8 @@ hounfour:
       read_timeout: 600.0
       models:
         gpt-5.5:
+          auth_type: headless
+          dispatch_group: openai-subscription
           capabilities: [chat, code]
           context_window: 400000
           token_param: max_completion_tokens
@@ -1769,12 +1775,16 @@ hounfour:
       read_timeout: 600.0
       models:
         gemini-3.1-pro-preview:
+          auth_type: headless
+          dispatch_group: google-subscription
           capabilities: [chat, thinking_traces]
           context_window: 1048576
           pricing:
             input_per_mtok: 0
             output_per_mtok: 0
         gemini-3-flash-preview:
+          auth_type: headless
+          dispatch_group: google-subscription
           capabilities: [chat]
           context_window: 1048576
           pricing:
