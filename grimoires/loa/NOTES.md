@@ -1,5 +1,23 @@
 # Loa Project Notes
 
+## Session Continuity — 2026-06-01 (`/run-bridge` preflight readiness — fix-in-advance)
+
+**Status**: /run-bridge readiness HARDENED (operator: "fix what we need to fix in advance"). Audit workflow `wf_a49e3cf3` (7 agents) → fix plan. Committed `0250f2c0`. **Did NOT run the bridge** — only prepped it. Branch `feat/compose-as-workflow` (not protected).
+
+**Fixed:**
+- **BR-1 (HARD BLOCKER)**: `bridge-orchestrator.sh:276` hard-reads `grimoires/loa/sprint.md` (gitignored + deleted, #229) → preflight exit 2. Fix: local symlink `grimoires/loa/sprint.md → sprint-cycle-053-compose-onramp-hardening.md` (gitignored, read-only consumed at :276/:515/:767, `rm` to revert).
+- **RB-1 config dedup**: TWO `run_bridge:` blocks (1609 comprehensive + 1896 subset, yq **last-wins** → block-1 keys silently null). Merged into one canonical block; deleted the subset. timeouts/github_trail/ground_truth/vision_registry/rtfm/lore/flatline now resolve.
+- **RB-2**: `pipeline_self_review.enabled: true` (deliberate — branch edits .claude/ schemas).
+- **BB lane (BB-1/3/4)**: voices → **all-headless triad** (claude/codex/gemini-headless) — quota-free subscription CLIs (`ANTHROPIC_API_KEY` unset + OpenAI quota-dead made http_api non-viable). REQUIRED a **System Zone code patch**: added the `*-headless` API-key bypass to the MULTI-model path (`resources/config.ts validateApiKeys` + `core/multi-model-pipeline.ts`), at parity with single-model `index.ts isHeadlessModel` (cycle-109 #880). Rebuilt dist (tsc clean). **Verified**: `validateApiKeys` accepts all 3 headless voices, 0 dropped, ANTHROPIC unset. Codex+gemini headless pings = pong (audit).
+- BB single-model default `claude-opus-4-7 → claude-opus-4-8` (post-cycle-114 hygiene).
+
+**Deferred / surfaced (NOT done):**
+- **flatline_protocol dedup** — also duplicated (1523 + 1929) BUT the blocks have **divergent keys** (block1: budget + knowledge-sources; block2: code_review/security_audit/secret_scanning/autonomous_arbiter + `blocker_skeptic` threshold name) — NOT a clean subset like run_bridge. Drives security/adversarial gates → needs careful reconciliation, not a rushed merge. Also `continuous_learning:` is duplicated (separate, unrelated).
+- **BB primary = Sonnet**: `claude-headless` → `cli_model: sonnet` (model-config.yaml:517, operator-overridable to opus per subscription tier). The 3-voice consensus runs Sonnet+Codex+Gemini; bump to opus is a model-config override affecting all claude-headless consumers.
+- **Upstream issue (loa)**: bridge-orchestrator sprint-path has NO indirection — file a loa issue for a `--sprint`/config key respecting #229 named-per-cycle, so future cycles don't need the symlink.
+
+---
+
 ## Session Continuity — 2026-06-01 (`compose on-ramp hardening` PRD — /plan discovery)
 
 **Status**: PRD WRITTEN at `grimoires/loa/prd-cycle-053-compose-onramp-hardening.md` (per-cycle name; generic `prd.md` stays deleted per #229). Discovery ran under **ultracode** via grounding workflow `wf_f896a606-0e8` (12 agents, 1.58M tokens: 6 grounders → 5 adversarial verifiers → synthesis). **Next: `/architect`** (or steer/adjust).
