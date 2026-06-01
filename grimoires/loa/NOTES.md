@@ -1,5 +1,18 @@
 # Loa Project Notes
 
+## Session Continuity — 2026-06-01 (sprint-69 IMPLEMENTED — compose on-ramp FR-1+FR-4)
+
+**Status**: sprint-69 (cycle-053 compose on-ramp hardening) IMPLEMENTED + verified (bridge iteration 1; operator chose "iteration 1 then reassess"). The additive, downstream-safe core. sprint-70/71 untouched. Report: `grimoires/loa/a2a/sprint-69/reviewer.md` (gitignored). **Next: real 3-voice headless BB review on the changes, then reassess.**
+
+- **T69.1 (FR-1)**: 9 annotation-only guiding `properties` on `chain.items` (`composition.schema.json:102-114`) — construct/skill/persona/mode/role/reads/writes/notes/hitl_by_nature, each `{description, examples}` ONLY. NO validation keyword (Draft-2020-12 $ref-sibling ANDing guardrail, SDD §3 / Gemini-F3). Authority stays in $defs.Stage.
+- **T69.3 (+0-delta PROOF)**: validated the 3-file local corpus before/after via python-jsonschema (labels $ref → scripts/lab/labels.schema.json). **Invalid-set byte-identical** — `collection-with-codex.yaml: 2 · discovery/audit-feel.yaml: 1 · feel-image.yaml: 3` errors, unchanged before==after. Annotation imposes no constraint = the empirical non-breaking proof.
+- **T69.2 (golden-error)**: `tests/composition/validators/golden-error-bad-skill.invalid.yaml` (`skill: AskUserQuestion`) → exactly 1 error at path `chain/0/skill` (validator `pattern`). Field-named, not silence.
+- **T69.4 (FR-4)**: `grimoires/loa/context/compose-as-workflow/shape-boundary.md` — Form-C is chain-only, grids→Workflow tool, cites `construct-vs-workflow-rule.md:43-59`, no `graph` kind, + FR-7-step-3 versioning rule.
+- **T69.5**: `schema_version` enum UNCHANGED `["1.0","1.1","1.2","1.3"]` — additive, no bump (verified).
+- **Tracked**: `composition.schema.json` (System Zone, cycle-053 authorized) + the golden-error fixture. The FR-4 doc + report live in gitignored State-Zone paths (context/ + a2a/), consistent with their siblings.
+
+---
+
 ## Session Continuity — 2026-06-01 (`/run-bridge` preflight readiness — fix-in-advance)
 
 **Status**: /run-bridge readiness HARDENED (operator: "fix what we need to fix in advance"). Audit workflow `wf_a49e3cf3` (7 agents) → fix plan. Committed `0250f2c0`. **Did NOT run the bridge** — only prepped it. Branch `feat/compose-as-workflow` (not protected).
