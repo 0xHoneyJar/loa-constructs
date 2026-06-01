@@ -1651,21 +1651,24 @@ run_bridge:
     redaction:
       enabled: true
       post_redaction_safety: true
-    # Multi-model Bridgebuilder (cycle-052 PR #463 architecture)
-    # Three-model kaironic review: Opus + GPT-5.3-codex + Gemini 2.5 Pro.
-    # Consensus scoring + iterative convergence (findings stabilize → kaironic termination).
-    # api_key_mode: graceful — missing keys degrade gracefully rather than blocking review.
+    # Multi-model Bridgebuilder — ALL-HEADLESS subscription triad (cycle-053 readiness fix).
+    # Three-model kaironic review via the OAuth-CLI headless lane: claude-headless +
+    # codex-headless + gemini-headless. Quota-free (no API keys); requires the multi-model
+    # headless-bypass patch in resources/config.ts + core/multi-model-pipeline.ts (cycle-053,
+    # parity with single-model index.ts isHeadlessModel). Routes through cheval → provider CLIs.
+    # Replaces the bare http_api voices (claude-opus-4-7/gpt-5.x/gemini-3.1-pro-preview) that
+    # hit insufficient_quota / unset-key drops. api_key_mode: graceful — a dropped voice degrades.
     multi_model:
       enabled: true
       models:
         - provider: anthropic
-          model_id: claude-opus-4-7
+          model_id: claude-headless
           role: primary
         - provider: openai
-          model_id: gpt-5.3-codex
+          model_id: codex-headless
           role: reviewer
         - provider: google
-          model_id: gemini-2.5-pro
+          model_id: gemini-headless
           role: reviewer
       iteration_strategy: final
       api_key_mode: graceful
@@ -1677,7 +1680,7 @@ run_bridge:
           low_value: 400
           blocker: 700
   pipeline_self_review:
-    enabled: true                       # advanced spiraling — enabled for cycle-001
+    enabled: true                       # cycle-053: deliberate ENABLE — this branch edits .claude/ schemas, so pipeline-self-review (Red-Team vs pipeline SDDs) is wanted
     base_branch: main
   flatline:
     auto_accept_high_consensus: true
@@ -1893,58 +1896,12 @@ continuous_learning:
   pending_dir: grimoires/loa/skills-pending
   archive_dir: grimoires/loa/skills-archived
 
-run_bridge:
-  enabled: true
-  defaults:
-    depth: 5
-    per_sprint: false
-    flatline_threshold: 0.05
-    consecutive_flatline: 2
-  bridgebuilder:
-    persona_enabled: true
-    persona_path: .claude/data/bridgebuilder-persona.md
-    enriched_findings: true
-    insights_stream: true
-    praise_findings: true
-    integrity_check: true
-    token_budget:
-      findings_tokens: 5000
-      insights_tokens: 25000
-      total_tokens: 30000
-    size_limits:
-      truncate_bytes: 66560
-      findings_only_bytes: 262144
-    redaction:
-      enabled: true
-      post_redaction_safety: true
-    # Multi-model Bridgebuilder (cycle-052 PR #463 architecture)
-    # Three-model kaironic review: Opus + GPT-5.3-codex + Gemini 2.5 Pro.
-    # Consensus scoring + iterative convergence (findings stabilize → kaironic termination).
-    # api_key_mode: graceful — missing keys degrade gracefully rather than blocking review.
-    multi_model:
-      enabled: true
-      models:
-        - provider: anthropic
-          model_id: claude-opus-4-7
-          role: primary
-        - provider: openai
-          model_id: gpt-5.5-pro          # most powerful OpenAI ($30/$180 per Mtok)
-          role: reviewer
-        - provider: google
-          model_id: gemini-3.1-pro-preview  # most powerful Gemini Pro tier
-          role: reviewer
-      iteration_strategy: final
-      api_key_mode: graceful
-      consensus:
-        enabled: true
-        scoring_thresholds:
-          high_consensus: 700
-          disputed_delta: 300
-          low_value: 400
-          blocker: 700
-  pipeline_self_review:
-    enabled: false              # Default false — progressive rollout
-    base_branch: main           # Branch to diff against
+# run_bridge: — DUPLICATE BLOCK REMOVED (cycle-053 readiness dedup).
+# A second `run_bridge:` key here previously shadowed the canonical block above
+# (~line 1609) under yq last-wins, silently nulling timeouts/github_trail/
+# ground_truth/vision_registry/rtfm/lore/flatline and flipping pipeline_self_review
+# to false. The canonical block (above) now carries all keys + the all-headless
+# voice triad. Do NOT re-add a second run_bridge: key.
 
 # Post-PR Validation — Amendment 1 enablement (cycle-053, Issue #467)
 # The BRIDGEBUILDER_REVIEW phase runs after FLATLINE_PR, performs iterative

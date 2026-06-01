@@ -167,15 +167,22 @@ export async function executeMultiModelReview(
   }> = [];
 
   for (const entry of keyStatus.valid) {
+    // cycle-053 readiness fix: headless voices (validated by config.ts's
+    // *-headless bypass) carry no API key — ChevalDelegateAdapter spawns
+    // cheval.py --model and authenticates via the provider's OAuth CLI. Do NOT
+    // skip them for a missing key, and pass an empty apiKey (vestigial for the
+    // cheval path; AdapterConfig.apiKey is typed string).
+    const isHeadless =
+      typeof entry.modelId === "string" && entry.modelId.endsWith("-headless");
     const envVar = PROVIDER_API_KEY_ENV[entry.provider];
     const apiKey = envVar ? process.env[envVar] : undefined;
-    if (!apiKey) continue;
+    if (!apiKey && !isHeadless) continue;
 
     const costRates = multiConfig.cost_rates?.[entry.provider];
     const adapter = createAdapter({
       provider: entry.provider,
       modelId: entry.modelId,
-      apiKey,
+      apiKey: apiKey ?? "",
       timeoutMs: deriveTimeoutMs(entry.provider, entry.modelId, config),
       costRates,
     });

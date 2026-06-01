@@ -114,6 +114,16 @@ export function validateApiKeys(config) {
     const valid = [];
     const missing = [];
     for (const model of config.models) {
+        // cycle-053 readiness fix (parity with single-model index.ts isHeadlessModel,
+        // cycle-109 #880 Defect 1): a `*-headless` model_id routes through the
+        // provider's OAuth CLI subscription (claude/codex/gemini-headless via
+        // ChevalDelegateAdapter → cheval.py --model), so it needs NO API key at the
+        // BB layer. Without this bypass the multi-model path drops headless voices
+        // whose PROVIDER_API_KEY_ENV is unset (e.g. ANTHROPIC_API_KEY).
+        if (typeof model.model_id === "string" && model.model_id.endsWith("-headless")) {
+            valid.push({ provider: model.provider, modelId: model.model_id });
+            continue;
+        }
         const envVar = PROVIDER_API_KEY_ENV[model.provider];
         if (!envVar) {
             missing.push({ provider: model.provider, envVar: `Unknown provider: ${model.provider}` });
@@ -131,7 +141,7 @@ export function validateApiKeys(config) {
 /** Built-in defaults per PRD FR-4 (lowest priority). */
 const DEFAULTS = {
     repos: [],
-    model: "claude-opus-4-7",
+    model: "claude-opus-4-8",
     maxPrs: 10,
     maxFilesPerPr: 50,
     maxDiffBytes: 512_000,
