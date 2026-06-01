@@ -101,7 +101,7 @@
       "minItems": 1,
       "items": {
         "$ref": "#/$defs/Stage",
-        "description": "A pipeline stage. The validation authority is $defs.Stage; the sibling 'properties' below are ANNOTATION-ONLY (description + examples) — they guide authoring at the point of use and impose NO constraint (cycle-053 FR-1, additive, no schema_version bump).",
+        "description": "A pipeline stage. The validation authority is $defs.Stage; the child schemas under the sibling 'properties' below contain annotations only (description + examples) — they guide authoring at the point of use and impose no constraint.",
         "properties": {
           "construct": { "description": "Construct slug — whose expertise runs this stage. Required on every stage (enforced by $defs.Stage).", "examples": ["artisan", "the-mint"] },
           "skill": { "description": "Skill slug within the construct (kebab-case; ':' allows cross-construct refs, '_' and '/' for namespaced skills). The exact pattern is defined in $defs.Stage.", "examples": ["crafting-feel", "codex:rescue"] },
