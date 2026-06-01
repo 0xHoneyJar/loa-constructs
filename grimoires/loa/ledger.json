@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "active_cycle": "cycle-053",
-  "global_sprint_counter": 68,
+  "global_sprint_counter": 71,
   "cycles": [
     {
       "id": "cycle-025",
@@ -910,11 +910,41 @@
           "local_label": "The Human Half + Pilot E2E — segment-runner, clew-at-seam, compat stream, code-implement-and-review",
           "status": "planned",
           "created": "2026-05-31T17:58:52Z"
+        },
+        {
+          "global_id": "sprint-69",
+          "local_label": "Onramp — chain.items guiding properties + shape-boundary doc + golden-error fixture (loa-constructs, additive/@main-first)",
+          "status": "planned",
+          "repo": "loa-constructs",
+          "frs": ["FR-1", "FR-4"],
+          "prd": "grimoires/loa/prd-cycle-053-compose-onramp-hardening.md",
+          "sdd": "grimoires/loa/sdd-cycle-053-compose-onramp-hardening.md",
+          "created": "2026-06-01T19:40:00Z"
+        },
+        {
+          "global_id": "sprint-70",
+          "local_label": "Onramp — re-homed full validator (adopt ajv) + local CI gate + .known-broken/ baseline (loa-constructs)",
+          "status": "planned",
+          "repo": "loa-constructs",
+          "frs": ["FR-5", "FR-6 (local)"],
+          "prd": "grimoires/loa/prd-cycle-053-compose-onramp-hardening.md",
+          "sdd": "grimoires/loa/sdd-cycle-053-compose-onramp-hardening.md",
+          "created": "2026-06-01T19:40:00Z"
+        },
+        {
+          "global_id": "sprint-71",
+          "local_label": "Onramp — persona-bot fix + start-here exemplar + downstream gate (construct-compositions, ONE PR, after sprint-69@main)",
+          "status": "planned",
+          "repo": "construct-compositions",
+          "frs": ["FR-2", "FR-3", "FR-6 (downstream)", "FR-7"],
+          "prd": "grimoires/loa/prd-cycle-053-compose-onramp-hardening.md",
+          "sdd": "grimoires/loa/sdd-cycle-053-compose-onramp-hardening.md",
+          "created": "2026-06-01T19:40:00Z"
         }
       ]
     }
   ],
-  "last_updated": "2026-05-31T17:58:52Z",
+  "last_updated": "2026-06-01T19:40:00Z",
   "next_sprint_number": 4,
   "version": "1.0.0"
 }
