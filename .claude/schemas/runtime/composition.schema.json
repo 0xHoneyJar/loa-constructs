@@ -21,8 +21,8 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "enum": ["1.0", "1.1", "1.2", "1.3"],
-      "description": "Composition schema version. Enum-locked for explicit audit trail (no pattern matching). v1.0 baseline. v1.1 adds optional cycle-002 followup fields (surface_class, thinking_effort, vocabulary_governance, codex_mode). v1.2 catches schema up to registry reality — adds optional stage shapes (name, invokes, capture_method, brief_structure, transport_preference, verify_identifiers, ground-canon predicates), output emit_when, top-level changelog/depends_on/upstream_composition, plus mode+blocking and role+dispatcher/engineering-handoff/gate/hard-stop enums. v1.3 (cycle-053, authorized C053.OP-S1) adds the optional Stage.hitl_by_nature boolean — the compose-as-CC-workflow cut algorithm reads it to mark a stage the operator inherently performs by hand outside the agent loop (a third seam class, alongside mode:blocking and the gate roles). All additive; v1.0/v1.1/v1.2 YAMLs validate unchanged. Breaking changes require major bump + migration plan. See VERSIONING.md."
+      "enum": ["1.0", "1.1", "1.2", "1.3", "1.4"],
+      "description": "Composition schema version. Enum-locked for explicit audit trail (no pattern matching). v1.0 baseline. v1.1 adds optional cycle-002 followup fields (surface_class, thinking_effort, vocabulary_governance, codex_mode). v1.2 catches schema up to registry reality — adds optional stage shapes (name, invokes, capture_method, brief_structure, transport_preference, verify_identifiers, ground-canon predicates), output emit_when, top-level changelog/depends_on/upstream_composition, plus mode+blocking and role+dispatcher/engineering-handoff/gate/hard-stop enums. v1.3 (cycle-053, authorized C053.OP-S1) adds the optional Stage.hitl_by_nature boolean — the compose-as-CC-workflow cut algorithm reads it to mark a stage the operator inherently performs by hand outside the agent loop (a third seam class, alongside mode:blocking and the gate roles). v1.4 (per RFC 2026-06-03-intelligence-router-coherence) adds the optional Stage.intelligence_tier (cheap|standard|deep) read by the compose-as-CC-workflow runtime to route a segment's model by declared intelligence; all additive, v1.0–v1.3 YAMLs validate unchanged. All additive; v1.0/v1.1/v1.2 YAMLs validate unchanged. Breaking changes require major bump + migration plan. See VERSIONING.md."
     },
     "kind": {
       "type": "string",
@@ -431,6 +431,11 @@
             { "$ref": "#/$defs/ThinkingEffortBlock" }
           ],
           "description": "v1.1: Stage-level override. String tier (cheap, common) OR full canonical-def object (when this stage owns the family definition for the composition)."
+        },
+        "intelligence_tier": {
+          "type": "string",
+          "enum": ["cheap", "standard", "deep"],
+          "description": "v1.4: optional per-segment model-intelligence tier. cheap->haiku, standard->sonnet, deep->opus. Declares INTENT; the runtime (construct-rooms-substrate segment-emitter) resolves it to a model. When absent, the runtime falls back to default-by-role. Additive/optional."
         },
         "name": {
           "type": "string",
