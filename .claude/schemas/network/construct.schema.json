@@ -73,6 +73,21 @@
       "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$",
       "description": "Semantic version with optional prerelease suffix (e.g., '1.1.0', '2.0.0-beta.1')"
     },
+    "genome_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "ADDITIVE PROVENANCE — NOT the behavioral interface. Head of this construct's genome-hash-chain: the cumulative hash of every operator-merged clew (correction) the construct has absorbed via /clew drain (--mark-distilled). Computed as sha256(parent_genome_hash_or_'genesis' | distilled_entry | operator_sig); git history is the chain, PR-merge is the transfer, the operator's merge is the conviction. Chain DEPTH = earned authority. Absent = depth 0 (no genome yet — the unproven/risky construct). MUST NOT be read as a routing or behavioral contract; it is verifiable provenance only, checked by the genome-integrity eval against the LEARNINGS.jsonl distilled entries. Distinct from the construct's behavioral interface (skills/streams/domain) — adding or deepening a genome NEVER changes what the construct does, only how much earned conviction backs it."
+    },
+    "parent_genome_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "ADDITIVE PROVENANCE. The immediate predecessor link of genome_hash (the prior head, before the most recently distilled clew). Absent at genesis (depth 1 — the computation uses the literal 'genesis' sentinel as the parent input). Present alongside genome_hash for depth >= 2. Enables chain-walk verification (prev -> next) without git archaeology."
+    },
+    "genome_depth": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "ADDITIVE PROVENANCE — NOT the behavioral interface. Count of distilled clews in the genome chain (0 = no genome, the absent-genome_hash case). A CHECKED CACHE of chain length — the genome-integrity eval asserts genome_depth == the number of verifiable chain links from genesis to genome_hash. Genome depth is earned conviction (a deeper chain is the lower-risk construct). It is SURFACED shadow-first (read + displayed by GECKO); it is NOT a routing or behavioral input today — any future depth-driven routing is a separate, explicitly-gated change, never implied by this field."
+    },
     "description": {
       "type": "string",
       "minLength": 10,
