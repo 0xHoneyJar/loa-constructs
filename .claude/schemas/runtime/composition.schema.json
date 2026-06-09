@@ -21,8 +21,8 @@
   "properties": {
     "schema_version": {
       "type": "string",
-      "enum": ["1.0", "1.1", "1.2", "1.3", "1.4"],
-      "description": "Composition schema version. Enum-locked for explicit audit trail (no pattern matching). v1.0 baseline. v1.1 adds optional cycle-002 followup fields (surface_class, thinking_effort, vocabulary_governance, codex_mode). v1.2 catches schema up to registry reality — adds optional stage shapes (name, invokes, capture_method, brief_structure, transport_preference, verify_identifiers, ground-canon predicates), output emit_when, top-level changelog/depends_on/upstream_composition, plus mode+blocking and role+dispatcher/engineering-handoff/gate/hard-stop enums. v1.3 (cycle-053, authorized C053.OP-S1) adds the optional Stage.hitl_by_nature boolean — the compose-as-CC-workflow cut algorithm reads it to mark a stage the operator inherently performs by hand outside the agent loop (a third seam class, alongside mode:blocking and the gate roles). v1.4 (per RFC 2026-06-03-intelligence-router-coherence) adds the optional Stage.intelligence_tier (cheap|standard|deep) read by the compose-as-CC-workflow runtime to route a segment's model by declared intelligence; all additive, v1.0–v1.3 YAMLs validate unchanged. Breaking changes require major bump + migration plan. See VERSIONING.md."
+      "enum": ["1.0", "1.1", "1.2", "1.3", "1.4", "1.5"],
+      "description": "Composition schema version. Enum-locked for explicit audit trail (no pattern matching). v1.0 baseline. v1.1 adds optional cycle-002 followup fields (surface_class, thinking_effort, vocabulary_governance, codex_mode). v1.2 catches schema up to registry reality — adds optional stage shapes (name, invokes, capture_method, brief_structure, transport_preference, verify_identifiers, ground-canon predicates), output emit_when, top-level changelog/depends_on/upstream_composition, plus mode+blocking and role+dispatcher/engineering-handoff/gate/hard-stop enums. v1.3 (cycle-053, authorized C053.OP-S1) adds the optional Stage.hitl_by_nature boolean — the compose-as-CC-workflow cut algorithm reads it to mark a stage the operator inherently performs by hand outside the agent loop (a third seam class, alongside mode:blocking and the gate roles). v1.4 (per RFC 2026-06-03-intelligence-router-coherence) adds the optional Stage.intelligence_tier (cheap|standard|deep) read by the compose-as-CC-workflow runtime to route a segment's model by declared intelligence; all additive, v1.0–v1.3 YAMLs validate unchanged. v1.5 (Form C handoff envelopes) adds the optional Stage.output_schema — an inline JSON-schema object the Form C runtime emits as a stage's typed handoff envelope in place of the generic WORK_SCHEMA; additive, absent it behavior is unchanged. Breaking changes require major bump + migration plan. See VERSIONING.md."
     },
     "kind": {
       "type": "string",
@@ -163,6 +163,20 @@
     "thinking_effort": {
       "$ref": "#/$defs/ThinkingEffortBlock",
       "description": "v1.1: Composition-level thinking_effort canonical-def block. Per-stage stages may carry the simple string form (low|medium|high|xhigh|max) on chain[].thinking_effort. Canonical def in compositions/delivery/feel-iterate.yaml."
+    },
+    "review_routing": {
+      "type": "object",
+      "description": "v1.4 (intelligence-router coherence 2026-06-03): how the review/craft-gate stage routes its model voices. On high-stakes surfaces (financial/data-validity/auth-contract/defi-strict) the gate MUST run a cheval-routed MULTIMODAL council — distinct model families, not a single corpus. Top-level; the runner applies it to the craft-gate stage. Additive/optional — pre-v1.4 YAMLs validate unchanged.",
+      "additionalProperties": true,
+      "properties": {
+        "mandatory_when": { "type": "array", "items": { "type": "string" }, "description": "Surface classes where the cheval multimodal council is REQUIRED (single-model review forbidden). Typically [defi-strict, financial, data-validity, auth-contract]." },
+        "optional_when": { "type": "array", "items": { "type": "string" }, "description": "Surface classes where single-model review is acceptable (e.g. [culturetech-loose, mixed, unspecified])." },
+        "router": { "type": "string", "description": "The routing substrate (e.g. 'cheval')." },
+        "runner": { "type": "string", "description": "The council runner script (e.g. construct-fagan/scripts/cheval-council.sh)." },
+        "voices": { "type": "array", "items": { "type": "string" }, "description": "The reviewer agent voices, bound to cheval headless adapters (distinct corpora — e.g. gpt-reviewer, reviewing-code, deep-thinker)." },
+        "min_surviving_voices": { "type": "integer", "minimum": 1, "description": "Fail-closed threshold — below this many surviving voices the gate fails rather than passes on a thinned council." },
+        "audit": { "type": "string", "description": "Audit requirement on the council run (e.g. 'modelinv-required' — reject unknown model_ran on high-stakes)." }
+      }
     },
     "version": {
       "type": "string",
@@ -474,6 +488,10 @@
         "probes": {
           "type": "array",
           "description": "v1.2: Ground-canon stage shape — list of probe definitions. Items vary in shape (path probes, command probes, file-existence probes); permissive."
+        },
+        "output_schema": {
+          "type": "object",
+          "description": "v1.5: The typed handoff envelope this stage emits — an inline JSON-schema object the Form C runtime (construct-rooms-substrate segment-emitter) emits as the stage's agent() StructuredOutput in place of the generic WORK_SCHEMA. Optional; absent it the runtime falls back to WORK_SCHEMA. Inline-object-only in v1.5 ($ref strings reserved for a future version)."
         }
       }
     },
