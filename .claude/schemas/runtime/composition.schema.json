@@ -434,9 +434,9 @@
         },
         "intelligence_tier": {
           "type": "string",
-          "enum": ["cheap", "standard", "deep"],
-          "description": "v1.4 (per RFC grimoires/loa/context/2026-06-03-intelligence-router-coherence.md (loa-freeside)): optional per-segment model-intelligence tier. cheap->haiku, standard->sonnet, deep->opus. Declares INTENT; the runtime (construct-rooms-substrate segment-emitter) resolves it to a model. When absent, the runtime falls back to default-by-role. Additive/optional.",
-          "$comment": "intelligence_tier selects WHICH model (cheap->haiku, standard->sonnet, deep->opus); the sibling thinking_effort tunes reasoning effort WITHIN the chosen model. They are orthogonal and may both be present on a stage; neither overrides the other."
+          "enum": ["tiny", "cheap", "mid", "standard", "deep", "max"],
+          "description": "v1.6 (2026-06-10 intel-routing review; v1.4 per RFC grimoires/loa/context/2026-06-03-intelligence-router-coherence.md (loa-freeside)): optional per-segment model-intelligence tier, the hounfour ladder. Bindings per the SoT: tiny->haiku, cheap->sonnet (NOT haiku — reconciled 2026-06-07, arrakis-d72w), mid->sonnet, standard->sonnet, deep->opus, max->fable. Declares INTENT; the runtime (construct-rooms-substrate segment-emitter) resolves it to a model. When absent, the runtime falls back to default-by-role. Gates do NOT auto-float to the max tier (explicit opt-in only). Additive/optional.",
+          "$comment": "intelligence_tier selects WHICH model; the sibling thinking_effort tunes reasoning effort WITHIN the chosen model. They are orthogonal and may both be present on a stage; neither overrides the other."
         },
         "name": {
           "type": "string",
