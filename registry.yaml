@@ -26,6 +26,12 @@ constructs:
     category: analytics
     author: 0xHoneyJar
 
+  fagan:
+    git_url: https://github.com/0xHoneyJar/construct-fagan.git
+    description: "Strict adversarial code review — cross-model council, structured findings, convergence loop (formerly codex-review)"
+    category: code-review
+    author: 0xHoneyJar
+
   gecko:
     git_url: https://github.com/0xHoneyJar/construct-gecko.git
     description: "Ecosystem intelligence — patrol, observe, diagnose, report"
