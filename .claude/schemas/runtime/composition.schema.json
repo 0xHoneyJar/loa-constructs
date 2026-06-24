@@ -394,7 +394,7 @@
         "persona": {
           "type": "string",
           "minLength": 1,
-          "description": "Optional persona handle. v1.0/v1.1 convention: uppercase (e.g. 'ALEXANDER', 'MINT'). v1.2 relaxes to free-form string — registry has lowercase ('codex'), hyphenated ('CODEX-RESCUE'), and prose-tagged values."
+          "description": "Optional persona handle. v1.0/v1.1 convention: uppercase (e.g. 'ALEXANDER', 'MINT'). v1.2 relaxes to free-form string — registry has lowercase ('codex'), hyphenated ('SCAR-SENTINEL'), and prose-tagged values."
         },
         "mode": { "$ref": "#/$defs/Mode" },
         "domain": {
