@@ -1,0 +1,39 @@
+# Lab artifact labels — additive canonical set for Lab-member constructs (#247).
+# Existing [A] Bug / [W] Discovery labels coexist; Lab issues use this vocabulary.
+# Sync: scripts/lab/sync-lab-labels.sh
+
+labels:
+  artifact_type:
+    - "[AT] user-truth-canvas"
+    - "[AT] experiment-design"
+    - "[AT] atomic-learning"
+    - "[AT] product-spec"
+    - "[AT] bug-report"
+    - "[AT] incident-postmortem"
+    - "[AT] competitor-analysis"
+    - "[AT] user-interview-synthesis"
+    - "[AT] technical-rfc"
+    - "[AT] launch-plan"
+    - "[AT] meeting-notes"
+  workstream:
+    - "[WS] discovery"
+    - "[WS] delivery"
+    - "[WS] experimentation"
+    - "[WS] tech-debt"
+    - "[WS] sorry-for-ur-loss"
+  priority:
+    - "[PR] urgent"
+    - "[PR] high"
+    - "[PR] medium"
+    - "[PR] low"
+  learning_status:
+    - "[LS] strongly-validated"
+    - "[LS] directionally-correct"
+    - "[LS] hypothesis-failed"
+    - "[LS] smol-evidence"
+    - "[LS] cant-make-a-conclusion"
+  source:
+    - "[SO] team-internal"
+    - "[SO] dm-to-team-member"
+    - "[SO] analytics-anomaly"
+    - "[SO] discord-support-or-feedback"

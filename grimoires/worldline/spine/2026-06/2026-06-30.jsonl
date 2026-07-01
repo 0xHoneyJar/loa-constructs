@@ -1,0 +1,2 @@
+mkdir -p grimoires/worldline/spine/2026-06
+{"ts":"2026-06-30T04:40:00Z","type":"decision","subject":"loa-constructs-backlog-triage","coherence":"COMPOUND","antecedents":["#268 construct.yaml SoT","#250 composition v1.3"],"blockers":["#253 pack staleness"],"actions":["fix-253","#252 FR-1","#248 Phase A","#227 migrate-top-12","hygiene-sweep","GAP-006 codex"],"hash_prev":"genesis","hash":"pending"}
