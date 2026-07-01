@@ -247,6 +247,75 @@ gates:
 }
 
 # =============================================================================
+# T4b: construct.yaml SKILLS + identity.persona win over a stale manifest.json
+# (the SoT bug — gecko showed 4/10 skills + null persona because manifest.json
+#  shadowed construct.yaml; construct.yaml is the source-of-truth)
+# =============================================================================
+
+@test "T4b: construct.yaml skills + identity.persona win over manifest.json (SoT)" {
+    create_mock_pack "test-pack" "$FULL_MANIFEST"   # manifest.json declares 2 skills, no persona
+    create_mock_construct_yaml "test-pack" "name: Test Pack
+slug: test-pack
+version: 1.0.0
+skills:
+  - {slug: extra-a, path: skills/extra-a}
+  - {slug: extra-b, path: skills/extra-b}
+  - {slug: extra-c, path: skills/extra-c}
+identity:
+  persona: identity/persona.yaml
+"
+    mkdir -p "$TEST_PACKS_DIR/test-pack/identity"
+    printf 'name: TESTER\n' > "$TEST_PACKS_DIR/test-pack/identity/persona.yaml"
+
+    run "$SCRIPT" --json --output "$TEST_OUTPUT" --quiet
+    [ "$status" -eq 0 ]
+
+    # construct.yaml SKILLS win over the (stale) manifest.json — 3, not 2
+    [ "$(jq '.constructs[0].skills | length' "$TEST_OUTPUT")" -eq 3 ]
+    [ "$(jq -r '.constructs[0].skills[0].slug' "$TEST_OUTPUT")" = "extra-a" ]
+
+    # construct.yaml identity.persona resolves to persona_path (was null)
+    [ "$(jq -r '.constructs[0].persona_path' "$TEST_OUTPUT")" != "null" ]
+    [[ "$(jq -r '.constructs[0].persona_path' "$TEST_OUTPUT")" == *"identity/persona.yaml" ]]
+}
+
+# =============================================================================
+# T4c: construct.yaml COMMANDS win (FAGAN F1) + scalar-valued MAPs don't crash/
+# drop the pack (FAGAN F2/F3) — skills/commands as {key: string-path} maps
+# =============================================================================
+
+@test "T4c: construct.yaml commands win + scalar-valued maps resolve (FAGAN F1/F2/F3)" {
+    create_mock_pack "test-pack" "$FULL_MANIFEST"   # manifest.json: 1 command (test-cmd), 2 skills
+    create_mock_construct_yaml "test-pack" "name: Test Pack
+slug: test-pack
+version: 1.0.0
+skills:
+  alpha: skills/alpha
+  beta: skills/beta
+commands:
+  cmd-x: commands/cmd-x.md
+  cmd-y: commands/cmd-y.md
+  cmd-z: commands/cmd-z.md
+"
+
+    run "$SCRIPT" --json --output "$TEST_OUTPUT" --quiet
+    [ "$status" -eq 0 ]
+
+    # the pack SURVIVES — a scalar-valued map must not crash jq and silently drop the whole construct
+    [ "$(jq '.constructs | length' "$TEST_OUTPUT")" -eq 1 ]
+
+    # construct.yaml COMMANDS win over the stale manifest.json (3, not manifest's 1)
+    [ "$(jq '.constructs[0].commands | length' "$TEST_OUTPUT")" -eq 3 ]
+    [ "$(jq -r '.constructs[0].commands[0].name' "$TEST_OUTPUT")" = "cmd-x" ]
+    [ "$(jq -r '.constructs[0].commands[0].path' "$TEST_OUTPUT")" = "commands/cmd-x.md" ]
+
+    # scalar-valued skills map (key=slug, value=string path) resolves correctly
+    [ "$(jq '.constructs[0].skills | length' "$TEST_OUTPUT")" -eq 2 ]
+    [ "$(jq -r '.constructs[0].skills[0].slug' "$TEST_OUTPUT")" = "alpha" ]
+    [ "$(jq -r '.constructs[0].skills[0].path' "$TEST_OUTPUT")" = "skills/alpha" ]
+}
+
+# =============================================================================
 # T5: Missing construct.yaml — manifest-only fields used
 # =============================================================================
 

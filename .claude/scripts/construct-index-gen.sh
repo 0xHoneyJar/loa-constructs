@@ -369,6 +369,7 @@ process_pack() {
 
     # Check for construct.yaml overlay
     local construct_yaml="$pack_dir/construct.yaml"
+    local construct_yaml_persona="null"
     if [[ -f "$construct_yaml" ]] && command -v yq &>/dev/null; then
         log "    Merging construct.yaml"
 
@@ -393,19 +394,44 @@ process_pack() {
         if [[ "$cy_tags" != "null" ]]; then
             tags_json="$cy_tags"
         fi
+
+        # construct.yaml is the SoT: its skills + COMMANDS + persona pointer ALL win over the (possibly
+        # stale) manifest.json, like every other overlaid field — leaving any of them manifest-sourced
+        # re-introduces the exact staleness this fix defeats (FAGAN F1: gecko otherwise loses 5 of 9
+        # commands from routing). Each list normalizes the three real shapes — a MAP (key=slug/name,
+        # value object OR scalar) · a list of STRINGs · a list of OBJECTs — to [{slug|name, path}]; an
+        # unexpected shape silently keeps the manifest value (no crash, no whole-pack drop — FAGAN F2/F3).
+        local cy_skills cy_commands cy_persona
+        cy_skills=$(yq eval -o=json '.skills // []' "$construct_yaml" 2>/dev/null || echo "[]")
+        if [[ "$cy_skills" != "[]" && "$cy_skills" != "{}" && "$cy_skills" != "null" ]]; then
+            skills_json=$(echo "$cy_skills" | jq -c 'if type=="object" then [to_entries[] | {slug:.key, path:(if (.value|type)=="object" then (.value.path // ("skills/"+.key)) elif (.value|type)=="string" then .value else ("skills/"+.key) end)}] else [.[] | if type=="string" then {slug:., path:("skills/"+.)} else {slug:(.slug // .name), path:(.path // ("skills/"+(.slug // .name)))} end] end' 2>/dev/null || echo "$skills_json")
+        fi
+        cy_commands=$(yq eval -o=json '.commands // []' "$construct_yaml" 2>/dev/null || echo "[]")
+        if [[ "$cy_commands" != "[]" && "$cy_commands" != "{}" && "$cy_commands" != "null" ]]; then
+            commands_json=$(echo "$cy_commands" | jq -c 'if type=="object" then [to_entries[] | {name:.key, path:(if (.value|type)=="object" then (.value.path // ("commands/"+.key+".md")) elif (.value|type)=="string" then .value else ("commands/"+.key+".md") end)}] else [.[] | if type=="string" then {name:., path:("commands/"+.+".md")} else {name:(.name // .slug), path:(.path // ("commands/"+(.name // .slug)+".md"))} end] end' 2>/dev/null || echo "$commands_json")
+        fi
+        # persona: construct.yaml identity.persona is the SoT, but reject a traversal (..) — a pack must
+        # not point the routing index at another pack's persona or an arbitrary file (FAGAN LOW).
+        cy_persona=$(yq eval '.identity.persona // ""' "$construct_yaml" 2>/dev/null || echo "")
+        if [[ -n "$cy_persona" && "$cy_persona" != "null" && "$cy_persona" != *".."* && -f "${pack_dir%/}/$cy_persona" ]]; then
+            construct_yaml_persona="${pack_dir%/}/$cy_persona"
+        fi
     fi
 
-    # Scan for persona file
-    local persona_path="null"
-    for skill_entry in $(echo "$skills_json" | jq -r '.[].slug // empty'); do
-        for candidate in "$SKILLS_DIR/$skill_entry/persona.md" "$SKILLS_DIR/$skill_entry/PERSONA.md" \
-                         "$pack_dir/skills/$skill_entry/persona.md" "$pack_dir/skills/$skill_entry/PERSONA.md"; do
-            if [[ -f "$candidate" ]]; then
-                persona_path="$candidate"
-                break 2
-            fi
+    # Persona: construct.yaml identity.persona is the SoT (resolved in the overlay above); fall back
+    # to a per-skill persona.md file only when construct.yaml did not declare one.
+    local persona_path="$construct_yaml_persona"
+    if [[ "$persona_path" == "null" ]]; then
+        for skill_entry in $(echo "$skills_json" | jq -r '.[].slug // empty'); do
+            for candidate in "$SKILLS_DIR/$skill_entry/persona.md" "$SKILLS_DIR/$skill_entry/PERSONA.md" \
+                             "$pack_dir/skills/$skill_entry/persona.md" "$pack_dir/skills/$skill_entry/PERSONA.md"; do
+                if [[ -f "$candidate" ]]; then
+                    persona_path="$candidate"
+                    break 2
+                fi
+            done
         done
-    done
+    fi
 
     # Determine quick_start (first command name)
     local quick_start="null"
