@@ -1,6 +1,7 @@
 /**
  * Canonical Hivemind Laboratory label types (#247).
  * Derived from .claude/schemas/labels.schema.json v1.0 — keep in sync on schema bumps.
+ * GitHub label strings use colon form (ratified 2026-06-01, loa-freeside aligned).
  */
 
 export const LABELS_SCHEMA_VERSION = "1.0" as const;
@@ -70,11 +71,39 @@ export interface HivemindLabels {
   source?: Source;
 }
 
-/** GitHub label names for Lab-member issues (#247 additive alignment) */
+/** Schema field → GitHub colon label dimension prefix */
+export const SCHEMA_TO_GITHUB_DIM = {
+  artifact_type: "artifact-type",
+  workstream: "workstream",
+  priority: "priority",
+  learning_status: "learning-status",
+  source: "source",
+} as const;
+
+export type GithubLabelField = keyof typeof SCHEMA_TO_GITHUB_DIM;
+
+/** Build a single colon-form GitHub label from a schema field and enum value */
+export function toGithubLabel(field: GithubLabelField, value: string): string {
+  return `${SCHEMA_TO_GITHUB_DIM[field]}:${value}`;
+}
+
+/** Project canonical hivemind enums to GitHub colon labels + laboratory marker */
+export function hivemindToGithubLabels(hm: HivemindLabels): string[] {
+  return [
+    toGithubLabel("workstream", hm.workstream),
+    toGithubLabel("artifact_type", hm.artifact_type),
+    toGithubLabel("priority", hm.priority),
+    toGithubLabel("learning_status", hm.learning_status!),
+    toGithubLabel("source", hm.source!),
+    "laboratory",
+  ];
+}
+
+/** All colon-form GitHub labels by dimension (for sync/manifest validation) */
 export const GITHUB_LAB_LABELS = {
-  artifact_type: ARTIFACT_TYPES.map((v) => `[AT] ${v}`),
-  workstream: WORKSTREAMS.map((v) => `[WS] ${v}`),
-  priority: PRIORITIES.map((v) => `[PR] ${v}`),
-  learning_status: LEARNING_STATUSES.map((v) => `[LS] ${v}`),
-  source: SOURCES.map((v) => `[SO] ${v}`),
+  artifact_type: ARTIFACT_TYPES.map((v) => toGithubLabel("artifact_type", v)),
+  workstream: WORKSTREAMS.map((v) => toGithubLabel("workstream", v)),
+  priority: PRIORITIES.map((v) => toGithubLabel("priority", v)),
+  learning_status: LEARNING_STATUSES.map((v) => toGithubLabel("learning_status", v)),
+  source: SOURCES.map((v) => toGithubLabel("source", v)),
 } as const;

@@ -15,7 +15,7 @@ fail=0
 
 for slug in "${PACKS[@]}"; do
   dir="$SEARCH_ROOT/construct-$slug"
-  if [[ ! -d "$dir/construct.yaml" && -d "$SEARCH_ROOT/$slug/construct.yaml" ]]; then
+  if [[ ! -f "$dir/construct.yaml" && -f "$SEARCH_ROOT/$slug/construct.yaml" ]]; then
     dir="$SEARCH_ROOT/$slug"
   fi
   if [[ ! -f "$dir/construct.yaml" ]]; then

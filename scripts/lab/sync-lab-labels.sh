@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Sync canonical Lab GitHub labels from .github/lab-labels.yaml (#247)
+# Sync canonical colon-form Lab GitHub labels from .github/lab-labels.yaml (#247).
+# Aligned with loa-freeside/tools/hivemind/label-setup.sh (ratified 2026-06-01).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -11,11 +12,18 @@ if [[ ! -f "$MANIFEST" ]]; then
   exit 1
 fi
 
-while IFS= read -r label; do
-  [[ -z "$label" ]] && continue
-  gh label create "$label" --repo "$REPO" --force 2>/dev/null || \
-    gh label create "$label" --repo "$REPO" --color "5319e7" --force
-  echo "  synced: $label"
-done < <(yq eval '.labels[][]' "$MANIFEST")
+if ! command -v yq >/dev/null 2>&1; then
+  echo "yq required to read $MANIFEST" >&2
+  exit 1
+fi
 
-echo "Lab labels synced to $REPO"
+n=0
+while IFS=$'\t' read -r name color; do
+  [[ -z "$name" ]] && continue
+  gh label create "$name" --repo "$REPO" --color "$color" \
+    --description "hivemind taxonomy" --force
+  echo "  synced: $name"
+  n=$((n + 1))
+done < <(yq eval '.labels[][] | [.name, .color] | @tsv' "$MANIFEST")
+
+echo "Lab labels synced to $REPO ($n labels)"

@@ -1,8 +1,10 @@
----
 name: Lab Canvas
 description: User truth canvas or experiment artifact with hivemind frontmatter
 title: "[CANVAS] "
-labels: ["[AT] user-truth-canvas", "[WS] discovery"]
+labels:
+  - artifact-type:user-truth-canvas
+  - workstream:discovery
+  - priority:medium
 body:
   - type: markdown
     attributes:
@@ -21,6 +23,9 @@ body:
           workstream: discovery
           priority: medium
           product_area: Constructs Network
+          jtbd:
+            category: functional
+            description: Describe the job the user is trying to get done
           learning_status: hypothesis-failed
           source: team-internal
         ---

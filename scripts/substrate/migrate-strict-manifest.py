@@ -115,9 +115,11 @@ def migrate(path: Path, dry_run: bool) -> None:
         print(yaml.dump(manifest, sort_keys=False, allow_unicode=True))
         return
 
+    backup_path = manifest_path.with_suffix(manifest_path.suffix + ".bak")
+    backup_path.write_text(manifest_path.read_text(encoding="utf-8"), encoding="utf-8")
     with manifest_path.open("w", encoding="utf-8") as f:
         yaml.dump(manifest, f, sort_keys=False, allow_unicode=True)
-    print(f"migrated: {manifest_path}")
+    print(f"migrated: {manifest_path} (backup: {backup_path})")
 
 
 def main() -> None:

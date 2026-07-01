@@ -1,9 +1,15 @@
----
 name: Lab Bug
 description: Bug report with canonical hivemind labels
 title: "[BUG] "
-labels: ["[AT] bug-report", "[WS] delivery", "[PR] high"]
+labels:
+  - artifact-type:bug-report
+  - workstream:delivery
+  - priority:high
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Lab bug report — `hivemind:` frontmatter validated by CI (#248 Phase A).
   - type: textarea
     id: body
     attributes:
@@ -16,6 +22,9 @@ body:
           workstream: delivery
           priority: high
           product_area: Constructs Network
+          jtbd:
+            category: functional
+            description: Describe the job blocked by this bug
           learning_status: smol-evidence
           source: team-internal
         ---

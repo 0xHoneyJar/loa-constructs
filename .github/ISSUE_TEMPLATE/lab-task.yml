@@ -1,9 +1,15 @@
----
 name: Lab Task
 description: Delivery task with hivemind frontmatter
 title: "[TASK] "
-labels: ["[AT] product-spec", "[WS] delivery"]
+labels:
+  - artifact-type:product-spec
+  - workstream:delivery
+  - priority:medium
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Lab task — `hivemind:` frontmatter validated by CI (#248 Phase A).
   - type: textarea
     id: body
     attributes:
@@ -16,6 +22,9 @@ body:
           workstream: delivery
           priority: medium
           product_area: Constructs Network
+          jtbd:
+            category: functional
+            description: Describe the outcome this task delivers
           learning_status: directionally-correct
           source: team-internal
         ---

@@ -1,9 +1,15 @@
----
 name: Lab Gap
 description: Track a known gap with hivemind taxonomy
 title: "[GAP] "
-labels: ["[AT] atomic-learning", "[WS] discovery"]
+labels:
+  - artifact-type:atomic-learning
+  - workstream:discovery
+  - priority:low
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Lab gap — `hivemind:` frontmatter validated by CI (#248 Phase A).
   - type: textarea
     id: body
     attributes:
@@ -16,6 +22,9 @@ body:
           workstream: discovery
           priority: low
           product_area: Constructs Network
+          jtbd:
+            category: functional
+            description: Describe the capability gap and who it affects
           learning_status: cant-make-a-conclusion
           source: team-internal
         ---
