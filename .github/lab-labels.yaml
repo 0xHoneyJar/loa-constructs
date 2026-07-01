@@ -1,0 +1,78 @@
+# Colon-form canonical Lab GitHub labels (#247, aligned with loa-freeside).
+# Ratified 2026-06-01 — source: loa-freeside/tools/hivemind/label-setup.sh
+# Bracket labels ([AT]/[WS]/[PR]/…) are legacy coexistence only on GitHub.
+# Sync: scripts/lab/sync-lab-labels.sh
+# product_area and jtbd are frontmatter-only — not GitHub labels.
+
+labels:
+  workstream:
+    - name: workstream:delivery
+      color: "1d76db"
+    - name: workstream:discovery
+      color: "5319e7"
+    - name: workstream:experimentation
+      color: "0e8a16"
+    - name: workstream:tech-debt
+      color: "5a5a5a"
+    - name: workstream:sorry-for-ur-loss
+      color: "b60205"
+  artifact_type:
+    - name: artifact-type:bug-report
+      color: "d73a4a"
+    - name: artifact-type:incident-postmortem
+      color: "b60205"
+    - name: artifact-type:technical-rfc
+      color: "1d76db"
+    - name: artifact-type:product-spec
+      color: "0052cc"
+    - name: artifact-type:experiment-design
+      color: "8250df"
+    - name: artifact-type:atomic-learning
+      color: "0e8a16"
+    - name: artifact-type:user-truth-canvas
+      color: "fbca04"
+    - name: artifact-type:user-interview-synthesis
+      color: "fef2c0"
+    - name: artifact-type:competitor-analysis
+      color: "c5def5"
+    - name: artifact-type:launch-plan
+      color: "d4c5f9"
+    - name: artifact-type:meeting-notes
+      color: "cfd3d7"
+  priority:
+    - name: priority:urgent
+      color: "b60205"
+    - name: priority:high
+      color: "d93f0b"
+    - name: priority:medium
+      color: "fbca04"
+    - name: priority:low
+      color: "0e8a16"
+  learning_status:
+    - name: learning-status:strongly-validated
+      color: "0e8a16"
+    - name: learning-status:directionally-correct
+      color: "fbca04"
+    - name: learning-status:hypothesis-failed
+      color: "d93f0b"
+    - name: learning-status:smol-evidence
+      color: "e4e669"
+    - name: learning-status:cant-make-a-conclusion
+      color: "cfd3d7"
+  source:
+    - name: source:team-internal
+      color: "5a5a5a"
+    - name: source:dm-to-team-member
+      color: "1d76db"
+    - name: source:analytics-anomaly
+      color: "5319e7"
+    - name: source:discord-support-or-feedback
+      color: "8250df"
+  triage:
+    - name: triage:bug-queued
+      color: "d73a4a"
+    - name: triage:operator-review
+      color: "fbca04"
+  marker:
+    - name: laboratory
+      color: "5319e7"

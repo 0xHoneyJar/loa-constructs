@@ -173,12 +173,12 @@ EOF
 # Authentication Tests
 # =============================================================================
 
-@test "pack install fails without API key" {
+@test "pack install fails without API key when no local source" {
     skip_if_not_implemented
     # Ensure no API key is set
     unset LOA_CONSTRUCTS_API_KEY
 
-    run "$INSTALL_SCRIPT" pack test-pack
+    run "$INSTALL_SCRIPT" pack no-local-source-pack-xyz-253
     [ "$status" -eq 1 ]  # AUTH_ERROR
     [[ "$output" == *"No API key"* ]] || [[ "$output" == *"authenticate"* ]]
 }
@@ -632,4 +632,53 @@ EOF
 
     run check_pack_staleness "missing-pack" 7
     [ "$status" -eq 1 ]
+}
+
+@test "should_use_local_for_pack prefers local when meta absent (Issue #253)" {
+    skip_if_not_implemented
+
+    local local_dir="$BATS_TMPDIR/meta-absent-local-$$"
+    mkdir -p "$local_dir"
+    echo 'name: meta-absent-pack' > "$local_dir/construct.yaml"
+
+    local orig_home="$HOME"
+    export HOME="$BATS_TMPDIR"
+    mkdir -p "$BATS_TMPDIR/Documents/GitHub"
+    ln -sf "$local_dir" "$BATS_TMPDIR/Documents/GitHub/construct-meta-absent-pack"
+
+    create_mock_pack "meta-absent-pack"
+    rm -f "$LOA_CONSTRUCTS_DIR/.constructs-meta.json"
+
+    source "$INSTALL_SCRIPT"
+    run should_use_local_for_pack "meta-absent-pack" "$LOA_CONSTRUCTS_DIR/packs" "false"
+
+    export HOME="$orig_home"
+    rm -rf "$local_dir" "$BATS_TMPDIR/Documents/GitHub/construct-meta-absent-pack"
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"construct-meta-absent-pack"* ]]
+}
+
+@test "should_use_local_for_pack force resync always uses local" {
+    skip_if_not_implemented
+
+    local local_dir="$BATS_TMPDIR/resync-local-$$"
+    mkdir -p "$local_dir"
+    echo 'name: resync-pack' > "$local_dir/construct.yaml"
+
+    local orig_home="$HOME"
+    export HOME="$BATS_TMPDIR"
+    mkdir -p "$BATS_TMPDIR/Documents/GitHub"
+    ln -sf "$local_dir" "$BATS_TMPDIR/Documents/GitHub/construct-resync-pack"
+
+    create_mock_pack "resync-pack"
+
+    source "$INSTALL_SCRIPT"
+    run should_use_local_for_pack "resync-pack" "$LOA_CONSTRUCTS_DIR/packs" "true"
+
+    export HOME="$orig_home"
+    rm -rf "$local_dir" "$BATS_TMPDIR/Documents/GitHub/construct-resync-pack"
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"construct-resync-pack"* ]]
 }

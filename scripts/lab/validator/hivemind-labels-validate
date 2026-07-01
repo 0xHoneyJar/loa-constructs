@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# hivemind-labels-validate — Gate-1 validator for loa-constructs Lab wiring (#248 Phase A).
+# Vendored from construct-laboratory-substrate; schema at .claude/schemas/labels.schema.json
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+
+: "${HIVEMIND_SCHEMA:=$REPO_ROOT/.claude/schemas/labels.schema.json}"
+export HIVEMIND_SCHEMA
+
+exec node "$SCRIPT_DIR/hivemind-labels-validate.mjs" "$@"

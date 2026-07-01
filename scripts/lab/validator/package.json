@@ -1,0 +1,20 @@
+{
+  "name": "validator",
+  "version": "1.0.0",
+  "description": "Lab hivemind label validator (#248 Phase A)",
+  "type": "module",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "node --test lib/lab-labels.test.mjs"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "js-yaml": "^4.1.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

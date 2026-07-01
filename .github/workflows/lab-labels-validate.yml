@@ -1,0 +1,37 @@
+name: Lab Labels Validate
+
+on:
+  pull_request:
+    paths:
+      - ".github/ISSUE_TEMPLATE/lab-*.yml"
+      - "grimoires/**"
+      - "compositions/**"
+      - "scripts/lab/**"
+      - ".claude/schemas/labels.schema.json"
+  workflow_dispatch:
+
+jobs:
+  gate1-labels:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: scripts/lab/validator/package-lock.json
+
+      - name: Install validator dependencies
+        working-directory: scripts/lab/validator
+        run: npm ci
+
+      - name: Validate lab golden frontmatter fixture
+        run: bash scripts/lab/validator/hivemind-labels-validate tests/lab/golden-hivemind-frontmatter.md --strict
+
+      - name: Validate extract wrapper on golden fixture
+        run: bash scripts/lab/extract-hivemind-block.sh tests/lab/golden-hivemind-frontmatter.md
+
+      - name: Run lab validator unit tests
+        working-directory: scripts/lab/validator
+        run: npm test
