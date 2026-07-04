@@ -17,7 +17,7 @@
 # strict prereqs. F4 banner per BB review 2026-05-09.
 # ---------------------------------------------------------------------
 #
-# Surfaces material-quality issues during FEEL sessions using observer's
+# Surfaces material-quality issues during FEEL sessions using keeper's (né observer)
 # audit depth on top of artisan's feel lens.
 #
 # This is the bounded-context-aware v2 of the composition, incorporating
@@ -36,12 +36,12 @@ kind: workflow
 name: audit-feel
 description: >
   Surface material-quality issues during FEEL sessions using
-  observer critique for audit depth.
+  keeper (né observer) critique for audit depth.
 
 intent: >
   Audit a UI component, interaction pattern, or artifact for craft-feel
   compliance — produce an evidence-grounded Verdict combining artisan's
-  material decomposition with observer's cross-surface friction map.
+  material decomposition with keeper's cross-surface friction map.
 
 # ---- Substrate fields (bounded-context substrate, Sprint 0+) -----
 
@@ -144,7 +144,7 @@ chain:
 
   - stage_id: audit-feel.stage-3
     stage: 3
-    construct: observer
+    construct: keeper
     skill: analyzing-gaps
     reads: [Verdict, Signal]
     writes: [Verdict]
@@ -155,7 +155,7 @@ chain:
       include_unread_stage_outputs: false
       include_unlisted_grimoires: false
       allowed_read_paths:
-        - ".claude/constructs/packs/observer/skills/analyzing-gaps/**"
+        - ".claude/constructs/packs/keeper/skills/analyzing-gaps/**"
         - ".run/compose/{{run_id}}/stage-1/output/**"
         - ".run/compose/{{run_id}}/stage-2/output/**"
       allowed_write_paths:
@@ -203,7 +203,7 @@ outputs:
 
 compose_with:
   - artisan
-  - observer
+  - keeper
 
 version: "3.0.0"
 authored_at: "2026-05-09"
