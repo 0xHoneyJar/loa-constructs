@@ -1,0 +1,241 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "loa.runtime.dry-run-fixture.v0",
+  "title": "DryRunFixture",
+  "description": "Output structure for a composition `--dry-run --explain-context [--json]` per SDD §4.7. CI gate (IMP-007): merges blocked when any composition's dry-run produces non-empty errors. Sprint 0 (S0-T5) ships the schema; the renderer that emits this format lands in Sprint 2 (S2-T4).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["composition", "stages", "warnings", "errors"],
+  "properties": {
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "composition_id"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "maxLength": 400,
+          "description": "Path to the source composition YAML."
+        },
+        "composition_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_./-]+@sha256:[0-9a-f]{12,64}$",
+          "maxLength": 256,
+          "description": "Deterministic composition id per SDD §3.1."
+        }
+      }
+    },
+    "stages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "stage_id",
+          "construct",
+          "skill",
+          "mode",
+          "invocation_envelope_preview",
+          "allowed_files",
+          "missing_schemas",
+          "domain_conflicts",
+          "isolation_assessment"
+        ],
+        "properties": {
+          "stage_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]+\\.stage-[0-9]+$",
+            "maxLength": 128
+          },
+          "construct": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "skill": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$"
+          },
+          "mode": {
+            "type": "string",
+            "enum": ["fresh", "persistent", "blocking"]
+          },
+          "invocation_envelope_preview": {
+            "type": "object",
+            "description": "Preview of the invocation envelope that would be built for this stage at run time. Conforms to loa.construct.invocation.v0 (with self-hash and prev_hash either elided or marked '<computed-at-run-time>').",
+            "additionalProperties": true
+          },
+          "allowed_files": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 400 },
+            "maxItems": 500,
+            "description": "Resolved read+write path globs for this stage."
+          },
+          "missing_schemas": {
+            "type": "array",
+            "items": { "type": "string", "maxLength": 200 },
+            "maxItems": 50,
+            "description": "Stream schema_ids referenced by this stage that don't resolve in the schema registry. Each entry surfaces as a top-level error too."
+          },
+          "domain_conflicts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["claimed", "actual", "source"],
+              "properties": {
+                "claimed": { "type": "string", "maxLength": 80 },
+                "actual": { "type": "string", "maxLength": 80 },
+                "source": {
+                  "type": "string",
+                  "enum": ["composition", "manifest", "contract"]
+                }
+              }
+            },
+            "maxItems": 20,
+            "description": "Cases where the stage's declared domain disagrees with the manifest or contract source of truth."
+          },
+          "isolation_assessment": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["ok", "vectors_covered"],
+            "properties": {
+              "ok": {
+                "type": "boolean",
+                "description": "True iff every leak vector required by the stage's tier is covered by the configured runner."
+              },
+              "vectors_covered": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "filesystem",
+                    "env",
+                    "tmux",
+                    "llm_session",
+                    "mcp_tools",
+                    "network",
+                    "transcript"
+                  ]
+                },
+                "uniqueItems": true,
+                "maxItems": 10,
+                "description": "Leak vectors the runner can enforce for this stage on the current platform/tier."
+              },
+              "vectors_uncovered": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "filesystem",
+                    "env",
+                    "tmux",
+                    "llm_session",
+                    "mcp_tools",
+                    "network",
+                    "transcript"
+                  ]
+                },
+                "uniqueItems": true,
+                "maxItems": 10,
+                "description": "Leak vectors the configured tier cannot enforce here. Each one surfaces as a warning (advisory) or error (strict-required)."
+              },
+              "tier": {
+                "type": "string",
+                "enum": ["strict", "compatibility", "advisory"],
+                "description": "Resolved tier for this stage."
+              }
+            }
+          },
+          "persistence_scope": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["construct_slug", "skill", "stage_id", "schema_version"],
+                "properties": {
+                  "construct_slug": { "type": "string", "maxLength": 64 },
+                  "skill": { "type": "string", "maxLength": 64 },
+                  "stage_id": { "type": "string", "maxLength": 128 },
+                  "schema_version": { "type": "string", "maxLength": 32 }
+                }
+              }
+            ],
+            "description": "Persistent-state composite key per SDD §3.3 when mode=persistent. Null for mode=fresh."
+          },
+          "iteration_role": {
+            "oneOf": [
+              { "type": "null" },
+              {
+                "type": "string",
+                "enum": ["entry", "body", "termination_check"]
+              }
+            ],
+            "description": "When the stage participates in composition.iterate, which role it plays. Null when not in an iteration block."
+          }
+        }
+      },
+      "minItems": 1,
+      "maxItems": 100
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Diagnostic" },
+      "maxItems": 200,
+      "description": "Non-fatal diagnostics. Surfaced to operator; do NOT block CI."
+    },
+    "errors": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Diagnostic" },
+      "maxItems": 200,
+      "description": "Fatal diagnostics. Block CI per IMP-007."
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Captured at dry-run time so handoff to a different host can detect tier-eligibility changes (e.g., bwrap available on Linux but not macOS).",
+      "properties": {
+        "os": {
+          "type": "string",
+          "enum": ["linux", "darwin", "windows", "other"]
+        },
+        "bwrap_available": { "type": "boolean" },
+        "cap_net_admin": { "type": "boolean" },
+        "provider_memory_disable_supported": {
+          "type": "object",
+          "additionalProperties": { "type": "boolean" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "message"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^\\[[A-Z][A-Z0-9_-]+\\]$",
+          "maxLength": 80,
+          "description": "Bracketed typed code, e.g. [STREAM-NO-PRODUCER], [STREAM-SCHEMA-MISMATCH], [STAGE-OUT-OF-DOMAIN], [ENVELOPE-CHAIN-BROKEN], [ITERATION-NO-MAX], [ITERATION-NO-TERMINATION], [POLICY-VIOLATION-WRITE], [STRICT-TIER-PREREQ-MISSING], [AUDIT-KEYS-NOT-BOOTSTRAPPED]."
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 2000,
+          "description": "Operator-facing diagnostic message."
+        },
+        "stage_id": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Optional pointer to the stage that produced this diagnostic."
+        },
+        "path": {
+          "type": "string",
+          "maxLength": 400,
+          "description": "Optional pointer to the file or composition section the diagnostic refers to."
+        }
+      }
+    }
+  }
+}

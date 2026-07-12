@@ -1,0 +1,29 @@
+{
+  "name": "agentation",
+  "description": "Visual annotation feedback from React applications via MCP",
+  "security_notes": [
+    "LOCAL ONLY: Agentation MCP server runs on localhost",
+    "No data sent to external services",
+    "Only exposes annotations from your running dev server",
+    "Desktop only - does not work in CI/CD"
+  ],
+  "required_scopes": [
+    "annotations (read/write access to annotation sessions)"
+  ],
+  "config": {
+    "mcpServers": {
+      "agentation": {
+        "command": "npx",
+        "args": ["agentation-mcp", "server"]
+      }
+    }
+  },
+  "required_env": [],
+  "setup_steps": [
+    "1. Install: npm install agentation@latest -D",
+    "2. Add <Agentation /> to app root",
+    "3. Run: npx agentation-mcp init",
+    "4. Restart Claude Code"
+  ],
+  "risk_level": "LOW"
+}

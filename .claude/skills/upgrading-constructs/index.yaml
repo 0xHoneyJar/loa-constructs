@@ -1,0 +1,48 @@
+name: upgrading-constructs
+version: "1.0.0"
+description: |
+  Upgrade installed constructs to newer versions with 3-way merge.
+  Preserves local modifications while incorporating upstream changes.
+
+model: sonnet
+color: yellow
+
+triggers:
+  - pattern: "/construct-upgrade"
+    description: "Upgrade an installed construct to latest version"
+
+capabilities:
+  model_tier: sonnet
+  danger_level: moderate
+  effort_hint: medium
+  downgrade_allowed: true
+  execution_hint: sequential
+  requires:
+    native_runtime: false
+    tool_calling: true
+    thinking_traces: false
+    vision: false
+
+dependencies: []
+
+inputs:
+  - name: slug
+    type: string
+    description: "Construct slug to upgrade (or 'all' for all installed)"
+    required: false
+    default: "all"
+  - name: check
+    type: boolean
+    description: "Only check for available updates, don't install"
+    required: false
+    default: false
+
+outputs:
+  - name: result
+    type: object
+    description: "Upgrade result with merge status"
+
+zones:
+  system: read
+  state: write
+  app: none

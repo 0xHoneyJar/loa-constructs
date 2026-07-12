@@ -1,0 +1,56 @@
+name: linking-constructs
+version: "1.0.0"
+description: |
+  Link local construct repositories for development. Creates symlinks from
+  .claude/constructs/packs/ to local directories, enabling live editing
+  with automatic drift detection via Merkle-tree shadow comparison.
+
+model: sonnet
+color: blue
+
+triggers:
+  - pattern: "/construct-link"
+    description: "Link a local construct for development"
+  - pattern: "/construct-unlink"
+    description: "Unlink a construct"
+  - pattern: "/construct-links"
+    description: "List all active construct links"
+
+capabilities:
+  model_tier: sonnet
+  danger_level: moderate
+  effort_hint: small
+  downgrade_allowed: true
+  execution_hint: sequential
+  requires:
+    native_runtime: false
+    tool_calling: true
+    thinking_traces: false
+    vision: false
+
+dependencies: []
+
+inputs:
+  - name: action
+    type: string
+    description: "Action: link, unlink, list, status"
+    required: false
+    default: "list"
+  - name: path
+    type: string
+    description: "Path to local construct directory (for link action)"
+    required: false
+  - name: slug
+    type: string
+    description: "Construct slug (for unlink/status actions)"
+    required: false
+
+outputs:
+  - name: result
+    type: object
+    description: "Link operation result"
+
+zones:
+  system: read
+  state: write
+  app: none

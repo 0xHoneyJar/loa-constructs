@@ -1423,3 +1423,27 @@ Result: `bats / ubuntu-latest: pass` (46s) + `bats / macos-latest: pass` (47s).
 PR #245 statusCheckRollup shows `Vercel: failure` for the `loa-constructs-explorer` deployment. Confirmed via `gh api .../commits/main/status` that this was failing on main HEAD BEFORE this PR. Out of sprint scope.
 
 Sprint reviewer report: `grimoires/loa/a2a/bug-20260517-i244-9c87bf/reviewer.md` (AC verification inline).
+
+## Session Continuity — 2026-07-12 (/ride --enriched refresh)
+
+Full enriched ride of loa-constructs (branch `implement/backlog-triage`, HEAD 473bf19c, Loa 1.196.0). Prior ride was 68 days stale. All 15 artifacts verified on disk.
+
+**What the code IS** (grounded): Turbo+bun monorepo. `apps/api` = Hono/Railway registry API, ~116 endpoints / 21 routers under `/v1`, 35 Drizzle Postgres tables. `packages/loa-registry` = standalone `constructs` CLI. Auth: HS256 session JWT + bcrypt(12) + API keys + OAuth + Dynamic wallet; RS256 only on license/public-key path. External: Redis/Upstash, R2, Stripe(+Connect), Convex(fire-and-forget), Resend, Sentry, GitHub git-sync.
+
+**Drift score: moderate-high (41% aligned)** — concentrated in release/version tooling, NOT app logic.
+
+**Decision Log (this ride):**
+- Reconciled route count 236 (naive grep incl. tests) → ~116 (hand-count excl. tests) across reality files + drift report.
+- Disproved stale MEMORY.md claim "packs has no category column" — column exists (schema.ts:594).
+- 6 ride artifacts (drift/consistency/governance/gaps/decisions/INVENTORY) were pre-existing from a concurrent/prior ride today; spot-verified their distinctive claims against code, adopted + reconciled (added 3rd migration dir, D-16 Dockerfile/nixpacks conflict).
+
+**Technical Debt / gaps surfaced (see gaps.md GAP-001..016, hygiene H-1..13):**
+- GAP-001: THREE migration dirs with colliding numbers + snapshot/journal mismatch — which set is prod's? (HIGH)
+- GAP-002: Stripe layer in-repo vs README N-rails "NONE live here" invariant — DISPUTED (HIGH)
+- GAP-004: version-sync pipeline stalled — README badge/CHANGELOG at v2.41.0, tags at v2.50.4 (~9 minors) (HIGH)
+- GAP-010: /update-loa force-restore removed ~10 `constructs-*.sh` + feedback scripts (in .claude.backup.*) — restore route undecided (HIGH)
+- D-16: Dockerfile(bun) vs nixpacks.toml(npm) — dual build systems, which does Railway use?
+- H-4/H-5/H-6: committed local.db (SQLite in Postgres app), apps/api/package-lock.json (npm in bun repo), 9 tracked .pyc
+- Dead code: top-level `api/{checkout,subscription,webhook}` Stripe stubs (orphaned, superseded by apps/api/src/routes/).
+
+**Artifacts**: grimoires/loa/{prd,sdd,drift-report,consistency-report,governance-report,trajectory-audit,gaps}.md + reality/{index,architecture-overview,structure,api-surface,types,interfaces,entry-points,terminology,decisions,over-engineering,hygiene-report}.md. Query via /reality.

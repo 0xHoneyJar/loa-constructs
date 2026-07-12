@@ -1,0 +1,48 @@
+name: creating-constructs
+version: "1.0.0"
+description: |
+  Scaffold new construct projects from templates. Supports skill-pack,
+  tool-pack, and codex archetypes with type-specific starter files.
+
+model: sonnet
+color: green
+
+triggers:
+  - pattern: "/construct-create"
+    description: "Create a new construct from template"
+  - pattern: "/construct-init"
+    description: "Initialize current directory as a construct"
+
+capabilities:
+  model_tier: sonnet
+  danger_level: safe
+  effort_hint: small
+  downgrade_allowed: true
+  execution_hint: sequential
+  requires:
+    native_runtime: false
+    tool_calling: true
+    thinking_traces: false
+    vision: false
+
+dependencies: []
+
+inputs:
+  - name: name
+    type: string
+    description: "Name for the new construct"
+    required: false
+  - name: type
+    type: string
+    description: "Construct type: skill-pack, tool-pack, codex"
+    required: false
+
+outputs:
+  - name: result
+    type: object
+    description: "Scaffold result with directory path"
+
+zones:
+  system: read
+  state: none
+  app: write

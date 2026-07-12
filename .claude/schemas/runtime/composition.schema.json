@@ -1,0 +1,597 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://loa.dev/schemas/composition.schema.json",
+  "title": "Loa Composition",
+  "description": "Schema for grimoires/compositions/*.yaml — runtime expert chains executed by the Form C runtime (construct-rooms-substrate compose-dispatch.sh --form-c). A composition declares which constructs collaborate on what, with declared streams + iteration boundaries. The shape emerges from naming what the workflow provides; the schema enforces consistency, not prescription.",
+  "type": "object",
+  "required": ["schema_version", "kind", "name", "description", "intent", "chain"],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "description": "S0-T6 / FR-7.2. When iterate[] is non-empty, both max_iterations and terminate_when are required at the composition level. Without them the runner would loop unbounded and the stream-graph validator emits [ITERATION-NO-MAX] / [ITERATION-NO-TERMINATION].",
+      "if": {
+        "properties": { "iterate": { "type": "array", "minItems": 1 } },
+        "required": ["iterate"]
+      },
+      "then": {
+        "required": ["max_iterations", "terminate_when"]
+      }
+    }
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0", "1.1", "1.2", "1.3", "1.4", "1.5"],
+      "description": "Composition schema version. Enum-locked for explicit audit trail (no pattern matching). v1.0 baseline. v1.1 adds optional cycle-002 followup fields (surface_class, thinking_effort, vocabulary_governance, codex_mode). v1.2 catches schema up to registry reality — adds optional stage shapes (name, invokes, capture_method, brief_structure, transport_preference, verify_identifiers, ground-canon predicates), output emit_when, top-level changelog/depends_on/upstream_composition, plus mode+blocking and role+dispatcher/engineering-handoff/gate/hard-stop enums. v1.3 (cycle-053, authorized C053.OP-S1) adds the optional Stage.hitl_by_nature boolean — the compose-as-CC-workflow cut algorithm reads it to mark a stage the operator inherently performs by hand outside the agent loop (a third seam class, alongside mode:blocking and the gate roles). v1.4 (per RFC 2026-06-03-intelligence-router-coherence) adds the optional Stage.intelligence_tier (cheap|standard|deep) read by the compose-as-CC-workflow runtime to route a segment's model by declared intelligence; all additive, v1.0–v1.3 YAMLs validate unchanged. v1.5 (Form C handoff envelopes) adds the optional Stage.output_schema — an inline JSON-schema object the Form C runtime emits as a stage's typed handoff envelope in place of the generic WORK_SCHEMA; additive, absent it behavior is unchanged. Breaking changes require major bump + migration plan. See VERSIONING.md."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["workflow", "frame"],
+      "description": "Composition kind. 'workflow' = runtime expert chain (current default, doctrine v4 §15.2). 'frame' = reserved for cycle-007+ frame-kind compositions."
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z][a-z0-9]*){1,4}$",
+      "minLength": 4,
+      "maxLength": 64,
+      "description": "Composition slug. Must match the filename (without .yaml extension). Verb-first kebab-case (gRPC-style: 'verb-noun' reads as 'do this thing'). 2-5 parts (v1.2 widened from 2-3). Bases: audit-feel, direct-render, research-scaffold. Multi-part: code-implement-and-review (4 parts), listen-and-weave. The first word is always the operator action; subsequent words refine target / approach / project context."
+    },
+    "description": {
+      "type": "string",
+      "minLength": 20,
+      "description": "What this composition does, in one or two sentences. Lead with what it provides."
+    },
+    "intent": {
+      "type": "string",
+      "minLength": 30,
+      "description": "Operator-voice statement of the workflow's intent. The 'I want X out of this' framing in the operator's words."
+    },
+    "backend": {
+      "type": "string",
+      "enum": ["headless-tmux", "teamcreate"],
+      "description": "Runtime backend (doctrine v6 §18.4). 'headless-tmux' is cycle-006 default; 'teamcreate' ships in cycle-007."
+    },
+    "inputs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Input" },
+      "description": "Declared inputs the composition accepts. Operators bind these at invocation time."
+    },
+    "iterate": {
+      "type": "array",
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "items": { "type": "integer", "minimum": 1 },
+        "description": "Pair [stage_a, stage_b] of stage numbers that iterate together."
+      },
+      "description": "Iteration loops between pairs of stages. Each pair must reference stage numbers that exist in chain[].stage. Cap behavior is runner-controlled (--max-iterations). S0-T6: when iterate is non-empty, max_iterations and terminate_when become required at the composition level (FR-7.2)."
+    },
+    "iteration_mode": {
+      "type": "string",
+      "enum": ["persistent_leak", "stream_edge"],
+      "default": "persistent_leak",
+      "description": "S0-T6 / FR-7.4. Iteration semantics. 'persistent_leak' (default, legacy): teammate context accumulates across iterations and may leak between stages. 'stream_edge' (opt-in): iteration boundaries are stream edges only — no transcript bleed. The flag exists so we can flip the default later with telemetry-backed confidence; until then, both semantics are supported with explicit opt-in."
+    },
+    "max_iterations": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000,
+      "description": "S0-T6 / FR-7.2. Maximum iteration passes before the runner halts the loop. Required when iterate[] is non-empty. Without it, runs would loop unbounded — validator emits [ITERATION-NO-MAX]."
+    },
+    "terminate_when": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 600,
+      "description": "S0-T6 / FR-7.2. Termination predicate evaluated by the runner each iteration pass. Free-form prose; runner-interpreted. Required when iterate[] is non-empty. Validator emits [ITERATION-NO-TERMINATION] when iterate is non-empty and this is missing."
+    },
+    "audit_signed": {
+      "type": "boolean",
+      "default": false,
+      "description": "S0-T6 / FR-6 / SDD §6.3. Opt-in to cycle-098 audit_emit_signed envelope chain. When true, runtime requires bootstrapped audit keys (pre-flight check S1-T5 emits [AUDIT-KEYS-NOT-BOOTSTRAPPED] otherwise)."
+    },
+    "persistent_state_ttl_policy": {
+      "type": "string",
+      "enum": ["write", "access"],
+      "default": "write",
+      "description": "S0-T6 / SDD §3.3. TTL semantics for persistent state writes from this composition. 'write' (default): TTL = last_updated + ttl_seconds; reads do not extend. 'access' (opt-in): any read or write extends TTL. Predictable lifecycle vs forgiving lifecycle tradeoff per Redis EXPIRE conventions."
+    },
+    "chain": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/Stage",
+        "description": "A pipeline stage. The validation authority is $defs.Stage; the child schemas under the sibling 'properties' below contain annotations only (description + examples) — they guide authoring at the point of use and impose no constraint.",
+        "properties": {
+          "construct": { "description": "Construct slug — whose expertise runs this stage. Required on every stage (enforced by $defs.Stage).", "examples": ["artisan", "the-mint"] },
+          "skill": { "description": "Skill slug within the construct (kebab-case; ':' allows cross-construct refs, '_' and '/' for namespaced skills). The exact pattern is defined in $defs.Stage.", "examples": ["crafting-feel", "codex:rescue"] },
+          "persona": { "description": "Optional persona handle the stage embodies. v1.2 relaxes to a free-form string.", "examples": ["ALEXANDER"] },
+          "mode": { "description": "Execution mode — one of: fresh (new agent), persistent (carries context across iterations), or blocking (a human-gated seam). The enum is defined in $defs.Mode.", "examples": ["blocking"] },
+          "role": { "description": "Stage role — e.g. primary, gate, craft-gate, hard-stop, dispatcher. The gate roles, mode:blocking, and hitl_by_nature each mark a seam. The vocabulary is defined in $defs.Role.", "examples": ["gate"] },
+          "reads": { "description": "Stream types this stage consumes from upstream stages (e.g. an Artifact or Verdict produced earlier in the chain).", "examples": [["Artifact"]] },
+          "writes": { "description": "Stream types this stage produces for downstream stages.", "examples": [["Verdict"]] },
+          "notes": { "description": "What this stage does and why this expert was chosen.", "examples": ["why this expert"] },
+          "hitl_by_nature": { "description": "v1.3: marks a stage the operator inherently performs BY HAND, outside the autonomous agent loop — the third seam class alongside mode:blocking and the gate roles.", "examples": [true] }
+        }
+      },
+      "description": "Ordered list of stages. Stage numbers must be 1-indexed and contiguous."
+    },
+    "outputs": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/Output" },
+      "description": "Declared outputs the composition produces. Destination paths typically use .run/compose/<run_id>/..."
+    },
+    "compose_with": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$" },
+      "description": "Construct slugs this composition orchestrates. Should match the unique set of chain[].construct values."
+    },
+    "composes_symmetrically_with": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": ".+ (↔|<->|→|->) .+",
+        "description": "Composition pair declaration. v1.0/v1.1: symmetric only ('A ↔ B' / 'A <-> B'). v1.2: also accepts unidirectional ('A → B' / 'A -> B') for one-way composition (e.g. the-weaver → crucible)."
+      },
+      "description": "Confirmed construct/skill composition pairs surfaced by GECKO §2 or by operator validation. Symmetric (↔) or unidirectional (→)."
+    },
+    "invocation_examples": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/InvocationExample" },
+      "description": "Example operator utterances and how they resolve to this composition (or sub-chains of it)."
+    },
+    "when_to_use": {
+      "type": "string",
+      "description": "Plain-prose guidance on when this composition is the right tool. May include WHEN-NOT-TO-USE bullets."
+    },
+    "known_limitations": {
+      "oneOf": [
+        { "type": "array", "items": { "type": "string" } },
+        { "type": "string" }
+      ],
+      "description": "Surfaced limitations — cost, reproducibility, runner gaps, etc. v1.0/v1.1: array of strings. v1.2: also accepts a single multi-line string (YAML literal/folded block scalar) for prose-shaped limitations sections. Empty discouraged; honest enumeration preferred."
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "minProperties": 1,
+        "maxProperties": 1,
+        "additionalProperties": { "type": "string" },
+        "description": "Single-key reference entry. Keys are snake_case identifiers (e.g. 'doctrine', 'runner', 'exemplar_eye_hand'); values are paths or URLs."
+      },
+      "description": "Pointers to doctrine, runner scripts, exemplar compositions, related skills."
+    },
+    "operator_note": {
+      "type": "string",
+      "description": "Free-form note for downstream operators, especially when the composition serves as a teaching artifact. Use a YAML literal block scalar (|) for multi-line content."
+    },
+    "hivemind_labels": {
+      "$ref": "https://loa.dev/hivemind/labels.schema.json",
+      "description": "Composition-level Hivemind Laboratory taxonomy. Names the user-truth context this whole workflow serves (product area + JTBD + source). Optional but encouraged — anti-spiral tether."
+    },
+    "surface_class": {
+      "$ref": "#/$defs/SurfaceClass",
+      "description": "v1.1: Drives gating intensity, codex_mode default, iteration_cap, inline_fix permission. Canonical def in compositions/sorry-for-ur-loss/outage-triage.yaml. Top-level only — apply to stages via runner interpretation."
+    },
+    "thinking_effort": {
+      "$ref": "#/$defs/ThinkingEffortBlock",
+      "description": "v1.1: Composition-level thinking_effort canonical-def block. Per-stage stages may carry the simple string form (low|medium|high|xhigh|max) on chain[].thinking_effort. Canonical def in compositions/delivery/feel-iterate.yaml."
+    },
+    "review_routing": {
+      "type": "object",
+      "description": "v1.4 (intelligence-router coherence 2026-06-03): how the review/craft-gate stage routes its model voices. On high-stakes surfaces (financial/data-validity/auth-contract/defi-strict) the gate MUST run a cheval-routed MULTIMODAL council — distinct model families, not a single corpus. Top-level; the runner applies it to the craft-gate stage. Additive/optional — pre-v1.4 YAMLs validate unchanged.",
+      "additionalProperties": true,
+      "properties": {
+        "mandatory_when": { "type": "array", "items": { "type": "string" }, "description": "Surface classes where the cheval multimodal council is REQUIRED (single-model review forbidden). Typically [defi-strict, financial, data-validity, auth-contract]." },
+        "optional_when": { "type": "array", "items": { "type": "string" }, "description": "Surface classes where single-model review is acceptable (e.g. [culturetech-loose, mixed, unspecified])." },
+        "router": { "type": "string", "description": "The routing substrate (e.g. 'cheval')." },
+        "runner": { "type": "string", "description": "The council runner script (e.g. construct-fagan/scripts/cheval-council.sh)." },
+        "voices": { "type": "array", "items": { "type": "string" }, "description": "The reviewer agent voices, bound to cheval headless adapters (distinct corpora — e.g. gpt-reviewer, reviewing-code, deep-thinker)." },
+        "min_surviving_voices": { "type": "integer", "minimum": 1, "description": "Fail-closed threshold — below this many surviving voices the gate fails rather than passes on a thinned council." },
+        "audit": { "type": "string", "description": "Audit requirement on the council run (e.g. 'modelinv-required' — reject unknown model_ran on high-stakes)." }
+      }
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "Composition revision number (strict semver X.Y.Z). Increment on substantive changes to chain, inputs, or outputs."
+    },
+    "authored_at": {
+      "type": "string",
+      "format": "date",
+      "description": "ISO date (YYYY-MM-DD)."
+    },
+    "authored_by": {
+      "type": "string",
+      "description": "Who/what authored this composition. Free-form."
+    },
+    "changelog": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "v1.2: Versioned change history for this composition. Each item is a single string in the form '<version> (<date>): <summary>'. Append-only; newest entries first or last by convention (registry convention: newest last)."
+    },
+    "depends_on": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "v1.2: External dependencies this composition relies on at runtime. Common keys: `constructs` (array of construct slugs), `tools` (array of CLI/MCP names), `compositions` (array of upstream composition paths). Permissive shape so new dependency types can be added.",
+      "properties": {
+        "constructs": { "type": "array", "items": { "type": "string" } },
+        "tools": { "type": "array", "items": { "type": "string" } },
+        "compositions": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "upstream_composition": {
+      "type": "string",
+      "description": "v1.2: Path to the canonical 'parent' composition this one specializes or extends. When a composition copies another's structure with minor variations, name the upstream so the lineage is legible."
+    }
+  },
+  "$defs": {
+    "StreamType": {
+      "type": "string",
+      "enum": ["Signal", "Verdict", "Artifact", "Intent", "Operator-Model", "Question"],
+      "description": "Stream type per pipe doctrine. Question is reserved for cycle-007+."
+    },
+    "Mode": {
+      "type": "string",
+      "enum": ["fresh", "persistent", "blocking"],
+      "description": "Stage execution mode. 'fresh' = clean subprocess per invocation (no prior context). 'persistent' = teammate accumulates register depth across iterations. 'blocking' (v1.2) = stage halts the chain on emit, waits for explicit operator continuation (used in triage / sorry-for-ur-loss workstreams)."
+    },
+    "Domain": {
+      "description": "Stage bounded context override or declaration. Legacy string/array forms are accepted as routing tags; object form is preferred for DDD-aware isolation.",
+      "oneOf": [
+        {
+          "type": "string",
+          "maxLength": 80
+        },
+        {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 80 },
+          "maxItems": 20
+        },
+        {
+          "type": "object",
+          "required": ["primary"],
+          "properties": {
+            "primary": { "type": "string", "minLength": 1, "maxLength": 80 },
+            "supporting": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 80 },
+              "maxItems": 20
+            },
+            "ubiquitous_language": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 100 },
+              "maxItems": 50
+            },
+            "out_of_domain": {
+              "type": "array",
+              "items": { "type": "string", "maxLength": 200 },
+              "maxItems": 50
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "ContextPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": { "$ref": "#/$defs/Mode" },
+        "allowed_context": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 50
+        },
+        "forbidden_context": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 50
+        },
+        "persistence_scope": {
+          "type": "string",
+          "enum": ["none", "stage", "construct", "composition", "tenant"]
+        },
+        "isolation_tier": {
+          "type": "string",
+          "enum": ["strict", "compatibility", "advisory"],
+          "description": "S0-T6 / SDD §3.4 §6.5b. Tier under which this stage runs. Resolved at composition load time from .claude/data/construct-validation-tiers.yaml; per-stage override allowed but capped at the construct's manifest tier."
+        },
+        "allowed_egress": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9.-]+:[0-9]+$",
+            "maxLength": 300
+          },
+          "maxItems": 50,
+          "description": "S0-T6 / FR-13.1. Host:port allowlist for network egress. When unset or empty, no egress permitted. Strict tier enforces via netns + CONNECT proxy; advisory enforces via HTTP_PROXY env."
+        },
+        "network_isolation_class": {
+          "type": "string",
+          "enum": ["kernel", "cooperative", "none"],
+          "description": "S0-T6. Achieved isolation class (NOT requested) — captured at envelope build time so handoff/audit can attest reality. 'kernel' = bwrap+netns; 'cooperative' = HTTP_PROXY-aware; 'none' = no enforcement."
+        },
+        "llm_session_strategy": {
+          "type": "string",
+          "enum": ["fresh", "continue"],
+          "description": "S0-T6 / FR-4.3. Per-stage LLM session policy. 'fresh' = new session id + provider memory disable (verified strict / attempted advisory). 'continue' = explicit opt-in to reuse, banned in mode:fresh stages."
+        },
+        "allowed_mcp_tools": {
+          "type": "array",
+          "items": { "type": "string", "maxLength": 200 },
+          "maxItems": 50,
+          "description": "S0-T6 / FR-4.1. MCP tool allowlist enforced via cheval adapter. Empty = no tools."
+        },
+        "allowed_env_vars": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$", "maxLength": 64 },
+          "maxItems": 100,
+          "description": "S0-T6 / FR-4.1. Env var allowlist. Subprocess runs under env -i + only these names passed through."
+        }
+      },
+      "description": "Stage-local context boundaries. Runners enforce these when constructing the invocation envelope. S0-T6 added isolation_tier, allowed_egress, network_isolation_class, llm_session_strategy, allowed_mcp_tools, allowed_env_vars per cycle-construct-bounded-context Sprint 0.",
+      "allOf": [
+        {
+          "description": "S0-T6: when allowed_egress is non-empty, isolation_tier MUST be set so the runner knows which enforcement mechanism to apply.",
+          "if": {
+            "properties": { "allowed_egress": { "type": "array", "minItems": 1 } },
+            "required": ["allowed_egress"]
+          },
+          "then": { "required": ["isolation_tier"] }
+        }
+      ]
+    },
+    "Role": {
+      "type": "string",
+      "enum": [
+        "primary",
+        "craft-gate",
+        "cross-reference",
+        "cross_reference",
+        "dispatcher",
+        "engineering-handoff",
+        "gate",
+        "hard-stop"
+      ],
+      "description": "Stage role. 'primary' = owns the substantive work. 'craft-gate' = validates against quality standard. 'cross-reference' = enriches a Verdict with second-construct context. v1.2 additions: 'dispatcher' = routes to downstream sub-compositions; 'engineering-handoff' = passes implementation work to a delegation-mode construct (codex/etc); 'gate' = generic gate stage (broader than craft-gate); 'hard-stop' = stage that terminates the chain when triggered."
+    },
+    "Input": {
+      "type": "object",
+      "required": ["type", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "$ref": "#/$defs/StreamType" },
+        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "description": { "type": "string" },
+        "required": { "type": "boolean", "default": false },
+        "source": { "type": "string", "description": "Optional source hint (e.g., '/hivemind skill', 'operator argument')." }
+      }
+    },
+    "Output": {
+      "type": "object",
+      "required": ["type", "destination"],
+      "additionalProperties": false,
+      "properties": {
+        "type": { "$ref": "#/$defs/StreamType" },
+        "destination": { "type": "string", "description": "Path or path template. May contain <run_id> placeholder." },
+        "description": { "type": "string" },
+        "schema": { "type": "string", "description": "Optional JSON Schema path for output validation (e.g., .claude/schemas/feedback-v3.schema.json)." },
+        "notes": { "type": "string" },
+        "emit_when": {
+          "type": "string",
+          "description": "v1.2: Conditional emission predicate. Output is only produced when this condition holds (e.g., 'stage 4 verdict.passed == true', 'on_chain_failure'). Free-form prose; runner-interpreted."
+        },
+        "hivemind_labels": {
+          "$ref": "https://loa.dev/hivemind/labels.schema.json",
+          "description": "Per-output Hivemind Laboratory labels. Use to declare what KIND of artifact this output is (artifact_type) and how confident we are (learning_status). Composition-level labels in `hivemind_labels` apply by default; per-output overrides where needed."
+        }
+      }
+    },
+    "Stage": {
+      "type": "object",
+      "required": ["stage", "construct"],
+      "additionalProperties": false,
+      "properties": {
+        "stage": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Stage number. v1.0/v1.1: 1-indexed contiguous integers. v1.2: half-stages allowed (1.5, 6.5, etc.) for gate / craft-gate / cross-reference inserts between primary stages — runner sorts by value."
+        },
+        "construct": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-/]*[a-z0-9]$", "description": "Construct slug (e.g. 'artisan', 'the-mint')." },
+        "skill": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9:_/-]*[a-z0-9]$",
+          "description": "Skill slug within the construct. v1.2: pattern allows ':' for cross-construct skill refs (e.g. 'codex:rescue'), '_' and '/' for namespaced skills. Optional in v1.2 — gate / hard-stop stages may omit skill (operator-driven, no skill dispatch)."
+        },
+        "persona": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional persona handle. v1.0/v1.1 convention: uppercase (e.g. 'ALEXANDER', 'MINT'). v1.2 relaxes to free-form string — registry has lowercase ('codex'), hyphenated ('SCAR-SENTINEL'), and prose-tagged values."
+        },
+        "mode": { "$ref": "#/$defs/Mode" },
+        "domain": {
+          "$ref": "#/$defs/Domain",
+          "description": "Optional stage-level bounded context. Defaults to the construct manifest domain when omitted."
+        },
+        "context_policy": {
+          "$ref": "#/$defs/ContextPolicy",
+          "description": "Optional stage-level context policy. Defaults to the construct manifest or runner policy when omitted."
+        },
+        "contract_version": {
+          "type": "string",
+          "maxLength": 120,
+          "description": "Optional Hounfour/Loa contract version used for this stage invocation envelope."
+        },
+        "reads": { "type": "array", "items": { "$ref": "#/$defs/StreamType" } },
+        "writes": { "type": "array", "items": { "$ref": "#/$defs/StreamType" } },
+        "role": { "$ref": "#/$defs/Role" },
+        "iterates_with": { "type": "integer", "minimum": 1, "description": "Companion stage number for iteration. Must reference an entry in iterate[]." },
+        "iterate_until": { "type": "string", "description": "Termination predicate for the iteration loop (operator/runner-defined)." },
+        "hitl_by_nature": { "type": "boolean", "default": false, "description": "v1.3 (cycle-053, authorized C053.OP-S1): marks a stage the operator inherently performs BY HAND, outside the autonomous agent loop — hand a prompt to a web image tool, eyeball a deploy, sign a transaction. It carries no gate role and no blocking mode, yet it is a seam. The compose-as-CC-workflow cut algorithm treats it as a seam (is_seam := mode=='blocking' OR role in {hard-stop, craft-gate, gate} OR hitl_by_nature==true); the segment-runner NEVER automates it into an autonomous span. Optional; absence == false. Additive — never narrows existing compositions." },
+        "notes": { "type": "string", "description": "What this stage does and why this expert was chosen." },
+        "vocabulary_governance": {
+          "$ref": "#/$defs/VocabularyGovernance",
+          "description": "v1.1: Generation-as-audit-surface discipline for chrome copy stages. Canonical in triage-pause.yaml v1.8.0 + hibernate-product v1.2.0."
+        },
+        "codex_mode": {
+          "$ref": "#/$defs/CodexMode",
+          "description": "v1.1: Codex delegation vs pair-program enum on engineering-handoff stages. Canonical in outage-triage.yaml stage 3."
+        },
+        "thinking_effort": {
+          "anyOf": [
+            { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"] },
+            { "$ref": "#/$defs/ThinkingEffortBlock" }
+          ],
+          "description": "v1.1: Stage-level override. String tier (cheap, common) OR full canonical-def object (when this stage owns the family definition for the composition)."
+        },
+        "intelligence_tier": {
+          "type": "string",
+          "enum": ["tiny", "cheap", "mid", "standard", "deep", "max"],
+          "description": "v1.6 (2026-06-10 intel-routing review; v1.4 per RFC grimoires/loa/context/2026-06-03-intelligence-router-coherence.md (loa-freeside)): optional per-segment model-intelligence tier, the hounfour ladder. Bindings per the SoT: tiny->haiku, cheap->sonnet (NOT haiku — reconciled 2026-06-07, arrakis-d72w), mid->sonnet, standard->sonnet, deep->opus, max->fable. Declares INTENT; the runtime (construct-rooms-substrate segment-emitter) resolves it to a model. When absent, the runtime falls back to default-by-role. Gates do NOT auto-float to the max tier (explicit opt-in only). Additive/optional.",
+          "$comment": "intelligence_tier selects WHICH model; the sibling thinking_effort tunes reasoning effort WITHIN the chosen model. They are orthogonal and may both be present on a stage; neither overrides the other."
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+          "description": "v1.2: Stage label. kebab-case verb-or-noun phrase (e.g. 'iterate-with-pixelmark', 'compose-canon-doc'). Optional but encouraged — gives stages a human-readable handle distinct from their construct/skill identity."
+        },
+        "invokes": {
+          "type": "string",
+          "description": "v1.2: Path to a sub-composition this stage delegates to (composition delegation pattern). Stage's construct/skill describe the dispatcher; invokes points at the delegated chain. Typically a path like 'compositions/delivery/feel-iterate.yaml'."
+        },
+        "capture_method": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "v1.2: Method by which this stage captures operator feedback / artifact / signal. Freeform object — common pattern is `{ preferred: { tool, loop, ... }, fallback: { tool, when, ... } }`. Permissive shape so the field can evolve without schema churn; conventional sub-keys (tool, loop, canonical_source, installation_pattern, port_acceptance) recur across the registry."
+        },
+        "brief_structure": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "v1.2: Ordered list of brief-shape lines (often with inline `# comment` annotations). Used by skills that author briefs as their primary artifact (e.g. compose-canon-doc, dispatch). Each item is a brief field name; the comment after `#` explains its semantics."
+        },
+        "transport_preference": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "v1.2: Preferred tool / transport for invoking this stage, ordered by preference (with fallbacks). Each item may include an inline `# comment` explaining the preference. Common in stages that wrap external CLIs (codex, mcp tools) where multiple invocation paths exist."
+        },
+        "verify_identifiers": {
+          "type": "string",
+          "description": "v1.2: Multi-line verification protocol. Prose describing how this stage probes operator-supplied identifiers (URLs, deployment IDs, commits) before propagating them. Used in dispatch/cross-reference stages to prevent garbage-in-garbage-out."
+        },
+        "when": {
+          "type": "string",
+          "description": "v1.2: Predicate / condition under which this stage runs. Used in conditional / gate stages (ground-canon, on-demand cross-reference). Free-form prose; runner interprets per-composition."
+        },
+        "on_absent": {
+          "type": "array",
+          "items": { "oneOf": [ { "type": "string" }, { "type": "object" } ] },
+          "description": "v1.2: Ground-canon stage shape — actions when probed canon source is absent. Items are either action strings OR `{<choice-label>: <description>}` objects for operator-halt branching."
+        },
+        "on_present_and_fresh": {
+          "type": "array",
+          "items": { "oneOf": [ { "type": "string" }, { "type": "object" } ] },
+          "description": "v1.2: Ground-canon stage shape — actions when probed canon is present and fresh (within freshness window)."
+        },
+        "on_present_but_stale": {
+          "type": "array",
+          "items": { "oneOf": [ { "type": "string" }, { "type": "object" } ] },
+          "description": "v1.2: Ground-canon stage shape — actions when probed canon is present but stale (outside freshness window)."
+        },
+        "probes": {
+          "type": "array",
+          "description": "v1.2: Ground-canon stage shape — list of probe definitions. Items vary in shape (path probes, command probes, file-existence probes); permissive."
+        },
+        "output_schema": {
+          "type": "object",
+          "description": "v1.5: The typed handoff envelope this stage emits — an inline JSON-schema object the Form C runtime (construct-rooms-substrate segment-emitter) emits as the stage's agent() StructuredOutput in place of the generic WORK_SCHEMA. Optional; absent it the runtime falls back to WORK_SCHEMA. Inline-object-only in v1.5 ($ref strings reserved for a future version)."
+        }
+      }
+    },
+    "SurfaceClass": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v1.1 — Drives gating intensity, codex_mode default, iteration_cap, inline_fix permission. Canonical def in compositions/sorry-for-ur-loss/outage-triage.yaml.",
+      "properties": {
+        "default": { "type": "string", "enum": ["culturetech-loose", "defi-strict", "mixed", "unspecified"] },
+        "enum": { "type": "array", "items": { "type": "string" } },
+        "canonical_definition": { "type": "string" },
+        "inferred_when_unspecified": { "type": "string" },
+        "affects_in_this_composition": { "type": "array", "items": { "type": "string" } },
+        "inference": { "type": "object" },
+        "affects": { "type": "object" },
+        "rationale": { "type": "string" },
+        "invocation": { "type": "object" }
+      }
+    },
+    "ThinkingEffortBlock": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v1.1 — Per-stage hint for adaptive-thinking-capable runtimes. Canonical def in compositions/delivery/feel-iterate.yaml.",
+      "properties": {
+        "default": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"] },
+        "enum": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["low", "medium", "high", "xhigh", "max"] }
+        },
+        "canonical_definition": { "type": "string" },
+        "guide": { "type": "object" },
+        "rationale": { "type": "string" },
+        "runtime_translation": { "type": "object" },
+        "promptable_steering": { "type": "string" },
+        "affects_in_this_composition": {
+          "type": "array",
+          "items": { "oneOf": [ { "type": "string" }, { "type": "object" } ] },
+          "description": "v1.2: items are stage-effect descriptions; usually strings, occasionally objects when an unquoted colon-bearing prose value gets parsed as a key-value pair."
+        }
+      }
+    },
+    "VocabularyGovernance": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v1.1 — Generation-as-audit-surface discipline for chrome copy stages. Per Hibernation Copy Discipline brief, cycle-002 followup.",
+      "properties": {
+        "taxonomy": { "type": "object" },
+        "line_types": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "anchor": { "type": "string" },
+            "flavor": { "type": "string" }
+          }
+        },
+        "no_promises_linter": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "regex": { "type": "string" },
+            "action": { "type": "string" },
+            "rationale": { "type": "string" }
+          }
+        },
+        "bank_first_authoring": { "type": "object" },
+        "reference_brief": { "type": "string" }
+      }
+    },
+    "CodexMode": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "v1.1 — Codex delegation vs pair-program enum on engineering-handoff stages. Canonical in outage-triage.yaml stage 3 + triage-pause v1.5.0 stage 6.5.",
+      "properties": {
+        "delegation": { "type": "string" },
+        "pair-program": { "type": "string" },
+        "default": { "type": "string", "enum": ["delegation", "pair-program"] }
+      }
+    },
+    "InvocationExample": {
+      "type": "object",
+      "required": ["operator_utterance", "resolves_to"],
+      "additionalProperties": false,
+      "properties": {
+        "operator_utterance": { "type": "string", "description": "The natural-language way an operator might invoke this composition." },
+        "resolves_to": { "type": "string", "description": "What chain or sub-chain executes for this utterance." }
+      }
+    }
+  }
+}
