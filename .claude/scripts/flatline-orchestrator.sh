@@ -58,6 +58,13 @@ source "$SCRIPT_DIR/lib/context-isolation-lib.sh"
 # shellcheck source=lib/model-resolver.sh
 source "$SCRIPT_DIR/lib/model-resolver.sh"
 
+# cycle-117 item D (#1177): shared DEGRADED/FAILED trajectory + page helper.
+# Soft-sourced — a downstream repo mid-update (lib file absent) must not
+# break flatline; the degraded_verdict_maybe_emit call below is itself
+# guarded by a declare -F check.
+# shellcheck source=lib/degraded-verdict-lib.sh
+source "$SCRIPT_DIR/lib/degraded-verdict-lib.sh" 2>/dev/null || true
+
 # Cycle-104 sprint-2 T2.8 (FR-S2.5): voice-drop classifier. Distinguishes
 # cheval's CHAIN_EXHAUSTED (exit 12) from other failures so a voice whose
 # within-company fallback chain ran to end is DROPPED from consensus
@@ -294,6 +301,30 @@ extract_json_content() {
     echo "$normalized"
 }
 
+# Normalize skeptic prepared JSON to the {"concerns":[...]} envelope expected
+# by scoring-engine.sh. Skeptic prompts request the object form, but some
+# adapters emit a bare top-level array of concern objects. scoring-engine's
+# `$skeptic_x[0].concerns` lookup then errors with
+#   jq: Cannot index array with string "concerns"
+# because --slurpfile wraps a bare-array file as [[{...}]], making $s[0] the
+# inner array. Caller writes the prepared file then calls this in-place.
+normalize_skeptic_envelope() {
+    local file="$1"
+    [[ -f "$file" ]] || return 0
+
+    local normalized
+    if normalized=$(jq -c '
+        if type == "object" then .
+        elif type == "array" then {concerns: .}
+        else {concerns: []}
+        end
+    ' "$file" 2>/dev/null) && [[ -n "$normalized" ]]; then
+        printf '%s\n' "$normalized" > "$file"
+    else
+        printf '%s\n' '{"concerns":[]}' > "$file"
+    fi
+}
+
 # Log to trajectory
 log_trajectory() {
     local event_type="$1"
@@ -400,6 +431,27 @@ get_model_tertiary() {
     _CACHED_TERTIARY_MODEL="$model"
     _CACHED_TERTIARY_MODEL_SET=true
     echo "$model"
+}
+
+# cycle-116 D3 (bd-c116-d3-tiering): per-stage tier routing opt-in.
+# advisor_strategy.stage_routing.flatline_scorer (default false) governs
+# whether score-mode cross-scoring dispatch is routed through the
+# advisor_strategy role/skill resolver (cheval.py:1069 role gate) instead
+# of the hardcoded --model pin. Default false => byte-identical to today.
+# Nested map leaves room for future per-stage keys without a schema churn.
+# Cached to avoid a per-score-call yq invocation.
+_CACHED_STAGE_ROUTING_SCORER=""
+_CACHED_STAGE_ROUTING_SCORER_SET=false
+is_stage_routing_scorer_enabled() {
+    if [[ "$_CACHED_STAGE_ROUTING_SCORER_SET" == true ]]; then
+        [[ "$_CACHED_STAGE_ROUTING_SCORER" == "true" ]]
+        return
+    fi
+    local v
+    v=$(read_config '.advisor_strategy.stage_routing.flatline_scorer' 'false')
+    _CACHED_STAGE_ROUTING_SCORER="$v"
+    _CACHED_STAGE_ROUTING_SCORER_SET=true
+    [[ "$v" == "true" ]]
 }
 
 get_max_iterations() {
@@ -574,7 +626,18 @@ aggregate_and_write_final_consensus() {
         vq=$(jq -c '.verdict_quality // empty' "$f" 2>/dev/null || true)
         if [[ -n "$vq" && "$vq" != "null" ]]; then
             local tmp
-            tmp=$(mktemp "${TEMP_DIR:-/tmp}/vq-input.XXXXXX.json")
+            # #878: guard mktemp failure (template collision, disk full, no
+            # mktemp on PATH). Without the check, downstream chmod/printf on
+            # an empty $tmp produces confusing "No such file or directory"
+            # errors that mask the real mktemp failure.
+            # bug-978 (#978): trailing-X template — BSD mktemp expands only
+            # trailing X-runs; the old .XXXXXX.json shape collided across the
+            # 3 voices and degraded the review to voices=1/3. The aggregator
+            # takes file paths; no extension needed.
+            if ! tmp=$(mktemp "${TEMP_DIR:-/tmp}/vq-input.XXXXXX"); then
+                log "WARNING: mktemp failed for vq-input ($(date)) — skipping verdict-quality envelope for $f"
+                continue
+            fi
             printf '%s' "$vq" > "$tmp"
             vq_files+=("$tmp")
             cleanup_files+=("$tmp")
@@ -607,8 +670,28 @@ aggregate_and_write_final_consensus() {
         }
         if [[ -s "$target" ]]; then
             local final_status
-            final_status=$(jq -r '.status' "$target" 2>/dev/null || echo "?")
+            final_status=$(jq -r '.status' "$target" 2>/dev/null || echo "?")  # check-no-swallowed-jq: ok (pending #1025 sweep)
             log "[vq-aggregate] wrote $target (status=$final_status, voices=${#vq_files[@]}/${#input_files[@]})"
+
+            # cycle-117 item D (#1177): uniform DEGRADED/FAILED trajectory
+            # record + page. $phase (prd/sdd/sprint) is the closest
+            # available identifier — flatline has no numbered sprint id, so
+            # it doubles as both the gate suffix and sprint_id. model_exit_code
+            # is lossy-compressed to the FIRST dropped voice's exit code when
+            # multiple voices drop (the schema has one scalar field, not a
+            # per-leg array — a known v1 limitation, not a bug).
+            if declare -F degraded_verdict_maybe_emit >/dev/null 2>&1; then
+                local _c117d_reason _c117d_mec
+                _c117d_reason=$(jq -r '.voices_dropped[0].reason // "unknown"' "$target" 2>/dev/null) || _c117d_reason="unknown"
+                _c117d_mec=$(jq -r '.voices_dropped[0].exit_code // "-"' "$target" 2>/dev/null) || _c117d_mec="-"
+                local -a _c117d_legs=()
+                while IFS= read -r _c117d_leg; do
+                    [[ -n "$_c117d_leg" ]] && _c117d_legs+=("$_c117d_leg")
+                done < <(jq -r '.voices_dropped[]?.voice // empty' "$target" 2>/dev/null)
+                degraded_verdict_maybe_emit "flatline:${phase}" "$final_status" \
+                    "$_c117d_reason" "$phase" "$_c117d_mec" \
+                    ${_c117d_legs[@]+"${_c117d_legs[@]}"}
+            fi
         fi
     fi
 
@@ -663,7 +746,22 @@ call_model() {
         local -a args=(
             --agent "$agent"
             --input "$input"
-            --model "$model_override"
+        )
+        # cycle-116 D3: score-mode per-stage tier routing. When the opt-in
+        # flag is set, omit --model and pass --role/--skill so cheval's
+        # advisor_strategy resolver (role gate) picks the tier. When unset
+        # (default), the argv is byte-identical to pre-D3: --model pin.
+        if [[ "$mode" == "score" ]] && is_stage_routing_scorer_enabled; then
+            args+=(--role implementation --skill flatline-scorer)
+        else
+            # cycle-119 C16 (model-economy D-6): --skill is a pre-existing
+            # cheval arg (cycle-108 T1.H) threaded into the MODELINV envelope
+            # as calling_primitive (cheval.py:1562,2126). Passing it here ends
+            # the 100%-(unattributed) state of the economy roll-up for every
+            # flatline dispatch. Additive: --model pin is unchanged.
+            args+=(--model "$model_override" --skill "flatline-${mode}")
+        fi
+        args+=(
             --output-format json
             --json-errors
             --timeout "$timeout"
@@ -1589,6 +1687,8 @@ run_consensus() {
 
     extract_json_content "$gpt_skeptic_file" '{"concerns":[]}' > "$gpt_skeptic_prepared"
     extract_json_content "$opus_skeptic_file" '{"concerns":[]}' > "$opus_skeptic_prepared"
+    normalize_skeptic_envelope "$gpt_skeptic_prepared"
+    normalize_skeptic_envelope "$opus_skeptic_prepared"
 
     # FR-3: Prepare tertiary scoring and skeptic files when available
     local tertiary_args=()
@@ -1617,6 +1717,7 @@ run_consensus() {
     if [[ -n "$tertiary_skeptic_file" && -s "$tertiary_skeptic_file" ]]; then
         local tertiary_skeptic_prepared="$TEMP_DIR/tertiary-skeptic-prepared.json"
         extract_json_content "$tertiary_skeptic_file" '{"concerns":[]}' > "$tertiary_skeptic_prepared"
+        normalize_skeptic_envelope "$tertiary_skeptic_prepared"
         tertiary_skeptic_args=(--skeptic-tertiary "$tertiary_skeptic_prepared")
         log "Including tertiary model skeptic concerns in consensus"
     fi
@@ -1861,7 +1962,7 @@ main() {
     doc_bytes=$(wc -c < "$doc" 2>/dev/null || echo 0)
     doc_kb=$(( (doc_bytes + 512) / 1024 ))   # round to nearest KB
     if [[ "$doc_bytes" -gt 30720 ]]; then
-        echo "WARNING: Document size ${doc_kb} KB; long prompts may trip the cheval connection-loss path on Anthropic + OpenAI. See issue #774 if Phase 1 reports failure_class=PROVIDER_DISCONNECT. The --per-call-max-tokens flag does NOT address this failure mode." >&2
+        echo "WARNING: Document size ${doc_kb} KB. Large documents are handled by the streaming transport default + chunked dispatch (KF-002 RESOLVED-STRUCTURAL); if Phase 1 still reports provider failures at this size, check the verdict_quality envelope and .run/model-invoke.jsonl rather than retrying. The --per-call-max-tokens flag does NOT change input handling." >&2
     fi
 
     # Validate orchestrator mode
@@ -2279,7 +2380,16 @@ main() {
 
             # Build arbiter prompt
             local arbiter_prompt_file
-            arbiter_prompt_file=$(mktemp)
+            # #878: guard mktemp failure. Without this, the subsequent
+            # `chmod 600 "$arbiter_prompt_file"` with an empty arg produces
+            # `chmod: : No such file or directory` and the prompt-write at
+            # L2298 silently writes to the current working directory or
+            # fails with cwd permission errors. Fail fast with a clear
+            # message instead of cascading to downstream confusion.
+            if ! arbiter_prompt_file=$(mktemp); then
+                log "ERROR: mktemp failed for arbiter prompt — skipping arbiter step for $phase"
+                continue
+            fi
             chmod 600 "$arbiter_prompt_file"
 
             local doc_excerpt=""
@@ -2294,7 +2404,7 @@ main() {
                 --arg doc_excerpt "$doc_excerpt" \
                 --arg phase "$phase" \
                 --argjson findings "$findings_to_arbitrate" \
-                '"You are the arbiter for this Flatline review. For each finding below, decide: accept (integrate the suggestion) or reject (with rationale). Your decision is final.\n\nDocument (" + $phase + ") excerpt:\n" + $doc_excerpt[0:2048] + "\n\nFindings requiring your decision:\n" + ($findings | tojson) + "\n\nRespond with a JSON array:\n[{\"finding_id\": \"...\", \"decision\": \"accept\"|\"reject\", \"rationale\": \"...\"}]"' \
+                '"You are the arbiter for this Flatline review. For each finding below, decide: accept (integrate the suggestion) or reject. Your decision is final.\n\nDocument (" + $phase + ") excerpt:\n" + $doc_excerpt[0:2048] + "\n\nFindings requiring your decision:\n" + ($findings | tojson) + "\n\nRespond with a JSON array:\n[{\"finding_id\": \"...\", \"decision\": \"accept\"|\"reject\"}]"' \
                 | jq -r '.' > "$arbiter_prompt_file"
 
             # Invoke with provider cascade (SKP-006)
@@ -2332,7 +2442,7 @@ main() {
                 # Extract JSON decisions from arbiter response
                 local decisions
                 decisions=$(echo "$arbiter_result" | jq -r '.content // .' 2>/dev/null | \
-                    grep -oE '\[.*\]' | head -1 | jq '.' 2>/dev/null || echo "[]")
+                    grep -oE '\[.*\]' | head -1 | jq '.' 2>/dev/null || echo "[]")  # check-no-swallowed-jq: ok (pending #1025 sweep)
 
                 if echo "$decisions" | jq -e 'type == "array"' >/dev/null 2>&1; then
                     # Process each decision

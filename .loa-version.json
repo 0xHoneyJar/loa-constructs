@@ -1,7 +1,7 @@
 {
-  "framework_version": "1.157.0",
+  "framework_version": "1.196.0",
   "schema_version": 2,
-  "last_sync": "2026-05-17T19:01:16Z",
+  "last_sync": "2026-07-12T19:55:00Z",
   "zones": {
     "system": ".claude",
     "state": [
@@ -21,7 +21,7 @@
   ],
   "integrity": {
     "enforcement": "strict",
-    "last_verified": null
+    "last_verified": "2026-07-12T19:55:41Z"
   },
   "dependencies": {
     "ck": {

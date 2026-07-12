@@ -19,6 +19,10 @@
 # A jq failure must result in exit 0 (allow), not an error.
 # Fail-open with logging is the standard pattern for inline security hooks.
 #
+# perf pass-2 (2026-07-05, skill-loop): jq reads the hook's stdin directly —
+# the interim $(cat) copy and echo-pipe only added a spawn and a fork for
+# the same bytes. jq itself is untouched (pass-3 scope).
+#
 # Registered in settings.hooks.json as PreToolUse matcher: "Skill"
 # Part of Agent Teams Compatibility (cycle-020, issue #337)
 # Source: Sprint 4 — Advisory-to-Mechanical Promotion
@@ -30,8 +34,7 @@ if [[ -z "${LOA_TEAM_MEMBER:-}" ]]; then
 fi
 
 # Read tool input from stdin (JSON with tool_input.skill)
-input=$(cat)
-skill=$(echo "$input" | jq -r '.tool_input.skill // empty' 2>/dev/null) || true
+skill=$(jq -r '.tool_input.skill // empty' 2>/dev/null) || true
 
 # If we can't parse the skill name, allow (don't block on parse errors)
 if [[ -z "$skill" ]]; then

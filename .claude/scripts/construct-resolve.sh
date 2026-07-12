@@ -139,19 +139,8 @@ _load_index() {
     local index_file="${INDEX_PATH:-${CONSTRUCT_INDEX_PATH:-$DEFAULT_INDEX_PATH}}"
 
     if [[ ! -f "$index_file" ]]; then
-        # Cycle-001 C-4: graceful fallback -- rebuild index, never exit non-zero on missing index alone
-        echo "[construct-resolve] WARNING: index missing at $index_file. Rebuilding..." >&2
-        local gen_script
-        gen_script="$(dirname "${BASH_SOURCE[0]}")/construct-index-gen.sh"
-        if [[ -x "$gen_script" ]]; then
-            "$gen_script" --quiet 2>/dev/null || true
-        fi
-        # Proceed even if rebuild failed -- resolve will fail with meaningful error if slug not found
-        if [[ ! -f "$index_file" ]]; then
-            echo "[construct-resolve] WARNING: index rebuild produced no index at $index_file" >&2
-            INDEX_JSON='{"constructs":[]}'
-            return 0
-        fi
+        echo "ERROR: Construct index not found: $index_file" >&2
+        exit 3
     fi
 
     # Detect format and convert to JSON
@@ -217,10 +206,8 @@ _resolve() {
         return 2
     fi
 
-    # Tier 3: Command name match (handles "/feel" → strip leading /)
-    local cmd_query="$query"
-    [[ "$cmd_query" == /* ]] && cmd_query="${cmd_query#/}"
-    matches=$(echo "$INDEX_JSON" | jq -c --arg q "$cmd_query" \
+    # Tier 3: Command name match
+    matches=$(echo "$INDEX_JSON" | jq -c --arg q "$query" \
         '[.constructs[] | select(.commands[]? | .name == $q)]')
     count=$(echo "$matches" | jq 'length')
 
@@ -229,29 +216,8 @@ _resolve() {
         return 0
     fi
     if [[ "$count" -gt 1 ]]; then
-        echo "WARNING: Multiple constructs claim command '$cmd_query'" >&2
+        echo "WARNING: Multiple constructs claim command '$query'" >&2
         _output_match "$(echo "$matches" | jq '.[0]')" "command"
-        return 2
-    fi
-
-    # Tier 4 (cycle-004 L2): persona handle match
-    # Handles "@ALEXANDER" (strip leading @), "ALEXANDER" (direct), "alexander"
-    # (case-insensitive). Personas extracted from pack's identity/<HANDLE>.md.
-    local persona_query="$query"
-    [[ "$persona_query" == @* ]] && persona_query="${persona_query#@}"
-    local persona_upper
-    persona_upper=$(echo "$persona_query" | tr '[:lower:]' '[:upper:]')
-    matches=$(echo "$INDEX_JSON" | jq -c --arg q "$persona_upper" \
-        '[.constructs[] | select(.personas[]? | ascii_upcase == $q)]')
-    count=$(echo "$matches" | jq 'length')
-
-    if [[ "$count" -eq 1 ]]; then
-        _output_match "$(echo "$matches" | jq '.[0]')" "persona"
-        return 0
-    fi
-    if [[ "$count" -gt 1 ]]; then
-        echo "WARNING: Multiple constructs claim persona '$persona_upper'" >&2
-        _output_match "$(echo "$matches" | jq '.[0]')" "persona"
         return 2
     fi
 

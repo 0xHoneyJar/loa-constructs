@@ -88,12 +88,19 @@ export CONFIG_FILE
 # =============================================================================
 
 # Determine script directory (may differ from PROJECT_ROOT/.claude/scripts if symlinked)
-_BOOTSTRAP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# perf(pass-5): dirname → parameter expansion (fork+exec eliminated);
+# cd+pwd subshell kept. Edge cases (no slash / root) handled explicitly.
+_BOOTSTRAP_SRC="${BASH_SOURCE[0]}"
+case "$_BOOTSTRAP_SRC" in
+  */*) _BOOTSTRAP_DIR="${_BOOTSTRAP_SRC%/*}"; [[ -n "$_BOOTSTRAP_DIR" ]] || _BOOTSTRAP_DIR="/" ;;
+  *)   _BOOTSTRAP_DIR="." ;;
+esac
+_BOOTSTRAP_DIR="$(cd "$_BOOTSTRAP_DIR" && pwd)"
 
 # Source path-lib.sh if it exists
 if [[ -f "$_BOOTSTRAP_DIR/path-lib.sh" ]]; then
   source "$_BOOTSTRAP_DIR/path-lib.sh"
 fi
 
-# Cleanup internal variable
-unset _BOOTSTRAP_DIR
+# Cleanup internal variables
+unset _BOOTSTRAP_DIR _BOOTSTRAP_SRC
