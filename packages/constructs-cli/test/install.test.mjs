@@ -508,3 +508,23 @@ test('S229-P2: an unmanaged target is refused BEFORE anything durable is written
     []
   );
 });
+
+test('S229-P3: a target substituted after the pre-check is still refused (the swap revalidates)', async () => {
+  const expected = treeHash(GOOD_FILES);
+  const root = await makeRoot({ treeHashValue: expected });
+  const payload = await writePayload(root, GOOD_FILES);
+  const target = path.join(root, '.claude', 'constructs', 'packs', 'goodpack');
+
+  // A managed pack exists (passes the pre-check)…
+  await install({ slug: 'goodpack', root, payloadFile: payload });
+  // …and is then swapped for an UNMANAGED directory holding user work. The swap
+  // must revalidate the directory it actually moves, not trust the earlier check.
+  const { rm: rmFs } = await import('node:fs/promises');
+  await rmFs(target, { recursive: true, force: true });
+  await mkdir(target, { recursive: true });
+  await writeFile(path.join(target, 'user-work.md'), 'mine');
+
+  await rejectsInstall(install({ slug: 'goodpack', root, payloadFile: payload }), EXIT.REFUSED);
+  const kept = await readdir(target);
+  assert.ok(kept.includes('user-work.md'), 'user work survives, and is put back where it was');
+});

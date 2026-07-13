@@ -345,6 +345,22 @@ async function swapPackIn({ root, slug, stage }) {
   const backup = path.join(parent, `.backup-${slug}-${process.pid}`);
   await rm(backup, { recursive: true, force: true });
   await rename(target, backup);
+
+  // Revalidate the EXACT directory we just moved (review pass 3). assertReplaceable
+  // ran before the anchor and receipt writes; a directory substituted in that window
+  // would otherwise be replaced without ever being checked. Validating the moved
+  // backup closes the window — there is nothing left to substitute.
+  try {
+    await access(path.join(backup, '.construct-meta.json'));
+  } catch {
+    await rename(backup, target).catch(() => {});
+    throw new InstallError(
+      `${target} changed under us and has no .construct-meta.json marker — refusing to overwrite something this tool does not manage`,
+      EXIT.REFUSED,
+      { fix: 'move the directory aside, or remove it if it is yours to remove, then retry' }
+    );
+  }
+
   try {
     await rename(stage, target);
   } catch (err) {
