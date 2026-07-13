@@ -1,7 +1,7 @@
 # Migration: folding `0xHoneyJar/constructs-cli` into `constructs` (PRD FR-16, G-6)
 
 > Cycle: `constructs-launcher-cli` · sprint-229 T3.8
-> Status: **redirect authored, publish/archive operator-gated** (see "What remains" below)
+> Status: **COMPLETE** — redirect pushed (`7a56e0a`) and repo archived 2026-07-13 (operator-authorized)
 
 ## What changed
 
@@ -31,17 +31,16 @@ Consequence: the fold reduces to (a) the in-repo deprecation pointer, (b) the RE
 archive banner, (c) archiving the repo. Steps (a) and (b) are authored and committed
 locally on `main` in that repo (`7a56e0a`, unpushed).
 
-## What remains — operator-gated
+## What was done (2026-07-13, operator-authorized)
 
-These are public, hard-to-reverse acts on an external repo, deliberately NOT performed
-autonomously by the sprint run:
+1. **Pushed** the redirect commit `7a56e0a` to `main` — verified live on the remote (README
+   banner renders; `src/index.ts` carries the stderr pointer) BEFORE archiving, since an
+   archived repo is read-only.
+2. **Archived** `0xHoneyJar/constructs-cli` (`gh repo archive` → `isArchived=true`). Read-only,
+   **not deleted**: existing clones, checkouts, and `git clone` all keep working.
+3. **npm**: nothing to do — the package does not exist on the registry (E404).
 
-1. **Push the redirect commit**: `cd ~/Documents/GitHub/constructs-cli && git push origin main`
-2. **Archive the repo**: `gh repo archive 0xHoneyJar/constructs-cli`
-   (or Settings → Archive this repository)
-3. **npm**: nothing to do — the package does not exist on the registry.
-
-Tracked as a beads follow-up (see `br list --label constructs-fold`).
+Tracked and closed: `bd-7jx7`, `bd-2615`.
 
 ## Rollback criteria (PRD FR-16)
 
