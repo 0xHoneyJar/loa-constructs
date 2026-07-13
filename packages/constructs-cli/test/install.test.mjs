@@ -221,8 +221,12 @@ test('attestation: revoked key refuses; wrong signature refuses', async () => {
 test('attestation: verifies against a known-good JCS vector', async () => {
   // The signed bytes are JCS({manifest, tree_hash}) — pin the canonical form so a
   // canonicalization drift breaks loudly here, not silently at verify time.
+  // expiry is INSIDE the signed object (T3.2b) — null when absent, so a stripped
+  // expiry changes the bytes and the signature simply fails.
   const bytes = attestationBytes({ b: 2, a: [1.5, 'x'] }, 'sha256:abc');
-  assert.equal(bytes.toString('utf8'), '{"manifest":{"a":[1.5,"x"],"b":2},"tree_hash":"sha256:abc"}');
+  assert.equal(bytes.toString('utf8'), '{"expiry":null,"manifest":{"a":[1.5,"x"],"b":2},"tree_hash":"sha256:abc"}');
+  const withExpiry = attestationBytes({ b: 2 }, 'sha256:abc', '2027-01-01T00:00:00Z');
+  assert.equal(withExpiry.toString('utf8'), '{"expiry":"2027-01-01T00:00:00Z","manifest":{"b":2},"tree_hash":"sha256:abc"}');
 });
 
 // ── T3.2 · landing safety ─────────────────────────────────────────────────────
@@ -292,4 +296,88 @@ test('git rung: repo-borne symlink rejected outright', async () => {
   await run('git', ['-c', 'user.email=f@t', '-c', 'user.name=f', 'commit', '-q', '-m', 'add symlink'], { cwd: upstream.dir });
   const root = await makeRoot({ gitUrl: upstream.dir });
   await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'CONTAINMENT');
+});
+
+// ── T3.2b · the four classes a second model found that the author's fixtures missed ──
+//
+// This is the whole point of T3.2b: a self-authored guard reviewed by its author
+// is not a guard. Each of these was a REAL bypass before the fix.
+
+test('T3.2b: case-folding alias collision refused (two entries, one file on macOS/Windows)', async () => {
+  const { problems } = validateFileList(await loadRedteam('case-alias-collision.json'));
+  assert.match(problems.join(' '), /collides with/);
+});
+
+test('T3.2b: Unicode NFC/NFD alias collision refused (two entries, one file on APFS)', async () => {
+  const { problems } = validateFileList(await loadRedteam('unicode-normalize-collision.json'));
+  assert.match(problems.join(' '), /collides with/);
+});
+
+test('T3.2b: attestation expiry is INSIDE the signed bytes — stripping it breaks the signature', async () => {
+  const { publicKey, privateKey } = generateKeyPairSync('ed25519');
+  const pem = publicKey.export({ type: 'spki', format: 'pem' });
+  const keyProvider = async () => ({ public_key: pem, status: 'active' });
+  const manifest = { name: 'goodpack' };
+  const hash = treeHash(GOOD_FILES);
+  const expiry = '2027-01-01T00:00:00Z';
+
+  // Signed WITH the expiry: verifies.
+  const sig = cryptoSign(null, attestationBytes(manifest, hash, expiry), privateKey).toString('base64');
+  const ok = await verifyAttestation({ manifest, tree_hash: hash, attestation: { signature: sig, key_id: 'k1', expiry }, keyProvider });
+  assert.equal(ok.verified, true);
+
+  // Same signature, expiry STRIPPED → the signed bytes change → signature fails.
+  await assert.rejects(
+    verifyAttestation({ manifest, tree_hash: hash, attestation: { signature: sig, key_id: 'k1' }, keyProvider }),
+    (err) => err.code === 'SIGNATURE_INVALID'
+  );
+  // Same signature, expiry EXTENDED → likewise fails.
+  await assert.rejects(
+    verifyAttestation({ manifest, tree_hash: hash, attestation: { signature: sig, key_id: 'k1', expiry: '2099-01-01T00:00:00Z' }, keyProvider }),
+    (err) => err.code === 'SIGNATURE_INVALID'
+  );
+  // A malformed expiry is named, not silently ignored.
+  const badSig = cryptoSign(null, attestationBytes(manifest, hash, 'not-a-date'), privateKey).toString('base64');
+  await assert.rejects(
+    verifyAttestation({ manifest, tree_hash: hash, attestation: { signature: badSig, key_id: 'k1', expiry: 'not-a-date' }, keyProvider }),
+    (err) => err.code === 'ATTESTATION_MALFORMED'
+  );
+});
+
+test('T3.2b: TOFU actually pins — a changed remote HEAD is refused, not silently re-anchored', async () => {
+  const upstream = await makeUpstream();
+  const root = await makeRoot({ gitUrl: upstream.dir });
+
+  const first = await install({ slug: 'goodpack', root, rung: 'git' });
+  assert.match(first.payload.install.anchor, new RegExp(`^first-seen:${upstream.head}`));
+
+  // Upstream moves (a compromised repo, or merely an updated one — the tool cannot tell).
+  await writeFile(path.join(upstream.dir, 'construct.yaml'), 'name: goodpack\nslug: goodpack\nadded: later\n');
+  await run('git', ['add', '-A'], { cwd: upstream.dir });
+  await run('git', ['-c', 'user.email=f@t', '-c', 'user.name=f', 'commit', '-q', '-m', 'upstream moves'], { cwd: upstream.dir });
+
+  await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'TOFU_MISMATCH');
+
+  // Rotation is possible, but only as a knowing, reasoned act.
+  const rotated = await install({ slug: 'goodpack', root, rung: 'git', allowIntegrityMismatch: true, reason: 'fixture: knowingly rotating the anchor' });
+  assert.equal(rotated.mode, 'installed');
+});
+
+test('T3.2b: replacing an installed pack is a SWAP — the old pack is never deleted before the new one lands', async () => {
+  const expected = treeHash(GOOD_FILES);
+  const root = await makeRoot({ treeHashValue: expected });
+  const payload = await writePayload(root, GOOD_FILES);
+
+  const first = await install({ slug: 'goodpack', root, payloadFile: payload });
+  const before = JSON.parse(await readFile(path.join(first.path, '.construct-meta.json'), 'utf8'));
+
+  const second = await install({ slug: 'goodpack', root, payloadFile: payload });
+  assert.equal(second.mode, 'installed');
+  const after = JSON.parse(await readFile(path.join(second.path, '.construct-meta.json'), 'utf8'));
+  assert.equal(after.tree_hash, before.tree_hash);
+
+  // No backup residue left behind.
+  const parent = path.join(root, '.claude', 'constructs', 'packs');
+  const residue = (await readdir(parent)).filter((f) => f.startsWith('.backup-'));
+  assert.deepEqual(residue, []);
 });

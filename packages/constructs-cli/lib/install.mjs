@@ -47,6 +47,19 @@ export const BUDGETS = Object.freeze({
 const CONTROL_BYTES_RE = /[\u0000-\u001f]/; // control bytes in a file NAME are never legitimate
 
 /**
+ * The portable collision key (T3.2b, adversarial fixture review).
+ *
+ * `treeHash` sorts entries but `stageFileList` writes them in PAYLOAD order, and
+ * real filesystems alias names: macOS/Windows fold case, and HFS+/APFS normalize
+ * Unicode. So two entries that hash as distinct can land on ONE file, and which
+ * content survives depends on write order — an attacker picks the order, the hash
+ * still matches the anchor. Colliding entries are refused BEFORE hashing.
+ */
+export function collisionKey(p) {
+  return p.normalize('NFC').toLowerCase();
+}
+
+/**
  * Containment for file NAMES + budgets. Every rule here has a red-team fixture
  * in test/fixtures/redteam/ that fails the build if it regresses.
  */
@@ -59,7 +72,7 @@ export function validateFileList(files) {
     problems.push(`payload has ${files.length} entries, over the budget of ${BUDGETS.max_entry_count} (entry-count flood)`);
   }
   let totalBytes = 0;
-  const seen = new Set();
+  const seen = new Map();
   for (const [i, f] of files.entries()) {
     const where = `files[${i}]`;
     if (typeof f?.path !== 'string' || f.path.length === 0) {
@@ -80,8 +93,16 @@ export function validateFileList(files) {
     if (f.symlink !== undefined || f.link !== undefined || f.type === 'symlink' || (typeof f.mode === 'number' && (f.mode & 0o170000) === 0o120000)) {
       problems.push(`${where}: symlink entry ${JSON.stringify(f.path)} rejected outright`);
     }
-    if (seen.has(f.path)) problems.push(`${where}: duplicate path ${JSON.stringify(f.path)}`);
-    seen.add(f.path);
+    const key = collisionKey(f.path);
+    if (seen.has(key)) {
+      const prior = seen.get(key);
+      problems.push(
+        prior === f.path
+          ? `${where}: duplicate path ${JSON.stringify(f.path)}`
+          : `${where}: ${JSON.stringify(f.path)} collides with ${JSON.stringify(prior)} on a case-folding or Unicode-normalizing filesystem — two entries, one file, and write order would decide the winner`
+      );
+    }
+    seen.set(key, f.path);
 
     const bytes = typeof f.content === 'string' ? Buffer.byteLength(f.content, 'base64') : 0;
     if (bytes > BUDGETS.max_single_file_bytes) {
@@ -130,9 +151,16 @@ export async function readRegistryAnchor(slug, registryFile = 'registry.yaml') {
 
 // ── attestation (T3.1) — the audit substrate's crypto, exactly ────────────────
 
-/** Signed bytes = JCS({manifest, tree_hash}), Ed25519, single signature v1. */
-export function attestationBytes(manifest, tree_hash) {
-  return Buffer.from(jcsCanonicalize({ manifest: manifest ?? null, tree_hash }), 'utf8');
+/**
+ * Signed bytes = JCS({expiry, manifest, tree_hash}), Ed25519, single signature v1.
+ *
+ * `expiry` is INSIDE the signed object (T3.2b): binding it outside the signature
+ * let an attacker strip or extend it while keeping a valid signature — enforcement
+ * of a field nobody signed is theatre. `null` when absent, so a stripped expiry
+ * changes the signed bytes and the signature simply fails.
+ */
+export function attestationBytes(manifest, tree_hash, expiry = null) {
+  return Buffer.from(jcsCanonicalize({ expiry: expiry ?? null, manifest: manifest ?? null, tree_hash }), 'utf8');
 }
 
 export async function fetchPublisherKey(keyId, { fetchImpl = null } = {}) {
@@ -150,8 +178,14 @@ export async function verifyAttestation({ manifest, tree_hash, attestation, keyP
       { code: 'STRIP_ATTACK', fix: 'refuse this payload; fetch from a channel that preserves the attestation' }
     );
   }
-  if (attestation.expiry && new Date(attestation.expiry).getTime() < now.getTime()) {
-    throw new InstallError(`attestation expired at ${attestation.expiry}`, EXIT.INTEGRITY_MISMATCH, { code: 'ATTESTATION_EXPIRED' });
+  if (attestation.expiry !== undefined && attestation.expiry !== null) {
+    const at = new Date(attestation.expiry).getTime();
+    if (Number.isNaN(at)) {
+      throw new InstallError(`attestation expiry ${JSON.stringify(attestation.expiry)} is not a date`, EXIT.INTEGRITY_MISMATCH, { code: 'ATTESTATION_MALFORMED' });
+    }
+    if (at < now.getTime()) {
+      throw new InstallError(`attestation expired at ${attestation.expiry}`, EXIT.INTEGRITY_MISMATCH, { code: 'ATTESTATION_EXPIRED' });
+    }
   }
   const { pem, status } = await fetchPublisherKey(attestation.key_id, { fetchImpl: keyProvider });
   if (!pem) {
@@ -166,7 +200,7 @@ export async function verifyAttestation({ manifest, tree_hash, attestation, keyP
   }
   let ok = false;
   try {
-    ok = cryptoVerify(null, attestationBytes(manifest, tree_hash), createPublicKey(pem), Buffer.from(attestation.signature, 'base64'));
+    ok = cryptoVerify(null, attestationBytes(manifest, tree_hash, attestation.expiry ?? null), createPublicKey(pem), Buffer.from(attestation.signature, 'base64'));
   } catch (err) {
     throw new InstallError(`attestation verification errored: ${err?.message ?? err}`, EXIT.INTEGRITY_MISMATCH, { code: 'SIGNATURE_INVALID' });
   }
@@ -216,24 +250,45 @@ async function assertNoSymlinks(dir) {
 async function landPack({ root, slug, stage }) {
   const parent = packsParent(root);
   const target = path.join(parent, slug);
-  // Overwrite only pack-marker-managed targets: an unmanaged dir is user work.
+
+  let replacing = false;
   try {
     await stat(target);
-    try {
-      await access(path.join(target, '.construct-meta.json'));
-    } catch {
-      throw new InstallError(
-        `${target} exists but has no .construct-meta.json marker — refusing to overwrite something this tool does not manage`,
-        EXIT.REFUSED,
-        { fix: 'move the directory aside, or remove it if it is yours to remove' }
-      );
-    }
-    await rm(target, { recursive: true, force: true });
-  } catch (err) {
-    if (err instanceof InstallError) throw err;
-    // ENOENT: fresh install
+    replacing = true;
+  } catch {
+    replacing = false; // ENOENT: fresh install
   }
-  await rename(stage, target);
+
+  if (!replacing) {
+    await rename(stage, target);
+    return target;
+  }
+
+  // Overwrite only pack-marker-managed targets: an unmanaged dir is user work.
+  try {
+    await access(path.join(target, '.construct-meta.json'));
+  } catch {
+    throw new InstallError(
+      `${target} exists but has no .construct-meta.json marker — refusing to overwrite something this tool does not manage`,
+      EXIT.REFUSED,
+      { fix: 'move the directory aside, or remove it if it is yours to remove' }
+    );
+  }
+
+  // Replace by SWAP, not by delete-then-rename (T3.2b): the old pack is renamed
+  // aside first, so a failure mid-landing restores it. A delete-first replace
+  // leaves a window where an interrupted install has destroyed the working pack
+  // and installed nothing.
+  const backup = path.join(parent, `.backup-${slug}-${process.pid}`);
+  await rm(backup, { recursive: true, force: true });
+  await rename(target, backup);
+  try {
+    await rename(stage, target);
+  } catch (err) {
+    await rename(backup, target).catch(() => {}); // restore what was working
+    throw err;
+  }
+  await rm(backup, { recursive: true, force: true });
   return target;
 }
 
@@ -272,7 +327,31 @@ async function acquirePayloadFile(payloadFile) {
   };
 }
 
-async function acquireGit({ slug, anchor, stagingDir }) {
+/**
+ * The TOFU anchor store (T3.2b): trust-on-FIRST-use means the first commit is
+ * PINNED and every later install must match it. Re-recording whatever HEAD says
+ * on each run is not TOFU — it is trust-on-every-use, which is no trust at all.
+ * Rotation is an explicit, audited act (--allow-integrity-mismatch --reason).
+ */
+function tofuAnchorPath(root, slug) {
+  return path.join(root, 'grimoires', 'loa', 'territory', 'anchors', `${slug}.json`);
+}
+
+async function readTofuAnchor(root, slug) {
+  try {
+    return JSON.parse(await readFile(tofuAnchorPath(root, slug), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+async function writeTofuAnchor(root, slug, commit) {
+  const file = tofuAnchorPath(root, slug);
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(file, `${JSON.stringify({ slug, commit, first_seen_at: nowIso() }, null, 2)}\n`, 'utf8');
+}
+
+async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrityMismatch = false }) {
   if (!anchor?.git_url) {
     throw new InstallError(`registry.yaml has no git_url for ${slug} — the git rung cannot answer`, EXIT.CALLER_ERROR, { fix: 'constructs list --json    # what the registry knows' });
   }
@@ -287,8 +366,29 @@ async function acquireGit({ slug, anchor, stagingDir }) {
     }
   } else {
     const { stdout } = await run('git', ['-C', stagingDir, 'rev-parse', 'HEAD'], { timeoutMs: 15_000 });
-    tofu = stdout.trim();
-    process.stderr.write(`notice: registry.yaml records no commit for ${slug} — first fetch is trust-on-first-use; receipt anchors to first-seen:${tofu.slice(0, 12)}\n`);
+    const head = stdout.trim();
+    const pinned = await readTofuAnchor(root, slug);
+    if (pinned && pinned.commit !== head) {
+      if (!allowIntegrityMismatch) {
+        throw new InstallError(
+          `TOFU anchor mismatch for ${slug}: first-seen ${pinned.commit} (pinned ${pinned.first_seen_at}), remote HEAD is now ${head}. An unpinned construct is trusted on FIRST use; a changed HEAD is a rotation, not a routine update`,
+          EXIT.INTEGRITY_MISMATCH,
+          { code: 'TOFU_MISMATCH', fix: 'verify the change is legitimate, then rotate knowingly: --allow-integrity-mismatch --reason "<why>"' }
+        );
+      }
+      process.stderr.write(`warning: rotating the TOFU anchor for ${slug}: ${pinned.commit} -> ${head}\n`);
+      await run('git', ['-C', stagingDir, 'checkout', '-q', '--detach', head], { timeoutMs: 30_000 });
+      await writeTofuAnchor(root, slug, head);
+      tofu = head;
+    } else if (pinned) {
+      // Pinned and matching: check out the pin explicitly, never "whatever HEAD is".
+      await run('git', ['-C', stagingDir, 'checkout', '-q', '--detach', pinned.commit], { timeoutMs: 30_000 });
+      tofu = pinned.commit;
+    } else {
+      await writeTofuAnchor(root, slug, head);
+      tofu = head;
+      process.stderr.write(`notice: registry.yaml records no commit for ${slug} — first fetch is trust-on-first-use; pinned first-seen:${head.slice(0, 12)} (later installs must match it)\n`);
+    }
   }
   try {
     await readFile(path.join(stagingDir, 'construct.yaml'), 'utf8');
@@ -338,8 +438,18 @@ export async function install({
 
       if (rung === 'git' || rung === 'registry-git') {
         await mkdir(stagingDir, { recursive: true });
-        gitInfo = await acquireGit({ slug, anchor, stagingDir: path.join(stagingDir, 'pack') });
+        const packStage = path.join(stagingDir, 'pack');
+        gitInfo = await acquireGit({ slug, anchor, stagingDir: packStage, root, allowIntegrityMismatch });
         acquisition = { rung: 'registry-git', files: null, manifest: null, version: null, attestation: null, declaredHash: null };
+        if (!dryRun) {
+          // The git rung leaves the SAME pack marker as the file-list rung — without
+          // it, a git-installed pack is "unmanaged" to its own tool and can never be
+          // updated (found by the T3.2b TOFU fixture).
+          await writeFile(
+            path.join(packStage, '.construct-meta.json'),
+            JSON.stringify({ slug, version: null, source_type: 'git', commit: gitInfo.head, installed_at: nowIso() }, null, 2)
+          );
+        }
       } else {
         acquisition = rung === 'payload' || payloadFile ? await acquirePayloadFile(payloadFile) : await acquireApi(slug);
 
