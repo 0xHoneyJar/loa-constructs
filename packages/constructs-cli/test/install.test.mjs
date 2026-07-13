@@ -358,9 +358,14 @@ test('T3.2b: TOFU actually pins — a changed remote HEAD is refused, not silent
 
   await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'TOFU_MISMATCH');
 
-  // Rotation is possible, but only as a knowing, reasoned act.
+  // Rotation is possible, but only as a knowing, reasoned act — and the receipt
+  // records it AS an override, with the reason (audit): an override that leaves no
+  // trace is not forensics, it is a rumour.
   const rotated = await install({ slug: 'goodpack', root, rung: 'git', allowIntegrityMismatch: true, reason: 'fixture: knowingly rotating the anchor' });
   assert.equal(rotated.mode, 'installed');
+  assert.equal(rotated.payload.install.outcome, 'hash-overridden');
+  assert.match(rotated.payload.install.override_reason, /knowingly rotating/);
+  assert.match(rotated.payload.install.anchor, /rotated from/);
 });
 
 test('T3.2b: replacing an installed pack is a SWAP — the old pack is never deleted before the new one lands', async () => {

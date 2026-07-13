@@ -485,6 +485,9 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
   // The anchor a successful landing WOULD persist. A --dry-run must never mutate
   // trust state (review pass 1), so nothing is written from inside acquisition.
   let pendingAnchor = null;
+  // Set when an --allow-integrity-mismatch rotated an existing pin. An override
+  // that leaves no trace in the receipt is not forensics, it is a rumour (audit).
+  let rotatedFrom = null;
   if (anchor.commit) {
     // T3.3: pin to the commit the TRACKED registry records.
     try {
@@ -508,6 +511,7 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
       await run('git', ['-C', stagingDir, 'checkout', '-q', '--detach', head], { timeoutMs: 30_000 });
       tofu = head;
       pendingAnchor = head; // persisted only on a successful, non-dry-run landing
+      rotatedFrom = pinned.commit; // an override happened: the receipt MUST say so (audit)
     } else if (pinned) {
       // Pinned and matching: check out the pin explicitly, never "whatever HEAD is".
       await run('git', ['-C', stagingDir, 'checkout', '-q', '--detach', pinned.commit], { timeoutMs: 30_000 });
@@ -530,7 +534,7 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
   await assertNoSymlinks(stagingDir);
   await rm(path.join(stagingDir, '.git'), { recursive: true, force: true });
   const head = anchor.commit ?? tofu ?? 'unknown';
-  return { rung: 'registry-git', head, tofu: tofu !== null, pendingAnchor };
+  return { rung: 'registry-git', head, tofu: tofu !== null, pendingAnchor, rotatedFrom };
 }
 
 // ── the install flow ──────────────────────────────────────────────────────────
@@ -575,6 +579,10 @@ export async function install({
         const packStage = path.join(stagingDir, 'pack');
         gitInfo = await acquireGit({ slug, anchor, stagingDir: packStage, root, allowIntegrityMismatch, dryRun });
         acquisition = { rung: 'registry-git', files: null, manifest: null, version: null, attestation: null, declaredHash: null };
+        // A rotated TOFU pin IS an integrity override — the receipt must say so, and
+        // must carry the operator's reason. Recording it as a plain `verified` install
+        // would erase the only trace of the act (audit).
+        if (gitInfo.rotatedFrom) outcome = 'hash-overridden';
         if (!dryRun) {
           // The git rung leaves the SAME pack marker as the file-list rung — without
           // it, a git-installed pack is "unmanaged" to its own tool and can never be
@@ -651,9 +659,11 @@ export async function install({
           tree_hash: computedHash ?? `sha256:${'0'.repeat(64)}`,
           outcome,
           anchor: gitInfo
-            ? gitInfo.tofu
-              ? `first-seen:${gitInfo.head}`
-              : `registry-commit:${gitInfo.head}`
+            ? gitInfo.rotatedFrom
+              ? `first-seen:${gitInfo.head} (rotated from ${gitInfo.rotatedFrom})`
+              : gitInfo.tofu
+                ? `first-seen:${gitInfo.head}`
+                : `registry-commit:${gitInfo.head}`
             : anchorLabel,
           ...(allowIntegrityMismatch && outcome === 'hash-overridden' ? { override_reason: reason.trim() } : {}),
           ...(typeof keyId === 'string' ? { key_id: keyId } : {}),
