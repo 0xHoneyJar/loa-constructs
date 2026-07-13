@@ -1478,3 +1478,31 @@ Two independent failures found while red-teaming the constructs-CLI SDD:
 Red-team was SKIPPED for this cycle (advisory phase). Security coverage for the
 SDD came from: Flatline PRD ×2 (24 blockers), Bridgebuilder design review (7),
 Flatline SDD (19 blockers incl. 5 CRITICAL supply-chain/authority). File upstream.
+
+## Decision Log — 2026-07-13 (sprint-229, T3.8)
+
+**T3.8 fold is ⚠ Partial by deliberate scope-split, not by omission.**
+
+- **PRD assumption corrected**: FR-16 planned `npm deprecate` on `constructs-cli`.
+  The package was **never published** (`npm view constructs-cli` → E404). There is
+  nothing on npm to deprecate and no npm consumer to warn. The "final redirect
+  release" reduces to the in-repo pointer, which is authored.
+- **Done autonomously** (reversible, reviewable): deprecation pointer in
+  `constructs-cli/src/index.ts` (stderr-only, behavior unchanged, silenceable),
+  README archive banner, migration note with rollback criteria
+  (`docs/migration-constructs-cli-fold.md`). Committed locally as `7a56e0a` on
+  that repo's `main`, **unpushed**.
+- **Deferred to the operator** (public, hard-to-reverse, on an EXTERNAL repo — outside
+  this run's draft-PR safety model): `git push origin main` in constructs-cli, and
+  `gh repo archive 0xHoneyJar/constructs-cli`. Tracked: **bd-7jx7**.
+- **Rollback is cheap by construction**: archive is reversible, the redirect is one
+  revertable commit, and the absorbed git-native install lane lives in
+  `lib/install.mjs` regardless of the old repo's state.
+
+**Other cycle discoveries filed upstream**: `bd-mcyn` (graduated-trust-lib token regex
+`{1,256}` exceeds macOS `RE_DUP_MAX=255` — every token rejected on macOS), `bd-ccnu`
+(operator-identity.sh repo-root off-by-one makes strict-mode L6 verify_operators always
+reject), `bd-jtns` (trust-store declares a signature cutoff with zero writer keys, so
+post-cutoff envelopes are unverifiable in default mode until key bootstrap; envelope
+schema has no TERRITORY primitive — observations ride L5), `bd-3t9k` (sprint-227 T1.9
+left no launcher artifacts in-tree).
