@@ -1447,3 +1447,12 @@ Full enriched ride of loa-constructs (branch `implement/backlog-triage`, HEAD 47
 - Dead code: top-level `api/{checkout,subscription,webhook}` Stripe stubs (orphaned, superseded by apps/api/src/routes/).
 
 **Artifacts**: grimoires/loa/{prd,sdd,drift-report,consistency-report,governance-report,trajectory-audit,gaps}.md + reality/{index,architecture-overview,structure,api-surface,types,interfaces,entry-points,terminology,decisions,over-engineering,hygiene-report}.md. Query via /reality.
+
+## Discovery — constructs launcher CLI (2026-07-12, /plan-and-analyze in flight)
+
+**Phase 1 CONFIRMED + EXPANDED by operator.** Problem is not just CLI fragmentation — it is territory legibility for agents ahead of massive onboarding/data intake: zones (who writes where) × topology (what composes) × environment (what may I do here). Vision: constructs that OWN regions (SAATY→score-api; EVANS at seams), CLI as the navigation/stationing organ. Full synthesis: `context/territory-model-addendum.md` (supplements `context/constructs-launcher-cli-brief.md`).
+
+**Live evidence this cycle**: v1.196 update swap deleted 392 project-zone files despite zones.yaml declaring them protected (restored, commit 917fc6a7) — the zone stratum's prose-wall failure, in vivo. Upstream #818 (zone-aware update filter) is the missing tooth.
+
+- [ ] [DECISION PENDING] Phase 2: success metrics for this cycle
+- [ ] Forks for Phase 4/5: seed-vs-greenfield · constructs-cli repo fate · SoT collision (registry.yaml/API/index) · scope (CLI-only vs +24 shell scripts) · territory: stanza (additive schema)

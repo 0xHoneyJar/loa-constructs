@@ -1831,8 +1831,8 @@ flatline_protocol:
     sdd: true
     sprint: true
   models:
-    primary: opus
-    secondary: gpt-5.5-pro # most powerful OpenAI (was gpt-5.3-codex)
+    primary: claude-headless:claude-opus-4-7
+    secondary: codex-headless:gpt-5.5 # most powerful OpenAI (was gpt-5.3-codex)
     tertiary: gemini-3.1-pro # registered alias (was 'google:gemini-3.1-pro-preview' — both forms failed readiness check 2026-05-11 cycle-craft-cluster; bare registered alias is the working form)
   thresholds:
     high_consensus: 700
