@@ -18,6 +18,7 @@ import {
   MUTATION_VERBS,
 } from '../lib/contract.mjs';
 import { listConstructs, readLocalPacks, RUNGS, SotError } from '../lib/sot.mjs';
+import { atlas, where, TerritoryError } from '../lib/territory.mjs';
 
 // ─── output ───────────────────────────────────────────────────────────────────
 
@@ -274,6 +275,69 @@ async function cmdDoctor(wantJson) {
   process.exitCode = EXIT.OK;
 }
 
+function atlasSources(flags) {
+  if (typeof flags.source === 'string') return flags.source.split(',').map((s) => s.trim()).filter(Boolean);
+  return ['.'];
+}
+
+async function cmdAtlas(flags, wantJson) {
+  const timeoutMs = flags.timeout ? Number(flags.timeout) * 1000 : undefined;
+  const map = await atlas({ sources: atlasSources(flags), timeoutMs });
+
+  if (wantJson) {
+    emitJson(map);
+  } else {
+    out('');
+    out(`  ATLAS  (vantage: ${map.vantage}${map.partial ? ', PARTIAL' : ''})`);
+    out('');
+    if (map.regions.length === 0) {
+      out('  No region has declared a territory manifest yet.');
+      out('  A region declares itself in its own tree: grimoires/territory.yaml');
+    }
+    for (const r of map.regions) {
+      out(`  ▸ ${r.region}${r.maintainers.length ? `  (${r.maintainers.join(', ')})` : ''}`);
+      for (const o of r.outcomes) out(`      outcome  ${o.id} — ${o.description}`);
+      for (const l of r.loadout) {
+        const mark = l.installed ? '' : '  [not installed]';
+        out(`      warden   ${l.construct} → ${l.outcomes.join(', ')}  [${l.authority_effective}/${l.authority_ceiling}]${mark}`);
+      }
+      out('');
+    }
+    if (map.conflicts.length) {
+      out(`  ⚠ ${map.conflicts.length} CONFLICT(S) — two regions claim overlapping territory:`);
+      for (const c of map.conflicts) out(`      ${c.regions.join(' ↔ ')}  ${c.scopes.join(' / ')}`);
+      out('');
+    }
+    out(`  estate: ${map.estate.installed_packs} pack(s) installed · ${map.estate.stationed_constructs} stationed`);
+    out('');
+  }
+
+  for (const f of map.failed_sources) diag(`warning: source ${f.source} unreadable — ${f.error}`);
+  process.exitCode = EXIT.OK; // a partial map that says so beats no map at all
+}
+
+async function cmdWhere(target, flags, wantJson) {
+  if (!target) {
+    return fail(EXIT.CALLER_ERROR, 'where requires a path, noun, or slug', 'constructs where packages/loa-registry --json');
+  }
+  const answer = await where(target, { sources: atlasSources(flags) });
+  if (wantJson) {
+    emitJson(answer);
+  } else {
+    out('');
+    out(`  ${answer.target}`);
+    out(`    zone      ${answer.zone ?? '(unzoned)'}`);
+    out(`    region    ${answer.region ?? '(unclaimed)'}`);
+    if (answer.owner.length) out(`    owner     ${answer.owner.join(', ')}`);
+    if (answer.matched_scope) out(`    scope     ${answer.matched_scope}`);
+    for (const l of answer.loadout) out(`    warden    ${l.construct} [${l.authority_effective}] → ${l.outcomes.join(', ')}`);
+    for (const c of answer.also_claimed_by) out(`    also      ${c.region} (${c.scope})`);
+    if (answer.gate) out(`    gate      ${answer.gate}`);
+    out('');
+  }
+  process.exitCode = EXIT.OK;
+}
+
 // ─── dispatch ─────────────────────────────────────────────────────────────────
 
 async function main(argv) {
@@ -355,11 +419,13 @@ async function main(argv) {
       case 'doctor':
         return await cmdDoctor(wantJson);
       case 'atlas':
+        return await cmdAtlas(flags, wantJson);
       case 'where':
+        return await cmdWhere(rest[0], flags, wantJson);
       case 'install':
       case 'station':
       case 'observe':
-        // Landing in sprint-228 / sprint-229. Refuse honestly rather than pretend.
+        // Landing in sprint-229. Refuse honestly rather than pretend.
         return fail(
           EXIT.TOOL_FAILURE,
           `${verb.name} is declared in the contract but not yet implemented in v${capabilities().version}`,
@@ -371,6 +437,13 @@ async function main(argv) {
   } catch (err) {
     if (err instanceof SotError) {
       return fail(err.exitCode, err.message, 'constructs doctor --json');
+    }
+    if (err instanceof TerritoryError) {
+      diag(`error: ${err.message}`);
+      for (const detail of err.details) diag(`  · ${detail}`);
+      diag('  try: constructs robot-docs guide    # the territory manifest contract');
+      process.exitCode = err.exitCode;
+      return;
     }
     if (err?.code === 'YAML_OUT_OF_SUBSET' || err?.code === 'SCHEMA_OUT_OF_SUBSET' || err?.code === 'GLOB_INVALID') {
       return fail(EXIT.CALLER_ERROR, err.message, 'constructs robot-docs guide    # the supported subset');

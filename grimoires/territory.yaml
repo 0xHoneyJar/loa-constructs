@@ -1,0 +1,46 @@
+# Territory manifest — loa-constructs
+#
+# This region declares what it is accountable for, and which constructs watch it.
+# The region OWNS this file. The network only indexes it — a stationing is live when
+# THIS edit is committed on this repo's default branch, which is why the gate is git
+# permissions and not an API key.
+#
+# Every warden starts observe-only: it surfaces findings and never decides. Higher tiers
+# are EARNED through the graduated-trust ledger; the tier below is a ceiling, not a grant.
+#
+# Schema: packages/constructs-cli/schemas/territory.schema.json
+# Validate: node packages/constructs-cli/bin/constructs.mjs atlas --json
+
+schema_version: "1.0"
+region: loa-constructs
+maintainers:
+  - "@janitooor"
+
+outcomes:
+  - id: registry-sot-coherence
+    description: "The three sources of truth for what exists on the network — the API, registry.yaml, and the installed packs — agree, or their disagreement is surfaced rather than silently merged."
+
+  - id: topology-health
+    description: "Every construct the registry advertises resolves to something real: a reachable repo, a parseable manifest, and no dangling composition edge."
+
+  - id: release-surface-sync
+    description: "The version a human reads (README badge, CHANGELOG) is the version the machine ships (git tag, published release). A version surface that lies is worse than one that is absent."
+
+  - id: zone-coverage
+    description: "Every path that matters belongs to exactly one zone. An unzoned path has no declared owner and no write rule — which is how a framework update silently deletes work nobody claimed."
+
+scopes:
+  - "packages/**"
+  - "apps/**"
+  - "registry.yaml"
+  - "scripts/**"
+
+# The maintainer composes the loadout. The network never prescribes it.
+# Left deliberately empty until a maintainer chooses the wardens — a stationing nobody
+# chose is exactly the deployed-but-unconsumed pattern this cycle exists to avoid.
+loadout: []
+
+trust:
+  promote_after_accepted_observations: 25
+  window_days: 30
+  cooldown_hours: 72

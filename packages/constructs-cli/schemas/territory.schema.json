@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://0xhoneyjar.github.io/loa-constructs/schemas/territory.schema.json",
+  "title": "Territory Manifest",
+  "description": "A region's own declaration of what it is accountable for and who watches it. The region OWNS this file and edits it in its own tree — the network only indexes it. Validated against a declared JSON-Schema keyword subset (see capabilities --json), not full 2020-12.",
+  "type": "object",
+  "required": ["schema_version", "region", "outcomes", "scopes"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^1\\.",
+      "description": "Additive-only within a major. A deprecation is announced one minor ahead."
+    },
+    "region": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "The region's slug. Matches the repo/building name."
+    },
+    "maintainers": {
+      "type": "array",
+      "description": "Who answers for this region. Surfaced in atlas CONFLICT blocks so cross-region overlaps reach a human.",
+      "items": { "type": "string" }
+    },
+    "outcomes": {
+      "type": "array",
+      "minItems": 1,
+      "description": "What 'healthy' means here. Outcomes are the contract a stationed construct is accountable to — not tasks, not features.",
+      "items": {
+        "type": "object",
+        "required": ["id", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "description": { "type": "string", "minLength": 8 }
+        }
+      }
+    },
+    "scopes": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Territory bounds — the blast radius. POSIX globs, repo-root-relative, case-sensitive, ** recursive, no symlink traversal. Overlapping scopes WITHIN a region are a validator error; overlaps ACROSS regions surface as an atlas CONFLICT (wardens never fight silently).",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "loadout": {
+      "type": "array",
+      "description": "The constructs stationed over this region's outcomes. The maintainer composes this — the network never prescribes it.",
+      "items": {
+        "type": "object",
+        "required": ["construct", "outcomes"],
+        "additionalProperties": false,
+        "properties": {
+          "construct": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+          "outcomes": {
+            "type": "array",
+            "minItems": 1,
+            "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+            "description": "Which of this region's outcomes this construct answers for. Must resolve against outcomes[]."
+          },
+          "scopes": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Optional narrowing — a subset of the region's scopes. Omitted means the whole region."
+          },
+          "authority_tier": {
+            "type": "string",
+            "enum": ["observe", "advise", "gate"],
+            "description": "A CEILING, not a grant. The maximum this region will EVER allow this construct. The EARNED tier lives in the L4 graduated-trust ledger and can never exceed this. Default and birth tier: observe."
+          }
+        }
+      }
+    },
+    "trust": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The predicates that bound L4 tier transitions for this region. The maintainer owns these numbers.",
+      "properties": {
+        "promote_after_accepted_observations": { "type": "integer", "minimum": 1 },
+        "window_days": { "type": "integer", "minimum": 1 },
+        "cooldown_hours": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}
