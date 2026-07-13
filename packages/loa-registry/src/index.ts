@@ -9,7 +9,7 @@
  * - Validating construct licenses at runtime
  */
 
-import type { LoaPlugin } from './types.js';
+import type { LoaPlugin, Command } from './types.js';
 import { loginCommand } from './commands/login.js';
 import { logoutCommand } from './commands/logout.js';
 import { listCommand } from './commands/list.js';
@@ -27,6 +27,21 @@ import { packUpdateCommand } from './commands/pack-update.js';
  * Loa Constructs Plugin
  * Provides constructs registry integration for Loa CLI
  */
+// Deprecation pointer (PRD FR-17): stderr ONLY, behavior unchanged, silenceable
+// via CONSTRUCTS_SILENCE_DEPRECATION=1. Wrapped at the one registration point so
+// no verb needs retrofitting.
+const withDeprecationPointer = (cmd: Command): Command => ({
+  ...cmd,
+  execute: async (context) => {
+    if (!process.env.CONSTRUCTS_SILENCE_DEPRECATION) {
+      console.error(
+        'note: this Loa-plugin surface is superseded by the `constructs` capability binary (packages/constructs-cli). Set CONSTRUCTS_SILENCE_DEPRECATION=1 to silence this pointer.'
+      );
+    }
+    return cmd.execute(context);
+  },
+});
+
 export const registryPlugin: LoaPlugin = {
   name: 'loa-constructs',
   version: '0.4.0',
@@ -46,7 +61,7 @@ export const registryPlugin: LoaPlugin = {
     packInstallCommand,
     packListCommand,
     packUpdateCommand,
-  ],
+  ].map(withDeprecationPointer),
 };
 
 export default registryPlugin;

@@ -155,7 +155,7 @@ export const VERBS = [
     aliases: ['add'],
     summary: 'Install a construct — integrity-verified (content hash + attestation), containment-hardened.',
     args: ['<slug>'],
-    flags: ['--json', '--dry-run', '--rung <local|api|registry>', '--allow-integrity-mismatch --reason <text>'],
+    flags: ['--json', '--dry-run', '--rung <api|git>', '--payload <file>', '--allow-integrity-mismatch --reason <text>'],
     mutation: true,
     ambient: ['network', 'filesystem_outside_cwd'],
     example: 'constructs install k-hole',

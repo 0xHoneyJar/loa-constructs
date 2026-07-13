@@ -20,8 +20,16 @@ import {
 import { listConstructs, readLocalPacks, RUNGS, SotError } from '../lib/sot.mjs';
 import { atlas, where, TerritoryError } from '../lib/territory.mjs';
 import { station, StationError } from '../lib/station.mjs';
+import { install, InstallError } from '../lib/install.mjs';
+import { observe } from '../lib/observe.mjs';
+import { fixtureRoot } from '../lib/seams.mjs';
 
 // ─── output ───────────────────────────────────────────────────────────────────
+
+// T3.4: the fixture seam resolves ONCE, through the dual-condition gate
+// (LOA_CONSTRUCTS_TEST_MODE=1 AND a test-runner marker); otherwise '.' — the
+// clone you are standing in.
+const ROOT = fixtureRoot() ?? '.';
 
 const isTTY = process.stdout.isTTY === true;
 const colorOff = !isTTY || process.env.NO_COLOR !== undefined || process.argv.includes('--no-color');
@@ -283,7 +291,7 @@ async function cmdDoctor(wantJson) {
 
 function atlasSources(flags) {
   if (typeof flags.source === 'string') return flags.source.split(',').map((s) => s.trim()).filter(Boolean);
-  return ['.'];
+  return [ROOT];
 }
 
 async function cmdAtlas(flags, wantJson) {
@@ -335,7 +343,7 @@ async function cmdStation(slug, flags, wantJson) {
   const result = await station({
     slug,
     region: flags.region,
-    regionRoot: '.',
+    regionRoot: ROOT,
     dryRun: Boolean(flags['dry-run']),
   });
 
@@ -353,6 +361,66 @@ async function cmdStation(slug, flags, wantJson) {
     }
     const a = result.authority;
     out(`  authority  ceiling=${a.ceiling} earned=${a.earned} effective=${a.effective} (chain: ${a.chain})`);
+    out('');
+  }
+  process.exitCode = EXIT.OK;
+}
+
+async function cmdInstall(slug, flags, wantJson) {
+  if (!slug) {
+    return fail(EXIT.CALLER_ERROR, 'install requires a construct slug', 'constructs install k-hole');
+  }
+  const result = await install({
+    slug,
+    root: ROOT,
+    rung: typeof flags.rung === 'string' ? (flags.rung === 'registry' ? 'git' : flags.rung) : 'api',
+    payloadFile: typeof flags.payload === 'string' ? flags.payload : null,
+    dryRun: Boolean(flags['dry-run']),
+    allowIntegrityMismatch: Boolean(flags['allow-integrity-mismatch']),
+    reason: typeof flags.reason === 'string' ? flags.reason : null,
+  });
+  if (wantJson) {
+    emitJson(result);
+  } else {
+    out('');
+    if (result.mode === 'dry-run') {
+      out(`  DRY RUN — verified, nothing written`);
+    } else {
+      out(`  installed  ${result.path}`);
+      out(`  receipt    ${result.receipt_path}`);
+    }
+    const inst = result.payload.install;
+    out(`  integrity  ${inst.outcome} (${inst.rung}; anchor: ${inst.anchor})`);
+    out('');
+  }
+  process.exitCode = EXIT.OK;
+}
+
+async function cmdObserve(flags, wantJson) {
+  const required = ['region', 'outcome', 'construct', 'evidence', 'body'];
+  const missing = required.filter((k) => typeof flags[k] !== 'string');
+  if (missing.length) {
+    return fail(
+      EXIT.CALLER_ERROR,
+      `observe requires --${missing.join(', --')}`,
+      'constructs observe --region loa-constructs --outcome registry-sot-coherence --construct gecko --evidence registry.yaml:12 --body "..."'
+    );
+  }
+  const result = await observe({
+    region: flags.region,
+    outcome: flags.outcome,
+    construct: flags.construct,
+    evidence: String(flags.evidence).split(',').map((s) => s.trim()).filter(Boolean),
+    body: flags.body,
+    confidence: flags.confidence !== undefined ? Number(flags.confidence) : 0.5,
+    regionRoot: ROOT,
+    dryRun: Boolean(flags['dry-run']),
+  });
+  if (wantJson) {
+    emitJson(result);
+  } else {
+    out('');
+    out(`  ${result.mode === 'dry-run' ? 'DRY RUN — would append to' : 'recorded'}  ${result.segment}`);
     out('');
   }
   process.exitCode = EXIT.OK;
@@ -467,13 +535,9 @@ async function main(argv) {
       case 'station':
         return await cmdStation(rest[0], flags, wantJson);
       case 'install':
+        return await cmdInstall(rest[0], flags, wantJson);
       case 'observe':
-        // Landing in sprint-229. Refuse honestly rather than pretend.
-        return fail(
-          EXIT.TOOL_FAILURE,
-          `${verb.name} is declared in the contract but not yet implemented in v${capabilities().version}`,
-          'constructs capabilities --json    # the implemented surface'
-        );
+        return await cmdObserve(flags, wantJson);
       default:
         return fail(EXIT.CALLER_ERROR, `unhandled verb ${verb.name}`, 'constructs --help');
     }
@@ -485,6 +549,13 @@ async function main(argv) {
       diag(`error: ${err.message}`);
       for (const detail of err.details) diag(`  · ${detail}`);
       diag('  try: constructs robot-docs guide    # the territory manifest contract');
+      process.exitCode = err.exitCode;
+      return;
+    }
+    if (err instanceof InstallError) {
+      diag(`error: ${err.code ? `[${err.code}] ` : ''}${err.message}`);
+      for (const detail of err.details) diag(`  · ${detail}`);
+      if (err.fix) diag(`  try: ${err.fix}`);
       process.exitCode = err.exitCode;
       return;
     }

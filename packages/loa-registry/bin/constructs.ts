@@ -406,6 +406,14 @@ function cmdHelp() {
 // --- Main ---
 
 async function main() {
+  // Deprecation pointer (PRD FR-17): stderr ONLY — stdout stays parseable, and
+  // existing behavior is unchanged. Silence: CONSTRUCTS_SILENCE_DEPRECATION=1.
+  if (!process.env.CONSTRUCTS_SILENCE_DEPRECATION) {
+    console.error(
+      'note: this npx surface is superseded by the `constructs` capability binary (packages/constructs-cli — zero-dep, deterministic JSON, discoverable via `loa caps`). Set CONSTRUCTS_SILENCE_DEPRECATION=1 to silence this pointer.'
+    );
+  }
+
   const args = process.argv.slice(2);
   const cmd = args[0];
 

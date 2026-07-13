@@ -40,6 +40,14 @@ async function receiptSchema() {
   return cachedReceiptSchema;
 }
 
+let cachedInstallReceiptSchema = null;
+export async function installReceiptSchema() {
+  if (cachedInstallReceiptSchema) return cachedInstallReceiptSchema;
+  const file = new URL('../schemas/install-receipt.schema.json', import.meta.url);
+  cachedInstallReceiptSchema = JSON.parse(await readFile(file, 'utf8'));
+  return cachedInstallReceiptSchema;
+}
+
 // ── canonical bytes ───────────────────────────────────────────────────────────
 //
 // The receipt's address is the hash of these bytes, so they must be identical on
@@ -99,7 +107,7 @@ export async function probeLoaMount(regionRoot = '.') {
   return { mounted: missing.length === 0, missing };
 }
 
-function assertMounted(probe, regionRoot) {
+export function assertMounted(probe, regionRoot) {
   if (probe.mounted) return;
   throw new StationError(
     `region at ${regionRoot} is not Loa-mounted — the audit substrate is missing (${probe.missing.join(', ')}). Stationing records and governed observations flow through that substrate; there is no hand-rolled fallback.`,
@@ -317,7 +325,7 @@ const RECEIPTS_REL = path.join('grimoires', 'loa', 'territory', 'receipts');
 
 // Same-clone concurrency guard (divergent clones need no lock — they write
 // different files and union-merge). mkdir is atomic on every platform we run on.
-async function withReceiptLock(receiptsDir, fn) {
+export async function withReceiptLock(receiptsDir, fn) {
   const lockDir = path.join(receiptsDir, '.lock');
   const deadline = Date.now() + 5_000;
   for (;;) {
@@ -349,6 +357,34 @@ async function withReceiptLock(receiptsDir, fn) {
   } finally {
     await rm(lockDir, { recursive: true, force: true });
   }
+}
+
+/**
+ * The content-addressed record writer — shared by stationing and install
+ * receipts ("install receipts reuse the stationing receipt writer"). The
+ * caller holds the lock and has already re-verified whatever authorized
+ * the write; this only turns a payload into its own address.
+ */
+export async function writeRecordUnlocked(receiptsDir, payload) {
+  const canonical = canonicalize(payload);
+  const hash = sha256(canonical);
+  const file = path.join(receiptsDir, `${hash}.json`);
+
+  try {
+    const existing = await readFile(file, 'utf8');
+    if (existing === `${canonical}\n`) {
+      return { receipt_path: file, receipt_hash: `sha256:${hash}`, payload, idempotent: true };
+    }
+    throw new StationError(`receipt ${file} exists with different content — refusing to overwrite`, EXIT.INTEGRITY_MISMATCH);
+  } catch (err) {
+    if (err instanceof StationError) throw err;
+    // ENOENT — the normal path: stage in the same directory, land by atomic rename.
+  }
+
+  const tmp = path.join(receiptsDir, `.${hash}.tmp`);
+  await writeFile(tmp, `${canonical}\n`, 'utf8');
+  await rename(tmp, file);
+  return { receipt_path: file, receipt_hash: `sha256:${hash}`, payload, idempotent: false };
 }
 
 export function buildReceiptPayload(validation, { kind = 'station' } = {}) {
@@ -424,26 +460,7 @@ export async function recordStationing(validation) {
       );
     }
 
-    const canonical = canonicalize(payload);
-    const hash = sha256(canonical);
-    const file = path.join(receiptsDir, `${hash}.json`);
-
-    try {
-      const existing = await readFile(file, 'utf8');
-      if (existing === `${canonical}\n`) {
-        return { receipt_path: file, receipt_hash: `sha256:${hash}`, payload, idempotent: true };
-      }
-      // Same address, different bytes: either corruption or a SHA-256 collision.
-      throw new StationError(`receipt ${file} exists with different content — refusing to overwrite`, EXIT.INTEGRITY_MISMATCH);
-    } catch (err) {
-      if (err instanceof StationError) throw err;
-      // ENOENT — the normal path: stage in the same directory, land by atomic rename.
-    }
-
-    const tmp = path.join(receiptsDir, `.${hash}.tmp`);
-    await writeFile(tmp, `${canonical}\n`, 'utf8');
-    await rename(tmp, file);
-    return { receipt_path: file, receipt_hash: `sha256:${hash}`, payload, idempotent: false };
+    return writeRecordUnlocked(receiptsDir, payload);
   });
 }
 
@@ -486,7 +503,7 @@ export async function verifyReceipt(filePath) {
     if (rederived !== claimed) {
       problems.push(`content-address mismatch: file is named ${claimed} but its canonical payload hashes to ${rederived}`);
     }
-    const schema = await receiptSchema();
+    const schema = payload?.kind === 'install' ? await installReceiptSchema() : await receiptSchema();
     const { valid, errors } = validateSchema(schema, payload);
     if (!valid) problems.push(...errors.map((e) => `schema: ${e}`));
   } catch (err) {

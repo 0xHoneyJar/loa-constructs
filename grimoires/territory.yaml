@@ -36,9 +36,14 @@ scopes:
   - "scripts/**"
 
 # The maintainer composes the loadout. The network never prescribes it.
-# Left deliberately empty until a maintainer chooses the wardens — a stationing nobody
-# chose is exactly the deployed-but-unconsumed pattern this cycle exists to avoid.
-loadout: []
+# First stationing (T3.6, G-5a self-host proof): gecko — the ecosystem-health
+# construct (patrol / observe / diagnose) — watches the two outcomes that are
+# its exact domain. Observe-only: it surfaces findings and never decides; every
+# tier above observe is EARNED through the graduated-trust ledger post-cycle.
+loadout:
+  - construct: gecko
+    outcomes: [registry-sot-coherence, topology-health]
+    authority_tier: observe
 
 trust:
   promote_after_accepted_observations: 25
