@@ -1,0 +1,128 @@
+{
+  "veve_version": "0.2.0",
+  "name": "constructs",
+  "version": "0.1.0",
+  "summary": "Navigation and stationing for the constructs network: list/find/info/summary (source-of-truth ladder with provenance + drift), atlas/where (zones × topology × stationed loadouts), capabilities/robot-docs (self-describing contract), doctor. Mutations (install/station/observe) are integrity-verified and git-gated. Metacharacter-free: every operation is a single argv invocation, so it composes inside a Finn sandbox.",
+  "binary": {
+    "entry": "bin/constructs.mjs",
+    "runtime": "node",
+    "subcommands": [
+      "list",
+      "find",
+      "info",
+      "summary",
+      "atlas",
+      "where",
+      "capabilities",
+      "robot-docs",
+      "doctor",
+      "install",
+      "station",
+      "observe"
+    ]
+  },
+  "determinism": {
+    "class": "attestable",
+    "declared_by": "author",
+    "ambient": [
+      "network",
+      "filesystem_outside_cwd"
+    ],
+    "note": "Ambient-free surfaces (--help, capabilities, robot-docs, caller-error paths) and every vector below are byte-deterministic and re-run identically. Live answers (list/find/info/atlas) carry `provenance` naming the source-of-truth rung instead of claiming byte-identity — a network answer cannot honestly promise stable bytes, so it promises stable PROVENANCE."
+  },
+  "rel_required": "casual",
+  "liveness": {
+    "timeout_s": 60,
+    "expected_p95_s": 5,
+    "mode": "oneshot"
+  },
+  "io": {
+    "input": "argv",
+    "output": "stdout_json",
+    "exit_codes": {
+      "0": "ok (an empty result is [] with exit 0, never an error)",
+      "1": "tool failure — the CLI itself could not run",
+      "2": "caller error — bad args, unknown verb, out-of-subset manifest",
+      "3": "refused — outside your authority (foreign region, uncommitted stationing, unmounted region)",
+      "4": "integrity mismatch — content hash, signature, or containment check failed",
+      "5": "drift detected — source-of-truth rungs disagree; data IS emitted with provenance + drift[], and is refused as input to mutations unless --rung pins one source"
+    },
+    "exit_precedence": [
+      4,
+      3,
+      2,
+      5
+    ]
+  },
+  "vectors": [
+    {
+      "name": "help-usage (ambient-free: static help rendered from the verb table; no network, no clock, no filesystem outside cwd)",
+      "argv": [
+        "--help"
+      ],
+      "stdin": null,
+      "expect_exit": 0,
+      "expect_output_hash": "sha256:f169541e9e6c3d4e6d3bba8f746d104e668c0434c7ca2e89c685050e8bda32c6"
+    },
+    {
+      "name": "bare-invocation-is-triage-help-never-a-tui (Axiom 15: an agent that didn't expect a TUI would hang forever)",
+      "argv": [],
+      "stdin": null,
+      "expect_exit": 0,
+      "expect_output_hash": "sha256:f169541e9e6c3d4e6d3bba8f746d104e668c0434c7ca2e89c685050e8bda32c6"
+    },
+    {
+      "name": "capabilities-json (ambient-free: the contract as data, generated from the verb table)",
+      "argv": [
+        "capabilities",
+        "--json"
+      ],
+      "stdin": null,
+      "expect_exit": 0,
+      "expect_output_hash": "sha256:828c2199949a1df9cf8b7afd29d6f2a993b9ca57d58221083b53a91b244faa59"
+    },
+    {
+      "name": "robot-docs-guide (ambient-free: the agent handbook, in-tool)",
+      "argv": [
+        "robot-docs",
+        "guide"
+      ],
+      "stdin": null,
+      "expect_exit": 0,
+      "expect_output_hash": "sha256:1cc3a1944f1794e3ff03e50801693d176fc709a649a2c12b6e925fb584681836"
+    },
+    {
+      "name": "caller-error-unknown-verb (exit 2; stdout stays empty — diagnostics belong on stderr)",
+      "argv": [
+        "completely-unknown-verb"
+      ],
+      "stdin": null,
+      "expect_exit": 2,
+      "expect_output_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "mutation-typo-is-refused-not-inferred (exit 2: a write you only approximately asked for is never performed)",
+      "argv": [
+        "statoin",
+        "gecko"
+      ],
+      "stdin": null,
+      "expect_exit": 2,
+      "expect_output_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "caller-error-find-without-query (exit 2, names the corrected command)",
+      "argv": [
+        "find"
+      ],
+      "stdin": null,
+      "expect_exit": 2,
+      "expect_output_hash": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "ladder": {
+    "level": 1,
+    "promoted_from": "grimoires/loa/prd.md + grimoires/loa/sdd.md (cycle-constructs-launcher-cli)",
+    "evidence_runs": []
+  }
+}
