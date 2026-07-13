@@ -28,7 +28,7 @@ created: 2026-07-12
 
 ---
 
-## Sprint 227 — The Organ (navigation + contract + launcher reach)
+## Sprint 227: The Organ (navigation + contract + launcher reach)
 
 **Goal**: `loa caps` lists `constructs`; every read verb answers deterministic JSON with provenance; the contract is self-describing and vector-pinned.
 
@@ -50,7 +50,7 @@ created: 2026-07-12
 
 ---
 
-## Sprint 228 — The Grammar (territory, atlas, stationing, authority)
+## Sprint 228: The Grammar (territory, atlas, stationing, authority)
 
 **Goal**: regions declare outcomes; the atlas computes the map from territory; stationing is validated, recorded, and bounded by earned trust.
 
@@ -71,7 +71,7 @@ created: 2026-07-12
 
 ---
 
-## Sprint 229 — The Proof & The Fold (install integrity, self-host, handoff, consolidation)
+## Sprint 229: The Proof & The Fold (install integrity, self-host, handoff, consolidation)
 
 **Goal**: installs are integrity-verified and containment-hardened; the network wardens itself; the old surfaces fold.
 
