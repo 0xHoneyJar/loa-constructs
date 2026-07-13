@@ -287,30 +287,17 @@ async function assertNoSymlinks(dir) {
   }
 }
 
-async function landPack({ root, slug, stage }) {
-  const parent = packsParent(root);
-  const target = path.join(parent, slug);
-
-  let replacing = false;
+/**
+ * Refuse early if the target exists but is not ours to replace. Called BEFORE any
+ * durable write, so an unmanaged directory costs nothing.
+ */
+async function assertReplaceable(root, slug) {
+  const target = path.join(packsParent(root), slug);
   try {
     await stat(target);
-    replacing = true;
   } catch {
-    replacing = false; // ENOENT: fresh install
+    return; // ENOENT: fresh install, nothing to protect
   }
-
-  if (!replacing) {
-    await rename(stage, target);
-    return {
-      path: target,
-      commit: async () => {},
-      rollback: async () => {
-        await rm(target, { recursive: true, force: true });
-      },
-    };
-  }
-
-  // Overwrite only pack-marker-managed targets: an unmanaged dir is user work.
   try {
     await access(path.join(target, '.construct-meta.json'));
   } catch {
@@ -320,30 +307,66 @@ async function landPack({ root, slug, stage }) {
       { fix: 'move the directory aside, or remove it if it is yours to remove' }
     );
   }
+}
 
-  // Replace by SWAP, not by delete-then-rename (T3.2b): the old pack is renamed
-  // aside first, so a failure mid-landing restores it. The backup is held until
-  // the CALLER commits — a receipt failure after the swap must still be able to
-  // put the working pack back (review pass 1).
+/**
+ * The pack swap — the LAST durable step and the transaction's single commit point
+ * (review pass 2).
+ *
+ * The ordering is what makes this crash-safe, not a rollback branch: the anchor and
+ * the receipt are written FIRST, and the pack becomes visible LAST, via one atomic
+ * rename. So a kill -9 at any instant leaves exactly one of two states:
+ *
+ *   before the rename — anchor + receipt exist, the pack is not installed. Re-running
+ *     the install re-derives the SAME content-addressed receipt (idempotent) and the
+ *     same pinned anchor, then lands the pack. The state converges; nothing is lost.
+ *   after the rename  — everything is durable. Done.
+ *
+ * The state a process kill can never produce is the dangerous one: a pack installed
+ * with no record of where it came from.
+ */
+async function swapPackIn({ root, slug, stage }) {
+  const parent = packsParent(root);
+  const target = path.join(parent, slug);
+
+  let replacing = false;
+  try {
+    await stat(target);
+    replacing = true;
+  } catch {
+    replacing = false;
+  }
+
+  if (!replacing) {
+    await rename(stage, target);
+    return target;
+  }
+
   const backup = path.join(parent, `.backup-${slug}-${process.pid}`);
   await rm(backup, { recursive: true, force: true });
   await rename(target, backup);
   try {
     await rename(stage, target);
   } catch (err) {
-    await rename(backup, target).catch(() => {}); // restore what was working
+    // Restoration failure is NEVER silent (review pass 2): the operator is told
+    // exactly where the working pack is, so it can be put back by hand.
+    try {
+      await rename(backup, target);
+    } catch (restoreErr) {
+      throw new InstallError(
+        `landing ${slug} failed (${err?.message ?? err}) AND the previous pack could not be restored (${restoreErr?.message ?? restoreErr})`,
+        EXIT.TOOL_FAILURE,
+        { code: 'ROLLBACK_FAILED', fix: `your previous pack is intact at ${backup} — move it back to ${target}` }
+      );
+    }
     throw err;
   }
-  return {
-    path: target,
-    commit: async () => {
-      await rm(backup, { recursive: true, force: true });
-    },
-    rollback: async () => {
-      await rm(target, { recursive: true, force: true });
-      await rename(backup, target).catch(() => {});
-    },
-  };
+  // Post-commit cleanup ONLY: the install is durable from the rename above, so a
+  // failure to drop the backup is a warning, never a failed install.
+  await rm(backup, { recursive: true, force: true }).catch(() => {
+    process.stderr.write(`warning: installed ${slug}, but the old pack's backup could not be removed: ${backup}\n`);
+  });
+  return target;
 }
 
 // ── acquisition rungs ─────────────────────────────────────────────────────────
@@ -629,25 +652,21 @@ export async function install({
         return { mode: 'dry-run', slug, payload: receiptPayload };
       }
 
-      // The pack and its receipt land as ONE recoverable transaction (review pass 1):
-      // the replaced pack's backup is held until the receipt is durable, so a receipt
-      // failure cannot leave an installed-but-unrecorded pack.
-      const landing = await landPack({ root, slug, stage: path.join(stagingDir, 'pack') });
+      // Ordering IS the transaction (review pass 2). Refuse first, then write the
+      // trust state and the record, and make the pack visible LAST with one atomic
+      // rename. A kill -9 can leave a receipt+anchor without a pack (harmless and
+      // self-healing — the re-run is idempotent), but never a pack without a record.
+      await assertReplaceable(root, slug);
+
+      if (gitInfo?.pendingAnchor) await writeTofuAnchor(root, slug, gitInfo.pendingAnchor);
 
       const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
-      let record;
-      try {
-        await mkdir(receiptsDir, { recursive: true });
-        record = await writeRecordUnlocked(receiptsDir, receiptPayload);
-        // Trust state is persisted only once the install is fully durable.
-        if (gitInfo?.pendingAnchor) await writeTofuAnchor(root, slug, gitInfo.pendingAnchor);
-      } catch (err) {
-        await landing.rollback();
-        throw err;
-      }
-      await landing.commit();
+      await mkdir(receiptsDir, { recursive: true });
+      const record = await writeRecordUnlocked(receiptsDir, receiptPayload);
 
-      return { mode: 'installed', slug, path: landing.path, receipt_path: record.receipt_path, payload: receiptPayload };
+      const landed = await swapPackIn({ root, slug, stage: path.join(stagingDir, 'pack') });
+
+      return { mode: 'installed', slug, path: landed, receipt_path: record.receipt_path, payload: receiptPayload };
     } finally {
       await rm(stagingDir, { recursive: true, force: true });
     }

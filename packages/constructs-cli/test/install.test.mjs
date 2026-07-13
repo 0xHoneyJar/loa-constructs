@@ -450,8 +450,7 @@ test('S229-5: a receipt failure rolls the pack back — never installed-but-unre
 
   // Make the receipts dir un-writable so the receipt write fails AFTER the pack
   // has been swapped in. The working pack must come back.
-  // Replace the receipts DIRECTORY with a file: mkdir/write then fails hard
-  // (ENOTDIR), after the pack has already been swapped in.
+  // Replace the receipts DIRECTORY with a file so the receipt write fails hard.
   const territory = path.join(root, 'grimoires', 'loa', 'territory');
   const receiptsDir = path.join(territory, 'receipts');
   const { rm: rmFs } = await import('node:fs/promises');
@@ -459,6 +458,53 @@ test('S229-5: a receipt failure rolls the pack back — never installed-but-unre
   await writeFile(receiptsDir, 'not a directory');
 
   await assert.rejects(install({ slug: 'goodpack', root, payloadFile: payload }));
+  // The pack becomes visible LAST (review pass 2), so a receipt failure means the
+  // swap never happened at all — the working pack is untouched, not "restored".
   const surviving = await readFile(path.join(root, '.claude', 'constructs', 'packs', 'goodpack', '.construct-meta.json'), 'utf8');
-  assert.equal(surviving, originalMeta, 'a failed receipt write must restore the pack that was working');
+  assert.equal(surviving, originalMeta, 'the working pack must be untouched when the record cannot be written');
+});
+
+
+// ── review pass 2 (sprint-229): ordering IS the transaction ───────────────────
+
+test('S229-P2: a pack is NEVER visible without its record — the anchor and receipt land first', async () => {
+  const upstream = await makeUpstream();
+  const root = await makeRoot({ gitUrl: upstream.dir });
+  const packDir = path.join(root, '.claude', 'constructs', 'packs', 'goodpack');
+  const anchorFile = path.join(root, 'grimoires', 'loa', 'territory', 'anchors', 'goodpack.json');
+  const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
+
+  // Block the receipt write. The install must fail BEFORE the pack is visible.
+  await mkdir(path.dirname(receiptsDir), { recursive: true });
+  await writeFile(receiptsDir, 'not a directory');
+  await assert.rejects(install({ slug: 'goodpack', root, rung: 'git' }));
+  await assert.rejects(readdir(packDir), 'no pack may exist when its record could not be written');
+
+  // Unblock: the SAME run now converges — the anchor is re-pinned identically, the
+  // content-addressed receipt is re-derived identically, and the pack lands.
+  const { rm: rmFs } = await import('node:fs/promises');
+  await rmFs(receiptsDir, { force: true });
+  const ok = await install({ slug: 'goodpack', root, rung: 'git' });
+  assert.equal(ok.mode, 'installed');
+  assert.equal(JSON.parse(await readFile(anchorFile, 'utf8')).commit, upstream.head);
+  const verdict = await verifyReceipt(ok.receipt_path);
+  assert.equal(verdict.valid, true, verdict.problems.join('; '));
+});
+
+test('S229-P2: an unmanaged target is refused BEFORE anything durable is written', async () => {
+  const expected = treeHash(GOOD_FILES);
+  const root = await makeRoot({ treeHashValue: expected });
+  const payload = await writePayload(root, GOOD_FILES);
+  const target = path.join(root, '.claude', 'constructs', 'packs', 'goodpack');
+  await mkdir(target, { recursive: true });
+  await writeFile(path.join(target, 'user-work.md'), 'mine');
+
+  await rejectsInstall(install({ slug: 'goodpack', root, payloadFile: payload }), EXIT.REFUSED);
+
+  // Nothing durable was written: no receipt, no residue.
+  await assert.rejects(readdir(path.join(root, 'grimoires', 'loa', 'territory', 'receipts')));
+  assert.deepEqual(
+    (await readdir(path.join(root, '.claude', 'constructs', 'packs'))).filter((f) => f.startsWith('.')),
+    []
+  );
 });
