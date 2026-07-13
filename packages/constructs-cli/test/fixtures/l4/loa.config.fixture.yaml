@@ -1,0 +1,18 @@
+# L4 fixture config (T2.9) — used ONLY via LOA_TRUST_CONFIG_FILE in tests.
+#
+# The tier vocabulary here is the PRD FR-11 gradient (observe → advise → gate).
+# Production keeps graduated_trust DISABLED this cycle: every real stationing is
+# observe-only, and the first real tier-up is a post-cycle maintainer act.
+graduated_trust:
+  enabled: true
+  default_tier: observe
+  tier_definitions:
+    observe: { description: "surface findings + governed observations; no action slot" }
+    advise: { description: "attach recommendations to findings; still no mutation" }
+    gate: { description: "hold a turnstile at a declared seam (refuse-until-token)" }
+  transition_rules:
+    - { from: observe, to: advise, requires: operator_grant, id: observe_to_advise }
+    - { from: advise, to: gate, requires: operator_grant, id: advise_to_gate }
+    - { from: gate, to: advise, via: auto_drop_on_override }
+    - { from: advise, to: observe, via: auto_drop_on_override }
+  cooldown_seconds: 3600

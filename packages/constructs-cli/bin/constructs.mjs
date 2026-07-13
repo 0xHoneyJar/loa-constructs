@@ -19,6 +19,7 @@ import {
 } from '../lib/contract.mjs';
 import { listConstructs, readLocalPacks, RUNGS, SotError } from '../lib/sot.mjs';
 import { atlas, where, TerritoryError } from '../lib/territory.mjs';
+import { station, StationError } from '../lib/station.mjs';
 
 // ─── output ───────────────────────────────────────────────────────────────────
 
@@ -316,6 +317,42 @@ async function cmdAtlas(flags, wantJson) {
   process.exitCode = EXIT.OK; // a partial map that says so beats no map at all
 }
 
+async function cmdStation(slug, flags, wantJson) {
+  if (!slug || typeof flags.region !== 'string') {
+    return fail(
+      EXIT.CALLER_ERROR,
+      'station requires a construct slug and --region <name>',
+      'constructs station gecko --region loa-constructs --dry-run'
+    );
+  }
+  // Keyless by design: the gate is the region's git permissions, so this verb
+  // reads no sk_ key and offers nowhere to pass one.
+  const result = await station({
+    slug,
+    region: flags.region,
+    regionRoot: '.',
+    dryRun: Boolean(flags['dry-run']),
+  });
+
+  if (wantJson) {
+    emitJson(result);
+  } else {
+    out('');
+    if (result.mode === 'dry-run') {
+      out(`  DRY RUN — nothing written`);
+      out(`  ratified   ${result.ratified ? 'yes' : 'NO'}`);
+      for (const b of result.blockers) out(`    · ${b}`);
+      out(`  would write ${result.would_write}`);
+    } else {
+      out(`  recorded   ${result.receipt_path}${result.idempotent ? '  (idempotent — already recorded)' : ''}`);
+    }
+    const a = result.authority;
+    out(`  authority  ceiling=${a.ceiling} earned=${a.earned} effective=${a.effective} (chain: ${a.chain})`);
+    out('');
+  }
+  process.exitCode = EXIT.OK;
+}
+
 async function cmdWhere(target, flags, wantJson) {
   if (!target) {
     return fail(EXIT.CALLER_ERROR, 'where requires a path, noun, or slug', 'constructs where packages/loa-registry --json');
@@ -422,8 +459,9 @@ async function main(argv) {
         return await cmdAtlas(flags, wantJson);
       case 'where':
         return await cmdWhere(rest[0], flags, wantJson);
-      case 'install':
       case 'station':
+        return await cmdStation(rest[0], flags, wantJson);
+      case 'install':
       case 'observe':
         // Landing in sprint-229. Refuse honestly rather than pretend.
         return fail(
@@ -442,6 +480,13 @@ async function main(argv) {
       diag(`error: ${err.message}`);
       for (const detail of err.details) diag(`  · ${detail}`);
       diag('  try: constructs robot-docs guide    # the territory manifest contract');
+      process.exitCode = err.exitCode;
+      return;
+    }
+    if (err instanceof StationError) {
+      diag(`error: ${err.message}`);
+      for (const detail of err.details) diag(`  · ${detail}`);
+      if (err.fix) diag(`  try: ${err.fix}`);
       process.exitCode = err.exitCode;
       return;
     }

@@ -588,3 +588,54 @@ jobs:
 
       - name: Audit skill index enrichment
         run: .claude/scripts/constructs-audit-index.sh
+
+  # =============================================================================
+  # CONSTRUCTS CLI - the zero-dep capability binary (T1.10; L4 proof per T2.9)
+  # =============================================================================
+  constructs-cli:
+    name: Constructs CLI - vectors + units + zero-dep + p95 smoke
+    runs-on: ubuntu-latest
+    if: hashFiles('packages/constructs-cli/**') != ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Zero-dep assertion
+        run: |
+          node -e "
+            const p = require('./packages/constructs-cli/package.json');
+            const deps = Object.keys(p.dependencies ?? {});
+            if (deps.length) {
+              console.error('constructs-cli must have ZERO runtime dependencies, found: ' + deps.join(', '));
+              process.exit(1);
+            }
+          "
+
+      - name: Unit suites (contract, vendor, territory, station, L4 fixture proof)
+        working-directory: packages/constructs-cli
+        run: node --test test/*.test.mjs
+
+      - name: Golden vectors (each executed twice, byte-diffed)
+        working-directory: packages/constructs-cli
+        run: node test/vectors/run-vectors.mjs
+
+      - name: p95 smoke - ambient-free verbs stay under the 1s hot path (NFR-7)
+        run: |
+          for i in 1 2 3 4 5; do
+            start=$(date +%s%N)
+            node packages/constructs-cli/bin/constructs.mjs capabilities --json > /dev/null
+            node packages/constructs-cli/bin/constructs.mjs --help > /dev/null
+            end=$(date +%s%N)
+            ms=$(( (end - start) / 1000000 ))
+            echo "run $i: ${ms}ms (two verbs)"
+            if [ "$ms" -ge 2000 ]; then
+              echo "ambient-free verbs exceeded the hot-path budget (NFR-7)"
+              exit 1
+            fi
+          done

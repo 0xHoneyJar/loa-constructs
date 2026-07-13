@@ -29,6 +29,14 @@ export class ExecError extends Error {
 // an attacker-controlled PATH is exactly the swap we're defending against.
 const BIN_SEARCH_PATH = ['/usr/bin', '/bin', '/usr/local/bin', '/opt/homebrew/bin'];
 
+// bash alone inverts the order: the Loa audit substrate requires bash ≥4, and on
+// macOS /bin/bash is pinned at 3.2 (its ERE engine can't even compile the trust
+// lib's bounded quantifiers). The homebrew/usr-local rungs are the same-user
+// toolchain, not a privilege boundary — still a fixed list, never $PATH.
+const SEARCH_OVERRIDES = {
+  bash: ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin'],
+};
+
 // Variables a child may see. Everything else is dropped — including every
 // *_API_KEY, *_TOKEN, and the rest of the ambient environment.
 const ENV_ALLOWLIST = ['PATH', 'HOME', 'LANG', 'LC_ALL', 'TZ', 'TMPDIR', 'SOURCE_DATE_EPOCH'];
@@ -40,7 +48,7 @@ export async function resolveBinary(name) {
   if (path.isAbsolute(name)) return name;
   if (resolvedBinaries.has(name)) return resolvedBinaries.get(name);
 
-  for (const dir of BIN_SEARCH_PATH) {
+  for (const dir of SEARCH_OVERRIDES[name] ?? BIN_SEARCH_PATH) {
     const candidate = path.join(dir, name);
     try {
       await access(candidate, constants.X_OK);
