@@ -1831,9 +1831,9 @@ flatline_protocol:
     sdd: true
     sprint: true
   models:
-    primary: claude-headless:claude-opus-4-7
-    secondary: codex-headless:gpt-5.5 # most powerful OpenAI (was gpt-5.3-codex)
-    tertiary: gemini-3.1-pro # registered alias (was 'google:gemini-3.1-pro-preview' — both forms failed readiness check 2026-05-11 cycle-craft-cluster; bare registered alias is the working form)
+    primary: claude-headless
+    secondary: codex-headless # most powerful OpenAI (was gpt-5.3-codex)
+    tertiary: cursor-headless # registered alias (was 'google:gemini-3.1-pro-preview' — both forms failed readiness check 2026-05-11 cycle-craft-cluster; bare registered alias is the working form)
   thresholds:
     high_consensus: 700
     disputed_delta: 300
@@ -2656,3 +2656,32 @@ qmd_context:
       ck_path: ".ck/reality/"
       grep_paths:
         - "grimoires/loa/reality/"
+# =============================================================================
+# Hounfour: Model Routing Overrides (2026-07-12 — frontier review bench)
+# =============================================================================
+# Ported from loa-freeside's proven 2026-07-09 wiring (loa#1199 workaround:
+# flatline's pre-runtime allowlist reads only the SoT, so known-good voice
+# NAMES carry honest payloads via extra.cli_model deep-merge overrides).
+# Roster: fable (claude CLI) + gpt-5.6-sol (codex CLI) + grok-4.5 (cursor CLI)
+# — three companies, three CLIs, all subscription-metered ($0).
+# claude-headless needs no override: SoT already pins cli_model: fable.
+# grok NATIVE CLI is unauthenticated on this machine (run `grok login` to
+# enable the xai-native route); grok-4.5 rides cursor-agent instead — the
+# PROVEN freeside dispatch (cursor-agent --model grok-4.5-xhigh).
+hounfour:
+  providers:
+    openai:
+      models:
+        codex-headless:
+          context_window: 1000000 # SOL 1M (SoT says 400000 for gpt-5.5)
+          extra:
+            cli_model: gpt-5.6-sol # was gpt-5.5 — codex exec --model gpt-5.6-sol (proven 0.144.0)
+    cursor:
+      models:
+        # The cursor-headless voice NAME resolves via the generated alias map to
+        # cursor:composer-2.5 — the payload repoint must land on THAT entry
+        # (a cursor.models.cursor-headless key would be an orphan new entry).
+        composer-2.5:
+          context_window: 256000
+          extra:
+            cli_model: grok-4.5-xhigh # was composer-2.5 — Cursor-brokered xAI Grok 4.5
