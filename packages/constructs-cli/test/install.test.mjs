@@ -381,3 +381,84 @@ test('T3.2b: replacing an installed pack is a SWAP — the old pack is never del
   const residue = (await readdir(parent)).filter((f) => f.startsWith('.backup-'));
   assert.deepEqual(residue, []);
 });
+
+// ── review pass 1 (sprint-229) regressions ───────────────────────────────────
+
+test('S229-1: a --dry-run git install NEVER writes trust state', async () => {
+  const upstream = await makeUpstream();
+  const root = await makeRoot({ gitUrl: upstream.dir });
+  const anchorFile = path.join(root, 'grimoires', 'loa', 'territory', 'anchors', 'goodpack.json');
+
+  const dry = await install({ slug: 'goodpack', root, rung: 'git', dryRun: true });
+  assert.equal(dry.mode, 'dry-run');
+  await assert.rejects(readFile(anchorFile, 'utf8'), 'a dry run must not pin an anchor');
+
+  // And the real install still pins it.
+  await install({ slug: 'goodpack', root, rung: 'git' });
+  const pinned = JSON.parse(await readFile(anchorFile, 'utf8'));
+  assert.equal(pinned.commit, upstream.head);
+});
+
+test('S229-2: a malformed TOFU anchor fails CLOSED — unknown trust is never fresh trust', async () => {
+  const upstream = await makeUpstream();
+  const root = await makeRoot({ gitUrl: upstream.dir });
+  await install({ slug: 'goodpack', root, rung: 'git' });
+
+  const anchorFile = path.join(root, 'grimoires', 'loa', 'territory', 'anchors', 'goodpack.json');
+  await writeFile(anchorFile, '{ this is not json');
+  await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'TOFU_MALFORMED');
+
+  await writeFile(anchorFile, JSON.stringify({ slug: 'goodpack', commit: 'not-a-sha' }));
+  await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'TOFU_MALFORMED');
+});
+
+test('S229-3: an unreadable/malformed registry fails CLOSED — never a silent fallback to the API hash', async () => {
+  const root = await makeRoot({ treeHashValue: treeHash(GOOD_FILES) });
+  const payload = await writePayload(root, GOOD_FILES);
+  // Anchors are outside the vendored YAML subset — the parser refuses them by design.
+  await writeFile(path.join(root, 'registry.yaml'), 'constructs:\n  goodpack: &a\n    git_url: x\n  other: *a\n');
+  await rejectsInstall(install({ slug: 'goodpack', root, payloadFile: payload }), EXIT.INTEGRITY_MISMATCH, 'REGISTRY_MALFORMED');
+
+  // An unreadable (but present) registry is likewise a failure, not an absence.
+  const { chmod } = await import('node:fs/promises');
+  if (typeof process.getuid !== 'function' || process.getuid() !== 0) {
+    await writeFile(path.join(root, 'registry.yaml'), 'version: 1\n');
+    await chmod(path.join(root, 'registry.yaml'), 0o000);
+    try {
+      await rejectsInstall(install({ slug: 'goodpack', root, payloadFile: payload }), EXIT.INTEGRITY_MISMATCH, 'REGISTRY_UNREADABLE');
+    } finally {
+      await chmod(path.join(root, 'registry.yaml'), 0o644);
+    }
+  }
+});
+
+test('S229-4: Win32 reserved device names and trailing-dot aliases refused', async () => {
+  const reserved = validateFileList(await loadRedteam('win32-reserved-name.json'));
+  assert.match(reserved.problems.join(' '), /reserved device name/);
+
+  const trailing = validateFileList(await loadRedteam('win32-trailing-dot.json'));
+  assert.match(trailing.problems.join(' '), /dot or space|collides with/);
+});
+
+test('S229-5: a receipt failure rolls the pack back — never installed-but-unrecorded', async () => {
+  const expected = treeHash(GOOD_FILES);
+  const root = await makeRoot({ treeHashValue: expected });
+  const payload = await writePayload(root, GOOD_FILES);
+
+  const first = await install({ slug: 'goodpack', root, payloadFile: payload });
+  const originalMeta = await readFile(path.join(first.path, '.construct-meta.json'), 'utf8');
+
+  // Make the receipts dir un-writable so the receipt write fails AFTER the pack
+  // has been swapped in. The working pack must come back.
+  // Replace the receipts DIRECTORY with a file: mkdir/write then fails hard
+  // (ENOTDIR), after the pack has already been swapped in.
+  const territory = path.join(root, 'grimoires', 'loa', 'territory');
+  const receiptsDir = path.join(territory, 'receipts');
+  const { rm: rmFs } = await import('node:fs/promises');
+  await rmFs(receiptsDir, { recursive: true, force: true });
+  await writeFile(receiptsDir, 'not a directory');
+
+  await assert.rejects(install({ slug: 'goodpack', root, payloadFile: payload }));
+  const surviving = await readFile(path.join(root, '.claude', 'constructs', 'packs', 'goodpack', '.construct-meta.json'), 'utf8');
+  assert.equal(surviving, originalMeta, 'a failed receipt write must restore the pack that was working');
+});

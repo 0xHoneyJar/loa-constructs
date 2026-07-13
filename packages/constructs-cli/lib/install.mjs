@@ -56,8 +56,20 @@ const CONTROL_BYTES_RE = /[\u0000-\u001f]/; // control bytes in a file NAME are 
  * still matches the anchor. Colliding entries are refused BEFORE hashing.
  */
 export function collisionKey(p) {
-  return p.normalize('NFC').toLowerCase();
+  // Win32 additionally STRIPS trailing dots and spaces from each segment, so
+  // `a` and `a.` and `a ` are one file there (review pass 1). Fold that in.
+  return p
+    .normalize('NFC')
+    .toLowerCase()
+    .split('/')
+    .map((seg) => seg.replace(/[. ]+$/, ''))
+    .join('/');
 }
+
+// Win32 reserved device basenames — `CON`, `NUL`, `COM1`… alias to devices even
+// WITH an extension (`con.txt` opens the console). A pack entry named for one is
+// never legitimate.
+const WIN32_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
 
 /**
  * Containment for file NAMES + budgets. Every rule here has a red-team fixture
@@ -88,6 +100,14 @@ export function validateFileList(files) {
     }
     if (f.path.includes('\\') || CONTROL_BYTES_RE.test(f.path)) {
       problems.push(`${where}: control bytes or backslashes in path rejected`);
+    }
+    for (const seg of segments) {
+      if (WIN32_RESERVED.test(seg)) {
+        problems.push(`${where}: ${JSON.stringify(f.path)} contains the reserved device name ${JSON.stringify(seg)} — it aliases a device on Windows even with an extension`);
+      }
+      if (/[. ]$/.test(seg)) {
+        problems.push(`${where}: ${JSON.stringify(f.path)} has a segment ending in a dot or space — Windows silently strips those, so two entries become one file`);
+      }
     }
     // The file-list has NO legitimate symlink use — any entry declaring one is hostile.
     if (f.symlink !== undefined || f.link !== undefined || f.type === 'symlink' || (typeof f.mode === 'number' && (f.mode & 0o170000) === 0o120000)) {
@@ -133,11 +153,31 @@ export function treeHash(files) {
 // ── registry anchor (FR-18 r2 · T3.3) ─────────────────────────────────────────
 
 export async function readRegistryAnchor(slug, registryFile = 'registry.yaml') {
+  // Absence and failure are DIFFERENT facts (review pass 1 — the same class as
+  // sprint-228's HIGH-4, repeated here). An ABSENT registry means "no tracked
+  // anchor". An UNREADABLE or malformed one must fail CLOSED: silently treating
+  // it as absent would fall back to the same-origin API hash AND drop the
+  // registry's `attested` flag — quietly disabling STRIP-ATTACK protection.
+  let raw;
+  try {
+    raw = await readFile(registryFile, 'utf8');
+  } catch (err) {
+    if (err?.code === 'ENOENT') return null; // genuinely no tracked registry
+    throw new InstallError(
+      `tracked registry ${registryFile} exists but cannot be read: ${err?.message ?? err}`,
+      EXIT.INTEGRITY_MISMATCH,
+      { code: 'REGISTRY_UNREADABLE', fix: 'fix the file permissions; an unreadable trust anchor is not a missing one' }
+    );
+  }
   let doc;
   try {
-    doc = parseYaml(await readFile(registryFile, 'utf8'));
-  } catch {
-    return null; // no tracked registry here — the anchor simply doesn't exist
+    doc = parseYaml(raw);
+  } catch (err) {
+    throw new InstallError(
+      `tracked registry ${registryFile} does not parse: ${err?.message ?? err}`,
+      EXIT.INTEGRITY_MISMATCH,
+      { code: 'REGISTRY_MALFORMED', fix: 'repair registry.yaml; a trust anchor that cannot be read cannot be trusted' }
+    );
   }
   const rec = doc?.constructs?.[slug] ?? null;
   if (!rec) return null;
@@ -261,7 +301,13 @@ async function landPack({ root, slug, stage }) {
 
   if (!replacing) {
     await rename(stage, target);
-    return target;
+    return {
+      path: target,
+      commit: async () => {},
+      rollback: async () => {
+        await rm(target, { recursive: true, force: true });
+      },
+    };
   }
 
   // Overwrite only pack-marker-managed targets: an unmanaged dir is user work.
@@ -276,9 +322,9 @@ async function landPack({ root, slug, stage }) {
   }
 
   // Replace by SWAP, not by delete-then-rename (T3.2b): the old pack is renamed
-  // aside first, so a failure mid-landing restores it. A delete-first replace
-  // leaves a window where an interrupted install has destroyed the working pack
-  // and installed nothing.
+  // aside first, so a failure mid-landing restores it. The backup is held until
+  // the CALLER commits — a receipt failure after the swap must still be able to
+  // put the working pack back (review pass 1).
   const backup = path.join(parent, `.backup-${slug}-${process.pid}`);
   await rm(backup, { recursive: true, force: true });
   await rename(target, backup);
@@ -288,8 +334,16 @@ async function landPack({ root, slug, stage }) {
     await rename(backup, target).catch(() => {}); // restore what was working
     throw err;
   }
-  await rm(backup, { recursive: true, force: true });
-  return target;
+  return {
+    path: target,
+    commit: async () => {
+      await rm(backup, { recursive: true, force: true });
+    },
+    rollback: async () => {
+      await rm(target, { recursive: true, force: true });
+      await rename(backup, target).catch(() => {});
+    },
+  };
 }
 
 // ── acquisition rungs ─────────────────────────────────────────────────────────
@@ -337,26 +391,61 @@ function tofuAnchorPath(root, slug) {
   return path.join(root, 'grimoires', 'loa', 'territory', 'anchors', `${slug}.json`);
 }
 
+/**
+ * Absent means "never installed". Malformed or unreadable means the trust state
+ * is UNKNOWN — and unknown trust must never read as fresh trust (review pass 1).
+ */
 async function readTofuAnchor(root, slug) {
+  const file = tofuAnchorPath(root, slug);
+  let raw;
   try {
-    return JSON.parse(await readFile(tofuAnchorPath(root, slug), 'utf8'));
-  } catch {
-    return null;
+    raw = await readFile(file, 'utf8');
+  } catch (err) {
+    if (err?.code === 'ENOENT') return null; // never installed: first use is next
+    throw new InstallError(
+      `TOFU anchor ${file} exists but cannot be read: ${err?.message ?? err}`,
+      EXIT.INTEGRITY_MISMATCH,
+      { code: 'TOFU_UNREADABLE', fix: 'fix permissions, or delete the anchor to knowingly re-establish first-use trust' }
+    );
   }
+  let doc;
+  try {
+    doc = JSON.parse(raw);
+  } catch {
+    throw new InstallError(
+      `TOFU anchor ${file} is malformed — the pinned commit is unreadable, so trust state is UNKNOWN`,
+      EXIT.INTEGRITY_MISMATCH,
+      { code: 'TOFU_MALFORMED', fix: 'delete the anchor to knowingly re-establish first-use trust' }
+    );
+  }
+  if (typeof doc?.commit !== 'string' || !/^[0-9a-f]{40}$/.test(doc.commit)) {
+    throw new InstallError(
+      `TOFU anchor ${file} has no valid pinned commit`,
+      EXIT.INTEGRITY_MISMATCH,
+      { code: 'TOFU_MALFORMED', fix: 'delete the anchor to knowingly re-establish first-use trust' }
+    );
+  }
+  return doc;
 }
 
+/** Atomic: an interrupted write must not leave a half-anchor that reads as absent. */
 async function writeTofuAnchor(root, slug, commit) {
   const file = tofuAnchorPath(root, slug);
   await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(file, `${JSON.stringify({ slug, commit, first_seen_at: nowIso() }, null, 2)}\n`, 'utf8');
+  const tmp = `${file}.tmp-${process.pid}`;
+  await writeFile(tmp, `${JSON.stringify({ slug, commit, first_seen_at: nowIso() }, null, 2)}\n`, 'utf8');
+  await rename(tmp, file);
 }
 
-async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrityMismatch = false }) {
+async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrityMismatch = false, dryRun = false }) {
   if (!anchor?.git_url) {
     throw new InstallError(`registry.yaml has no git_url for ${slug} — the git rung cannot answer`, EXIT.CALLER_ERROR, { fix: 'constructs list --json    # what the registry knows' });
   }
   await run('git', ['clone', '-q', anchor.git_url, stagingDir], { timeoutMs: 120_000 });
   let tofu = null;
+  // The anchor a successful landing WOULD persist. A --dry-run must never mutate
+  // trust state (review pass 1), so nothing is written from inside acquisition.
+  let pendingAnchor = null;
   if (anchor.commit) {
     // T3.3: pin to the commit the TRACKED registry records.
     try {
@@ -378,16 +467,20 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
       }
       process.stderr.write(`warning: rotating the TOFU anchor for ${slug}: ${pinned.commit} -> ${head}\n`);
       await run('git', ['-C', stagingDir, 'checkout', '-q', '--detach', head], { timeoutMs: 30_000 });
-      await writeTofuAnchor(root, slug, head);
       tofu = head;
+      pendingAnchor = head; // persisted only on a successful, non-dry-run landing
     } else if (pinned) {
       // Pinned and matching: check out the pin explicitly, never "whatever HEAD is".
       await run('git', ['-C', stagingDir, 'checkout', '-q', '--detach', pinned.commit], { timeoutMs: 30_000 });
       tofu = pinned.commit;
     } else {
-      await writeTofuAnchor(root, slug, head);
       tofu = head;
-      process.stderr.write(`notice: registry.yaml records no commit for ${slug} — first fetch is trust-on-first-use; pinned first-seen:${head.slice(0, 12)} (later installs must match it)\n`);
+      pendingAnchor = head;
+      process.stderr.write(
+        dryRun
+          ? `notice: DRY RUN — ${slug} would be pinned first-seen:${head.slice(0, 12)} (nothing written)\n`
+          : `notice: registry.yaml records no commit for ${slug} — first fetch is trust-on-first-use; pinning first-seen:${head.slice(0, 12)} (later installs must match it)\n`
+      );
     }
   }
   try {
@@ -398,7 +491,7 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
   await assertNoSymlinks(stagingDir);
   await rm(path.join(stagingDir, '.git'), { recursive: true, force: true });
   const head = anchor.commit ?? tofu ?? 'unknown';
-  return { rung: 'registry-git', head, tofu: tofu !== null };
+  return { rung: 'registry-git', head, tofu: tofu !== null, pendingAnchor };
 }
 
 // ── the install flow ──────────────────────────────────────────────────────────
@@ -421,7 +514,9 @@ export async function install({
     throw new InstallError('--allow-integrity-mismatch requires --reason <text> (at least 8 chars) — the override is logged with your name on it', EXIT.CALLER_ERROR);
   }
 
-  const anchor = await readRegistryAnchor(slug, path.join(root, registryFile)).catch(() => null);
+  // NOT .catch(() => null): a registry that exists but cannot be validated must
+  // fail closed, and readRegistryAnchor throws exactly then (review pass 1).
+  const anchor = await readRegistryAnchor(slug, path.join(root, registryFile));
   const parent = packsParent(root);
   await mkdir(parent, { recursive: true });
   const stagingDir = path.join(parent, `.staging-${slug}-${process.pid}`);
@@ -439,7 +534,7 @@ export async function install({
       if (rung === 'git' || rung === 'registry-git') {
         await mkdir(stagingDir, { recursive: true });
         const packStage = path.join(stagingDir, 'pack');
-        gitInfo = await acquireGit({ slug, anchor, stagingDir: packStage, root, allowIntegrityMismatch });
+        gitInfo = await acquireGit({ slug, anchor, stagingDir: packStage, root, allowIntegrityMismatch, dryRun });
         acquisition = { rung: 'registry-git', files: null, manifest: null, version: null, attestation: null, declaredHash: null };
         if (!dryRun) {
           // The git rung leaves the SAME pack marker as the file-list rung — without
@@ -534,13 +629,25 @@ export async function install({
         return { mode: 'dry-run', slug, payload: receiptPayload };
       }
 
-      const landed = await landPack({ root, slug, stage: path.join(stagingDir, 'pack') });
+      // The pack and its receipt land as ONE recoverable transaction (review pass 1):
+      // the replaced pack's backup is held until the receipt is durable, so a receipt
+      // failure cannot leave an installed-but-unrecorded pack.
+      const landing = await landPack({ root, slug, stage: path.join(stagingDir, 'pack') });
 
       const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
-      await mkdir(receiptsDir, { recursive: true });
-      const record = await writeRecordUnlocked(receiptsDir, receiptPayload);
+      let record;
+      try {
+        await mkdir(receiptsDir, { recursive: true });
+        record = await writeRecordUnlocked(receiptsDir, receiptPayload);
+        // Trust state is persisted only once the install is fully durable.
+        if (gitInfo?.pendingAnchor) await writeTofuAnchor(root, slug, gitInfo.pendingAnchor);
+      } catch (err) {
+        await landing.rollback();
+        throw err;
+      }
+      await landing.commit();
 
-      return { mode: 'installed', slug, path: landed, receipt_path: record.receipt_path, payload: receiptPayload };
+      return { mode: 'installed', slug, path: landing.path, receipt_path: record.receipt_path, payload: receiptPayload };
     } finally {
       await rm(stagingDir, { recursive: true, force: true });
     }
