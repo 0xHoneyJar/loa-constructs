@@ -1456,3 +1456,25 @@ Full enriched ride of loa-constructs (branch `implement/backlog-triage`, HEAD 47
 
 - [ ] [DECISION PENDING] Phase 2: success metrics for this cycle
 - [ ] Forks for Phase 4/5: seed-vs-greenfield · constructs-cli repo fate · SoT collision (registry.yaml/API/index) · scope (CLI-only vs +24 shell scripts) · territory: stanza (additive schema)
+
+## [BLOCKER] Red-team infra defective (2026-07-12, simstim phase 4.5)
+
+Two independent failures found while red-teaming the constructs-CLI SDD:
+1. **Silent mock fallback**: `red-team-pipeline.sh::resolve_adapter_mode()` (+ the
+   twin in `red-team-model-adapter.sh::detect_default_mode`) gates live mode on
+   `has_any_api_key` — an env API key. On CLI-subscription auth (our whole flatline
+   bench) this is FALSE, so red-team silently ran **fixture data** (ATK-F01 "SQL
+   Injection via Personality Field") and the grounding guard then halted on the
+   off-target fixtures. This is the pre-T3.7 legacy path CLAUDE.md documents as
+   pending removal — but it currently produces a CONFIDENT WRONG ARTIFACT, not a
+   refusal. Fix: gate on model-invoke reachability, not key presence.
+2. **Live path yields zero attacks**: with red_team models pinned to the CLI bench
+   (codex/cursor/claude-headless) + `hounfour.flatline_routing: true`, the run
+   completes exit 0 with 0 attacks, 0 tokens (`phase1_attacks_ms: 0`) — the
+   attacker's output isn't parsed/passed through. Zero attacks reads as "secure"
+   in the summary table; it is actually "tool did not run" (never-silent-fail
+   violation).
+
+Red-team was SKIPPED for this cycle (advisory phase). Security coverage for the
+SDD came from: Flatline PRD ×2 (24 blockers), Bridgebuilder design review (7),
+Flatline SDD (19 blockers incl. 5 CRITICAL supply-chain/authority). File upstream.

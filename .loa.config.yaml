@@ -1884,10 +1884,10 @@ red_team:
   enabled: true
   mode: standard
   models:
-    attacker_primary: opus
-    attacker_secondary: gpt-5.5-pro # most powerful OpenAI (was gpt-5.3-codex)
-    defender_primary: opus
-    defender_secondary: gpt-5.5-pro # most powerful OpenAI (was gpt-5.3-codex)
+    attacker_primary: codex-headless
+    attacker_secondary: cursor-headless # most powerful OpenAI (was gpt-5.3-codex)
+    defender_primary: claude-headless
+    defender_secondary: codex-headless # most powerful OpenAI (was gpt-5.3-codex)
   defaults:
     attacks_per_model: 10
     depth: 1
@@ -2685,3 +2685,4 @@ hounfour:
           context_window: 256000
           extra:
             cli_model: grok-4.5-xhigh # was composer-2.5 — Cursor-brokered xAI Grok 4.5
+  flatline_routing: true
