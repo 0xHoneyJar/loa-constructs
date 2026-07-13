@@ -305,12 +305,12 @@ test('authority: display-only this cycle — the receipt records the ceiling, ne
 
 // ── snapshot shape ────────────────────────────────────────────────────────────
 
-test('snapshot: carries all four authorization inputs', async () => {
+test('snapshot: carries all five authorization inputs (anchor included, review pass 2)', async () => {
   const dir = await makeRegion();
   const snap = await snapshotAuthInputs(dir);
   assert.deepEqual(
     Object.keys(snap).filter((k) => !k.startsWith('_')).sort(),
-    ['default_branch', 'head', 'l4_ledger_tip', 'manifest_hash']
+    ['anchor', 'default_branch', 'head', 'l4_ledger_tip', 'manifest_hash']
   );
 });
 
@@ -391,4 +391,25 @@ test('LOW-7: a boolean flag never swallows the following positional', async () =
   });
   assert.equal(res.exitCode, 0, res.stderr);
   assert.match(res.stdout, /"mode": "dry-run"/);
+});
+
+// ── review pass 2 regressions ─────────────────────────────────────────────────
+
+test('PASS2-1: a configured origin with an unfetched default branch FAILS CLOSED, never local-only', async () => {
+  const dir = await makeRegion();
+  // Configure an origin but never fetch: refs/remotes/origin/main does not exist.
+  await gitIn(dir, ['remote', 'add', 'origin', 'https://example.invalid/region.git']);
+  const report = await station({ slug: 'saaty', region: 'fixture-region', regionRoot: dir, dryRun: true });
+  assert.equal(report.ratified, false);
+  assert.match(report.blockers.join(' '), /never been fetched|not contained in origin\/main/);
+  assert.equal(report.payload.verification.anchor, 'origin/main', 'a configured origin must never render as local-only');
+});
+
+test('PASS2-2: the anchor is an authorization input — a flip between validate and write is refused', async () => {
+  const { clone } = await makeAnchoredClone();
+  const validation = await validateStationing({ slug: 'saaty', region: 'fixture-region', regionRoot: clone });
+  assert.equal(validation.snapshot.anchor, 'origin/main');
+  // The remote vanishes after validation: anchor would now resolve local-only.
+  await gitIn(clone, ['remote', 'remove', 'origin']);
+  await rejectsStation(recordStationing(validation), EXIT.REFUSED, /anchor|changed between validate and write/);
 });

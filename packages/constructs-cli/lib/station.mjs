@@ -149,18 +149,26 @@ async function gitFacts(regionRoot, manifestRel) {
   const dirty = await git(['status', '--porcelain', '--', manifestRel], { cwd: regionRoot });
 
   // HIGH-1 (review pass 1): a local commit alone never exercises the region's
-  // git permissions. When an origin ref for the default branch exists, HEAD
-  // must be CONTAINED in it for the act to count as ratified; a repo with no
-  // remote is an explicitly separate local-only mode, named in the receipt.
+  // git permissions. When an origin remote is CONFIGURED, HEAD must be contained
+  // in the last-fetched origin/<default> for the act to count as ratified —
+  // and a configured origin whose default-branch ref is unfetched FAILS CLOSED
+  // rather than downgrading to local-only (review pass 2). Only a repo with no
+  // origin at all is local-only mode. Containment is judged against the
+  // last-fetched state: a stale ref can only under-approve (conservative),
+  // except across a remote force-push rewrite — that residual is accepted and
+  // named here; live `git ls-remote` verification is the v2 affordance.
   let anchor = 'local-only';
   let containedInRemote = null;
-  if (def !== null) {
+  const originConfigured = await run('git', ['remote', 'get-url', 'origin'], { cwd: regionRoot, allowNonZero: true });
+  if (originConfigured.exitCode === 0 && def !== null) {
+    anchor = `origin/${def}`;
     const originRef = `refs/remotes/origin/${def}`;
-    const hasOrigin = await run('git', ['show-ref', '--verify', '--quiet', originRef], { cwd: regionRoot, allowNonZero: true });
-    if (hasOrigin.exitCode === 0) {
+    const hasRef = await run('git', ['show-ref', '--verify', '--quiet', originRef], { cwd: regionRoot, allowNonZero: true });
+    if (hasRef.exitCode === 0) {
       const contained = await run('git', ['merge-base', '--is-ancestor', 'HEAD', originRef], { cwd: regionRoot, allowNonZero: true });
-      anchor = `origin/${def}`;
       containedInRemote = contained.exitCode === 0;
+    } else {
+      containedInRemote = false; // configured origin, unverifiable state: fail closed
     }
   }
 
@@ -195,7 +203,7 @@ function ratificationBlockers(facts) {
   }
   if (facts.contained_in_remote === false) {
     blockers.push(
-      `HEAD is not contained in origin/${facts.default_branch} — the manifest edit has not landed on the region's remote default branch. Push or merge it, then record`
+      `HEAD is not contained in origin/${facts.default_branch} (or that ref has never been fetched) — the manifest edit has not verifiably landed on the region's remote default branch. Push or merge it, fetch, then record`
     );
   }
   return blockers;
@@ -228,12 +236,17 @@ export async function snapshotAuthInputs(regionRoot = '.', { manifestRaw = null 
     head: facts.head,
     default_branch: facts.default_branch,
     l4_ledger_tip: ledgerTip,
+    // The anchor is an authorization input like the rest (review pass 2): a
+    // remote appearing/disappearing between validate and write must void the
+    // validation, and the receipt must never attest an anchor the write-time
+    // check did not re-observe.
+    anchor: facts.anchor,
     _facts: facts,
   };
 }
 
 function snapshotChanged(a, b) {
-  const fields = ['manifest_hash', 'head', 'default_branch', 'l4_ledger_tip'];
+  const fields = ['manifest_hash', 'head', 'default_branch', 'l4_ledger_tip', 'anchor'];
   return fields.filter((f) => a[f] !== b[f]);
 }
 
@@ -357,9 +370,10 @@ export function buildReceiptPayload(validation, { kind = 'station' } = {}) {
       default_branch: snapshot.default_branch,
       l4_ledger_tip: snapshot.l4_ledger_tip,
       // 'origin/<branch>' when the act is anchored to (contained in) the remote
-      // default branch; 'local-only' when the repo has no remote — stated, never
-      // silently equated (HIGH-1).
-      anchor: snapshot._facts.anchor,
+      // default branch; 'local-only' ONLY when no origin remote is configured —
+      // stated, never silently equated (HIGH-1; equality-checked at write time
+      // via the snapshot, review pass 2).
+      anchor: snapshot.anchor,
     },
   };
 }
