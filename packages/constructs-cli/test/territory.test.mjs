@@ -160,9 +160,12 @@ loadout: []
   const map = await atlas({ sources: [root, '/nonexistent/region/path'] });
   // The good source still answers.
   assert.equal(map.regions.length, 1);
-  // And the bad one is named rather than silently dropped.
-  assert.equal(map.partial, false, 'a missing manifest is "not declared", not "unreadable"');
-  assert.equal(map.failed_sources.length, 0);
+  // And the bad one is NAMED rather than silently dropped (HIGH-4, review pass 1:
+  // a nonexistent SOURCE is a failure to see, not an undeclared region — only a
+  // missing manifest on an existing source means "not declared").
+  assert.equal(map.partial, true);
+  assert.equal(map.failed_sources.length, 1);
+  assert.match(map.failed_sources[0].error, /does not exist/);
 });
 
 test('atlas: an invalid manifest lands in failed_sources — the map degrades, it does not lie', async () => {
@@ -249,4 +252,51 @@ loadout: []
   const answer = await where('somewhere/else.ts', { sources: [root] });
   assert.equal(answer.region, null);
   assert.match(answer.provenance.resolved_by, /no region claims/);
+});
+
+// ── review pass 1 regressions (engineer-feedback.md, cycle 2) ─────────────────
+
+test('HIGH-3: the bin answers and EXITS well under the default timeout (deadline timer cleared)', async () => {
+  const { run } = await import('../lib/exec.mjs');
+  const BIN = new URL('../bin/constructs.mjs', import.meta.url).pathname;
+  const dir = await mkdtemp(path.join(tmpdir(), 'atlas-timing-'));
+  const started = Date.now();
+  const res = await run(process.execPath, [BIN, 'atlas', '--json'], { cwd: dir, allowNonZero: true, timeoutMs: 20_000 });
+  const wall = Date.now() - started;
+  assert.equal(res.exitCode, 0, res.stderr);
+  assert.ok(wall < 4000, `atlas took ${wall}ms — a lingering deadline timer is holding the event loop open`);
+});
+
+test('HIGH-4: a nonexistent source lands in failed_sources with partial:true', async () => {
+  const map = await atlas({ sources: ['/definitely-not-a-real-source-dir'] });
+  assert.equal(map.partial, true);
+  assert.equal(map.failed_sources.length, 1);
+  assert.match(map.failed_sources[0].error, /does not exist/);
+});
+
+test('HIGH-4: a permission-denied manifest is a failed source, not an undeclared region', async (t) => {
+  if (typeof process.getuid === 'function' && process.getuid() === 0) {
+    t.skip('root ignores file modes');
+    return;
+  }
+  const { chmod } = await import('node:fs/promises');
+  const dir = await mkdtemp(path.join(tmpdir(), 'territory-eacces-'));
+  await mkdir(path.join(dir, 'grimoires'), { recursive: true });
+  const file = path.join(dir, 'grimoires', 'territory.yaml');
+  await writeFile(file, 'region: locked\n');
+  await chmod(file, 0o000);
+  try {
+    const map = await atlas({ sources: [dir] });
+    assert.equal(map.partial, true);
+    assert.equal(map.failed_sources.length, 1);
+    assert.match(map.failed_sources[0].error, /unreadable/);
+  } finally {
+    await chmod(file, 0o644);
+  }
+});
+
+test('MEDIUM-6: the atlas says its ratification honesty out loud', async () => {
+  const dir = await mkdtemp(path.join(tmpdir(), 'atlas-honesty-'));
+  const map = await atlas({ sources: [dir] });
+  assert.match(map.ratification, /unchecked/);
 });

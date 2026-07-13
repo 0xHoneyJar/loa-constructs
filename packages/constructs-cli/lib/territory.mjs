@@ -10,7 +10,7 @@
 // not a claim of shared truth. Conflating those two altitudes is how stale maps become
 // outages (BB DR-001).
 
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { parse as parseYaml } from './vendor/yaml-subset.mjs';
 import { validate } from './vendor/schema-subset.mjs';
@@ -112,18 +112,36 @@ export async function validateManifest(doc, { source = 'territory.yaml' } = {}) 
   return doc;
 }
 
-/** Read + parse + validate a region's manifest from disk. */
+/**
+ * Read + parse + validate a region's manifest from disk.
+ *
+ * Absence and failure are different facts (HIGH-4, review pass 1): a missing
+ * manifest on an EXISTING source is "this region hasn't declared itself" (null,
+ * by design); a missing source directory or an unreadable manifest (EACCES, EIO)
+ * is an error the caller must see — atlas records it as a failed source, never
+ * as a quietly empty region.
+ */
 export async function readManifest(repoRoot = '.') {
   const file = path.join(repoRoot, 'grimoires', 'territory.yaml');
   let raw;
   try {
     raw = await readFile(file, 'utf8');
-  } catch {
-    return null; // a region without a manifest simply hasn't declared itself yet
+  } catch (err) {
+    if (err?.code === 'ENOENT') {
+      try {
+        await stat(repoRoot);
+        return null; // source exists, manifest doesn't: undeclared region
+      } catch {
+        throw new TerritoryError(`source ${repoRoot} does not exist or cannot be read`, EXIT.TOOL_FAILURE);
+      }
+    }
+    throw new TerritoryError(`territory manifest unreadable at ${file}: ${err?.message ?? err}`, EXIT.TOOL_FAILURE);
   }
   const doc = parseYaml(raw);
   await validateManifest(doc, { source: file });
-  return { ...doc, _source: file, _root: repoRoot };
+  // _raw rides along so a caller that snapshots the manifest hash can hash the
+  // EXACT bytes this parse came from (station.mjs TOCTOU contract, HIGH-2).
+  return { ...doc, _source: file, _root: repoRoot, _raw: raw };
 }
 
 // ── zones (the zone stratum) ──────────────────────────────────────────────────
@@ -201,13 +219,19 @@ export async function atlas({ sources = ['.'], timeoutMs = DEFAULT_TIMEOUT_MS } 
 
   const results = await Promise.all(
     sources.map(async (src) => {
-      const deadline = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`source timed out after ${timeoutMs}ms`)), timeoutMs)
-      );
+      // The timer is cleared once the race settles — a referenced timer would
+      // hold the event loop open and make every invocation linger the full
+      // timeout after answering (HIGH-3, review pass 1: 5.03s observed).
+      let timer;
+      const deadline = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`source timed out after ${timeoutMs}ms`)), timeoutMs);
+      });
       try {
         return { src, manifest: await Promise.race([readManifest(src), deadline]) };
       } catch (err) {
         return { src, error: err?.message ?? String(err) };
+      } finally {
+        clearTimeout(timer);
       }
     })
   );
@@ -264,6 +288,11 @@ export async function atlas({ sources = ['.'], timeoutMs = DEFAULT_TIMEOUT_MS } 
       'This is this machine\'s honest view of the estate — the same altitude as `loa census`, not a claim of shared truth. Sources are local paths; a source this machine cannot see is reported, never silently omitted.',
     partial: failed.length > 0,
     failed_sources: failed,
+    // Honesty marker (MEDIUM-6, review pass 1): loadout rows here reflect the
+    // WORKING TREE of each source. A stationing is live only when the manifest
+    // edit is committed on the region's default branch — this map does not
+    // verify that, and says so rather than letting a preview pass as ratified.
+    ratification: 'unchecked — loadout rows reflect the working tree; liveness requires the committed manifest on the region default branch',
     zones: zones.map((z) => ({ name: z.name, tracked_paths: [...z.tracked_paths].sort() })).sort((a, b) => a.name.localeCompare(b.name)),
     regions: regionBlocks,
     conflicts: detectConflicts(regions),

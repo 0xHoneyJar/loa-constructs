@@ -148,13 +148,57 @@ async function gitFacts(regionRoot, manifestRel) {
   const tracked = await run('git', ['ls-files', '--error-unmatch', '--', manifestRel], { cwd: regionRoot, allowNonZero: true });
   const dirty = await git(['status', '--porcelain', '--', manifestRel], { cwd: regionRoot });
 
+  // HIGH-1 (review pass 1): a local commit alone never exercises the region's
+  // git permissions. When an origin ref for the default branch exists, HEAD
+  // must be CONTAINED in it for the act to count as ratified; a repo with no
+  // remote is an explicitly separate local-only mode, named in the receipt.
+  let anchor = 'local-only';
+  let containedInRemote = null;
+  if (def !== null) {
+    const originRef = `refs/remotes/origin/${def}`;
+    const hasOrigin = await run('git', ['show-ref', '--verify', '--quiet', originRef], { cwd: regionRoot, allowNonZero: true });
+    if (hasOrigin.exitCode === 0) {
+      const contained = await run('git', ['merge-base', '--is-ancestor', 'HEAD', originRef], { cwd: regionRoot, allowNonZero: true });
+      anchor = `origin/${def}`;
+      containedInRemote = contained.exitCode === 0;
+    }
+  }
+
   return {
     head: head.stdout.trim(),
     branch,
     default_branch: def,
     manifest_tracked: tracked.exitCode === 0,
     manifest_clean: dirty === '',
+    anchor,
+    contained_in_remote: containedInRemote,
   };
+}
+
+/**
+ * The ratification predicate, in ONE place: every reason this act is not (yet)
+ * a committed, remote-landed manifest edit. Empty array = ratified. It is
+ * re-run IN FULL immediately before the write (HIGH-2, review pass 1) — a
+ * partial recheck is how a same-commit branch switch slips through.
+ */
+function ratificationBlockers(facts) {
+  const blockers = [];
+  if (!facts.manifest_tracked) {
+    blockers.push('the territory manifest is not tracked by git — writability is not ratification');
+  } else if (!facts.manifest_clean) {
+    blockers.push('the territory manifest has uncommitted edits — a worktree-only edit is --dry-run territory, not a ratified act');
+  }
+  if (facts.branch !== facts.default_branch) {
+    blockers.push(
+      `HEAD is on ${JSON.stringify(facts.branch)}, but ratification means committed on the default branch (${JSON.stringify(facts.default_branch)})`
+    );
+  }
+  if (facts.contained_in_remote === false) {
+    blockers.push(
+      `HEAD is not contained in origin/${facts.default_branch} — the manifest edit has not landed on the region's remote default branch. Push or merge it, then record`
+    );
+  }
+  return blockers;
 }
 
 // ── T2.6 · the authorization snapshot ─────────────────────────────────────────
@@ -166,8 +210,11 @@ async function gitFacts(regionRoot, manifestRel) {
 const MANIFEST_REL = path.join('grimoires', 'territory.yaml');
 const LEDGER_REL = path.join('.run', 'trust-ledger.jsonl');
 
-export async function snapshotAuthInputs(regionRoot = '.') {
-  const manifestBytes = await readFile(path.join(regionRoot, MANIFEST_REL), 'utf8');
+export async function snapshotAuthInputs(regionRoot = '.', { manifestRaw = null } = {}) {
+  // When the caller already parsed the manifest, it passes the EXACT bytes it
+  // parsed — hashing a second read could describe different bytes than the
+  // loadout row that was validated (HIGH-2, review pass 1).
+  const manifestBytes = manifestRaw ?? (await readFile(path.join(regionRoot, MANIFEST_REL), 'utf8'));
   let ledgerTip = 'absent';
   try {
     const ledgerBytes = await readFile(path.join(regionRoot, LEDGER_REL), 'utf8');
@@ -223,7 +270,7 @@ export async function validateStationing({ slug, region, regionRoot = '.' }) {
     );
   }
 
-  const snapshot = await snapshotAuthInputs(regionRoot);
+  const snapshot = await snapshotAuthInputs(regionRoot, { manifestRaw: manifest._raw ?? null });
   const facts = snapshot._facts;
 
   if (facts.default_branch === null) {
@@ -236,17 +283,7 @@ export async function validateStationing({ slug, region, regionRoot = '.' }) {
 
   // Soft blockers: the act is legible but not (yet) ratified. --dry-run reports
   // them; a real write refuses on them.
-  const blockers = [];
-  if (!facts.manifest_tracked) {
-    blockers.push(`the territory manifest is not tracked by git — writability is not ratification`);
-  } else if (!facts.manifest_clean) {
-    blockers.push(`the territory manifest has uncommitted edits — a worktree-only edit is --dry-run territory, not a ratified act`);
-  }
-  if (facts.branch !== facts.default_branch) {
-    blockers.push(
-      `HEAD is on ${JSON.stringify(facts.branch)}, but ratification means committed on the default branch (${JSON.stringify(facts.default_branch)})`
-    );
-  }
+  const blockers = ratificationBlockers(facts);
 
   return {
     slug,
@@ -319,6 +356,10 @@ export function buildReceiptPayload(validation, { kind = 'station' } = {}) {
       head: snapshot.head,
       default_branch: snapshot.default_branch,
       l4_ledger_tip: snapshot.l4_ledger_tip,
+      // 'origin/<branch>' when the act is anchored to (contained in) the remote
+      // default branch; 'local-only' when the repo has no remote — stated, never
+      // silently equated (HIGH-1).
+      anchor: snapshot._facts.anchor,
     },
   };
 }
@@ -355,6 +396,17 @@ export async function recordStationing(validation) {
         `authorization inputs changed between validate and write (${changed.join(', ')}) — the validation no longer describes this tree`,
         EXIT.REFUSED,
         { fix: 're-run the command; it will validate against the current state' }
+      );
+    }
+    // And the FULL predicate again, not just the four hashes: a same-commit
+    // branch switch leaves every hash identical while un-ratifying the act
+    // (HIGH-2, review pass 1).
+    const staleBlockers = ratificationBlockers(fresh._facts);
+    if (staleBlockers.length > 0) {
+      throw new StationError(
+        `ratification no longer holds at write time:\n  · ${staleBlockers.join('\n  · ')}`,
+        EXIT.REFUSED,
+        { fix: 're-run the command from the ratified state (clean manifest, committed on the default branch)' }
       );
     }
 

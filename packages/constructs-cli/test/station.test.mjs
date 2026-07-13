@@ -313,3 +313,82 @@ test('snapshot: carries all four authorization inputs', async () => {
     ['default_branch', 'head', 'l4_ledger_tip', 'manifest_hash']
   );
 });
+
+// ── review pass 1 regressions (engineer-feedback.md, cycle 2) ─────────────────
+
+const BIN = new URL('../bin/constructs.mjs', import.meta.url).pathname;
+
+/** A region with a REAL remote: bare origin + working clone (HIGH-1 fixtures). */
+async function makeAnchoredClone() {
+  const origin = await makeRegion();
+  const bare = path.join(await mkdtemp(path.join(tmpdir(), 'station-origin-')), 'origin.git');
+  await gitIn(origin, ['clone', '-q', '--bare', origin, bare]);
+  const clone = path.join(await mkdtemp(path.join(tmpdir(), 'station-anchored-')), 'r');
+  await gitIn(origin, ['clone', '-q', bare, clone]);
+  return { bare, clone };
+}
+
+test('HIGH-1: a local commit not landed on origin/<default> is dry-run territory', async () => {
+  const { clone } = await makeAnchoredClone();
+  // At clone time HEAD == origin/main: contained, ratified.
+  const ok = await station({ slug: 'saaty', region: 'fixture-region', regionRoot: clone, dryRun: true });
+  assert.equal(ok.ratified, true);
+
+  // A read-only-clone user commits a manifest edit on their local main. The
+  // remote never saw it — the region's git permissions were never exercised.
+  await appendFile(path.join(clone, 'grimoires', 'territory.yaml'), '# local-only edit\n');
+  await commitAll(clone, 'local-only manifest edit');
+
+  const report = await station({ slug: 'saaty', region: 'fixture-region', regionRoot: clone, dryRun: true });
+  assert.equal(report.ratified, false);
+  assert.match(report.blockers.join(' '), /not contained in origin\/main/);
+  await rejectsStation(
+    station({ slug: 'saaty', region: 'fixture-region', regionRoot: clone }),
+    EXIT.REFUSED,
+    /not ratified/
+  );
+});
+
+test('HIGH-1: pushed to the remote default branch → ratified, receipt anchors to origin/main', async () => {
+  const { clone } = await makeAnchoredClone();
+  await appendFile(path.join(clone, 'grimoires', 'territory.yaml'), '# ratified edit\n');
+  await commitAll(clone, 'ratified manifest edit');
+  await gitIn(clone, ['push', '-q', 'origin', 'main']);
+
+  const rec = await station({ slug: 'saaty', region: 'fixture-region', regionRoot: clone });
+  assert.equal(rec.mode, 'recorded');
+  assert.equal(rec.payload.verification.anchor, 'origin/main');
+});
+
+test('HIGH-1: a remote-less repo is explicit local-only mode, stated in the receipt', async () => {
+  const dir = await makeRegion();
+  const rec = await station({ slug: 'saaty', region: 'fixture-region', regionRoot: dir });
+  assert.equal(rec.payload.verification.anchor, 'local-only');
+});
+
+test('HIGH-2: same-commit branch switch between validate and write → refused', async () => {
+  const dir = await makeRegion();
+  const validation = await validateStationing({ slug: 'saaty', region: 'fixture-region', regionRoot: dir });
+  // HEAD is unchanged, so every snapshot hash stays identical — only the full
+  // predicate re-run can catch this.
+  await gitIn(dir, ['checkout', '-q', '-b', 'sneaky']);
+  await rejectsStation(recordStationing(validation), EXIT.REFUSED, /no longer holds/);
+});
+
+test('HIGH-2: the snapshot hashes the exact bytes that were parsed — manifestRaw wins over disk', async () => {
+  const dir = await makeRegion();
+  const onDisk = await snapshotAuthInputs(dir);
+  const injected = await snapshotAuthInputs(dir, { manifestRaw: 'region: not-what-is-on-disk\n' });
+  assert.notEqual(injected.manifest_hash, onDisk.manifest_hash);
+});
+
+test('LOW-7: a boolean flag never swallows the following positional', async () => {
+  const dir = await makeRegion();
+  const res = await run(process.execPath, [BIN, 'station', '--dry-run', 'saaty', '--region', 'fixture-region', '--json'], {
+    cwd: dir,
+    allowNonZero: true,
+    timeoutMs: 20_000,
+  });
+  assert.equal(res.exitCode, 0, res.stderr);
+  assert.match(res.stdout, /"mode": "dry-run"/);
+});

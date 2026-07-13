@@ -595,7 +595,6 @@ jobs:
   constructs-cli:
     name: Constructs CLI - vectors + units + zero-dep + p95 smoke
     runs-on: ubuntu-latest
-    if: hashFiles('packages/constructs-cli/**') != ''
 
     steps:
       - name: Checkout repository

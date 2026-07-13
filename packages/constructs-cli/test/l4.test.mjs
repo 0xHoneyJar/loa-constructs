@@ -99,3 +99,29 @@ test('production stationings stay observe-only this cycle (PRD G-4 r2)', async (
     assert.ok(!/^\s*enabled:\s*true\b/m.test(gtBlock[1]), 'production graduated_trust must stay disabled this cycle');
   }
 });
+
+// ── review pass 1 regression (LOW-8): the trust.force_grant display branch ─────
+
+test('L4: trust.force_grant renders through readAuthority', async () => {
+  const region = await makeRegion({ mount: 'real' });
+  const ledger = path.join(region, '.run', 'trust-ledger.jsonl');
+  await mkdir(path.join(region, '.run'), { recursive: true });
+  const res = await run(
+    'bash',
+    [DRIVE, 'grant', SCOPE, CAPABILITY, ACTOR, 'gate', '--force', '--operator', 'overseer', '--reason', 'fixture: operator force-grant across tiers'],
+    {
+      cwd: REPO_ROOT,
+      timeoutMs: 60_000,
+      allowNonZero: true,
+      env: {
+        LOA_TRUST_CONFIG_FILE: CONFIG,
+        LOA_TRUST_LEDGER_FILE: ledger,
+        LOA_TRUST_STORE_FILE: path.join(region, 'grimoires', 'loa', 'trust-store.yaml'),
+      },
+    }
+  );
+  assert.equal(res.exitCode, 0, `force grant failed: ${res.stderr}`);
+  const a = await readAuthority({ regionRoot: region, region: SCOPE, construct: ACTOR });
+  assert.equal(a.chain, 'verified');
+  assert.equal(a.earned, 'gate');
+});

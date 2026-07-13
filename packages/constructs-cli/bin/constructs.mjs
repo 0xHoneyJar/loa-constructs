@@ -107,6 +107,11 @@ export function inferVerb(token) {
 
 // ─── arg parsing ──────────────────────────────────────────────────────────────
 
+// Flags that never take a value. Without this set, a boolean flag greedily
+// swallows a following positional — `station --dry-run saaty --region x`
+// would lose its slug (LOW-7, review pass 1).
+const BOOLEAN_FLAGS = new Set(['json', 'dry-run', 'no-cache', 'no-color', 'robot-help', 'help', 'h', 'v', 'version', 'force']);
+
 function parseArgs(argv) {
   const flags = {};
   const positional = [];
@@ -117,7 +122,7 @@ function parseArgs(argv) {
       const next = argv[i + 1];
       if (inline !== undefined) {
         flags[key] = inline;
-      } else if (next && !next.startsWith('-')) {
+      } else if (!BOOLEAN_FLAGS.has(key) && next && !next.startsWith('-')) {
         flags[key] = next;
         i++;
       } else {
