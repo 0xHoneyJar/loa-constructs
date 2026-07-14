@@ -15,9 +15,12 @@ set -euo pipefail
 cycle_id="${1:?cycle_id required}"
 schedule_id="${2:?schedule_id required}"
 
+_here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _sanitize() { printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_'; }
 HANDOFF_DIR="${TMPDIR:-/tmp}/loa-session-cap-bb.$(_sanitize "$cycle_id")"
-mkdir -p "$HANDOFF_DIR"
+# shellcheck source=handoff-lib.sh
+. "${_here}/handoff-lib.sh"
+session_cap_handoff_require "$HANDOFF_DIR"
 READER_FILE="${HANDOFF_DIR}/reader.json"
 
 sp_state=""
@@ -41,12 +44,12 @@ if [[ "$eligible" == "true" && "$target_repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]
     case "$br_state" in RUNNING|ITERATING|FINALIZING|HALTED) action="dispatch" ;; esac
 fi
 
-jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" --arg act "$action" \
+out="$(jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" --arg act "$action" \
     --argjson eligible "$eligible" --arg capture "$capture_id" \
     --arg repo "$target_repo" --arg pr "$target_pr" \
     --arg sp "$sp_state" --arg br "$br_state" \
     '{cycle_id:$cid, schedule_id:$sid, action:$act,
       eligible:$eligible, capture_id:($capture | if length == 0 then null else . end),
       review_target:{repo:($repo | if length == 0 then null else . end), pr_number:($pr | if test("^[1-9][0-9]*$") then tonumber else null end)},
-      sprint_plan_state:$sp, bridge_state:$br}' \
-    | tee "${HANDOFF_DIR}/decider.json"
+      sprint_plan_state:$sp, bridge_state:$br}')"
+session_cap_handoff_write "${HANDOFF_DIR}/decider.json" "$out"

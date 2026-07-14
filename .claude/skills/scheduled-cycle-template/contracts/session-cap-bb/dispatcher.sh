@@ -21,10 +21,12 @@ schedule_id="${2:?schedule_id required}"
 _here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _sanitize() { printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_'; }
 HANDOFF_DIR="${TMPDIR:-/tmp}/loa-session-cap-bb.$(_sanitize "$cycle_id")"
-mkdir -p "$HANDOFF_DIR"
+# shellcheck source=handoff-lib.sh
+. "${_here}/handoff-lib.sh"
+session_cap_handoff_require "$HANDOFF_DIR"
 DECIDER_FILE="${HANDOFF_DIR}/decider.json"
 
-write_out() { printf '%s' "$1" | tee "${HANDOFF_DIR}/dispatcher.json"; }
+write_out() { session_cap_handoff_write "${HANDOFF_DIR}/dispatcher.json" "$1"; }
 
 action="noop"
 capture_id=""
@@ -42,12 +44,6 @@ if [[ "$action" != "dispatch" ]]; then
         '{cycle_id:$cid, schedule_id:$sid, dispatched:false,
           reason:"nothing was in flight (decider noop)"}')"
     exit 0
-fi
-
-# Never expand a captured interruption into repository-wide mutation.
-if ! [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ && "$pr_number" =~ ^[1-9][0-9]*$ ]]; then
-    echo "dispatcher: exact review_target.repo + pr_number are required" >&2
-    exit 1
 fi
 
 BB_ENTRY="${LOA_SESSION_CAP_BB_ENTRY:-${_here}/../../../bridgebuilder-review/resources/entry.sh}"
@@ -86,7 +82,11 @@ lifecycle="$(jq -r '.lifecycle // "pending"' "$STATE_FILE")"
 attempt_count="$(jq -r '.attempt_count // 0' "$STATE_FILE")"
 claimed_epoch="$(jq -r '.claimed_at_epoch // 0' "$STATE_FILE")"
 retry_after_epoch="$(jq -r '.retry_after_epoch // 0' "$STATE_FILE")"
-now_epoch="$(date +%s)"
+reset_epoch="$(jq -r '.reset_at_epoch // ""' "$STATE_FILE")"
+sp_state="$(jq -r '.active_run_state_snapshot.sprint_plan.state // ""' "$STATE_FILE")"
+br_state="$(jq -r '.active_run_state_snapshot.bridge.state // ""' "$STATE_FILE")"
+now_epoch="${LOA_SESSION_CAP_NOW_EPOCH:-$(date +%s)}"
+max_age="${LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS:-21600}"
 max_attempts="${LOA_SESSION_CAP_MAX_ATTEMPTS:-3}"
 claim_lease="${LOA_SESSION_CAP_CLAIM_LEASE_SECONDS:-3600}"
 if ! [[ "$claim_lease" =~ ^[0-9]+$ ]] || (( claim_lease < 2100 )); then
@@ -94,7 +94,15 @@ if ! [[ "$claim_lease" =~ ^[0-9]+$ ]] || (( claim_lease < 2100 )); then
     echo "dispatcher: claim lease must be at least 2100s (review timeout plus safety margin)" >&2
     exit 1
 fi
+interrupted="false"
+case "$sp_state" in RUNNING|HALTED) interrupted="true" ;; esac
+case "$br_state" in RUNNING|ITERATING|FINALIZING|HALTED) interrupted="true" ;; esac
 claimable="false"
+fresh="false"
+if [[ "$reset_epoch" =~ ^[0-9]+$ && "$now_epoch" =~ ^[0-9]+$ && "$max_age" =~ ^[0-9]+$ ]] \
+    && (( now_epoch >= reset_epoch && now_epoch - reset_epoch <= max_age )); then
+    fresh="true"
+fi
 if [[ "$attempt_count" =~ ^[0-9]+$ && "$max_attempts" =~ ^[0-9]+$ && "$claimed_epoch" =~ ^[0-9]+$ && "$retry_after_epoch" =~ ^[0-9]+$ && "$claim_lease" =~ ^[0-9]+$ ]] && (( attempt_count < max_attempts )); then
     case "$lifecycle" in
         pending) claimable="true" ;;
@@ -102,13 +110,21 @@ if [[ "$attempt_count" =~ ^[0-9]+$ && "$max_attempts" =~ ^[0-9]+$ && "$claimed_e
         claimed) (( now_epoch - claimed_epoch >= claim_lease )) && claimable="true" ;;
     esac
 fi
-if [[ "$current_capture" != "$capture_id" || "$state_repo" != "$repo" || "$state_pr" != "$pr_number" || "$claimable" != "true" ]]; then
+if [[ ! "$state_repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ || ! "$state_pr" =~ ^[1-9][0-9]*$ \
+    || "$current_capture" != "$capture_id" || "$state_repo" != "$repo" || "$state_pr" != "$pr_number" \
+    || "$fresh" != "true" || "$interrupted" != "true" || "$claimable" != "true" ]]; then
     portable_lock_release "$STATE_LOCK_DIR"
     write_out "$(jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" --arg capture "$capture_id" \
         '{cycle_id:$cid, schedule_id:$sid, capture_id:$capture, dispatched:false,
           reason:"capture target changed, is terminal, or has an active claim"}')"
     exit 0
 fi
+
+# The handoff is only a request. The durable snapshot observed under the state
+# lock is the sole authority for the exact downstream target.
+capture_id="$current_capture"
+repo="$state_repo"
+pr_number="$state_pr"
 
 claimed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 claim_id="${cycle_id}:$$:${now_epoch}"
@@ -149,7 +165,7 @@ if portable_lock_acquire "$STATE_LOCK_DIR"; then
         && [[ "$(jq -r '.capture_id // ""' "$STATE_FILE")" == "$capture_id" ]] \
         && [[ "$(jq -r '.claimed_by.claim_id // ""' "$STATE_FILE")" == "$claim_id" ]]; then
         finished_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-        finished_epoch="$(date +%s)"
+        finished_epoch="${LOA_SESSION_CAP_NOW_EPOCH:-$(date +%s)}"
         attempts="$(jq -r '.attempt_count // 1' "$STATE_FILE")"
         retry_delay="${LOA_SESSION_CAP_RETRY_DELAY_SECONDS:-300}"
         [[ "$retry_delay" =~ ^[0-9]+$ ]] || retry_delay=300

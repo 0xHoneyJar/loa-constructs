@@ -12,8 +12,12 @@ set -euo pipefail
 cycle_id="${1:?cycle_id required}"
 schedule_id="${2:?schedule_id required}"
 
+_here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _sanitize() { printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_'; }
 HANDOFF_DIR="${TMPDIR:-/tmp}/loa-session-cap-bb.$(_sanitize "$cycle_id")"
+# shellcheck source=handoff-lib.sh
+. "${_here}/handoff-lib.sh"
+session_cap_handoff_require "$HANDOFF_DIR"
 DISPATCHER_FILE="${HANDOFF_DIR}/dispatcher.json"
 
 dispatched="false"
@@ -37,5 +41,4 @@ jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" \
       dispatched:$d, repo:$repo, delivery_state:$state, bb_exit_code:$ec, logged_at:$ts}'
 
 # Best-effort handoff cleanup (idempotent; safe to skip on failure).
-[[ -n "${HANDOFF_DIR:-}" && "$HANDOFF_DIR" == *loa-session-cap-bb.* ]] \
-    && rm -rf "$HANDOFF_DIR" 2>/dev/null || true
+session_cap_handoff_cleanup "$HANDOFF_DIR" 2>/dev/null || true

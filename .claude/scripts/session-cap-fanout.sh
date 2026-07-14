@@ -552,6 +552,18 @@ _restore_managed_schedules() {
     done
 }
 
+_backup_managed_schedules() {
+    local live_dir="$1" backup_dir="$2" f
+    mkdir -p "$live_dir" "$backup_dir" || return 1
+    for f in "$live_dir"/session-cap-fanout-w*.yaml; do
+        [[ -e "$f" ]] || continue
+        if ! mv "$f" "$backup_dir/"; then
+            _restore_managed_schedules "$live_dir" "$backup_dir"
+            return 1
+        fi
+    done
+}
+
 _install_staged_schedules() {
     local staged_dir="$1" live_dir="$2" backup_dir="$3" f tmp
     mkdir -p "$live_dir" "$backup_dir" || return 1
@@ -721,31 +733,45 @@ cmd_uninstall() {
         echo "crontab not available on this system" >&2
         return 1
     fi
-    local existing lock_dir replacement
+    local existing lock_dir replacement live_dir backup_dir
     lock_dir="$(_crontab_lock_dir)"
+    live_dir="$(_schedules_dir)"
+    backup_dir="$(mktemp -d)"
     if ! portable_lock_acquire "$lock_dir"; then
+        rm -rf "$backup_dir"
         echo "timed out acquiring the per-user crontab lock" >&2
         return 1
     fi
     existing="$(crontab -l 2>/dev/null || true)"
     if ! _validate_managed_markers "$existing"; then
         portable_lock_release "$lock_dir"
+        rm -rf "$backup_dir"
         echo "managed crontab markers are malformed; refusing mutation" >&2
         echo "Recover the ${MARKER_BEGIN} / ${MARKER_END} block manually, then retry." >&2
         return 1
     fi
+    if ! _backup_managed_schedules "$live_dir" "$backup_dir"; then
+        portable_lock_release "$lock_dir"
+        rm -rf "$backup_dir"
+        echo "failed to stage managed schedules for uninstall; nothing removed" >&2
+        return 1
+    fi
     if ! awk -v b="$MARKER_BEGIN" '$0==b {found=1} END {exit !found}' <<<"$existing"; then
         portable_lock_release "$lock_dir"
-        echo "Not installed; nothing to remove."
+        rm -rf "$backup_dir"
+        echo "Crontab block was not installed; removed any stale managed schedules."
         return 0
     fi
     replacement="$(_strip_managed_block "$existing")"
     if ! _crontab_replace_if_unchanged "$existing" "$replacement"; then
+        _restore_managed_schedules "$live_dir" "$backup_dir"
         portable_lock_release "$lock_dir"
+        rm -rf "$backup_dir"
         return 1
     fi
     portable_lock_release "$lock_dir"
-    echo "Uninstalled session-cap-fanout crontab block."
+    rm -rf "$backup_dir"
+    echo "Uninstalled session-cap-fanout crontab block and managed schedules."
 }
 
 cmd_status() {

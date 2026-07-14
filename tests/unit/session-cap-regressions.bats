@@ -199,11 +199,79 @@ SH
     [ ! -e "$schedules/session-cap-fanout-w0-bridgebuilder.yaml" ]
 }
 
+@test "uninstall removes only its crontab block and managed schedules" {
+    work="$BATS_TEST_TMPDIR/uninstall-success"
+    bin="$work/bin"
+    schedules="$work/schedules"
+    state="$work/crontab"
+    mkdir -p "$bin" "$schedules"
+    printf 'managed\n' > "$schedules/session-cap-fanout-w0-bridgebuilder.yaml"
+    printf 'keep\n' > "$schedules/operator-owned.yaml"
+    cat > "$state" <<'CRON'
+15 1 * * * unrelated-before
+# loa-cycle117-session-cap-fanout BEGIN
+20 1 * * * managed
+# loa-cycle117-session-cap-fanout END
+25 1 * * * unrelated-after
+CRON
+    cat > "$bin/crontab" <<'SH'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "-l" ]]; then
+    cat "$CRONTAB_STATE"
+elif [[ "${1:-}" == "-" ]]; then
+    cat > "$CRONTAB_STATE"
+else
+    exit 2
+fi
+SH
+    chmod +x "$bin/crontab"
+
+    run env PATH="$bin:$PATH" CRONTAB_STATE="$state" \
+        LOA_SESSION_CAP_SCHEDULES_DIR="$schedules" \
+        LOA_SESSION_CAP_CRONTAB_LOCK_DIR="$work/lock" \
+        "$FANOUT" uninstall
+    [ "$status" -eq 0 ]
+    [ ! -e "$schedules/session-cap-fanout-w0-bridgebuilder.yaml" ]
+    [ "$(cat "$schedules/operator-owned.yaml")" = "keep" ]
+    [ "$(awk '/loa-cycle117-session-cap-fanout/{count++} END{print count+0}' "$state")" = "0" ]
+    [ "$(awk '/unrelated-/{count++} END{print count+0}' "$state")" = "2" ]
+}
+
+@test "failed uninstall restores managed schedules" {
+    work="$BATS_TEST_TMPDIR/uninstall-failure"
+    bin="$work/bin"
+    schedules="$work/schedules"
+    state="$work/crontab"
+    mkdir -p "$bin" "$schedules"
+    printf 'managed\n' > "$schedules/session-cap-fanout-w0-bridgebuilder.yaml"
+    cat > "$state" <<'CRON'
+# loa-cycle117-session-cap-fanout BEGIN
+20 1 * * * managed
+# loa-cycle117-session-cap-fanout END
+CRON
+    cat > "$bin/crontab" <<'SH'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "-l" ]]; then
+    cat "$CRONTAB_STATE"
+    exit 0
+fi
+exit 1
+SH
+    chmod +x "$bin/crontab"
+
+    run env PATH="$bin:$PATH" CRONTAB_STATE="$state" \
+        LOA_SESSION_CAP_SCHEDULES_DIR="$schedules" \
+        LOA_SESSION_CAP_CRONTAB_LOCK_DIR="$work/lock" \
+        "$FANOUT" uninstall
+    [ "$status" -eq 1 ]
+    [ "$(cat "$schedules/session-cap-fanout-w0-bridgebuilder.yaml")" = "managed" ]
+}
+
 @test "bridge decider resumes every active bridge lifecycle state" {
     for state in RUNNING ITERATING FINALIZING HALTED; do
         cycle="cycle-${state}"
         handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
-        mkdir -p "$handoff"
+        mkdir -m 700 -p "$handoff"
         jq -n --arg state "$state" \
             '{eligible:true, capture_id:"capture-active", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}, bridge_state:$state}' > "$handoff/reader.json"
 
@@ -234,6 +302,17 @@ JSON
         "$READER" fresh schedule 0 '[]'
     [ "$status" -eq 0 ]
     [ "$(jq -r '.eligible' <<<"$output")" = "true" ]
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        mode="$(stat -f '%Lp' "$BATS_TEST_TMPDIR/loa-session-cap-bb.fresh/reader.json")"
+    else
+        mode="$(stat -c '%a' "$BATS_TEST_TMPDIR/loa-session-cap-bb.fresh/reader.json")"
+    fi
+    [[ "$mode" = "600" || "$mode" = "0600" ]]
+
+    run env TMPDIR="$BATS_TEST_TMPDIR" LOA_SESSION_CAP_STATE_FILE="$state_file" \
+        LOA_SESSION_CAP_NOW_EPOCH=120 LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS=60 \
+        "$READER" fresh schedule 0 '[]'
+    [ "$status" -eq 1 ]
 
     jq 'del(.review_target)' "$state_file" > "$state_file.tmp"
     mv "$state_file.tmp" "$state_file"
@@ -268,7 +347,7 @@ JSON
     args_file="$BATS_TEST_TMPDIR/bb-args"
     mock_bb="$BATS_TEST_TMPDIR/mock-bb.sh"
     cat > "$state_file" <<'JSON'
-{"capture_id":"capture-once","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","consumed_at":null}
+{"capture_id":"capture-once","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","consumed_at":null,"reset_at_epoch":100,"active_run_state_snapshot":{"bridge":{"state":"ITERATING"}}}
 JSON
     cat > "$mock_bb" <<'SH'
 #!/usr/bin/env bash
@@ -279,11 +358,12 @@ SH
 
     for cycle in first second; do
         handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
-        mkdir -p "$handoff"
+        mkdir -m 700 -p "$handoff"
         jq -n '{action:"dispatch", capture_id:"capture-once", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
         run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" MOCK_BB_ARGS="$args_file" \
             LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fixture" \
-            LOA_SESSION_CAP_BB_ENTRY="$mock_bb" "$DISPATCHER" "$cycle" schedule 2 '[]'
+            LOA_SESSION_CAP_BB_ENTRY="$mock_bb" LOA_SESSION_CAP_NOW_EPOCH=120 \
+            "$DISPATCHER" "$cycle" schedule 2 '[]'
         [ "$status" -eq 0 ]
         if [[ "$cycle" == "first" ]]; then
             [ "$(jq -r '.dispatched' <<<"$output")" = "true" ]
@@ -304,7 +384,7 @@ SH
     calls="$BATS_TEST_TMPDIR/retry-calls"
     mock_bb="$BATS_TEST_TMPDIR/failing-bb.sh"
     cat > "$state_file" <<'JSON'
-{"capture_id":"capture-retry","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","attempt_count":0,"consumed_at":null}
+{"capture_id":"capture-retry","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","attempt_count":0,"consumed_at":null,"reset_at_epoch":100,"active_run_state_snapshot":{"bridge":{"state":"ITERATING"}}}
 JSON
     cat > "$mock_bb" <<'SH'
 #!/usr/bin/env bash
@@ -315,12 +395,13 @@ SH
 
     for cycle in retry-one retry-two; do
         handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
-        mkdir -p "$handoff"
+        mkdir -m 700 -p "$handoff"
         jq -n '{action:"dispatch", capture_id:"capture-retry", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
         run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" \
             LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fixture" \
             LOA_SESSION_CAP_BB_ENTRY="$mock_bb" LOA_SESSION_CAP_MAX_ATTEMPTS=2 \
-            LOA_SESSION_CAP_RETRY_DELAY_SECONDS=0 "$DISPATCHER" "$cycle" schedule 2 '[]'
+            LOA_SESSION_CAP_RETRY_DELAY_SECONDS=0 LOA_SESSION_CAP_NOW_EPOCH=120 \
+            "$DISPATCHER" "$cycle" schedule 2 '[]'
         [ "$status" -eq 0 ]
         [ "$(jq -r '.bb_exit_code' <<<"$output")" = "7" ]
     done
@@ -331,12 +412,13 @@ SH
     [ "$(jq -r '.attempt_count' "$state_file")" = "2" ]
 
     handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.retry-three"
-    mkdir -p "$handoff"
+    mkdir -m 700 -p "$handoff"
     jq -n '{action:"dispatch", capture_id:"capture-retry", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
     run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" \
         LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fixture" \
         LOA_SESSION_CAP_BB_ENTRY="$mock_bb" LOA_SESSION_CAP_MAX_ATTEMPTS=2 \
-        LOA_SESSION_CAP_RETRY_DELAY_SECONDS=0 "$DISPATCHER" retry-three schedule 2 '[]'
+        LOA_SESSION_CAP_RETRY_DELAY_SECONDS=0 LOA_SESSION_CAP_NOW_EPOCH=120 \
+        "$DISPATCHER" retry-three schedule 2 '[]'
     [ "$status" -eq 0 ]
     [ "$(jq -r '.dispatched' <<<"$output")" = "false" ]
     [ "$(wc -l < "$calls" | tr -d ' ')" = "2" ]
@@ -347,9 +429,9 @@ SH
     calls="$BATS_TEST_TMPDIR/short-lease-calls"
     mock_bb="$BATS_TEST_TMPDIR/short-lease-bb.sh"
     handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.short-lease"
-    mkdir -p "$handoff"
+    mkdir -m 700 -p "$handoff"
     cat > "$state_file" <<'JSON'
-{"capture_id":"capture-short-lease","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","attempt_count":0,"consumed_at":null,"reset_at_epoch":100}
+{"capture_id":"capture-short-lease","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","attempt_count":0,"consumed_at":null,"reset_at_epoch":100,"active_run_state_snapshot":{"bridge":{"state":"ITERATING"}}}
 JSON
     jq -n '{action:"dispatch", capture_id:"capture-short-lease", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
     cat > "$mock_bb" <<'SH'
@@ -360,7 +442,7 @@ SH
 
     run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" \
         LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_ENTRY="$mock_bb" \
-        LOA_SESSION_CAP_CLAIM_LEASE_SECONDS=0 \
+        LOA_SESSION_CAP_CLAIM_LEASE_SECONDS=0 LOA_SESSION_CAP_NOW_EPOCH=120 \
         "$DISPATCHER" short-lease schedule 2 '[]'
     [ "$status" -eq 1 ]
     [ ! -e "$calls" ]
@@ -371,6 +453,41 @@ SH
         "$READER" short-lease-reader schedule 0 '[]'
     [ "$status" -eq 0 ]
     [ "$(jq -r '.eligible' <<<"$output")" = "false" ]
+}
+
+@test "dispatcher independently refuses a stale reset handoff" {
+    state_file="$BATS_TEST_TMPDIR/stale-dispatch-state.json"
+    calls="$BATS_TEST_TMPDIR/stale-dispatch-calls"
+    mock_bb="$BATS_TEST_TMPDIR/stale-dispatch-bb.sh"
+    handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.stale-dispatch"
+    mkdir -m 700 -p "$handoff"
+    cat > "$state_file" <<'JSON'
+{"capture_id":"capture-stale","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","attempt_count":0,"consumed_at":null,"reset_at_epoch":1,"active_run_state_snapshot":{"bridge":{"state":"ITERATING"}}}
+JSON
+    jq -n '{action:"dispatch", capture_id:"capture-stale", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
+    cat > "$mock_bb" <<'SH'
+#!/usr/bin/env bash
+touch "$MOCK_BB_CALLS"
+SH
+    chmod +x "$mock_bb"
+
+    run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" \
+        LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_ENTRY="$mock_bb" \
+        LOA_SESSION_CAP_NOW_EPOCH=120 LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS=60 \
+        "$DISPATCHER" stale-dispatch schedule 2 '[]'
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '.dispatched' <<<"$output")" = "false" ]
+    [ ! -e "$calls" ]
+    [ "$(jq -r '.lifecycle' "$state_file")" = "pending" ]
+}
+
+@test "phase handoff rejects group-readable scratch state" {
+    handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.insecure-handoff"
+    mkdir -m 755 -p "$handoff"
+    jq -n '{eligible:true, capture_id:"capture", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}, bridge_state:"ITERATING"}' > "$handoff/reader.json"
+
+    run env TMPDIR="$BATS_TEST_TMPDIR" "$DECIDER" insecure-handoff schedule 1 '[]'
+    [ "$status" -ne 0 ]
 }
 
 @test "reconciler wakes only due durable retry state" {
@@ -420,8 +537,8 @@ JSON
     compat="$REPO_ROOT/.claude/scripts/compat-lib.sh"
     cycle="interleaved"
     handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
-    mkdir -p "$handoff"
-    printf '%s\n' '{"capture_id":"capture-old","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","attempt_count":0,"consumed_at":null}' > "$state_file"
+    mkdir -m 700 -p "$handoff"
+    printf '%s\n' '{"capture_id":"capture-old","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","attempt_count":0,"consumed_at":null,"reset_at_epoch":100,"active_run_state_snapshot":{"bridge":{"state":"ITERATING"}}}' > "$state_file"
     jq -n '{action:"dispatch", capture_id:"capture-old", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
     cat > "$mock_bb" <<'SH'
 #!/usr/bin/env bash
@@ -432,7 +549,8 @@ SH
 
     env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_STARTED="$started" MOCK_BB_RELEASE="$release" \
         LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fixture" \
-        LOA_SESSION_CAP_BB_ENTRY="$mock_bb" "$DISPATCHER" "$cycle" schedule 2 '[]' \
+        LOA_SESSION_CAP_BB_ENTRY="$mock_bb" LOA_SESSION_CAP_NOW_EPOCH=120 \
+        "$DISPATCHER" "$cycle" schedule 2 '[]' \
         > "$output_file" &
     dispatcher_pid=$!
 
@@ -460,7 +578,7 @@ SH
 @test "awaiter and logger preserve numeric bridgebuilder exit codes" {
     cycle="typed-exit"
     handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
-    mkdir -p "$handoff"
+    mkdir -m 700 -p "$handoff"
     jq -n '{dispatched:true, repo:"0xHoneyJar/fixture", delivery_state:"retryable_failure", bb_exit_code:7}' > "$handoff/dispatcher.json"
 
     run env TMPDIR="$BATS_TEST_TMPDIR" "$AWAITER" "$cycle" schedule 3 '[]'

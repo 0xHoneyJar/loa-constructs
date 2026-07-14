@@ -22,13 +22,27 @@ _here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _repo_root="$(cd "${_here}/../../../../.." && pwd -P)"
 _sanitize() { printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_'; }
 HANDOFF_DIR="${TMPDIR:-/tmp}/loa-session-cap-bb.$(_sanitize "$cycle_id")"
-mkdir -p "$HANDOFF_DIR"
+# shellcheck source=handoff-lib.sh
+. "${_here}/handoff-lib.sh"
+if ! session_cap_handoff_init "$HANDOFF_DIR"; then
+    echo "reader: refusing pre-existing or insecure handoff directory: $HANDOFF_DIR" >&2
+    exit 1
+fi
 
 STATE_FILE="${LOA_SESSION_CAP_STATE_FILE:-${_repo_root}/.run/session-limit-state.json}"
+# shellcheck source=/dev/null
+. "${_repo_root}/.claude/scripts/compat-lib.sh"
+STATE_LOCK_DIR="${STATE_FILE}.lock"
 
-emit() { printf '%s' "$1" | tee "${HANDOFF_DIR}/reader.json"; }
+emit() { session_cap_handoff_write "${HANDOFF_DIR}/reader.json" "$1"; }
+
+if ! portable_lock_acquire "$STATE_LOCK_DIR"; then
+    echo "reader: timed out acquiring capture state lock" >&2
+    exit 1
+fi
 
 if [[ ! -f "$STATE_FILE" ]]; then
+    portable_lock_release "$STATE_LOCK_DIR"
     # No session-limit was ever captured -> nothing was in flight. Normal (the
     # decider will no-op), NOT a sanity failure.
     emit "$(jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" \
@@ -39,24 +53,30 @@ if [[ ! -f "$STATE_FILE" ]]; then
     exit 0
 fi
 
-# Sanity gate: a PRESENT-but-corrupt marker is a genuine failure -> abort cycle
-# (cycle.error) rather than silently no-op on unreadable state.
-if ! jq empty "$STATE_FILE" 2>/dev/null; then
+# Read exactly one immutable snapshot while holding the same lock used by the
+# capture writer and dispatcher. Atomic file replacement alone does not make a
+# sequence of independent jq reads a coherent authorization snapshot.
+state_json="$(<"$STATE_FILE")"
+portable_lock_release "$STATE_LOCK_DIR"
+
+# Sanity gate: a PRESENT-but-corrupt snapshot is a genuine failure -> abort
+# cycle (cycle.error) rather than silently no-op on unreadable state.
+if ! jq empty <<<"$state_json" 2>/dev/null; then
     echo "reader: session-limit-state.json present but not valid JSON: $STATE_FILE" >&2
     exit 1
 fi
 
-sp_state="$(jq -r '.active_run_state_snapshot.sprint_plan.state // ""' "$STATE_FILE")"
-br_state="$(jq -r '.active_run_state_snapshot.bridge.state // ""' "$STATE_FILE")"
-capture_id="$(jq -r '.capture_id // ""' "$STATE_FILE")"
-reset_epoch="$(jq -r '.reset_at_epoch // ""' "$STATE_FILE")"
-consumed_at="$(jq -r '.consumed_at // ""' "$STATE_FILE")"
-target_repo="$(jq -r '.review_target.repo // ""' "$STATE_FILE")"
-target_pr="$(jq -r '.review_target.pr_number // ""' "$STATE_FILE")"
-lifecycle="$(jq -r '.lifecycle // "pending"' "$STATE_FILE")"
-attempt_count="$(jq -r '.attempt_count // 0' "$STATE_FILE")"
-claimed_epoch="$(jq -r '.claimed_at_epoch // 0' "$STATE_FILE")"
-retry_after_epoch="$(jq -r '.retry_after_epoch // 0' "$STATE_FILE")"
+sp_state="$(jq -r '.active_run_state_snapshot.sprint_plan.state // ""' <<<"$state_json")"
+br_state="$(jq -r '.active_run_state_snapshot.bridge.state // ""' <<<"$state_json")"
+capture_id="$(jq -r '.capture_id // ""' <<<"$state_json")"
+reset_epoch="$(jq -r '.reset_at_epoch // ""' <<<"$state_json")"
+consumed_at="$(jq -r '.consumed_at // ""' <<<"$state_json")"
+target_repo="$(jq -r '.review_target.repo // ""' <<<"$state_json")"
+target_pr="$(jq -r '.review_target.pr_number // ""' <<<"$state_json")"
+lifecycle="$(jq -r '.lifecycle // "pending"' <<<"$state_json")"
+attempt_count="$(jq -r '.attempt_count // 0' <<<"$state_json")"
+claimed_epoch="$(jq -r '.claimed_at_epoch // 0' <<<"$state_json")"
+retry_after_epoch="$(jq -r '.retry_after_epoch // 0' <<<"$state_json")"
 now_epoch="${LOA_SESSION_CAP_NOW_EPOCH:-$(date +%s)}"
 max_age="${LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS:-21600}"
 max_attempts="${LOA_SESSION_CAP_MAX_ATTEMPTS:-3}"

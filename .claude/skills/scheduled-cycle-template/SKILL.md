@@ -192,7 +192,10 @@ Two simultaneous cron firings of the same schedule serialize at the flock — se
 - One five-minute `session-cap-reconcile.sh` cron owns wakeups for due `retryable_failure` records and expired `claimed` leases. It ignores pending and terminal records.
 - The claim lease defaults to 3600 seconds and cannot be configured below 2100 seconds, keeping it above the generated Bridgebuilder phase timeout of 1800 seconds plus a safety margin. A killed dispatcher therefore cannot be reclaimed while its review may still be live.
 - Bridgebuilder nonzero exits are recorded as typed `bb_exit_code` and `delivery_state` data while the dispatcher itself returns success. This lets the L3 awaiter and logger record the failed delivery before the reconciler performs the next bounded attempt.
+- The reader derives every field from one immutable snapshot copied under the capture-state lock. At claim time the dispatcher independently re-establishes target identity, interrupted-state evidence, reset freshness, retry budget, and lease eligibility from durable state; phase handoffs are requests, never authorization.
+- Cross-phase scratch directories are created exclusively with mode 0700, must be owned by the current user, and receive atomic mode-0600 handoff files. A pre-existing reader directory or group/world-accessible phase directory fails closed.
 - Capture ID, repository, and PR number must still match under the state lock before claim and acknowledgement. A newer capture is never overwritten.
+- Uninstall stages the generated `session-cap-fanout-w*.yaml` files, removes the owned crontab block, restores the schedules if crontab mutation fails, and deletes the staged schedules only after success. Unrelated schedules remain untouched.
 
 The relevant controls are `LOA_SESSION_CAP_MAX_ATTEMPTS` (default 3), `LOA_SESSION_CAP_RETRY_DELAY_SECONDS` (default 300), `LOA_SESSION_CAP_CLAIM_LEASE_SECONDS` (default 3600, minimum 2100), and `LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS` (default 21600).
 
