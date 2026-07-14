@@ -120,8 +120,14 @@ SNAP="$(jq -n \
     '{
         capture_id: $capture_id,
         lifecycle: "pending",
+        attempt_count: 0,
+        claimed_at: null,
+        claimed_at_epoch: null,
+        claimed_by: null,
         consumed_at: null,
         consumed_by: null,
+        retry_after_epoch: null,
+        last_error: null,
         hit_at: $hit_at,
         reset_at: $reset_at,
         reset_at_epoch: $reset_at_epoch,
@@ -138,13 +144,21 @@ SNAP="$(jq -n \
 
 # Atomic write: sibling .tmp in the SAME directory (guaranteed same filesystem),
 # then mv. Never mktemp-in-/tmp + mv (that is copy+unlink across EXDEV, not
-# atomic). Mirrors the state-JSON write idiom used elsewhere in this repo.
+# atomic). Capture and dispatch share one lock domain so the read-check-write
+# transaction cannot overwrite a newer event.
+STATE_LOCK_DIR="${STATE_FILE}.lock"
+if ! portable_lock_acquire "$STATE_LOCK_DIR"; then
+    echo "session-limit-capture: timed out acquiring state lock" >&2
+    exit 1
+fi
 TMP="${STATE_FILE}.tmp.$$"
 if printf '%s\n' "$SNAP" > "$TMP" 2>/dev/null && mv -f "$TMP" "$STATE_FILE" 2>/dev/null; then
+    portable_lock_release "$STATE_LOCK_DIR"
     echo "session-limit-capture: wrote $STATE_FILE (reset_at=$RESET_ISO)" >&2
     exit 0
 else
     rm -f "$TMP" 2>/dev/null || true
+    portable_lock_release "$STATE_LOCK_DIR"
     echo "session-limit-capture: failed to write $STATE_FILE" >&2
     exit 1
 fi

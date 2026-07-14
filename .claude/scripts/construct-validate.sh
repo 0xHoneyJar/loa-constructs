@@ -95,6 +95,14 @@ else
   if [[ -z "$PACK_JSON" ]]; then
     emit_finding critical construct_yaml "construct.yaml failed to parse" "$PACK_YAML"
   else
+    # The manifest contract names this field compose_with. Accepting the old
+    # composes_with typo silently makes the generator and validator disagree.
+    if echo "$PACK_JSON" | jq -e 'has("composes_with")' >/dev/null; then
+      emit_finding high compose_with \
+        "construct.yaml uses deprecated 'composes_with'; rename it to canonical 'compose_with'" \
+        "$PACK_YAML"
+    fi
+
     # Required fields
     for field in schema_version slug name version description; do
       val=$(echo "$PACK_JSON" | jq -r --arg f "$field" '.[$f] // empty')

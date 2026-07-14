@@ -318,6 +318,59 @@ get_file_mtime() {
 }
 
 # =============================================================================
+# portable_lock_acquire / portable_lock_release - mkdir-based advisory lock
+# =============================================================================
+#
+# The lock directory is the ownership boundary. Writers record their PID after
+# mkdir succeeds; waiters may reap a lock only when its recorded owner is no
+# longer alive. A lock with no owner file is reaped only after a grace period,
+# covering the small mkdir-to-owner-write window without leaving crash debris
+# permanent.
+portable_lock_acquire() {
+  local lock_dir="$1"
+  local attempts="${2:-100}"
+  local delay="${3:-0.05}"
+  local owner mtime now i
+
+  [[ "$attempts" =~ ^[0-9]+$ ]] || return 2
+  for ((i=0; i<attempts; i++)); do
+    if mkdir "$lock_dir" 2>/dev/null; then
+      printf '%s\n' "$$" > "${lock_dir}/owner"
+      return 0
+    fi
+
+    if [[ -d "$lock_dir" && ! -L "$lock_dir" ]]; then
+      owner="$(cat "${lock_dir}/owner" 2>/dev/null || true)"
+      if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null; then
+        rm -f "${lock_dir}/owner" 2>/dev/null || true
+        rmdir "$lock_dir" 2>/dev/null || true
+        continue
+      fi
+      if [[ -z "$owner" ]]; then
+        mtime="$(get_file_mtime "$lock_dir" 2>/dev/null || echo 0)"
+        now="$(date +%s)"
+        if [[ "$mtime" =~ ^[0-9]+$ ]] && (( now - mtime > 30 )); then
+          rmdir "$lock_dir" 2>/dev/null || true
+          continue
+        fi
+      fi
+    fi
+    sleep "$delay"
+  done
+  return 1
+}
+
+portable_lock_release() {
+  local lock_dir="$1"
+  local owner
+  owner="$(cat "${lock_dir}/owner" 2>/dev/null || true)"
+  if [[ "$owner" == "$$" ]]; then
+    rm -f "${lock_dir}/owner" 2>/dev/null || true
+    rmdir "$lock_dir" 2>/dev/null || true
+  fi
+}
+
+# =============================================================================
 # find_sorted_by_time - Portable find + sort by modification time
 # =============================================================================
 #

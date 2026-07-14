@@ -51,8 +51,14 @@ br_state="$(jq -r '.active_run_state_snapshot.bridge.state // ""' "$STATE_FILE")
 capture_id="$(jq -r '.capture_id // ""' "$STATE_FILE")"
 reset_epoch="$(jq -r '.reset_at_epoch // ""' "$STATE_FILE")"
 consumed_at="$(jq -r '.consumed_at // ""' "$STATE_FILE")"
+lifecycle="$(jq -r '.lifecycle // "pending"' "$STATE_FILE")"
+attempt_count="$(jq -r '.attempt_count // 0' "$STATE_FILE")"
+claimed_epoch="$(jq -r '.claimed_at_epoch // 0' "$STATE_FILE")"
+retry_after_epoch="$(jq -r '.retry_after_epoch // 0' "$STATE_FILE")"
 now_epoch="${LOA_SESSION_CAP_NOW_EPOCH:-$(date +%s)}"
 max_age="${LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS:-21600}"
+max_attempts="${LOA_SESSION_CAP_MAX_ATTEMPTS:-3}"
+claim_lease="${LOA_SESSION_CAP_CLAIM_LEASE_SECONDS:-3600}"
 
 eligible="false"
 reason="eligible"
@@ -60,14 +66,26 @@ if [[ -z "$capture_id" ]]; then
     reason="missing capture_id (legacy marker is not dispatchable)"
 elif [[ -n "$consumed_at" ]]; then
     reason="capture already consumed"
-elif ! [[ "$reset_epoch" =~ ^[0-9]+$ && "$now_epoch" =~ ^[0-9]+$ && "$max_age" =~ ^[0-9]+$ ]]; then
+elif ! [[ "$reset_epoch" =~ ^[0-9]+$ && "$now_epoch" =~ ^[0-9]+$ && "$max_age" =~ ^[0-9]+$ && "$attempt_count" =~ ^[0-9]+$ && "$max_attempts" =~ ^[0-9]+$ && "$claimed_epoch" =~ ^[0-9]+$ && "$retry_after_epoch" =~ ^[0-9]+$ && "$claim_lease" =~ ^[0-9]+$ ]]; then
     reason="capture reset/freshness fields are invalid"
 elif (( now_epoch < reset_epoch )); then
     reason="capture reset time has not arrived"
 elif (( now_epoch - reset_epoch > max_age )); then
     reason="capture is outside the post-reset eligibility window"
+elif (( attempt_count >= max_attempts )); then
+    reason="capture exhausted its bounded retry budget"
 else
-    eligible="true"
+    case "$lifecycle" in
+        pending) eligible="true" ;;
+        retryable_failure)
+            if (( now_epoch >= retry_after_epoch )); then eligible="true"; else reason="capture retry backoff is active"; fi
+            ;;
+        claimed)
+            if (( now_epoch - claimed_epoch >= claim_lease )); then eligible="true"; reason="stale claim is retryable"; else reason="capture claim lease is active"; fi
+            ;;
+        completed|consumed|failed) reason="capture lifecycle is terminal (${lifecycle})" ;;
+        *) reason="capture lifecycle is invalid (${lifecycle})" ;;
+    esac
 fi
 
 emit "$(jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" \

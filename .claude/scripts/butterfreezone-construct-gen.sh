@@ -9,7 +9,7 @@
 #   - persona handles (with identity file paths)
 #   - skill inventory (slug → SKILL.md title + description)
 #   - command inventory (name → description)
-#   - composability (composes_with + symmetric compositions)
+#   - composability (compose_with + symmetric compositions)
 #   - streams reads/writes (doctrine §3 pipe compatibility)
 #   - grimoires read/write paths (SEED §12 — "grimoire path IS the interface")
 #   - install instructions
@@ -159,7 +159,13 @@ composes_block=""
 while IFS= read -r x; do
   [[ -z "$x" ]] && continue
   composes_block+="- $x"$'\n'
-done < <(echo "$PACK_JSON" | jq -r '(.composes_with // [])[]' | LC_ALL=C sort -u)
+done < <(echo "$PACK_JSON" | jq -r '
+  (.compose_with // [])[] |
+  if type == "string" then .
+  elif type == "object" then
+    ((.slug // "") + (if (.relationship // "") == "" then "" else " — " + .relationship end))
+  else empty end
+' | LC_ALL=C sort -u)
 [[ -z "$composes_block" ]] && composes_block="_None declared._"$'\n'
 
 # --------------------------------------------------------------------------

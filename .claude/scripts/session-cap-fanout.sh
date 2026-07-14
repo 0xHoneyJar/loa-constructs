@@ -565,6 +565,33 @@ _strip_managed_block() {
     ' <<<"$existing"
 }
 
+_validate_managed_markers() {
+    local existing="$1"
+    awk -v b="$MARKER_BEGIN" -v e="$MARKER_END" '
+        $0==b {bc++; if (!bp) bp=NR}
+        $0==e {ec++; if (!ep) ep=NR}
+        END {
+            if (bc==0 && ec==0) exit 0
+            if (bc==1 && ec==1 && bp<ep) exit 0
+            exit 1
+        }
+    ' <<<"$existing"
+}
+
+_crontab_lock_dir() {
+    echo "${LOA_SESSION_CAP_CRONTAB_LOCK_DIR:-${TMPDIR:-/tmp}/loa-session-cap-fanout-crontab.$(id -u).lock}"
+}
+
+_crontab_replace_if_unchanged() {
+    local expected="$1" replacement="$2" current
+    current="$(crontab -l 2>/dev/null || true)"
+    if [[ "$current" != "$expected" ]]; then
+        echo "crontab changed during session-cap update; refusing to overwrite concurrent edits" >&2
+        return 1
+    fi
+    printf '%s\n' "$replacement" | crontab -
+}
+
 # -----------------------------------------------------------------------------
 # Subcommands
 # -----------------------------------------------------------------------------
@@ -628,23 +655,41 @@ cmd_install() {
         echo "Set LOA_SESSION_CAP_CRON_TZ_SUPPORTED=true only for a verified implementation." >&2
         return 1
     fi
-    local existing new_block
+    local existing new_block lock_dir
+    lock_dir="$(_crontab_lock_dir)"
+    if ! portable_lock_acquire "$lock_dir"; then
+        rm -rf "$target_dir"
+        echo "timed out acquiring the per-user crontab lock" >&2
+        return 1
+    fi
     existing="$(crontab -l 2>/dev/null || true)"
+    if ! _validate_managed_markers "$existing"; then
+        portable_lock_release "$lock_dir"
+        rm -rf "$target_dir"
+        echo "managed crontab markers are malformed; refusing mutation" >&2
+        echo "Recover the ${MARKER_BEGIN} / ${MARKER_END} block manually, then retry." >&2
+        return 1
+    fi
     new_block="$(_build_crontab_block)"
     local live_dir backup_dir
     live_dir="$(_schedules_dir)"
     backup_dir="$(mktemp -d)"
     if ! _install_staged_schedules "$target_dir" "$live_dir" "$backup_dir"; then
+        portable_lock_release "$lock_dir"
         rm -rf "$target_dir" "$backup_dir"
         echo "failed to install staged schedules; existing schedules restored" >&2
         return 1
     fi
-    if ! printf '%s\n%s\n' "$(_strip_managed_block "$existing")" "$new_block" | crontab -; then
+    local replacement
+    replacement="$(printf '%s\n%s\n' "$(_strip_managed_block "$existing")" "$new_block")"
+    if ! _crontab_replace_if_unchanged "$existing" "$replacement"; then
         _restore_managed_schedules "$live_dir" "$backup_dir"
+        portable_lock_release "$lock_dir"
         rm -rf "$target_dir" "$backup_dir"
         echo "failed to install crontab; existing schedules restored" >&2
         return 1
     fi
+    portable_lock_release "$lock_dir"
     rm -rf "$target_dir" "$backup_dir"
     echo "Installed ${#CRON_LINES[@]} session-cap-fanout crontab entries."
 }
@@ -654,13 +699,30 @@ cmd_uninstall() {
         echo "crontab not available on this system" >&2
         return 1
     fi
-    local existing
+    local existing lock_dir replacement
+    lock_dir="$(_crontab_lock_dir)"
+    if ! portable_lock_acquire "$lock_dir"; then
+        echo "timed out acquiring the per-user crontab lock" >&2
+        return 1
+    fi
     existing="$(crontab -l 2>/dev/null || true)"
-    if ! printf '%s\n' "$existing" | grep -qF "$MARKER_BEGIN"; then
+    if ! _validate_managed_markers "$existing"; then
+        portable_lock_release "$lock_dir"
+        echo "managed crontab markers are malformed; refusing mutation" >&2
+        echo "Recover the ${MARKER_BEGIN} / ${MARKER_END} block manually, then retry." >&2
+        return 1
+    fi
+    if ! awk -v b="$MARKER_BEGIN" '$0==b {found=1} END {exit !found}' <<<"$existing"; then
+        portable_lock_release "$lock_dir"
         echo "Not installed; nothing to remove."
         return 0
     fi
-    printf '%s\n' "$(_strip_managed_block "$existing")" | crontab -
+    replacement="$(_strip_managed_block "$existing")"
+    if ! _crontab_replace_if_unchanged "$existing" "$replacement"; then
+        portable_lock_release "$lock_dir"
+        return 1
+    fi
+    portable_lock_release "$lock_dir"
     echo "Uninstalled session-cap-fanout crontab block."
 }
 

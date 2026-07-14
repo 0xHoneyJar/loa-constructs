@@ -71,6 +71,47 @@ setup() {
     [[ "$output" == *$'CRON_TZ=UTC\nTZ=UTC\n5 0 * * * true'* ]]
 }
 
+@test "crontab marker ownership fails closed on malformed boundaries" {
+    run bash -c '
+        source "$1"
+        _validate_managed_markers "ordinary job"
+        ! _validate_managed_markers "$MARKER_BEGIN
+ordinary job"
+        ! _validate_managed_markers "$MARKER_END
+$MARKER_BEGIN"
+        ! _validate_managed_markers "$MARKER_BEGIN
+$MARKER_END
+$MARKER_END"
+        _validate_managed_markers "$MARKER_BEGIN
+managed job
+$MARKER_END"
+    ' -- "$FANOUT"
+    [ "$status" -eq 0 ]
+}
+
+@test "crontab replacement refuses a stale whole-document snapshot" {
+    work="$BATS_TEST_TMPDIR/crontab-drift"
+    bin="$work/bin"
+    mkdir -p "$bin"
+    cat > "$bin/crontab" <<'SH'
+#!/usr/bin/env bash
+if [[ "${1:-}" == "-l" ]]; then
+    printf 'concurrent edit\n'
+    exit 0
+fi
+printf 'unexpected replacement\n' >> "$CRONTAB_CALLS"
+exit 0
+SH
+    chmod +x "$bin/crontab"
+
+    run env PATH="$bin:$PATH" CRONTAB_CALLS="$work/calls" bash -c '
+        source "$1"
+        ! _crontab_replace_if_unchanged "old snapshot" "replacement"
+    ' -- "$FANOUT"
+    [ "$status" -eq 0 ]
+    [ ! -e "$work/calls" ]
+}
+
 @test "failed crontab install restores the prior managed schedules" {
     work="$BATS_TEST_TMPDIR/install"
     bin="$work/bin"
@@ -160,7 +201,7 @@ JSON
     [[ "$(jq -r '.eligibility_reason' <<<"$output")" == *"outside"* ]]
 }
 
-@test "dispatcher atomically consumes one capture and never dispatches it twice" {
+@test "dispatcher completes one capture and never dispatches it twice" {
     state_file="$BATS_TEST_TMPDIR/claim-state.json"
     calls="$BATS_TEST_TMPDIR/bb-calls"
     mock_bb="$BATS_TEST_TMPDIR/mock-bb.sh"
@@ -190,7 +231,96 @@ SH
 
     [ "$(wc -l < "$calls" | tr -d ' ')" = "1" ]
     [ "$(cat "$calls")" = "capture-once" ]
-    [ "$(jq -r '.lifecycle' "$state_file")" = "consumed" ]
+    [ "$(jq -r '.lifecycle' "$state_file")" = "completed" ]
+    [ "$(jq -r '.attempt_count' "$state_file")" = "1" ]
+}
+
+@test "dispatcher retries failures with one idempotency key and a bounded budget" {
+    state_file="$BATS_TEST_TMPDIR/retry-state.json"
+    calls="$BATS_TEST_TMPDIR/retry-calls"
+    mock_bb="$BATS_TEST_TMPDIR/failing-bb.sh"
+    cat > "$state_file" <<'JSON'
+{"capture_id":"capture-retry","lifecycle":"pending","attempt_count":0,"consumed_at":null}
+JSON
+    cat > "$mock_bb" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "${BRIDGEBUILDER_IDEMPOTENCY_KEY:-missing}" >> "$MOCK_BB_CALLS"
+exit 7
+SH
+    chmod +x "$mock_bb"
+
+    for cycle in retry-one retry-two; do
+        handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
+        mkdir -p "$handoff"
+        jq -n '{action:"dispatch", capture_id:"capture-retry"}' > "$handoff/decider.json"
+        run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" \
+            LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fixture" \
+            LOA_SESSION_CAP_BB_ENTRY="$mock_bb" LOA_SESSION_CAP_MAX_ATTEMPTS=2 \
+            LOA_SESSION_CAP_RETRY_DELAY_SECONDS=0 "$DISPATCHER" "$cycle" schedule 2 '[]'
+        [ "$status" -eq 7 ]
+    done
+
+    [ "$(wc -l < "$calls" | tr -d ' ')" = "2" ]
+    [ "$(sort -u "$calls")" = "capture-retry" ]
+    [ "$(jq -r '.lifecycle' "$state_file")" = "failed" ]
+    [ "$(jq -r '.attempt_count' "$state_file")" = "2" ]
+
+    handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.retry-three"
+    mkdir -p "$handoff"
+    jq -n '{action:"dispatch", capture_id:"capture-retry"}' > "$handoff/decider.json"
+    run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" \
+        LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fixture" \
+        LOA_SESSION_CAP_BB_ENTRY="$mock_bb" LOA_SESSION_CAP_MAX_ATTEMPTS=2 \
+        LOA_SESSION_CAP_RETRY_DELAY_SECONDS=0 "$DISPATCHER" retry-three schedule 2 '[]'
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '.dispatched' <<<"$output")" = "false" ]
+    [ "$(wc -l < "$calls" | tr -d ' ')" = "2" ]
+}
+
+@test "an in-flight dispatch never overwrites a newer capture" {
+    state_file="$BATS_TEST_TMPDIR/interleaved-state.json"
+    mock_bb="$BATS_TEST_TMPDIR/blocked-bb.sh"
+    started="$BATS_TEST_TMPDIR/bb-started"
+    release="$BATS_TEST_TMPDIR/bb-release"
+    output_file="$BATS_TEST_TMPDIR/dispatcher-output"
+    compat="$REPO_ROOT/.claude/scripts/compat-lib.sh"
+    cycle="interleaved"
+    handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
+    mkdir -p "$handoff"
+    printf '%s\n' '{"capture_id":"capture-old","lifecycle":"pending","attempt_count":0,"consumed_at":null}' > "$state_file"
+    jq -n '{action:"dispatch", capture_id:"capture-old"}' > "$handoff/decider.json"
+    cat > "$mock_bb" <<'SH'
+#!/usr/bin/env bash
+touch "$MOCK_BB_STARTED"
+while [[ ! -e "$MOCK_BB_RELEASE" ]]; do sleep 0.02; done
+SH
+    chmod +x "$mock_bb"
+
+    env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_STARTED="$started" MOCK_BB_RELEASE="$release" \
+        LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fixture" \
+        LOA_SESSION_CAP_BB_ENTRY="$mock_bb" "$DISPATCHER" "$cycle" schedule 2 '[]' \
+        > "$output_file" &
+    dispatcher_pid=$!
+
+    for _ in $(seq 1 100); do
+        [[ -e "$started" ]] && break
+        sleep 0.02
+    done
+    [ -e "$started" ]
+
+    bash -c '
+        source "$1"
+        portable_lock_acquire "${2}.lock"
+        printf "%s\n" "{\"capture_id\":\"capture-new\",\"lifecycle\":\"pending\",\"attempt_count\":0,\"consumed_at\":null}" > "${2}.tmp.new"
+        mv -f "${2}.tmp.new" "$2"
+        portable_lock_release "${2}.lock"
+    ' -- "$compat" "$state_file"
+    touch "$release"
+    wait "$dispatcher_pid"
+
+    [ "$(jq -r '.capture_id' "$state_file")" = "capture-new" ]
+    [ "$(jq -r '.lifecycle' "$state_file")" = "pending" ]
+    [ "$(jq -r '.delivery_state' "$output_file")" = "state_changed" ]
 }
 
 @test "awaiter and logger preserve numeric bridgebuilder exit codes" {

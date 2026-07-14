@@ -7,9 +7,9 @@ review.
 
 | Phase | Behavior |
 |-------|----------|
-| `reader.sh` | Sanity-gates on the repo-root `.run/session-limit-state.json`: absent ⇒ noop-normal, present-but-corrupt ⇒ abort. Only an unconsumed capture inside the bounded post-reset window is eligible. |
+| `reader.sh` | Sanity-gates on the repo-root `.run/session-limit-state.json`: absent ⇒ noop-normal, present-but-corrupt ⇒ abort. Only a pending/retryable capture inside the bounded post-reset window is eligible. |
 | `decider.sh` | **Fail-closed.** `action:dispatch` only if the capture is eligible and `sprint_plan.state` ∈ {RUNNING, HALTED}, or `bridge.state` ∈ {RUNNING, ITERATING, FINALIZING, HALTED}; else `action:noop`. |
-| `dispatcher.sh` | Atomically consumes `capture_id`, then runs `bridgebuilder-review/resources/entry.sh --repo <owner/repo>` with no `--pr`. Repeated/concurrent claims no-op; the capture id is passed as the downstream idempotency key. |
+| `dispatcher.sh` | Atomically claims `capture_id`, runs `bridgebuilder-review/resources/entry.sh --repo <owner/repo>`, and acknowledges only on success. Failures retry within a bounded budget; the capture id is the downstream idempotency key. |
 | `awaiter.sh` | Pass-through — dispatch is synchronous under the phase timeout. |
 | `logger.sh` | Records dispatched?/repo/exit-code into the `cycle.phase` payload; cleans the handoff dir. |
 
@@ -28,6 +28,9 @@ phase re-derives identically from the shared `cycle_id`. `TMPDIR` is on the L3
 | `LOA_SESSION_CAP_STATE_FILE` | `<repo>/.run/session-limit-state.json` | capture marker path (reader + dispatcher) |
 | `LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS` | `21600` (6h) | maximum post-reset age eligible for dispatch |
 | `LOA_SESSION_CAP_NOW_EPOCH` | current epoch | deterministic freshness clock for tests |
+| `LOA_SESSION_CAP_MAX_ATTEMPTS` | `3` | terminal failure threshold |
+| `LOA_SESSION_CAP_CLAIM_LEASE_SECONDS` | `3600` | crash-recovery lease for an abandoned claim |
+| `LOA_SESSION_CAP_RETRY_DELAY_SECONDS` | `300` | backoff after a nonzero dispatch |
 | `LOA_SESSION_CAP_BB_REPO` | derived from `git remote get-url origin` | `owner/repo` passed as `--repo` |
 | `LOA_SESSION_CAP_BB_ENTRY` | `../../../bridgebuilder-review/resources/entry.sh` | BB entrypoint (dispatcher) |
 
@@ -38,5 +41,6 @@ Under the L3 sandbox these are only visible if listed in
 
 Arming this (via `session_cap.post_reset_fanout.enabled: true`) posts **live PR
 review comments unattended on cron**. The flag defaults to false. A capture
-moves `pending → consumed` exactly once; stale, consumed, legacy, and future
-markers remain visible but cannot dispatch.
+moves `pending → claimed → completed`; nonzero dispatches enter
+`retryable_failure` and eventually `failed` after the bounded retry budget.
+Claim leases recover crashes without changing the idempotency key.

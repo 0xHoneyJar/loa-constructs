@@ -30,12 +30,14 @@ SCRIPT_VERSION="1.0.0"
 # =============================================================================
 
 OUTPUT="BUTTERFREEZONE.md"
+OUTPUT_EXPLICIT="false"
 CONFIG_FILE=".loa.config.yaml"
 FORCED_TIER=""
 DRY_RUN="false"
 JSON_OUTPUT="false"
 VERBOSE="false"
 LOCK_FILE=""
+TO_STDOUT="false"
 
 # Detect project root
 PROJECT_ROOT=""
@@ -174,6 +176,7 @@ parse_args() {
         case "$1" in
             --output)
                 OUTPUT="$2"
+                OUTPUT_EXPLICIT="true"
                 shift 2
                 ;;
             --config)
@@ -189,6 +192,11 @@ parse_args() {
                 shift 2
                 ;;
             --dry-run)
+                DRY_RUN="true"
+                shift
+                ;;
+            --stdout)
+                TO_STDOUT="true"
                 DRY_RUN="true"
                 shift
                 ;;
@@ -2342,6 +2350,25 @@ assemble_sections() {
 
 main() {
     parse_args "$@"
+
+    # A repository-level skill pack has a different operator contract from a
+    # generic codebase. Route it to the construct generator before generic
+    # extraction so the output preserves construct identity and composition.
+    if [[ -f "$PROJECT_ROOT/construct.yaml" ]] \
+        && command -v yq >/dev/null 2>&1 \
+        && [[ "$(yq -r '.type // ""' "$PROJECT_ROOT/construct.yaml" 2>/dev/null || true)" == "skill-pack" ]]; then
+        construct_args=("$PROJECT_ROOT")
+        if [[ "$TO_STDOUT" == "true" ]]; then
+            construct_args+=(--stdout)
+        elif [[ "$DRY_RUN" == "true" ]]; then
+            construct_args+=(--dry-run)
+        fi
+        if [[ "$OUTPUT_EXPLICIT" == "true" ]]; then
+            construct_args+=(--output "$OUTPUT")
+        fi
+        exec "${SCRIPT_DIR}/butterfreezone-construct-gen.sh" "${construct_args[@]}"
+    fi
+
     load_config
 
     # Concurrency lock (skip for dry-run)
