@@ -64,15 +64,27 @@ _repo_root="$(cd "${_here}/../../../../.." && pwd -P)"
 STATE_FILE="${LOA_SESSION_CAP_STATE_FILE:-${_repo_root}/.run/session-limit-state.json}"
 # shellcheck source=/dev/null
 . "${_repo_root}/.claude/scripts/compat-lib.sh"
+# shellcheck source=/dev/null
+. "${_repo_root}/.claude/scripts/lib/session-cap-state-lib.sh"
 STATE_LOCK_DIR="${STATE_FILE}.lock"
 if ! portable_lock_acquire "$STATE_LOCK_DIR"; then
     echo "dispatcher: timed out acquiring capture state lock" >&2
     exit 1
 fi
 
-if [[ ! -f "$STATE_FILE" ]] || ! jq empty "$STATE_FILE" 2>/dev/null; then
+if [[ ! -f "$STATE_FILE" ]]; then
     portable_lock_release "$STATE_LOCK_DIR"
-    echo "dispatcher: capture marker disappeared or became invalid before claim" >&2
+    echo "dispatcher: capture marker disappeared before claim" >&2
+    exit 1
+fi
+if ! session_cap_state_file_is_secure "$STATE_FILE"; then
+    portable_lock_release "$STATE_LOCK_DIR"
+    echo "dispatcher: capture state must be owner-controlled mode 0600" >&2
+    exit 1
+fi
+if ! jq empty "$STATE_FILE" 2>/dev/null; then
+    portable_lock_release "$STATE_LOCK_DIR"
+    echo "dispatcher: capture marker became invalid before claim" >&2
     exit 1
 fi
 current_capture="$(jq -r '.capture_id // ""' "$STATE_FILE")"

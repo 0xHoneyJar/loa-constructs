@@ -1,6 +1,7 @@
 #!/usr/bin/env bats
 
 setup() {
+    umask 077
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
     FANOUT="$REPO_ROOT/.claude/scripts/session-cap-fanout.sh"
     RECONCILER="$REPO_ROOT/.claude/scripts/session-cap-reconcile.sh"
@@ -49,6 +50,7 @@ setup() {
     cp "$REPO_ROOT/.claude/scripts/session-limit-capture.sh" "$fake_repo/.claude/scripts/"
     cp "$REPO_ROOT/.claude/scripts/compat-lib.sh" "$fake_repo/.claude/scripts/"
     cp "$REPO_ROOT/.claude/scripts/lib/session-limit-lib.sh" "$fake_repo/.claude/scripts/lib/"
+    cp "$REPO_ROOT/.claude/scripts/lib/session-cap-state-lib.sh" "$fake_repo/.claude/scripts/lib/"
     reset_time="$(date -u -d '+2 hours' +%H:%M)"
 
     run env LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fake-repo" LOA_SESSION_CAP_BB_PR=99 \
@@ -61,6 +63,8 @@ setup() {
     jq -e '.capture_id | startswith("sha256:")' "$fake_repo/.run/session-limit-state.json"
     [ "$(jq -r '.lifecycle' "$fake_repo/.run/session-limit-state.json")" = "pending" ]
     jq -e '.review_target == {repo:"0xHoneyJar/fake-repo", pr_number:99}' "$fake_repo/.run/session-limit-state.json"
+    [ "$(stat -c '%a' "$fake_repo/.run")" = "700" ]
+    [ "$(stat -c '%a' "$fake_repo/.run/session-limit-state.json")" = "600" ]
 }
 
 @test "capture identity includes the exact review target" {
@@ -72,6 +76,7 @@ setup() {
     cp "$REPO_ROOT/.claude/scripts/session-limit-capture.sh" "$fake_repo/.claude/scripts/"
     cp "$REPO_ROOT/.claude/scripts/compat-lib.sh" "$fake_repo/.claude/scripts/"
     cp "$REPO_ROOT/.claude/scripts/lib/session-limit-lib.sh" "$fake_repo/.claude/scripts/lib/"
+    cp "$REPO_ROOT/.claude/scripts/lib/session-cap-state-lib.sh" "$fake_repo/.claude/scripts/lib/"
     now_epoch="$(date +%s)"
     reset_time="$(date -u -d '@'"$((now_epoch + 7200))" +%H:%M)"
 
@@ -483,6 +488,34 @@ SH
         "$READER" short-lease-reader schedule 0 '[]'
     [ "$status" -eq 0 ]
     [ "$(jq -r '.eligible' <<<"$output")" = "false" ]
+}
+
+@test "all session-cap consumers refuse group-readable authorization state" {
+    state_file="$BATS_TEST_TMPDIR/insecure-state.json"
+    schedule="$BATS_TEST_TMPDIR/insecure-schedule.yaml"
+    handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.insecure-state"
+    cat > "$state_file" <<'JSON'
+{"capture_id":"capture-insecure","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","attempt_count":0,"consumed_at":null,"reset_at_epoch":100,"active_run_state_snapshot":{"bridge":{"state":"ITERATING"}}}
+JSON
+    printf 'schedule_id: insecure\n' > "$schedule"
+    chmod 644 "$state_file"
+
+    run env TMPDIR="$BATS_TEST_TMPDIR" LOA_SESSION_CAP_STATE_FILE="$state_file" \
+        LOA_SESSION_CAP_NOW_EPOCH=120 "$READER" insecure-state schedule 0 '[]'
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"owner-controlled mode 0600"* ]]
+
+    mkdir -m 700 -p "$handoff"
+    jq -n '{action:"dispatch", capture_id:"capture-insecure", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
+    run env TMPDIR="$BATS_TEST_TMPDIR" LOA_SESSION_CAP_STATE_FILE="$state_file" \
+        LOA_SESSION_CAP_NOW_EPOCH=120 "$DISPATCHER" insecure-state schedule 2 '[]'
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"owner-controlled mode 0600"* ]]
+
+    run env LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_NOW_EPOCH=120 \
+        "$RECONCILER" "$schedule"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"owner-controlled mode 0600"* ]]
 }
 
 @test "dispatcher independently refuses a stale reset handoff" {

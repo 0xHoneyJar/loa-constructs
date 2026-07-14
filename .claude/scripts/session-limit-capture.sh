@@ -27,6 +27,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/session-limit-lib.sh"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/compat-lib.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/lib/session-cap-state-lib.sh"
 
 RAW=""
 while [[ $# -gt 0 ]]; do
@@ -73,7 +75,10 @@ if ! PROJECT_ROOT="$(cd "$PROJECT_ROOT" 2>/dev/null && pwd -P)"; then
     exit 1
 fi
 RUN_DIR="$PROJECT_ROOT/.run"
-mkdir -p "$RUN_DIR" 2>/dev/null || true
+if ! session_cap_prepare_state_dir "$RUN_DIR"; then
+    echo "session-limit-capture: state directory must be owner-controlled mode 0700" >&2
+    exit 1
+fi
 STATE_FILE="$RUN_DIR/session-limit-state.json"
 
 SPRINT_FILE="$RUN_DIR/sprint-plan-state.json"
@@ -222,7 +227,11 @@ if ! portable_lock_acquire "$STATE_LOCK_DIR"; then
     exit 1
 fi
 TMP="${STATE_FILE}.tmp.$$"
-if printf '%s\n' "$SNAP" > "$TMP" 2>/dev/null && mv -f "$TMP" "$STATE_FILE" 2>/dev/null; then
+if (umask 077 && printf '%s\n' "$SNAP" > "$TMP") 2>/dev/null \
+    && chmod 600 "$TMP" \
+    && session_cap_state_file_is_secure "$TMP" \
+    && mv -f "$TMP" "$STATE_FILE" 2>/dev/null \
+    && session_cap_state_file_is_secure "$STATE_FILE"; then
     portable_lock_release "$STATE_LOCK_DIR"
     echo "session-limit-capture: wrote $STATE_FILE (reset_at=$RESET_ISO)" >&2
     exit 0

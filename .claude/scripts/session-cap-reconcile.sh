@@ -10,6 +10,8 @@ STATE_FILE="${LOA_SESSION_CAP_STATE_FILE:-${REPO_ROOT}/.run/session-limit-state.
 CYCLE_LIB="${LOA_SESSION_CAP_CYCLE_LIB:-${REPO_ROOT}/.claude/scripts/lib/scheduled-cycle-lib.sh}"
 # shellcheck source=/dev/null
 . "${REPO_ROOT}/.claude/scripts/compat-lib.sh"
+# shellcheck source=/dev/null
+. "${REPO_ROOT}/.claude/scripts/lib/session-cap-state-lib.sh"
 STATE_LOCK_DIR="${STATE_FILE}.lock"
 
 if ! portable_lock_acquire "$STATE_LOCK_DIR"; then
@@ -19,6 +21,11 @@ fi
 if [[ ! -f "$STATE_FILE" ]]; then
     portable_lock_release "$STATE_LOCK_DIR"
     exit 0
+fi
+if ! session_cap_state_file_is_secure "$STATE_FILE"; then
+    portable_lock_release "$STATE_LOCK_DIR"
+    echo "session-cap-reconcile: capture state must be owner-controlled mode 0600" >&2
+    exit 1
 fi
 state_json="$(<"$STATE_FILE")"
 portable_lock_release "$STATE_LOCK_DIR"

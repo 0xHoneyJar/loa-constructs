@@ -32,6 +32,8 @@ fi
 STATE_FILE="${LOA_SESSION_CAP_STATE_FILE:-${_repo_root}/.run/session-limit-state.json}"
 # shellcheck source=/dev/null
 . "${_repo_root}/.claude/scripts/compat-lib.sh"
+# shellcheck source=/dev/null
+. "${_repo_root}/.claude/scripts/lib/session-cap-state-lib.sh"
 STATE_LOCK_DIR="${STATE_FILE}.lock"
 
 emit() { session_cap_handoff_write "${HANDOFF_DIR}/reader.json" "$1"; }
@@ -51,6 +53,11 @@ if [[ ! -f "$STATE_FILE" ]]; then
           sprint_plan_state:null, bridge_state:null,
           note:"no session-limit-state.json; nothing in flight"}')"
     exit 0
+fi
+if ! session_cap_state_file_is_secure "$STATE_FILE"; then
+    portable_lock_release "$STATE_LOCK_DIR"
+    echo "reader: capture state must be owner-controlled mode 0600" >&2
+    exit 1
 fi
 
 # Read exactly one immutable snapshot while holding the same lock used by the
