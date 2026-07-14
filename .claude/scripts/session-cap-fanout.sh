@@ -20,8 +20,9 @@
 # was FALSE: resources/entry.sh -> dist/main.js is a real headless entrypoint
 # that spiral-harness.sh already fires unattended, and BB with no --pr
 # self-discovers open PRs + dedups. The session-cap-bb decider is FAIL-CLOSED
-# (dispatch only when the captured snapshot shows sprint_plan/bridge RUNNING or
-# HALTED), so a reset window where nothing was in flight is still a no-op.
+# (dispatch only when the captured snapshot shows an interrupted sprint-plan or
+# bridge lifecycle state), so a reset window where nothing was in flight is
+# still a no-op.
 # The `flatline` and `red_team` phases REMAIN shipped no-op example-*.sh
 # placeholders (Tranche 2, deferred): unlike BB, both hard-require an explicit
 # --doc <path> and cannot auto-resolve a target from the session-limit snapshot
@@ -241,20 +242,70 @@ _jitter_offset() {
     echo $(( (dec % jitter_min) + 1 ))
 }
 
-# _final_minute <base_minute> <offset> — apply offset mod 60, nudge off :00/:30.
-_final_minute() {
-    local base_minute="$1" offset="$2" m
-    m=$(( (base_minute + offset) % 60 ))
-    while (( m == 0 || m == 30 )); do
-        m=$(( (m + 1) % 60 ))
+# _final_time <base_hour> <base_minute> <offset> — add the complete offset,
+# including hour/day rollover, then nudge off :00/:30. Echoes "<hour> <minute>".
+_final_time() {
+    local base_hour="$1" base_minute="$2" offset="$3" total hour minute
+    total=$(( (base_hour * 60 + base_minute + offset) % 1440 ))
+    hour=$(( total / 60 ))
+    minute=$(( total % 60 ))
+    while (( minute == 0 || minute == 30 )); do
+        total=$(( (total + 1) % 1440 ))
+        hour=$(( total / 60 ))
+        minute=$(( total % 60 ))
     done
-    echo "$m"
+    printf '%s %s\n' "$hour" "$minute"
 }
 
 _system_tz() {
-    timedatectl show -p Timezone --value 2>/dev/null \
+    local tz
+    tz="$(timedatectl show -p Timezone --value 2>/dev/null \
         || cat /etc/timezone 2>/dev/null \
-        || echo UTC
+        || echo UTC)"
+    _valid_timezone "$tz" && printf '%s\n' "$tz" || printf 'UTC\n'
+}
+
+_valid_timezone() {
+    local tz="$1"
+    [[ "$tz" =~ ^[A-Za-z0-9_+-]+(/[A-Za-z0-9_+-]+)*$ ]] || return 1
+    [[ "$tz" != *".."* ]] || return 1
+    [[ "$tz" == "UTC" || -f "/usr/share/zoneinfo/${tz}" ]]
+}
+
+_validate_window() {
+    local window="$1"
+    [[ "$window" =~ ^([0-9]{2}):([0-9]{2})[[:space:]]+([^[:space:]]+)$ ]] || return 1
+    local hour=$((10#${BASH_REMATCH[1]})) minute=$((10#${BASH_REMATCH[2]})) tz="${BASH_REMATCH[3]}"
+    (( hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59 )) || return 1
+    _valid_timezone "$tz"
+}
+
+_validate_phase() {
+    [[ "$1" =~ ^[a-z][a-z0-9_-]{0,63}$ ]]
+}
+
+# CRON_TZ changes scheduler interpretation; TZ alone only changes the command
+# environment. Fail closed unless the installed implementation advertises the
+# directive, with an explicit override for known managed fleet images/tests.
+_cron_tz_supported() {
+    case "${LOA_SESSION_CAP_CRON_TZ_SUPPORTED:-auto}" in
+        true) return 0 ;;
+        false) return 1 ;;
+        auto) ;;
+        *) return 1 ;;
+    esac
+
+    local candidate out
+    for candidate in crond cron crontab; do
+        command -v "$candidate" >/dev/null 2>&1 || continue
+        out="$($candidate -V 2>&1 || $candidate --version 2>&1 || true)"
+        [[ "${out,,}" == *"cronie"* ]] && return 0
+    done
+    if command -v man >/dev/null 2>&1; then
+        out="$(MANPAGER=cat PAGER=cat man 5 crontab 2>/dev/null || true)"
+        [[ "$out" == *"CRON_TZ"* ]] && return 0
+    fi
+    return 1
 }
 
 # -----------------------------------------------------------------------------
@@ -270,10 +321,10 @@ _generate_yaml() {
 # dispatch_contract points at the session-cap-bb phase scripts. The decider is
 # FAIL-CLOSED -- it only fires bridgebuilder-review's headless entrypoint
 # (resources/entry.sh, the same one spiral-harness.sh already runs unattended)
-# when the captured session-limit snapshot shows sprint_plan/bridge RUNNING or
-# HALTED; otherwise it is a no-op. Arming this posts LIVE PR review comments
-# unattended on cron.
-# window_tz: ${window_tz} (informational; the crontab TZ= line carries the
+# when the captured session-limit snapshot shows an interrupted active state;
+# otherwise it is a no-op. Arming this posts LIVE PR review comments unattended
+# on cron.
+# window_tz: ${window_tz} (informational; the crontab CRON_TZ= line carries the
 # actual timezone this schedule's hour/minute are LOCAL to)
 schedule_id: ${schedule_id}
 schedule: "${cron_minute} ${cron_hour} * * *"
@@ -294,7 +345,7 @@ YAML
 # operator decision on current-state vs resume-exact doc-targeting semantics
 # (bd-fanout-real-dispatch-9jv6 Tranche 2) -- flatline/red_team hard-require an
 # explicit --doc <path> that the session-limit snapshot does not carry.
-# window_tz: ${window_tz} (informational; the crontab TZ= line carries the
+# window_tz: ${window_tz} (informational; the crontab CRON_TZ= line carries the
 # actual timezone this schedule's hour/minute are LOCAL to)
 schedule_id: ${schedule_id}
 schedule: "${cron_minute} ${cron_hour} * * *"
@@ -334,9 +385,24 @@ _plan() {
     fi
 
     local phases=()
+    local seen_phases="|"
     while IFS= read -r _p; do
-        [[ -n "$_p" ]] && phases+=("$_p")
+        [[ -n "$_p" ]] || continue
+        if ! _validate_phase "$_p"; then
+            echo "ERROR: invalid fanout phase: ${_p}" >&2
+            return 1
+        fi
+        if [[ "$seen_phases" == *"|${_p}|"* ]]; then
+            echo "ERROR: duplicate fanout phase: ${_p}" >&2
+            return 1
+        fi
+        seen_phases="${seen_phases}${_p}|"
+        phases+=("$_p")
     done < <(read_fanout_phases)
+    if [[ ${#phases[@]} -eq 0 ]]; then
+        echo "ERROR: fanout phases are empty" >&2
+        return 1
+    fi
 
     local jitter_min offset
     jitter_min="$(read_cron_jitter_min)"
@@ -347,6 +413,10 @@ _plan() {
 
     local idx=0 window
     for window in "${windows[@]}"; do
+        if ! _validate_window "$window"; then
+            echo "ERROR: invalid reset window (expected HH:MM IANA/Timezone): ${window}" >&2
+            return 1
+        fi
         local time_part tz_part hour minute
         time_part="${window%% *}"
         tz_part="${window#* }"
@@ -355,17 +425,17 @@ _plan() {
         hour=$((10#$hour))
         minute=$((10#$minute))
 
-        local phase phase_idx=0 final_minute
+        local phase phase_idx=0 final_hour final_minute
         for phase in "${phases[@]}"; do
             # Per-phase deterministic stagger: each phase in this window fires at
             # a DISTINCT minute (base per-repo jitter + phase_idx * stagger),
-            # still nudged off :00/:30 by _final_minute. Without this, every
+            # still nudged off :00/:30 by _final_time. Without this, every
             # phase in one reset window fired at the identical minute
             # (bd-fanout-real-dispatch-9jv6 T1).
-            final_minute="$(_final_minute "$minute" "$((offset + phase_idx * _PHASE_STAGGER_MIN))")"
+            read -r final_hour final_minute < <(_final_time "$hour" "$minute" "$((offset + phase_idx * _PHASE_STAGGER_MIN))")
             local schedule_id="session-cap-fanout-w${idx}-${phase}"
             local yaml_path="${target_dir}/${schedule_id}.yaml"
-            _generate_yaml "$schedule_id" "$final_minute" "$hour" "$tz_part" "$phase" > "$yaml_path"
+            _generate_yaml "$schedule_id" "$final_minute" "$final_hour" "$tz_part" "$phase" > "$yaml_path"
 
             if ! "$_LIB" register "$yaml_path" >/dev/null; then
                 echo "ERROR: register failed for ${yaml_path}; aborting" >&2
@@ -373,8 +443,13 @@ _plan() {
             fi
 
             local final_yaml_path="${schedules_dir}/${schedule_id}.yaml"
-            local invoke_cmd="cd ${_REPO_ROOT} && ${_LIB} invoke ${final_yaml_path} >> ${_LOG_PATH} 2>&1"
-            CRON_LINES+=("${tz_part}|${final_minute} ${hour} * * * ${invoke_cmd}  # loa-cycle117-session-cap-fanout w${idx}:${phase}")
+            local q_root q_lib q_yaml q_log invoke_cmd
+            printf -v q_root '%q' "$_REPO_ROOT"
+            printf -v q_lib '%q' "$_LIB"
+            printf -v q_yaml '%q' "$final_yaml_path"
+            printf -v q_log '%q' "$_LOG_PATH"
+            invoke_cmd="cd ${q_root} && ${q_lib} invoke ${q_yaml} >> ${q_log} 2>&1"
+            CRON_LINES+=("${tz_part}|${final_minute} ${final_hour} * * * ${invoke_cmd}  # loa-cycle117-session-cap-fanout w${idx}:${phase}")
             phase_idx=$((phase_idx + 1))
         done
         idx=$((idx + 1))
@@ -383,9 +458,8 @@ _plan() {
 }
 
 # -----------------------------------------------------------------------------
-# Crontab block assembly (grouped by TZ, LC_ALL=C sort for determinism; final
-# line resets TZ to the system default so entries added later via `crontab
-# -e` are not silently reinterpreted under a leaked TZ= setting).
+# Crontab block assembly (grouped by scheduler CRON_TZ and command-environment
+# TZ, LC_ALL=C sort for determinism; final lines reset both to system default).
 # -----------------------------------------------------------------------------
 
 _build_crontab_block() {
@@ -403,20 +477,52 @@ _build_crontab_block() {
 
     echo "$MARKER_BEGIN"
     echo "# ${PLACEHOLDER_NOTE}"
-    echo "# NOTE: crontab TZ= env-lines persist to end-of-file (POSIX cron"
-    echo "# semantics, no 'unset' syntax) -- this block always ends with an"
-    echo "# explicit system-TZ reset line so entries added below it via"
-    echo "# 'crontab -e' are not silently reinterpreted under our TZ setting."
+    echo "# NOTE: CRON_TZ controls scheduler interpretation; TZ controls the"
+    echo "# invoked command environment. Both persist, so this managed block"
+    echo "# restores each to the system timezone before its end marker."
     local t
     while IFS= read -r t; do
         [[ -z "$t" ]] && continue
+        echo "CRON_TZ=${t}"
         echo "TZ=${t}"
         for line in "${CRON_LINES[@]}"; do
             [[ "${line%%|*}" == "$t" ]] && echo "${line#*|}"
         done
     done <<<"$sorted_tzs"
+    echo "CRON_TZ=$(_system_tz)"
     echo "TZ=$(_system_tz)"
     echo "$MARKER_END"
+}
+
+_restore_managed_schedules() {
+    local live_dir="$1" backup_dir="$2" f
+    for f in "$live_dir"/session-cap-fanout-w*.yaml; do
+        [[ -e "$f" ]] && rm -f "$f"
+    done
+    for f in "$backup_dir"/*.yaml; do
+        [[ -e "$f" ]] && mv "$f" "$live_dir/"
+    done
+}
+
+_install_staged_schedules() {
+    local staged_dir="$1" live_dir="$2" backup_dir="$3" f tmp
+    mkdir -p "$live_dir" "$backup_dir" || return 1
+    for f in "$live_dir"/session-cap-fanout-w*.yaml; do
+        [[ -e "$f" ]] || continue
+        if ! mv "$f" "$backup_dir/"; then
+            _restore_managed_schedules "$live_dir" "$backup_dir"
+            return 1
+        fi
+    done
+    for f in "$staged_dir"/*.yaml; do
+        [[ -e "$f" ]] || continue
+        tmp="${live_dir}/.$(basename "$f").tmp.$$"
+        if ! cp "$f" "$tmp" || ! mv -f "$tmp" "${live_dir}/$(basename "$f")"; then
+            rm -f "$tmp"
+            _restore_managed_schedules "$live_dir" "$backup_dir"
+            return 1
+        fi
+    done
 }
 
 _strip_managed_block() {
@@ -449,12 +555,7 @@ cmd_install() {
     fi
 
     local target_dir rc=0
-    if (( dry_run )); then
-        target_dir="$(mktemp -d)"
-    else
-        target_dir="$(_schedules_dir)"
-        mkdir -p "$target_dir"
-    fi
+    target_dir="$(mktemp -d)"
 
     if _plan "$target_dir"; then
         rc=0
@@ -462,7 +563,7 @@ cmd_install() {
         rc=$?
     fi
     if (( rc != 0 )); then
-        (( dry_run )) && rm -rf "$target_dir"
+        rm -rf "$target_dir"
         if (( rc == 2 )); then
             echo "Nothing to install."
             return 0
@@ -486,13 +587,34 @@ cmd_install() {
 
     echo "$PLACEHOLDER_NOTE"
     if ! command -v crontab >/dev/null 2>&1; then
+        rm -rf "$target_dir"
         echo "crontab not available on this system" >&2
+        return 1
+    fi
+    if ! _cron_tz_supported; then
+        rm -rf "$target_dir"
+        echo "crontab does not advertise CRON_TZ support; refusing timezone-unsafe install" >&2
+        echo "Set LOA_SESSION_CAP_CRON_TZ_SUPPORTED=true only for a verified implementation." >&2
         return 1
     fi
     local existing new_block
     existing="$(crontab -l 2>/dev/null || true)"
     new_block="$(_build_crontab_block)"
-    printf '%s\n%s\n' "$(_strip_managed_block "$existing")" "$new_block" | crontab -
+    local live_dir backup_dir
+    live_dir="$(_schedules_dir)"
+    backup_dir="$(mktemp -d)"
+    if ! _install_staged_schedules "$target_dir" "$live_dir" "$backup_dir"; then
+        rm -rf "$target_dir" "$backup_dir"
+        echo "failed to install staged schedules; existing schedules restored" >&2
+        return 1
+    fi
+    if ! printf '%s\n%s\n' "$(_strip_managed_block "$existing")" "$new_block" | crontab -; then
+        _restore_managed_schedules "$live_dir" "$backup_dir"
+        rm -rf "$target_dir" "$backup_dir"
+        echo "failed to install crontab; existing schedules restored" >&2
+        return 1
+    fi
+    rm -rf "$target_dir" "$backup_dir"
     echo "Installed ${#CRON_LINES[@]} session-cap-fanout crontab entries."
 }
 

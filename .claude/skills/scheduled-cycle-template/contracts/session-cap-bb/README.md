@@ -8,7 +8,7 @@ review.
 | Phase | Behavior |
 |-------|----------|
 | `reader.sh` | Sanity-gates on `.run/session-limit-state.json`: absent ⇒ noop-normal, present-but-corrupt ⇒ abort. Hands the captured `active_run_state_snapshot` forward. |
-| `decider.sh` | **Fail-closed.** `action:dispatch` only if `sprint_plan.state` or `bridge.state` ∈ {RUNNING, HALTED}; else `action:noop`. |
+| `decider.sh` | **Fail-closed.** `action:dispatch` only if `sprint_plan.state` ∈ {RUNNING, HALTED}, or `bridge.state` ∈ {RUNNING, ITERATING, FINALIZING, HALTED}; else `action:noop`. |
 | `dispatcher.sh` | On dispatch, runs `bridgebuilder-review/resources/entry.sh --repo <owner/repo>` with **no** `--pr` (BB self-discovers open PRs + dedups). On noop, exits 0. |
 | `awaiter.sh` | Pass-through — dispatch is synchronous under the phase timeout. |
 | `logger.sh` | Records dispatched?/repo/exit-code into the `cycle.phase` payload; cleans the handoff dir. |

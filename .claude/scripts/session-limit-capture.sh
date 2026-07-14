@@ -45,11 +45,12 @@ if ! session_limit_matches "$RAW"; then
     exit 1
 fi
 
-RESET_ISO="$(session_limit_parse_reset "$RAW")" || {
+NOW_EPOCH="$(date +%s)"
+RESET_ISO="$(session_limit_parse_reset "$RAW" "$NOW_EPOCH")" || {
     echo "session-limit-capture: could not parse reset time (GNU-date-only; see session-limit-lib.sh)" >&2
     exit 1
 }
-RESET_EPOCH="$(session_limit_parse_reset_epoch "$RAW")" || {
+RESET_EPOCH="$(session_limit_parse_reset_epoch "$RAW" "$NOW_EPOCH")" || {
     echo "session-limit-capture: could not parse reset epoch" >&2
     exit 1
 }

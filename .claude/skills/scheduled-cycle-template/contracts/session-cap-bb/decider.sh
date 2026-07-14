@@ -3,10 +3,11 @@
 # fan-out (bd-fanout-real-dispatch-9jv6 Tranche 1).
 #
 # FAIL-CLOSED: emits action:dispatch ONLY when the captured snapshot shows a
-# sprint_plan or bridge state in {RUNNING, HALTED} (i.e. something was
-# demonstrably interrupted at cap time); every other case — snapshot absent,
-# unreadable, or in a terminal/idle state — is action:noop. Side-effect-free
-# apart from writing its own handoff file.
+# sprint_plan state in {RUNNING, HALTED}, or bridge state in
+# {RUNNING, ITERATING, FINALIZING, HALTED} (i.e. something was demonstrably
+# interrupted at cap time); every other case — snapshot absent, unreadable, or
+# in a terminal/idle state — is action:noop. Side-effect-free apart from writing
+# its own handoff file.
 #
 # Args: $1 cycle_id  $2 schedule_id  $3 phase_index  $4 prior_phases_json
 set -euo pipefail
@@ -28,7 +29,7 @@ fi
 
 action="noop"
 case "$sp_state" in RUNNING|HALTED) action="dispatch" ;; esac
-case "$br_state" in RUNNING|HALTED) action="dispatch" ;; esac
+case "$br_state" in RUNNING|ITERATING|FINALIZING|HALTED) action="dispatch" ;; esac
 
 jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" --arg act "$action" \
     --arg sp "$sp_state" --arg br "$br_state" \
