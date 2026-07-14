@@ -184,6 +184,18 @@ Two simultaneous cron firings of the same schedule serialize at the flock — se
 
 `flock -w <lock_timeout> 9` on `${lock_dir}/<schedule_id>.lock` (default `lock_dir=.run/cycles/`, `lock_timeout=30s`). Acquire failure emits `cycle.lock_failed{schedule_id, cycle_id, lock_path, acquire_timeout_seconds, attempted_at, diagnostic}` and exits 4.
 
+## Session-cap Bridgebuilder specialization
+
+`session-cap-fanout.sh` materializes a bounded Bridgebuilder DispatchContract for the exact repository and PR captured when a session limit interrupts active work. Its delivery lifecycle is `pending -> claimed -> completed | retryable_failure -> failed`:
+
+- The reset-window cron owns the initial `pending` delivery.
+- One five-minute `session-cap-reconcile.sh` cron owns wakeups for due `retryable_failure` records and expired `claimed` leases. It ignores pending and terminal records.
+- The claim lease defaults to 3600 seconds and cannot be configured below 2100 seconds, keeping it above the generated Bridgebuilder phase timeout of 1800 seconds plus a safety margin. A killed dispatcher therefore cannot be reclaimed while its review may still be live.
+- Bridgebuilder nonzero exits are recorded as typed `bb_exit_code` and `delivery_state` data while the dispatcher itself returns success. This lets the L3 awaiter and logger record the failed delivery before the reconciler performs the next bounded attempt.
+- Capture ID, repository, and PR number must still match under the state lock before claim and acknowledgement. A newer capture is never overwritten.
+
+The relevant controls are `LOA_SESSION_CAP_MAX_ATTEMPTS` (default 3), `LOA_SESSION_CAP_RETRY_DELAY_SECONDS` (default 300), `LOA_SESSION_CAP_CLAIM_LEASE_SECONDS` (default 3600, minimum 2100), and `LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS` (default 21600).
+
 ## Configuration (.loa.config.yaml)
 
 ```yaml

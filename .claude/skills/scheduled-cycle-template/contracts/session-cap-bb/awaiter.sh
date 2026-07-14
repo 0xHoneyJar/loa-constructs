@@ -28,6 +28,6 @@ fi
 jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" \
     --argjson d "$dispatched" --argjson ec "$bb_ec" \
     '{cycle_id:$cid, schedule_id:$sid,
-      terminal_state:(if $d then "completed" else "skipped" end),
+      terminal_state:(if ($d and $ec == 0) then "completed" elif $d then "failed" else "skipped" end),
       dispatched:$d, bb_exit_code:$ec,
       note:"synchronous dispatch; no async job to await"}'

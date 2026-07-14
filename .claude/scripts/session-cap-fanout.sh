@@ -22,7 +22,8 @@
 # self-discovers open PRs + dedups. The session-cap-bb decider is FAIL-CLOSED
 # (dispatch only when the captured snapshot shows an interrupted sprint-plan or
 # bridge lifecycle state), so a reset window where nothing was in flight is
-# still a no-op.
+# still a no-op. One five-minute reconciler owns durable retryable/stale-claim
+# wakeups for the exact captured PR; it never dispatches pending work.
 # The `flatline` and `red_team` phases REMAIN shipped no-op example-*.sh
 # placeholders (Tranche 2, deferred): unlike BB, both hard-require an explicit
 # --doc <path> and cannot auto-resolve a target from the session-limit snapshot
@@ -437,6 +438,7 @@ _plan() {
 
     local idx=0 window
     local used_schedule_times="|"
+    local reconciler_added=0
     for window in "${windows[@]}"; do
         if ! _validate_window "$window"; then
             echo "ERROR: invalid reset window (expected HH:MM IANA/Timezone): ${window}" >&2
@@ -481,6 +483,13 @@ _plan() {
             printf -v q_log '%q' "$_LOG_PATH"
             invoke_cmd="cd ${q_root} && ${q_lib} invoke ${q_yaml} >> ${q_log} 2>&1"
             CRON_LINES+=("${tz_part}|${final_minute} ${final_hour} * * * ${invoke_cmd}  # loa-cycle117-session-cap-fanout w${idx}:${phase}")
+            if [[ "$phase" == "bridgebuilder" && "$reconciler_added" -eq 0 ]]; then
+                local q_reconciler reconcile_cmd
+                printf -v q_reconciler '%q' "${_SCRIPT_DIR}/session-cap-reconcile.sh"
+                reconcile_cmd="cd ${q_root} && ${q_reconciler} ${q_yaml} >> ${q_log} 2>&1"
+                CRON_LINES+=("${tz_part}|*/5 * * * * ${reconcile_cmd}  # loa-cycle117-session-cap-fanout retry-reconciler")
+                reconciler_added=1
+            fi
             phase_idx=$((phase_idx + 1))
         done
         idx=$((idx + 1))
@@ -490,7 +499,8 @@ _plan() {
 
 # -----------------------------------------------------------------------------
 # Crontab block assembly (grouped by scheduler CRON_TZ and command-environment
-# TZ, LC_ALL=C sort for determinism; final lines reset both to system default).
+# TZ, LC_ALL=C sort for determinism; final lines restore the preceding
+# effective assignments, or the system default when none were explicit).
 # -----------------------------------------------------------------------------
 
 _build_crontab_block() {
@@ -512,7 +522,7 @@ _build_crontab_block() {
     echo "# ${PLACEHOLDER_NOTE}"
     echo "# NOTE: CRON_TZ controls scheduler interpretation; TZ controls the"
     echo "# invoked command environment. Both persist, so this managed block"
-    echo "# restores each to the system timezone before its end marker."
+    echo "# restores each to the assignments active before its begin marker."
     local t
     while IFS= read -r t; do
         [[ -z "$t" ]] && continue

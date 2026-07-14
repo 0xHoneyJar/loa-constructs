@@ -19,20 +19,22 @@ DISPATCHER_FILE="${HANDOFF_DIR}/dispatcher.json"
 dispatched="false"
 repo=""
 bb_ec="null"
+delivery_state="noop"
 if [[ -f "$DISPATCHER_FILE" ]] && jq empty "$DISPATCHER_FILE" 2>/dev/null; then
     dispatched="$(jq -r '.dispatched // false' "$DISPATCHER_FILE")"
     repo="$(jq -r '.repo // ""' "$DISPATCHER_FILE")"
     bb_ec="$(jq -r '.bb_exit_code // "null"' "$DISPATCHER_FILE")"
+    delivery_state="$(jq -r '.delivery_state // "noop"' "$DISPATCHER_FILE")"
 fi
 [[ "$dispatched" == "true" || "$dispatched" == "false" ]] || dispatched="false"
 [[ "$bb_ec" == "null" || "$bb_ec" =~ ^[0-9]+$ ]] || bb_ec="null"
 
 jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" \
-    --argjson d "$dispatched" --arg repo "$repo" --argjson ec "$bb_ec" \
+    --argjson d "$dispatched" --arg repo "$repo" --arg state "$delivery_state" --argjson ec "$bb_ec" \
     --arg ts "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
     '{cycle_id:$cid, schedule_id:$sid,
       summary:"session-cap bridgebuilder fan-out complete",
-      dispatched:$d, repo:$repo, bb_exit_code:$ec, logged_at:$ts}'
+      dispatched:$d, repo:$repo, delivery_state:$state, bb_exit_code:$ec, logged_at:$ts}'
 
 # Best-effort handoff cleanup (idempotent; safe to skip on failure).
 [[ -n "${HANDOFF_DIR:-}" && "$HANDOFF_DIR" == *loa-session-cap-bb.* ]] \

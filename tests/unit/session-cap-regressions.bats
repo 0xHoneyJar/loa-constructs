@@ -3,6 +3,8 @@
 setup() {
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
     FANOUT="$REPO_ROOT/.claude/scripts/session-cap-fanout.sh"
+    RECONCILER="$REPO_ROOT/.claude/scripts/session-cap-reconcile.sh"
+    L3_LIB="$REPO_ROOT/.claude/scripts/lib/scheduled-cycle-lib.sh"
     READER="$REPO_ROOT/.claude/skills/scheduled-cycle-template/contracts/session-cap-bb/reader.sh"
     DECIDER="$REPO_ROOT/.claude/skills/scheduled-cycle-template/contracts/session-cap-bb/decider.sh"
     DISPATCHER="$REPO_ROOT/.claude/skills/scheduled-cycle-template/contracts/session-cap-bb/dispatcher.sh"
@@ -97,6 +99,27 @@ TZ=America/Los_Angeles
     ' -- "$FANOUT"
     [ "$status" -eq 0 ]
     [[ "$output" == *$'5 0 * * * managed-job\nCRON_TZ=America/New_York\nTZ=America/Los_Angeles\n# loa-cycle117-session-cap-fanout END'* ]]
+}
+
+@test "fanout gives retry state one five-minute reconciliation owner" {
+    work="$BATS_TEST_TMPDIR/reconcile-cron"
+    mkdir -p "$work/schedules"
+    cat > "$work/config.yaml" <<'YAML'
+session_cap:
+  reset_windows: ["10:15 UTC"]
+  post_reset_fanout:
+    enabled: true
+    phases: [bridgebuilder]
+    cron_jitter_min: 7
+YAML
+
+    run env LOA_SESSION_CAP_CONFIG_FILE="$work/config.yaml" \
+        LOA_SESSION_CAP_SCHEDULES_DIR="$work/schedules" \
+        bash -c 'source "$1"; _LIB=/usr/bin/true; _plan "$2"; _build_crontab_block' -- \
+        "$FANOUT" "$work/schedules"
+    [ "$status" -eq 0 ]
+    [ "$(printf '%s\n' "$output" | awk '/retry-reconciler/{count++} END{print count+0}')" = "1" ]
+    [[ "$output" == *"*/5 * * * *"*"session-cap-reconcile.sh"* ]]
 }
 
 @test "crontab marker ownership fails closed on malformed boundaries" {
@@ -298,7 +321,8 @@ SH
             LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fixture" \
             LOA_SESSION_CAP_BB_ENTRY="$mock_bb" LOA_SESSION_CAP_MAX_ATTEMPTS=2 \
             LOA_SESSION_CAP_RETRY_DELAY_SECONDS=0 "$DISPATCHER" "$cycle" schedule 2 '[]'
-        [ "$status" -eq 7 ]
+        [ "$status" -eq 0 ]
+        [ "$(jq -r '.bb_exit_code' <<<"$output")" = "7" ]
     done
 
     [ "$(wc -l < "$calls" | tr -d ' ')" = "2" ]
@@ -315,6 +339,75 @@ SH
         LOA_SESSION_CAP_RETRY_DELAY_SECONDS=0 "$DISPATCHER" retry-three schedule 2 '[]'
     [ "$status" -eq 0 ]
     [ "$(jq -r '.dispatched' <<<"$output")" = "false" ]
+    [ "$(wc -l < "$calls" | tr -d ' ')" = "2" ]
+}
+
+@test "dispatcher and reader fail closed on a lease shorter than the review timeout" {
+    state_file="$BATS_TEST_TMPDIR/short-lease-state.json"
+    calls="$BATS_TEST_TMPDIR/short-lease-calls"
+    mock_bb="$BATS_TEST_TMPDIR/short-lease-bb.sh"
+    handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.short-lease"
+    mkdir -p "$handoff"
+    cat > "$state_file" <<'JSON'
+{"capture_id":"capture-short-lease","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","attempt_count":0,"consumed_at":null,"reset_at_epoch":100}
+JSON
+    jq -n '{action:"dispatch", capture_id:"capture-short-lease", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
+    cat > "$mock_bb" <<'SH'
+#!/usr/bin/env bash
+touch "$MOCK_BB_CALLS"
+SH
+    chmod +x "$mock_bb"
+
+    run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" \
+        LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_ENTRY="$mock_bb" \
+        LOA_SESSION_CAP_CLAIM_LEASE_SECONDS=0 \
+        "$DISPATCHER" short-lease schedule 2 '[]'
+    [ "$status" -eq 1 ]
+    [ ! -e "$calls" ]
+    [ "$(jq -r '.lifecycle' "$state_file")" = "pending" ]
+
+    run env TMPDIR="$BATS_TEST_TMPDIR" LOA_SESSION_CAP_STATE_FILE="$state_file" \
+        LOA_SESSION_CAP_NOW_EPOCH=120 LOA_SESSION_CAP_CLAIM_LEASE_SECONDS=0 \
+        "$READER" short-lease-reader schedule 0 '[]'
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '.eligible' <<<"$output")" = "false" ]
+}
+
+@test "reconciler wakes only due durable retry state" {
+    state_file="$BATS_TEST_TMPDIR/reconcile-state.json"
+    calls="$BATS_TEST_TMPDIR/reconcile-calls"
+    mock_cycle="$BATS_TEST_TMPDIR/mock-cycle-lib.sh"
+    schedule="$BATS_TEST_TMPDIR/reconcile.yaml"
+    printf 'schedule_id: reconcile\n' > "$schedule"
+    cat > "$mock_cycle" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$MOCK_CYCLE_CALLS"
+SH
+    chmod +x "$mock_cycle"
+    cat > "$state_file" <<'JSON'
+{"capture_id":"capture-due","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"retryable_failure","attempt_count":1,"reset_at_epoch":100,"retry_after_epoch":119}
+JSON
+
+    run env MOCK_CYCLE_CALLS="$calls" LOA_SESSION_CAP_STATE_FILE="$state_file" \
+        LOA_SESSION_CAP_CYCLE_LIB="$mock_cycle" LOA_SESSION_CAP_NOW_EPOCH=120 \
+        "$RECONCILER" "$schedule"
+    [ "$status" -eq 0 ]
+    [ "$(cat "$calls")" = "invoke $schedule" ]
+
+    jq '.lifecycle="pending"' "$state_file" > "$state_file.tmp"
+    mv "$state_file.tmp" "$state_file"
+    run env MOCK_CYCLE_CALLS="$calls" LOA_SESSION_CAP_STATE_FILE="$state_file" \
+        LOA_SESSION_CAP_CYCLE_LIB="$mock_cycle" LOA_SESSION_CAP_NOW_EPOCH=120 \
+        "$RECONCILER" "$schedule"
+    [ "$status" -eq 0 ]
+    [ "$(wc -l < "$calls" | tr -d ' ')" = "1" ]
+
+    jq '.lifecycle="claimed" | .claimed_at_epoch=100' "$state_file" > "$state_file.tmp"
+    mv "$state_file.tmp" "$state_file"
+    run env MOCK_CYCLE_CALLS="$calls" LOA_SESSION_CAP_STATE_FILE="$state_file" \
+        LOA_SESSION_CAP_CYCLE_LIB="$mock_cycle" LOA_SESSION_CAP_NOW_EPOCH=3700 \
+        "$RECONCILER" "$schedule"
+    [ "$status" -eq 0 ]
     [ "$(wc -l < "$calls" | tr -d ' ')" = "2" ]
 }
 
@@ -368,13 +461,69 @@ SH
     cycle="typed-exit"
     handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
     mkdir -p "$handoff"
-    jq -n '{dispatched:true, repo:"0xHoneyJar/fixture", bb_exit_code:7}' > "$handoff/dispatcher.json"
+    jq -n '{dispatched:true, repo:"0xHoneyJar/fixture", delivery_state:"retryable_failure", bb_exit_code:7}' > "$handoff/dispatcher.json"
 
     run env TMPDIR="$BATS_TEST_TMPDIR" "$AWAITER" "$cycle" schedule 3 '[]'
     [ "$status" -eq 0 ]
     jq -e '.bb_exit_code == 7 and (.bb_exit_code | type) == "number"' <<<"$output"
+    [ "$(jq -r '.terminal_state' <<<"$output")" = "failed" ]
 
     run env TMPDIR="$BATS_TEST_TMPDIR" "$LOGGER" "$cycle" schedule 4 '[]'
     [ "$status" -eq 0 ]
-    jq -e '.bb_exit_code == 7 and (.bb_exit_code | type) == "number"' <<<"$output"
+    jq -e '.bb_exit_code == 7 and (.bb_exit_code | type) == "number" and .delivery_state == "retryable_failure"' <<<"$output"
+}
+
+@test "nonzero bridgebuilder delivery still completes all five L3 phases" {
+    if ! python3 -c 'import yaml, rfc8785, jsonschema' 2>/dev/null; then
+        skip "scheduled-cycle integration dependencies are not installed"
+    fi
+    state_file="$BATS_TEST_TMPDIR/l3-failure-state.json"
+    calls="$BATS_TEST_TMPDIR/l3-failure-calls"
+    cycles_log="$BATS_TEST_TMPDIR/l3-failure-cycles.jsonl"
+    lock_dir="$BATS_TEST_TMPDIR/l3-failure-locks"
+    mock_bb="$BATS_TEST_TMPDIR/l3-failure-bb.sh"
+    schedule="$BATS_TEST_TMPDIR/l3-failure.yaml"
+    now_epoch="$(date +%s)"
+    mkdir -p "$lock_dir"
+    jq -n --argjson reset "$((now_epoch - 1))" \
+        '{capture_id:"capture-l3-failure", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}, lifecycle:"pending", attempt_count:0, consumed_at:null, reset_at_epoch:$reset, active_run_state_snapshot:{sprint_plan:{state:"RUNNING"}, bridge:{state:"ITERATING"}}}' \
+        > "$state_file"
+    cat > "$mock_bb" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$MOCK_BB_CALLS"
+exit 7
+SH
+    chmod +x "$mock_bb"
+    cat > "$schedule" <<YAML
+schedule_id: session-cap-l3-failure
+schedule: "*/5 * * * *"
+dispatch_contract:
+  reader: "$READER"
+  decider: "$DECIDER"
+  dispatcher: "$DISPATCHER"
+  awaiter: "$AWAITER"
+  logger: "$LOGGER"
+  budget_estimate_usd: 0
+  timeout_seconds: 30
+YAML
+
+    run env \
+        LOA_CYCLES_LOG="$cycles_log" \
+        LOA_L3_LOCK_DIR="$lock_dir" \
+        LOA_L3_PHASE_PATH_ALLOWED_PREFIXES="$REPO_ROOT/.claude/skills" \
+        LOA_L3_PHASE_ENV_PASSTHROUGH="LOA_SESSION_CAP_STATE_FILE LOA_SESSION_CAP_NOW_EPOCH LOA_SESSION_CAP_BB_ENTRY LOA_SESSION_CAP_MAX_ATTEMPTS LOA_SESSION_CAP_RETRY_DELAY_SECONDS MOCK_BB_CALLS" \
+        LOA_AUDIT_VERIFY_SIGS=0 \
+        LOA_SESSION_CAP_STATE_FILE="$state_file" \
+        LOA_SESSION_CAP_NOW_EPOCH="$now_epoch" \
+        LOA_SESSION_CAP_BB_ENTRY="$mock_bb" \
+        LOA_SESSION_CAP_MAX_ATTEMPTS=3 \
+        LOA_SESSION_CAP_RETRY_DELAY_SECONDS=300 \
+        MOCK_BB_CALLS="$calls" \
+        "$L3_LIB" invoke "$schedule" --cycle-id session-cap-l3-failure
+    [ "$status" -eq 0 ]
+    [ "$(jq -s '[.[] | select(.event_type == "cycle.phase")] | length' "$cycles_log")" = "5" ]
+    [ "$(jq -s '[.[] | select(.event_type == "cycle.phase" and .payload.phase == "logger")] | length' "$cycles_log")" = "1" ]
+    [ "$(jq -s '[.[] | select(.event_type == "cycle.complete")] | length' "$cycles_log")" = "1" ]
+    [ "$(jq -r '.lifecycle' "$state_file")" = "retryable_failure" ]
+    [ "$(cat "$calls")" = "--repo 0xHoneyJar/fixture --pr 42" ]
 }

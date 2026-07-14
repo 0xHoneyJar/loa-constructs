@@ -70,7 +70,7 @@ elif ! [[ "$target_repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ && "$target_pr" =~
     reason="exact review target is missing or invalid"
 elif [[ -n "$consumed_at" ]]; then
     reason="capture already consumed"
-elif ! [[ "$reset_epoch" =~ ^[0-9]+$ && "$now_epoch" =~ ^[0-9]+$ && "$max_age" =~ ^[0-9]+$ && "$attempt_count" =~ ^[0-9]+$ && "$max_attempts" =~ ^[0-9]+$ && "$claimed_epoch" =~ ^[0-9]+$ && "$retry_after_epoch" =~ ^[0-9]+$ && "$claim_lease" =~ ^[0-9]+$ ]]; then
+elif ! [[ "$reset_epoch" =~ ^[0-9]+$ && "$now_epoch" =~ ^[0-9]+$ && "$max_age" =~ ^[0-9]+$ && "$attempt_count" =~ ^[0-9]+$ && "$max_attempts" =~ ^[0-9]+$ && "$claimed_epoch" =~ ^[0-9]+$ && "$retry_after_epoch" =~ ^[0-9]+$ && "$claim_lease" =~ ^[0-9]+$ ]] || (( claim_lease < 2100 )); then
     reason="capture reset/freshness fields are invalid"
 elif (( now_epoch < reset_epoch )); then
     reason="capture reset time has not arrived"

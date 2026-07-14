@@ -4,12 +4,13 @@
 #
 # On action:dispatch, fires the bridgebuilder-review headless entrypoint
 # (resources/entry.sh — the same binary spiral-harness.sh already runs
-# unattended) with --repo <owner/repo> and NO --pr, so BB self-discovers open
-# PRs and dedups on its own incremental per-PR diff hashing. On action:noop it
+# unattended) with the exact captured --repo <owner/repo> and --pr <number>.
+# It never expands one interrupted review into a repository-wide sweep. On action:noop it
 # short-circuits (exit 0, nothing was in flight). This is the only mutating
 # phase. Before invocation it atomically claims the capture marker by its ID;
 # success acknowledges it as completed while a nonzero exit records a bounded,
-# retryable failure. The capture ID remains the downstream idempotency key.
+# retryable failure. Downstream nonzero exits remain typed delivery data so
+# awaiter/logger still execute. The capture ID is the idempotency key.
 #
 # Args: $1 cycle_id  $2 schedule_id  $3 phase_index  $4 prior_phases_json
 set -euo pipefail
@@ -88,6 +89,11 @@ retry_after_epoch="$(jq -r '.retry_after_epoch // 0' "$STATE_FILE")"
 now_epoch="$(date +%s)"
 max_attempts="${LOA_SESSION_CAP_MAX_ATTEMPTS:-3}"
 claim_lease="${LOA_SESSION_CAP_CLAIM_LEASE_SECONDS:-3600}"
+if ! [[ "$claim_lease" =~ ^[0-9]+$ ]] || (( claim_lease < 2100 )); then
+    portable_lock_release "$STATE_LOCK_DIR"
+    echo "dispatcher: claim lease must be at least 2100s (review timeout plus safety margin)" >&2
+    exit 1
+fi
 claimable="false"
 if [[ "$attempt_count" =~ ^[0-9]+$ && "$max_attempts" =~ ^[0-9]+$ && "$claimed_epoch" =~ ^[0-9]+$ && "$retry_after_epoch" =~ ^[0-9]+$ && "$claim_lease" =~ ^[0-9]+$ ]] && (( attempt_count < max_attempts )); then
     case "$lifecycle" in
@@ -177,4 +183,7 @@ write_out "$(jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" \
     --arg capture "$capture_id" --arg repo "$repo" --argjson pr "$pr_number" --arg state "$delivery_state" --argjson ec "$rc" \
     '{cycle_id:$cid, schedule_id:$sid, capture_id:$capture, dispatched:true, repo:$repo,
       pr_number:$pr, delivery_state:$state, bb_exit_code:$ec}')"
-exit "$rc"
+# A downstream review failure is a typed delivery outcome. Returning success
+# keeps the L3 cycle alive so awaiter/logger record it; orchestration failures
+# above still return nonzero.
+exit 0
