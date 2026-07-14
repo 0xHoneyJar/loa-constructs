@@ -30,6 +30,16 @@ zones:
 - `gh` CLI installed and authenticated (`gh auth status`)
 - `ANTHROPIC_API_KEY` environment variable set
 - Node.js >= 20.0.0
+- Bun (locked install, build, and test runtime)
+
+## Runtime Ownership
+
+This directory is the committed, Codex-facing Bridgebuilder source package.
+`.claude/skills/bridgebuilder-review` remains the Claude-facing package and may
+use Claude-specific transport adapters; it is not the build output of this
+directory. The Codex package builds its ignored `dist/` from these committed
+TypeScript sources with `bun run build`, and CI proves a frozen-lockfile build,
+the full test corpus, and deterministic generated sources from a clean checkout.
 
 ## Usage
 
@@ -61,7 +71,7 @@ Set in `.loa.config.yaml` under `bridgebuilder:` section, or via environment var
 | Setting | Env Var | Default |
 |---------|---------|---------|
 | repos | `BRIDGEBUILDER_REPOS` | Auto-detected from git remote |
-| model | `BRIDGEBUILDER_MODEL` | `Codex-opus-4-7` |
+| model | `BRIDGEBUILDER_MODEL` | `claude-opus-4-7` |
 | dry_run | `BRIDGEBUILDER_DRY_RUN` | `false` |
 | max_prs | — | `10` |
 | max_files_per_pr | — | `50` |
@@ -99,10 +109,10 @@ Override the default reviewer persona by creating `grimoires/bridgebuilder/BEAUV
 
 ## Execution
 
-This skill runs `entry.sh` which invokes the compiled Node.js application:
+This skill runs `entry.sh`, which invokes the Codex-facing compiled Node.js application:
 
 ```bash
-.Codex/skills/bridgebuilder-review/resources/entry.sh [flags]
+.agents/skills/bridgebuilder-review/resources/entry.sh [flags]
 ```
 
 ## Exit Codes

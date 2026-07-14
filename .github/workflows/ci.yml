@@ -649,3 +649,47 @@ jobs:
             echo "an ambient-free verb exceeded the 1s p95 hot-path budget (NFR-7)"
             exit 1
           fi
+
+  # =============================================================================
+  # BRIDGEBUILDER SOURCE - Codex-facing skill must build from committed source
+  # =============================================================================
+  bridgebuilder-source:
+    name: Bridgebuilder source - non-empty + build + tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Assert committed implementation sources are non-empty
+        run: |
+          missing=0
+          while IFS= read -r source; do
+            if [ ! -s "$source" ]; then
+              echo "empty Bridgebuilder source: $source"
+              missing=1
+            fi
+          done < <(find .agents/skills/bridgebuilder-review/resources \
+            -type f -name '*.ts' ! -path '*/__tests__/*' | sort)
+          test "$missing" -eq 0
+
+      - name: Install locked dependencies
+        working-directory: .agents/skills/bridgebuilder-review
+        run: bun install --frozen-lockfile
+
+      - name: Build committed source
+        working-directory: .agents/skills/bridgebuilder-review
+        run: bun run build
+
+      - name: Smoke compiled entrypoint
+        run: .agents/skills/bridgebuilder-review/resources/entry.sh --help
+
+      - name: Run Bridgebuilder unit and integration tests
+        working-directory: .agents/skills/bridgebuilder-review
+        run: bun run test
+
+      - name: Generated source remains deterministic
+        run: git diff --exit-code -- .agents/skills/bridgebuilder-review/resources

@@ -84,6 +84,21 @@ setup() {
     [[ "$output" == *$'CRON_TZ=UTC\nTZ=UTC\n5 0 * * * true'* ]]
 }
 
+@test "crontab block restores the preceding explicit timezone assignments" {
+    run bash -c '
+        source "$1"
+        existing="CRON_TZ=America/New_York
+TZ=America/Los_Angeles
+15 9 * * * existing-job"
+        cron_restore="$(_last_env_assignment "$existing" CRON_TZ)"
+        tz_restore="$(_last_env_assignment "$existing" TZ)"
+        CRON_LINES=("UTC|5 0 * * * managed-job")
+        _build_crontab_block "$cron_restore" "$tz_restore"
+    ' -- "$FANOUT"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *$'5 0 * * * managed-job\nCRON_TZ=America/New_York\nTZ=America/Los_Angeles\n# loa-cycle117-session-cap-fanout END'* ]]
+}
+
 @test "crontab marker ownership fails closed on malformed boundaries" {
     run bash -c '
         source "$1"

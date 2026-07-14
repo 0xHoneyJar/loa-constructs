@@ -494,6 +494,8 @@ _plan() {
 # -----------------------------------------------------------------------------
 
 _build_crontab_block() {
+    local restore_cron_tz="${1:-CRON_TZ=$(_system_tz)}"
+    local restore_tz="${2:-TZ=$(_system_tz)}"
     local -a tzs=()
     local seen="|" line tz
     for line in "${CRON_LINES[@]}"; do
@@ -520,9 +522,14 @@ _build_crontab_block() {
             [[ "${line%%|*}" == "$t" ]] && echo "${line#*|}"
         done
     done <<<"$sorted_tzs"
-    echo "CRON_TZ=$(_system_tz)"
-    echo "TZ=$(_system_tz)"
+    echo "$restore_cron_tz"
+    echo "$restore_tz"
     echo "$MARKER_END"
+}
+
+_last_env_assignment() {
+    local existing="$1" key="$2"
+    awk -v prefix="${key}=" 'index($0, prefix)==1 {last=$0} END {print last}' <<<"$existing"
 }
 
 _restore_managed_schedules() {
@@ -655,7 +662,7 @@ cmd_install() {
         echo "Set LOA_SESSION_CAP_CRON_TZ_SUPPORTED=true only for a verified implementation." >&2
         return 1
     fi
-    local existing new_block lock_dir
+    local existing clean_existing new_block lock_dir restore_cron_tz restore_tz
     lock_dir="$(_crontab_lock_dir)"
     if ! portable_lock_acquire "$lock_dir"; then
         rm -rf "$target_dir"
@@ -670,7 +677,12 @@ cmd_install() {
         echo "Recover the ${MARKER_BEGIN} / ${MARKER_END} block manually, then retry." >&2
         return 1
     fi
-    new_block="$(_build_crontab_block)"
+    clean_existing="$(_strip_managed_block "$existing")"
+    restore_cron_tz="$(_last_env_assignment "$clean_existing" CRON_TZ)"
+    restore_tz="$(_last_env_assignment "$clean_existing" TZ)"
+    restore_cron_tz="${restore_cron_tz:-CRON_TZ=$(_system_tz)}"
+    restore_tz="${restore_tz:-TZ=$(_system_tz)}"
+    new_block="$(_build_crontab_block "$restore_cron_tz" "$restore_tz")"
     local live_dir backup_dir
     live_dir="$(_schedules_dir)"
     backup_dir="$(mktemp -d)"
@@ -681,7 +693,7 @@ cmd_install() {
         return 1
     fi
     local replacement
-    replacement="$(printf '%s\n%s\n' "$(_strip_managed_block "$existing")" "$new_block")"
+    replacement="$(printf '%s\n%s\n' "$clean_existing" "$new_block")"
     if ! _crontab_replace_if_unchanged "$existing" "$replacement"; then
         _restore_managed_schedules "$live_dir" "$backup_dir"
         portable_lock_release "$lock_dir"

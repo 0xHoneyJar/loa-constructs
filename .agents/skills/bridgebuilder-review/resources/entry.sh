@@ -6,9 +6,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$SKILL_DIR/../../.." && pwd)"
 
 # Bash 4.0+ version guard
-source "${SKILL_DIR}/../../scripts/bash-version-guard.sh"
+source "${REPO_ROOT}/.claude/scripts/bash-version-guard.sh"
 
 # .env Trust Model (Decision Trail — Bridgebuilder Deep Review, cycle-037):
 # `source .env` executes arbitrary shell code — this is by design.

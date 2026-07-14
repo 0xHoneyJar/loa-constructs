@@ -45,6 +45,9 @@ describe("discoverPersonas", () => {
     assert.ok(packs.includes("dx"), "Should include dx");
     assert.ok(packs.includes("architecture"), "Should include architecture");
     assert.ok(packs.includes("quick"), "Should include quick");
+    assert.ok(packs.includes("research"), "Should include research");
+    assert.ok(packs.includes("strategy"), "Should include strategy");
+    assert.ok(packs.includes("taste"), "Should include taste");
   });
 
   it("returns sorted pack names", async () => {
@@ -53,9 +56,9 @@ describe("discoverPersonas", () => {
     assert.deepEqual(packs, sorted);
   });
 
-  it("returns exactly 5 packs", async () => {
+  it("returns exactly the 8 committed packs", async () => {
     const packs = await discoverPersonas();
-    assert.equal(packs.length, 5);
+    assert.equal(packs.length, 8);
   });
 });
 

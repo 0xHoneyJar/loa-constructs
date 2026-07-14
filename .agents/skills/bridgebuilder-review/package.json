@@ -11,10 +11,10 @@
     "./adapters": "./dist/adapters/index.js"
   },
   "scripts": {
-    "build": "npm run gen-bb-registry && cd resources && npx tsc --project tsconfig.json",
-    "gen-bb-registry": "npx tsx scripts/gen-bb-registry.ts",
-    "gen-bb-registry:check": "npx tsx scripts/gen-bb-registry.ts --check",
-    "test": "cd resources && npx tsx --test __tests__/*.test.ts"
+    "build": "bun run gen-bb-registry && cd resources && bunx tsc --project tsconfig.json",
+    "gen-bb-registry": "bunx tsx scripts/gen-bb-registry.ts",
+    "gen-bb-registry:check": "bunx tsx scripts/gen-bb-registry.ts --check",
+    "test": "cd resources && bunx tsx --test __tests__/*.test.ts"
   },
   "engines": {
     "node": ">=20.0.0"

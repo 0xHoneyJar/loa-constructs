@@ -683,9 +683,15 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err: unknown) => {
-  console.error(
-    `[bridgebuilder] Fatal: ${err instanceof Error ? err.message : String(err)}`,
-  );
-  process.exit(1);
-});
+const invokedAsEntrypoint = process.argv[1]
+  ? resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  : false;
+
+if (invokedAsEntrypoint) {
+  main().catch((err: unknown) => {
+    console.error(
+      `[bridgebuilder] Fatal: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    process.exit(1);
+  });
+}
