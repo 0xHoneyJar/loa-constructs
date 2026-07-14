@@ -37,8 +37,32 @@
             "authority_effect": { "const": "none" },
             "reason": { "type": "string" },
             "source_refs": { "type": "array", "items": { "type": "string" } },
-            "skills": { "type": "array", "items": { "type": "object" } },
-            "commands": { "type": "array", "items": { "type": "object" } },
+            "skills": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["slug", "path", "metadata_status", "entry", "capabilities"],
+                "properties": {
+                  "slug": { "type": "string", "minLength": 1 },
+                  "path": { "type": ["string", "null"] },
+                  "metadata_status": { "type": "string", "enum": ["declared", "missing", "invalid", "inaccessible", "invalid-path"] },
+                  "entry": { "type": ["string", "null"] },
+                  "capabilities": { "type": ["object", "null"] }
+                }
+              }
+            },
+            "commands": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "path", "path_status"],
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "path": { "type": ["string", "null"] },
+                  "path_status": { "type": "string", "enum": ["declared", "missing", "invalid", "inaccessible", "invalid-path"] }
+                }
+              }
+            },
             "streams": { "type": ["object", "null"] },
             "events": { "type": ["object", "null"] }
           }

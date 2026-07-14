@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -54,12 +54,15 @@ capabilities:
     vision: false
 `;
 
-async function makePack(manifest = MANIFEST) {
+async function makePack(manifest = MANIFEST, skillIndex = SKILL_INDEX) {
   const root = await mkdtemp(path.join(tmpdir(), 'construct-info-'));
   const pack = path.join(root, 'fixture');
   await mkdir(path.join(pack, 'skills', 'inspect-fixture'), { recursive: true });
+  await mkdir(path.join(pack, 'commands'), { recursive: true });
   await writeFile(path.join(pack, 'construct.yaml'), manifest);
-  await writeFile(path.join(pack, 'skills', 'inspect-fixture', 'index.yaml'), SKILL_INDEX);
+  await writeFile(path.join(pack, 'skills', 'inspect-fixture', 'index.yaml'), skillIndex);
+  await writeFile(path.join(pack, 'skills', 'inspect-fixture', 'SKILL.md'), '# Fixture skill\n');
+  await writeFile(path.join(pack, 'commands', 'inspect-fixture.md'), '# Fixture command\n');
   return root;
 }
 
@@ -74,7 +77,7 @@ test('local info separates prose orientation from declared mechanics', async (t)
   assert.equal(info.mechanics.kind, 'declared');
   assert.equal(info.mechanics.authority_effect, 'none');
   assert.deepEqual(info.mechanics.commands, [
-    { name: 'inspect-fixture', path: 'commands/inspect-fixture.md' },
+    { name: 'inspect-fixture', path: 'commands/inspect-fixture.md', path_status: 'declared' },
   ]);
   assert.equal(info.mechanics.skills[0].metadata_status, 'declared');
   assert.equal(info.mechanics.skills[0].capabilities.danger_level, 'safe');
@@ -106,6 +109,74 @@ test('a skill metadata path cannot escape the installed pack', async (t) => {
   const info = await inspectLocalConstruct('fixture', root);
   assert.equal(info.mechanics.skills[0].metadata_status, 'invalid-path');
   assert.equal(info.mechanics.skills[0].capabilities, null);
+  assert.equal(info.mechanics.skills[0].path, null);
+});
+
+test('a command path cannot escape the installed pack', async (t) => {
+  const manifest = MANIFEST.replace('path: commands/inspect-fixture.md', 'path: ../../outside.md');
+  const root = await makePack(manifest);
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const info = await inspectLocalConstruct('fixture', root);
+  assert.equal(info.mechanics.commands[0].path_status, 'invalid-path');
+  assert.equal(info.mechanics.commands[0].path, null);
+});
+
+test('a skill entry cannot escape its skill directory', async (t) => {
+  const index = SKILL_INDEX.replace('entry: SKILL.md', 'entry: ../../outside.md');
+  const root = await makePack(MANIFEST, index);
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const info = await inspectLocalConstruct('fixture', root);
+  assert.equal(info.mechanics.skills[0].metadata_status, 'invalid-path');
+  assert.equal(info.mechanics.skills[0].entry, null);
+  assert.equal(info.mechanics.skills[0].capabilities, null);
+});
+
+test('realpath containment rejects command and skill-entry symlink escapes', async (t) => {
+  const root = await makePack();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const pack = path.join(root, 'fixture');
+  const outside = path.join(root, 'outside.md');
+  await writeFile(outside, '# Outside the pack\n');
+  await symlink(outside, path.join(pack, 'commands', 'escape.md'));
+  await rm(path.join(pack, 'skills', 'inspect-fixture', 'SKILL.md'));
+  await symlink(outside, path.join(pack, 'skills', 'inspect-fixture', 'SKILL.md'));
+  await writeFile(
+    path.join(pack, 'construct.yaml'),
+    MANIFEST.replace('path: commands/inspect-fixture.md', 'path: commands/escape.md'),
+  );
+
+  const info = await inspectLocalConstruct('fixture', root);
+  assert.equal(info.mechanics.commands[0].path_status, 'invalid-path');
+  assert.equal(info.mechanics.commands[0].path, null);
+  assert.equal(info.mechanics.skills[0].metadata_status, 'invalid-path');
+  assert.equal(info.mechanics.skills[0].entry, null);
+});
+
+test('malformed manifest collections fail closed to empty mechanics', async (t) => {
+  const manifest = MANIFEST
+    .replace(/skills:\n(?:  .*\n){2}/, 'skills: malformed\n')
+    .replace(/commands:\n(?:  .*\n){2}/, 'commands: malformed\n');
+  const root = await makePack(manifest);
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const info = await inspectLocalConstruct('fixture', root);
+  assert.deepEqual(info.mechanics.skills, []);
+  assert.deepEqual(info.mechanics.commands, []);
+});
+
+test('skill metadata distinguishes missing from invalid', async (t) => {
+  const missingRoot = await makePack();
+  const invalidRoot = await makePack(MANIFEST, 'not-an-object\n');
+  t.after(() => rm(missingRoot, { recursive: true, force: true }));
+  t.after(() => rm(invalidRoot, { recursive: true, force: true }));
+  await rm(path.join(missingRoot, 'fixture', 'skills', 'inspect-fixture', 'index.yaml'));
+
+  const missing = await inspectLocalConstruct('fixture', missingRoot);
+  const invalid = await inspectLocalConstruct('fixture', invalidRoot);
+  assert.equal(missing.mechanics.skills[0].metadata_status, 'missing');
+  assert.equal(invalid.mechanics.skills[0].metadata_status, 'invalid');
 });
 
 test('a rung without detailed metadata says mechanics are unavailable', async (t) => {

@@ -110,35 +110,112 @@ function normalizeDeclaredRef(value, key) {
   };
 }
 
+function isInside(root, candidate) {
+  return candidate === root || candidate.startsWith(`${root}${path.sep}`);
+}
+
+function fsFailureStatus(error) {
+  if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') return 'missing';
+  if (error?.code === 'EACCES' || error?.code === 'EPERM') return 'inaccessible';
+  return 'invalid';
+}
+
+async function resolvePackPath(packDir, declaredPath, { baseDir = packDir, expect = 'file' } = {}) {
+  if (typeof declaredPath !== 'string' || declaredPath.length === 0 || path.isAbsolute(declaredPath)) {
+    return { status: 'invalid-path', path: null, actual: null };
+  }
+
+  const packRoot = await realpath(packDir);
+  const baseRoot = await realpath(baseDir);
+  const lexical = path.resolve(baseRoot, declaredPath);
+  if (!isInside(baseRoot, lexical) || !isInside(packRoot, lexical)) {
+    return { status: 'invalid-path', path: null, actual: null };
+  }
+
+  try {
+    const actual = await realpath(lexical);
+    if (!isInside(packRoot, actual) || !isInside(baseRoot, actual)) {
+      return { status: 'invalid-path', path: null, actual: null };
+    }
+    const info = await stat(actual);
+    if ((expect === 'file' && !info.isFile()) || (expect === 'directory' && !info.isDirectory())) {
+      return { status: 'invalid', path: null, actual: null };
+    }
+    return {
+      status: 'declared',
+      path: path.relative(packRoot, actual).split(path.sep).join('/'),
+      actual,
+    };
+  } catch (error) {
+    return { status: fsFailureStatus(error), path: null, actual: null };
+  }
+}
+
 async function readSkillMechanics(packDir, declared) {
   const skill = normalizeDeclaredRef(declared, 'slug');
   if (!skill) return null;
   if (!skill.path) return { ...skill, metadata_status: 'missing', entry: null, capabilities: null };
 
-  const packRoot = await realpath(packDir);
-  const lexical = path.resolve(packDir, skill.path, 'index.yaml');
-  const lexicalInside = lexical.startsWith(`${path.resolve(packDir)}${path.sep}`);
-  if (!lexicalInside) {
-    return { ...skill, metadata_status: 'invalid-path', entry: null, capabilities: null };
+  const skillDir = await resolvePackPath(packDir, skill.path, { expect: 'directory' });
+  if (skillDir.status !== 'declared') {
+    return { ...skill, path: null, metadata_status: skillDir.status, entry: null, capabilities: null };
   }
 
   try {
-    const actual = await realpath(lexical);
-    if (!actual.startsWith(`${packRoot}${path.sep}`)) {
-      return { ...skill, metadata_status: 'invalid-path', entry: null, capabilities: null };
+    const indexFile = await resolvePackPath(packDir, 'index.yaml', { baseDir: skillDir.actual });
+    if (indexFile.status !== 'declared') {
+      return {
+        ...skill,
+        path: skillDir.path,
+        metadata_status: indexFile.status,
+        entry: null,
+        capabilities: null,
+      };
     }
-    const index = parseYaml(await readFile(actual, 'utf8'));
+    const index = parseYaml(await readFile(indexFile.actual, 'utf8'));
+    if (!index || typeof index !== 'object' || typeof index.entry !== 'string') {
+      return { ...skill, path: skillDir.path, metadata_status: 'invalid', entry: null, capabilities: null };
+    }
+    const entryFile = await resolvePackPath(packDir, index.entry, { baseDir: skillDir.actual });
+    if (entryFile.status !== 'declared') {
+      return {
+        ...skill,
+        path: skillDir.path,
+        metadata_status: entryFile.status,
+        entry: null,
+        capabilities: null,
+      };
+    }
     return {
       ...skill,
+      path: skillDir.path,
       metadata_status: 'declared',
-      entry: typeof index?.entry === 'string' ? index.entry : null,
+      entry: path.relative(skillDir.actual, entryFile.actual).split(path.sep).join('/'),
       capabilities: index?.capabilities && typeof index.capabilities === 'object'
         ? index.capabilities
         : null,
     };
-  } catch {
-    return { ...skill, metadata_status: 'missing', entry: null, capabilities: null };
+  } catch (error) {
+    return {
+      ...skill,
+      path: skillDir.path,
+      metadata_status: fsFailureStatus(error),
+      entry: null,
+      capabilities: null,
+    };
   }
+}
+
+async function readCommandMechanics(packDir, declared) {
+  const command = normalizeDeclaredRef(declared, 'name');
+  if (!command) return null;
+  if (!command.path) return { ...command, path_status: 'missing' };
+  const resolved = await resolvePackPath(packDir, command.path);
+  return {
+    ...command,
+    path: resolved.path,
+    path_status: resolved.status,
+  };
 }
 
 /**
@@ -154,11 +231,12 @@ export async function inspectLocalConstruct(slug, root = packsRoot()) {
   if (!summary) return null;
 
   const manifest = parseYaml(await readFile(path.join(summary.source, 'construct.yaml'), 'utf8'));
-  const skills = (await Promise.all((manifest?.skills ?? []).map((skill) => readSkillMechanics(summary.source, skill))))
+  const declaredSkills = Array.isArray(manifest?.skills) ? manifest.skills : [];
+  const declaredCommands = Array.isArray(manifest?.commands) ? manifest.commands : [];
+  const skills = (await Promise.all(declaredSkills.map((skill) => readSkillMechanics(summary.source, skill))))
     .filter(Boolean)
     .sort((a, b) => a.slug.localeCompare(b.slug));
-  const commands = (manifest?.commands ?? [])
-    .map((command) => normalizeDeclaredRef(command, 'name'))
+  const commands = (await Promise.all(declaredCommands.map((command) => readCommandMechanics(summary.source, command))))
     .filter(Boolean)
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -170,7 +248,7 @@ export async function inspectLocalConstruct(slug, root = packsRoot()) {
       kind: 'declared',
       authority_effect: 'none',
       source_refs: ['construct.yaml', ...skills
-        .filter((skill) => skill.path)
+        .filter((skill) => skill.metadata_status === 'declared' && skill.path)
         .map((skill) => path.posix.join(skill.path, 'index.yaml'))],
       skills,
       commands,
