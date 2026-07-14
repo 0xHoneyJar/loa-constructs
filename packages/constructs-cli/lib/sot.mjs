@@ -13,7 +13,7 @@
 // provenance says whether the answer came from cache, the wire, or a bypass.
 
 import { createHash } from 'node:crypto';
-import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { parse as parseYaml } from './vendor/yaml-subset.mjs';
@@ -74,6 +74,139 @@ async function cacheWrite(key, data) {
 
 export function packsRoot() {
   return process.env.CONSTRUCTS_DIR || path.join('.claude', 'constructs', 'packs');
+}
+
+function unavailableMechanics(reason) {
+  return {
+    kind: 'unavailable',
+    authority_effect: 'none',
+    reason,
+    skills: [],
+    commands: [],
+  };
+}
+
+function orientationFromManifest(manifest, summary) {
+  const identity = manifest?.identity ?? {};
+  return {
+    kind: 'prose',
+    authoritative: false,
+    description: manifest?.description ?? summary.description ?? '',
+    short_description: manifest?.short_description ?? null,
+    domains: Array.isArray(manifest?.domain) ? manifest.domain : [],
+    persona_ref: typeof identity?.persona === 'string' ? identity.persona : null,
+    expertise_ref: typeof identity?.expertise === 'string' ? identity.expertise : null,
+  };
+}
+
+function normalizeDeclaredRef(value, key) {
+  if (typeof value === 'string') return { [key]: value, path: null };
+  if (!value || typeof value !== 'object') return null;
+  const id = value[key] ?? value.slug ?? value.name;
+  if (typeof id !== 'string' || id.length === 0) return null;
+  return {
+    [key]: id,
+    path: typeof value.path === 'string' ? value.path : null,
+  };
+}
+
+async function readSkillMechanics(packDir, declared) {
+  const skill = normalizeDeclaredRef(declared, 'slug');
+  if (!skill) return null;
+  if (!skill.path) return { ...skill, metadata_status: 'missing', entry: null, capabilities: null };
+
+  const packRoot = await realpath(packDir);
+  const lexical = path.resolve(packDir, skill.path, 'index.yaml');
+  const lexicalInside = lexical.startsWith(`${path.resolve(packDir)}${path.sep}`);
+  if (!lexicalInside) {
+    return { ...skill, metadata_status: 'invalid-path', entry: null, capabilities: null };
+  }
+
+  try {
+    const actual = await realpath(lexical);
+    if (!actual.startsWith(`${packRoot}${path.sep}`)) {
+      return { ...skill, metadata_status: 'invalid-path', entry: null, capabilities: null };
+    }
+    const index = parseYaml(await readFile(actual, 'utf8'));
+    return {
+      ...skill,
+      metadata_status: 'declared',
+      entry: typeof index?.entry === 'string' ? index.entry : null,
+      capabilities: index?.capabilities && typeof index.capabilities === 'object'
+        ? index.capabilities
+        : null,
+    };
+  } catch {
+    return { ...skill, metadata_status: 'missing', entry: null, capabilities: null };
+  }
+}
+
+/**
+ * Resolve the full local info surface for one installed construct.
+ *
+ * The split is deliberate: `orientation` is prose and can only orient;
+ * `mechanics` is a declaration read from construct.yaml + skill index.yaml and
+ * grants no authority. Territory/L4 are the only authority surfaces.
+ */
+export async function inspectLocalConstruct(slug, root = packsRoot()) {
+  const local = await readLocalPacks(root);
+  const summary = local.packs.find((pack) => pack.slug === slug);
+  if (!summary) return null;
+
+  const manifest = parseYaml(await readFile(path.join(summary.source, 'construct.yaml'), 'utf8'));
+  const skills = (await Promise.all((manifest?.skills ?? []).map((skill) => readSkillMechanics(summary.source, skill))))
+    .filter(Boolean)
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+  const commands = (manifest?.commands ?? [])
+    .map((command) => normalizeDeclaredRef(command, 'name'))
+    .filter(Boolean)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return {
+    ...summary,
+    info_schema_version: '1.0',
+    orientation: orientationFromManifest(manifest, summary),
+    mechanics: {
+      kind: 'declared',
+      authority_effect: 'none',
+      source_refs: ['construct.yaml', ...skills
+        .filter((skill) => skill.path)
+        .map((skill) => path.posix.join(skill.path, 'index.yaml'))],
+      skills,
+      commands,
+      streams: manifest?.streams && typeof manifest.streams === 'object' ? manifest.streams : null,
+      events: manifest?.events && typeof manifest.events === 'object' ? manifest.events : null,
+    },
+  };
+}
+
+export async function inspectConstruct(slug, opts = {}) {
+  const result = await listConstructs(opts);
+  const found = result.data.find((construct) => construct.slug === slug) ?? null;
+  if (!found) return { ...result, data: null };
+
+  if (result.provenance.rung === RUNGS.LOCAL) {
+    const detailed = await inspectLocalConstruct(slug, opts.localRoot ?? packsRoot());
+    if (detailed) return { ...result, data: detailed };
+  }
+
+  return {
+    ...result,
+    data: {
+      ...found,
+      info_schema_version: '1.0',
+      orientation: {
+        kind: 'prose',
+        authoritative: false,
+        description: found.description ?? '',
+        short_description: null,
+        domains: [],
+        persona_ref: null,
+        expertise_ref: null,
+      },
+      mechanics: unavailableMechanics(`source rung ${result.provenance.rung} does not expose construct mechanics`),
+    },
+  };
 }
 
 /**
@@ -311,4 +444,14 @@ export async function listConstructs(opts = {}) {
   };
 }
 
-export default { RUNGS, listConstructs, readLocalPacks, readRegistryYaml, detectDrift, apiFetch, SotError };
+export default {
+  RUNGS,
+  listConstructs,
+  inspectConstruct,
+  inspectLocalConstruct,
+  readLocalPacks,
+  readRegistryYaml,
+  detectDrift,
+  apiFetch,
+  SotError,
+};

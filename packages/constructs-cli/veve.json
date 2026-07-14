@@ -79,7 +79,7 @@
       ],
       "stdin": null,
       "expect_exit": 0,
-      "expect_output_hash": "sha256:662bc5c5131bc04194a4de8b88b0949f333366c947e3a73950175ea6ffefd203"
+      "expect_output_hash": "sha256:796efb9ca1452ab867600c3f8ec007a871d9c68c611c910ef1d3a2fe185b8b69"
     },
     {
       "name": "robot-docs-guide (ambient-free: the agent handbook, in-tool)",
@@ -89,7 +89,7 @@
       ],
       "stdin": null,
       "expect_exit": 0,
-      "expect_output_hash": "sha256:294b746abafe80bb6095a02b60977a72a2a4c5b8852cf129e265a1fcf3c59ceb"
+      "expect_output_hash": "sha256:c0f939225512d38cec29e6ec8134ba8ff8ff16684074887bd6b864645c37b2d5"
     },
     {
       "name": "caller-error-unknown-verb (exit 2; stdout stays empty — diagnostics belong on stderr)",

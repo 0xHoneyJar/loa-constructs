@@ -17,7 +17,7 @@ import {
   allVerbTokens,
   MUTATION_VERBS,
 } from '../lib/contract.mjs';
-import { listConstructs, readLocalPacks, RUNGS, SotError } from '../lib/sot.mjs';
+import { inspectConstruct, listConstructs, readLocalPacks, RUNGS, SotError } from '../lib/sot.mjs';
 import { atlas, where, TerritoryError } from '../lib/territory.mjs';
 import { station, StationError } from '../lib/station.mjs';
 import { install, InstallError } from '../lib/install.mjs';
@@ -224,11 +224,11 @@ async function cmdInfo(slug, flags, wantJson) {
   if (!slug) {
     return fail(EXIT.CALLER_ERROR, 'info requires a construct slug', 'constructs info <slug> --json');
   }
-  const result = await listConstructs({
+  const result = await inspectConstruct(slug, {
     noCache: Boolean(flags['no-cache']),
     rung: rungFromFlag(flags.rung),
   });
-  const found = result.data.find((c) => c.slug === slug);
+  const found = result.data;
   if (!found) {
     return fail(
       EXIT.CALLER_ERROR,

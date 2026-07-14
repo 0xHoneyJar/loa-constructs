@@ -75,7 +75,7 @@ export const VERBS = [
     aliases: ['search'],
     summary: 'Search constructs by keyword.',
     args: ['<query>'],
-    flags: ['--json', '--no-cache'],
+    flags: ['--json', '--no-cache', '--rung <local|api|registry>'],
     mutation: false,
     ambient: ['network'],
     example: 'constructs find research --json',
@@ -85,7 +85,7 @@ export const VERBS = [
     aliases: ['show'],
     summary: 'Show one construct in full (skills, commands, persona, provenance).',
     args: ['<slug>'],
-    flags: ['--json', '--no-cache'],
+    flags: ['--json', '--no-cache', '--rung <local|api|registry>'],
     mutation: false,
     ambient: ['network'],
     example: 'constructs info k-hole --json',
@@ -223,6 +223,18 @@ export function capabilities() {
       implementation: 'vendored declared-keyword subset (NOT full JSON Schema 2020-12)',
       supported_keywords: 'see robot-docs guide',
     },
+    info_contract: {
+      schema_version: '1.0',
+      schema_path: 'schemas/info.schema.json',
+      orientation: 'prose; authoritative=false',
+      mechanics: 'declared callable routes and runtime hints; authority_effect=none',
+      authority: 'territory ceiling intersected with graduated-trust evidence; never granted by info',
+    },
+    atlas_contract: {
+      atlas_version: '1.0',
+      ratification_status: 'structured status; unchecked until the atlas verifies committed stationing',
+      authority: 'ceiling and earned tier are separate; unknown earned authority has effective=observe',
+    },
     sot_ladder: ['local-packs', 'api', 'registry-yaml'],
     intent_inference: {
       read_only_verbs: 'auto-corrected with a warning',
@@ -284,6 +296,15 @@ export function robotDocs() {
   lines.push('- stdout is DATA. stderr is DIAGNOSTICS. `constructs list --json | jq` never needs a grep.');
   lines.push('- Every answer carries `provenance` naming which source-of-truth rung answered.');
   lines.push('- An empty result is `[]` with exit 0. There is no "no results" error code.');
+  lines.push('');
+  lines.push('## Construct info has three distinct planes');
+  lines.push('`constructs info <slug> --json --rung local` returns:');
+  lines.push('- `orientation` — prose, explicitly `authoritative: false`; it helps a human or agent frame the domain.');
+  lines.push('- `mechanics` — declared skills, commands, and per-skill runtime capabilities; `authority_effect: none`.');
+  lines.push('- `provenance` — the pinned source-of-truth rung that produced the answer.');
+  lines.push('Neither orientation nor mechanics grants permission. Region territory + the graduated-trust ledger own authority.');
+  lines.push('A rung without detailed metadata returns `mechanics.kind: unavailable` rather than inventing a callable surface.');
+  lines.push('Atlas consumers MUST gate on `ratification_status`, never parse the explanatory `ratification` prose.');
   lines.push('');
   lines.push('## Exit codes');
   for (const [code, meaning] of Object.entries(cap.exit_codes)) lines.push(`- \`${code}\` — ${meaning}`);
