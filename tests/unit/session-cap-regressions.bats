@@ -16,6 +16,17 @@ setup() {
     [ "$output" = "0 2" ]
 }
 
+@test "final-time uniqueness spans every reset window in one timezone" {
+    run bash -c 'source "$1"; _available_final_time 10 29 1 "|UTC|10:31|" UTC' -- "$FANOUT"
+    [ "$status" -eq 0 ]
+    [ "$output" = "10 32" ]
+
+    # The same wall-clock digits in another timezone remain a distinct slot.
+    run bash -c 'source "$1"; _available_final_time 10 29 1 "|UTC|10:31|" America/New_York' -- "$FANOUT"
+    [ "$status" -eq 0 ]
+    [ "$output" = "10 31" ]
+}
+
 @test "fanout jitter carries into the next hour and day" {
     run bash -c 'source "$1"; _final_time 23 58 7' -- "$FANOUT"
     [ "$status" -eq 0 ]
@@ -38,7 +49,8 @@ setup() {
     cp "$REPO_ROOT/.claude/scripts/lib/session-limit-lib.sh" "$fake_repo/.claude/scripts/lib/"
     reset_time="$(date -u -d '+2 hours' +%H:%M)"
 
-    run bash -c 'cd "$1" && "$2" --raw "$3"' -- \
+    run env LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fake-repo" LOA_SESSION_CAP_BB_PR=99 \
+        bash -c 'cd "$1" && "$2" --raw "$3"' -- \
         "$elsewhere" "$fake_repo/.claude/scripts/session-limit-capture.sh" \
         "You've hit your session limit; resets ${reset_time} (UTC)"
     [ "$status" -eq 0 ]
@@ -46,6 +58,7 @@ setup() {
     [ ! -e "$elsewhere/.run/session-limit-state.json" ]
     jq -e '.capture_id | startswith("sha256:")' "$fake_repo/.run/session-limit-state.json"
     [ "$(jq -r '.lifecycle' "$fake_repo/.run/session-limit-state.json")" = "pending" ]
+    jq -e '.review_target == {repo:"0xHoneyJar/fake-repo", pr_number:99}' "$fake_repo/.run/session-limit-state.json"
 }
 
 @test "fanout rejects unsafe windows and phases before generation" {
@@ -154,7 +167,7 @@ SH
         handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
         mkdir -p "$handoff"
         jq -n --arg state "$state" \
-            '{eligible:true, capture_id:"capture-active", bridge_state:$state}' > "$handoff/reader.json"
+            '{eligible:true, capture_id:"capture-active", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}, bridge_state:$state}' > "$handoff/reader.json"
 
         run env TMPDIR="$BATS_TEST_TMPDIR" "$DECIDER" "$cycle" schedule 1 '[]'
         [ "$status" -eq 0 ]
@@ -167,6 +180,7 @@ SH
     cat > "$state_file" <<'JSON'
 {
   "capture_id": "capture-fresh",
+  "review_target": {"repo":"0xHoneyJar/fixture","pr_number":42},
   "lifecycle": "pending",
   "consumed_at": null,
   "reset_at_epoch": 100,
@@ -183,7 +197,16 @@ JSON
     [ "$status" -eq 0 ]
     [ "$(jq -r '.eligible' <<<"$output")" = "true" ]
 
-    jq '.consumed_at = "2026-07-14T00:00:00Z"' "$state_file" > "$state_file.tmp"
+    jq 'del(.review_target)' "$state_file" > "$state_file.tmp"
+    mv "$state_file.tmp" "$state_file"
+    run env TMPDIR="$BATS_TEST_TMPDIR" LOA_SESSION_CAP_STATE_FILE="$state_file" \
+        LOA_SESSION_CAP_NOW_EPOCH=120 LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS=60 \
+        "$READER" untargeted schedule 0 '[]'
+    [ "$status" -eq 0 ]
+    [ "$(jq -r '.eligible' <<<"$output")" = "false" ]
+    [[ "$(jq -r '.eligibility_reason' <<<"$output")" == *"exact review target"* ]]
+
+    jq '.review_target = {repo:"0xHoneyJar/fixture", pr_number:42} | .consumed_at = "2026-07-14T00:00:00Z"' "$state_file" > "$state_file.tmp"
     mv "$state_file.tmp" "$state_file"
     run env TMPDIR="$BATS_TEST_TMPDIR" LOA_SESSION_CAP_STATE_FILE="$state_file" \
         LOA_SESSION_CAP_NOW_EPOCH=120 LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS=60 \
@@ -204,21 +227,23 @@ JSON
 @test "dispatcher completes one capture and never dispatches it twice" {
     state_file="$BATS_TEST_TMPDIR/claim-state.json"
     calls="$BATS_TEST_TMPDIR/bb-calls"
+    args_file="$BATS_TEST_TMPDIR/bb-args"
     mock_bb="$BATS_TEST_TMPDIR/mock-bb.sh"
     cat > "$state_file" <<'JSON'
-{"capture_id":"capture-once","lifecycle":"pending","consumed_at":null}
+{"capture_id":"capture-once","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","consumed_at":null}
 JSON
     cat > "$mock_bb" <<'SH'
 #!/usr/bin/env bash
 printf '%s\n' "${BRIDGEBUILDER_IDEMPOTENCY_KEY:-missing}" >> "$MOCK_BB_CALLS"
+printf '%s\n' "$*" >> "$MOCK_BB_ARGS"
 SH
     chmod +x "$mock_bb"
 
     for cycle in first second; do
         handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
         mkdir -p "$handoff"
-        jq -n '{action:"dispatch", capture_id:"capture-once"}' > "$handoff/decider.json"
-        run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" \
+        jq -n '{action:"dispatch", capture_id:"capture-once", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
+        run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" MOCK_BB_ARGS="$args_file" \
             LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fixture" \
             LOA_SESSION_CAP_BB_ENTRY="$mock_bb" "$DISPATCHER" "$cycle" schedule 2 '[]'
         [ "$status" -eq 0 ]
@@ -231,6 +256,7 @@ SH
 
     [ "$(wc -l < "$calls" | tr -d ' ')" = "1" ]
     [ "$(cat "$calls")" = "capture-once" ]
+    [ "$(cat "$args_file")" = "--repo 0xHoneyJar/fixture --pr 42" ]
     [ "$(jq -r '.lifecycle' "$state_file")" = "completed" ]
     [ "$(jq -r '.attempt_count' "$state_file")" = "1" ]
 }
@@ -240,7 +266,7 @@ SH
     calls="$BATS_TEST_TMPDIR/retry-calls"
     mock_bb="$BATS_TEST_TMPDIR/failing-bb.sh"
     cat > "$state_file" <<'JSON'
-{"capture_id":"capture-retry","lifecycle":"pending","attempt_count":0,"consumed_at":null}
+{"capture_id":"capture-retry","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","attempt_count":0,"consumed_at":null}
 JSON
     cat > "$mock_bb" <<'SH'
 #!/usr/bin/env bash
@@ -252,7 +278,7 @@ SH
     for cycle in retry-one retry-two; do
         handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
         mkdir -p "$handoff"
-        jq -n '{action:"dispatch", capture_id:"capture-retry"}' > "$handoff/decider.json"
+        jq -n '{action:"dispatch", capture_id:"capture-retry", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
         run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" \
             LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fixture" \
             LOA_SESSION_CAP_BB_ENTRY="$mock_bb" LOA_SESSION_CAP_MAX_ATTEMPTS=2 \
@@ -267,7 +293,7 @@ SH
 
     handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.retry-three"
     mkdir -p "$handoff"
-    jq -n '{action:"dispatch", capture_id:"capture-retry"}' > "$handoff/decider.json"
+    jq -n '{action:"dispatch", capture_id:"capture-retry", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
     run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" \
         LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fixture" \
         LOA_SESSION_CAP_BB_ENTRY="$mock_bb" LOA_SESSION_CAP_MAX_ATTEMPTS=2 \
@@ -287,8 +313,8 @@ SH
     cycle="interleaved"
     handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
     mkdir -p "$handoff"
-    printf '%s\n' '{"capture_id":"capture-old","lifecycle":"pending","attempt_count":0,"consumed_at":null}' > "$state_file"
-    jq -n '{action:"dispatch", capture_id:"capture-old"}' > "$handoff/decider.json"
+    printf '%s\n' '{"capture_id":"capture-old","review_target":{"repo":"0xHoneyJar/fixture","pr_number":42},"lifecycle":"pending","attempt_count":0,"consumed_at":null}' > "$state_file"
+    jq -n '{action:"dispatch", capture_id:"capture-old", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
     cat > "$mock_bb" <<'SH'
 #!/usr/bin/env bash
 touch "$MOCK_BB_STARTED"
@@ -311,7 +337,7 @@ SH
     bash -c '
         source "$1"
         portable_lock_acquire "${2}.lock"
-        printf "%s\n" "{\"capture_id\":\"capture-new\",\"lifecycle\":\"pending\",\"attempt_count\":0,\"consumed_at\":null}" > "${2}.tmp.new"
+        printf "%s\n" "{\"capture_id\":\"capture-new\",\"review_target\":{\"repo\":\"0xHoneyJar/fixture\",\"pr_number\":43},\"lifecycle\":\"pending\",\"attempt_count\":0,\"consumed_at\":null}" > "${2}.tmp.new"
         mv -f "${2}.tmp.new" "$2"
         portable_lock_release "${2}.lock"
     ' -- "$compat" "$state_file"

@@ -77,7 +77,8 @@ Authentication sessions are stored in:
 ```bash
 # Restrict permissions to your user only
 chmod 700 ~/.claude/notebooklm-auth
-chmod -R 600 ~/.claude/notebooklm-auth/*
+find ~/.claude/notebooklm-auth -type d -exec chmod 700 {} +
+find ~/.claude/notebooklm-auth -type f -exec chmod 600 {} +
 ```
 
 ## Re-Authentication

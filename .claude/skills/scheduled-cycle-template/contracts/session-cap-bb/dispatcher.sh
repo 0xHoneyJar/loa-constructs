@@ -27,9 +27,13 @@ write_out() { printf '%s' "$1" | tee "${HANDOFF_DIR}/dispatcher.json"; }
 
 action="noop"
 capture_id=""
+repo=""
+pr_number=""
 if [[ -f "$DECIDER_FILE" ]] && jq empty "$DECIDER_FILE" 2>/dev/null; then
     action="$(jq -r '.action // "noop"' "$DECIDER_FILE")"
     capture_id="$(jq -r '.capture_id // ""' "$DECIDER_FILE")"
+    repo="$(jq -r '.review_target.repo // ""' "$DECIDER_FILE")"
+    pr_number="$(jq -r '.review_target.pr_number // ""' "$DECIDER_FILE")"
 fi
 
 if [[ "$action" != "dispatch" ]]; then
@@ -39,14 +43,9 @@ if [[ "$action" != "dispatch" ]]; then
     exit 0
 fi
 
-# Resolve owner/repo: explicit override wins, else derive from the git origin.
-repo="${LOA_SESSION_CAP_BB_REPO:-}"
-if [[ -z "$repo" ]]; then
-    url="$(git remote get-url origin 2>/dev/null || true)"
-    repo="$(printf '%s' "$url" | sed -E 's#\.git$##; s#^.*[:/]([^/]+/[^/]+)$#\1#')"
-fi
-if [[ -z "$repo" ]]; then
-    echo "dispatcher: could not resolve owner/repo (set LOA_SESSION_CAP_BB_REPO or a git origin)" >&2
+# Never expand a captured interruption into repository-wide mutation.
+if ! [[ "$repo" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ && "$pr_number" =~ ^[1-9][0-9]*$ ]]; then
+    echo "dispatcher: exact review_target.repo + pr_number are required" >&2
     exit 1
 fi
 
@@ -80,6 +79,8 @@ if [[ ! -f "$STATE_FILE" ]] || ! jq empty "$STATE_FILE" 2>/dev/null; then
     exit 1
 fi
 current_capture="$(jq -r '.capture_id // ""' "$STATE_FILE")"
+state_repo="$(jq -r '.review_target.repo // ""' "$STATE_FILE")"
+state_pr="$(jq -r '.review_target.pr_number // ""' "$STATE_FILE")"
 lifecycle="$(jq -r '.lifecycle // "pending"' "$STATE_FILE")"
 attempt_count="$(jq -r '.attempt_count // 0' "$STATE_FILE")"
 claimed_epoch="$(jq -r '.claimed_at_epoch // 0' "$STATE_FILE")"
@@ -95,11 +96,11 @@ if [[ "$attempt_count" =~ ^[0-9]+$ && "$max_attempts" =~ ^[0-9]+$ && "$claimed_e
         claimed) (( now_epoch - claimed_epoch >= claim_lease )) && claimable="true" ;;
     esac
 fi
-if [[ "$current_capture" != "$capture_id" || "$claimable" != "true" ]]; then
+if [[ "$current_capture" != "$capture_id" || "$state_repo" != "$repo" || "$state_pr" != "$pr_number" || "$claimable" != "true" ]]; then
     portable_lock_release "$STATE_LOCK_DIR"
     write_out "$(jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" --arg capture "$capture_id" \
         '{cycle_id:$cid, schedule_id:$sid, capture_id:$capture, dispatched:false,
-          reason:"capture changed, is terminal, or has an active claim"}')"
+          reason:"capture target changed, is terminal, or has an active claim"}')"
     exit 0
 fi
 
@@ -125,12 +126,12 @@ if ! jq --arg capture "$capture_id" --arg ts "$claimed_at" --argjson epoch "$now
 fi
 portable_lock_release "$STATE_LOCK_DIR"
 
-# Fire BB with NO --pr: it self-discovers open PRs and dedups internally.
+# Fire BB for the exact captured target only.
 rc=0
 if [[ -x "$BB_ENTRY" ]]; then
-    BRIDGEBUILDER_IDEMPOTENCY_KEY="$capture_id" "$BB_ENTRY" --repo "$repo" || rc=$?
+    BRIDGEBUILDER_IDEMPOTENCY_KEY="$capture_id" "$BB_ENTRY" --repo "$repo" --pr "$pr_number" || rc=$?
 else
-    BRIDGEBUILDER_IDEMPOTENCY_KEY="$capture_id" bash "$BB_ENTRY" --repo "$repo" || rc=$?
+    BRIDGEBUILDER_IDEMPOTENCY_KEY="$capture_id" bash "$BB_ENTRY" --repo "$repo" --pr "$pr_number" || rc=$?
 fi
 
 # Acknowledge only after the downstream command returns. If a newer capture was
@@ -173,7 +174,7 @@ else
 fi
 
 write_out "$(jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" \
-    --arg capture "$capture_id" --arg repo "$repo" --arg state "$delivery_state" --argjson ec "$rc" \
+    --arg capture "$capture_id" --arg repo "$repo" --argjson pr "$pr_number" --arg state "$delivery_state" --argjson ec "$rc" \
     '{cycle_id:$cid, schedule_id:$sid, capture_id:$capture, dispatched:true, repo:$repo,
-      delivery_state:$state, bb_exit_code:$ec}')"
+      pr_number:$pr, delivery_state:$state, bb_exit_code:$ec}')"
 exit "$rc"

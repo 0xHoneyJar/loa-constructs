@@ -7,9 +7,9 @@ review.
 
 | Phase | Behavior |
 |-------|----------|
-| `reader.sh` | Sanity-gates on the repo-root `.run/session-limit-state.json`: absent ⇒ noop-normal, present-but-corrupt ⇒ abort. Only a pending/retryable capture inside the bounded post-reset window is eligible. |
+| `reader.sh` | Sanity-gates on the repo-root `.run/session-limit-state.json`: absent ⇒ noop-normal, present-but-corrupt ⇒ abort. Only a pending/retryable capture with one exact `repo + PR` target inside the bounded post-reset window is eligible. |
 | `decider.sh` | **Fail-closed.** `action:dispatch` only if the capture is eligible and `sprint_plan.state` ∈ {RUNNING, HALTED}, or `bridge.state` ∈ {RUNNING, ITERATING, FINALIZING, HALTED}; else `action:noop`. |
-| `dispatcher.sh` | Atomically claims `capture_id`, runs `bridgebuilder-review/resources/entry.sh --repo <owner/repo>`, and acknowledges only on success. Failures retry within a bounded budget; the capture id is the downstream idempotency key. |
+| `dispatcher.sh` | Atomically claims `capture_id`, runs `bridgebuilder-review/resources/entry.sh --repo <owner/repo> --pr <number>`, and acknowledges only on success. It never broadens into repository discovery. Failures retry within a bounded budget; the capture id is the downstream idempotency key. |
 | `awaiter.sh` | Pass-through — dispatch is synchronous under the phase timeout. |
 | `logger.sh` | Records dispatched?/repo/exit-code into the `cycle.phase` payload; cleans the handoff dir. |
 
@@ -31,7 +31,8 @@ phase re-derives identically from the shared `cycle_id`. `TMPDIR` is on the L3
 | `LOA_SESSION_CAP_MAX_ATTEMPTS` | `3` | terminal failure threshold |
 | `LOA_SESSION_CAP_CLAIM_LEASE_SECONDS` | `3600` | crash-recovery lease for an abandoned claim |
 | `LOA_SESSION_CAP_RETRY_DELAY_SECONDS` | `300` | backoff after a nonzero dispatch |
-| `LOA_SESSION_CAP_BB_REPO` | derived from `git remote get-url origin` | `owner/repo` passed as `--repo` |
+| `LOA_SESSION_CAP_BB_REPO` | current git origin | exact `owner/repo` captured at cap time |
+| `LOA_SESSION_CAP_BB_PR` | unique open PR for current branch | exact PR number captured at cap time |
 | `LOA_SESSION_CAP_BB_ENTRY` | `../../../bridgebuilder-review/resources/entry.sh` | BB entrypoint (dispatcher) |
 
 Under the L3 sandbox these are only visible if listed in

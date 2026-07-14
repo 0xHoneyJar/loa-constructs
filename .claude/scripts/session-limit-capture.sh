@@ -76,6 +76,29 @@ SPRINT_FILE="$RUN_DIR/sprint-plan-state.json"
 BRIDGE_FILE="$RUN_DIR/bridge-state.json"
 SIMSTIM_FILE="$RUN_DIR/simstim-state.json"
 
+# Resume scope is an authorization input, not something the dispatcher may
+# rediscover broadly later. Explicit overrides win; otherwise resolve exactly
+# one open PR for the current branch. Failure to resolve is recorded as null and
+# the downstream reader fails closed.
+TARGET_REPO="${LOA_SESSION_CAP_BB_REPO:-}"
+TARGET_PR="${LOA_SESSION_CAP_BB_PR:-}"
+if [[ -z "$TARGET_REPO" ]]; then
+    origin_url="$(git -C "$PROJECT_ROOT" remote get-url origin 2>/dev/null || true)"
+    TARGET_REPO="$(printf '%s' "$origin_url" | sed -E 's#\.git$##; s#^.*[:/]([^/]+/[^/]+)$#\1#')"
+fi
+if [[ -z "$TARGET_PR" && "$TARGET_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] \
+    && command -v gh >/dev/null 2>&1; then
+    current_branch="$(git -C "$PROJECT_ROOT" branch --show-current 2>/dev/null || true)"
+    if [[ -n "$current_branch" ]]; then
+        pr_candidates="$(gh pr list --repo "$TARGET_REPO" --head "$current_branch" --state open \
+            --json number --jq '.[].number' 2>/dev/null || true)"
+        [[ "$pr_candidates" =~ ^[0-9]+$ ]] && TARGET_PR="$pr_candidates"
+    fi
+fi
+if ! [[ "$TARGET_REPO" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]]; then TARGET_REPO=""; fi
+if ! [[ "$TARGET_PR" =~ ^[1-9][0-9]*$ ]]; then TARGET_PR=""; fi
+TARGET_PR_JSON="${TARGET_PR:-null}"
+
 # Extract a scalar from a state file, falling back to a default when the file
 # is absent, jq is missing, or the field is null. Embeds the VALUE, not a path.
 _snap() {
@@ -109,6 +132,8 @@ SNAP="$(jq -n \
     --arg reset_at "$RESET_ISO" \
     --argjson reset_at_epoch "$RESET_EPOCH" \
     --arg raw "$RAW_TRUNC" \
+    --arg target_repo "$TARGET_REPO" \
+    --argjson target_pr "$TARGET_PR_JSON" \
     --arg sp_state "$sp_state" \
     --arg sp_current "$sp_current" \
     --arg sp_cycle "$sp_cycle" \
@@ -132,6 +157,10 @@ SNAP="$(jq -n \
         reset_at: $reset_at,
         reset_at_epoch: $reset_at_epoch,
         raw: $raw,
+        review_target: {
+            repo: ($target_repo | if length == 0 then null else . end),
+            pr_number: $target_pr
+        },
         active_run_state_snapshot: {
             sprint_plan: { state: $sp_state, current: $sp_current, cycle: $sp_cycle, plan_id: $sp_plan },
             bridge: { state: $br_state, current_iteration: $br_iter },
