@@ -8,15 +8,28 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd -P)"
 STATE_FILE="${LOA_SESSION_CAP_STATE_FILE:-${REPO_ROOT}/.run/session-limit-state.json}"
 CYCLE_LIB="${LOA_SESSION_CAP_CYCLE_LIB:-${REPO_ROOT}/.claude/scripts/lib/scheduled-cycle-lib.sh}"
+# shellcheck source=/dev/null
+. "${REPO_ROOT}/.claude/scripts/compat-lib.sh"
+STATE_LOCK_DIR="${STATE_FILE}.lock"
 
-[[ -f "$STATE_FILE" ]] && jq empty "$STATE_FILE" 2>/dev/null || exit 0
+if ! portable_lock_acquire "$STATE_LOCK_DIR"; then
+    echo "session-cap-reconcile: timed out acquiring capture state lock" >&2
+    exit 1
+fi
+if [[ ! -f "$STATE_FILE" ]]; then
+    portable_lock_release "$STATE_LOCK_DIR"
+    exit 0
+fi
+state_json="$(<"$STATE_FILE")"
+portable_lock_release "$STATE_LOCK_DIR"
+jq empty <<<"$state_json" 2>/dev/null || exit 0
 
 now_epoch="${LOA_SESSION_CAP_NOW_EPOCH:-$(date +%s)}"
-reset_epoch="$(jq -r '.reset_at_epoch // 0' "$STATE_FILE")"
-lifecycle="$(jq -r '.lifecycle // ""' "$STATE_FILE")"
-attempt_count="$(jq -r '.attempt_count // 0' "$STATE_FILE")"
-retry_after="$(jq -r '.retry_after_epoch // 0' "$STATE_FILE")"
-claimed_epoch="$(jq -r '.claimed_at_epoch // 0' "$STATE_FILE")"
+reset_epoch="$(jq -r '.reset_at_epoch // 0' <<<"$state_json")"
+lifecycle="$(jq -r '.lifecycle // ""' <<<"$state_json")"
+attempt_count="$(jq -r '.attempt_count // 0' <<<"$state_json")"
+retry_after="$(jq -r '.retry_after_epoch // 0' <<<"$state_json")"
+claimed_epoch="$(jq -r '.claimed_at_epoch // 0' <<<"$state_json")"
 max_age="${LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS:-21600}"
 max_attempts="${LOA_SESSION_CAP_MAX_ATTEMPTS:-3}"
 claim_lease="${LOA_SESSION_CAP_CLAIM_LEASE_SECONDS:-3600}"

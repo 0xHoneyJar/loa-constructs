@@ -63,6 +63,36 @@ setup() {
     jq -e '.review_target == {repo:"0xHoneyJar/fake-repo", pr_number:99}' "$fake_repo/.run/session-limit-state.json"
 }
 
+@test "capture identity includes the exact review target" {
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        skip "session-limit parser is explicitly GNU-date-only"
+    fi
+    fake_repo="$BATS_TEST_TMPDIR/identity-repo"
+    mkdir -p "$fake_repo/.claude/scripts/lib"
+    cp "$REPO_ROOT/.claude/scripts/session-limit-capture.sh" "$fake_repo/.claude/scripts/"
+    cp "$REPO_ROOT/.claude/scripts/compat-lib.sh" "$fake_repo/.claude/scripts/"
+    cp "$REPO_ROOT/.claude/scripts/lib/session-limit-lib.sh" "$fake_repo/.claude/scripts/lib/"
+    now_epoch="$(date +%s)"
+    reset_time="$(date -u -d '@'"$((now_epoch + 7200))" +%H:%M)"
+
+    run env LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fake-repo" LOA_SESSION_CAP_BB_PR=42 \
+        LOA_SESSION_CAP_NOW_EPOCH="$now_epoch" LOA_SESSION_CAP_EVENT_NONCE="fixed-event" \
+        "$fake_repo/.claude/scripts/session-limit-capture.sh" --raw \
+        "You've hit your session limit; resets ${reset_time} (UTC)"
+    [ "$status" -eq 0 ]
+    first_id="$(jq -r '.capture_id' "$fake_repo/.run/session-limit-state.json")"
+
+    run env LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fake-repo" LOA_SESSION_CAP_BB_PR=43 \
+        LOA_SESSION_CAP_NOW_EPOCH="$now_epoch" LOA_SESSION_CAP_EVENT_NONCE="fixed-event" \
+        "$fake_repo/.claude/scripts/session-limit-capture.sh" --raw \
+        "You've hit your session limit; resets ${reset_time} (UTC)"
+    [ "$status" -eq 0 ]
+    second_id="$(jq -r '.capture_id' "$fake_repo/.run/session-limit-state.json")"
+    [ "$first_id" != "$second_id" ]
+    jq -e '.identity_version == 1 and .event_nonce == "fixed-event" and .review_target.pr_number == 43' \
+        "$fake_repo/.run/session-limit-state.json"
+}
+
 @test "fanout rejects unsafe windows and phases before generation" {
     run bash -c '
         source "$1"

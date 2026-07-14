@@ -73,6 +73,13 @@
         "esbuild": "^0.25.0",
       },
     },
+    "packages/constructs-cli": {
+      "name": "@loa-constructs/capability-cli",
+      "version": "0.1.0",
+      "bin": {
+        "constructs": "./bin/constructs.mjs",
+      },
+    },
     "packages/loa-registry": {
       "name": "@loa-constructs/cli",
       "version": "0.1.0",
@@ -345,6 +352,8 @@
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
     "@loa-constructs/api": ["@loa-constructs/api@workspace:apps/api"],
+
+    "@loa-constructs/capability-cli": ["@loa-constructs/capability-cli@workspace:packages/constructs-cli"],
 
     "@loa-constructs/cli": ["@loa-constructs/cli@workspace:packages/loa-registry"],
 

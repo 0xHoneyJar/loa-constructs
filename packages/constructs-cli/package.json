@@ -1,5 +1,5 @@
 {
-  "name": "@loa-constructs/cli",
+  "name": "@loa-constructs/capability-cli",
   "version": "0.1.0",
   "private": true,
   "description": "constructs — the veve'd navigation & stationing CLI for the constructs network. Zero runtime dependencies; deterministic JSON; Finn-sandbox compatible.",

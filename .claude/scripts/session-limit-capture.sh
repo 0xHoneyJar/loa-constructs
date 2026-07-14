@@ -47,7 +47,11 @@ if ! session_limit_matches "$RAW"; then
     exit 1
 fi
 
-NOW_EPOCH="$(date +%s)"
+NOW_EPOCH="${LOA_SESSION_CAP_NOW_EPOCH:-$(date +%s)}"
+if ! [[ "$NOW_EPOCH" =~ ^[0-9]+$ ]]; then
+    echo "session-limit-capture: current epoch is not numeric" >&2
+    exit 1
+fi
 RESET_ISO="$(session_limit_parse_reset "$RAW" "$NOW_EPOCH")" || {
     echo "session-limit-capture: could not parse reset time (GNU-date-only; see session-limit-lib.sh)" >&2
     exit 1
@@ -123,11 +127,46 @@ ss_phase="$(_snap "$SIMSTIM_FILE" '.phase' 'unknown')"
 
 # Truncate the raw string for provenance (bounded — the error text is short).
 RAW_TRUNC="${RAW:0:400}"
-CAPTURE_HASH="$(printf '%s' "${NOW_EPOCH}:${RESET_EPOCH}:${RAW_TRUNC}" | sha256_portable | awk '{print $1}')"
+# The delivery key fingerprints the complete semantic operation. A per-event
+# nonce keeps two otherwise identical captures distinct, while every retry of
+# this durable capture continues to reuse the resulting capture_id.
+EVENT_NONCE="${LOA_SESSION_CAP_EVENT_NONCE:-}"
+if [[ -z "$EVENT_NONCE" ]]; then
+    if command -v uuidgen >/dev/null 2>&1; then
+        EVENT_NONCE="$(uuidgen | tr '[:upper:]' '[:lower:]')"
+    else
+        EVENT_NONCE="$(printf '%s' "${NOW_EPOCH}:$$:${RANDOM}:${RANDOM}" | sha256_portable | awk '{print $1}')"
+    fi
+fi
+EVENT_NONCE="${EVENT_NONCE:0:128}"
+IDENTITY_JSON="$(jq -cnS \
+    --argjson identity_version 1 \
+    --arg event_nonce "$EVENT_NONCE" \
+    --argjson captured_at_epoch "$NOW_EPOCH" \
+    --argjson reset_at_epoch "$RESET_EPOCH" \
+    --arg raw "$RAW_TRUNC" \
+    --arg target_repo "$TARGET_REPO" \
+    --argjson target_pr "$TARGET_PR_JSON" \
+    --arg sp_state "$sp_state" --arg sp_current "$sp_current" --arg sp_cycle "$sp_cycle" --arg sp_plan "$sp_plan" \
+    --arg br_state "$br_state" --arg br_iter "$br_iter" \
+    --arg ss_state "$ss_state" --arg ss_phase "$ss_phase" \
+    '{identity_version:$identity_version, event_nonce:$event_nonce,
+      captured_at_epoch:$captured_at_epoch, reset_at_epoch:$reset_at_epoch, raw:$raw,
+      review_target:{repo:($target_repo | if length == 0 then null else . end), pr_number:$target_pr},
+      active_run_state_snapshot:{
+        sprint_plan:{state:$sp_state,current:$sp_current,cycle:$sp_cycle,plan_id:$sp_plan},
+        bridge:{state:$br_state,current_iteration:$br_iter},
+        simstim:{state:$ss_state,phase:$ss_phase}
+      }}')" || {
+    echo "session-limit-capture: failed to build canonical identity" >&2
+    exit 1
+}
+CAPTURE_HASH="$(printf '%s' "$IDENTITY_JSON" | sha256_portable | awk '{print $1}')"
 CAPTURE_ID="sha256:${CAPTURE_HASH}"
 
 SNAP="$(jq -n \
     --arg capture_id "$CAPTURE_ID" \
+    --arg event_nonce "$EVENT_NONCE" \
     --arg hit_at "$HIT_AT" \
     --arg reset_at "$RESET_ISO" \
     --argjson reset_at_epoch "$RESET_EPOCH" \
@@ -144,6 +183,8 @@ SNAP="$(jq -n \
     --arg ss_phase "$ss_phase" \
     '{
         capture_id: $capture_id,
+        identity_version: 1,
+        event_nonce: $event_nonce,
         lifecycle: "pending",
         attempt_count: 0,
         claimed_at: null,
