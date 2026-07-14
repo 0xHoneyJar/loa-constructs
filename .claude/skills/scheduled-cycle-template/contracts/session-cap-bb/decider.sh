@@ -22,17 +22,25 @@ READER_FILE="${HANDOFF_DIR}/reader.json"
 
 sp_state=""
 br_state=""
+eligible="false"
+capture_id=""
 if [[ -f "$READER_FILE" ]] && jq empty "$READER_FILE" 2>/dev/null; then
     sp_state="$(jq -r '.sprint_plan_state // ""' "$READER_FILE")"
     br_state="$(jq -r '.bridge_state // ""' "$READER_FILE")"
+    eligible="$(jq -r '.eligible // false' "$READER_FILE")"
+    capture_id="$(jq -r '.capture_id // ""' "$READER_FILE")"
 fi
 
 action="noop"
-case "$sp_state" in RUNNING|HALTED) action="dispatch" ;; esac
-case "$br_state" in RUNNING|ITERATING|FINALIZING|HALTED) action="dispatch" ;; esac
+if [[ "$eligible" == "true" ]]; then
+    case "$sp_state" in RUNNING|HALTED) action="dispatch" ;; esac
+    case "$br_state" in RUNNING|ITERATING|FINALIZING|HALTED) action="dispatch" ;; esac
+fi
 
 jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" --arg act "$action" \
+    --argjson eligible "$eligible" --arg capture "$capture_id" \
     --arg sp "$sp_state" --arg br "$br_state" \
     '{cycle_id:$cid, schedule_id:$sid, action:$act,
+      eligible:$eligible, capture_id:($capture | if length == 0 then null else . end),
       sprint_plan_state:$sp, bridge_state:$br}' \
     | tee "${HANDOFF_DIR}/decider.json"

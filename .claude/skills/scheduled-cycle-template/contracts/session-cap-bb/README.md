@@ -7,9 +7,9 @@ review.
 
 | Phase | Behavior |
 |-------|----------|
-| `reader.sh` | Sanity-gates on `.run/session-limit-state.json`: absent ⇒ noop-normal, present-but-corrupt ⇒ abort. Hands the captured `active_run_state_snapshot` forward. |
-| `decider.sh` | **Fail-closed.** `action:dispatch` only if `sprint_plan.state` ∈ {RUNNING, HALTED}, or `bridge.state` ∈ {RUNNING, ITERATING, FINALIZING, HALTED}; else `action:noop`. |
-| `dispatcher.sh` | On dispatch, runs `bridgebuilder-review/resources/entry.sh --repo <owner/repo>` with **no** `--pr` (BB self-discovers open PRs + dedups). On noop, exits 0. |
+| `reader.sh` | Sanity-gates on the repo-root `.run/session-limit-state.json`: absent ⇒ noop-normal, present-but-corrupt ⇒ abort. Only an unconsumed capture inside the bounded post-reset window is eligible. |
+| `decider.sh` | **Fail-closed.** `action:dispatch` only if the capture is eligible and `sprint_plan.state` ∈ {RUNNING, HALTED}, or `bridge.state` ∈ {RUNNING, ITERATING, FINALIZING, HALTED}; else `action:noop`. |
+| `dispatcher.sh` | Atomically consumes `capture_id`, then runs `bridgebuilder-review/resources/entry.sh --repo <owner/repo>` with no `--pr`. Repeated/concurrent claims no-op; the capture id is passed as the downstream idempotency key. |
 | `awaiter.sh` | Pass-through — dispatch is synchronous under the phase timeout. |
 | `logger.sh` | Records dispatched?/repo/exit-code into the `cycle.phase` payload; cleans the handoff dir. |
 
@@ -25,7 +25,9 @@ phase re-derives identically from the shared `cycle_id`. `TMPDIR` is on the L3
 
 | Var | Default | Purpose |
 |-----|---------|---------|
-| `LOA_SESSION_CAP_STATE_FILE` | `.run/session-limit-state.json` | capture marker path (reader) |
+| `LOA_SESSION_CAP_STATE_FILE` | `<repo>/.run/session-limit-state.json` | capture marker path (reader + dispatcher) |
+| `LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS` | `21600` (6h) | maximum post-reset age eligible for dispatch |
+| `LOA_SESSION_CAP_NOW_EPOCH` | current epoch | deterministic freshness clock for tests |
 | `LOA_SESSION_CAP_BB_REPO` | derived from `git remote get-url origin` | `owner/repo` passed as `--repo` |
 | `LOA_SESSION_CAP_BB_ENTRY` | `../../../bridgebuilder-review/resources/entry.sh` | BB entrypoint (dispatcher) |
 
@@ -35,4 +37,6 @@ Under the L3 sandbox these are only visible if listed in
 ## Safety
 
 Arming this (via `session_cap.post_reset_fanout.enabled: true`) posts **live PR
-review comments unattended on cron**. The flag defaults to false.
+review comments unattended on cron**. The flag defaults to false. A capture
+moves `pending → consumed` exactly once; stale, consumed, legacy, and future
+markers remain visible but cannot dispatch.

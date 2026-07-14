@@ -257,6 +257,23 @@ _final_time() {
     printf '%s %s\n' "$hour" "$minute"
 }
 
+# _available_final_time <base_hour> <base_minute> <offset> <used-set>
+# Normalizes first, then re-checks uniqueness because the :00/:30 nudge can
+# collapse two previously distinct candidates onto one final wall-clock time.
+_available_final_time() {
+    local base_hour="$1" base_minute="$2" offset="$3" used_times="$4"
+    local hour minute time_key collision_steps=0
+    read -r hour minute < <(_final_time "$base_hour" "$base_minute" "$offset")
+    time_key="${hour}:${minute}"
+    while [[ "$used_times" == *"|${time_key}|"* ]]; do
+        read -r hour minute < <(_final_time "$hour" "$minute" 1)
+        time_key="${hour}:${minute}"
+        collision_steps=$((collision_steps + 1))
+        (( collision_steps < 1440 )) || return 1
+    done
+    printf '%s %s\n' "$hour" "$minute"
+}
+
 _system_tz() {
     local tz
     tz="$(timedatectl show -p Timezone --value 2>/dev/null \
@@ -376,8 +393,15 @@ _plan() {
     CRON_LINES=()
 
     local windows=()
+    local seen_windows="|"
     while IFS= read -r _w; do
-        [[ -n "$_w" ]] && windows+=("$_w")
+        [[ -n "$_w" ]] || continue
+        if [[ "$seen_windows" == *"|${_w}|"* ]]; then
+            echo "ERROR: duplicate reset window: ${_w}" >&2
+            return 1
+        fi
+        seen_windows="${seen_windows}${_w}|"
+        windows+=("$_w")
     done < <(read_reset_windows)
     if [[ ${#windows[@]} -eq 0 ]]; then
         echo "session_cap.reset_windows is empty; nothing to plan." >&2
@@ -426,13 +450,20 @@ _plan() {
         minute=$((10#$minute))
 
         local phase phase_idx=0 final_hour final_minute
+        local used_times="|"
         for phase in "${phases[@]}"; do
             # Per-phase deterministic stagger: each phase in this window fires at
             # a DISTINCT minute (base per-repo jitter + phase_idx * stagger),
             # still nudged off :00/:30 by _final_time. Without this, every
             # phase in one reset window fired at the identical minute
             # (bd-fanout-real-dispatch-9jv6 T1).
-            read -r final_hour final_minute < <(_final_time "$hour" "$minute" "$((offset + phase_idx * _PHASE_STAGGER_MIN))")
+            if ! read -r final_hour final_minute < <(_available_final_time \
+                "$hour" "$minute" "$((offset + phase_idx * _PHASE_STAGGER_MIN))" "$used_times"); then
+                echo "ERROR: no unique cron minute remains for window ${window}" >&2
+                return 1
+            fi
+            local time_key="${final_hour}:${final_minute}"
+            used_times="${used_times}${time_key}|"
             local schedule_id="session-cap-fanout-w${idx}-${phase}"
             local yaml_path="${target_dir}/${schedule_id}.yaml"
             _generate_yaml "$schedule_id" "$final_minute" "$final_hour" "$tz_part" "$phase" > "$yaml_path"

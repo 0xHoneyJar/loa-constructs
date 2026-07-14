@@ -626,15 +626,26 @@ jobs:
 
       - name: p95 smoke - ambient-free verbs stay under the 1s hot path (NFR-7)
         run: |
-          for i in 1 2 3 4 5; do
+          capabilities_ms=()
+          help_ms=()
+          for i in $(seq 1 20); do
             start=$(date +%s%N)
             node packages/constructs-cli/bin/constructs.mjs capabilities --json > /dev/null
+            end=$(date +%s%N)
+            capabilities_ms+=("$(( (end - start) / 1000000 ))")
+
+            start=$(date +%s%N)
             node packages/constructs-cli/bin/constructs.mjs --help > /dev/null
             end=$(date +%s%N)
-            ms=$(( (end - start) / 1000000 ))
-            echo "run $i: ${ms}ms (two verbs)"
-            if [ "$ms" -ge 2000 ]; then
-              echo "ambient-free verbs exceeded the hot-path budget (NFR-7)"
-              exit 1
-            fi
+            help_ms+=("$(( (end - start) / 1000000 ))")
           done
+
+          # For 20 samples, nearest-rank p95 is the 19th sorted observation.
+          capabilities_p95=$(printf '%s\n' "${capabilities_ms[@]}" | sort -n | sed -n '19p')
+          help_p95=$(printf '%s\n' "${help_ms[@]}" | sort -n | sed -n '19p')
+          echo "capabilities p95: ${capabilities_p95}ms"
+          echo "help p95: ${help_p95}ms"
+          if [ "$capabilities_p95" -ge 1000 ] || [ "$help_p95" -ge 1000 ]; then
+            echo "an ambient-free verb exceeded the 1s p95 hot-path budget (NFR-7)"
+            exit 1
+          fi

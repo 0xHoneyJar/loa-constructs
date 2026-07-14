@@ -22,10 +22,12 @@ if [[ -f "$DISPATCHER_FILE" ]] && jq empty "$DISPATCHER_FILE" 2>/dev/null; then
     dispatched="$(jq -r '.dispatched // false' "$DISPATCHER_FILE")"
     bb_ec="$(jq -r '.bb_exit_code // "null"' "$DISPATCHER_FILE")"
 fi
+[[ "$dispatched" == "true" || "$dispatched" == "false" ]] || dispatched="false"
+[[ "$bb_ec" == "null" || "$bb_ec" =~ ^[0-9]+$ ]] || bb_ec="null"
 
 jq -nc --arg cid "$cycle_id" --arg sid "$schedule_id" \
-    --arg d "$dispatched" --arg ec "$bb_ec" \
+    --argjson d "$dispatched" --argjson ec "$bb_ec" \
     '{cycle_id:$cid, schedule_id:$sid,
-      terminal_state:(if $d=="true" then "completed" else "skipped" end),
-      dispatched:($d=="true"), bb_exit_code:$ec,
+      terminal_state:(if $d then "completed" else "skipped" end),
+      dispatched:$d, bb_exit_code:$ec,
       note:"synchronous dispatch; no async job to await"}'

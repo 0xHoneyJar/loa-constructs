@@ -25,6 +25,8 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/lib/session-limit-lib.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/compat-lib.sh"
 
 RAW=""
 while [[ $# -gt 0 ]]; do
@@ -61,7 +63,11 @@ fi
 
 HIT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-PROJECT_ROOT="${PROJECT_ROOT:-$PWD}"
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$SCRIPT_DIR/../.." && pwd -P)}"
+if ! PROJECT_ROOT="$(cd "$PROJECT_ROOT" 2>/dev/null && pwd -P)"; then
+    echo "session-limit-capture: PROJECT_ROOT does not resolve to a directory" >&2
+    exit 1
+fi
 RUN_DIR="$PROJECT_ROOT/.run"
 mkdir -p "$RUN_DIR" 2>/dev/null || true
 STATE_FILE="$RUN_DIR/session-limit-state.json"
@@ -94,8 +100,11 @@ ss_phase="$(_snap "$SIMSTIM_FILE" '.phase' 'unknown')"
 
 # Truncate the raw string for provenance (bounded — the error text is short).
 RAW_TRUNC="${RAW:0:400}"
+CAPTURE_HASH="$(printf '%s' "${NOW_EPOCH}:${RESET_EPOCH}:${RAW_TRUNC}" | sha256_portable | awk '{print $1}')"
+CAPTURE_ID="sha256:${CAPTURE_HASH}"
 
 SNAP="$(jq -n \
+    --arg capture_id "$CAPTURE_ID" \
     --arg hit_at "$HIT_AT" \
     --arg reset_at "$RESET_ISO" \
     --argjson reset_at_epoch "$RESET_EPOCH" \
@@ -109,6 +118,10 @@ SNAP="$(jq -n \
     --arg ss_state "$ss_state" \
     --arg ss_phase "$ss_phase" \
     '{
+        capture_id: $capture_id,
+        lifecycle: "pending",
+        consumed_at: null,
+        consumed_by: null,
         hit_at: $hit_at,
         reset_at: $reset_at,
         reset_at_epoch: $reset_at_epoch,
