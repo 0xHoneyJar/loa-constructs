@@ -42,6 +42,8 @@ export const BUDGETS = Object.freeze({
   max_total_bytes: 32 * 1024 * 1024,
   max_entry_count: 2048,
   max_single_file_bytes: 4 * 1024 * 1024,
+  max_license_bytes: 256 * 1024,
+  max_payload_file_bytes: 64 * 1024 * 1024,
   // Conservative relative-name envelope shared by payload and git rungs.
   // Bytes, not JS code units: destination filesystems enforce encoded names.
   max_path_component_bytes: 255,
@@ -49,6 +51,7 @@ export const BUDGETS = Object.freeze({
 });
 
 const CONTROL_BYTES_RE = /[\x00-\x1f\x7f]/; // C0 + DEL in a file NAME are never legitimate
+const PORTABLE_PATH_RE = /^[\x20-\x7e]+$/; // printable ASCII; Unicode filesystem folding is not portable
 const GIT_OBJECT_ID_RE = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 const SHA256_CLAIM_RE = /^sha256:[0-9a-f]{64}$/;
 // Root namespaces owned by the installer. Source payloads may not provide or
@@ -88,7 +91,8 @@ function canonicalBase64ByteLength(value) {
  * real filesystems alias names: macOS/Windows fold case, and HFS+/APFS normalize
  * Unicode. So two entries that hash as distinct can land on ONE file, and which
  * content survives depends on write order — an attacker picks the order, the hash
- * still matches the anchor. Colliding entries are refused BEFORE hashing.
+ * still matches the anchor. validateFileList first restricts paths to printable
+ * ASCII, where lowercase is a complete case fold; this key then catches aliases.
  */
 export function collisionKey(p) {
   // Win32 additionally STRIPS trailing dots and spaces from each segment, so
@@ -146,6 +150,9 @@ export function validateFileList(files) {
     }
     if (hasUnpairedSurrogate(f.path)) {
       problems.push(`${where}: path contains an unpaired UTF-16 surrogate and has no stable UTF-8 filesystem representation`);
+    }
+    if (!PORTABLE_PATH_RE.test(f.path)) {
+      problems.push(`${where}: path ${JSON.stringify(f.path)} is outside the portable printable-ASCII filename contract`);
     }
     const segments = f.path.split('/');
     if (INSTALLER_OWNED_ROOTS.has(collisionKey(segments[0]))) {
@@ -596,7 +603,48 @@ async function acquireApi(slug) {
 }
 
 async function acquirePayloadFile(payloadFile) {
-  const doc = JSON.parse(await readFile(payloadFile, 'utf8'));
+  let payloadHandle;
+  try {
+    payloadHandle = await open(payloadFile, 'r');
+  } catch (err) {
+    throw new InstallError(`cannot open pack payload ${payloadFile}: ${err?.message ?? err}`, EXIT.CALLER_ERROR, { code: 'PAYLOAD_UNREADABLE' });
+  }
+  let raw;
+  try {
+    const info = await payloadHandle.stat();
+    if (!info.isFile()) {
+      throw new InstallError(`${payloadFile} is not a regular pack payload file`, EXIT.CALLER_ERROR, { code: 'PAYLOAD_UNREADABLE' });
+    }
+    if (info.size > BUDGETS.max_payload_file_bytes) {
+      throw new InstallError(
+        `${payloadFile} is ${info.size} bytes, over the payload-file budget of ${BUDGETS.max_payload_file_bytes}`,
+        EXIT.INTEGRITY_MISMATCH,
+        { code: 'PAYLOAD_BUDGET_EXCEEDED' }
+      );
+    }
+    const chunks = [];
+    let bytesRead = 0;
+    for await (const chunk of payloadHandle.createReadStream({ autoClose: false })) {
+      bytesRead += chunk.length;
+      if (bytesRead > BUDGETS.max_payload_file_bytes) {
+        throw new InstallError(
+          `${payloadFile} grew beyond the payload-file budget while being read`,
+          EXIT.INTEGRITY_MISMATCH,
+          { code: 'PAYLOAD_BUDGET_EXCEEDED' }
+        );
+      }
+      chunks.push(chunk);
+    }
+    raw = Buffer.concat(chunks, bytesRead).toString('utf8');
+  } finally {
+    await payloadHandle.close();
+  }
+  let doc;
+  try {
+    doc = JSON.parse(raw);
+  } catch (err) {
+    throw new InstallError(`${payloadFile} is not valid JSON: ${err?.message ?? err}`, EXIT.CALLER_ERROR, { code: 'PAYLOAD_MALFORMED' });
+  }
   const pack = doc?.data?.pack ?? doc?.pack ?? doc;
   if (!Array.isArray(pack?.files)) {
     throw new InstallError(`${payloadFile} is not a pack payload (no files[])`, EXIT.CALLER_ERROR, { fix: 'save the download response JSON and pass that file' });
@@ -610,6 +658,28 @@ async function acquirePayloadFile(payloadFile) {
     attestation: pack.attestation ?? null,
     declaredHash: null, // offline: the registry anchor is the only truth
   };
+}
+
+function serializeLicenseMetadata(license) {
+  if (license === null || license === undefined) return null;
+  let serialized;
+  try {
+    serialized = JSON.stringify(license, null, 2);
+  } catch (err) {
+    throw new InstallError(`license metadata is not serializable: ${err?.message ?? err}`, EXIT.INTEGRITY_MISMATCH, { code: 'LICENSE_MALFORMED' });
+  }
+  if (typeof serialized !== 'string') {
+    throw new InstallError('license metadata has no JSON representation', EXIT.INTEGRITY_MISMATCH, { code: 'LICENSE_MALFORMED' });
+  }
+  const bytes = Buffer.byteLength(serialized, 'utf8');
+  if (bytes > BUDGETS.max_license_bytes) {
+    throw new InstallError(
+      `license metadata is ${bytes} bytes, over the budget of ${BUDGETS.max_license_bytes}`,
+      EXIT.INTEGRITY_MISMATCH,
+      { code: 'PAYLOAD_BUDGET_EXCEEDED' }
+    );
+  }
+  return serialized;
 }
 
 /**
@@ -1158,6 +1228,7 @@ export async function install({
       let anchorLabel = 'none';
       let outcome = 'verified';
       let keyId = null;
+      let licenseJson = null;
 
       if (rung === 'git' || rung === 'registry-git') {
         await mkdir(stagingDir, { recursive: true });
@@ -1182,6 +1253,7 @@ export async function install({
         }
       } else {
         acquisition = rung === 'payload' || payloadFile ? await acquirePayloadFile(payloadFile) : await acquireApi(slug);
+        licenseJson = serializeLicenseMetadata(acquisition.license);
 
         // T3.2: containment BEFORE any byte reaches disk.
         const { problems } = validateFileList(acquisition.files);
@@ -1225,8 +1297,8 @@ export async function install({
           const packStage = path.join(stagingDir, 'pack');
           await mkdir(packStage, { recursive: true, mode: 0o700 });
           await stageFileList(packStage, acquisition.files);
-          if (acquisition.license) {
-            await writeFile(path.join(packStage, '.license.json'), JSON.stringify(acquisition.license, null, 2));
+          if (licenseJson !== null) {
+            await writeFile(path.join(packStage, '.license.json'), licenseJson, { mode: 0o600 });
           }
           await writeFile(
             path.join(packStage, '.construct-meta.json'),

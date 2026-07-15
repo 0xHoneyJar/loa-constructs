@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign as cryptoSign, createHash } from 'node:crypto';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, symlink, chmod, stat } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, symlink, chmod, stat, open } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -70,9 +70,10 @@ async function makeRoot({ treeHashValue = null, attested = false, commit = null,
   return root;
 }
 
-async function writePayload(dir, files, { attestation = null, manifest = null } = {}) {
+async function writePayload(dir, files, { attestation = null, manifest = null, license = null } = {}) {
   const file = path.join(dir, 'payload.json');
-  await writeFile(file, JSON.stringify({ pack: { slug: 'goodpack', version: '1.0.0', manifest, files, ...(attestation ? { attestation } : {}) } }));
+  const pack = { slug: 'goodpack', version: '1.0.0', manifest, files, ...(attestation ? { attestation } : {}) };
+  await writeFile(file, JSON.stringify(license === null ? { pack } : { data: { pack, license } }));
   return file;
 }
 
@@ -563,7 +564,47 @@ test('T3.2b: case-folding alias collision refused (two entries, one file on macO
 
 test('T3.2b: Unicode NFC/NFD alias collision refused (two entries, one file on APFS)', async () => {
   const { problems } = validateFileList(await loadRedteam('unicode-normalize-collision.json'));
-  assert.match(problems.join(' '), /collides with/);
+  assert.match(problems.join(' '), /portable printable-ASCII/);
+});
+
+test('T3.2b: Unicode special case folds are refused instead of approximated', () => {
+  const { problems } = validateFileList([
+    { path: 'skills/\u03a3.md', content: b64('capital sigma') },
+    { path: 'skills/\u03c2.md', content: b64('final sigma') },
+  ]);
+  assert.equal(problems.filter((problem) => problem.includes('portable printable-ASCII')).length, 2);
+});
+
+test('T3.2b: supplemental license metadata is bounded and staged owner-only', async () => {
+  const expected = treeHash(GOOD_FILES);
+  const goodRoot = await makeRoot({ treeHashValue: expected });
+  const goodPayload = await writePayload(goodRoot, GOOD_FILES, { license: { spdx: 'MIT' } });
+  const installed = await install({ slug: 'goodpack', root: goodRoot, payloadFile: goodPayload });
+  assert.deepEqual(JSON.parse(await readFile(path.join(installed.path, '.license.json'), 'utf8')), { spdx: 'MIT' });
+  assert.equal((await stat(path.join(installed.path, '.license.json'))).mode & 0o777, 0o600);
+
+  const hostileRoot = await makeRoot({ treeHashValue: expected });
+  const hostilePayload = await writePayload(hostileRoot, GOOD_FILES, {
+    license: { text: 'x'.repeat(BUDGETS.max_license_bytes + 1) },
+  });
+  await rejectsInstall(
+    install({ slug: 'goodpack', root: hostileRoot, payloadFile: hostilePayload }),
+    EXIT.INTEGRITY_MISMATCH,
+    'PAYLOAD_BUDGET_EXCEEDED'
+  );
+});
+
+test('T3.2b: payload-file ingress is bounded before JSON parsing', async () => {
+  const root = await makeRoot({ treeHashValue: treeHash(GOOD_FILES) });
+  const payload = path.join(root, 'oversized-payload.json');
+  const handle = await open(payload, 'w');
+  await handle.truncate(BUDGETS.max_payload_file_bytes + 1);
+  await handle.close();
+  await rejectsInstall(
+    install({ slug: 'goodpack', root, payloadFile: payload }),
+    EXIT.INTEGRITY_MISMATCH,
+    'PAYLOAD_BUDGET_EXCEEDED'
+  );
 });
 
 test('T3.2b: attestation expiry is INSIDE the signed bytes — stripping it breaks the signature', async () => {
