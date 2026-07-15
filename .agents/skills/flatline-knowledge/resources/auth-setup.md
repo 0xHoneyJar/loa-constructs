@@ -98,10 +98,14 @@ Error (auth_expired): Google authentication expired. Run with --setup-auth
 
 ### Refresh Process
 
-1. Delete old session (optional but recommended):
+1. Move the old session aside as a timestamped backup (optional but recommended):
    ```bash
-   rm -rf ~/.claude/notebooklm-auth
+   mv ~/.claude/notebooklm-auth ~/.claude/notebooklm-auth.backup.$(date +%Y%m%dT%H%M%S)
    ```
+
+   This example intentionally names the default profile. If you supplied a custom
+   `--auth-dir`, verify that exact path before moving it. Delete the backup only
+   after the replacement session works.
 
 2. Re-run setup:
    ```bash

@@ -292,9 +292,23 @@ export async function verifyAttestation({ manifest, tree_hash, attestation, keyP
     );
   }
   if (attestation.expiry !== undefined && attestation.expiry !== null) {
-    const at = new Date(attestation.expiry).getTime();
-    if (Number.isNaN(at)) {
-      throw new InstallError(`attestation expiry ${JSON.stringify(attestation.expiry)} is not a date`, EXIT.INTEGRITY_MISMATCH, { code: 'ATTESTATION_MALFORMED' });
+    // Signed security fields need one grammar. Date.parse accepts offsets,
+    // date-only values, and implementation-dependent normalizations, which can
+    // make two verifiers disagree about the same signed bytes. Accept only the
+    // canonical second-precision UTC form and require an exact round trip so
+    // rollover dates (for example, February 30) fail closed as well.
+    const canonicalExpiry = typeof attestation.expiry === 'string'
+      && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(attestation.expiry);
+    const parsedExpiry = canonicalExpiry ? new Date(attestation.expiry) : null;
+    const at = parsedExpiry?.getTime() ?? Number.NaN;
+    const roundTrips = Number.isFinite(at)
+      && parsedExpiry.toISOString().replace('.000Z', 'Z') === attestation.expiry;
+    if (!roundTrips) {
+      throw new InstallError(
+        `attestation expiry ${JSON.stringify(attestation.expiry)} is not canonical UTC RFC 3339 (YYYY-MM-DDTHH:mm:ssZ)`,
+        EXIT.INTEGRITY_MISMATCH,
+        { code: 'ATTESTATION_MALFORMED' }
+      );
     }
     // Expiry is an exclusive upper bound: at the named instant the credential
     // is already invalid, matching JWT/OAuth-style temporal semantics.

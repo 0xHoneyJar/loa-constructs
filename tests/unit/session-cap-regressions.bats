@@ -15,6 +15,22 @@ setup() {
     LOGGER="$REPO_ROOT/.claude/skills/scheduled-cycle-template/contracts/session-cap-bb/logger.sh"
 }
 
+teardown() {
+    local pid="${session_cap_cleanup_pid:-}"
+    [[ -n "$pid" ]] || return 0
+
+    # Release the fixture first so both the dispatcher and its child have a
+    # normal exit path. Bound that grace period, then terminate and reap the
+    # dispatcher so an assertion failure can never strand the Bats shard.
+    [[ -z "${session_cap_cleanup_release:-}" ]] || touch "$session_cap_cleanup_release" 2>/dev/null || true
+    for _ in $(seq 1 100); do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.02
+    done
+    kill "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+}
+
 file_mode() {
     if [[ "$(uname -s)" == "Darwin" ]]; then
         stat -f '%Lp' "$1"
@@ -628,7 +644,11 @@ JSON
     cat > "$mock_bb" <<'SH'
 #!/usr/bin/env bash
 touch "$MOCK_BB_STARTED"
-while [[ ! -e "$MOCK_BB_RELEASE" ]]; do sleep 0.02; done
+deadline=$((SECONDS + 10))
+while [[ ! -e "$MOCK_BB_RELEASE" ]]; do
+    (( SECONDS < deadline )) || exit 124
+    sleep 0.02
+done
 SH
     chmod +x "$mock_bb"
 
@@ -638,6 +658,8 @@ SH
         "$DISPATCHER" "$cycle" schedule 2 '[]' \
         > "$output_file" &
     dispatcher_pid=$!
+    session_cap_cleanup_pid="$dispatcher_pid"
+    session_cap_cleanup_release="$release"
 
     for _ in $(seq 1 100); do
         [[ -e "$started" ]] && break
@@ -654,6 +676,7 @@ SH
     ' -- "$compat" "$state_file"
     touch "$release"
     wait "$dispatcher_pid"
+    session_cap_cleanup_pid=""
 
     [ "$(jq -r '.capture_id' "$state_file")" = "capture-new" ]
     [ "$(jq -r '.lifecycle' "$state_file")" = "pending" ]

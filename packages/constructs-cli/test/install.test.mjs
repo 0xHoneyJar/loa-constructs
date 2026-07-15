@@ -601,6 +601,26 @@ test('T3.2b: attestation expiry is INSIDE the signed bytes — stripping it brea
     verifyAttestation({ manifest, tree_hash: hash, attestation: { signature: badSig, key_id: 'k1', expiry: 'not-a-date' }, keyProvider }),
     (err) => err.code === 'ATTESTATION_MALFORMED'
   );
+
+  // Permissive Date parsing is a verifier differential. Only one signed
+  // representation is accepted, and impossible dates must not normalize.
+  for (const nonCanonicalExpiry of [
+    '2027-01-01T00:00:00+00:00',
+    '2027-01-01T00:00:00.000Z',
+    '2027-01-01',
+    '2027-02-30T00:00:00Z',
+    1798761600000,
+  ]) {
+    await assert.rejects(
+      verifyAttestation({
+        manifest,
+        tree_hash: hash,
+        attestation: { signature: badSig, key_id: 'k1', expiry: nonCanonicalExpiry },
+        keyProvider,
+      }),
+      (err) => err.code === 'ATTESTATION_MALFORMED'
+    );
+  }
 });
 
 test('T3.2b: TOFU actually pins — a changed remote HEAD is refused, not silently re-anchored', async () => {
