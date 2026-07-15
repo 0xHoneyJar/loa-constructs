@@ -492,6 +492,56 @@ test('git rung: executable bits are cleared before the pack lands', async () => 
   assert.equal((await stat(path.join(result.path, 'run-me.sh'))).mode & 0o111, 0);
 });
 
+test('git rung: materializes verified blob bytes without checkout filters or EOL conversion', async () => {
+  const upstream = await makeUpstream();
+  await writeFile(path.join(upstream.dir, '.gitattributes'), '*.txt text eol=crlf\n');
+  await writeFile(path.join(upstream.dir, 'evidence.txt'), 'object\nbytes\n');
+  await mkdir(path.join(upstream.dir, '.git-source'));
+  await writeFile(path.join(upstream.dir, '.git-source', 'fixture.txt'), 'source namespace stays payload\n');
+  await run('git', ['add', '-A'], { cwd: upstream.dir });
+  await run('git', ['-c', 'user.email=f@t', '-c', 'user.name=f', 'commit', '-q', '-m', 'attribute transform fixture'], { cwd: upstream.dir });
+  const root = await makeRoot({ gitUrl: upstream.dir });
+  const result = await install({ slug: 'goodpack', root, rung: 'git' });
+  assert.equal(await readFile(path.join(result.path, 'evidence.txt'), 'utf8'), 'object\nbytes\n');
+  assert.equal(await readFile(path.join(result.path, '.git-source', 'fixture.txt'), 'utf8'), 'source namespace stays payload\n');
+});
+
+test('install root refuses ambient absolute paths, traversal, and symlinked ancestors', async () => {
+  const expected = treeHash(GOOD_FILES);
+  const outside = await mkdtemp(path.join(tmpdir(), 'install-outside-'));
+  const original = process.env.CONSTRUCTS_DIR;
+  try {
+    process.env.CONSTRUCTS_DIR = outside;
+    const absoluteRoot = await makeRoot({ treeHashValue: expected });
+    const absolutePayload = await writePayload(absoluteRoot, GOOD_FILES);
+    await rejectsInstall(install({ slug: 'goodpack', root: absoluteRoot, payloadFile: absolutePayload }), EXIT.REFUSED, 'UNSAFE_INSTALL_ROOT');
+
+    process.env.CONSTRUCTS_DIR = '../escape';
+    const traversalRoot = await makeRoot({ treeHashValue: expected });
+    const traversalPayload = await writePayload(traversalRoot, GOOD_FILES);
+    await rejectsInstall(install({ slug: 'goodpack', root: traversalRoot, payloadFile: traversalPayload }), EXIT.REFUSED, 'UNSAFE_INSTALL_ROOT');
+  } finally {
+    if (original === undefined) delete process.env.CONSTRUCTS_DIR;
+    else process.env.CONSTRUCTS_DIR = original;
+  }
+  assert.deepEqual(await readdir(outside), []);
+
+  const symlinkRoot = await makeRoot({ treeHashValue: expected });
+  const symlinkPayload = await writePayload(symlinkRoot, GOOD_FILES);
+  await symlink(outside, path.join(symlinkRoot, '.claude'));
+  await rejectsInstall(install({ slug: 'goodpack', root: symlinkRoot, payloadFile: symlinkPayload }), EXIT.REFUSED, 'UNSAFE_INSTALL_ROOT');
+  assert.deepEqual(await readdir(outside), []);
+});
+
+test('install root refuses group/world-writable parent directories', async () => {
+  const expected = treeHash(GOOD_FILES);
+  const root = await makeRoot({ treeHashValue: expected });
+  const payload = await writePayload(root, GOOD_FILES);
+  await mkdir(path.join(root, '.claude'));
+  await chmod(path.join(root, '.claude'), 0o777);
+  await rejectsInstall(install({ slug: 'goodpack', root, payloadFile: payload }), EXIT.REFUSED, 'UNSAFE_INSTALL_ROOT');
+});
+
 test('git rung: SHA-256 commit identities work for pinned and persisted TOFU anchors', async () => {
   const upstream = await makeSha256Upstream();
   assert.equal(upstream.head.length, 64);
@@ -514,6 +564,27 @@ test('git rung: absent commit pin → TOFU, recorded as first-seen and surfaced'
   const root = await makeRoot({ gitUrl: upstream.dir });
   const result = await install({ slug: 'goodpack', root, rung: 'git' });
   assert.match(result.payload.install.anchor, new RegExp(`^first-seen:${upstream.head}`));
+  const anchorFile = path.join(root, 'grimoires', 'loa', 'territory', 'anchors', 'goodpack.json');
+  assert.equal((await stat(anchorFile)).mode & 0o777, 0o600);
+  assert.equal((await stat(path.dirname(anchorFile))).mode & 0o777, 0o700);
+});
+
+test('git rung: unsafe TOFU file permissions and symlinks fail closed', async () => {
+  const upstream = await makeUpstream();
+  const root = await makeRoot({ gitUrl: upstream.dir });
+  await install({ slug: 'goodpack', root, rung: 'git' });
+  const anchorFile = path.join(root, 'grimoires', 'loa', 'territory', 'anchors', 'goodpack.json');
+
+  await chmod(anchorFile, 0o666);
+  await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'TOFU_UNSAFE_STORAGE');
+
+  await chmod(anchorFile, 0o600);
+  const external = path.join(root, 'external-anchor.json');
+  await writeFile(external, await readFile(anchorFile, 'utf8'), { mode: 0o600 });
+  const { rm: rmFs } = await import('node:fs/promises');
+  await rmFs(anchorFile);
+  await symlink(external, anchorFile);
+  await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'TOFU_UNSAFE_STORAGE');
 });
 
 test('git rung: registry pin that does not exist in the repo → integrity mismatch', async () => {
@@ -910,7 +981,7 @@ test('S229-P4: committed-metadata failure restores both the previous pack and TO
   await writeFile(path.join(target, '.construct-meta.json'), OLD_MARKER);
   await writeFile(path.join(stage, '.construct-meta.json'), '{"generation":"new"}\n');
   const priorAnchor = `${JSON.stringify({ slug: 'goodpack', commit: 'a'.repeat(40), first_seen_at: '2026-07-14T00:00:00Z' }, null, 2)}\n`;
-  await writeFile(anchorFile, priorAnchor);
+  await writeFile(anchorFile, priorAnchor, { mode: 0o600 });
 
   const receiptPayload = {
     record_version: '1.0',

@@ -45,7 +45,7 @@ export function resolveExit(codes) {
 
 export const ENV_VARS = {
   CONSTRUCTS_API_URL: 'API base for the network rung (default: https://api.constructs.network/v1)',
-  CONSTRUCTS_DIR: 'pack install root (default: .claude/constructs/packs)',
+  CONSTRUCTS_DIR: 'relative pack install root beneath the requested project root (default: .claude/constructs/packs; absolute and traversal paths are refused)',
   LOA_CONSTRUCTS_API_KEY: 'sk_ key for network-registry mutations. NEVER passed on argv. Stationing is keyless — it is gated by the region\'s git permissions.',
   NO_COLOR: 'any value suppresses ANSI styling',
   SOURCE_DATE_EPOCH: 'pins timestamps for reproducible output',

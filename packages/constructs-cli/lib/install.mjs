@@ -357,8 +357,73 @@ export async function verifyAttestation({ manifest, tree_hash, attestation, keyP
 // rename cannot EXDEV) with a per-pack lock held across stage → rename. Nothing
 // is made executable; overwrites touch only pack-marker-managed targets.
 
-function packsParent(root) {
-  return path.resolve(root, process.env.CONSTRUCTS_DIR || '.claude/constructs/packs');
+function storagePathProblem(target, noun, code = 'UNSAFE_INSTALL_ROOT', exitCode = EXIT.REFUSED) {
+  return new InstallError(
+    `${noun} ${target} is not a safe owner-controlled directory`,
+    exitCode,
+    { code, fix: `remove symlinks and group/world write access from ${target}, then retry` }
+  );
+}
+
+function assertSecureDirectoryInfo(info, target, noun, code = 'UNSAFE_INSTALL_ROOT', exitCode = EXIT.REFUSED) {
+  if (info.isSymbolicLink() || !info.isDirectory()) throw storagePathProblem(target, noun, code, exitCode);
+  if (typeof process.getuid === 'function' && info.uid !== process.getuid()) throw storagePathProblem(target, noun, code, exitCode);
+  if ((info.mode & 0o022) !== 0) throw storagePathProblem(target, noun, code, exitCode);
+}
+
+async function ensureSafeContainedDirectory(root, relativePath, { create = false, missingOk = false, code = 'UNSAFE_INSTALL_ROOT', noun = 'storage directory', exitCode = EXIT.REFUSED } = {}) {
+  const rootPath = path.resolve(root);
+  if (
+    typeof relativePath !== 'string' ||
+    relativePath.length === 0 ||
+    path.isAbsolute(relativePath) ||
+    /^[A-Za-z]:[\\/]/.test(relativePath) ||
+    relativePath.includes('\\') ||
+    CONTROL_BYTES_RE.test(relativePath)
+  ) {
+    throw storagePathProblem(String(relativePath), noun, code, exitCode);
+  }
+  const segments = relativePath.split('/');
+  if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
+    throw storagePathProblem(relativePath, noun, code, exitCode);
+  }
+  const target = path.resolve(rootPath, ...segments);
+  if (!target.startsWith(rootPath + path.sep)) throw storagePathProblem(target, noun, code, exitCode);
+
+  let current = rootPath;
+  for (const segment of ['', ...segments]) {
+    if (segment) current = path.join(current, segment);
+    let info;
+    try {
+      info = await lstat(current);
+    } catch (err) {
+      if (err?.code !== 'ENOENT') throw err;
+      if (!create) {
+        if (missingOk) return null;
+        throw storagePathProblem(current, noun, code, exitCode);
+      }
+      try {
+        await mkdir(current, { mode: 0o700 });
+      } catch (mkdirErr) {
+        if (mkdirErr?.code !== 'EEXIST') throw mkdirErr;
+      }
+      info = await lstat(current);
+    }
+    assertSecureDirectoryInfo(info, current, noun, code, exitCode);
+  }
+  return target;
+}
+
+function packsRelativePath() {
+  return process.env.CONSTRUCTS_DIR || '.claude/constructs/packs';
+}
+
+async function ensureSafePacksParent(root, { create = false } = {}) {
+  return ensureSafeContainedDirectory(root, packsRelativePath(), {
+    create,
+    code: 'UNSAFE_INSTALL_ROOT',
+    noun: 'construct install root',
+  });
 }
 
 async function stageFileList(stagingDir, files) {
@@ -371,20 +436,6 @@ async function stageFileList(stagingDir, files) {
     }
     await mkdir(path.dirname(resolved), { recursive: true });
     await writeFile(resolved, Buffer.from(f.content || '', 'base64')); // default mode: no +x
-  }
-}
-
-/** The git rung stages via git itself; repo-borne symlinks are rejected after checkout. */
-async function assertNoSymlinks(dir) {
-  const entries = await readdir(dir, { withFileTypes: true });
-  for (const e of entries) {
-    if (e.name === '.git') continue;
-    const p = path.join(dir, e.name);
-    const info = await lstat(p);
-    if (info.isSymbolicLink()) {
-      throw new InstallError(`containment: symlink ${p} in pack payload rejected outright`, EXIT.INTEGRITY_MISMATCH, { code: 'CONTAINMENT' });
-    }
-    if (info.isDirectory()) await assertNoSymlinks(p);
   }
 }
 
@@ -481,7 +532,7 @@ async function assertOwnedInstallTarget(target, slug) {
  * durable write, so an unmanaged directory costs nothing.
  */
 async function assertReplaceable(root, slug) {
-  const target = path.join(packsParent(root), slug);
+  const target = path.join(await ensureSafePacksParent(root), slug);
   try {
     await lstat(target);
   } catch (err) {
@@ -505,7 +556,7 @@ async function assertReplaceable(root, slug) {
  * always identify what crossed the filesystem commit point.
  */
 async function swapPackIn({ root, slug, stage, transactionId }) {
-  const parent = packsParent(root);
+  const parent = await ensureSafePacksParent(root);
   const target = path.join(parent, slug);
 
   let replacing = false;
@@ -692,23 +743,91 @@ function tofuAnchorPath(root, slug) {
   return path.join(root, 'grimoires', 'loa', 'territory', 'anchors', `${slug}.json`);
 }
 
+async function ensureSafeTofuParent(root, { create = false, missingOk = false } = {}) {
+  const parent = await ensureSafeContainedDirectory(root, 'grimoires/loa/territory/anchors', {
+    create,
+    missingOk,
+    code: 'TOFU_UNSAFE_STORAGE',
+    noun: 'TOFU anchor directory',
+    exitCode: EXIT.INTEGRITY_MISMATCH,
+  });
+  if (parent && create) await chmod(parent, 0o700);
+  return parent;
+}
+
+function tofuStorageProblem(file, message) {
+  return new InstallError(
+    `TOFU anchor ${file} is unsafe: ${message}`,
+    EXIT.INTEGRITY_MISMATCH,
+    { code: 'TOFU_UNSAFE_STORAGE', fix: `restore current-user ownership, mode 0600, and a non-symlink path for ${file}` }
+  );
+}
+
+async function readSecureTofuAnchorRaw(root, slug) {
+  const parent = await ensureSafeTofuParent(root, { missingOk: true });
+  if (!parent) return null;
+  const file = path.join(parent, `${slug}.json`);
+  let handle;
+  try {
+    handle = await open(file, 'r');
+  } catch (err) {
+    if (err?.code === 'ENOENT') return null;
+    throw tofuStorageProblem(file, `cannot open it (${err?.message ?? err})`);
+  }
+
+  try {
+    const openedInfo = await handle.stat();
+    const pathInfoBefore = await lstat(file);
+    const sameEntryBefore = openedInfo.dev === pathInfoBefore.dev && openedInfo.ino === pathInfoBefore.ino;
+    if (pathInfoBefore.isSymbolicLink() || !openedInfo.isFile() || !pathInfoBefore.isFile() || !sameEntryBefore) {
+      throw tofuStorageProblem(file, 'it is not one stable real regular file');
+    }
+    if (typeof process.getuid === 'function' && (openedInfo.uid !== process.getuid() || pathInfoBefore.uid !== process.getuid())) {
+      throw tofuStorageProblem(file, 'it is not owned by the current user');
+    }
+    if ((openedInfo.mode & 0o777) !== 0o600 || (pathInfoBefore.mode & 0o777) !== 0o600) {
+      throw tofuStorageProblem(file, 'its mode is not exactly 0600');
+    }
+    const raw = await handle.readFile('utf8');
+    const pathInfoAfter = await lstat(file);
+    const sameEntryAfter = openedInfo.dev === pathInfoAfter.dev && openedInfo.ino === pathInfoAfter.ino;
+    if (pathInfoAfter.isSymbolicLink() || !pathInfoAfter.isFile() || !sameEntryAfter) {
+      throw tofuStorageProblem(file, 'it changed while being read');
+    }
+    return raw;
+  } finally {
+    await handle.close();
+  }
+}
+
+async function writeSecureTofuAnchorRaw(root, slug, raw) {
+  const parent = await ensureSafeTofuParent(root, { create: true });
+  const file = path.join(parent, `${slug}.json`);
+  const tmp = path.join(parent, `.${slug}.${randomUUID()}.tmp`);
+  let handle;
+  try {
+    handle = await open(tmp, 'wx', 0o600);
+    await handle.writeFile(raw, 'utf8');
+    await handle.chmod(0o600);
+    await handle.sync();
+  } finally {
+    if (handle) await handle.close();
+  }
+  await rename(tmp, file);
+  const info = await lstat(file);
+  if (info.isSymbolicLink() || !info.isFile() || (info.mode & 0o777) !== 0o600 || (typeof process.getuid === 'function' && info.uid !== process.getuid())) {
+    throw tofuStorageProblem(file, 'the committed file failed its owner/mode check');
+  }
+}
+
 /**
  * Absent means "never installed". Malformed or unreadable means the trust state
  * is UNKNOWN — and unknown trust must never read as fresh trust (review pass 1).
  */
 async function readTofuAnchor(root, slug) {
   const file = tofuAnchorPath(root, slug);
-  let raw;
-  try {
-    raw = await readFile(file, 'utf8');
-  } catch (err) {
-    if (err?.code === 'ENOENT') return null; // never installed: first use is next
-    throw new InstallError(
-      `TOFU anchor ${file} exists but cannot be read: ${err?.message ?? err}`,
-      EXIT.INTEGRITY_MISMATCH,
-      { code: 'TOFU_UNREADABLE', fix: 'fix permissions, or delete the anchor to knowingly re-establish first-use trust' }
-    );
-  }
+  const raw = await readSecureTofuAnchorRaw(root, slug);
+  if (raw === null) return null; // never installed: first use is next
   let doc;
   try {
     doc = JSON.parse(raw);
@@ -739,12 +858,12 @@ async function readTofuAnchor(root, slug) {
 
 /** Atomic: an interrupted write must not leave a half-anchor that reads as absent. */
 async function writeTofuAnchor(root, slug, commit) {
-  const file = tofuAnchorPath(root, slug);
-  await mkdir(path.dirname(file), { recursive: true });
-  const tmp = `${file}.tmp-${process.pid}`;
   const objectFormat = commit.length === 64 ? 'sha256' : 'sha1';
-  await writeFile(tmp, `${JSON.stringify({ slug, commit, object_format: objectFormat, first_seen_at: nowIso() }, null, 2)}\n`, 'utf8');
-  await rename(tmp, file);
+  await writeSecureTofuAnchorRaw(
+    root,
+    slug,
+    `${JSON.stringify({ slug, commit, object_format: objectFormat, first_seen_at: nowIso() }, null, 2)}\n`
+  );
 }
 
 function installTransactionPayload(receiptPayload, transactionState, attemptNonce = randomUUID()) {
@@ -859,15 +978,12 @@ async function finishPackSwap({ backup }, slug) {
 
 async function restoreTofuAnchor(root, slug, priorRaw) {
   const file = tofuAnchorPath(root, slug);
-  const tmp = `${file}.tmp-${process.pid}`;
-  await rm(tmp, { force: true }).catch(() => {});
   if (priorRaw === null) {
+    await readSecureTofuAnchorRaw(root, slug);
     await rm(file, { force: true });
     return;
   }
-  await mkdir(path.dirname(file), { recursive: true });
-  await writeFile(tmp, priorRaw, 'utf8');
-  await rename(tmp, file);
+  await writeSecureTofuAnchorRaw(root, slug, priorRaw);
 }
 
 /**
@@ -890,17 +1006,7 @@ export async function commitInstallTransaction({
 }) {
   let priorAnchorRaw = null;
   if (pendingAnchor) {
-    try {
-      priorAnchorRaw = await readFile(tofuAnchorPath(root, slug), 'utf8');
-    } catch (err) {
-      if (err?.code !== 'ENOENT') {
-        throw new InstallError(
-          `cannot snapshot the existing TOFU anchor before install: ${err?.message ?? err}`,
-          EXIT.TOOL_FAILURE,
-          { code: 'FILESYSTEM_LOOKUP_FAILED', fix: 'fix the anchor path or filesystem permissions, then retry' }
-        );
-      }
-    }
+    priorAnchorRaw = await readSecureTofuAnchorRaw(root, slug);
   }
 
   // Content identity and event identity are different: SOURCE_DATE_EPOCH may
@@ -992,6 +1098,7 @@ export function validateGitTreeBytes(stdout) {
   }
 
   const paths = [];
+  const entries = [];
   let totalBytes = 0n;
   for (const record of records) {
     const tab = record.indexOf(0x09);
@@ -1021,13 +1128,16 @@ export function validateGitTreeBytes(stdout) {
     if (!Buffer.from(filePath, 'utf8').equals(pathBytes)) {
       throw new InstallError('git tree path does not round-trip as canonical UTF-8', EXIT.INTEGRITY_MISMATCH, { code: 'GIT_PATH_ENCODING' });
     }
-    const [, mode, type, , sizeText] = match;
+    const [, mode, type, objectId, sizeText] = match;
     if (mode === '120000' || type !== 'blob') {
       throw new InstallError(
         `git tree entry ${JSON.stringify(filePath)} has unsupported mode/type ${mode} ${type}`,
         EXIT.INTEGRITY_MISMATCH,
         { code: 'CONTAINMENT' }
       );
+    }
+    if (!GIT_OBJECT_ID_RE.test(objectId)) {
+      throw new InstallError(`git tree entry ${JSON.stringify(filePath)} has a malformed object id`, EXIT.INTEGRITY_MISMATCH, { code: 'GIT_TREE_MALFORMED' });
     }
     if (sizeText === '-') {
       throw new InstallError(
@@ -1046,6 +1156,7 @@ export function validateGitTreeBytes(stdout) {
     }
     totalBytes += bytes;
     paths.push({ path: filePath, content: '' });
+    entries.push({ path: filePath, objectId, size: Number(bytes) });
   }
   if (totalBytes > BigInt(BUDGETS.max_total_bytes)) {
     throw new InstallError(
@@ -1061,7 +1172,10 @@ export function validateGitTreeBytes(stdout) {
   // Git's own object IDs may be SHA-1 or SHA-256. Receipts use one stable
   // algorithm over the exact inspected tree representation so `tree_hash`
   // always means a computed claim, never a placeholder.
-  return `sha256:${createHash('sha256').update(stdout).digest('hex')}`;
+  return {
+    treeHash: `sha256:${createHash('sha256').update(stdout).digest('hex')}`,
+    entries,
+  };
 }
 
 async function normalizeGitFileModes(dir) {
@@ -1071,6 +1185,30 @@ async function normalizeGitFileModes(dir) {
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) await normalizeGitFileModes(file);
     else if (entry.isFile()) await chmod(file, 0o644);
+  }
+}
+
+async function materializeGitObjects(repoDir, targetDir, entries) {
+  await mkdir(targetDir, { recursive: true, mode: 0o700 });
+  for (const entry of entries) {
+    const { stdout } = await run('git', ['-C', repoDir, 'cat-file', 'blob', entry.objectId], {
+      timeoutMs: 30_000,
+      encoding: 'buffer',
+      maxBuffer: BUDGETS.max_single_file_bytes + 1,
+    });
+    if (stdout.length !== entry.size) {
+      throw new InstallError(
+        `git blob ${entry.objectId} for ${entry.path} materialized as ${stdout.length} bytes, expected ${entry.size}`,
+        EXIT.INTEGRITY_MISMATCH,
+        { code: 'GIT_OBJECT_MISMATCH' }
+      );
+    }
+    const destination = path.resolve(targetDir, entry.path);
+    if (destination === targetDir || !destination.startsWith(targetDir + path.sep)) {
+      throw new InstallError(`git materialization escaped its staging directory through ${JSON.stringify(entry.path)}`, EXIT.INTEGRITY_MISMATCH, { code: 'CONTAINMENT' });
+    }
+    await mkdir(path.dirname(destination), { recursive: true, mode: 0o700 });
+    await writeFile(destination, stdout, { mode: 0o600 });
   }
 }
 
@@ -1113,13 +1251,20 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
       }
     );
   }
+  // Keep Git's object database outside the pack materialization target. A
+  // source tree is allowed to contain a path named `.git-source`; placing the
+  // temporary repository inside `stagingDir` would let that legitimate source
+  // path collide with installer scratch state. Both directories remain inside
+  // the outer transaction staging directory, so the caller's final cleanup
+  // removes them together on every success or failure path.
+  const repoDir = path.join(path.dirname(stagingDir), '.git-source');
   let head;
   if (anchor.commit) {
-    await mkdir(stagingDir, { recursive: true });
+    await mkdir(repoDir, { recursive: true });
     const objectFormat = anchor.commit.length === 64 ? 'sha256' : 'sha1';
-    await run('git', ['init', '-q', `--object-format=${objectFormat}`, stagingDir], { timeoutMs: 15_000 });
+    await run('git', ['init', '-q', `--object-format=${objectFormat}`, repoDir], { timeoutMs: 15_000 });
     try {
-      await run('git', ['-C', stagingDir, 'fetch', '-q', '--depth=1', '--filter=blob:none', '--no-tags', gitUrl, anchor.commit], { timeoutMs: 120_000 });
+      await run('git', ['-C', repoDir, 'fetch', '-q', '--depth=1', '--filter=blob:none', '--no-tags', gitUrl, anchor.commit], { timeoutMs: 120_000 });
     } catch (err) {
       if (pinnedObjectDefinitelyMissing(err, anchor.commit)) {
         throw new InstallError(`registry pins ${slug} to ${anchor.commit}, which does not exist in ${anchor.git_url}`, EXIT.INTEGRITY_MISMATCH, { code: 'ANCHOR_MISMATCH' });
@@ -1137,13 +1282,13 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
   } else {
     await run(
       'git',
-      ['clone', '-q', '--no-checkout', '--depth=1', '--filter=blob:none', '--no-tags', '--', gitUrl, stagingDir],
+      ['clone', '-q', '--no-checkout', '--depth=1', '--filter=blob:none', '--no-tags', '--', gitUrl, repoDir],
       { timeoutMs: 120_000 }
     );
-    const resolved = await run('git', ['-C', stagingDir, 'rev-parse', 'HEAD'], { timeoutMs: 15_000 });
+    const resolved = await run('git', ['-C', repoDir, 'rev-parse', 'HEAD'], { timeoutMs: 15_000 });
     head = resolved.stdout.trim();
   }
-  const inspectedTreeHash = await inspectGitTree(stagingDir, head);
+  const inspectedTree = await inspectGitTree(repoDir, head);
   let tofu = null;
   // The anchor a successful landing WOULD persist. A --dry-run must never mutate
   // trust state (review pass 1), so nothing is written from inside acquisition.
@@ -1179,16 +1324,18 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
       );
     }
   }
-  await run('git', ['-C', stagingDir, 'checkout', '-q', '--detach', head], { timeoutMs: 30_000 });
+  // Materialize the exact verified blobs. `git checkout` is deliberately not
+  // used: attributes, smudge filters, and line-ending conversion can transform
+  // object bytes after the tree was attested.
+  await materializeGitObjects(repoDir, stagingDir, inspectedTree.entries);
+  await rm(repoDir, { recursive: true, force: true });
   try {
     await readFile(path.join(stagingDir, 'construct.yaml'), 'utf8');
   } catch {
     throw new InstallError(`${anchor.git_url} has no construct.yaml at its root — not a construct`, EXIT.INTEGRITY_MISMATCH, { code: 'NOT_A_CONSTRUCT' });
   }
-  await assertNoSymlinks(stagingDir);
   await normalizeGitFileModes(stagingDir);
-  await rm(path.join(stagingDir, '.git'), { recursive: true, force: true });
-  return { rung: 'registry-git', head, treeHash: inspectedTreeHash, tofu: tofu !== null, pendingAnchor, rotatedFrom };
+  return { rung: 'registry-git', head, treeHash: inspectedTree.treeHash, tofu: tofu !== null, pendingAnchor, rotatedFrom };
 }
 
 // ── the install flow ──────────────────────────────────────────────────────────
@@ -1215,9 +1362,8 @@ export async function install({
   // fail closed, and readRegistryAnchor throws exactly then (review pass 1).
   const anchor = await readRegistryAnchor(slug, path.join(root, registryFile));
   const dryRunRoot = dryRun ? await mkdtemp(path.join(os.tmpdir(), 'constructs-dry-run-')) : null;
-  const parent = dryRunRoot ?? packsParent(root);
-  if (!dryRun) await mkdir(parent, { recursive: true });
-  const stagingDir = path.join(parent, `.staging-${slug}-${process.pid}`);
+  const parent = dryRunRoot ?? await ensureSafePacksParent(root, { create: true });
+  const stagingDir = path.join(parent, `.staging-${slug}-${process.pid}-${randomUUID()}`);
 
   const executeInstall = async () => {
     await rm(stagingDir, { recursive: true, force: true });
@@ -1372,6 +1518,7 @@ export async function install({
         payload: transaction.committedPayload,
       };
     } finally {
+      if (!dryRun) await ensureSafePacksParent(root);
       await rm(stagingDir, { recursive: true, force: true });
     }
   };
