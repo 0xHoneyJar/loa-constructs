@@ -19,6 +19,7 @@ import {
   verifyAttestation,
   attestationBytes,
   readRegistryAnchor,
+  commitInstallTransaction,
   BUDGETS,
   InstallError,
 } from '../lib/install.mjs';
@@ -79,6 +80,16 @@ test('redteam: traversal-shaped name rejected', async () => {
   assert.match(problems.join(' '), /traversal-shaped/);
 });
 
+test('containment accepts uppercase names and rejects the exact C0 plus DEL byte set', () => {
+  const uppercase = validateFileList([{ path: 'Skills/README.md', content: b64('ok') }]);
+  assert.deepEqual(uppercase.problems, []);
+
+  for (const control of ['\n', '\t', '\u0000', '\u001f', '\u007f']) {
+    const verdict = validateFileList([{ path: `skills/bad${control}name.md`, content: b64('bad') }]);
+    assert.match(verdict.problems.join(' '), /control bytes/);
+  }
+});
+
 test('redteam: absolute path rejected', async () => {
   const { problems } = validateFileList(await loadRedteam('absolute-path.json'));
   assert.match(problems.join(' '), /absolute path/);
@@ -136,6 +147,7 @@ test('install (payload rung): verified against the registry anchor; receipt vali
   const result = await install({ slug: 'goodpack', root, payloadFile: payload });
   assert.equal(result.mode, 'installed');
   assert.equal(result.payload.install.outcome, 'verified');
+  assert.equal(result.payload.install.transaction_state, 'committed');
   assert.match(result.payload.install.anchor, /^registry:sha256:/);
   const files = await readdir(path.join(result.path, 'skills', 'greet'));
   assert.ok(files.includes('SKILL.md'));
@@ -143,6 +155,10 @@ test('install (payload rung): verified against the registry anchor; receipt vali
   const verdict = await verifyReceipt(result.receipt_path);
   assert.equal(verdict.valid, true, verdict.problems.join('; '));
   assert.equal(verdict.payload.kind, 'install');
+  const prepared = await verifyReceipt(result.prepared_receipt_path);
+  assert.equal(prepared.valid, true, prepared.problems.join('; '));
+  assert.equal(prepared.payload.install.transaction_state, 'prepared');
+  assert.equal(prepared.payload.install.transaction_id, verdict.payload.install.transaction_id);
 });
 
 test('install: tampered pack → exit 4, nothing lands', async () => {
@@ -472,7 +488,45 @@ test('S229-5: a receipt failure rolls the pack back — never installed-but-unre
 
 // ── review pass 2 (sprint-229): ordering IS the transaction ───────────────────
 
-test('S229-P2: a pack is NEVER visible without its record — the anchor and receipt land first', async () => {
+test('S229-P2: failed landing leaves only a prepared receipt and does not rotate TOFU', async () => {
+  const root = await makeRoot();
+  const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
+  const packsDir = path.join(root, '.claude', 'constructs', 'packs');
+  await mkdir(receiptsDir, { recursive: true });
+  await mkdir(packsDir, { recursive: true });
+
+  const receiptPayload = {
+    record_version: '1.0',
+    kind: 'install',
+    ts: '2026-07-14T00:00:00Z',
+    actor: 'test',
+    construct: 'goodpack',
+    install: {
+      rung: 'registry-git',
+      tree_hash: `sha256:${'0'.repeat(64)}`,
+      outcome: 'verified',
+      anchor: `first-seen:${'a'.repeat(40)}`,
+    },
+  };
+
+  await assert.rejects(commitInstallTransaction({
+    root,
+    slug: 'goodpack',
+    stage: path.join(packsDir, 'missing-stage'),
+    receiptsDir,
+    receiptPayload,
+    pendingAnchor: 'a'.repeat(40),
+  }));
+
+  const records = (await readdir(receiptsDir)).filter((name) => name.endsWith('.json'));
+  assert.equal(records.length, 1, 'a failed landing records one prepared fact, never completion');
+  const prepared = JSON.parse(await readFile(path.join(receiptsDir, records[0]), 'utf8'));
+  assert.equal(prepared.install.transaction_state, 'prepared');
+  await assert.rejects(readFile(path.join(root, 'grimoires', 'loa', 'territory', 'anchors', 'goodpack.json')));
+  await assert.rejects(readdir(path.join(packsDir, 'goodpack')));
+});
+
+test('S229-P2: a pack is NEVER visible without a prepared record', async () => {
   const upstream = await makeUpstream();
   const root = await makeRoot({ gitUrl: upstream.dir });
   const packDir = path.join(root, '.claude', 'constructs', 'packs', 'goodpack');
@@ -485,8 +539,8 @@ test('S229-P2: a pack is NEVER visible without its record — the anchor and rec
   await assert.rejects(install({ slug: 'goodpack', root, rung: 'git' }));
   await assert.rejects(readdir(packDir), 'no pack may exist when its record could not be written');
 
-  // Unblock: the SAME run now converges — the anchor is re-pinned identically, the
-  // content-addressed receipt is re-derived identically, and the pack lands.
+  // Unblock: the next run writes a prepared record, lands the pack, then publishes
+  // the anchor and committed record.
   const { rm: rmFs } = await import('node:fs/promises');
   await rmFs(receiptsDir, { force: true });
   const ok = await install({ slug: 'goodpack', root, rung: 'git' });

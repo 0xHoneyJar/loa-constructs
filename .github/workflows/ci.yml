@@ -666,14 +666,20 @@ jobs:
 
       - name: Assert committed implementation sources are non-empty
         run: |
+          source_count=0
           missing=0
           while IFS= read -r source; do
+            source_count=$((source_count + 1))
             if [ ! -s "$source" ]; then
               echo "empty Bridgebuilder source: $source"
               missing=1
             fi
           done < <(find .agents/skills/bridgebuilder-review/resources \
             -type f -name '*.ts' ! -path '*/__tests__/*' | sort)
+          if [ "$source_count" -eq 0 ]; then
+            echo "no committed Bridgebuilder implementation sources found"
+            exit 1
+          fi
           test "$missing" -eq 0
 
       - name: Install locked dependencies

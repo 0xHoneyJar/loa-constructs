@@ -44,7 +44,7 @@ export const BUDGETS = Object.freeze({
   max_single_file_bytes: 4 * 1024 * 1024,
 });
 
-const CONTROL_BYTES_RE = /[\u0000-\u001f]/; // control bytes in a file NAME are never legitimate
+const CONTROL_BYTES_RE = /[\u0000-\u001f\u007f]/; // C0 + DEL in a file NAME are never legitimate
 
 /**
  * The portable collision key (T3.2b, adversarial fixture review).
@@ -310,20 +310,13 @@ async function assertReplaceable(root, slug) {
 }
 
 /**
- * The pack swap — the LAST durable step and the transaction's single commit point
- * (review pass 2).
+ * The pack swap — the transaction's filesystem commit point (review pass 2).
  *
- * The ordering is what makes this crash-safe, not a rollback branch: the anchor and
- * the receipt are written FIRST, and the pack becomes visible LAST, via one atomic
- * rename. So a kill -9 at any instant leaves exactly one of two states:
- *
- *   before the rename — anchor + receipt exist, the pack is not installed. Re-running
- *     the install re-derives the SAME content-addressed receipt (idempotent) and the
- *     same pinned anchor, then lands the pack. The state converges; nothing is lost.
- *   after the rename  — everything is durable. Done.
- *
- * The state a process kill can never produce is the dangerous one: a pack installed
- * with no record of where it came from.
+ * A prepared receipt is written before this rename. The TOFU anchor and committed
+ * receipt are published only after it succeeds. A crash therefore leaves an honest
+ * prepared record rather than a false completed install or a prematurely rotated
+ * trust anchor. The staged pack carries its own provenance marker, so recovery can
+ * always identify what crossed the filesystem commit point.
  */
 async function swapPackIn({ root, slug, stage }) {
   const parent = packsParent(root);
@@ -474,6 +467,40 @@ async function writeTofuAnchor(root, slug, commit) {
   const tmp = `${file}.tmp-${process.pid}`;
   await writeFile(tmp, `${JSON.stringify({ slug, commit, first_seen_at: nowIso() }, null, 2)}\n`, 'utf8');
   await rename(tmp, file);
+}
+
+function installTransactionPayload(receiptPayload, transactionState) {
+  const transactionId = `sha256:${createHash('sha256')
+    .update(jcsCanonicalize(receiptPayload), 'utf8')
+    .digest('hex')}`;
+  return {
+    ...receiptPayload,
+    install: {
+      ...receiptPayload.install,
+      transaction_id: transactionId,
+      transaction_state: transactionState,
+    },
+  };
+}
+
+/**
+ * Commit one install while the caller holds the receipts lock.
+ *
+ * The prepared receipt is the write-ahead record. The pack rename is the
+ * filesystem commit point. Only committed reality may rotate trust or emit the
+ * completed receipt. Failed or killed landings are therefore distinguishable
+ * from successful installs and converge safely on retry.
+ */
+export async function commitInstallTransaction({ root, slug, stage, receiptsDir, receiptPayload, pendingAnchor = null }) {
+  const preparedPayload = installTransactionPayload(receiptPayload, 'prepared');
+  const preparedRecord = await writeRecordUnlocked(receiptsDir, preparedPayload);
+
+  const landed = await swapPackIn({ root, slug, stage });
+  if (pendingAnchor) await writeTofuAnchor(root, slug, pendingAnchor);
+
+  const committedPayload = installTransactionPayload(receiptPayload, 'committed');
+  const committedRecord = await writeRecordUnlocked(receiptsDir, committedPayload);
+  return { landed, preparedRecord, committedRecord, committedPayload };
 }
 
 async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrityMismatch = false, dryRun = false }) {
@@ -671,28 +698,42 @@ export async function install({
       };
 
       const schema = await installReceiptSchema();
-      const { valid, errors } = validateSchema(schema, receiptPayload);
-      if (!valid) throw new InstallError(`install receipt failed its own schema: ${errors.join('; ')}`, EXIT.TOOL_FAILURE);
+      for (const candidate of [
+        receiptPayload,
+        installTransactionPayload(receiptPayload, 'prepared'),
+        installTransactionPayload(receiptPayload, 'committed'),
+      ]) {
+        const { valid, errors } = validateSchema(schema, candidate);
+        if (!valid) throw new InstallError(`install receipt failed its own schema: ${errors.join('; ')}`, EXIT.TOOL_FAILURE);
+      }
 
       if (dryRun) {
         return { mode: 'dry-run', slug, payload: receiptPayload };
       }
 
-      // Ordering IS the transaction (review pass 2). Refuse first, then write the
-      // trust state and the record, and make the pack visible LAST with one atomic
-      // rename. A kill -9 can leave a receipt+anchor without a pack (harmless and
-      // self-healing — the re-run is idempotent), but never a pack without a record.
+      // Ordering IS the transaction. Refuse first, write an explicitly prepared
+      // receipt, atomically land the pack, then publish the trust anchor and
+      // committed receipt. No durable fact claims completion before reality does.
       await assertReplaceable(root, slug);
-
-      if (gitInfo?.pendingAnchor) await writeTofuAnchor(root, slug, gitInfo.pendingAnchor);
-
       const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
       await mkdir(receiptsDir, { recursive: true });
-      const record = await writeRecordUnlocked(receiptsDir, receiptPayload);
+      const transaction = await commitInstallTransaction({
+        root,
+        slug,
+        stage: path.join(stagingDir, 'pack'),
+        receiptsDir,
+        receiptPayload,
+        pendingAnchor: gitInfo?.pendingAnchor ?? null,
+      });
 
-      const landed = await swapPackIn({ root, slug, stage: path.join(stagingDir, 'pack') });
-
-      return { mode: 'installed', slug, path: landed, receipt_path: record.receipt_path, payload: receiptPayload };
+      return {
+        mode: 'installed',
+        slug,
+        path: transaction.landed,
+        receipt_path: transaction.committedRecord.receipt_path,
+        prepared_receipt_path: transaction.preparedRecord.receipt_path,
+        payload: transaction.committedPayload,
+      };
     } finally {
       await rm(stagingDir, { recursive: true, force: true });
     }
@@ -705,4 +746,4 @@ function nowIso() {
   return d.toISOString().replace(/\.[0-9]{3}Z$/, 'Z');
 }
 
-export default { install, validateFileList, treeHash, verifyAttestation, attestationBytes, readRegistryAnchor, BUDGETS, InstallError };
+export default { install, validateFileList, treeHash, verifyAttestation, attestationBytes, readRegistryAnchor, commitInstallTransaction, BUDGETS, InstallError };
