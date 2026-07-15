@@ -3,6 +3,8 @@
 setup() {
     umask 077
     REPO_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
+    # shellcheck source=/dev/null
+    source "$REPO_ROOT/.claude/scripts/lib/session-cap-state-lib.sh"
     FANOUT="$REPO_ROOT/.claude/scripts/session-cap-fanout.sh"
     RECONCILER="$REPO_ROOT/.claude/scripts/session-cap-reconcile.sh"
     L3_LIB="$REPO_ROOT/.claude/scripts/lib/scheduled-cycle-lib.sh"
@@ -395,7 +397,8 @@ SH
         handoff="$BATS_TEST_TMPDIR/loa-session-cap-bb.${cycle}"
         mkdir -m 700 -p "$handoff"
         jq -n '{action:"dispatch", capture_id:"capture-once", review_target:{repo:"0xHoneyJar/fixture", pr_number:42}}' > "$handoff/decider.json"
-        run env TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" MOCK_BB_ARGS="$args_file" \
+        run bash -c 'umask 022; exec "$@"' -- env \
+            TMPDIR="$BATS_TEST_TMPDIR" MOCK_BB_CALLS="$calls" MOCK_BB_ARGS="$args_file" \
             LOA_SESSION_CAP_STATE_FILE="$state_file" LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fixture" \
             LOA_SESSION_CAP_BB_ENTRY="$mock_bb" LOA_SESSION_CAP_NOW_EPOCH=120 \
             "$DISPATCHER" "$cycle" schedule 2 '[]'
@@ -412,6 +415,7 @@ SH
     [ "$(cat "$args_file")" = "--repo 0xHoneyJar/fixture --pr 42" ]
     [ "$(jq -r '.lifecycle' "$state_file")" = "completed" ]
     [ "$(jq -r '.attempt_count' "$state_file")" = "1" ]
+    [ "$(_session_cap_state_mode "$state_file")" = "600" ]
 }
 
 @test "dispatcher retries failures with one idempotency key and a bounded budget" {

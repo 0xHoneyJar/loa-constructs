@@ -40,12 +40,28 @@ LIB="${REPO_ROOT}/.claude/scripts/lib/soul-identity-lib.sh"
 # bats-detected ancestor. Mirrors L4/L6 cycle-098 patterns.
 # -----------------------------------------------------------------------------
 _l7_test_mode_active() {
+    local test_file test_dir pid command_line depth=0
     # cycle-098 sprint-7 cypherpunk CRIT-1 remediation: require BOTH a
-    # robust bats marker AND opt-in `LOA_SOUL_TEST_MODE=1`. Mirrors the
+    # verified bats process AND opt-in `LOA_SOUL_TEST_MODE=1`. Mirrors the
     # lib-side gate at .claude/scripts/lib/soul-identity-lib.sh.
     [[ "${LOA_SOUL_TEST_MODE:-0}" == "1" ]] || return 1
-    [[ -n "${BATS_TEST_FILENAME:-}" ]] && return 0
-    [[ -n "${BATS_VERSION:-}" ]] && return 0
+    test_file="${BATS_TEST_FILENAME:-}"
+    [[ -n "$test_file" && -f "$test_file" && "$test_file" == *.bats ]] || return 1
+    test_dir="$(cd "$(dirname "$test_file")" 2>/dev/null && pwd -P)" || return 1
+    case "${test_dir}/" in
+        "${REPO_ROOT}/tests/"*) ;;
+        *) return 1 ;;
+    esac
+
+    pid="${PPID:-}"
+    while [[ "$pid" =~ ^[1-9][0-9]*$ ]] && (( depth < 12 )); do
+        command_line="$(/bin/ps -o command= -p "$pid" 2>/dev/null || true)"
+        case "$command_line" in
+            *bats-exec-test*|*bats-exec-file*|*/bats-core/*|*/bin/bats\ *) return 0 ;;
+        esac
+        pid="$(/bin/ps -o ppid= -p "$pid" 2>/dev/null | tr -d '[:space:]')"
+        depth=$((depth + 1))
+    done
     return 1
 }
 

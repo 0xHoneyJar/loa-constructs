@@ -111,6 +111,19 @@ EOF
     '
 }
 
+@test "CRIT-1 spoofed out-of-repo BATS filename does NOT activate test-mode" {
+    local fake_test="$TEST_DIR/spoof.bats"
+    printf '#!/usr/bin/env bats\n' > "$fake_test"
+    bash -c '
+        export LOA_SOUL_TEST_MODE=1 BATS_VERSION=1.10.0 BATS_TEST_FILENAME="$1"
+        # shellcheck source=/dev/null
+        source "$2"
+        if _soul_test_mode_active; then
+            echo "BYPASS: out-of-repo BATS filename activated test-mode"; exit 1
+        fi
+    ' -- "$fake_test" "$LIB"
+}
+
 # ---------------------------------------------------------------------------
 # HIGH-1 closure — realpath REPO_ROOT containment for config.path
 # ---------------------------------------------------------------------------

@@ -75,9 +75,27 @@ _LOA_SOUL_DEFAULT_PATH="${_LOA_SOUL_REPO_ROOT}/SOUL.md"
 # clauses together.
 # -----------------------------------------------------------------------------
 _soul_test_mode_active() {
+    local test_file test_dir pid command_line depth=0
     [[ "${LOA_SOUL_TEST_MODE:-0}" == "1" ]] || return 1
-    [[ -n "${BATS_TEST_FILENAME:-}" ]] && return 0
-    [[ -n "${BATS_VERSION:-}" ]] && return 0
+    test_file="${BATS_TEST_FILENAME:-}"
+    [[ -n "$test_file" && -f "$test_file" && "$test_file" == *.bats ]] || return 1
+    test_dir="$(cd "$(dirname "$test_file")" 2>/dev/null && pwd -P)" || return 1
+    case "${test_dir}/" in
+        "${_LOA_SOUL_REPO_ROOT}/tests/"*) ;;
+        *) return 1 ;;
+    esac
+
+    # Environment markers are caller-controlled. Require a real bats-core
+    # process in the ancestry before enabling any filesystem override.
+    pid="${PPID:-}"
+    while [[ "$pid" =~ ^[1-9][0-9]*$ ]] && (( depth < 12 )); do
+        command_line="$(/bin/ps -o command= -p "$pid" 2>/dev/null || true)"
+        case "$command_line" in
+            *bats-exec-test*|*bats-exec-file*|*/bats-core/*|*/bin/bats\ *) return 0 ;;
+        esac
+        pid="$(/bin/ps -o ppid= -p "$pid" 2>/dev/null | tr -d '[:space:]')"
+        depth=$((depth + 1))
+    done
     return 1
 }
 

@@ -141,7 +141,7 @@ pr_number="$state_pr"
 claimed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 claim_id="${cycle_id}:$$:${now_epoch}"
 state_tmp="${STATE_FILE}.tmp.$$"
-if ! jq --arg capture "$capture_id" --arg ts "$claimed_at" --argjson epoch "$now_epoch" \
+if ! (umask 077 && jq --arg capture "$capture_id" --arg ts "$claimed_at" --argjson epoch "$now_epoch" \
     --arg cycle "$cycle_id" --arg claim "$claim_id" \
     'if .capture_id == $capture then
        .lifecycle = "claimed" |
@@ -152,7 +152,11 @@ if ! jq --arg capture "$capture_id" --arg ts "$claimed_at" --argjson epoch "$now
        .retry_after_epoch = null |
        .last_error = null
      else error("capture is not claimable") end' \
-    "$STATE_FILE" > "$state_tmp" || ! mv -f "$state_tmp" "$STATE_FILE"; then
+    "$STATE_FILE" > "$state_tmp") \
+    || ! chmod 600 "$state_tmp" \
+    || ! session_cap_state_file_is_secure "$state_tmp" \
+    || ! mv -f "$state_tmp" "$STATE_FILE" \
+    || ! session_cap_state_file_is_secure "$STATE_FILE"; then
     rm -f "$state_tmp"
     portable_lock_release "$STATE_LOCK_DIR"
     echo "dispatcher: failed to atomically claim capture $capture_id" >&2
@@ -173,6 +177,11 @@ fi
 # claimed marker whose lease expires into a safe retry with the same key.
 delivery_state="state_changed"
 if portable_lock_acquire "$STATE_LOCK_DIR"; then
+    if [[ -f "$STATE_FILE" ]] && ! session_cap_state_file_is_secure "$STATE_FILE"; then
+        portable_lock_release "$STATE_LOCK_DIR"
+        echo "dispatcher: capture state must remain owner-controlled mode 0600" >&2
+        exit 1
+    fi
     if [[ -f "$STATE_FILE" ]] && jq empty "$STATE_FILE" 2>/dev/null \
         && [[ "$(jq -r '.capture_id // ""' "$STATE_FILE")" == "$capture_id" ]] \
         && [[ "$(jq -r '.claimed_by.claim_id // ""' "$STATE_FILE")" == "$claim_id" ]]; then
@@ -192,9 +201,13 @@ if portable_lock_acquire "$STATE_LOCK_DIR"; then
             delivery_state="retryable_failure"
         fi
         state_tmp="${STATE_FILE}.tmp.$$"
-        if ! jq --arg ts "$finished_at" --arg cycle "$cycle_id" --argjson rc "$rc" \
+        if ! (umask 077 && jq --arg ts "$finished_at" --arg cycle "$cycle_id" --argjson rc "$rc" \
             --argjson epoch "$finished_epoch" --argjson delay "$retry_delay" "$update_filter" \
-            "$STATE_FILE" > "$state_tmp" || ! mv -f "$state_tmp" "$STATE_FILE"; then
+            "$STATE_FILE" > "$state_tmp") \
+            || ! chmod 600 "$state_tmp" \
+            || ! session_cap_state_file_is_secure "$state_tmp" \
+            || ! mv -f "$state_tmp" "$STATE_FILE" \
+            || ! session_cap_state_file_is_secure "$STATE_FILE"; then
             rm -f "$state_tmp"
             portable_lock_release "$STATE_LOCK_DIR"
             echo "dispatcher: failed to record delivery outcome" >&2
