@@ -1492,8 +1492,8 @@ describe("ReviewPipeline", () => {
     const __dirname = dirname(__filename);
     const fixturesDir = join(__dirname, "fixtures");
 
-    it("extractFindingsJSON parses pass1-valid-findings.json fixture", async () => {
-      const fixtureContent = readFileSync(join(fixturesDir, "pass1-valid-findings.json"), "utf-8");
+    it("extractFindingsJSON parses pass1-valid-findings.md fixture", async () => {
+      const fixtureContent = readFileSync(join(fixturesDir, "pass1-valid-findings.md"), "utf-8");
       // Use a two-pass pipeline to exercise extractFindingsJSON via the public flow
       let callCount = 0;
       const pipeline = buildPipeline({
@@ -1538,7 +1538,7 @@ describe("ReviewPipeline", () => {
     });
 
     it("validateFindingPreservation rejects pass2-findings-added.md fixture", async () => {
-      const pass1Content = readFileSync(join(fixturesDir, "pass1-valid-findings.json"), "utf-8");
+      const pass1Content = readFileSync(join(fixturesDir, "pass1-valid-findings.md"), "utf-8");
       const pass2Content = readFileSync(join(fixturesDir, "pass2-findings-added.md"), "utf-8");
       let callCount = 0;
       let postedBody = "";
@@ -1563,7 +1563,7 @@ describe("ReviewPipeline", () => {
     });
 
     it("validateFindingPreservation rejects pass2-severity-changed.md fixture", async () => {
-      const pass1Content = readFileSync(join(fixturesDir, "pass1-valid-findings.json"), "utf-8");
+      const pass1Content = readFileSync(join(fixturesDir, "pass1-valid-findings.md"), "utf-8");
       const pass2Content = readFileSync(join(fixturesDir, "pass2-severity-changed.md"), "utf-8");
       let callCount = 0;
       let postedBody = "";
@@ -1588,7 +1588,7 @@ describe("ReviewPipeline", () => {
     });
 
     it("validateFindingPreservation rejects pass2-category-changed.md fixture", async () => {
-      const pass1Content = readFileSync(join(fixturesDir, "pass1-valid-findings.json"), "utf-8");
+      const pass1Content = readFileSync(join(fixturesDir, "pass1-valid-findings.md"), "utf-8");
       const pass2Content = readFileSync(join(fixturesDir, "pass2-category-changed.md"), "utf-8");
       let callCount = 0;
       let postedBody = "";

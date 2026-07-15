@@ -1174,6 +1174,9 @@ export async function commitInstallTransaction({
     return { landed: swap.target, preparedRecord, committedRecord, committedPayload };
   } catch (err) {
     const rollbackErrors = [];
+    // Pack rollback intentionally precedes anchor rollback: an old pack with
+    // the transaction anchor still present is recoverable, while a new pack
+    // with no anchor would be opaque to the next installer.
     await rollbackPackSwap(swap, transactionId, rollbackOwnershipHook).catch((rollbackErr) => rollbackErrors.push(`pack: ${rollbackErr?.message ?? rollbackErr}`));
     if (anchorMutation) {
       await rollbackTofuAnchorMutation(anchorMutation).catch((rollbackErr) => rollbackErrors.push(`anchor: ${rollbackErr?.message ?? rollbackErr}`));

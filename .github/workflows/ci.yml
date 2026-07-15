@@ -3,6 +3,7 @@ name: CI
 # Least-privilege permissions (CI-004)
 permissions:
   contents: read
+  pull-requests: read
 
 on:
   push:
@@ -27,14 +28,26 @@ jobs:
       - name: Block forbidden template files
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          GH_TOKEN: ${{ github.token }}
+          PR_LABEL_APPROVED: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'template-guard-approved') }}
         id: check-forbidden
         run: |
           echo "Checking for forbidden template files..."
 
-          commit_messages="$(git log --format=%B "${BASE_SHA}..${GITHUB_SHA}" 2>/dev/null || git log -1 --format=%B)"
-          if [[ "$commit_messages" == *"[skip-template-guard]"* ]]; then
-            echo "Template protection intentionally bypassed by [skip-template-guard] in this change range"
+          guard_approved="$PR_LABEL_APPROVED"
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            approved_pr="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+              --jq 'map(select(.merged_at != null and ([.labels[].name] | index("template-guard-approved"))))[0].number // empty')"
+            [[ -n "$approved_pr" ]] && guard_approved="true"
+          fi
+
+          if [[ "$guard_approved" == "true" ]]; then
+            echo "::warning title=Template guard bypassed::Maintainer-controlled template-guard-approved label authorizes this governed artifact change"
             exit 0
+          fi
+
+          if [[ -z "$BASE_SHA" ]]; then
+            echo "::warning title=Template guard base unavailable::BASE_SHA is unset; falling back to the tracked repository state"
           fi
 
           # Define forbidden patterns for the loa template repository
@@ -103,7 +116,7 @@ jobs:
             echo ""
             echo "These files are project-specific or contain licensed content and should be gitignored."
             echo "Note: .claude/constructs/ contains user-licensed skills that should never be committed."
-            echo "If this is intentional, add [skip-template-guard] to commit message."
+            echo "If this is intentional, a maintainer must apply the template-guard-approved PR label."
             echo "============================================================"
             exit 1
           fi
@@ -218,11 +231,11 @@ jobs:
           echo "Checking version consistency..."
 
           # Get version from CHANGELOG
-          CHANGELOG_VERSION=$(grep -oP '## \[\K[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | head -1)
+          CHANGELOG_VERSION=$(sed -nE 's/^## \[([0-9]+\.[0-9]+\.[0-9]+)\].*/\1/p' CHANGELOG.md | head -1)
           echo "CHANGELOG version: $CHANGELOG_VERSION"
 
           # Get version from README badge
-          README_VERSION=$(grep -oP 'version-\K[0-9]+\.[0-9]+\.[0-9]+' README.md | head -1)
+          README_VERSION=$(sed -nE 's/.*construct--registry-v([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' README.md | head -1)
           echo "README version: $README_VERSION"
 
           if [ "$CHANGELOG_VERSION" != "$README_VERSION" ]; then
@@ -444,6 +457,7 @@ jobs:
       - name: Run TypeScript check
         run: |
           bun run --filter @loa-constructs/shared typecheck
+          bun run --filter @loa-constructs/shared build
           bun run --filter @loa-constructs/cli typecheck
 
   registry-test:
@@ -622,7 +636,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install JCS reference dependency
-        run: python -m pip install rfc8785==0.1.4
+        run: python -m pip install rfc8785==0.1.4 jsonschema==4.26.0
 
       - name: Zero-dep assertion
         run: |
