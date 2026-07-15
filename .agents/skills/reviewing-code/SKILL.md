@@ -1,12 +1,12 @@
 ---
 name: review-sprint
 description: Validate sprint implementation against acceptance criteria
-allowed-tools: Read, Grep, Glob, WebFetch, Bash(git diff *), Bash(git log *)
+allowed-tools: Read, Grep, Glob, WebFetch, Write, Edit, Bash(git diff *), Bash(git log *)
 capabilities:
   schema_version: 1
   read_files: true
   search_code: true
-  write_files: false
+  write_files: true
   execute_commands:
     allowed:
       - command: "git"

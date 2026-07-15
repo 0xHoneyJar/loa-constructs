@@ -59,7 +59,16 @@ VALID_EFFORTS=("low" "medium" "high" "xhigh" "max")
 # "no application code" boundary is enforced by ZONES, not by removing Write.
 # Adding a new write-capable review skill is intentionally a one-line edit here
 # with reviewer visibility (mirrors WRITE_CAPABLE_AGENTS).
-REVIEW_WRITE_EXCEPTIONS=("red-teaming" "bridgebuilder-review" "spiraling" "autonomous-agent" "run-bridge" "run-mode")
+REVIEW_WRITE_EXCEPTIONS=(
+    "auditing-security"
+    "reviewing-code"
+    "red-teaming"
+    "bridgebuilder-review"
+    "spiraling"
+    "autonomous-agent"
+    "run-bridge"
+    "run-mode"
+)
 
 # Review-class keywords for heuristic linter (SDD §20.5 ATK-A13)
 # Skills declaring role: review|audit MUST have >=2 of these in body

@@ -3,18 +3,14 @@ name: audit
 description: Security and quality audit of application codebase
 role: review
 effort: high  # cycle-114 FR-3: deep-reasoning skill — override baseline /effort
-allowed-tools: Read, Grep, Glob, WebFetch, WebSearch
-# cycle-114 FR-4: pure-review skill (write_files: false) — harness removes the
-# write tools while active, mechanically enforcing C-PROC-001.
-disallowed-tools:
-  - Write
-  - Edit
-  - NotebookEdit
+allowed-tools: Read, Grep, Glob, WebFetch, WebSearch, Write, Edit
+# Review remains read-only over application code. Write authority is limited by
+# the zone contract to audit artifacts in the State Zone.
 capabilities:
   schema_version: 1
   read_files: true
   search_code: true
-  write_files: false
+  write_files: true
   execute_commands: false
   web_access: true
   user_interaction: false

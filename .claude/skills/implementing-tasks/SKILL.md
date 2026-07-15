@@ -24,7 +24,7 @@ zones:
     permission: read-write
   app:
     paths: [src, lib, app]
-    permission: read
+    permission: read-write
 inputs:
   # ICM Layer-2 advisory manifest (glass-box: what knowledge this skill ingests
   # first). Advisory only — a missing path WARNs (drift signal), never fails.

@@ -23,7 +23,7 @@ zones:
     permission: read-write
   app:
     paths: [src, lib, app]
-    permission: read
+    permission: read-write
 ---
 
 <input_guardrails>
