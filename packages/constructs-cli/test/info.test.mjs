@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { inspectLocalConstruct } from '../lib/sot.mjs';
+import { inspectConstruct, inspectLocalConstruct, RUNGS } from '../lib/sot.mjs';
 import { validate } from '../lib/vendor/schema-subset.mjs';
 
 const run = promisify(execFile);
@@ -99,6 +99,17 @@ test('info --json --rung local emits the split with pinned provenance', async (t
   assert.equal(payload.provenance.pinned, true);
   assert.equal(payload.data.orientation.authoritative, false);
   assert.equal(payload.data.mechanics.skills[0].slug, 'inspect-fixture');
+});
+
+test('programmatic info honors an explicit localRoot across listing and inspection', async (t) => {
+  const root = await makePack();
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const result = await inspectConstruct('fixture', { rung: RUNGS.LOCAL, localRoot: root });
+  assert.equal(result.provenance.rung, RUNGS.LOCAL);
+  assert.equal(result.data.slug, 'fixture');
+  assert.equal(result.data.mechanics.kind, 'declared');
+  assert.equal(result.data.mechanics.skills[0].slug, 'inspect-fixture');
 });
 
 test('a skill metadata path cannot escape the installed pack', async (t) => {

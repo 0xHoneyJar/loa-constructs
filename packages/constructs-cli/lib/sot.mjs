@@ -454,11 +454,16 @@ export function detectDrift(answers) {
 /**
  * Answer a listing query by walking the ladder.
  *
- * @param {{noCache?: boolean, rung?: string, timeoutMs?: number}} opts
+ * @param {{noCache?: boolean, rung?: string, timeoutMs?: number, localRoot?: string}} opts
  * @returns {Promise<{data: any[], provenance: object, drift: any[], corrupt: any[], exitCode: number}>}
  */
 export async function listConstructs(opts = {}) {
-  const { noCache = false, rung: pinned = null, timeoutMs = 10_000 } = opts;
+  const {
+    noCache = false,
+    rung: pinned = null,
+    timeoutMs = 10_000,
+    localRoot = packsRoot(),
+  } = opts;
   const answers = [];
   const corrupt = [];
   let cacheState = 'n/a';
@@ -468,7 +473,7 @@ export async function listConstructs(opts = {}) {
   const wantRegistry = !pinned || pinned === RUNGS.REGISTRY;
 
   if (wantLocal) {
-    const local = await readLocalPacks();
+    const local = await readLocalPacks(localRoot);
     corrupt.push(...local.corrupt);
     if (local.present && local.packs.length) answers.push({ rung: RUNGS.LOCAL, items: local.packs });
   }
