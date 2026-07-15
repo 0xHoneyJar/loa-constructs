@@ -90,6 +90,16 @@ test('containment accepts uppercase names and rejects the exact C0 plus DEL byte
   }
 });
 
+test('containment accepts only canonical padded base64 content', () => {
+  for (const content of [null, 42, '%%%', 'YQ', 'YQ===', 'YQ==\n', 'YR==', 'YWF=']) {
+    const verdict = validateFileList([{ path: 'skills/value.bin', content }]);
+    assert.match(verdict.problems.join(' '), /canonical padded base64/);
+  }
+
+  assert.deepEqual(validateFileList([{ path: 'skills/empty.bin', content: '' }]).problems, []);
+  assert.deepEqual(validateFileList([{ path: 'skills/value.bin', content: 'YQ==' }]).problems, []);
+});
+
 test('redteam: absolute path rejected', async () => {
   const { problems } = validateFileList(await loadRedteam('absolute-path.json'));
   assert.match(problems.join(' '), /absolute path/);
@@ -303,6 +313,13 @@ test('git rung: registry pin that does not exist in the repo → integrity misma
   const upstream = await makeUpstream();
   const root = await makeRoot({ gitUrl: upstream.dir, commit: '0'.repeat(40) });
   await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'ANCHOR_MISMATCH');
+});
+
+test('git rung: option-shaped or unsupported registry URLs are rejected before clone', async () => {
+  for (const gitUrl of ['--upload-pack=/tmp/attacker', 'http://example.invalid/pack.git']) {
+    const root = await makeRoot({ gitUrl });
+    await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'UNSAFE_GIT_URL');
+  }
 });
 
 test('git rung: repo-borne symlink rejected outright', async () => {

@@ -148,6 +148,17 @@ test('unknown verb names a real next step — never bare "see --help"', async ()
   assert.match(stderr, /try:/);
 });
 
+test('install boolean override never consumes the positional slug', async () => {
+  for (const args of [
+    ['install', '--allow-integrity-mismatch', 'goodpack', '--payload', '/definitely/missing/constructs-payload.json', '--reason', 'verified rotation'],
+    ['install', 'goodpack', '--allow-integrity-mismatch', '--payload', '/definitely/missing/constructs-payload.json', '--reason', 'verified rotation'],
+  ]) {
+    const { stderr } = await cli(args);
+    assert.doesNotMatch(stderr, /install requires a construct slug/);
+    assert.match(stderr, /ENOENT|no such file/i);
+  }
+});
+
 // ── mutation verbs are declared as such ───────────────────────────────────────
 
 test('install, station, observe are the mutation verbs', () => {

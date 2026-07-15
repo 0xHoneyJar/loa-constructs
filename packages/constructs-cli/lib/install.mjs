@@ -44,7 +44,31 @@ export const BUDGETS = Object.freeze({
   max_single_file_bytes: 4 * 1024 * 1024,
 });
 
-const CONTROL_BYTES_RE = /[\u0000-\u001f\u007f]/; // C0 + DEL in a file NAME are never legitimate
+const CONTROL_BYTES_RE = /[\x00-\x1f\x7f]/; // C0 + DEL in a file NAME are never legitimate
+
+function canonicalBase64ByteLength(value) {
+  if (typeof value !== 'string') return null;
+  if (value === '') return 0;
+  if (value.length % 4 !== 0) return null;
+  let padding = 0;
+  if (value.endsWith('=')) padding++;
+  if (value.endsWith('==')) padding++;
+  let lastValue = 0;
+  for (let i = 0; i < value.length - padding; i++) {
+    const code = value.charCodeAt(i);
+    if (code >= 0x41 && code <= 0x5a) lastValue = code - 0x41;
+    else if (code >= 0x61 && code <= 0x7a) lastValue = code - 0x61 + 26;
+    else if (code >= 0x30 && code <= 0x39) lastValue = code - 0x30 + 52;
+    else if (code === 0x2b) lastValue = 62;
+    else if (code === 0x2f) lastValue = 63;
+    else return null;
+  }
+  if (padding > 2 || value.slice(0, -padding || undefined).includes('=')) return null;
+  // Canonical padding has zeroed unused bits. Checking them directly avoids
+  // allocating a decoded buffer before the size budget has accepted the entry.
+  if ((padding === 2 && (lastValue & 0x0f) !== 0) || (padding === 1 && (lastValue & 0x03) !== 0)) return null;
+  return (value.length / 4) * 3 - padding;
+}
 
 /**
  * The portable collision key (T3.2b, adversarial fixture review).
@@ -124,11 +148,15 @@ export function validateFileList(files) {
     }
     seen.set(key, f.path);
 
-    const bytes = typeof f.content === 'string' ? Buffer.byteLength(f.content, 'base64') : 0;
-    if (bytes > BUDGETS.max_single_file_bytes) {
-      problems.push(`${where}: ${bytes} bytes exceeds the single-file budget of ${BUDGETS.max_single_file_bytes}`);
+    const bytes = canonicalBase64ByteLength(f.content);
+    if (bytes === null) {
+      problems.push(`${where}: content must be canonical padded base64`);
     }
-    totalBytes += bytes;
+    const safeBytes = bytes ?? 0;
+    if (safeBytes > BUDGETS.max_single_file_bytes) {
+      problems.push(`${where}: ${safeBytes} bytes exceeds the single-file budget of ${BUDGETS.max_single_file_bytes}`);
+    }
+    totalBytes += safeBytes;
   }
   if (totalBytes > BUDGETS.max_total_bytes) {
     problems.push(`payload totals ${totalBytes} bytes, over the budget of ${BUDGETS.max_total_bytes}`);
@@ -507,7 +535,24 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
   if (!anchor?.git_url) {
     throw new InstallError(`registry.yaml has no git_url for ${slug} — the git rung cannot answer`, EXIT.CALLER_ERROR, { fix: 'constructs list --json    # what the registry knows' });
   }
-  await run('git', ['clone', '-q', anchor.git_url, stagingDir], { timeoutMs: 120_000 });
+  const gitUrl = anchor.git_url;
+  const supportedUrl =
+    typeof gitUrl === 'string' &&
+    gitUrl.length > 0 &&
+    !gitUrl.startsWith('-') &&
+    !CONTROL_BYTES_RE.test(gitUrl) &&
+    (path.isAbsolute(gitUrl) ||
+      /^[A-Za-z]:[\\/]/.test(gitUrl) ||
+      /^(?:https|ssh|git|file):\/\//.test(gitUrl) ||
+      /^[A-Za-z0-9._-]+@[A-Za-z0-9.-]+:[^\s]+$/.test(gitUrl));
+  if (!supportedUrl) {
+    throw new InstallError(
+      `registry.yaml has an unsafe or unsupported git_url for ${slug}: ${JSON.stringify(gitUrl)}`,
+      EXIT.INTEGRITY_MISMATCH,
+      { code: 'UNSAFE_GIT_URL', fix: 'use an absolute local path, https://, ssh://, git://, file://, or user@host:path URL' }
+    );
+  }
+  await run('git', ['clone', '-q', '--', gitUrl, stagingDir], { timeoutMs: 120_000 });
   let tofu = null;
   // The anchor a successful landing WOULD persist. A --dry-run must never mutate
   // trust state (review pass 1), so nothing is written from inside acquisition.
