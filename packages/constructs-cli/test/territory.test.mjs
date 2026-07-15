@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { validateManifest, detectConflicts, atlas, where, TerritoryError, MAX_SOURCES } from '../lib/territory.mjs';
+import { run } from '../lib/exec.mjs';
 
 const VALID = {
   schema_version: '1.0',
@@ -122,6 +123,23 @@ async function fixtureRegion(name, manifest) {
   await mkdir(path.join(root, 'grimoires'), { recursive: true });
   await writeFile(path.join(root, 'grimoires', 'territory.yaml'), manifest, 'utf8');
   return root;
+}
+
+async function gitIn(dir, args) {
+  const result = await run('git', args, { cwd: dir, allowNonZero: true });
+  if (result.exitCode !== 0) throw new Error(`git ${args.join(' ')} failed: ${result.stderr}`);
+  return result.stdout.trim();
+}
+
+async function commitRegion(root) {
+  await gitIn(root, ['init', '-q']);
+  await gitIn(root, ['symbolic-ref', 'HEAD', 'refs/heads/main']);
+  await gitIn(root, ['add', 'grimoires/territory.yaml']);
+  await gitIn(root, [
+    '-c', 'user.email=fixture@test',
+    '-c', 'user.name=fixture',
+    'commit', '-q', '-m', 'fixture: territory',
+  ]);
 }
 
 test('atlas: is deterministic — the same estate produces byte-identical JSON', async () => {
@@ -300,4 +318,35 @@ test('MEDIUM-6: the atlas says its ratification honesty out loud', async () => {
   const map = await atlas({ sources: [dir] });
   assert.equal(map.ratification_status, 'unchecked');
   assert.match(map.ratification, /unchecked/);
+});
+
+test('atlas ratification uses the station gate against each region root', async () => {
+  const root = await fixtureRegion(
+    'ratified',
+    `schema_version: "1.0"
+region: alpha
+outcomes:
+  - id: one
+    description: the first outcome
+scopes:
+  - apps/**
+loadout: []
+`,
+  );
+  await commitRegion(root);
+  const remote = await mkdtemp(path.join(tmpdir(), 'territory-remote-'));
+  await gitIn(remote, ['init', '--bare', '-q']);
+  await gitIn(root, ['remote', 'add', 'origin', remote]);
+  await gitIn(root, ['push', '-q', '-u', 'origin', 'main']);
+
+  const ratified = await atlas({ sources: [root] });
+  assert.equal(ratified.ratification_status, 'ratified');
+  assert.equal(ratified.regions[0].ratification_status, 'ratified');
+  assert.equal(ratified.regions[0].ratification_verification.anchor, 'origin/main');
+
+  await gitIn(root, ['checkout', '-q', '-b', 'feature/not-ratified']);
+  const feature = await atlas({ sources: [root] });
+  assert.equal(feature.ratification_status, 'unchecked');
+  assert.equal(feature.regions[0].ratification_status, 'unchecked');
+  assert.match(feature.regions[0].ratification, /HEAD is on/);
 });
