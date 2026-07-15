@@ -2,12 +2,12 @@
 name: rtfm
 description: Run documentation-driven testing against Ground Truth and protocols
 role: review
-allowed-tools: Read, Grep, Glob, Bash(bats tests/*), Bash(npm test *), Bash(.claude/scripts/rtfm-*)
+allowed-tools: Read, Grep, Glob, Write, Task, Bash(bats tests/*), Bash(npm test *), Bash(.claude/scripts/rtfm-*)
 capabilities:
   schema_version: 1
   read_files: true
   search_code: true
-  write_files: false
+  write_files: true
   execute_commands:
     allowed:
       - command: "bats"
@@ -17,7 +17,7 @@ capabilities:
     deny_raw_shell: true
   web_access: false
   user_interaction: false
-  agent_spawn: false
+  agent_spawn: true
   task_management: false
 cost-profile: moderate
 parallel_threshold: 3000

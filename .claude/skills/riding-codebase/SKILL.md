@@ -3,7 +3,7 @@ name: ride
 description: Analyze codebase to extract reality into Loa artifacts
 role: planning
 context: fork
-allowed-tools: Read, Grep, Glob, Write, Bash(git *)
+allowed-tools: Read, Grep, Glob, Write, AskUserQuestion, Bash(git *)
 capabilities:
   schema_version: 1
   read_files: true
@@ -11,7 +11,7 @@ capabilities:
   write_files: true
   execute_commands: true
   web_access: false
-  user_interaction: false
+  user_interaction: true
   agent_spawn: false
   task_management: false
 cost-profile: heavy

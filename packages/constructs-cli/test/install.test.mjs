@@ -194,6 +194,16 @@ test('containment reserves installer-owned roots so verified source bytes are ne
   await assert.rejects(readdir(path.join(root, '.claude', 'constructs', 'packs', 'goodpack')));
 });
 
+test('containment reserves case-folded aliases of every installer-owned root', () => {
+  for (const reserved of ['.CONSTRUCT-META.JSON', '.LICENSE.JSON', '.GIT']) {
+    const { problems } = validateFileList([{ path: `${reserved}/forged`, content: b64('forged') }]);
+    assert.ok(
+      problems.some((problem) => problem.includes('installer-owned root')),
+      `${reserved} must be compared in the target filesystem's equivalence domain`
+    );
+  }
+});
+
 test('zero archive-parsing code ships (asserted)', async () => {
   const src = await readFile(new URL('../lib/install.mjs', import.meta.url), 'utf8');
   // Import-specifier smells — comments legitimately SAY "tarball" while explaining why none is parsed.

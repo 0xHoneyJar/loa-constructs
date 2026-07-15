@@ -148,7 +148,7 @@ export function validateFileList(files) {
       problems.push(`${where}: path contains an unpaired UTF-16 surrogate and has no stable UTF-8 filesystem representation`);
     }
     const segments = f.path.split('/');
-    if (INSTALLER_OWNED_ROOTS.has(segments[0])) {
+    if (INSTALLER_OWNED_ROOTS.has(collisionKey(segments[0]))) {
       problems.push(`${where}: path ${JSON.stringify(f.path)} occupies installer-owned root ${JSON.stringify(segments[0])}`);
     }
     const encodedPathBytes = Buffer.byteLength(f.path, 'utf8');

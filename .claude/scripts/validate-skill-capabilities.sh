@@ -64,6 +64,7 @@ REVIEW_WRITE_EXCEPTIONS=(
     "reviewing-code"
     "red-teaming"
     "bridgebuilder-review"
+    "rtfm-testing"
     "spiraling"
     "autonomous-agent"
     "run-bridge"
