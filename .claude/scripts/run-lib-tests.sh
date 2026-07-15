@@ -56,14 +56,16 @@ check_node_version() {
 }
 
 # ── Loader Detection ────────────────────────────────────
-# Priority: bun → tsx (PATH or repo-root) → node --experimental-strip-types (22+)
+# Priority: bun → tsx (PATH or repo-root) → node --experimental-strip-types (22+).
+# The Node-version CI matrix sets LOA_LIB_TEST_SKIP_BUN=1 so installing CI tools
+# with Bun does not accidentally run the suite under Bun instead of matrix Node.
 LOADER=""
 LOADER_NAME=""
 LOADER_CMD=()
 
 detect_loader() {
   # 1. bun
-  if command -v bun &>/dev/null; then
+  if [[ "${LOA_LIB_TEST_SKIP_BUN:-0}" != "1" ]] && command -v bun &>/dev/null; then
     LOADER="bun"
     LOADER_NAME="bun"
     LOADER_CMD=(bun --test)

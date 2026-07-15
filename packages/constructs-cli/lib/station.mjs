@@ -378,6 +378,13 @@ export async function writeRecordUnlocked(receiptsDir, payload) {
     throw new StationError(`receipt ${file} exists with different content — refusing to overwrite`, EXIT.INTEGRITY_MISMATCH);
   } catch (err) {
     if (err instanceof StationError) throw err;
+    if (err?.code !== 'ENOENT') {
+      throw new StationError(
+        `cannot inspect receipt ${file}: ${err?.message ?? err}`,
+        EXIT.TOOL_FAILURE,
+        { fix: 'fix the receipt path or filesystem permissions, then retry' }
+      );
+    }
     // ENOENT — the normal path: stage in the same directory, land by atomic rename.
   }
 

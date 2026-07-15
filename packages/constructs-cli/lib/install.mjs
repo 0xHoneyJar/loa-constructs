@@ -94,6 +94,7 @@ export function collisionKey(p) {
 // WITH an extension (`con.txt` opens the console). A pack entry named for one is
 // never legitimate.
 const WIN32_RESERVED = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|$)/i;
+const WIN32_FORBIDDEN = /[<>:"|?*]/;
 
 /**
  * Containment for file NAMES + budgets. Every rule here has a red-team fixture
@@ -126,6 +127,9 @@ export function validateFileList(files) {
       problems.push(`${where}: control bytes or backslashes in path rejected`);
     }
     for (const seg of segments) {
+      if (WIN32_FORBIDDEN.test(seg)) {
+        problems.push(`${where}: ${JSON.stringify(f.path)} contains a character forbidden in Windows filenames (< > : " | ? *)`);
+      }
       if (WIN32_RESERVED.test(seg)) {
         problems.push(`${where}: ${JSON.stringify(f.path)} contains the reserved device name ${JSON.stringify(seg)} — it aliases a device on Windows even with an extension`);
       }
@@ -323,12 +327,24 @@ async function assertReplaceable(root, slug) {
   const target = path.join(packsParent(root), slug);
   try {
     await stat(target);
-  } catch {
-    return; // ENOENT: fresh install, nothing to protect
+  } catch (err) {
+    if (err?.code === 'ENOENT') return; // fresh install, nothing to protect
+    throw new InstallError(
+      `cannot inspect existing install target ${target}: ${err?.message ?? err}`,
+      EXIT.TOOL_FAILURE,
+      { code: 'FILESYSTEM_LOOKUP_FAILED', fix: 'fix the path or filesystem permissions, then retry' }
+    );
   }
   try {
     await access(path.join(target, '.construct-meta.json'));
-  } catch {
+  } catch (err) {
+    if (err?.code !== 'ENOENT') {
+      throw new InstallError(
+        `cannot inspect ownership marker for ${target}: ${err?.message ?? err}`,
+        EXIT.TOOL_FAILURE,
+        { code: 'FILESYSTEM_LOOKUP_FAILED', fix: 'fix the path or filesystem permissions, then retry' }
+      );
+    }
     throw new InstallError(
       `${target} exists but has no .construct-meta.json marker — refusing to overwrite something this tool does not manage`,
       EXIT.REFUSED,
@@ -354,13 +370,20 @@ async function swapPackIn({ root, slug, stage }) {
   try {
     await stat(target);
     replacing = true;
-  } catch {
-    replacing = false;
+  } catch (err) {
+    if (err?.code === 'ENOENT') replacing = false;
+    else {
+      throw new InstallError(
+        `cannot inspect install target ${target} at the commit point: ${err?.message ?? err}`,
+        EXIT.TOOL_FAILURE,
+        { code: 'FILESYSTEM_LOOKUP_FAILED', fix: 'fix the path or filesystem permissions, then retry' }
+      );
+    }
   }
 
   if (!replacing) {
     await rename(stage, target);
-    return target;
+    return { target, backup: null };
   }
 
   const backup = path.join(parent, `.backup-${slug}-${process.pid}`);
@@ -373,8 +396,25 @@ async function swapPackIn({ root, slug, stage }) {
   // backup closes the window — there is nothing left to substitute.
   try {
     await access(path.join(backup, '.construct-meta.json'));
-  } catch {
-    await rename(backup, target).catch(() => {});
+  } catch (err) {
+    let restoreError = null;
+    await rename(backup, target).catch((restoreErr) => {
+      restoreError = restoreErr;
+    });
+    if (restoreError) {
+      throw new InstallError(
+        `ownership revalidation for ${target} failed (${err?.message ?? err}) AND the previous pack could not be restored (${restoreError?.message ?? restoreError})`,
+        EXIT.TOOL_FAILURE,
+        { code: 'ROLLBACK_FAILED', fix: `your previous pack is intact at ${backup} — move it back to ${target}` }
+      );
+    }
+    if (err?.code !== 'ENOENT') {
+      throw new InstallError(
+        `cannot inspect ownership marker for ${target} at the commit point: ${err?.message ?? err}`,
+        EXIT.TOOL_FAILURE,
+        { code: 'FILESYSTEM_LOOKUP_FAILED', fix: 'fix the path or filesystem permissions, then retry' }
+      );
+    }
     throw new InstallError(
       `${target} changed under us and has no .construct-meta.json marker — refusing to overwrite something this tool does not manage`,
       EXIT.REFUSED,
@@ -398,12 +438,10 @@ async function swapPackIn({ root, slug, stage }) {
     }
     throw err;
   }
-  // Post-commit cleanup ONLY: the install is durable from the rename above, so a
-  // failure to drop the backup is a warning, never a failed install.
-  await rm(backup, { recursive: true, force: true }).catch(() => {
-    process.stderr.write(`warning: installed ${slug}, but the old pack's backup could not be removed: ${backup}\n`);
-  });
-  return target;
+  // The caller retains the backup until trust + receipt metadata commits. That
+  // keeps post-rename failures reversible instead of reporting failure with a
+  // different pack already active.
+  return { target, backup };
 }
 
 // ── acquisition rungs ─────────────────────────────────────────────────────────
@@ -511,6 +549,33 @@ function installTransactionPayload(receiptPayload, transactionState) {
   };
 }
 
+async function rollbackPackSwap({ target, backup }) {
+  await rm(target, { recursive: true, force: true });
+  if (backup) await rename(backup, target);
+}
+
+async function finishPackSwap({ backup }, slug) {
+  if (!backup) return;
+  // Backup cleanup happens after the metadata commit point. It cannot change a
+  // successful install into a reported failure.
+  await rm(backup, { recursive: true, force: true }).catch(() => {
+    process.stderr.write(`warning: installed ${slug}, but the old pack's backup could not be removed: ${backup}\n`);
+  });
+}
+
+async function restoreTofuAnchor(root, slug, priorRaw) {
+  const file = tofuAnchorPath(root, slug);
+  const tmp = `${file}.tmp-${process.pid}`;
+  await rm(tmp, { force: true }).catch(() => {});
+  if (priorRaw === null) {
+    await rm(file, { force: true });
+    return;
+  }
+  await mkdir(path.dirname(file), { recursive: true });
+  await writeFile(tmp, priorRaw, 'utf8');
+  await rename(tmp, file);
+}
+
 /**
  * Commit one install while the caller holds the receipts lock.
  *
@@ -519,16 +584,60 @@ function installTransactionPayload(receiptPayload, transactionState) {
  * completed receipt. Failed or killed landings are therefore distinguishable
  * from successful installs and converge safely on retry.
  */
-export async function commitInstallTransaction({ root, slug, stage, receiptsDir, receiptPayload, pendingAnchor = null }) {
+export async function commitInstallTransaction({
+  root,
+  slug,
+  stage,
+  receiptsDir,
+  receiptPayload,
+  pendingAnchor = null,
+  recordWriter = writeRecordUnlocked,
+}) {
+  let priorAnchorRaw = null;
+  if (pendingAnchor) {
+    try {
+      priorAnchorRaw = await readFile(tofuAnchorPath(root, slug), 'utf8');
+    } catch (err) {
+      if (err?.code !== 'ENOENT') {
+        throw new InstallError(
+          `cannot snapshot the existing TOFU anchor before install: ${err?.message ?? err}`,
+          EXIT.TOOL_FAILURE,
+          { code: 'FILESYSTEM_LOOKUP_FAILED', fix: 'fix the anchor path or filesystem permissions, then retry' }
+        );
+      }
+    }
+  }
+
   const preparedPayload = installTransactionPayload(receiptPayload, 'prepared');
-  const preparedRecord = await writeRecordUnlocked(receiptsDir, preparedPayload);
+  const preparedRecord = await recordWriter(receiptsDir, preparedPayload);
 
-  const landed = await swapPackIn({ root, slug, stage });
-  if (pendingAnchor) await writeTofuAnchor(root, slug, pendingAnchor);
+  const swap = await swapPackIn({ root, slug, stage });
+  try {
+    if (pendingAnchor) await writeTofuAnchor(root, slug, pendingAnchor);
 
-  const committedPayload = installTransactionPayload(receiptPayload, 'committed');
-  const committedRecord = await writeRecordUnlocked(receiptsDir, committedPayload);
-  return { landed, preparedRecord, committedRecord, committedPayload };
+    const committedPayload = installTransactionPayload(receiptPayload, 'committed');
+    const committedRecord = await recordWriter(receiptsDir, committedPayload);
+    await finishPackSwap(swap, slug);
+    return { landed: swap.target, preparedRecord, committedRecord, committedPayload };
+  } catch (err) {
+    const rollbackErrors = [];
+    await rollbackPackSwap(swap).catch((rollbackErr) => rollbackErrors.push(`pack: ${rollbackErr?.message ?? rollbackErr}`));
+    if (pendingAnchor) {
+      await restoreTofuAnchor(root, slug, priorAnchorRaw).catch((rollbackErr) => rollbackErrors.push(`anchor: ${rollbackErr?.message ?? rollbackErr}`));
+    }
+    if (rollbackErrors.length > 0) {
+      throw new InstallError(
+        `install metadata commit failed (${err?.message ?? err}) AND rollback was incomplete (${rollbackErrors.join('; ')})`,
+        EXIT.TOOL_FAILURE,
+        { code: 'ROLLBACK_FAILED', fix: `inspect ${swap.target}${swap.backup ? ` and ${swap.backup}` : ''} before retrying` }
+      );
+    }
+    throw new InstallError(
+      `install metadata commit failed after landing ${slug}; the previous filesystem and trust state were restored: ${err?.message ?? err}`,
+      EXIT.TOOL_FAILURE,
+      { code: 'METADATA_COMMIT_FAILED', fix: 'fix the receipt or anchor storage failure, then retry' }
+    );
+  }
 }
 
 async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrityMismatch = false, dryRun = false }) {

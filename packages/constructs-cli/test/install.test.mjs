@@ -23,7 +23,7 @@ import {
   BUDGETS,
   InstallError,
 } from '../lib/install.mjs';
-import { verifyReceipt } from '../lib/station.mjs';
+import { verifyReceipt, writeRecordUnlocked } from '../lib/station.mjs';
 import { run } from '../lib/exec.mjs';
 import { EXIT } from '../lib/contract.mjs';
 
@@ -98,6 +98,11 @@ test('containment accepts only canonical padded base64 content', () => {
 
   assert.deepEqual(validateFileList([{ path: 'skills/empty.bin', content: '' }]).problems, []);
   assert.deepEqual(validateFileList([{ path: 'skills/value.bin', content: 'YQ==' }]).problems, []);
+});
+
+test('containment rejects every Windows-forbidden filename character, including NTFS ADS', async () => {
+  const verdict = validateFileList(await loadRedteam('win32-forbidden-chars.json'));
+  assert.equal(verdict.problems.filter((problem) => /forbidden in Windows filenames/.test(problem)).length, 7);
 });
 
 test('redteam: absolute path rejected', async () => {
@@ -478,7 +483,7 @@ test('S229-4: Win32 reserved device names and trailing-dot aliases refused', asy
   assert.match(trailing.problems.join(' '), /dot or space|collides with/);
 });
 
-test('S229-5: a receipt failure rolls the pack back — never installed-but-unrecorded', async () => {
+test('S229-5: a prepared-receipt failure leaves the working pack untouched', async () => {
   const expected = treeHash(GOOD_FILES);
   const root = await makeRoot({ treeHashValue: expected });
   const payload = await writePayload(root, GOOD_FILES);
@@ -486,9 +491,7 @@ test('S229-5: a receipt failure rolls the pack back — never installed-but-unre
   const first = await install({ slug: 'goodpack', root, payloadFile: payload });
   const originalMeta = await readFile(path.join(first.path, '.construct-meta.json'), 'utf8');
 
-  // Make the receipts dir un-writable so the receipt write fails AFTER the pack
-  // has been swapped in. The working pack must come back.
-  // Replace the receipts DIRECTORY with a file so the receipt write fails hard.
+  // Replace the receipts DIRECTORY with a file so the write-ahead record fails.
   const territory = path.join(root, 'grimoires', 'loa', 'territory');
   const receiptsDir = path.join(territory, 'receipts');
   const { rm: rmFs } = await import('node:fs/promises');
@@ -496,7 +499,7 @@ test('S229-5: a receipt failure rolls the pack back — never installed-but-unre
   await writeFile(receiptsDir, 'not a directory');
 
   await assert.rejects(install({ slug: 'goodpack', root, payloadFile: payload }));
-  // The pack becomes visible LAST (review pass 2), so a receipt failure means the
+  // The prepared record lands first, so this failure means the
   // swap never happened at all — the working pack is untouched, not "restored".
   const surviving = await readFile(path.join(root, '.claude', 'constructs', 'packs', 'goodpack', '.construct-meta.json'), 'utf8');
   assert.equal(surviving, originalMeta, 'the working pack must be untouched when the record cannot be written');
@@ -541,6 +544,92 @@ test('S229-P2: failed landing leaves only a prepared receipt and does not rotate
   assert.equal(prepared.install.transaction_state, 'prepared');
   await assert.rejects(readFile(path.join(root, 'grimoires', 'loa', 'territory', 'anchors', 'goodpack.json')));
   await assert.rejects(readdir(path.join(packsDir, 'goodpack')));
+});
+
+test('S229-P4: committed-metadata failure restores both the previous pack and TOFU anchor', async () => {
+  const root = await makeRoot();
+  const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
+  const packsDir = path.join(root, '.claude', 'constructs', 'packs');
+  const target = path.join(packsDir, 'goodpack');
+  const stage = path.join(packsDir, '.stage-goodpack');
+  const anchorFile = path.join(root, 'grimoires', 'loa', 'territory', 'anchors', 'goodpack.json');
+  await mkdir(receiptsDir, { recursive: true });
+  await mkdir(target, { recursive: true });
+  await mkdir(stage, { recursive: true });
+  await mkdir(path.dirname(anchorFile), { recursive: true });
+  await writeFile(path.join(target, '.construct-meta.json'), '{"generation":"old"}\n');
+  await writeFile(path.join(stage, '.construct-meta.json'), '{"generation":"new"}\n');
+  const priorAnchor = `${JSON.stringify({ slug: 'goodpack', commit: 'a'.repeat(40), first_seen_at: '2026-07-14T00:00:00Z' }, null, 2)}\n`;
+  await writeFile(anchorFile, priorAnchor);
+
+  const receiptPayload = {
+    record_version: '1.0',
+    kind: 'install',
+    ts: '2026-07-14T00:00:00Z',
+    actor: 'test',
+    construct: 'goodpack',
+    install: {
+      rung: 'registry-git',
+      tree_hash: `sha256:${'0'.repeat(64)}`,
+      outcome: 'hash-overridden',
+      anchor: `first-seen:${'b'.repeat(40)} (rotated from ${'a'.repeat(40)})`,
+      override_reason: 'fixture rotation',
+    },
+  };
+  let writes = 0;
+  const failCommittedRecord = async (...args) => {
+    writes++;
+    if (writes === 2) throw Object.assign(new Error('simulated committed-record I/O failure'), { code: 'EIO' });
+    return writeRecordUnlocked(...args);
+  };
+
+  await assert.rejects(
+    commitInstallTransaction({
+      root,
+      slug: 'goodpack',
+      stage,
+      receiptsDir,
+      receiptPayload,
+      pendingAnchor: 'b'.repeat(40),
+      recordWriter: failCommittedRecord,
+    }),
+    (err) => err instanceof InstallError && err.code === 'METADATA_COMMIT_FAILED'
+  );
+
+  assert.equal(await readFile(path.join(target, '.construct-meta.json'), 'utf8'), '{"generation":"old"}\n');
+  assert.equal(await readFile(anchorFile, 'utf8'), priorAnchor);
+  const records = (await readdir(receiptsDir)).filter((name) => name.endsWith('.json'));
+  assert.equal(records.length, 1);
+  assert.equal(JSON.parse(await readFile(path.join(receiptsDir, records[0]), 'utf8')).install.transaction_state, 'prepared');
+  assert.deepEqual((await readdir(packsDir)).filter((name) => name.startsWith('.backup-')), []);
+});
+
+test('S229-P4: non-ENOENT target lookup failures are surfaced, not treated as absence', async () => {
+  const root = await makeRoot();
+  const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
+  const packsDir = path.join(root, '.claude', 'constructs', 'packs');
+  const stage = path.join(packsDir, '.stage-goodpack');
+  await mkdir(receiptsDir, { recursive: true });
+  await mkdir(stage, { recursive: true });
+  await writeFile(path.join(stage, '.construct-meta.json'), '{}\n');
+  const receiptPayload = {
+    record_version: '1.0',
+    kind: 'install',
+    ts: '2026-07-14T00:00:00Z',
+    actor: 'test',
+    construct: 'goodpack',
+    install: {
+      rung: 'payload-file',
+      tree_hash: `sha256:${'0'.repeat(64)}`,
+      outcome: 'verified',
+      anchor: `registry:sha256:${'0'.repeat(64)}`,
+    },
+  };
+
+  await assert.rejects(
+    commitInstallTransaction({ root, slug: 'x'.repeat(300), stage, receiptsDir, receiptPayload }),
+    (err) => err instanceof InstallError && err.code === 'FILESYSTEM_LOOKUP_FAILED'
+  );
 });
 
 test('S229-P2: a pack is NEVER visible without a prepared record', async () => {
