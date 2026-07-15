@@ -121,6 +121,34 @@ test('programmatic info honors an explicit localRoot across listing and inspecti
   assert.equal(result.data.mechanics.skills[0].slug, 'inspect-fixture');
 });
 
+test('legacy string skill declarations resolve through the contained conventional path', async (t) => {
+  const manifest = MANIFEST.replace(
+    '  - slug: inspect-fixture\n    path: skills/inspect-fixture',
+    '  - inspect-fixture',
+  );
+  const root = await makePack(manifest);
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const info = await inspectLocalConstruct('fixture', root);
+  assert.equal(info.mechanics.skills[0].metadata_status, 'declared');
+  assert.equal(info.mechanics.skills[0].path, 'skills/inspect-fixture');
+  assert.equal(info.mechanics.skills[0].entry, 'SKILL.md');
+});
+
+test('unsafe legacy string skill declarations fail before path resolution', async (t) => {
+  const manifest = MANIFEST.replace(
+    '  - slug: inspect-fixture\n    path: skills/inspect-fixture',
+    '  - ../../outside',
+  );
+  const root = await makePack(manifest);
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const info = await inspectLocalConstruct('fixture', root);
+  assert.equal(info.mechanics.skills[0].metadata_status, 'invalid-path');
+  assert.equal(info.mechanics.skills[0].path, null);
+  assert.equal(info.mechanics.skills[0].entry, null);
+});
+
 test('local pack listings do not expose their integrity-checked manifest snapshot', async (t) => {
   const root = await makePack();
   t.after(() => rm(root, { recursive: true, force: true }));

@@ -18,7 +18,7 @@
         "info_schema_version": { "const": "1.0" },
         "orientation": {
           "type": "object",
-          "required": ["kind", "authoritative", "description", "domains", "persona_ref", "expertise_ref"],
+          "required": ["kind", "authoritative", "description", "short_description", "domains", "persona_ref", "expertise_ref"],
           "additionalProperties": false,
           "properties": {
             "kind": { "const": "prose" },

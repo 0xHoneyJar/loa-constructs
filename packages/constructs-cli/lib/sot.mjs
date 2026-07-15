@@ -215,6 +215,12 @@ async function resolvePackPath(packDir, declaredPath, { baseDir = packDir, expec
 async function readSkillMechanics(packDir, declared) {
   const skill = normalizeDeclaredRef(declared, 'slug');
   if (!skill) return null;
+  if (!skill.path && typeof declared === 'string') {
+    if (!/^[a-z][a-z0-9-]*$/.test(skill.slug)) {
+      return { ...skill, metadata_status: 'invalid-path', entry: null, capabilities: null };
+    }
+    skill.path = `skills/${skill.slug}`;
+  }
   if (!skill.path) return { ...skill, metadata_status: 'missing', entry: null, capabilities: null };
 
   const skillDir = await resolvePackPath(packDir, skill.path, { expect: 'directory' });
