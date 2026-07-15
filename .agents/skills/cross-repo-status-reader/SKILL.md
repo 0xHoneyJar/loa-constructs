@@ -7,7 +7,7 @@ parallel_threshold: 3000
 timeout_minutes: 5
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: read
   state:
     paths: [grimoires/loa, .run]
@@ -43,7 +43,7 @@ Read structured cross-repo state for ≤50 repos in parallel via `gh api`, with 
 
 ## Public API
 
-Sourced from `.Codex/scripts/lib/cross-repo-status-lib.sh`.
+Sourced from `.claude/scripts/lib/cross-repo-status-lib.sh`.
 
 | Function | Purpose | Exit |
 |----------|---------|------|
@@ -105,7 +105,7 @@ Env-var overrides (higher precedence than config):
 }
 ```
 
-Schema: `.Codex/data/trajectory-schemas/cross-repo-events/cross-repo-state.schema.json`.
+Schema: `.claude/data/trajectory-schemas/cross-repo-events/cross-repo-state.schema.json`.
 
 ## Semantics
 
@@ -140,7 +140,7 @@ Each gh API endpoint is independent. A 429/rate-limit/timeout on one endpoint do
 ## Operator quickstart
 
 ```bash
-source .Codex/scripts/lib/cross-repo-status-lib.sh
+source .claude/scripts/lib/cross-repo-status-lib.sh
 
 # Read a list of repos
 cross_repo_read '["0xHoneyJar/loa", "0xHoneyJar/honeyJar"]' | jq

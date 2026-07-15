@@ -43,7 +43,7 @@ guardrails:
 
 ### Step 2: Run Danger Level Check
 
-**Script**: `.Codex/scripts/danger-level-enforcer.sh --skill run-mode --mode {mode}`
+**Script**: `.claude/scripts/danger-level-enforcer.sh --skill run-mode --mode {mode}`
 
 **CRITICAL**: This is a **high** danger level skill (autonomous execution).
 
@@ -73,13 +73,13 @@ danger-level-enforcer.sh --skill $SKILL --mode autonomous
 
 ### Step 4: Run PII Filter
 
-**Script**: `.Codex/scripts/pii-filter.sh`
+**Script**: `.claude/scripts/pii-filter.sh`
 
 Detect and redact sensitive data in run scope.
 
 ### Step 5: Run Injection Detection
 
-**Script**: `.Codex/scripts/injection-detect.sh --threshold 0.7`
+**Script**: `.claude/scripts/injection-detect.sh --threshold 0.7`
 
 Prevent manipulation of autonomous execution.
 
@@ -115,7 +115,7 @@ while circuit_breaker.state == CLOSED:
   7. RED_TEAM_CODE gate (if enabled):
      a. Check: red_team.code_vs_design.enabled == true in .loa.config.yaml
      b. Check: SDD exists at grimoires/loa/sdd.md (or skip_if_no_sdd behavior)
-     c. Invoke: .Codex/scripts/red-team-code-vs-design.sh \
+     c. Invoke: .claude/scripts/red-team-code-vs-design.sh \
           --sdd grimoires/loa/sdd.md \
           --diff - \              # pipe git diff main...HEAD
           --output grimoires/loa/a2a/sprint-{N}/red-team-code-findings.json \
@@ -256,7 +256,7 @@ State tracked in `.run/state.json`:
 All git operations MUST go through ICE wrapper:
 
 ```bash
-.Codex/scripts/run-mode-ice.sh <command> [args]
+.claude/scripts/run-mode-ice.sh <command> [args]
 ```
 
 ICE enforces:

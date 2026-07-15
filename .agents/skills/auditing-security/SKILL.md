@@ -20,7 +20,7 @@ audit_categories: 5
 timeout_minutes: 60
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: none
   state:
     paths: [grimoires/loa, .beads]
@@ -50,7 +50,7 @@ guardrails:
 
 ### Step 2: Run Danger Level Check
 
-**Script**: `.Codex/scripts/danger-level-enforcer.sh --skill auditing-security --mode {mode}`
+**Script**: `.claude/scripts/danger-level-enforcer.sh --skill auditing-security --mode {mode}`
 
 This is a **safe** danger level skill (read-only security analysis).
 
@@ -60,13 +60,13 @@ This is a **safe** danger level skill (read-only security analysis).
 
 ### Step 3: Run PII Filter
 
-**Script**: `.Codex/scripts/pii-filter.sh`
+**Script**: `.claude/scripts/pii-filter.sh`
 
 Detect and redact sensitive data in audit scope.
 
 ### Step 4: Run Injection Detection
 
-**Script**: `.Codex/scripts/injection-detect.sh --threshold 0.7`
+**Script**: `.claude/scripts/injection-detect.sh --threshold 0.7`
 
 Prevent manipulation of audit scope.
 
@@ -92,22 +92,22 @@ This skill operates under **Managed Scaffolding**:
 
 | Zone | Permission | Notes |
 |------|------------|-------|
-| `.Codex/` | NONE | System zone - never suggest edits |
+| `.claude/` | NONE | System zone - never suggest edits |
 | `grimoires/loa/`, `.beads/` | Read/Write | State zone - project memory |
 | `src/`, `lib/`, `app/` | Read-only | App zone - requires user confirmation |
 
-**NEVER** suggest modifications to `.Codex/`. Direct users to `.Codex/overrides/` or `.loa.config.yaml`.
+**NEVER** suggest modifications to `.claude/`. Direct users to `.claude/overrides/` or `.loa.config.yaml`.
 
 ### Review Scope Filtering (#303)
 
 When reviewing Loa-mounted projects, **focus audit on app zone files** (src/, lib/, app/).
 Use `.reviewignore` patterns and zone detection from `.loa-version.json` to determine which files
-are in scope. Files in the system zone (`.Codex/`) and state zone (`grimoires/`, `.beads/`, `.run/`)
+are in scope. Files in the system zone (`.claude/`) and state zone (`grimoires/`, `.beads/`, `.run/`)
 are excluded from audit by default.
 
 To determine in-scope files, reference the shared review scope utility:
 ```bash
-source .Codex/scripts/review-scope.sh
+source .claude/scripts/review-scope.sh
 detect_zones
 load_reviewignore
 # Check individual files: is_excluded "path/to/file"
@@ -184,7 +184,7 @@ Example:
 <attention_budget>
 ## Attention Budget
 
-This skill follows the **Tool Result Clearing Protocol** (`.Codex/protocols/tool-result-clearing.md`).
+This skill follows the **Tool Result Clearing Protocol** (`.claude/protocols/tool-result-clearing.md`).
 
 ### Token Thresholds
 
@@ -344,7 +344,7 @@ find . -name "*.ts" -o -name "*.js" -o -name "*.tf" -o -name "*.py" | xargs wc -
 Run scope analysis to understand audit surface before detailed analysis:
 
 ```bash
-.Codex/scripts/security-audit-scope.sh
+.claude/scripts/security-audit-scope.sh
 ```
 
 **Output Categories:**
@@ -481,7 +481,7 @@ Check for stored data that becomes dangerous when retrieved:
 
 ## Phase 1C: Security Dissenter Analysis
 
-**MANDATORY when enabled.** Runs if `flatline_protocol.security_audit.enabled: true` in `.loa.config.yaml`. Skipping this phase triggers a `PreToolUse:Write` gate block at `COMPLETED` marker write time (see `.Codex/hooks/safety/adversarial-review-gate.sh`). Emergency override only via `LOA_ADVERSARIAL_REVIEW_ENFORCE=false` — document in sprint notes.
+**MANDATORY when enabled.** Runs if `flatline_protocol.security_audit.enabled: true` in `.loa.config.yaml`. Skipping this phase triggers a `PreToolUse:Write` gate block at `COMPLETED` marker write time (see `.claude/hooks/safety/adversarial-review-gate.sh`). Emergency override only via `LOA_ADVERSARIAL_REVIEW_ENFORCE=false` — document in sprint notes.
 
 **Objective**: Run independent security-focused cross-model review. The dissenter does NOT receive any Phase 1A/1B findings — it evaluates the code independently to prevent anchoring bias (per FR-2.5).
 
@@ -489,7 +489,7 @@ Check for stored data that becomes dangerous when retrieved:
 1. Prepare git diff: `git diff main...HEAD > /tmp/adversarial-audit-diff.txt`
 2. Invoke security dissenter:
    ```bash
-   findings=$(.Codex/scripts/adversarial-review.sh \
+   findings=$(.claude/scripts/adversarial-review.sh \
      --type audit \
      --sprint-id "$sprint_id" \
      --diff-file /tmp/adversarial-audit-diff.txt \
@@ -885,7 +885,7 @@ br label add <task-id> security-approved       # Passed audit
 ### Logging Discovered Vulnerabilities
 ```bash
 # Create security issue discovered during audit
-.Codex/scripts/beads/log-discovered-issue.sh "<sprint-epic-id>" "Security: [vulnerability description]" bug 0
+.claude/scripts/beads/log-discovered-issue.sh "<sprint-epic-id>" "Security: [vulnerability description]" bug 0
 br label add <new-issue-id> security
 ```
 
@@ -894,7 +894,7 @@ br label add <new-issue-id> security
 br sync --flush-only  # Export SQLite → JSONL before commit
 ```
 
-**Protocol Reference**: See `.Codex/protocols/beads-integration.md`
+**Protocol Reference**: See `.claude/protocols/beads-integration.md`
 </beads_workflow>
 
 <retrospective_postlude>

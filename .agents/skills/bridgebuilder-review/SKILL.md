@@ -14,7 +14,7 @@ capabilities:
 cost-profile: heavy
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: read
   state:
     paths: [grimoires/bridgebuilder]
@@ -82,7 +82,7 @@ Set in `.loa.config.yaml` under `bridgebuilder:` section, or via environment var
 
 ## Self-Review Opt-In (#796 / vision-013)
 
-When BB reviews a PR that modifies BB itself — or any other framework file under `.Codex/`, `grimoires/`, `.beads/`, etc. — the Loa-aware filter normally strips those files from the review payload before the multi-model pass. This is correct for code-PR reviews (no review noise from grimoire side-effects) but inverts on self-modifying PRs (the framework files ARE the substance).
+When BB reviews a PR that modifies BB itself — or any other framework file under `.claude/`, `grimoires/`, `.beads/`, etc. — the Loa-aware filter normally strips those files from the review payload before the multi-model pass. This is correct for code-PR reviews (no review noise from grimoire side-effects) but inverts on self-modifying PRs (the framework files ARE the substance).
 
 To opt a single PR into self-review (framework files visible to all reviewer models), apply the label:
 
@@ -92,7 +92,7 @@ bridgebuilder:self-review
 
 When detected, BB:
 
-- Skips the LOA framework exclusion for that PR's review pass — `.Codex/`, `grimoires/`, `.beads/` files become reviewable
+- Skips the LOA framework exclusion for that PR's review pass — `.claude/`, `grimoires/`, `.beads/` files become reviewable
 - **Continues to honor `.reviewignore` operator-curated patterns** (BR-003 / BB-001-security): `secrets/`, `vendor/`, private-doc patterns in your repo's `.reviewignore` still exclude their matches under self-review. The label is an Allow on framework files, NOT a global Deny suppressor.
 - Surfaces a banner in the review output:
   - With `.reviewignore` user patterns: `[Loa-aware: self-review opt-in active — framework files included; .reviewignore (N user patterns) still honored (vision-013 / #796)]`

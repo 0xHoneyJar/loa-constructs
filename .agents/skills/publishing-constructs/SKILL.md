@@ -71,7 +71,7 @@ If user accepts suggestions, write them to `construct.yaml`.
 Run the bash script's 10-point checklist plus 4 additional agent-level checks:
 
 ```bash
-.Codex/scripts/constructs-publish.sh validate <path> --json
+.claude/scripts/constructs-publish.sh validate <path> --json
 ```
 
 Then check:
@@ -111,7 +111,7 @@ If `--validate` flag was passed, stop here and report results.
 Call the bash script to push and trigger sync:
 
 ```bash
-.Codex/scripts/constructs-publish.sh push <path>
+.claude/scripts/constructs-publish.sh push <path>
 ```
 
 The script handles:

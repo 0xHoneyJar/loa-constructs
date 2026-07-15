@@ -113,10 +113,10 @@ When beads_rust is installed, the agent handles task lifecycle:
 1. **Session Start**: `br sync --import-only` to import latest state
 2. **Get Work**: `br ready` to find unblocked tasks
 3. **Claim Task**: `br update <id> --status in_progress`
-4. **Log Discoveries**: `.Codex/scripts/beads/log-discovered-issue.sh` for found bugs
+4. **Log Discoveries**: `.claude/scripts/beads/log-discovered-issue.sh` for found bugs
 5. **Complete Task**: `br close <id> --reason "..."`
 6. **Session End**: `br sync --flush-only` before commit
 
 **No manual `br` commands required.** The agent handles everything internally.
 
-**Protocol Reference**: See `.Codex/protocols/beads-integration.md`
+**Protocol Reference**: See `.claude/protocols/beads-integration.md`

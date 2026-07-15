@@ -60,7 +60,7 @@ This skill manages its own 8-phase workflow. DO NOT use Codex's native Plan Mode
 ## Constraint Rules
 
 <!-- @constraint-generated: start simstim_constraints | hash:fa9331a75525a8d5 -->
-<!-- DO NOT EDIT — generated from .Codex/data/constraints.json -->
+<!-- DO NOT EDIT — generated from .claude/data/constraints.json -->
 1. NEVER call `EnterPlanMode` — simstim phases ARE the plan
 2. NEVER jump to implementation after any user confirmation
 3. Each phase MUST complete sequentially: 0→1→2→3→3.5→4→4.5→5→6→6.5→7→8
@@ -100,14 +100,14 @@ Display: `[0/8] PREFLIGHT - Validating configuration...`
 
 1. Check configuration:
    ```bash
-   result=$(.Codex/scripts/simstim-orchestrator.sh --preflight ${DRY_RUN:+--dry-run} ${FROM:+--from "$FROM"} ${RESUME:+--resume} ${ABORT:+--abort})
+   result=$(.claude/scripts/simstim-orchestrator.sh --preflight ${DRY_RUN:+--dry-run} ${FROM:+--from "$FROM"} ${RESUME:+--resume} ${ABORT:+--abort})
    ```
 
 2. **Flatline Readiness Validation** (FR-3, cycle-048):
 
    Run fresh-per-cycle validation to verify Flatline Protocol can operate:
    ```bash
-   flatline_result=$(.Codex/scripts/flatline-readiness.sh --json)
+   flatline_result=$(.claude/scripts/flatline-readiness.sh --json)
    flatline_exit=$?
    ```
 
@@ -154,7 +154,7 @@ Display: `[0/8] PREFLIGHT - Validating configuration...`
 
    Store computed `total_phases` in simstim state:
    ```bash
-   .Codex/scripts/simstim-state.sh update total_phases "$total_phases"
+   .claude/scripts/simstim-state.sh update total_phases "$total_phases"
    ```
 
    Use `[N/$total_phases]` in all subsequent phase progress displays instead of hardcoded `[N/8]`.
@@ -188,8 +188,8 @@ Display: `[1/8] DISCOVERY - Creating Product Requirements Document...`
 
 Once complete:
 ```bash
-.Codex/scripts/simstim-orchestrator.sh --update-phase discovery completed
-.Codex/scripts/simstim-state.sh add-artifact prd grimoires/loa/prd.md
+.claude/scripts/simstim-orchestrator.sh --update-phase discovery completed
+.claude/scripts/simstim-state.sh add-artifact prd grimoires/loa/prd.md
 ```
 
 Proceed to Phase 2.
@@ -206,7 +206,7 @@ Display: `[2/8] FLATLINE PRD - Multi-model adversarial review...`
 
 1. Run Flatline Protocol:
    ```bash
-   result=$(.Codex/scripts/flatline-orchestrator.sh --doc grimoires/loa/prd.md --phase prd --json)
+   result=$(.claude/scripts/flatline-orchestrator.sh --doc grimoires/loa/prd.md --phase prd --json)
    ```
 
 2. Process results in HITL mode:
@@ -233,7 +233,7 @@ Display: `[2/8] FLATLINE PRD - Multi-model adversarial review...`
    - If Override: REQUIRE user to provide rationale
    - Log override to trajectory:
      ```bash
-     .Codex/scripts/simstim-orchestrator.sh --log-blocker-override \
+     .claude/scripts/simstim-orchestrator.sh --log-blocker-override \
          --blocker-id "[id]" \
          --decision "override" \
          --rationale "[user rationale]"
@@ -243,8 +243,8 @@ Display: `[2/8] FLATLINE PRD - Multi-model adversarial review...`
 
 5. Update state with metrics:
    ```bash
-   .Codex/scripts/simstim-orchestrator.sh --update-flatline-metrics prd [integrated] [disputed] [blockers]
-   .Codex/scripts/simstim-orchestrator.sh --update-phase flatline_prd completed
+   .claude/scripts/simstim-orchestrator.sh --update-flatline-metrics prd [integrated] [disputed] [blockers]
+   .claude/scripts/simstim-orchestrator.sh --update-phase flatline_prd completed
    ```
 
 **Skip if Flatline unavailable:** Log warning, continue to Phase 3.
@@ -280,8 +280,8 @@ Display: `[3/8] ARCHITECTURE - Creating Software Design Document...`
 
 Once complete:
 ```bash
-.Codex/scripts/simstim-orchestrator.sh --update-phase architecture completed
-.Codex/scripts/simstim-state.sh add-artifact sdd grimoires/loa/sdd.md
+.claude/scripts/simstim-orchestrator.sh --update-phase architecture completed
+.claude/scripts/simstim-state.sh add-artifact sdd grimoires/loa/sdd.md
 ```
 
 Proceed to Phase 3.5 (if enabled) or Phase 4.
@@ -312,7 +312,7 @@ If only one config flag is set, skip with warning:
 1. **Update state**: `simstim-orchestrator.sh --update-phase bridgebuilder_sdd in_progress`
 
 2. **Load persona**: Read persona from path configured in
-   `bridgebuilder_design_review.persona_path` (default: `.Codex/data/bridgebuilder-persona.md`)
+   `bridgebuilder_design_review.persona_path` (default: `.claude/data/bridgebuilder-persona.md`)
 
 3. **Load lore** (if `bridgebuilder_design_review.lore_enabled: true`):
    Load lore entries using the same mechanism as Run Bridge Phase 3.1 step 3:
@@ -337,7 +337,7 @@ If only one config flag is set, skip with warning:
      full problem → requirements → design reasoning chain.
 
 5. **Generate review**: Using the Bridgebuilder persona and
-   `.Codex/data/design-review-prompt.md` template, evaluate the SDD against 6 dimensions:
+   `.claude/data/design-review-prompt.md` template, evaluate the SDD against 6 dimensions:
    - Architectural Soundness
    - Requirement Coverage (PRD → SDD mapping)
    - Scale Alignment
@@ -360,7 +360,7 @@ If only one config flag is set, skip with warning:
 
 7. **Parse findings**:
    ```bash
-   .Codex/scripts/bridge-findings-parser.sh \
+   .claude/scripts/bridge-findings-parser.sh \
      --input .run/bridge-reviews/design-review-{cycle}.md \
      --output .run/bridge-reviews/design-review-{cycle}.json
    ```
@@ -435,7 +435,7 @@ If only one config flag is set, skip with warning:
    deferred REFRAMEs reclassified as VISION in Step 8 — and
    `bridgebuilder_design_review.vision_capture: true`):
    ```bash
-   .Codex/scripts/bridge-vision-capture.sh \
+   .claude/scripts/bridge-vision-capture.sh \
      --findings .run/bridge-reviews/design-review-{cycle}.json \
      --bridge-id "design-review-{simstim_id}" \
      --iteration 1 \
@@ -450,12 +450,12 @@ If only one config flag is set, skip with warning:
 
 10. **Update artifact checksum** (if SDD was modified):
     ```bash
-    .Codex/scripts/simstim-state.sh add-artifact sdd grimoires/loa/sdd.md
+    .claude/scripts/simstim-state.sh add-artifact sdd grimoires/loa/sdd.md
     ```
 
 11. **Complete phase**:
     ```bash
-    .Codex/scripts/simstim-orchestrator.sh --update-phase bridgebuilder_sdd completed
+    .claude/scripts/simstim-orchestrator.sh --update-phase bridgebuilder_sdd completed
     ```
 
 **If skipped** (config disabled or mismatch):
@@ -482,15 +482,15 @@ Display: `[4/8] FLATLINE SDD - Multi-model adversarial review...`
 
 Follow same HITL process as Phase 2, but for SDD:
 ```bash
-result=$(.Codex/scripts/flatline-orchestrator.sh --doc grimoires/loa/sdd.md --phase sdd --json)
+result=$(.claude/scripts/flatline-orchestrator.sh --doc grimoires/loa/sdd.md --phase sdd --json)
 ```
 
 Process HIGH_CONSENSUS, DISPUTED, BLOCKER items as in Phase 2.
 
 Update state:
 ```bash
-.Codex/scripts/simstim-orchestrator.sh --update-flatline-metrics sdd [integrated] [disputed] [blockers]
-.Codex/scripts/simstim-orchestrator.sh --update-phase flatline_sdd completed
+.claude/scripts/simstim-orchestrator.sh --update-flatline-metrics sdd [integrated] [disputed] [blockers]
+.claude/scripts/simstim-orchestrator.sh --update-phase flatline_sdd completed
 ```
 
 Proceed to Phase 4.5 (if enabled) or Phase 5.
@@ -518,7 +518,7 @@ Display: `[4.5/8] RED TEAM SDD - Generative adversarial security design...`
 1. Prompt user: "Run red team analysis on the SDD? [Y/n]"
 2. If yes, invoke:
    ```bash
-   .Codex/scripts/flatline-orchestrator.sh \
+   .claude/scripts/flatline-orchestrator.sh \
      --doc grimoires/loa/sdd.md \
      --phase sdd \
      --mode red-team \
@@ -598,8 +598,8 @@ Display: `[5/8] PLANNING - Creating Sprint Plan...`
 
 Once complete:
 ```bash
-.Codex/scripts/simstim-orchestrator.sh --update-phase planning completed
-.Codex/scripts/simstim-state.sh add-artifact sprint grimoires/loa/sprint.md
+.claude/scripts/simstim-orchestrator.sh --update-phase planning completed
+.claude/scripts/simstim-state.sh add-artifact sprint grimoires/loa/sprint.md
 ```
 
 Proceed to Phase 6.
@@ -616,15 +616,15 @@ Display: `[6/8] FLATLINE SPRINT - Multi-model adversarial review...`
 
 Follow same HITL process as Phase 2, but for sprint plan:
 ```bash
-result=$(.Codex/scripts/flatline-orchestrator.sh --doc grimoires/loa/sprint.md --phase sprint --json)
+result=$(.claude/scripts/flatline-orchestrator.sh --doc grimoires/loa/sprint.md --phase sprint --json)
 ```
 
 Process HIGH_CONSENSUS, DISPUTED, BLOCKER items as in Phase 2.
 
 Update state:
 ```bash
-.Codex/scripts/simstim-orchestrator.sh --update-flatline-metrics sprint [integrated] [disputed] [blockers]
-.Codex/scripts/simstim-orchestrator.sh --update-phase flatline_sprint completed
+.claude/scripts/simstim-orchestrator.sh --update-flatline-metrics sprint [integrated] [disputed] [blockers]
+.claude/scripts/simstim-orchestrator.sh --update-phase flatline_sprint completed
 ```
 
 Proceed to Phase 7.
@@ -666,7 +666,7 @@ This phase delegates to the run-mode skill for autonomous implementation.
 
 2. **Set plan_id reference** (v1.28.0):
    ```bash
-   .Codex/scripts/simstim-orchestrator.sh --set-expected-plan-id
+   .claude/scripts/simstim-orchestrator.sh --set-expected-plan-id
    ```
    This stores the expected plan_id for state correlation after run-mode completes.
 
@@ -678,7 +678,7 @@ This phase delegates to the run-mode skill for autonomous implementation.
 
 4. **Sync run-mode state** (v1.28.0):
    ```bash
-   sync_result=$(.Codex/scripts/simstim-orchestrator.sh --sync-run-mode)
+   sync_result=$(.claude/scripts/simstim-orchestrator.sh --sync-run-mode)
    ```
    This synchronizes run-mode completion state back to simstim state atomically.
 
@@ -696,14 +696,14 @@ This phase delegates to the run-mode skill for autonomous implementation.
 
 6. Update simstim state (if sync didn't already):
    ```bash
-   .Codex/scripts/simstim-orchestrator.sh --update-phase implementation [completed|incomplete]
+   .claude/scripts/simstim-orchestrator.sh --update-phase implementation [completed|incomplete]
    ```
 
 **Recovery: Force Phase** (v1.28.0):
 
 If sync fails repeatedly (after 3 attempts), use the escape hatch:
 ```bash
-.Codex/scripts/simstim-orchestrator.sh --force-phase complete --yes
+.claude/scripts/simstim-orchestrator.sh --force-phase complete --yes
 ```
 ⚠️ WARNING: This bypasses validation. Only use as last resort when you've verified implementation is actually complete.
 
@@ -800,7 +800,7 @@ Display: `[8/8] COMPLETE - Workflow finished!`
 
 3. Update final state:
    ```bash
-   .Codex/scripts/simstim-orchestrator.sh --complete
+   .claude/scripts/simstim-orchestrator.sh --complete
    ```
 
 4. Display completion message:
@@ -880,15 +880,15 @@ fi
 
 **Step 2: Check Schema Version**
 ```bash
-.Codex/scripts/simstim-state.sh check-version
+.claude/scripts/simstim-state.sh check-version
 ```
 If version mismatch, migration is attempted automatically.
 
 **Step 3: Load State and Determine Resume Point**
 ```bash
 # Get current state
-state=$(.Codex/scripts/simstim-state.sh get state)
-phase=$(.Codex/scripts/simstim-state.sh get phase)
+state=$(.claude/scripts/simstim-state.sh get state)
+phase=$(.claude/scripts/simstim-state.sh get phase)
 
 # Find first incomplete phase
 incomplete_phase=$(jq -r '.phases | to_entries | map(select(.value == "in_progress" or .value == "pending")) | .[0].key // "complete"' .run/simstim-state.json)
@@ -896,7 +896,7 @@ incomplete_phase=$(jq -r '.phases | to_entries | map(select(.value == "in_progre
 
 **Step 4: Validate Artifact Checksums**
 ```bash
-drift=$(.Codex/scripts/simstim-state.sh validate-artifacts)
+drift=$(.claude/scripts/simstim-state.sh validate-artifacts)
 valid=$(echo "$drift" | jq -r '.valid')
 ```
 
@@ -988,7 +988,7 @@ If Codex session times out and user returns to a new session:
 When run-mode encounters a circuit breaker scenario (max cycles, timeout, etc.):
 
 ```bash
-.Codex/scripts/simstim-state.sh update-phase implementation incomplete
+.claude/scripts/simstim-state.sh update-phase implementation incomplete
 ```
 
 On resume:
@@ -1012,7 +1012,7 @@ After 3 failed sync attempts, simstim enters SYNC_FAILED state. Recovery options
 1. **Investigate**: Check `.run/sprint-plan-state.json` manually
 2. **Force bypass**: Use escape hatch if implementation is verified complete:
    ```bash
-   .Codex/scripts/simstim-orchestrator.sh --force-phase complete --yes
+   .claude/scripts/simstim-orchestrator.sh --force-phase complete --yes
    ```
    ⚠️ WARNING: Only use after manually verifying implementation is complete
 

@@ -34,7 +34,7 @@ Single command that walks through the entire planning pipeline: requirements dis
 Run the golden-path state detection:
 
 ```bash
-source .Codex/scripts/golden-path.sh
+source .claude/scripts/golden-path.sh
 phase=$(golden_detect_plan_phase)
 # Returns: "discovery" | "architecture" | "sprint_planning" | "complete"
 ```
@@ -108,7 +108,7 @@ When the user provides a description (via "Other" or "Describe my project"):
    ```
 
 2. **Infer archetype** using the LLM (not keyword matching):
-   - Read all archetype YAML files from `.Codex/data/archetypes/*.yaml`
+   - Read all archetype YAML files from `.claude/data/archetypes/*.yaml`
    - Present the list of archetype names + descriptions along with the user's description
    - Classify internally: "Which archetype best matches this project? Reply with the filename or 'none'."
    - Confidence threshold: Only seed risks if confidence is `high` or `medium`

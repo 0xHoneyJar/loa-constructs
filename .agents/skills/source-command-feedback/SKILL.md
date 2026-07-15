@@ -43,7 +43,7 @@ Check if there's pending feedback from a previous failed submission:
 
 If `feedback.routing.enabled` is true in `.loa.config.yaml`:
 
-1. Run `.Codex/scripts/feedback-classifier.sh` with conversation context
+1. Run `.claude/scripts/feedback-classifier.sh` with conversation context
 2. Get recommended repository based on signal matching
 3. Present AskUserQuestion with routing options:
 
@@ -85,7 +85,7 @@ When the classifier returns `classification: "construct"`:
    - If count >= `per_repo_daily` (default 5): show warning, require extra confirmation
    - If count >= `per_repo_daily_hard` (default 20): block with "Rate limit exceeded for {repo}"
 
-3. **Redaction preview**: Run `.Codex/scripts/feedback-redaction.sh --preview` on the draft feedback content. Display the redacted preview to user:
+3. **Redaction preview**: Run `.claude/scripts/feedback-redaction.sh --preview` on the draft feedback content. Display the redacted preview to user:
    ```
    This feedback will be filed on {source_repo} ({construct} v{version}):
 
@@ -152,11 +152,11 @@ Classify the type of issue (if applicable) using AskUserQuestion with multiSelec
 
 ### Phase 3: Trace Collection
 
-Check trace collection status in `.Codex/settings.local.json`:
+Check trace collection status in `.claude/settings.local.json`:
 
 **If trace collection is ENABLED** (`collectTraces: true`):
 
-1. Run `.Codex/scripts/collect-trace.sh` to gather execution data
+1. Run `.claude/scripts/collect-trace.sh` to gather execution data
 2. Display summary: source count, total size, redaction count
 3. Ask user via AskUserQuestion: "Include traces?" (Yes / No)
 
@@ -178,7 +178,7 @@ Check trace collection status in `.Codex/settings.local.json`:
 3. If "Enable for this submission": Run `collect-trace.sh` with one-time collection
 4. If "Skip traces": Continue to Phase 4 without traces
 
-**Note**: One-time trace collection does NOT modify `.Codex/settings.local.json`. To enable persistent trace collection, see the Trace Configuration section below.
+**Note**: One-time trace collection does NOT modify `.claude/settings.local.json`. To enable persistent trace collection, see the Trace Configuration section below.
 
 ### Phase 4: User Review
 
@@ -197,7 +197,7 @@ Submit to GitHub Issues using graceful label handling:
 
 1. Check `gh` CLI availability and authentication
 2. Get target repo from Phase 0.5 routing (default: `0xHoneyJar/loa`)
-3. If authenticated: create issue via `.Codex/scripts/gh-label-handler.sh`:
+3. If authenticated: create issue via `.claude/scripts/gh-label-handler.sh`:
    ```bash
    gh-label-handler.sh create-issue \
        --repo {target_repo} \
@@ -216,7 +216,7 @@ Submit to GitHub Issues using graceful label handling:
 
 When routing to a construct repo (from Phase 0.5b):
 
-1. Apply full redaction: `.Codex/scripts/feedback-redaction.sh --input <draft_file>`
+1. Apply full redaction: `.claude/scripts/feedback-redaction.sh --input <draft_file>`
 2. Build structured issue body:
 
 ```markdown
@@ -302,11 +302,11 @@ Feedback is automatically classified and routed to the appropriate ecosystem rep
 
 | Repository | Signals | When to use |
 |------------|---------|-------------|
-| `0xHoneyJar/loa` | `.Codex/`, skills, commands, protocols, grimoires | Framework issues |
+| `0xHoneyJar/loa` | `.claude/`, skills, commands, protocols, grimoires | Framework issues |
 | `0xHoneyJar/loa-constructs` | registry, API, install, pack, license | Registry/API issues |
 | `0xHoneyJar/forge` | experimental, sandbox, WIP | Sandbox issues |
 | Current project | application, deployment, no loa keywords | Project-specific |
-| **Construct repo** | `.Codex/constructs/`, pack/skill paths, vendor refs | **Construct issues (v3.0.0)** |
+| **Construct repo** | `.claude/constructs/`, pack/skill paths, vendor refs | **Construct issues (v3.0.0)** |
 
 ### Configuration
 
@@ -431,7 +431,7 @@ Submitted via Loa `/feedback` command
 
 ## Trace Configuration
 
-To enable trace collection, create `.Codex/settings.local.json`:
+To enable trace collection, create `.claude/settings.local.json`:
 
 ```json
 {

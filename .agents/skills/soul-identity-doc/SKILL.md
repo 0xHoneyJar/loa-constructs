@@ -6,7 +6,7 @@ parallel_threshold: 3000
 timeout_minutes: 5
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: read
   state:
     paths: [grimoires/loa, .run]
@@ -80,13 +80,13 @@ pattern file defends against.
   `## Voice`, `## Discipline`, `## Influences`. Optional: `## Refusals`,
   `## Glossary`, `## Provenance`.
 
-The schema lives at `.Codex/data/soul-frontmatter.schema.json`. Section
+The schema lives at `.claude/data/soul-frontmatter.schema.json`. Section
 validation is the lib's responsibility (extracts `^##` headers, matches
 required vs optional, scans bodies for prescriptive patterns).
 
 ## Prescriptive-section rejection (NFR-Sec3)
 
-Sections are scanned against the patterns at `.Codex/data/lore/agent-network/
+Sections are scanned against the patterns at `.claude/data/lore/agent-network/
 soul-prescriptive-rejection-patterns.txt`. A match in any line of a section's
 body flags the section as prescriptive — strict mode rejects the doc; warn
 mode loads with a `[SCHEMA-WARNING]` marker. Patterns are conservative:
@@ -109,7 +109,7 @@ surface-time sanitization rejects prescriptive *interpretation*.
 ## Library API
 
 ```bash
-source .Codex/scripts/lib/soul-identity-lib.sh
+source .claude/scripts/lib/soul-identity-lib.sh
 
 soul_validate <path> [--strict|--warn]      # exit 0 ok / 2 invalid / 7 config
 soul_load <path> [--max-chars N]            # sanitized body to stdout
@@ -117,12 +117,12 @@ soul_emit <event_type> <payload_json>       # event_type ∈ {soul.surface, soul
 soul_compute_surface_payload <path> <mode> <outcome>
 ```
 
-CLI shim: `.Codex/skills/soul-identity-doc/resources/soul-validate.sh
+CLI shim: `.claude/skills/soul-identity-doc/resources/soul-validate.sh
 <path>` (operator-time validation; no audit log).
 
 ## SessionStart hook
 
-`.Codex/hooks/session-start/loa-l7-surface-soul.sh`
+`.claude/hooks/session-start/loa-l7-surface-soul.sh`
 
 The hook is silent when:
 - `soul_identity_doc.enabled` is not `true` in `.loa.config.yaml`
@@ -137,7 +137,7 @@ When it surfaces, the hook ALWAYS emits a `soul.surface` audit event to
 ### Hook registration (operator action required)
 
 The hook script ships with the framework but is **not auto-registered** in
-`.Codex/settings.json` by default — it is a per-project opt-in. To enable
+`.claude/settings.json` by default — it is a per-project opt-in. To enable
 L7 surfacing, register the script via the framework's session-start hook
 mechanism. Same caveat applies to L6's `loa-l6-surface-handoffs.sh`. See
 the cycle-098 follow-up tracking issue for canonical wiring patterns and

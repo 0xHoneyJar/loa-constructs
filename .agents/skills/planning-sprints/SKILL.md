@@ -17,7 +17,7 @@ parallel_threshold: null
 timeout_minutes: 60
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: none
   state:
     paths: [grimoires/loa, .beads]
@@ -40,11 +40,11 @@ This skill operates under **Managed Scaffolding**:
 
 | Zone | Permission | Notes |
 |------|------------|-------|
-| `.Codex/` | NONE | System zone - never suggest edits |
+| `.claude/` | NONE | System zone - never suggest edits |
 | `grimoires/loa/`, `.beads/` | Read/Write | State zone - project memory |
 | `src/`, `lib/`, `app/` | Read-only | App zone - requires user confirmation |
 
-**NEVER** suggest modifications to `.Codex/`. Direct users to `.Codex/overrides/` or `.loa.config.yaml`.
+**NEVER** suggest modifications to `.claude/`. Direct users to `.claude/overrides/` or `.loa.config.yaml`.
 
 Agents MAY proactively run read-only CLI tools (e.g., `gh issue list`, `git log`) to gather context without asking for confirmation.
 </zone_constraints>
@@ -117,7 +117,7 @@ Example:
 <attention_budget>
 ## Attention Budget
 
-This skill follows the **Tool Result Clearing Protocol** (`.Codex/protocols/tool-result-clearing.md`).
+This skill follows the **Tool Result Clearing Protocol** (`.claude/protocols/tool-result-clearing.md`).
 
 ### Token Thresholds
 
@@ -225,7 +225,7 @@ Beads task tracking is the EXPECTED DEFAULT. Check health before starting sprint
 ### Run Beads Health Check
 
 ```bash
-health=$(.Codex/scripts/beads/beads-health.sh --json)
+health=$(.claude/scripts/beads/beads-health.sh --json)
 status=$(echo "$health" | jq -r '.status')
 ```
 
@@ -244,7 +244,7 @@ status=$(echo "$health" | jq -r '.status')
 
 1. **Check for valid opt-out**:
    ```bash
-   opt_out=$(.Codex/scripts/beads/update-beads-state.sh --opt-out-check 2>/dev/null || echo "NO_OPT_OUT")
+   opt_out=$(.claude/scripts/beads/update-beads-state.sh --opt-out-check 2>/dev/null || echo "NO_OPT_OUT")
    ```
 
 2. **If no valid opt-out**, present HITL gate using AskUserQuestion:
@@ -262,7 +262,7 @@ status=$(echo "$health" | jq -r '.status')
 
    Options:
    [1] Install beads (Recommended)
-       └─ .Codex/scripts/beads/install-br.sh
+       └─ .claude/scripts/beads/install-br.sh
        └─ Or: cargo install beads_rust
 
    [2] Initialize beads
@@ -276,13 +276,13 @@ status=$(echo "$health" | jq -r '.status')
 
 3. **If "Continue without beads" selected**:
    - Require reason (configurable via `beads.opt_out.require_reason`)
-   - Record opt-out: `.Codex/scripts/beads/update-beads-state.sh --opt-out "Reason"`
+   - Record opt-out: `.claude/scripts/beads/update-beads-state.sh --opt-out "Reason"`
    - Log to trajectory: `grimoires/loa/a2a/trajectory/beads-preflight-{date}.jsonl`
    - Opt-out expires after 24h (configurable)
 
 4. **Update state after health check**:
    ```bash
-   .Codex/scripts/beads/update-beads-state.sh --health "$status"
+   .claude/scripts/beads/update-beads-state.sh --health "$status"
    ```
 
 ### If DEGRADED
@@ -298,7 +298,7 @@ Proceeding with sprint planning...
 
 ### Protocol Reference
 
-See `.Codex/protocols/beads-preflight.md` for full specification.
+See `.claude/protocols/beads-preflight.md` for full specification.
 
 ## Phase 0: Check Feedback Files, Ledger, and Integration Context (CRITICAL—DO THIS FIRST)
 
@@ -523,10 +523,10 @@ Use helper scripts for epic and task creation:
 
 ```bash
 # Create sprint epic
-EPIC_ID=$(.Codex/scripts/beads/create-sprint-epic.sh "Sprint N: Theme" 1)
+EPIC_ID=$(.claude/scripts/beads/create-sprint-epic.sh "Sprint N: Theme" 1)
 
 # Create tasks under epic
-.Codex/scripts/beads/create-sprint-task.sh "$EPIC_ID" "Task description" 2 task
+.claude/scripts/beads/create-sprint-task.sh "$EPIC_ID" "Task description" 2 task
 
 # Add blocking dependencies between tasks
 br dep add <blocked-task-id> <blocker-task-id>
@@ -546,7 +546,7 @@ Use labels instead of dependency types:
 br sync --flush-only  # Export SQLite → JSONL before commit
 ```
 
-**Protocol Reference**: See `.Codex/protocols/beads-integration.md`
+**Protocol Reference**: See `.claude/protocols/beads-integration.md`
 
 ### Beads Flatline Loop (v1.28.0)
 
@@ -556,7 +556,7 @@ After creating beads from the sprint plan, optionally run the Flatline Beads Loo
 # Check if beads exist and br is available
 if command -v br &>/dev/null && [[ $(br list --json 2>/dev/null | jq 'length') -gt 0 ]]; then
     # Run iterative multi-model refinement
-    .Codex/scripts/beads-flatline-loop.sh --max-iterations 6 --threshold 5
+    .claude/scripts/beads-flatline-loop.sh --max-iterations 6 --threshold 5
 fi
 ```
 
@@ -581,7 +581,7 @@ This implements the "Check your beads N times, implement once" pattern:
 <visual_communication>
 ## Visual Communication (Optional)
 
-Follow `.Codex/protocols/visual-communication.md` for diagram standards.
+Follow `.claude/protocols/visual-communication.md` for diagram standards.
 
 ### When to Include Diagrams
 

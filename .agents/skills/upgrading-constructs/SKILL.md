@@ -29,7 +29,7 @@ Compares installed version against registry. Shows available updates.
 For each construct with an available update, show the diff:
 
 ```bash
-.Codex/scripts/constructs-diff.sh diff <slug> --json
+.claude/scripts/constructs-diff.sh diff <slug> --json
 ```
 
 ### Phase 3: Merge Strategy

@@ -23,7 +23,7 @@ parallel_threshold: 2000
 timeout_minutes: 90
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: none
   state:
     paths: [grimoires/loa, .beads]
@@ -75,7 +75,7 @@ Calculate score (0-10):
 If score < `prompt_enhancement.auto_enhance_threshold` (default 4):
 
 1. **Classify task type**: debugging, code_review, refactoring, summarization, research, generation, general
-2. **Load template** from `.Codex/skills/enhancing-prompts/resources/templates/{task_type}.yaml`
+2. **Load template** from `.claude/skills/enhancing-prompts/resources/templates/{task_type}.yaml`
 3. **Apply template**:
    - Prepend persona if missing
    - Append format if missing
@@ -195,7 +195,7 @@ interviews to produce a comprehensive PRD at `grimoires/loa/prd.md`.
 **Role**: Senior Product Manager | 15 years | Enterprise & Startup | User-Centered Design
 **Approach**: Read first, ask second. Demonstrate understanding before requesting input.
 
-**Lore Integration**: When framing requirements, reference relevant archetypes from `.Codex/data/lore/` to ground the project's philosophical context. Use `short` fields for inline naming explanations (e.g., why a feature is called "bridge" or "vision"). Use `context` fields when a requirement discussion benefits from deeper framing — for instance, connecting iterative refinement patterns to kaironic time concepts. Only reference lore when contextually appropriate; never force philosophical connections.
+**Lore Integration**: When framing requirements, reference relevant archetypes from `.claude/data/lore/` to ground the project's philosophical context. Use `short` fields for inline naming explanations (e.g., why a feature is called "bridge" or "vision"). Use `context` fields when a requirement discussion benefits from deeper framing — for instance, connecting iterative refinement patterns to kaironic time concepts. Only reference lore when contextually appropriate; never force philosophical connections.
 </persona>
 
 <zone_constraints>
@@ -205,11 +205,11 @@ This skill operates under **Managed Scaffolding**:
 
 | Zone | Permission | Notes |
 |------|------------|-------|
-| `.Codex/` | NONE | System zone - never suggest edits |
+| `.claude/` | NONE | System zone - never suggest edits |
 | `grimoires/loa/`, `.beads/` | Read/Write | State zone - project memory |
 | `src/`, `lib/`, `app/` | Read-only | App zone - requires user confirmation |
 
-**NEVER** suggest modifications to `.Codex/`. Direct users to `.Codex/overrides/` or `.loa.config.yaml`.
+**NEVER** suggest modifications to `.claude/`. Direct users to `.claude/overrides/` or `.loa.config.yaml`.
 
 Agents MAY proactively run read-only CLI tools (e.g., `gh issue list`, `git log`) to gather context without asking for confirmation.
 </zone_constraints>
@@ -282,7 +282,7 @@ Example:
 <attention_budget>
 ## Attention Budget
 
-This skill follows the **Tool Result Clearing Protocol** (`.Codex/protocols/tool-result-clearing.md`).
+This skill follows the **Tool Result Clearing Protocol** (`.claude/protocols/tool-result-clearing.md`).
 
 ### Token Thresholds
 
@@ -530,7 +530,7 @@ For GREENFIELD projects:
 
 Run context assessment:
 ```bash
-./.Codex/scripts/assess-discovery-context.sh
+./.claude/scripts/assess-discovery-context.sh
 ```
 
 | Result | Strategy |
@@ -708,7 +708,7 @@ Tags are deduplicated and sorted before matching.
 ### Query Vision Registry
 
 ```bash
-visions=$(.Codex/scripts/vision-registry-query.sh \
+visions=$(.claude/scripts/vision-registry-query.sh \
   --tags "$work_tags" \
   --status "$(yq eval '.vision_registry.status_filter | join(",")' .loa.config.yaml 2>/dev/null || echo 'Captured,Exploring')" \
   --min-overlap "$(yq eval '.vision_registry.min_tag_overlap // 2' .loa.config.yaml 2>/dev/null || echo '2')" \
@@ -723,7 +723,7 @@ visions=$(.Codex/scripts/vision-registry-query.sh \
 
 ```bash
 # Log silently — do NOT present to user
-.Codex/scripts/vision-registry-query.sh \
+.claude/scripts/vision-registry-query.sh \
   --tags "$work_tags" \
   --shadow \
   --shadow-cycle "$(yq eval '.active_cycle' grimoires/loa/ledger.json 2>/dev/null)" \
@@ -1291,7 +1291,7 @@ Every claim about existing context must include citation:
 <visual_communication>
 ## Visual Communication (Optional)
 
-Follow `.Codex/protocols/visual-communication.md` for diagram standards.
+Follow `.claude/protocols/visual-communication.md` for diagram standards.
 
 ### When to Include Diagrams
 

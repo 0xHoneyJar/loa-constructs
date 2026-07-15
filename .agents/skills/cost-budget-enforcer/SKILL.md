@@ -7,7 +7,7 @@ parallel_threshold: 3000
 timeout_minutes: 5
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: read
   state:
     paths: [grimoires/loa, .run]
@@ -103,11 +103,11 @@ Environment variable overrides (highest precedence): see lib header.
 
 ## Library API
 
-The skill is implemented as `.Codex/scripts/lib/cost-budget-enforcer-lib.sh`.
+The skill is implemented as `.claude/scripts/lib/cost-budget-enforcer-lib.sh`.
 Source it and call:
 
 ```bash
-source .Codex/scripts/lib/cost-budget-enforcer-lib.sh
+source .claude/scripts/lib/cost-budget-enforcer-lib.sh
 
 # Pre-call verdict
 budget_verdict <estimated_usd> [--provider <id>] [--cycle-id <id>]
@@ -129,10 +129,10 @@ budget_reconcile [--provider <id>] [--force-reason <text>]
 CLI form:
 
 ```bash
-.Codex/scripts/budget/budget-cli.sh verdict 1.50 --provider anthropic
-.Codex/scripts/budget/budget-cli.sh usage --provider anthropic
-.Codex/scripts/budget/budget-cli.sh record 1.42 --provider anthropic --model-id Codex-opus-4-7
-.Codex/scripts/budget/budget-cli.sh reconcile --provider anthropic
+.claude/scripts/budget/budget-cli.sh verdict 1.50 --provider anthropic
+.claude/scripts/budget/budget-cli.sh usage --provider anthropic
+.claude/scripts/budget/budget-cli.sh record 1.42 --provider anthropic --model-id Codex-opus-4-7
+.claude/scripts/budget/budget-cli.sh reconcile --provider anthropic
 ```
 
 ## UsageObserver Interface
@@ -156,10 +156,10 @@ Two separate crontab entries support L2 production operation:
 
 ```bash
 # 6h cadence reconciliation (Sprint 2B)
-.Codex/scripts/budget/budget-reconcile-install.sh install
+.claude/scripts/budget/budget-reconcile-install.sh install
 
 # Daily snapshot for chain-recovery RPO 24h (Sprint 2C)
-.Codex/scripts/audit/audit-snapshot-install.sh install
+.claude/scripts/audit/audit-snapshot-install.sh install
 ```
 
 Operator runbook for recovery: `grimoires/loa/runbooks/audit-log-recovery.md`.
@@ -196,7 +196,7 @@ Every verdict appends one envelope to `.run/cost-budget-events.jsonl`:
 ```
 
 Per-event-type schemas live at
-`.Codex/data/trajectory-schemas/budget-events/`. The lib validates payloads
+`.claude/data/trajectory-schemas/budget-events/`. The lib validates payloads
 against these schemas before sealing the envelope.
 
 ## Safety guarantees

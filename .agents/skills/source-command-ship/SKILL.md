@@ -30,7 +30,7 @@ Ship your work. Verifies everything is reviewed and audited, deploys to producti
 ### 1. Check Ship Readiness
 
 ```bash
-source .Codex/scripts/golden-path.sh
+source .claude/scripts/golden-path.sh
 if ! reason=$(golden_check_ship_ready); then
     # Not ready — show reason
     echo "$reason"

@@ -180,7 +180,7 @@ All outputs go to **State Zone** in the **target repo**:
 | Error | Cause | Resolution |
 |-------|-------|------------|
 | "Loa not mounted" | No `.loa-version.json` | Run `/mount` first |
-| "System Zone missing" | No `.Codex/` | Run `/mount` first |
+| "System Zone missing" | No `.claude/` | Run `/mount` first |
 | "System Zone integrity violation" | Files modified | Use `--force-restore` or move changes to overrides |
 | "Target is not a git repository" | Invalid target path | Verify target path |
 
@@ -225,7 +225,7 @@ SESSION START SEQUENCE:
 5. Resume from "Reasoning State" # Continue where left off if applicable
 ```
 
-**Protocol**: See `.Codex/protocols/session-continuity.md`
+**Protocol**: See `.claude/protocols/session-continuity.md`
 
 ### During Session Actions
 
@@ -256,7 +256,7 @@ SYNTHESIS CHECKPOINT:
 6. Verify EDD (3 test scenarios documented per major finding)
 ```
 
-**Protocol**: See `.Codex/protocols/synthesis-checkpoint.md`
+**Protocol**: See `.claude/protocols/synthesis-checkpoint.md`
 
 ### Session Recovery
 

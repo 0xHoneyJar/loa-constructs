@@ -29,7 +29,7 @@ Install the Loa framework onto an existing repository, setting up the three-zone
 
 ## What It Does
 
-1. **Installs System Zone** (`.Codex/`) - Framework skills, commands, protocols
+1. **Installs System Zone** (`.claude/`) - Framework skills, commands, protocols
 2. **Initializes State Zone** (`grimoires/loa/`) - Project memory structure
 3. **Configures Beads** (`.beads/`) - Task graph (if available)
 4. **Generates checksums** - Anti-tamper protection
@@ -39,7 +39,7 @@ Install the Loa framework onto an existing repository, setting up the three-zone
 
 ```
 {repo}/
-├── .Codex/              ← System Zone (framework-managed)
+├── .claude/              ← System Zone (framework-managed)
 │   ├── commands/
 │   ├── skills/
 │   ├── protocols/
@@ -86,7 +86,7 @@ git fetch "$LOA_REMOTE_NAME" "$LOA_BRANCH" --quiet
 ### Phase 3: Install System Zone
 
 ```bash
-git checkout "$LOA_REMOTE_NAME/$LOA_BRANCH" -- .Codex
+git checkout "$LOA_REMOTE_NAME/$LOA_BRANCH" -- .claude
 ```
 
 ### Phase 4: Initialize State Zone
@@ -101,7 +101,7 @@ Initialize `grimoires/loa/NOTES.md` with structured memory template.
 
 ### Phase 5: Generate Checksums
 
-Create `.Codex/checksums.json` with SHA256 hashes of all System Zone files.
+Create `.claude/checksums.json` with SHA256 hashes of all System Zone files.
 
 ### Phase 6: Create Config
 
@@ -132,8 +132,8 @@ done
 ╚═════════════════════════════════════════════════════════════════╝
 
 Zone structure:
-  📁 .Codex/          → System Zone (framework-managed)
-  📁 .Codex/overrides → Your customizations (preserved)
+  📁 .claude/          → System Zone (framework-managed)
+  📁 .claude/overrides → Your customizations (preserved)
   📁 grimoires/loa/     → State Zone (project memory)
   📄 grimoires/loa/NOTES.md → Structured agentic memory
   📁 .beads/           → Task graph
@@ -143,8 +143,8 @@ Next steps:
   2. Issue '/ride' to analyze this codebase
   3. Or '/plan-and-analyze' for greenfield development
 
-⚠️ STRICT ENFORCEMENT: Direct edits to .Codex/ will block execution.
-   Use .Codex/overrides/ for customizations.
+⚠️ STRICT ENFORCEMENT: Direct edits to .claude/ will block execution.
+   Use .claude/overrides/ for customizations.
 
 The Loa has mounted. Issue '/ride' when ready.
 ```
@@ -155,7 +155,7 @@ The Loa has mounted. Issue '/ride' when ready.
 |-------|-------|------------|
 | "Not a git repository" | No `.git` directory | Run `git init` first |
 | "jq is required" | Missing jq | Install jq |
-| "Failed to checkout .Codex/" | Network or permission issue | Check remote URL and auth |
+| "Failed to checkout .claude/" | Network or permission issue | Check remote URL and auth |
 
 ## Relationship to /ride
 
@@ -171,7 +171,7 @@ The Loa has mounted. Issue '/ride' when ready.
 The mount process can also be executed directly via shell:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/0xHoneyJar/loa/main/.Codex/scripts/mount-loa.sh | bash
+curl -fsSL https://raw.githubusercontent.com/0xHoneyJar/loa/main/.claude/scripts/mount-loa.sh | bash
 ```
 
 ## Next Step

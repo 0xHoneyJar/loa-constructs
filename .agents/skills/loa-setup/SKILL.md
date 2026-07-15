@@ -8,7 +8,7 @@ capabilities:
   write_files: true
   execute_commands:
     allowed:
-      - command: ".Codex/scripts/loa-setup-check.sh"
+      - command: ".claude/scripts/loa-setup-check.sh"
         args: ["--json"]
       - command: "yq"
       - command: "jq"
@@ -45,7 +45,7 @@ Run this phase automatically when `/loa setup` is invoked. Do not ask the user f
 
 ### Step 1.1: Run the setup check script
 
-Execute `.Codex/scripts/loa-setup-check.sh --json` via Bash tool. Parse each line as a JSON object. The script emits JSONL with `step`, `name`, `status` (`pass`/`warn`/`fail`), and `detail` fields.
+Execute `.claude/scripts/loa-setup-check.sh --json` via Bash tool. Parse each line as a JSON object. The script emits JSONL with `step`, `name`, `status` (`pass`/`warn`/`fail`), and `detail` fields.
 
 **CRITICAL — API key handling**: The check script emits boolean `pass`/`fail` results only. You MUST NOT read, echo, print, or log the value of any environment variable. Do not run `echo $ANTHROPIC_API_KEY` or any similar command. Do not read `.env` files. Consume only the boolean output from `loa-setup-check.sh`.
 
@@ -461,7 +461,7 @@ Always append: "For the full configuration reference, see `docs/CONFIG_REFERENCE
 
 ### `loa-setup-check.sh` not found
 
-**Condition**: `.Codex/scripts/loa-setup-check.sh` does not exist or exits non-zero with a missing-file error.
+**Condition**: `.claude/scripts/loa-setup-check.sh` does not exist or exits non-zero with a missing-file error.
 
 **Response**: Report the error clearly. Skip Phase 1 script output. Ask the API key questions manually in Phase 2 by adding: "Which API keys do you have configured? (Anthropic / OpenAI / Google / None)" before Q1. Proceed with Phase 2 using manually-provided answers.
 

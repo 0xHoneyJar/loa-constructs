@@ -150,4 +150,4 @@ When beads_rust is installed, the agent records security audit results:
 3. **Mark Status**: `br label add <task-id> security-approved` or `security-blocked`
 4. **Session End**: `br sync --flush-only` before commit
 
-**Protocol Reference**: See `.Codex/protocols/beads-integration.md`
+**Protocol Reference**: See `.claude/protocols/beads-integration.md`

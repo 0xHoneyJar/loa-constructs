@@ -7,7 +7,7 @@ parallel_threshold: 3000
 timeout_minutes: 5
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: read
   state:
     paths: [grimoires/loa, .run]
@@ -53,7 +53,7 @@ an evidence-grounded tier rather than a hardcoded permission.
 
 ## Public API
 
-All functions are sourced from `.Codex/scripts/lib/graduated-trust-lib.sh`.
+All functions are sourced from `.claude/scripts/lib/graduated-trust-lib.sh`.
 
 | Function | Purpose | Exit | FR |
 |----------|---------|------|-----|
@@ -112,7 +112,7 @@ graduated_trust:
 }
 ```
 
-Schema: `.Codex/data/trajectory-schemas/trust-events/trust-response.schema.json`
+Schema: `.claude/data/trajectory-schemas/trust-events/trust-response.schema.json`
 
 ## Semantics
 
@@ -187,7 +187,7 @@ Per FR-L4-6, concurrent writes from runtime + cron + CLI are flock-based-seriali
 
 ```bash
 # Read current tier
-.Codex/scripts/lib/graduated-trust-lib.sh   # source it from your own script
+.claude/scripts/lib/graduated-trust-lib.sh   # source it from your own script
 trust_query flatline merge_main deep-name
 
 # Grant T0 -> T1 (assuming a configured T0_to_T1 rule)

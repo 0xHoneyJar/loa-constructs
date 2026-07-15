@@ -127,7 +127,7 @@ Show what constructs pair with currently installed constructs.
 **Steps:**
 1. Detect installed constructs:
    ```bash
-   installed=$(.Codex/scripts/constructs-loader.sh list 2>/dev/null)
+   installed=$(.claude/scripts/constructs-loader.sh list 2>/dev/null)
    ```
 2. Fetch all constructs with composability:
    ```
@@ -164,7 +164,7 @@ Composability for your installed constructs:
 Direct installation without browse UI.
 
 1. Validate pack slug provided
-2. Run: `.Codex/scripts/constructs-install.sh pack <slug>`
+2. Run: `.claude/scripts/constructs-install.sh pack <slug>`
 3. Report result with installed skill commands
 
 ---
@@ -186,8 +186,8 @@ Sync installed constructs with the registry. Delegates to existing sync flow.
 Show status of installed constructs, versions, and update availability.
 
 ```bash
-.Codex/scripts/constructs-loader.sh list
-.Codex/scripts/constructs-loader.sh check-updates
+.claude/scripts/constructs-loader.sh list
+.claude/scripts/constructs-loader.sh check-updates
 ```
 
 ---
@@ -198,7 +198,7 @@ Check or set up authentication for premium packs.
 
 #### auth (no args) — Check Status
 ```bash
-.Codex/scripts/constructs-auth.sh status
+.claude/scripts/constructs-auth.sh status
 ```
 
 #### auth setup — Configure API Key
@@ -206,7 +206,7 @@ Check or set up authentication for premium packs.
 Guide user through API key setup. Keys from: `LOA_CONSTRUCTS_API_KEY` env var, `~/.loa/credentials.json`, or `~/.loa-constructs/credentials.json` (legacy).
 
 ```bash
-.Codex/scripts/constructs-auth.sh setup <api_key>
+.claude/scripts/constructs-auth.sh setup <api_key>
 ```
 
 ## Passive Triggers
@@ -268,14 +268,14 @@ If the API returns a different shape, adapt gracefully. The `skills` and `compos
 
 ## Per-Repo State
 
-Installed packs go to `.Codex/constructs/packs/` which is gitignored.
+Installed packs go to `.claude/constructs/packs/` which is gitignored.
 
 Installation metadata tracked in `.constructs-meta.json`.
 
 ## Related Scripts
 
-- `.Codex/scripts/constructs-auth.sh` — Authentication management
-- `.Codex/scripts/constructs-browse.sh` — Pack discovery (legacy, prefer API)
-- `.Codex/scripts/constructs-install.sh` — Installation
-- `.Codex/scripts/constructs-loader.sh` — Skill loading
-- `.Codex/scripts/constructs-lib.sh` — Shared utilities
+- `.claude/scripts/constructs-auth.sh` — Authentication management
+- `.claude/scripts/constructs-browse.sh` — Pack discovery (legacy, prefer API)
+- `.claude/scripts/constructs-install.sh` — Installation
+- `.claude/scripts/constructs-loader.sh` — Skill loading
+- `.claude/scripts/constructs-lib.sh` — Shared utilities

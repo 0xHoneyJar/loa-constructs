@@ -7,7 +7,7 @@ parallel_threshold: 3000
 timeout_minutes: 60
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: none
   state:
     paths: [grimoires/loa, .beads, .run]
@@ -48,7 +48,7 @@ guardrails:
 
 ### Step 2: Run Danger Level Check
 
-**Script**: `.Codex/scripts/danger-level-enforcer.sh --skill bug-triaging --mode {mode}`
+**Script**: `.claude/scripts/danger-level-enforcer.sh --skill bug-triaging --mode {mode}`
 
 | Action | Behavior |
 |--------|----------|
@@ -58,7 +58,7 @@ guardrails:
 
 ### Step 3: Run PII Filter
 
-**Script**: `.Codex/scripts/pii-filter.sh`
+**Script**: `.claude/scripts/pii-filter.sh`
 
 Detect and redact from user input:
 - API keys, tokens, secrets (`sk-`, `AKIA`, `eyJ...`)
@@ -70,7 +70,7 @@ Log redaction count to trajectory (never log PII values).
 
 ### Step 4: Run Injection Detection
 
-**Script**: `.Codex/scripts/injection-detect.sh --threshold 0.7`
+**Script**: `.claude/scripts/injection-detect.sh --threshold 0.7`
 
 Check for:
 - Instruction override attempts
@@ -551,7 +551,7 @@ Invalid transitions (e.g., TRIAGE → AUDITING) must be rejected with an error.
 
 ```
 1. Pick the next safe sprint id via the helper script:
-   sprint_id="$(.Codex/scripts/next-bug-sprint-id.sh)"
+   sprint_id="$(.claude/scripts/next-bug-sprint-id.sh)"
 
    The script is the source-of-truth for next-id picking. It returns
    `sprint-bug-{N}` where N is one greater than the maximum of:
@@ -566,13 +566,13 @@ Invalid transitions (e.g., TRIAGE → AUDITING) must be rejected with an error.
 
 2. Create micro-sprint file from template:
    Path: grimoires/loa/a2a/bug-{bug_id}/sprint.md
-   Template: .Codex/skills/bug-triaging/resources/templates/micro-sprint.md
+   Template: .claude/skills/bug-triaging/resources/templates/micro-sprint.md
    Fill placeholders: {bug_title}, {bug_id}, {sprint_id}, {test_type},
                       {suggested_test_file}, {suspected_files}
 
 4. Create triage.md from template:
    Path: grimoires/loa/a2a/bug-{bug_id}/triage.md
-   Template: .Codex/skills/bug-triaging/resources/templates/triage.md
+   Template: .claude/skills/bug-triaging/resources/templates/triage.md
    Fill all placeholders from Phase 1-3 results
 
 5. Apply PII redaction to both output files before final write

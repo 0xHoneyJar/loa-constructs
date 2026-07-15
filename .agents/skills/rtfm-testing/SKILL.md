@@ -1,7 +1,7 @@
 ---
 name: rtfm
 description: Run documentation-driven testing against Ground Truth and protocols
-allowed-tools: Read, Grep, Glob, Bash(bats tests/*), Bash(npm test *), Bash(.Codex/scripts/rtfm-*)
+allowed-tools: Read, Grep, Glob, Bash(bats tests/*), Bash(npm test *), Bash(.claude/scripts/rtfm-*)
 capabilities:
   schema_version: 1
   read_files: true
@@ -23,7 +23,7 @@ parallel_threshold: 3000
 timeout_minutes: 15
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: none
   state:
     paths: [grimoires/loa]
@@ -52,7 +52,7 @@ Orchestrator (the agent executing this skill):
 Tester subagent (the zero-context agent spawned via Task tool):
 - READ: Only the bundled documentation provided in the prompt
 - WRITE: None (output returned as text response, not file writes)
-- NEVER: .Codex/ (system zone), source code, grimoire state, parent conversation
+- NEVER: .claude/ (system zone), source code, grimoire state, parent conversation
 </zone_constraints>
 
 <tester_capabilities_manifest>
@@ -77,7 +77,7 @@ knows:
 does_not_know:
   - Codex (what it is, how it works, how to install it)
   - Loa (any concept: grimoires, beads, skills, slash commands, golden path)
-  - .Codex/ directory conventions
+  - .claude/ directory conventions
   - YAML configuration patterns for AI tools
   - Anthropic API or any LLM API
   - what "slash commands" are in an AI agent context

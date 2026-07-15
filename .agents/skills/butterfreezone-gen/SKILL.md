@@ -8,9 +8,9 @@ capabilities:
   write_files: false
   execute_commands:
     allowed:
-      - command: ".Codex/scripts/butterfreezone-gen.sh"
+      - command: ".claude/scripts/butterfreezone-gen.sh"
         args: ["*"]
-      - command: ".Codex/scripts/butterfreezone-validate.sh"
+      - command: ".claude/scripts/butterfreezone-validate.sh"
         args: ["*"]
     deny_raw_shell: true
   web_access: false
@@ -22,7 +22,7 @@ parallel_threshold: 3000
 timeout_minutes: 5
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: read
   state:
     paths: [grimoires/loa]
@@ -45,8 +45,8 @@ Every claim cites its source. No butter, no hype.
 - READ: grimoires/loa/ground-truth/ (Tier 1 input)
 - READ: package.json, Cargo.toml, etc. (Tier 2 input)
 - WRITE: BUTTERFREEZONE.md (output)
-- EXECUTE: .Codex/scripts/butterfreezone-gen.sh
-- EXECUTE: .Codex/scripts/butterfreezone-validate.sh
+- EXECUTE: .claude/scripts/butterfreezone-gen.sh
+- EXECUTE: .claude/scripts/butterfreezone-validate.sh
 </zone_constraints>
 
 <input_guardrails>
@@ -81,7 +81,7 @@ fi
 
 ```bash
 # Generate BUTTERFREEZONE.md
-.Codex/scripts/butterfreezone-gen.sh --verbose --json
+.claude/scripts/butterfreezone-gen.sh --verbose --json
 
 # Check exit code
 # 0 = success
@@ -93,24 +93,24 @@ fi
 
 ```bash
 # Validate existing file
-.Codex/scripts/butterfreezone-validate.sh --file BUTTERFREEZONE.md --json
+.claude/scripts/butterfreezone-validate.sh --file BUTTERFREEZONE.md --json
 ```
 
 ### Dry-Run Mode
 
 ```bash
 # Preview without writing
-.Codex/scripts/butterfreezone-gen.sh --dry-run
+.claude/scripts/butterfreezone-gen.sh --dry-run
 ```
 
 ## Phase 3: Validation
 
 ```bash
 # Always validate after generation
-.Codex/scripts/butterfreezone-validate.sh --file BUTTERFREEZONE.md
+.claude/scripts/butterfreezone-validate.sh --file BUTTERFREEZONE.md
 
 # With strict mode if requested
-.Codex/scripts/butterfreezone-validate.sh --file BUTTERFREEZONE.md --strict
+.claude/scripts/butterfreezone-validate.sh --file BUTTERFREEZONE.md --strict
 ```
 
 ## Phase 4: Report

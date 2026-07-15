@@ -29,13 +29,13 @@ Based on the user's request, run ONE of these commands:
 
 ```bash
 # View recent permission requests
-.Codex/scripts/permission-audit.sh view
+.claude/scripts/permission-audit.sh view
 
 # Analyze patterns
-.Codex/scripts/permission-audit.sh analyze
+.claude/scripts/permission-audit.sh analyze
 
 # Get suggestions for settings.json
-.Codex/scripts/permission-audit.sh suggest
+.claude/scripts/permission-audit.sh suggest
 ```
 
 ## Output Format
@@ -59,7 +59,7 @@ Based on 47 logged permission requests, here are suggested additions:
 - `Bash(flyctl:*)` - 12 requests
 - `Bash(pm2:*)` - 8 requests
 
-### To add these, update `.Codex/settings.json`:
+### To add these, update `.claude/settings.json`:
 
 ```json
 "permissions": {

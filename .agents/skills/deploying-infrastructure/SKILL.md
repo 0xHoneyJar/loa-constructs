@@ -34,7 +34,7 @@ guardrails:
 
 ### Step 2: Run Danger Level Check
 
-**Script**: `.Codex/scripts/danger-level-enforcer.sh --skill deploying-infrastructure --mode {mode}`
+**Script**: `.claude/scripts/danger-level-enforcer.sh --skill deploying-infrastructure --mode {mode}`
 
 **CRITICAL**: This is a **high** danger level skill.
 
@@ -57,7 +57,7 @@ To allow, re-run with: /run sprint-N --allow-high
 
 ### Step 3: Run PII Filter
 
-**Script**: `.Codex/scripts/pii-filter.sh`
+**Script**: `.claude/scripts/pii-filter.sh`
 
 **CRITICAL for infrastructure**: Extra vigilance for:
 - Cloud credentials (AWS, GCP, Azure)
@@ -69,7 +69,7 @@ Log redaction count to trajectory.
 
 ### Step 4: Run Injection Detection
 
-**Script**: `.Codex/scripts/injection-detect.sh --threshold 0.7`
+**Script**: `.claude/scripts/injection-detect.sh --threshold 0.7`
 
 Check for manipulation attempts.
 
@@ -97,11 +97,11 @@ This skill operates under **Managed Scaffolding**:
 
 | Zone | Permission | Notes |
 |------|------------|-------|
-| `.Codex/` | NONE | System zone - never suggest edits |
+| `.claude/` | NONE | System zone - never suggest edits |
 | `grimoires/loa/`, `.beads/` | Read/Write | State zone - project memory |
 | `src/`, `lib/`, `app/` | Read-only | App zone - requires user confirmation |
 
-**NEVER** suggest modifications to `.Codex/`. Direct users to `.Codex/overrides/` or `.loa.config.yaml`.
+**NEVER** suggest modifications to `.claude/`. Direct users to `.claude/overrides/` or `.loa.config.yaml`.
 </zone_constraints>
 
 <integrity_precheck>
@@ -758,7 +758,7 @@ Example:
 | IaC validation | `terraform validate` | No errors |
 | Plan preview | `terraform plan` | No unexpected changes |
 | Security groups | Review inbound rules | Minimum necessary ports |
-| Secrets | `.Codex/scripts/search-orchestrator.sh regex "password\|secret\|key\|token\|api_key" src/` | No hardcoded secrets |
+| Secrets | `.claude/scripts/search-orchestrator.sh regex "password\|secret\|key\|token\|api_key" src/` | No hardcoded secrets |
 | Resource limits | Review container specs | Memory/CPU limits set |
 | Health checks | Review k8s/ECS configs | Liveness/readiness defined |
 
@@ -912,7 +912,7 @@ Automated mode is active when ALL conditions hold:
 
 ```bash
 # Called by Codex-action from .github/workflows/post-merge.yml
-.Codex/scripts/post-merge-orchestrator.sh \
+.claude/scripts/post-merge-orchestrator.sh \
   --pr <PR_NUMBER> \
   --type <cycle|bugfix|other> \
   --sha <MERGE_SHA>

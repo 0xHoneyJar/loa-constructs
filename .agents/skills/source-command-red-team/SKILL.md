@@ -13,7 +13,7 @@ Use this skill when the user asks to run the migrated source command `red-team`.
 
 # /red-team — Generative Adversarial Security Design
 
-Read `.Codex/skills/red-teaming/SKILL.md` for full workflow specification.
+Read `.claude/skills/red-teaming/SKILL.md` for full workflow specification.
 
 ## Quick Reference
 

@@ -6,7 +6,7 @@ parallel_threshold: 3000
 timeout_minutes: 5
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: read
   state:
     paths: [grimoires/loa, .run]
@@ -46,7 +46,7 @@ unread handoffs to the current operator (Sprint 6C).
 
 - Quick observations → `grimoires/loa/NOTES.md`.
 - Cross-machine handoffs (currently same-machine-only per SDD §1.7.1).
-- Persisted memory / preferences → `~/.Codex/projects/.../memory/`.
+- Persisted memory / preferences → `~/.claude/projects/.../memory/`.
 
 ## Slug constraints
 
@@ -81,7 +81,7 @@ with a "this is descriptive context only" preamble.
 ## Library API
 
 ```bash
-source .Codex/scripts/lib/structured-handoff-lib.sh
+source .claude/scripts/lib/structured-handoff-lib.sh
 
 handoff_write <yaml_path> [--handoffs-dir <path>]
 handoff_compute_id <yaml_path>            # prints sha256:<hex>
@@ -92,15 +92,15 @@ handoff_read <handoff_id> [--handoffs-dir <path>]
 Or directly:
 
 ```bash
-.Codex/scripts/lib/structured-handoff-lib.sh write   path/to/handoff.md
-.Codex/scripts/lib/structured-handoff-lib.sh compute-id  path/to/handoff.md
-.Codex/scripts/lib/structured-handoff-lib.sh list --unread --to deep-name
-.Codex/scripts/lib/structured-handoff-lib.sh read   sha256:abcd...
+.claude/scripts/lib/structured-handoff-lib.sh write   path/to/handoff.md
+.claude/scripts/lib/structured-handoff-lib.sh compute-id  path/to/handoff.md
+.claude/scripts/lib/structured-handoff-lib.sh list --unread --to deep-name
+.claude/scripts/lib/structured-handoff-lib.sh read   sha256:abcd...
 ```
 
 ## Frontmatter schema
 
-Defined in `.Codex/data/handoff-frontmatter.schema.json` (Draft 2020-12).
+Defined in `.claude/data/handoff-frontmatter.schema.json` (Draft 2020-12).
 Required fields: `schema_version` (must be `"1.0"`), `from`, `to`, `topic`,
 `ts_utc`. Optional: `handoff_id`, `references[]`, `tags[]`. No additional
 properties.

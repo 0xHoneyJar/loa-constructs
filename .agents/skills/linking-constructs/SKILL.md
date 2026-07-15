@@ -36,11 +36,11 @@ When linking a local construct directory:
 2. **Auto-detect slug** — read from `construct.yaml` or `manifest.json`, fall back to directory name
 3. **Check for conflicts** — if slug already linked to different path, prompt user
 4. **Preserve existing install** — if pack was registry-installed, create shadow copy first
-5. **Create symlink** — `.Codex/constructs/packs/<slug>` → target path
+5. **Create symlink** — `.claude/constructs/packs/<slug>` → target path
 6. **Update state** — record in `.construct/state.json`
 
 ```bash
-.Codex/scripts/constructs-link.sh link "<path>"
+.claude/scripts/constructs-link.sh link "<path>"
 ```
 
 ### Phase 3: Path Selection (when ambiguous)
@@ -69,7 +69,7 @@ When unlinking:
 4. **Update state** — remove from `.construct/state.json`
 
 ```bash
-.Codex/scripts/constructs-link.sh unlink "<slug>"
+.claude/scripts/constructs-link.sh unlink "<slug>"
 ```
 
 ### Phase 5: List Links
@@ -77,7 +77,7 @@ When unlinking:
 Show all active construct links with health status:
 
 ```bash
-.Codex/scripts/constructs-link.sh list
+.claude/scripts/constructs-link.sh list
 ```
 
 Output format:
@@ -96,7 +96,7 @@ Active construct links:
 For detailed status including drift detection:
 
 ```bash
-.Codex/scripts/constructs-link.sh status "<slug>"
+.claude/scripts/constructs-link.sh status "<slug>"
 ```
 
 Output includes:
@@ -117,7 +117,7 @@ Output includes:
 
 ## Security Notes
 
-- Symlinks are confined to `.Codex/constructs/packs/` directory
+- Symlinks are confined to `.claude/constructs/packs/` directory
 - Slug validation prevents path traversal (`..` rejected)
 - Shadow copies have restrictive permissions (600)
 - State file permissions set to 600

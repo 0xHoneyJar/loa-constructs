@@ -34,7 +34,7 @@ guardrails:
 
 ### Step 2: Run Danger Level Check
 
-**Script**: `.Codex/scripts/danger-level-enforcer.sh --skill autonomous-agent --mode {mode}`
+**Script**: `.claude/scripts/danger-level-enforcer.sh --skill autonomous-agent --mode {mode}`
 
 **CRITICAL**: This is a **high** danger level skill (full orchestration control).
 
@@ -49,14 +49,14 @@ The orchestrator itself doesn't directly execute dangerous operations.
 
 ### Step 3: Run PII Filter
 
-**Script**: `.Codex/scripts/pii-filter.sh`
+**Script**: `.claude/scripts/pii-filter.sh`
 
 Detect and redact sensitive data before orchestration begins.
 Important for multi-phase execution where data flows between skills.
 
 ### Step 4: Run Injection Detection
 
-**Script**: `.Codex/scripts/injection-detect.sh --threshold 0.65`
+**Script**: `.claude/scripts/injection-detect.sh --threshold 0.65`
 
 **Lower threshold** (0.65 vs default 0.7) because autonomous orchestration
 has higher impact potential. More conservative detection.
@@ -85,7 +85,7 @@ This skill manages its own multi-phase autonomous workflow. DO NOT use Codex's n
 ## Constraint Rules
 
 <!-- @constraint-generated: start autonomous_agent_constraints | hash:5f8c6f804f86cd2c -->
-<!-- DO NOT EDIT — generated from .Codex/data/constraints.json -->
+<!-- DO NOT EDIT — generated from .claude/data/constraints.json -->
 1. NEVER call `EnterPlanMode` — autonomous phases ARE the plan
 2. NEVER jump to implementation after any user confirmation
 3. Each phase MUST complete sequentially: 0→1→2→3→3.5→4→4.5→5→6→6.5→7→8
@@ -253,7 +253,7 @@ All quality gates enforced. No shortcuts.
 
 ```bash
 # Run cleanup in autonomous mode
-CLEANUP_RESULT=$(.Codex/scripts/workspace-cleanup.sh --grimoire grimoires/loa --yes --json 2>&1)
+CLEANUP_RESULT=$(.claude/scripts/workspace-cleanup.sh --grimoire grimoires/loa --yes --json 2>&1)
 CLEANUP_EXIT=$?
 
 case $CLEANUP_EXIT in
@@ -386,7 +386,7 @@ VERIFY PRD contains:
 IF flatline_protocol.enabled AND autonomous_mode.enabled:
   1. Execute Flatline Protocol on PRD:
      ```bash
-     result=$(.Codex/scripts/flatline-orchestrator.sh \
+     result=$(.claude/scripts/flatline-orchestrator.sh \
          --doc grimoires/loa/prd.md \
          --phase prd \
          --autonomous \
@@ -396,7 +396,7 @@ IF flatline_protocol.enabled AND autonomous_mode.enabled:
 
   2. Handle results per autonomous_mode.actions:
      ```bash
-     .Codex/scripts/flatline-result-handler.sh \
+     .claude/scripts/flatline-result-handler.sh \
          --mode autonomous \
          --result "$result" \
          --document grimoires/loa/prd.md \
@@ -459,7 +459,7 @@ ELSE:
 IF flatline_protocol.enabled AND autonomous_mode.enabled:
   1. Execute Flatline Protocol on SDD:
      ```bash
-     result=$(.Codex/scripts/flatline-orchestrator.sh \
+     result=$(.claude/scripts/flatline-orchestrator.sh \
          --doc grimoires/loa/sdd.md \
          --phase sdd \
          --autonomous \
@@ -469,7 +469,7 @@ IF flatline_protocol.enabled AND autonomous_mode.enabled:
 
   2. Handle results per autonomous_mode.actions:
      ```bash
-     .Codex/scripts/flatline-result-handler.sh \
+     .claude/scripts/flatline-result-handler.sh \
          --mode autonomous \
          --result "$result" \
          --document grimoires/loa/sdd.md \
@@ -504,7 +504,7 @@ VERIFY:
 IF flatline_protocol.enabled AND autonomous_mode.enabled:
   1. Execute Flatline Protocol on sprint plan:
      ```bash
-     result=$(.Codex/scripts/flatline-orchestrator.sh \
+     result=$(.claude/scripts/flatline-orchestrator.sh \
          --doc grimoires/loa/sprint.md \
          --phase sprint \
          --autonomous \
@@ -514,7 +514,7 @@ IF flatline_protocol.enabled AND autonomous_mode.enabled:
 
   2. Handle results per autonomous_mode.actions:
      ```bash
-     .Codex/scripts/flatline-result-handler.sh \
+     .claude/scripts/flatline-result-handler.sh \
          --mode autonomous \
          --result "$result" \
          --document grimoires/loa/sprint.md \
@@ -757,7 +757,7 @@ VERIFY PR:
 
 ```markdown
 IF post_pr_validation.enabled:
-  1. Invoke: .Codex/scripts/post-pr-orchestrator.sh --pr-url <pr_url> --mode autonomous
+  1. Invoke: .claude/scripts/post-pr-orchestrator.sh --pr-url <pr_url> --mode autonomous
   2. Handle exit codes:
      - 0 (SUCCESS) → state = READY_FOR_HITL
      - 1 (ERROR) → state = HALTED, log error
@@ -816,7 +816,7 @@ post_pr_validation:
 - [ ] Flatline review passed (or disabled)
 - [ ] State = READY_FOR_HITL
 
-**Full Specification:** `.Codex/commands/post-pr-validation.md`
+**Full Specification:** `.claude/commands/post-pr-validation.md`
 </phase_5_5_post_pr_validation>
 
 <phase_6_deploy>
@@ -966,7 +966,7 @@ The `/autonomous --resume` flag enables resumption of workflows halted by Flatli
 IF --resume flag provided:
   1. Check for pending escalation report:
      ```bash
-     escalation=$(.Codex/scripts/flatline-escalation.sh list | jq '.[0]')
+     escalation=$(.claude/scripts/flatline-escalation.sh list | jq '.[0]')
      ```
 
   2. IF escalation exists:
@@ -1035,7 +1035,7 @@ When `/autonomous --resume` detects Post-PR Validation context clear state:
 IF state file (.run/post-pr-state.json) shows state == CONTEXT_CLEAR:
   1. Load checkpoint from NOTES.md Session Continuity section
   2. Verify PR still exists and is open
-  3. Continue with: .Codex/scripts/post-pr-orchestrator.sh --resume
+  3. Continue with: .claude/scripts/post-pr-orchestrator.sh --resume
   4. E2E testing runs with fresh context (unbiased by previous work)
   5. On success:
      - state = READY_FOR_HITL
@@ -1047,7 +1047,7 @@ IF state file (.run/post-pr-state.json) shows state == CONTEXT_CLEAR:
 
 **State File:** `.run/post-pr-state.json`
 **Checkpoint Location:** `grimoires/loa/NOTES.md` → Session Continuity section
-**Full Specification:** `.Codex/commands/post-pr-validation.md`
+**Full Specification:** `.claude/commands/post-pr-validation.md`
 </resume_support>
 
 <attention_budget>

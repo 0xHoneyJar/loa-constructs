@@ -125,4 +125,4 @@ When beads_rust is installed, the agent records review feedback:
 3. **Mark Status**: `br label add <task-id> review-approved` or `needs-revision`
 4. **Session End**: `br sync --flush-only` before commit
 
-**Protocol Reference**: See `.Codex/protocols/beads-integration.md`
+**Protocol Reference**: See `.claude/protocols/beads-integration.md`

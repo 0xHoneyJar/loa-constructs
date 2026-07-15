@@ -49,7 +49,7 @@ questions:
 ### Phase 2: Scaffold
 
 ```bash
-.Codex/scripts/constructs-create.sh new --name "<name>" --type "<type>"
+.claude/scripts/constructs-create.sh new --name "<name>" --type "<type>"
 ```
 
 ### Phase 3: Report

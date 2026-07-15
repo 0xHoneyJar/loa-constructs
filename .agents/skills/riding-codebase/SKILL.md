@@ -43,10 +43,10 @@ Check for `.loa-version.json`. If missing, instruct user to run `/mount` first. 
 
 ### 0.2 System Zone Integrity Check (BLOCKING)
 
-Verify `.Codex/checksums.json` against actual file hashes. If drift detected:
+Verify `.claude/checksums.json` against actual file hashes. If drift detected:
 
 - Display drifted files list
-- Offer options: move customizations to `.Codex/overrides/`, `--force-restore` to reset, `/update-loa --force-restore` to sync
+- Offer options: move customizations to `.claude/overrides/`, `--force-restore` to reset, `/update-loa --force-restore` to sync
 - BLOCK unless `--force-restore` passed
 
 If no checksums file exists (first ride), skip with warning.
@@ -54,7 +54,7 @@ If no checksums file exists (first ride), skip with warning.
 ### 0.3 Detect Execution Context
 
 ```bash
-if [[ -f ".Codex/commands/ride.md" ]] && [[ -d ".Codex/skills/riding-codebase" ]]; then
+if [[ -f ".claude/commands/ride.md" ]] && [[ -d ".claude/skills/riding-codebase" ]]; then
   IS_FRAMEWORK_REPO=true
 else
   IS_FRAMEWORK_REPO=false
@@ -138,10 +138,10 @@ TERM_MAX_TERMS=$(yq eval '.ride.enrichment.terminology.max_terms // 50' .loa.con
 
 ### QMD Reality Context (Optional)
 
-During drift analysis, if `.Codex/scripts/qmd-context-query.sh` exists and `qmd_context.enabled` is not `false`:
+During drift analysis, if `.claude/scripts/qmd-context-query.sh` exists and `qmd_context.enabled` is not `false`:
 
 1. Build query from module names being analyzed
-2. Run: `.Codex/scripts/qmd-context-query.sh --query "<module_names>" --scope reality --budget 2000 --format text`
+2. Run: `.claude/scripts/qmd-context-query.sh --query "<module_names>" --scope reality --budget 2000 --format text`
 3. Include output as additional context during drift comparison
 4. If script missing, disabled, or returns empty: proceed normally (graceful no-op)
 
@@ -150,7 +150,7 @@ During drift analysis, if `.Codex/scripts/qmd-context-query.sh` exists and `qmd_
 <attention_budget>
 ## Attention Budget
 
-This skill follows the **Tool Result Clearing Protocol** (`.Codex/protocols/tool-result-clearing.md`).
+This skill follows the **Tool Result Clearing Protocol** (`.claude/protocols/tool-result-clearing.md`).
 
 ### Token Thresholds
 
@@ -183,7 +183,7 @@ Before loading any files, probe the codebase to determine optimal loading strate
 
 ### 0.5.1 Run Codebase Probe
 
-Use `.Codex/scripts/context-manager.sh probe "$TARGET_REPO" --json` to get file count, line count, estimated tokens, and codebase size category. Fall back to eager loading if probe unavailable.
+Use `.claude/scripts/context-manager.sh probe "$TARGET_REPO" --json` to get file count, line count, estimated tokens, and codebase size category. Fall back to eager loading if probe unavailable.
 
 ### 0.5.2 Determine Loading Strategy
 
@@ -195,7 +195,7 @@ Use `.Codex/scripts/context-manager.sh probe "$TARGET_REPO" --json` to get file 
 
 ### 0.5.3 Generate Loading Plan
 
-Create `grimoires/loa/reality/loading-plan.md` with files categorized by should-load decision. For prioritized/excerpts strategies, sort files by relevance score using `.Codex/scripts/context-manager.sh should-load "$file" --json`.
+Create `grimoires/loa/reality/loading-plan.md` with files categorized by should-load decision. For prioritized/excerpts strategies, sort files by relevance score using `.claude/scripts/context-manager.sh should-load "$file" --json`.
 
 Log probe results to trajectory.
 
@@ -654,7 +654,7 @@ Every factual claim MUST cite a source file and line range (`file:line`). The gr
 Invoke `ground-truth-gen.sh` for mechanical operations:
 
 ```bash
-.Codex/scripts/ground-truth-gen.sh \
+.claude/scripts/ground-truth-gen.sh \
   --reality-dir grimoires/loa/reality/ \
   --output-dir grimoires/loa/ground-truth/ \
   --max-tokens-per-section 2000 \
@@ -666,7 +666,7 @@ This produces `checksums.json` with SHA-256 hashes of all referenced source file
 ### 11.4 Validate Token Budget
 
 ```bash
-.Codex/scripts/ground-truth-gen.sh \
+.claude/scripts/ground-truth-gen.sh \
   --output-dir grimoires/loa/ground-truth/ \
   --max-tokens-per-section 2000 \
   --mode validate

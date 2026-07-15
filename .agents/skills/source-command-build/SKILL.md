@@ -31,7 +31,7 @@ Build the current sprint. Auto-detects which sprint needs work and delegates to 
 Verify a sprint plan exists:
 
 ```bash
-source .Codex/scripts/golden-path.sh
+source .claude/scripts/golden-path.sh
 phase=$(golden_detect_plan_phase)
 ```
 

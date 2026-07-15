@@ -17,7 +17,7 @@ parallel_threshold: null
 timeout_minutes: 60
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: none
   state:
     paths: [grimoires/loa, .beads]
@@ -40,11 +40,11 @@ This skill operates under **Managed Scaffolding**:
 
 | Zone | Permission | Notes |
 |------|------------|-------|
-| `.Codex/` | NONE | System zone - never suggest edits |
+| `.claude/` | NONE | System zone - never suggest edits |
 | `grimoires/loa/`, `.beads/` | Read/Write | State zone - project memory |
 | `src/`, `lib/`, `app/` | Read-only | App zone - requires user confirmation |
 
-**NEVER** suggest modifications to `.Codex/`. Direct users to `.Codex/overrides/` or `.loa.config.yaml`.
+**NEVER** suggest modifications to `.claude/`. Direct users to `.claude/overrides/` or `.loa.config.yaml`.
 
 Agents MAY proactively run read-only CLI tools (e.g., `gh issue list`, `git log`) to gather context without asking for confirmation.
 </zone_constraints>
@@ -117,7 +117,7 @@ Example:
 <attention_budget>
 ## Attention Budget
 
-This skill follows the **Tool Result Clearing Protocol** (`.Codex/protocols/tool-result-clearing.md`).
+This skill follows the **Tool Result Clearing Protocol** (`.claude/protocols/tool-result-clearing.md`).
 
 ### Token Thresholds
 
@@ -306,7 +306,7 @@ Key sections include:
 <visual_communication>
 ## Visual Communication Protocol (v2.0)
 
-Follow `.Codex/protocols/visual-communication.md` for diagram standards.
+Follow `.claude/protocols/visual-communication.md` for diagram standards.
 
 ### Mandatory Diagrams (SDD)
 
@@ -341,7 +341,7 @@ graph TD
 For image exports (PDF generation, presentations), use the `--render` flag:
 
 ```bash
-echo 'graph TD; A-->B' | .Codex/scripts/mermaid-url.sh --stdin --render
+echo 'graph TD; A-->B' | .claude/scripts/mermaid-url.sh --stdin --render
 # Outputs: grimoires/loa/diagrams/diagram-abc12345.svg
 ```
 

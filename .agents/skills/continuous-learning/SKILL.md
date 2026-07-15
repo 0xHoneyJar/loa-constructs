@@ -98,7 +98,7 @@ Agent learned patterns specific to this codebase through experimentation.
 
 | Zone | Access | Usage |
 |------|--------|-------|
-| System Zone (`.Codex/`) | READ | Load skill definition, protocol |
+| System Zone (`.claude/`) | READ | Load skill definition, protocol |
 | State Zone (`grimoires/loa/`) | READ/WRITE | Write extracted skills, trajectory logs |
 | App Zone (`src/`, etc.) | READ | Analyze code for extraction context |
 
@@ -135,7 +135,7 @@ This enables filtering skills by agent context for more relevant retrieval.
 
 ## Quality Gates
 
-All four gates must PASS before skill extraction proceeds. See `.Codex/protocols/continuous-learning.md` for detailed criteria.
+All four gates must PASS before skill extraction proceeds. See `.claude/protocols/continuous-learning.md` for detailed criteria.
 
 ### Gate 1: Discovery Depth
 
@@ -362,7 +362,7 @@ The upstream score is a weighted combination of four components:
 | Novelty | 25% | Jaccard similarity vs existing framework learnings |
 | Generality | 20% | Domain-agnostic characteristics |
 
-**Script**: `.Codex/scripts/upstream-score-calculator.sh`
+**Script**: `.claude/scripts/upstream-score-calculator.sh`
 
 ### Proposing a Learning
 
@@ -390,7 +390,7 @@ Before submission, the following PII is automatically redacted:
 | Emails | `*@*.com` | `[REDACTED_EMAIL]` |
 | IP Addresses | `192.168.*.*` | `[REDACTED_IP]` |
 
-**Script**: `.Codex/scripts/anonymize-proposal.sh`
+**Script**: `.claude/scripts/anonymize-proposal.sh`
 
 ### Proposal Lifecycle
 
@@ -407,10 +407,10 @@ Before submission, the following PII is automatically redacted:
 
 ```bash
 # Check specific proposal
-.Codex/scripts/check-proposal-status.sh --learning L-0001
+.claude/scripts/check-proposal-status.sh --learning L-0001
 
 # Check all submitted proposals and sync
-.Codex/scripts/check-proposal-status.sh --all --sync
+.claude/scripts/check-proposal-status.sh --all --sync
 ```
 
 ### Handling Rejection
@@ -452,7 +452,7 @@ upstream_proposals:
 
 ## Protocol Reference
 
-See `.Codex/protocols/continuous-learning.md` for:
+See `.claude/protocols/continuous-learning.md` for:
 - Detailed quality gate criteria with examples
 - Zone compliance enforcement
 - Pre-commit hook for validation

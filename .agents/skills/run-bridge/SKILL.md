@@ -16,7 +16,7 @@ parallel_threshold: 2000
 timeout_minutes: 480
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: read
   state:
     paths: [grimoires/loa, .beads, .run]
@@ -91,7 +91,7 @@ parsing without producing real reviews).
 Invoke `bridge-orchestrator.sh` with translated flags:
 
 ```bash
-.Codex/scripts/bridge-orchestrator.sh \
+.claude/scripts/bridge-orchestrator.sh \
   --depth "$depth" \
   ${per_sprint:+--per-sprint} \
   ${resume:+--resume} \
@@ -116,7 +116,7 @@ interprets and acts on:
 | `GENERATE_SPRINT_FROM_FINDINGS` | Create sprint plan from parsed findings |
 | `RUN_SPRINT_PLAN` | Execute `/run sprint-plan` |
 | `RUN_PER_SPRINT` | Execute per-sprint mode |
-| `PIPELINE_SELF_REVIEW` | Detect .Codex/ changes → run Red Team against pipeline SDDs (gated by `run_bridge.pipeline_self_review.enabled`) |
+| `PIPELINE_SELF_REVIEW` | Detect .claude/ changes → run Red Team against pipeline SDDs (gated by `run_bridge.pipeline_self_review.enabled`) |
 | `RED_TEAM_CODE` | Run `red-team-code-vs-design.sh` against SDD sections for implemented code (gated by `red_team.code_vs_design.enabled`) |
 | `BRIDGEBUILDER_REVIEW` | Invoke Bridgebuilder on changes |
 | `VISION_CAPTURE` | Check findings for VISION/SPECULATION severity → invoke `bridge-vision-capture.sh` (gated by `vision_registry.bridge_auto_capture`) |
@@ -130,9 +130,9 @@ Before the Bridgebuilder review, the pipeline can review changes to itself:
 
 1. **Gate check**: `run_bridge.pipeline_self_review.enabled: true` in config
 2. **Detection**: `pipeline-self-review.sh --base-branch main --output-dir <output>`
-   - Runs `git diff --name-only main...HEAD -- .Codex/scripts/ .Codex/skills/ .Codex/data/ .Codex/protocols/`
+   - Runs `git diff --name-only main...HEAD -- .claude/scripts/ .claude/skills/ .claude/data/ .claude/protocols/`
    - If no pipeline files changed → skip silently
-3. **SDD Resolution**: Maps changed files to governing SDDs via `.Codex/data/pipeline-sdd-map.json`
+3. **SDD Resolution**: Maps changed files to governing SDDs via `.claude/data/pipeline-sdd-map.json`
 4. **Self-Review**: Invokes `red-team-code-vs-design.sh` against each resolved SDD
 5. **Output**: Findings posted as PR comment with `[Pipeline Self-Review]` prefix
 
@@ -198,7 +198,7 @@ Data flow: `bridge finding JSON → vision entry → index update → lore eleva
 When the `BRIDGEBUILDER_REVIEW` signal fires, execute this 10-step workflow:
 
 1. **Persona Integrity Check**: Read persona path from config
-   (`yq '.run_bridge.bridgebuilder.persona_path' .loa.config.yaml`, default: `.Codex/data/bridgebuilder-persona.md`).
+   (`yq '.run_bridge.bridgebuilder.persona_path' .loa.config.yaml`, default: `.claude/data/bridgebuilder-persona.md`).
    Compare `sha256sum <persona_path>` against the base-branch version
    (`git show origin/main:<persona_path> | sha256sum`).
    If hashes differ, log WARNING and fall back to the base-branch version.

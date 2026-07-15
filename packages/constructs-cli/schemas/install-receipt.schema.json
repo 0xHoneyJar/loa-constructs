@@ -22,7 +22,11 @@
           "enum": ["api", "registry-git", "payload-file"],
           "description": "Acquisition path. payload-file is the offline/air-gapped lane: a saved file-list verified through the identical pipeline."
         },
-        "tree_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "tree_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Hash of the verified source payload or inspected Git tree. Installer-owned metadata is additive and source payloads are forbidden from occupying those reserved roots."
+        },
         "outcome": {
           "enum": ["verified", "attested-verified", "hash-overridden"],
           "description": "hash-overridden = --allow-integrity-mismatch bypassed the HASH check only; signature and containment checks are never overridable."

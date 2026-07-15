@@ -57,7 +57,7 @@ Calculate score (0-10):
 If score < `prompt_enhancement.auto_enhance_threshold` (default 4):
 
 1. **Classify task type**: For /translate, default to `summarization` task type
-2. **Load template** from `.Codex/skills/enhancing-prompts/resources/templates/summarization.yaml`
+2. **Load template** from `.claude/skills/enhancing-prompts/resources/templates/summarization.yaml`
 3. **Apply template**:
    - Prepend persona if missing
    - Append format if missing
@@ -110,11 +110,11 @@ You operate within a **managed scaffolding framework** inspired by AWS Projen, G
 
 | Zone | Permission | Notes |
 |------|------------|-------|
-| `.Codex/` | NONE | System Zone — synthesized, never edit |
+| `.claude/` | NONE | System Zone — synthesized, never edit |
 | `grimoires/loa/`, `.beads/` | Read/Write | State Zone — project memory |
 | `src/`, `lib/`, `app/` | Read-only | App Zone — requires confirmation |
 
-**CRITICAL**: Never suggest edits to `.Codex/`. Direct users to `.Codex/overrides/`.
+**CRITICAL**: Never suggest edits to `.claude/`. Direct users to `.claude/overrides/`.
 </zone_constraints>
 
 <integrity_protocol>
@@ -131,14 +131,14 @@ enforcement=$(yq eval '.integrity_enforcement // "strict"' .loa.config.yaml 2>/d
 ### Step 2: Verify System Zone (SHA-256)
 
 ```bash
-if [[ "$enforcement" == "strict" ]] && [[ -f ".Codex/checksums.json" ]]; then
+if [[ "$enforcement" == "strict" ]] && [[ -f ".claude/checksums.json" ]]; then
   drift_detected=false
   while IFS= read -r file; do
-    expected=$(jq -r --arg f "$file" '.files[$f]' .Codex/checksums.json)
+    expected=$(jq -r --arg f "$file" '.files[$f]' .claude/checksums.json)
     [[ -z "$expected" || "$expected" == "null" ]] && continue
     actual=$(sha256sum "$file" 2>/dev/null | cut -d' ' -f1)
     [[ "$expected" != "$actual" ]] && drift_detected=true && break
-  done < <(jq -r '.files | keys[]' .Codex/checksums.json)
+  done < <(jq -r '.files | keys[]' .claude/checksums.json)
 
   [[ "$drift_detected" == "true" ]] && { echo "HALTED"; exit 1; }
 fi
@@ -153,7 +153,7 @@ fi
 |  Translation blocked. Framework files have been tampered with.    |
 |                                                                   |
 |  Resolution:                                                      |
-|    1. Move customizations to .Codex/overrides/                   |
+|    1. Move customizations to .claude/overrides/                   |
 |    2. Run: /update-loa --force-restore                                |
 |    3. Or set: integrity_enforcement: warn                         |
 +===================================================================+
@@ -393,7 +393,7 @@ After processing heavy reports (500+ lines):
 
 ```bash
 # Verify System Zone before proceeding
-source .Codex/scripts/preflight.sh 2>/dev/null
+source .claude/scripts/preflight.sh 2>/dev/null
 check_integrity || exit 1
 ```
 
@@ -666,7 +666,7 @@ uncertainty.
 <visual_communication>
 ## Visual Communication (Required) - v2.0
 
-Follow `.Codex/protocols/visual-communication.md` for diagram standards.
+Follow `.claude/protocols/visual-communication.md` for diagram standards.
 
 ### Required Diagrams
 
@@ -699,7 +699,7 @@ graph LR
 For image exports (presentations, PDF reports), use local rendering:
 
 ```bash
-echo 'graph LR; A-->B' | .Codex/scripts/mermaid-url.sh --stdin --render --format png
+echo 'graph LR; A-->B' | .claude/scripts/mermaid-url.sh --stdin --render --format png
 # Outputs: grimoires/loa/diagrams/diagram-abc12345.png
 ```
 

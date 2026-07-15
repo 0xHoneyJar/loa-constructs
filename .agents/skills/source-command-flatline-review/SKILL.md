@@ -75,7 +75,7 @@ esac
 ### Step 2: Run Flatline Protocol
 
 ```bash
-result=$(.Codex/scripts/flatline-orchestrator.sh \
+result=$(.claude/scripts/flatline-orchestrator.sh \
     --doc "$doc" \
     --phase "$phase" \
     ${skip_knowledge:+--skip-knowledge} \
@@ -215,13 +215,13 @@ When `--rollback` is specified:
 if [[ -n "$rollback" ]]; then
     if [[ -n "$snapshot" ]]; then
         # Direct snapshot restore
-        .Codex/scripts/flatline-rollback.sh snapshot --snapshot-id "$snapshot" ${force:+--force}
+        .claude/scripts/flatline-rollback.sh snapshot --snapshot-id "$snapshot" ${force:+--force}
     elif [[ -n "$run_id" ]]; then
         # Full run rollback
-        .Codex/scripts/flatline-rollback.sh run --run-id "$run_id" ${dry_run:+--dry-run} ${force:+--force}
+        .claude/scripts/flatline-rollback.sh run --run-id "$run_id" ${dry_run:+--dry-run} ${force:+--force}
     else
         # Single integration rollback
-        .Codex/scripts/flatline-rollback.sh single --integration-id "$rollback" ${run_id:+--run-id "$run_id"} ${force:+--force}
+        .claude/scripts/flatline-rollback.sh single --integration-id "$rollback" ${run_id:+--run-id "$run_id"} ${force:+--force}
     fi
     exit $?
 fi

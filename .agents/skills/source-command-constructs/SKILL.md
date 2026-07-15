@@ -54,7 +54,7 @@ Interactive pack selection with table-based UI.
 
 ```bash
 # Fetch packs from registry
-packs=$(.Codex/scripts/constructs-browse.sh list --json)
+packs=$(.claude/scripts/constructs-browse.sh list --json)
 ```
 
 Returns JSON array:
@@ -123,7 +123,7 @@ If user selects "Enter pack numbers":
 For each selected pack:
 
 ```bash
-.Codex/scripts/constructs-install.sh pack <slug>
+.claude/scripts/constructs-install.sh pack <slug>
 ```
 
 #### Phase 4: Report Results
@@ -139,7 +139,7 @@ Display installation summary:
 Direct installation without UI:
 
 ```bash
-.Codex/scripts/constructs-install.sh pack <pack>
+.claude/scripts/constructs-install.sh pack <pack>
 ```
 
 ### Action: list
@@ -147,7 +147,7 @@ Direct installation without UI:
 Show installed packs:
 
 ```bash
-.Codex/scripts/constructs-loader.sh list
+.claude/scripts/constructs-loader.sh list
 ```
 
 ### Action: update
@@ -155,7 +155,7 @@ Show installed packs:
 Check for newer versions:
 
 ```bash
-.Codex/scripts/constructs-loader.sh check-updates
+.claude/scripts/constructs-loader.sh check-updates
 ```
 
 ### Action: uninstall <pack>
@@ -163,7 +163,7 @@ Check for newer versions:
 Remove installed pack:
 
 ```bash
-.Codex/scripts/constructs-install.sh uninstall pack <pack>
+.claude/scripts/constructs-install.sh uninstall pack <pack>
 ```
 
 ### Action: auth
@@ -172,16 +172,16 @@ Check or set up authentication for premium packs.
 
 ```bash
 # Check authentication status
-.Codex/scripts/constructs-auth.sh status
+.claude/scripts/constructs-auth.sh status
 
 # Set up API key
-.Codex/scripts/constructs-auth.sh setup <api_key>
+.claude/scripts/constructs-auth.sh setup <api_key>
 
 # Validate current key
-.Codex/scripts/constructs-auth.sh validate
+.claude/scripts/constructs-auth.sh validate
 
 # Remove credentials
-.Codex/scripts/constructs-auth.sh clear
+.claude/scripts/constructs-auth.sh clear
 ```
 
 **Getting an API key:**
@@ -214,7 +214,7 @@ When presenting packs, include:
 
 ## Per-Repo Configuration
 
-Installed packs are stored in `.Codex/constructs/packs/` (gitignored).
+Installed packs are stored in `.claude/constructs/packs/` (gitignored).
 
 Each repo can have different packs:
 - Project A: Observer + Crucible

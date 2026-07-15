@@ -149,5 +149,5 @@ When `red_team.simstim.auto_trigger: true`, the red team automatically runs as P
 
 - `/flatline-review` — Standard Flatline Protocol quality review
 - `/audit` — Codebase security audit (implementation-level)
-- `.Codex/data/attack-surfaces.yaml` — Attack surface registry
-- `.Codex/data/red-team-golden-set.json` — Calibration corpus
+- `.claude/data/attack-surfaces.yaml` — Attack surface registry
+- `.claude/data/red-team-golden-set.json` — Calibration corpus

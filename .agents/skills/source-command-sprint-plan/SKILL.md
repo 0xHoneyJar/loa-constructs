@@ -177,4 +177,4 @@ When beads_rust is installed, the agent will:
 2. **Create Structure**: Use helper scripts for epic/task creation
 3. **Session End**: `br sync --flush-only` before commit
 
-**Protocol Reference**: See `.Codex/protocols/beads-integration.md`
+**Protocol Reference**: See `.claude/protocols/beads-integration.md`

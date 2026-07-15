@@ -101,18 +101,18 @@ questions:
 
 ### State Management
 
-State is tracked via `.Codex/scripts/branch-state.sh`:
+State is tracked via `.claude/scripts/branch-state.sh`:
 
 ```bash
 # Check if in test mode
-.Codex/scripts/branch-state.sh is-testing
+.claude/scripts/branch-state.sh is-testing
 
 # Load state
-.Codex/scripts/branch-state.sh load
+.claude/scripts/branch-state.sh load
 # → {"testing_branch":"feature/foo","original_branch":"main",...}
 
 # Clear after return
-.Codex/scripts/branch-state.sh clear
+.claude/scripts/branch-state.sh clear
 ```
 
 ## Prerequisites
@@ -176,7 +176,7 @@ if [[ -n "$deleted_files" ]]; then
   while IFS= read -r file; do
     case "$file" in
       # Framework zone — upstream deletions are intentional, allow them
-      .Codex/*) ;;
+      .claude/*) ;;
       .loa-version.json) ;;
       AGENTS.md) ;;
       PROCESS.md) ;;
@@ -265,7 +265,7 @@ Framework-managed version markers (`.loa-version.json` + `Codex.loa.md:1` header
 # Security: inline the bump using only trusted local utilities (jq, sed,
 # awk, git) — never execute shell scripts from the just-merged tree.
 # This closes the supply-chain injection path that `bash
-# .Codex/scripts/update-loa-bump-version.sh` would open. The sourceable
+# .claude/scripts/update-loa-bump-version.sh` would open. The sourceable
 # script remains for unit testing and standalone/manual bumps; this
 # inline version is the /update-loa invocation path.
 _loa_bump_target=""
@@ -301,16 +301,16 @@ if [[ "$_loa_bump_valid" == "true" ]]; then
     fi
   fi
   # Bump Codex.loa.md:1 header (preserve hash + PLACEHOLDER)
-  if [[ -f .Codex/loa/Codex.loa.md ]]; then
-    _loa_header=$(head -n 1 .Codex/loa/Codex.loa.md)
+  if [[ -f .claude/loa/Codex.loa.md ]]; then
+    _loa_header=$(head -n 1 .claude/loa/Codex.loa.md)
     if [[ "$_loa_header" == *"@loa-managed: true"* ]]; then
       awk -v target="$_loa_bump_target" 'NR==1 {
         sub(/version:[[:space:]]*[^[:space:]|]+/, "version: " target)
-      } { print }' .Codex/loa/Codex.loa.md > .Codex/loa/Codex.loa.md.tmp.$$ && \
-        mv .Codex/loa/Codex.loa.md.tmp.$$ .Codex/loa/Codex.loa.md
+      } { print }' .claude/loa/Codex.loa.md > .claude/loa/Codex.loa.md.tmp.$$ && \
+        mv .claude/loa/Codex.loa.md.tmp.$$ .claude/loa/Codex.loa.md
     fi
   fi
-  git add .loa-version.json .Codex/loa/Codex.loa.md 2>/dev/null || true
+  git add .loa-version.json .claude/loa/Codex.loa.md 2>/dev/null || true
 else
   echo "Note: version marker bump skipped — could not resolve valid target version" >&2
 fi
@@ -334,9 +334,9 @@ git commit -m "chore: update Loa framework"
 After the merge commit, sync construct pack skills to ensure newly added skills in pack updates are registered:
 
 ```bash
-if [[ -x ".Codex/scripts/sync-constructs.sh" ]]; then
+if [[ -x ".claude/scripts/sync-constructs.sh" ]]; then
   echo "Syncing construct packs..."
-  .Codex/scripts/sync-constructs.sh
+  .claude/scripts/sync-constructs.sh
 fi
 ```
 
@@ -361,10 +361,10 @@ fi
 
 | File Location | Merge Behavior |
 |---------------|----------------|
-| `.Codex/skills/` | Updated to latest Loa versions |
-| `.Codex/commands/` | Updated to latest Loa versions |
-| `.Codex/protocols/` | Updated to latest Loa versions |
-| `.Codex/scripts/` | Updated to latest Loa versions |
+| `.claude/skills/` | Updated to latest Loa versions |
+| `.claude/commands/` | Updated to latest Loa versions |
+| `.claude/protocols/` | Updated to latest Loa versions |
+| `.claude/scripts/` | Updated to latest Loa versions |
 | `AGENTS.md` | Standard merge (may conflict) |
 | `PROCESS.md` | Standard merge (may conflict) |
 | `app/` | **Auto-preserved** via Phase 5.3 collateral deletion safeguard |
@@ -380,7 +380,7 @@ fi
 
 ## Conflict Resolution
 
-### Framework Files (`.Codex/`)
+### Framework Files (`.claude/`)
 
 Recommend accepting upstream version:
 ```bash

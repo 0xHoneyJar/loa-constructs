@@ -50,6 +50,11 @@ export const BUDGETS = Object.freeze({
 
 const CONTROL_BYTES_RE = /[\x00-\x1f\x7f]/; // C0 + DEL in a file NAME are never legitimate
 const GIT_OBJECT_ID_RE = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+// Root namespaces owned by the installer. Source payloads may not provide or
+// nest beneath them because the installer adds these bytes after acquisition
+// verification; accepting collisions would let the receipt attest bytes that
+// are overwritten before the pack lands.
+const INSTALLER_OWNED_ROOTS = new Set(['.construct-meta.json', '.license.json', '.git']);
 
 function canonicalBase64ByteLength(value) {
   if (typeof value !== 'string') return null;
@@ -125,6 +130,9 @@ export function validateFileList(files) {
       problems.push(`${where}: absolute path ${JSON.stringify(f.path)} rejected`);
     }
     const segments = f.path.split('/');
+    if (INSTALLER_OWNED_ROOTS.has(segments[0])) {
+      problems.push(`${where}: path ${JSON.stringify(f.path)} occupies installer-owned root ${JSON.stringify(segments[0])}`);
+    }
     const encodedPathBytes = Buffer.byteLength(f.path, 'utf8');
     if (encodedPathBytes > BUDGETS.max_path_bytes) {
       problems.push(`${where}: path is ${encodedPathBytes} bytes, over the portable path budget of ${BUDGETS.max_path_bytes}`);

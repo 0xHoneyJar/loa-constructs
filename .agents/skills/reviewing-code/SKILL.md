@@ -23,7 +23,7 @@ parallel_threshold: 3000
 timeout_minutes: 60
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: none
   state:
     paths: [grimoires/loa, .beads]
@@ -53,7 +53,7 @@ guardrails:
 
 ### Step 2: Run Danger Level Check
 
-**Script**: `.Codex/scripts/danger-level-enforcer.sh --skill reviewing-code --mode {mode}`
+**Script**: `.claude/scripts/danger-level-enforcer.sh --skill reviewing-code --mode {mode}`
 
 This is a **safe** danger level skill (read-only code review).
 
@@ -63,13 +63,13 @@ This is a **safe** danger level skill (read-only code review).
 
 ### Step 3: Run PII Filter
 
-**Script**: `.Codex/scripts/pii-filter.sh`
+**Script**: `.claude/scripts/pii-filter.sh`
 
 Detect and redact sensitive data in review scope.
 
 ### Step 4: Run Injection Detection
 
-**Script**: `.Codex/scripts/injection-detect.sh --threshold 0.7`
+**Script**: `.claude/scripts/injection-detect.sh --threshold 0.7`
 
 Prevent manipulation of review scope.
 
@@ -164,11 +164,11 @@ This skill operates under **Managed Scaffolding**:
 
 | Zone | Permission | Notes |
 |------|------------|-------|
-| `.Codex/` | NONE | System zone - never suggest edits |
+| `.claude/` | NONE | System zone - never suggest edits |
 | `grimoires/loa/`, `.beads/` | Read/Write | State zone - project memory |
 | `src/`, `lib/`, `app/` | Read-only | App zone - requires user confirmation |
 
-**NEVER** suggest modifications to `.Codex/`. Direct users to `.Codex/overrides/` or `.loa.config.yaml`.
+**NEVER** suggest modifications to `.claude/`. Direct users to `.claude/overrides/` or `.loa.config.yaml`.
 </zone_constraints>
 
 <integrity_precheck>
@@ -239,7 +239,7 @@ Example:
 <attention_budget>
 ## Attention Budget
 
-This skill follows the **Tool Result Clearing Protocol** (`.Codex/protocols/tool-result-clearing.md`).
+This skill follows the **Tool Result Clearing Protocol** (`.claude/protocols/tool-result-clearing.md`).
 
 ### Token Thresholds
 
@@ -340,9 +340,9 @@ Before reviewing:
 5. Read `grimoires/loa/a2a/sprint-N/reviewer.md` for implementation report
 6. Read `grimoires/loa/a2a/sprint-N/engineer-feedback.md` (if exists) for previous feedback
 7. Read actual implementation code—do not trust report alone
-8. If `.Codex/scripts/qmd-context-query.sh` exists and `qmd_context.enabled` is not `false` in `.loa.config.yaml`:
+8. If `.claude/scripts/qmd-context-query.sh` exists and `qmd_context.enabled` is not `false` in `.loa.config.yaml`:
    - Build query from changed file names and sprint goal
-   - Run: `.Codex/scripts/qmd-context-query.sh --query "<changed_files> <sprint_goal>" --scope grimoires --budget 1500 --format text`
+   - Run: `.claude/scripts/qmd-context-query.sh --query "<changed_files> <sprint_goal>" --scope grimoires --budget 1500 --format text`
    - Include output as advisory context for review (acceptance criteria and code remain primary sources)
    - If script missing, disabled, or returns empty: proceed normally (graceful no-op)
 </grounding_requirements>
@@ -427,7 +427,7 @@ Verify implementation follows the four principles:
 
 ## Phase 2.5: Adversarial Cross-Model Review
 
-**MANDATORY when enabled.** Runs if `flatline_protocol.code_review.enabled: true` in `.loa.config.yaml`. Skipping this phase triggers a `PreToolUse:Write` gate block at `COMPLETED` marker write time (see `.Codex/hooks/safety/adversarial-review-gate.sh`). Emergency override only via `LOA_ADVERSARIAL_REVIEW_ENFORCE=false` — document in sprint notes.
+**MANDATORY when enabled.** Runs if `flatline_protocol.code_review.enabled: true` in `.loa.config.yaml`. Skipping this phase triggers a `PreToolUse:Write` gate block at `COMPLETED` marker write time (see `.claude/hooks/safety/adversarial-review-gate.sh`). Emergency override only via `LOA_ADVERSARIAL_REVIEW_ENFORCE=false` — document in sprint notes.
 
 **Objective**: Invoke a cross-model dissenter to catch reviewer blind spots before the final decision.
 
@@ -435,7 +435,7 @@ Verify implementation follows the four principles:
 1. Prepare git diff of sprint changes: `git diff main...HEAD > /tmp/adversarial-diff.txt`
 2. Invoke adversarial review:
    ```bash
-   findings=$(.Codex/scripts/adversarial-review.sh \
+   findings=$(.claude/scripts/adversarial-review.sh \
      --type review \
      --sprint-id "$sprint_id" \
      --diff-file /tmp/adversarial-diff.txt \
@@ -832,13 +832,13 @@ br label add <task-id> needs-revision       # If changes required
 br sync --flush-only  # Export SQLite → JSONL before commit
 ```
 
-**Protocol Reference**: See `.Codex/protocols/beads-integration.md`
+**Protocol Reference**: See `.claude/protocols/beads-integration.md`
 </beads_workflow>
 
 <visual_communication>
 ## Visual Communication (Optional)
 
-Follow `.Codex/protocols/visual-communication.md` for diagram standards.
+Follow `.claude/protocols/visual-communication.md` for diagram standards.
 
 ### When to Include Diagrams
 

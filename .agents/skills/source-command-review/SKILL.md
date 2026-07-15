@@ -30,7 +30,7 @@ Review and audit your work in one flow. Runs code review first, then automatical
 ### 1. Detect Review Target
 
 ```bash
-source .Codex/scripts/golden-path.sh
+source .claude/scripts/golden-path.sh
 target=$(golden_detect_review_target)
 ```
 

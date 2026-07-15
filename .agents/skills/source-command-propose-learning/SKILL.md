@@ -282,8 +282,8 @@ Proposal Submitted Successfully
 
 ## Scripts
 
-- `.Codex/scripts/proposal-generator.sh` - Main orchestration
-- `.Codex/scripts/upstream-score-calculator.sh` - Eligibility scoring
-- `.Codex/scripts/anonymize-proposal.sh` - PII redaction
-- `.Codex/scripts/jaccard-similarity.sh` - Duplicate detection
-- `.Codex/scripts/gh-label-handler.sh` - Issue creation
+- `.claude/scripts/proposal-generator.sh` - Main orchestration
+- `.claude/scripts/upstream-score-calculator.sh` - Eligibility scoring
+- `.claude/scripts/anonymize-proposal.sh` - PII redaction
+- `.claude/scripts/jaccard-similarity.sh` - Duplicate detection
+- `.claude/scripts/gh-label-handler.sh` - Issue creation

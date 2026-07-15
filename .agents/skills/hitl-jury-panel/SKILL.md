@@ -7,7 +7,7 @@ parallel_threshold: 3000
 timeout_minutes: 30
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: read
   state:
     paths: [grimoires/loa, .run]
@@ -62,13 +62,13 @@ hitl_jury_panel:
   default_panelists:
     - id: persona-a
       model: Codex-opus-4-7
-      persona_file: .Codex/data/personas/persona-a.md
+      persona_file: .claude/data/personas/persona-a.md
     - id: skeptic
       model: Codex-opus-4-7
-      persona_file: .Codex/data/personas/skeptic.md
+      persona_file: .claude/data/personas/skeptic.md
     - id: alternative-model
       model: gpt-5.3-codex
-      persona_file: .Codex/data/personas/alternative-model.md
+      persona_file: .claude/data/personas/alternative-model.md
   selection: random            # random | (future: weighted | round-robin)
   seed_source: decision_id+context_hash
   audit_log: .run/panel-decisions.jsonl
@@ -77,10 +77,10 @@ hitl_jury_panel:
 
 ## Library API
 
-The skill is implemented as a library at `.Codex/scripts/lib/hitl-jury-panel-lib.sh`. Source it and call:
+The skill is implemented as a library at `.claude/scripts/lib/hitl-jury-panel-lib.sh`. Source it and call:
 
 ```bash
-source .Codex/scripts/lib/hitl-jury-panel-lib.sh
+source .claude/scripts/lib/hitl-jury-panel-lib.sh
 
 # Top-level
 panel_invoke <decision_id> <decision_class> <context_hash> <panelists_yaml> <context_path>
@@ -99,25 +99,25 @@ panel_check_disagreement <panelists_views_json> <threshold>
 The CLI form:
 
 ```bash
-.Codex/scripts/lib/hitl-jury-panel-lib.sh invoke <decision_id> <decision_class> <context_hash> <panelists_yaml> <context_path>
+.claude/scripts/lib/hitl-jury-panel-lib.sh invoke <decision_id> <decision_class> <context_hash> <panelists_yaml> <context_path>
 ```
 
 ## Composition (DOES NOT reinvent)
 
 | Layer | Source | Used for |
 |-------|--------|----------|
-| Audit envelope (write/chain) | `.Codex/scripts/audit-envelope.sh` (Sprint 1A) | All panel events emit JSONL envelopes via `audit_emit` |
-| Ed25519 signing | `.Codex/scripts/audit-envelope.sh` (Sprint 1B) | When `LOA_AUDIT_SIGNING_KEY_ID` is set, panel events are signed |
-| Protected-class router | `.Codex/scripts/lib/protected-class-router.sh` (Sprint 1B) | Pre-flight short-circuit on protected `decision_class` |
-| Operator identity | `.Codex/scripts/operator-identity.sh` (Sprint 1B) | NOT consumed here; caller's responsibility |
-| Sanitize for session-start | `.Codex/scripts/lib/context-isolation-lib.sh` (Sprint 1C) | Wraps panelist context as untrusted-content (`L7` source) before passing to `model-invoke` |
-| Hash-chain recovery | `.Codex/scripts/audit-envelope.sh::audit_recover_chain` (Sprint 1C) | Operator runbook recovers `.run/panel-decisions.jsonl` from snapshot archive after corruption |
-| Tier validator | `.Codex/scripts/tier-validator.sh` (Sprint 1C) | Boot-time check classifies enabled primitive set into Tier 0..4 |
+| Audit envelope (write/chain) | `.claude/scripts/audit-envelope.sh` (Sprint 1A) | All panel events emit JSONL envelopes via `audit_emit` |
+| Ed25519 signing | `.claude/scripts/audit-envelope.sh` (Sprint 1B) | When `LOA_AUDIT_SIGNING_KEY_ID` is set, panel events are signed |
+| Protected-class router | `.claude/scripts/lib/protected-class-router.sh` (Sprint 1B) | Pre-flight short-circuit on protected `decision_class` |
+| Operator identity | `.claude/scripts/operator-identity.sh` (Sprint 1B) | NOT consumed here; caller's responsibility |
+| Sanitize for session-start | `.claude/scripts/lib/context-isolation-lib.sh` (Sprint 1C) | Wraps panelist context as untrusted-content (`L7` source) before passing to `model-invoke` |
+| Hash-chain recovery | `.claude/scripts/audit-envelope.sh::audit_recover_chain` (Sprint 1C) | Operator runbook recovers `.run/panel-decisions.jsonl` from snapshot archive after corruption |
+| Tier validator | `.claude/scripts/tier-validator.sh` (Sprint 1C) | Boot-time check classifies enabled primitive set into Tier 0..4 |
 
 ## Decision flow
 
 1. **Pre-flight protected check** — if `is_protected_class(decision_class)` matches, emit `panel.queued_protected`, append to `.run/protected-queue.jsonl`, return `outcome: QUEUED_PROTECTED`.
-2. **Read panelist config** from the `panelists_yaml` argument (operator-supplied; defaults shipped at `.Codex/data/personas/*.md`).
+2. **Read panelist config** from the `panelists_yaml` argument (operator-supplied; defaults shipped at `.claude/data/personas/*.md`).
 3. **Solicit panelists in parallel** — each panelist invokes `model-invoke --model <model> --prompt <sanitized-context>`. Per-panelist timeout via `LOA_PANEL_PER_PANELIST_TIMEOUT` (default 60s).
 4. **Log views BEFORE selection** (FR-L1-2) — emit `panel.solicit` envelope to `.run/panel-decisions.jsonl`. If skill crashes after this point, all panelist views are auditable.
 5. **Apply fallback matrix** (FR-L1-5):
@@ -144,17 +144,17 @@ All envelopes inherit the Sprint 1A schema (`schema_version`, `primitive_id: "L1
 
 ## Distribution audit (FR-L1-8)
 
-Periodic post-ship telemetry script: `.Codex/scripts/panel-distribution-audit.sh`
+Periodic post-ship telemetry script: `.claude/scripts/panel-distribution-audit.sh`
 
 ```bash
 # Emit markdown report (default)
-.Codex/scripts/panel-distribution-audit.sh
+.claude/scripts/panel-distribution-audit.sh
 
 # Emit JSON
-.Codex/scripts/panel-distribution-audit.sh --json
+.claude/scripts/panel-distribution-audit.sh --json
 
 # Override window or log path
-.Codex/scripts/panel-distribution-audit.sh --log .run/panel-decisions.jsonl --window-days 30
+.claude/scripts/panel-distribution-audit.sh --log .run/panel-decisions.jsonl --window-days 30
 ```
 
 Exits 1 when `N≥10` decisions in window AND any panelist exceeds 50% selection rate.
@@ -193,6 +193,6 @@ L2 (cost-budget-enforcer) is unimplemented in cycle-098 Sprint 1. The skill leav
 
 - **Disable**: set `hitl_jury_panel.enabled: false` (default). Skill becomes a no-op.
 - **Add a panelist**: extend `default_panelists` in `.loa.config.yaml`; ensure the persona file exists.
-- **Run distribution audit**: `.Codex/scripts/panel-distribution-audit.sh` — review violations and rotate panelists if a panelist concentrates >50% of selections.
+- **Run distribution audit**: `.claude/scripts/panel-distribution-audit.sh` — review violations and rotate panelists if a panelist concentrates >50% of selections.
 - **Recover from corrupted audit log**: see Sprint 1C handoff doc; `audit_recover_chain .run/panel-decisions.jsonl` will rebuild from snapshot archive.
 - **Rotate signing key**: see Sprint 1B handoff doc; the trust-store at `grimoires/loa/trust-store.yaml` carries the key registry.

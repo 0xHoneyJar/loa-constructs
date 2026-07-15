@@ -69,7 +69,7 @@ if not auth_session_valid():
 # Launch browser with persistent session
 async with patchright.async_playwright() as p:
     browser = await p.chromium.launch_persistent_context(
-        user_data_dir="~/.Codex/notebooklm-auth/",
+        user_data_dir="~/.claude/notebooklm-auth/",
         headless=True
     )
 
@@ -141,7 +141,7 @@ See `resources/auth-setup.md` for detailed instructions.
 Quick start:
 1. Run `python resources/notebooklm-query.py --setup-auth`
 2. Complete Google sign-in in the browser window
-3. Session is saved to `~/.Codex/notebooklm-auth/`
+3. Session is saved to `~/.claude/notebooklm-auth/`
 
 ## Usage
 
@@ -207,7 +207,7 @@ python resources/notebooklm-query.py --setup-auth
 
 - Requires Google account authentication
 - Queries are sent to Google NotebookLM service
-- Session data stored locally in `~/.Codex/notebooklm-auth/`
+- Session data stored locally in `~/.claude/notebooklm-auth/`
 - No query logging by default (configurable)
 
 ## Troubleshooting

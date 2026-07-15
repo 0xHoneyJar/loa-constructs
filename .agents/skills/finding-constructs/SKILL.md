@@ -148,7 +148,7 @@ skills:
     - finding-constructs
 ```
 
-Or in `.Codex/settings.json`:
+Or in `.claude/settings.json`:
 
 ```json
 {

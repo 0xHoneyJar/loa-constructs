@@ -661,6 +661,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Reject case-insensitive Codex framework aliases
+        run: |
+          if git grep -n '\.Codex' -- .agents/skills; then
+            echo "Codex-facing skills must reference the tracked .claude runtime tree; .Codex only aliases locally on case-insensitive filesystems"
+            exit 1
+          fi
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 

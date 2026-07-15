@@ -84,9 +84,9 @@ echo "✓ Upstream configured"
 ### Step 2: Install System Zone
 
 ```bash
-echo "Installing System Zone (.Codex/)..."
-git checkout "$LOA_REMOTE_NAME/$LOA_BRANCH" -- .Codex 2>/dev/null || {
-  echo "❌ Failed to checkout .Codex/ from upstream"
+echo "Installing System Zone (.claude/)..."
+git checkout "$LOA_REMOTE_NAME/$LOA_BRANCH" -- .claude 2>/dev/null || {
+  echo "❌ Failed to checkout .claude/ from upstream"
   exit 1
 }
 echo "✓ System Zone installed"
@@ -130,7 +130,7 @@ fi
 
 ### Step 4: Create Version Manifest
 
-The manifest's `framework_version` is resolved from the upstream HEAD that is being mounted. The skill writes a `__PENDING__` placeholder and then delegates to `.Codex/scripts/update-loa-bump-version.sh` — the same resolver `/update-loa` uses (Phase 5.6). This makes `/mount` and `/update-loa` share a single source of truth so the version stamp can never go stale relative to the framework files just checked out.
+The manifest's `framework_version` is resolved from the upstream HEAD that is being mounted. The skill writes a `__PENDING__` placeholder and then delegates to `.claude/scripts/update-loa-bump-version.sh` — the same resolver `/update-loa` uses (Phase 5.6). This makes `/mount` and `/update-loa` share a single source of truth so the version stamp can never go stale relative to the framework files just checked out.
 
 ```bash
 # Resolve target version from the upstream HEAD the user just checked out.
@@ -155,7 +155,7 @@ cat > .loa-version.json << EOF
   "schema_version": 2,
   "last_sync": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "zones": {
-    "system": ".Codex",
+    "system": ".claude",
     "state": ["grimoires/loa", ".beads"],
     "app": ["src", "lib", "app"]
   },
@@ -171,7 +171,7 @@ EOF
 # Fail-loud: if the resolver fails, the manifest is left at __PENDING__ and would
 # poison the trajectory log + NOTES.md. Delete the manifest and exit so the user
 # gets a clear failure instead of a silent stale-stamp.
-if ! .Codex/scripts/update-loa-bump-version.sh --target "$TARGET_VERSION"; then
+if ! .claude/scripts/update-loa-bump-version.sh --target "$TARGET_VERSION"; then
   echo "❌ Failed to resolve framework_version via update-loa-bump-version.sh"
   rm -f .loa-version.json
   exit 1
@@ -193,7 +193,7 @@ echo "✓ Version manifest created (resolved: $TARGET_VERSION)"
 ```bash
 echo "Generating integrity checksums..."
 
-CHECKSUMS_FILE=".Codex/checksums.json"
+CHECKSUMS_FILE=".claude/checksums.json"
 checksums='{"generated":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'","algorithm":"sha256","files":{'
 
 first=true
@@ -202,7 +202,7 @@ while IFS= read -r -d '' file; do
   relpath="${file#./}"
   [[ "$first" == "true" ]] && first=false || checksums+=','
   checksums+='"'"$relpath"'":"'"$hash"'"'
-done < <(find .Codex -type f ! -name "checksums.json" ! -path "*/overrides/*" -print0 | sort -z)
+done < <(find .claude -type f ! -name "checksums.json" ! -path "*/overrides/*" -print0 | sort -z)
 
 checksums+='}}'
 echo "$checksums" | jq '.' > "$CHECKSUMS_FILE"
@@ -258,19 +258,19 @@ if command -v br &> /dev/null; then
     echo "✓ beads_rust already initialized"
   fi
 else
-  echo "⚠️ beads_rust (br) not found - skipping (install: .Codex/scripts/beads/install-br.sh)"
+  echo "⚠️ beads_rust (br) not found - skipping (install: .claude/scripts/beads/install-br.sh)"
 fi
 ```
 
 ### Step 8: Create Overrides Directory
 
 ```bash
-mkdir -p .Codex/overrides
-[[ -f .Codex/overrides/README.md ]] || cat > .Codex/overrides/README.md << 'EOF'
+mkdir -p .claude/overrides
+[[ -f .claude/overrides/README.md ]] || cat > .claude/overrides/README.md << 'EOF'
 # User Overrides
 
 Files here are preserved across framework updates.
-Mirror the .Codex/ structure for any customizations.
+Mirror the .claude/ structure for any customizations.
 EOF
 ```
 
@@ -286,8 +286,8 @@ Display completion message:
 ╚═════════════════════════════════════════════════════════════════╝
 
 Zone structure:
-  📁 .Codex/          → System Zone (framework-managed)
-  📁 .Codex/overrides → Your customizations (preserved)
+  📁 .claude/          → System Zone (framework-managed)
+  📁 .claude/overrides → Your customizations (preserved)
   📁 grimoires/loa/     → State Zone (project memory)
   📄 grimoires/loa/NOTES.md → Structured agentic memory
   📁 .beads/           → Task graph
@@ -297,8 +297,8 @@ Next steps:
   2. Issue '/ride' to analyze this codebase
   3. Or '/plan-and-analyze' for greenfield development
 
-⚠️ STRICT ENFORCEMENT: Direct edits to .Codex/ will block execution.
-   Use .Codex/overrides/ for customizations.
+⚠️ STRICT ENFORCEMENT: Direct edits to .claude/ will block execution.
+   Use .claude/overrides/ for customizations.
 
 The Loa has mounted. Issue '/ride' when ready.
 ```
@@ -328,7 +328,7 @@ echo "✓ State files added to .gitignore"
 |-------|-------|------------|
 | "Not a git repository" | No `.git` directory | Run `git init` first |
 | "jq required" | Missing jq | Install jq (`brew install jq` / `apt install jq`) |
-| "Failed to checkout .Codex/" | Network/auth issue | Check remote URL and credentials |
+| "Failed to checkout .claude/" | Network/auth issue | Check remote URL and credentials |
 | "Loa already mounted" | `.loa-version.json` exists | Use `/update-loa` or confirm remount |
 
 ---

@@ -21,7 +21,7 @@ Route to ONE of:
 3. Direct harness invocation for autonomous execution:
 
 ```bash
-.Codex/scripts/spiral-harness.sh \
+.claude/scripts/spiral-harness.sh \
   --task "TASK_DESCRIPTION" \
   --cycle-dir .run/cycles/cycle-NNN \
   --cycle-id cycle-NNN \

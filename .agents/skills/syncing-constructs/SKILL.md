@@ -20,7 +20,7 @@ full file-level diff when changes are detected.
 Run O(1) hash comparison for each installed construct:
 
 ```bash
-.Codex/scripts/constructs-diff.sh check <slug> --json
+.claude/scripts/constructs-diff.sh check <slug> --json
 ```
 
 If hash matches cached shadow, report "unchanged" and move on.
@@ -30,7 +30,7 @@ If hash matches cached shadow, report "unchanged" and move on.
 For constructs with detected changes, run full diff:
 
 ```bash
-.Codex/scripts/constructs-diff.sh diff <slug> --json
+.claude/scripts/constructs-diff.sh diff <slug> --json
 ```
 
 Present changes to user with file-level detail (added, modified, deleted).

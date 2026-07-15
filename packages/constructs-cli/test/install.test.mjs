@@ -157,6 +157,25 @@ test('containment rejects overlong encoded components and relative paths before 
   assert.match(pathVerdict.problems.join(' '), /portable path budget/);
 });
 
+test('containment reserves installer-owned roots so verified source bytes are never overwritten', async () => {
+  for (const reservedPath of [
+    '.construct-meta.json',
+    '.construct-meta.json/nested',
+    '.license.json',
+    '.license.json/nested',
+    '.git/config',
+  ]) {
+    const verdict = validateFileList([{ path: reservedPath, content: b64('attacker-controlled') }]);
+    assert.match(verdict.problems.join(' '), /installer-owned root/, reservedPath);
+  }
+
+  const hostileFiles = [...GOOD_FILES, { path: '.construct-meta.json', content: b64('{"forged":true}') }];
+  const root = await makeRoot({ treeHashValue: treeHash(hostileFiles) });
+  const payload = await writePayload(root, hostileFiles);
+  await rejectsInstall(install({ slug: 'goodpack', root, payloadFile: payload }), EXIT.INTEGRITY_MISMATCH, 'CONTAINMENT');
+  await assert.rejects(readdir(path.join(root, '.claude', 'constructs', 'packs', 'goodpack')));
+});
+
 test('zero archive-parsing code ships (asserted)', async () => {
   const src = await readFile(new URL('../lib/install.mjs', import.meta.url), 'utf8');
   // Import-specifier smells — comments legitimately SAY "tarball" while explaining why none is parsed.
@@ -175,6 +194,7 @@ test('install (payload rung): verified against the registry anchor; receipt vali
   const result = await install({ slug: 'goodpack', root, payloadFile: payload });
   assert.equal(result.mode, 'installed');
   assert.equal(result.payload.install.outcome, 'verified');
+  assert.equal(result.payload.install.tree_hash, expected, 'receipt attests the exact accepted source payload');
   assert.equal(result.payload.install.transaction_state, 'committed');
   assert.match(result.payload.install.anchor, /^registry:sha256:/);
   const files = await readdir(path.join(result.path, 'skills', 'greet'));

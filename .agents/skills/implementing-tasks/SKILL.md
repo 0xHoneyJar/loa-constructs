@@ -16,7 +16,7 @@ parallel_threshold: 3000
 timeout_minutes: 120
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: none
   state:
     paths: [grimoires/loa, .beads]
@@ -46,7 +46,7 @@ guardrails:
 
 ### Step 2: Run Danger Level Check
 
-**Script**: `.Codex/scripts/danger-level-enforcer.sh --skill implementing-tasks --mode {mode}`
+**Script**: `.claude/scripts/danger-level-enforcer.sh --skill implementing-tasks --mode {mode}`
 
 | Action | Behavior |
 |--------|----------|
@@ -56,7 +56,7 @@ guardrails:
 
 ### Step 3: Run PII Filter
 
-**Script**: `.Codex/scripts/pii-filter.sh`
+**Script**: `.claude/scripts/pii-filter.sh`
 
 Detect and redact:
 - API keys, tokens, secrets
@@ -68,7 +68,7 @@ Log redaction count to trajectory (never log PII values).
 
 ### Step 4: Run Injection Detection
 
-**Script**: `.Codex/scripts/injection-detect.sh --threshold 0.7`
+**Script**: `.claude/scripts/injection-detect.sh --threshold 0.7`
 
 Check for:
 - Instruction override attempts
@@ -129,7 +129,7 @@ Calculate score (0-10):
 If score < `prompt_enhancement.auto_enhance_threshold` (default 4):
 
 1. **Classify task type**: debugging, code_review, refactoring, summarization, research, generation, general
-2. **Load template** from `.Codex/skills/enhancing-prompts/resources/templates/{task_type}.yaml`
+2. **Load template** from `.claude/skills/enhancing-prompts/resources/templates/{task_type}.yaml`
 3. **Apply template**:
    - Prepend persona if missing
    - Append format if missing
@@ -180,11 +180,11 @@ This skill operates under **Managed Scaffolding**:
 
 | Zone | Permission | Notes |
 |------|------------|-------|
-| `.Codex/` | NONE | System zone - never suggest edits |
+| `.claude/` | NONE | System zone - never suggest edits |
 | `grimoires/loa/`, `.beads/` | Read/Write | State zone - project memory |
 | `src/`, `lib/`, `app/` | Read/Write | App zone - implementation target |
 
-**NEVER** suggest modifications to `.Codex/`. Direct users to `.Codex/overrides/` or `.loa.config.yaml`.
+**NEVER** suggest modifications to `.claude/`. Direct users to `.claude/overrides/` or `.loa.config.yaml`.
 </zone_constraints>
 
 <cli_tool_permissions>
@@ -286,7 +286,7 @@ Example:
 <attention_budget>
 ## Attention Budget
 
-This skill follows the **Tool Result Clearing Protocol** (`.Codex/protocols/tool-result-clearing.md`).
+This skill follows the **Tool Result Clearing Protocol** (`.claude/protocols/tool-result-clearing.md`).
 
 ### Token Thresholds
 
@@ -346,7 +346,7 @@ Implement sprint tasks from `grimoires/loa/sprint.md` with production-grade code
 
 ## Constraints (E - Explicit)
 <!-- @constraint-generated: start implementing_tasks_constraints | hash:14f0ec969f05599d -->
-<!-- DO NOT EDIT — generated from .Codex/data/constraints.json -->
+<!-- DO NOT EDIT — generated from .claude/data/constraints.json -->
 1. DO NOT start new work without checking for audit feedback FIRST (highest priority)
 2. DO NOT start new work without checking for engineer feedback SECOND
 3. DO NOT assume feedback meaning—ask clarifying questions if unclear
@@ -453,7 +453,7 @@ Counter common LLM coding pitfalls with these four principles:
 - [ ] Success criteria defined (testable)
 - [ ] Style will match existing code
 
-Reference: `.Codex/protocols/karpathy-principles.md`
+Reference: `.claude/protocols/karpathy-principles.md`
 </karpathy_principles>
 
 <grounding_requirements>
@@ -465,9 +465,9 @@ Before implementing:
 5. Read `grimoires/loa/sdd.md` for technical architecture
 6. Read `grimoires/loa/prd.md` for business requirements
 7. Quote requirements when implementing: `> From sprint.md: Task 1.2 requires...`
-8. If `.Codex/scripts/qmd-context-query.sh` exists and `qmd_context.enabled` is not `false` in `.loa.config.yaml`:
+8. If `.claude/scripts/qmd-context-query.sh` exists and `qmd_context.enabled` is not `false` in `.loa.config.yaml`:
    - Build query from current task descriptions and target file names
-   - Run: `.Codex/scripts/qmd-context-query.sh --query "<task_desc> <file_names>" --scope grimoires --budget 2000 --format text`
+   - Run: `.claude/scripts/qmd-context-query.sh --query "<task_desc> <file_names>" --scope grimoires --budget 2000 --format text`
    - Include output as advisory context for implementation decisions (sprint plan acceptance criteria remain source of truth)
    - If script missing, disabled, or returns empty: proceed normally (graceful no-op)
 </grounding_requirements>
@@ -499,7 +499,7 @@ Beads task tracking is the EXPECTED DEFAULT. Check health and sync before implem
 ### Run Beads Health Check
 
 ```bash
-health=$(.Codex/scripts/beads/beads-health.sh --quick --json)
+health=$(.claude/scripts/beads/beads-health.sh --quick --json)
 status=$(echo "$health" | jq -r '.status')
 ```
 
@@ -517,7 +517,7 @@ status=$(echo "$health" | jq -r '.status')
 1. **Import latest state**:
    ```bash
    br sync --import-only
-   .Codex/scripts/beads/update-beads-state.sh --sync-import
+   .claude/scripts/beads/update-beads-state.sh --sync-import
    ```
 
 2. **Use beads_rust for task lifecycle**:
@@ -530,7 +530,7 @@ status=$(echo "$health" | jq -r '.status')
 
 1. **Check for valid opt-out**:
    ```bash
-   opt_out=$(.Codex/scripts/beads/update-beads-state.sh --opt-out-check 2>/dev/null || echo "NO_OPT_OUT")
+   opt_out=$(.claude/scripts/beads/update-beads-state.sh --opt-out-check 2>/dev/null || echo "NO_OPT_OUT")
    ```
 
 2. **If no valid opt-out**, log warning:
@@ -544,7 +544,7 @@ status=$(echo "$health" | jq -r '.status')
 ### Update State After Check
 
 ```bash
-.Codex/scripts/beads/update-beads-state.sh --health "$status"
+.claude/scripts/beads/update-beads-state.sh --health "$status"
 ```
 
 ### Beads Task Lifecycle
@@ -554,12 +554,12 @@ status=$(echo "$health" | jq -r '.status')
 1. On start: Run health check, then `br sync --import-only`, then `br ready` to find first unblocked task
 2. Before implementing: Auto-run `br update <task-id> --status in_progress`
 3. After completing: Auto-run `br close <task-id>`
-4. At session end: Run `br sync --flush-only` then record: `.Codex/scripts/beads/update-beads-state.sh --sync-flush`
+4. At session end: Run `br sync --flush-only` then record: `.claude/scripts/beads/update-beads-state.sh --sync-flush`
 5. Repeat until sprint complete
 
 ### Protocol Reference
 
-See `.Codex/protocols/beads-preflight.md` for full specification.
+See `.claude/protocols/beads-preflight.md` for full specification.
 
 ## Phase -1: Context Assessment & Parallel Task Splitting (CRITICAL—DO THIS FIRST)
 
@@ -679,7 +679,7 @@ The user only runs `/implement sprint-1`. All br commands are invisible.
 When bugs or tech debt are discovered during implementation:
 
 ```bash
-.Codex/scripts/beads/log-discovered-issue.sh "$CURRENT_TASK_ID" "Description of discovered issue" bug 2
+.claude/scripts/beads/log-discovered-issue.sh "$CURRENT_TASK_ID" "Description of discovered issue" bug 2
 ```
 
 This creates a new issue with semantic label `discovered-during:<parent-id>` for traceability.
@@ -784,7 +784,7 @@ Always use Write tool or quoted heredoc for:
 
 ### Protocol Reference
 
-See `.Codex/protocols/safe-file-creation.md` for complete decision tree and examples.
+See `.claude/protocols/safe-file-creation.md` for complete decision tree and examples.
 </file_creation_safety>
 
 <parallel_execution>
@@ -976,13 +976,13 @@ br sync --import-only  # Import latest state from JSONL
 ### Task Lifecycle
 ```bash
 # Get ready work
-.Codex/scripts/beads/get-ready-work.sh 1 --ids-only
+.claude/scripts/beads/get-ready-work.sh 1 --ids-only
 
 # Update task status
 br update <task-id> --status in_progress
 
 # Log discovered issues during implementation
-.Codex/scripts/beads/log-discovered-issue.sh "<parent-id>" "Issue description" bug 2
+.claude/scripts/beads/log-discovered-issue.sh "<parent-id>" "Issue description" bug 2
 
 # Complete task
 br close <task-id> --reason "Implemented per acceptance criteria"
@@ -1001,7 +1001,7 @@ br close <task-id> --reason "Implemented per acceptance criteria"
 br sync --flush-only  # Export SQLite → JSONL before commit
 ```
 
-**Protocol Reference**: See `.Codex/protocols/beads-integration.md`
+**Protocol Reference**: See `.claude/protocols/beads-integration.md`
 </beads_workflow>
 
 <retrospective_postlude>

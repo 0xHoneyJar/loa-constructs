@@ -23,7 +23,7 @@ Each finding is a **Verdict stream row** — severity-tagged, evidence-cited, pi
 
 The validator's checks operationalize three conventions used by the construct typed-stream model:
 
-- **Typed streams**: stream rows carry `stream_type`, `schema_version`, `timestamp`, `source`. The five canonical stream types — `Signal`, `Verdict`, `Artifact`, `Intent`, `Operator-Model` — have schemas at `.Codex/schemas/<type>.schema.json`. Packs declare which stream types they `reads:` and `writes:` so a composition runner can verify pipe compatibility before stages execute.
+- **Typed streams**: stream rows carry `stream_type`, `schema_version`, `timestamp`, `source`. The five canonical stream types — `Signal`, `Verdict`, `Artifact`, `Intent`, `Operator-Model` — have schemas at `.claude/schemas/<type>.schema.json`. Packs declare which stream types they `reads:` and `writes:` so a composition runner can verify pipe compatibility before stages execute.
 - **Route declaration (Check 5)**: a pack must expose at least one *operator-callable* entry point — either via the `commands:` array in `construct.yaml`, or via a persona definition (a `personas:` list in `construct.yaml`, or `identity/<HANDLE>.md` files where `<HANDLE>` is uppercase). Without either, the operator can't dispatch into the pack's skills directly. This was a routing-gap class of breakage observed during cycle-004.
 - **Grimoires-section convention (Check 7)**: the pack's `AGENTS.md` is the operator-facing description, and the `grimoires/<path>` declarations in it are the pack's interface contract — they tell every other construct in the network what state this pack reads and writes. AGENTS.md without a grimoires section means the pack is opaque to composition planning.
 
@@ -31,9 +31,9 @@ The validator's checks operationalize three conventions used by the construct ty
 
 ```bash
 # Run directly (shell-first, no agent needed)
-.Codex/scripts/construct-validate.sh <pack-path>
-.Codex/scripts/construct-validate.sh <pack-path> --json     # Verdict[] on stdout
-.Codex/scripts/construct-validate.sh <pack-path> --strict   # MEDIUM → exit 1
+.claude/scripts/construct-validate.sh <pack-path>
+.claude/scripts/construct-validate.sh <pack-path> --json     # Verdict[] on stdout
+.claude/scripts/construct-validate.sh <pack-path> --strict   # MEDIUM → exit 1
 ```
 
 Install / publish integration:
@@ -94,7 +94,7 @@ Default (human-readable):
 # worst: medium · total: 2
 ```
 
-`--json` emits a JSON array of Verdict rows conforming to `.Codex/schemas/verdict.schema.json`. Each row carries:
+`--json` emits a JSON array of Verdict rows conforming to `.claude/schemas/verdict.schema.json`. Each row carries:
 
 - `stream_type: "Verdict"`
 - `severity`: critical | high | medium | low
@@ -121,7 +121,7 @@ Downstream tools (e.g. `constructs-publish.sh`, dashboard surfaces, CI lint jobs
 
 ## Related
 
-- Script: `.Codex/scripts/construct-validate.sh`
-- Schema: `.Codex/schemas/verdict.schema.json`
-- Stream-type schemas: `.Codex/schemas/{signal,verdict,artifact,intent,operator-model}.schema.json`
+- Script: `.claude/scripts/construct-validate.sh`
+- Schema: `.claude/schemas/verdict.schema.json`
+- Stream-type schemas: `.claude/schemas/{signal,verdict,artifact,intent,operator-model}.schema.json`
 - Sibling skills: `browsing-constructs` (existing). A `publishing-constructs` skill is referenced for forward composition; it lands in a follow-up cycle.

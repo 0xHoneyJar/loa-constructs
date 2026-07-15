@@ -21,7 +21,7 @@ parallel_threshold: 1000
 timeout_minutes: 10
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: none
   state:
     paths: [grimoires/loa]
@@ -73,7 +73,7 @@ Store a credential in the encrypted store.
 **Security Rules**:
 - NEVER echo, print, or log the credential value
 - NEVER include the credential value in tool call descriptions
-- NEVER store credentials in .Codex/ or grimoires/
+- NEVER store credentials in .claude/ or grimoires/
 - The value MUST come from user input via AskUserQuestion, never from command args
 
 ### test

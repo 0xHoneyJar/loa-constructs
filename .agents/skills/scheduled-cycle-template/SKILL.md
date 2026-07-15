@@ -7,7 +7,7 @@ parallel_threshold: 3000
 timeout_minutes: 30
 zones:
   system:
-    path: .Codex
+    path: .claude
     permission: read
   state:
     paths: [grimoires/loa, .run]
@@ -42,8 +42,8 @@ This skill is **infrastructure**, not a finished application. It is the chassis 
 - RFC: [#655](https://github.com/0xHoneyJar/loa/issues/655)
 - PRD: `grimoires/loa/prd.md` §FR-L3 (8 ACs)
 - SDD: `grimoires/loa/sdd.md` §1.4.2 (component spec) + §5.5 (full API)
-- Library: `.Codex/scripts/lib/scheduled-cycle-lib.sh`
-- Schemas: `.Codex/data/trajectory-schemas/cycle-events/`
+- Library: `.claude/scripts/lib/scheduled-cycle-lib.sh`
+- Schemas: `.claude/data/trajectory-schemas/cycle-events/`
 
 ## When to use
 
@@ -62,11 +62,11 @@ This skill is **infrastructure**, not a finished application. It is the chassis 
 schedule_id: nightly-cleanup           # ^[a-z0-9][a-z0-9_-]{0,63}$
 schedule: "0 3 * * *"                  # cron expression (consumed by /schedule)
 dispatch_contract:
-  reader:     ".Codex/skills/scheduled-cycle-template/contracts/example-reader.sh"
-  decider:    ".Codex/skills/scheduled-cycle-template/contracts/example-decider.sh"
-  dispatcher: ".Codex/skills/scheduled-cycle-template/contracts/example-dispatcher.sh"
-  awaiter:    ".Codex/skills/scheduled-cycle-template/contracts/example-awaiter.sh"
-  logger:     ".Codex/skills/scheduled-cycle-template/contracts/example-logger.sh"
+  reader:     ".claude/skills/scheduled-cycle-template/contracts/example-reader.sh"
+  decider:    ".claude/skills/scheduled-cycle-template/contracts/example-decider.sh"
+  dispatcher: ".claude/skills/scheduled-cycle-template/contracts/example-dispatcher.sh"
+  awaiter:    ".claude/skills/scheduled-cycle-template/contracts/example-awaiter.sh"
+  logger:     ".claude/skills/scheduled-cycle-template/contracts/example-logger.sh"
   budget_estimate_usd: 0.50            # forwarded to L2 budget_verdict (when L2 + L3 gate enabled)
   timeout_seconds: 1800                # per-phase timeout (default 300)
 ```
@@ -98,7 +98,7 @@ The 5 phases are conventional, not enforced — any of them can no-op. The order
 ## Library functions
 
 ```bash
-source .Codex/scripts/lib/scheduled-cycle-lib.sh
+source .claude/scripts/lib/scheduled-cycle-lib.sh
 
 cycle_invoke <schedule_yaml_path> [--cycle-id <id>] [--dry-run]
 cycle_idempotency_check <cycle_id> [--log-path <path>]
@@ -110,8 +110,8 @@ cycle_complete <cycle_id> <record_json>                 # advanced
 Or invoke directly via the shipped subcommand dispatcher:
 
 ```bash
-.Codex/scripts/lib/scheduled-cycle-lib.sh invoke <schedule.yaml>
-.Codex/scripts/lib/scheduled-cycle-lib.sh replay .run/cycles.jsonl
+.claude/scripts/lib/scheduled-cycle-lib.sh invoke <schedule.yaml>
+.claude/scripts/lib/scheduled-cycle-lib.sh replay .run/cycles.jsonl
 ```
 
 **Exit codes:**
@@ -143,11 +143,11 @@ Use `cycle_replay` to reassemble the SDD §5.5.3 `CycleRecord` view from these e
 1. Define the ScheduleConfig YAML (e.g., at `.run/schedules/<schedule_id>.yaml`).
 2. Use `/schedule` to register a cron firing:
    ```
-   .Codex/scripts/lib/scheduled-cycle-lib.sh invoke .run/schedules/<schedule_id>.yaml
+   .claude/scripts/lib/scheduled-cycle-lib.sh invoke .run/schedules/<schedule_id>.yaml
    ```
 3. Validate by running once with `--dry-run`:
    ```
-   .Codex/scripts/lib/scheduled-cycle-lib.sh invoke <yaml> --dry-run
+   .claude/scripts/lib/scheduled-cycle-lib.sh invoke <yaml> --dry-run
    ```
    The dry-run emits `cycle.start` only and skips phase execution — useful for confirming the audit log path + lock + idempotency + budget plumbing works before letting the cycle do real work.
 
@@ -194,7 +194,7 @@ scheduled_cycle_template:
   budget_pre_check: false               # opt-in to L2 gate (compose-when-available)
   max_cycle_seconds: 14400              # caps timeout_seconds × 5 phases (anti-DoS)
   phase_path_allowed_prefixes:          # phase scripts MUST live under one of these
-    - .Codex/skills
+    - .claude/skills
     - .run/schedules
     - .run/cycles-contracts
   schedules: []                         # array of ScheduleConfig refs (paths)
@@ -231,17 +231,17 @@ The chassis is hardened against malicious phase scripts and YAML authors:
 
 The repo ships five copy-and-customize phase scripts at:
 
-- `.Codex/skills/scheduled-cycle-template/contracts/example-reader.sh`
-- `.Codex/skills/scheduled-cycle-template/contracts/example-decider.sh`
-- `.Codex/skills/scheduled-cycle-template/contracts/example-dispatcher.sh`
-- `.Codex/skills/scheduled-cycle-template/contracts/example-awaiter.sh`
-- `.Codex/skills/scheduled-cycle-template/contracts/example-logger.sh`
+- `.claude/skills/scheduled-cycle-template/contracts/example-reader.sh`
+- `.claude/skills/scheduled-cycle-template/contracts/example-decider.sh`
+- `.claude/skills/scheduled-cycle-template/contracts/example-dispatcher.sh`
+- `.claude/skills/scheduled-cycle-template/contracts/example-awaiter.sh`
+- `.claude/skills/scheduled-cycle-template/contracts/example-logger.sh`
 
-A working ScheduleConfig referencing them lives at `.Codex/skills/scheduled-cycle-template/contracts/example-schedule.yaml`. Run a dry-cycle end-to-end:
+A working ScheduleConfig referencing them lives at `.claude/skills/scheduled-cycle-template/contracts/example-schedule.yaml`. Run a dry-cycle end-to-end:
 
 ```bash
-.Codex/scripts/lib/scheduled-cycle-lib.sh invoke \
-    .Codex/skills/scheduled-cycle-template/contracts/example-schedule.yaml \
+.claude/scripts/lib/scheduled-cycle-lib.sh invoke \
+    .claude/skills/scheduled-cycle-template/contracts/example-schedule.yaml \
     --cycle-id "demo-$(date -u +%Y%m%dT%H%M%SZ)"
 ```
 
@@ -266,8 +266,8 @@ A working ScheduleConfig referencing them lives at `.Codex/skills/scheduled-cycl
 
 | Path | Role |
 |------|------|
-| `.Codex/scripts/lib/scheduled-cycle-lib.sh` | Library + CLI dispatcher |
-| `.Codex/data/trajectory-schemas/cycle-events/*.payload.schema.json` | 5 per-event-type payload schemas |
+| `.claude/scripts/lib/scheduled-cycle-lib.sh` | Library + CLI dispatcher |
+| `.claude/data/trajectory-schemas/cycle-events/*.payload.schema.json` | 5 per-event-type payload schemas |
 | `tests/unit/scheduled-cycle-lib-3A.bats` | Sprint 3A foundation tests (32) |
 | `tests/unit/scheduled-cycle-lib-3B.bats` | Sprint 3B lock + idempotency + timeout (12) |
 | `tests/integration/scheduled-cycle-lib-3C-budget.bats` | Sprint 3C L2 gate (11) |
