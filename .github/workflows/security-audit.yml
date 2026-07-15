@@ -126,7 +126,7 @@ jobs:
 
       - name: Autobuild
         if: steps.check-code.outputs.has_code == 'true' && steps.init-codeql.outcome == 'success'
-        uses: github/codeql-action/autobuild@2588666de8825e1e9dc4e2329a4c985457d55b32 # v3.32.1
+        uses: github/codeql-action/autobuild@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
 
       - name: Perform CodeQL Analysis
         if: steps.check-code.outputs.has_code == 'true' && steps.init-codeql.outcome == 'success'
