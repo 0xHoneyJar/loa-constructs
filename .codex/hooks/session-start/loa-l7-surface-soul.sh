@@ -161,6 +161,7 @@ marker_claim=""
 marker_claim_token=""
 marker_done=""
 marker_committed=0
+L7_CLAIM_LEASE_SECONDS=300
 
 # shellcheck disable=SC2329  # invoked indirectly by the EXIT trap
 _l7_release_marker_claim() {
@@ -179,7 +180,12 @@ _l7_try_marker_claim() {
         marker_claim_token=""
         return 1
     }
-    if ! (umask 077; printf '%s\n' "$$" >"$marker_claim/$marker_claim_token") 2>/dev/null; then
+    local birth created_at
+    birth="$(_l7_process_birth_identity "$$" 2>/dev/null || true)"
+    [[ -n "$birth" ]] || birth="-"
+    created_at="$(date +%s 2>/dev/null || true)"
+    [[ "$created_at" =~ ^[0-9]+$ ]] || created_at=0
+    if ! (umask 077; printf '%s %s %s\n' "$$" "$birth" "$created_at" >"$marker_claim/$marker_claim_token") 2>/dev/null; then
         rmdir "$marker_claim" 2>/dev/null || true
         marker_claim_token=""
         return 1
@@ -187,8 +193,35 @@ _l7_try_marker_claim() {
     return 0
 }
 
-_l7_read_claim_pid() {
-    local claim_dir="$1" owner_file="" candidate count=0
+_l7_process_birth_identity() {
+    local pid="$1" line rest started fingerprint
+    if [[ -r "/proc/$pid/stat" ]]; then
+        IFS= read -r line <"/proc/$pid/stat" || line=""
+        rest="${line##*) }"
+        # shellcheck disable=SC2086  # split the proc stat fields intentionally
+        set -- $rest
+        if (( $# >= 20 )) && [[ "${20}" =~ ^[0-9]+$ ]]; then
+            printf 'proc-%s\n' "${20}"
+            return 0
+        fi
+    fi
+    started="$(/bin/ps -o lstart= -p "$pid" 2>/dev/null | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' || true)"
+    [[ -n "$started" ]] || return 1
+    fingerprint="$(printf '%s' "$started" | cksum | awk '{print $1}')"
+    [[ "$fingerprint" =~ ^[0-9]+$ ]] || return 1
+    printf 'ps-%s\n' "$fingerprint"
+}
+
+_l7_claim_mtime_epoch() {
+    if [[ "$(uname -s 2>/dev/null)" == "Darwin" ]]; then
+        stat -f '%m' "$1" 2>/dev/null
+    else
+        stat -c '%Y' "$1" 2>/dev/null
+    fi
+}
+
+_l7_read_claim_identity() {
+    local claim_dir="$1" owner_file="" candidate count=0 raw created_at
     [[ -d "$claim_dir" && ! -L "$claim_dir" && -O "$claim_dir" ]] || return 1
     for candidate in "$claim_dir"/owner-*; do
         [[ -e "$candidate" ]] || continue
@@ -197,7 +230,28 @@ _l7_read_claim_pid() {
         count=$((count + 1))
     done
     [[ "$count" -eq 1 ]] || return 1
-    cat "$owner_file" 2>/dev/null
+    raw="$(cat "$owner_file" 2>/dev/null)" || return 1
+    if [[ "$raw" =~ ^[1-9][0-9]*$ ]]; then
+        created_at="$(_l7_claim_mtime_epoch "$owner_file")" || return 1
+        printf '%s - %s\n' "$raw" "$created_at"
+        return 0
+    fi
+    [[ "$raw" =~ ^[1-9][0-9]*[[:space:]][A-Za-z0-9._-]+[[:space:]][0-9]+$ ]] || return 1
+    printf '%s\n' "$raw"
+}
+
+_l7_claim_is_live() {
+    local identity="$1" pid birth created_at now current_birth
+    read -r pid birth created_at <<<"$identity"
+    [[ "$pid" =~ ^[1-9][0-9]*$ && "$created_at" =~ ^[0-9]+$ ]] || return 1
+    now="$(date +%s 2>/dev/null || true)"
+    [[ "$now" =~ ^[0-9]+$ ]] || return 1
+    if (( created_at > now + 60 || now - created_at >= L7_CLAIM_LEASE_SECONDS )); then
+        return 1
+    fi
+    kill -0 "$pid" 2>/dev/null || return 1
+    current_birth="$(_l7_process_birth_identity "$pid" 2>/dev/null || true)"
+    [[ "$birth" == "-" || -z "$current_birth" || "$birth" == "$current_birth" ]]
 }
 
 session_id="${LOA_L7_SESSION_ID:-}"
@@ -227,8 +281,8 @@ if [[ "$session_id" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
         if [[ -L "$marker_claim" || ! -d "$marker_claim" || ! -O "$marker_claim" ]]; then
             exit 0
         fi
-        claim_pid="$(_l7_read_claim_pid "$marker_claim" 2>/dev/null || true)"
-        if [[ ! "$claim_pid" =~ ^[1-9][0-9]*$ ]] || kill -0 "$claim_pid" 2>/dev/null; then
+        claim_identity="$(_l7_read_claim_identity "$marker_claim" 2>/dev/null || true)"
+        if [[ ! "$claim_identity" =~ ^[1-9][0-9]*[[:space:]][A-Za-z0-9._-]+[[:space:]][0-9]+$ ]] || _l7_claim_is_live "$claim_identity"; then
             exit 0
         fi
 
@@ -238,8 +292,8 @@ if [[ "$session_id" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
         # touched by this reclamation.
         stale_claim="${marker_claim}.stale.$$.$RANDOM-$RANDOM"
         mv "$marker_claim" "$stale_claim" 2>/dev/null || exit 0
-        quarantined_pid="$(_l7_read_claim_pid "$stale_claim" 2>/dev/null || true)"
-        if [[ "$quarantined_pid" != "$claim_pid" ]] || kill -0 "$quarantined_pid" 2>/dev/null; then
+        quarantined_identity="$(_l7_read_claim_identity "$stale_claim" 2>/dev/null || true)"
+        if [[ "$quarantined_identity" != "$claim_identity" ]] || _l7_claim_is_live "$quarantined_identity"; then
             # The claimed object changed under inspection. Preserve it for
             # operator reconciliation instead of deleting uncertain state.
             exit 0

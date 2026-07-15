@@ -434,6 +434,42 @@ EOF
     [[ -n "$output" ]]
 }
 
+@test "T-HOOK-12d.1 (FR-L7-5) reused live PID with a different birth identity is reclaimed" {
+    _write_config "true" "warn" "2000"
+    _write_valid_soul
+    local marker_base="$TEST_DIR/loa-l7-surface-$(id -u)"
+    local session_id="bats-l7-pid-reuse-${BATS_TEST_NUMBER}-${RANDOM}"
+    local repo_scope claim_dir
+    repo_scope="$(printf '%s' "$PROJECT_ROOT" | cksum | awk '{print $1}')"
+    claim_dir="$marker_base/${session_id}-${repo_scope}.claim"
+
+    mkdir -p "$claim_dir"
+    printf '%s ps-forged %s\n' "$$" "$(date +%s)" >"$claim_dir/owner-$$-fixture"
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
+    [[ ! -e "$claim_dir" ]]
+}
+
+@test "T-HOOK-12d.2 (FR-L7-5) expired lease is reclaimed even when PID still exists" {
+    _write_config "true" "warn" "2000"
+    _write_valid_soul
+    local marker_base="$TEST_DIR/loa-l7-surface-$(id -u)"
+    local session_id="bats-l7-lease-${BATS_TEST_NUMBER}-${RANDOM}"
+    local repo_scope claim_dir
+    repo_scope="$(printf '%s' "$PROJECT_ROOT" | cksum | awk '{print $1}')"
+    claim_dir="$marker_base/${session_id}-${repo_scope}.claim"
+
+    mkdir -p "$claim_dir"
+    printf '%s - 1\n' "$$" >"$claim_dir/owner-$$-fixture"
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
+    [[ ! -e "$claim_dir" ]]
+}
+
 @test "T-HOOK-12e (FR-L7-5) failed stdout delivery does not commit the done marker" {
     _write_config "true" "warn" "2000"
     _write_valid_soul

@@ -38,6 +38,16 @@ const GOOD_FILES = [
   { path: 'skills/greet/SKILL.md', content: b64('# greet\n') },
 ];
 
+const managedMarker = (overrides = {}) => `${JSON.stringify({
+  slug: 'goodpack',
+  version: '1.0.0',
+  source_type: 'registry',
+  tree_hash: `sha256:${'0'.repeat(64)}`,
+  installed_at: '2026-07-14T00:00:00Z',
+  ...overrides,
+})}\n`;
+const OLD_MARKER = managedMarker({ generation: 'old' });
+
 async function loadRedteam(name) {
   return JSON.parse(await readFile(path.join(REDTEAM, name), 'utf8')).pack.files;
 }
@@ -90,6 +100,14 @@ test('containment accepts uppercase names and rejects the exact C0 plus DEL byte
     const verdict = validateFileList([{ path: `skills/bad${control}name.md`, content: b64('bad') }]);
     assert.match(verdict.problems.join(' '), /control bytes/);
   }
+});
+
+test('containment rejects unpaired surrogates before UTF-8 aliasing can collapse paths', () => {
+  const { problems } = validateFileList([
+    { path: `skills/bad-\ud800/SKILL.md`, content: b64('one') },
+    { path: `skills/bad-\ud801/SKILL.md`, content: b64('two') },
+  ]);
+  assert.equal(problems.filter((problem) => problem.includes('unpaired UTF-16 surrogate')).length, 2);
 });
 
 test('containment accepts only canonical padded base64 content', () => {
@@ -319,6 +337,60 @@ test('install: refuses to overwrite an unmanaged directory', async () => {
   await rejectsInstall(install({ slug: 'goodpack', root, payloadFile: payload }), EXIT.REFUSED);
   const kept = await readdir(target);
   assert.ok(kept.includes('precious-user-work.md'), 'user work must survive the refusal');
+});
+
+test('install: forged, malformed, or mismatched ownership markers cannot authorize replacement', async () => {
+  const expected = treeHash(GOOD_FILES);
+  for (const [label, marker] of [
+    ['empty', '{}\n'],
+    ['malformed', '{not json\n'],
+    ['mismatched slug', managedMarker({ slug: 'otherpack' })],
+  ]) {
+    const root = await makeRoot({ treeHashValue: expected });
+    const target = path.join(root, '.claude', 'constructs', 'packs', 'goodpack');
+    await mkdir(target, { recursive: true });
+    await writeFile(path.join(target, '.construct-meta.json'), marker);
+    const payload = await writePayload(root, GOOD_FILES);
+    await rejectsInstall(
+      install({ slug: 'goodpack', root, payloadFile: payload }),
+      EXIT.REFUSED,
+      'OWNERSHIP_MARKER_INVALID'
+    ).catch((err) => {
+      err.message = `${label}: ${err.message}`;
+      throw err;
+    });
+  }
+});
+
+test('install: symlinked target or ownership marker cannot authorize replacement', async () => {
+  const expected = treeHash(GOOD_FILES);
+
+  const targetLinkRoot = await makeRoot({ treeHashValue: expected });
+  const targetLinkParent = path.join(targetLinkRoot, '.claude', 'constructs', 'packs');
+  const targetLinkDestination = path.join(targetLinkRoot, 'unrelated');
+  await mkdir(targetLinkParent, { recursive: true });
+  await mkdir(targetLinkDestination, { recursive: true });
+  await writeFile(path.join(targetLinkDestination, '.construct-meta.json'), managedMarker());
+  await symlink(targetLinkDestination, path.join(targetLinkParent, 'goodpack'));
+  const targetLinkPayload = await writePayload(targetLinkRoot, GOOD_FILES);
+  await rejectsInstall(
+    install({ slug: 'goodpack', root: targetLinkRoot, payloadFile: targetLinkPayload }),
+    EXIT.REFUSED,
+    'OWNERSHIP_MARKER_INVALID'
+  );
+
+  const markerLinkRoot = await makeRoot({ treeHashValue: expected });
+  const markerLinkTarget = path.join(markerLinkRoot, '.claude', 'constructs', 'packs', 'goodpack');
+  const externalMarker = path.join(markerLinkRoot, 'forged-marker.json');
+  await mkdir(markerLinkTarget, { recursive: true });
+  await writeFile(externalMarker, managedMarker());
+  await symlink(externalMarker, path.join(markerLinkTarget, '.construct-meta.json'));
+  const markerLinkPayload = await writePayload(markerLinkRoot, GOOD_FILES);
+  await rejectsInstall(
+    install({ slug: 'goodpack', root: markerLinkRoot, payloadFile: markerLinkPayload }),
+    EXIT.REFUSED,
+    'OWNERSHIP_MARKER_INVALID'
+  );
 });
 
 test('install: nothing lands executable', async () => {
@@ -764,7 +836,7 @@ test('S229-P4: committed-metadata failure restores both the previous pack and TO
   await mkdir(target, { recursive: true });
   await mkdir(stage, { recursive: true });
   await mkdir(path.dirname(anchorFile), { recursive: true });
-  await writeFile(path.join(target, '.construct-meta.json'), '{"generation":"old"}\n');
+  await writeFile(path.join(target, '.construct-meta.json'), OLD_MARKER);
   await writeFile(path.join(stage, '.construct-meta.json'), '{"generation":"new"}\n');
   const priorAnchor = `${JSON.stringify({ slug: 'goodpack', commit: 'a'.repeat(40), first_seen_at: '2026-07-14T00:00:00Z' }, null, 2)}\n`;
   await writeFile(anchorFile, priorAnchor);
@@ -803,7 +875,7 @@ test('S229-P4: committed-metadata failure restores both the previous pack and TO
     (err) => err instanceof InstallError && err.code === 'METADATA_COMMIT_FAILED'
   );
 
-  assert.equal(await readFile(path.join(target, '.construct-meta.json'), 'utf8'), '{"generation":"old"}\n');
+  assert.equal(await readFile(path.join(target, '.construct-meta.json'), 'utf8'), OLD_MARKER);
   assert.equal(await readFile(anchorFile, 'utf8'), priorAnchor);
   const records = (await readdir(receiptsDir)).filter((name) => name.endsWith('.json'));
   assert.equal(records.length, 2);
@@ -822,7 +894,7 @@ test('S229-P4: rollback leaves a concurrently substituted target canonical and p
   await mkdir(receiptsDir, { recursive: true });
   await mkdir(target, { recursive: true });
   await mkdir(stage, { recursive: true });
-  await writeFile(path.join(target, '.construct-meta.json'), '{"generation":"old"}\n');
+  await writeFile(path.join(target, '.construct-meta.json'), OLD_MARKER);
   await writeFile(path.join(stage, '.construct-meta.json'), '{"generation":"new"}\n');
   const receiptPayload = {
     record_version: '1.0',
@@ -858,7 +930,7 @@ test('S229-P4: rollback leaves a concurrently substituted target canonical and p
   assert.equal(await readFile(path.join(target, 'user-work.md'), 'utf8'), 'preserve me\n');
   const backups = (await readdir(packsDir)).filter((name) => name.startsWith('.backup-'));
   assert.equal(backups.length, 1);
-  assert.equal(await readFile(path.join(packsDir, backups[0], '.construct-meta.json'), 'utf8'), '{"generation":"old"}\n');
+  assert.equal(await readFile(path.join(packsDir, backups[0], '.construct-meta.json'), 'utf8'), OLD_MARKER);
   const quarantines = (await readdir(packsDir)).filter((name) => name.startsWith('.rollback-'));
   assert.equal(quarantines.length, 0);
   const records = (await readdir(receiptsDir)).filter((name) => name.endsWith('.json'));
@@ -875,7 +947,7 @@ test('S229-P4: rollback never deletes a target created after quarantine validati
   await mkdir(receiptsDir, { recursive: true });
   await mkdir(target, { recursive: true });
   await mkdir(stage, { recursive: true });
-  await writeFile(path.join(target, '.construct-meta.json'), '{"generation":"old"}\n');
+  await writeFile(path.join(target, '.construct-meta.json'), OLD_MARKER);
   await writeFile(path.join(stage, '.construct-meta.json'), '{"generation":"new"}\n');
   const receiptPayload = {
     record_version: '1.0',
@@ -921,7 +993,7 @@ test('S229-P4: rollback never deletes a target created after quarantine validati
   assert.match(await readFile(path.join(claimedQuarantine, '.construct-meta.json'), 'utf8'), /transaction_id/);
   const backups = (await readdir(packsDir)).filter((name) => name.startsWith('.backup-'));
   assert.equal(backups.length, 1);
-  assert.equal(await readFile(path.join(packsDir, backups[0], '.construct-meta.json'), 'utf8'), '{"generation":"old"}\n');
+  assert.equal(await readFile(path.join(packsDir, backups[0], '.construct-meta.json'), 'utf8'), OLD_MARKER);
 });
 
 test('S229-P4: non-ENOENT target lookup failures are surfaced, not treated as absence', async () => {

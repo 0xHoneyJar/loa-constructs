@@ -14,7 +14,7 @@
 // registry compromise — the receipt records enough for retroactive audit.
 
 import { createHash, createPublicKey, randomUUID, verify as cryptoVerify } from 'node:crypto';
-import { readFile, writeFile, mkdir, rename, rm, stat, lstat, readdir, access, chmod, mkdtemp } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, rm, stat, lstat, readdir, chmod, mkdtemp } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { jcsCanonicalize } from './vendor/jcs.mjs';
@@ -50,6 +50,7 @@ export const BUDGETS = Object.freeze({
 
 const CONTROL_BYTES_RE = /[\x00-\x1f\x7f]/; // C0 + DEL in a file NAME are never legitimate
 const GIT_OBJECT_ID_RE = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+const SHA256_CLAIM_RE = /^sha256:[0-9a-f]{64}$/;
 // Root namespaces owned by the installer. Source payloads may not provide or
 // nest beneath them because the installer adds these bytes after acquisition
 // verification; accepting collisions would let the receipt attest bytes that
@@ -100,6 +101,20 @@ export function collisionKey(p) {
     .join('/');
 }
 
+function hasUnpairedSurrogate(value) {
+  for (let i = 0; i < value.length; i += 1) {
+    const unit = value.charCodeAt(i);
+    if (unit >= 0xd800 && unit <= 0xdbff) {
+      const next = value.charCodeAt(i + 1);
+      if (next < 0xdc00 || next > 0xdfff) return true;
+      i += 1;
+    } else if (unit >= 0xdc00 && unit <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // Win32 reserved device basenames — `CON`, `NUL`, `COM1`… alias to devices even
 // WITH an extension (`con.txt` opens the console). A pack entry named for one is
 // never legitimate.
@@ -128,6 +143,9 @@ export function validateFileList(files) {
     }
     if (path.isAbsolute(f.path) || /^[A-Za-z]:[\\/]/.test(f.path)) {
       problems.push(`${where}: absolute path ${JSON.stringify(f.path)} rejected`);
+    }
+    if (hasUnpairedSurrogate(f.path)) {
+      problems.push(`${where}: path contains an unpaired UTF-16 surrogate and has no stable UTF-8 filesystem representation`);
     }
     const segments = f.path.split('/');
     if (INSTALLER_OWNED_ROOTS.has(segments[0])) {
@@ -349,6 +367,76 @@ async function assertNoSymlinks(dir) {
   }
 }
 
+function markerPathProblem(target, message) {
+  return new InstallError(
+    `${target} is not a recognized installer-owned pack: ${message}`,
+    EXIT.REFUSED,
+    { code: 'OWNERSHIP_MARKER_INVALID', fix: 'move the directory aside, or remove it if it is yours to remove' }
+  );
+}
+
+function assertOwnerControlled(info, target, noun) {
+  if (typeof process.getuid === 'function' && info.uid !== process.getuid()) {
+    throw markerPathProblem(target, `${noun} is not owned by the current user`);
+  }
+  if ((info.mode & 0o022) !== 0) {
+    throw markerPathProblem(target, `${noun} is group- or world-writable`);
+  }
+}
+
+async function assertOwnedInstallTarget(target, slug) {
+  let targetInfo;
+  try {
+    targetInfo = await lstat(target);
+  } catch (err) {
+    throw new InstallError(
+      `cannot inspect existing install target ${target}: ${err?.message ?? err}`,
+      EXIT.TOOL_FAILURE,
+      { code: 'FILESYSTEM_LOOKUP_FAILED', fix: 'fix the path or filesystem permissions, then retry' }
+    );
+  }
+  if (targetInfo.isSymbolicLink() || !targetInfo.isDirectory()) {
+    throw markerPathProblem(target, 'the target is not a real directory');
+  }
+  assertOwnerControlled(targetInfo, target, 'target directory');
+
+  const markerFile = path.join(target, '.construct-meta.json');
+  let markerInfo;
+  try {
+    markerInfo = await lstat(markerFile);
+  } catch (err) {
+    if (err?.code === 'ENOENT') throw markerPathProblem(target, 'the ownership marker is missing');
+    throw new InstallError(
+      `cannot inspect ownership marker for ${target}: ${err?.message ?? err}`,
+      EXIT.TOOL_FAILURE,
+      { code: 'FILESYSTEM_LOOKUP_FAILED', fix: 'fix the path or filesystem permissions, then retry' }
+    );
+  }
+  if (markerInfo.isSymbolicLink() || !markerInfo.isFile()) {
+    throw markerPathProblem(target, 'the ownership marker is not a real regular file');
+  }
+  assertOwnerControlled(markerInfo, target, 'ownership marker');
+
+  let marker;
+  try {
+    marker = JSON.parse(await readFile(markerFile, 'utf8'));
+  } catch (err) {
+    throw markerPathProblem(target, `the ownership marker is malformed (${err?.message ?? err})`);
+  }
+  if (
+    marker?.slug !== slug ||
+    !['registry', 'git'].includes(marker?.source_type) ||
+    !SHA256_CLAIM_RE.test(marker?.tree_hash ?? '') ||
+    typeof marker?.installed_at !== 'string' ||
+    Number.isNaN(Date.parse(marker.installed_at)) ||
+    (marker.source_type === 'git' && !GIT_OBJECT_ID_RE.test(marker?.commit ?? '')) ||
+    (marker.transaction_id !== undefined && !SHA256_CLAIM_RE.test(marker.transaction_id))
+  ) {
+    throw markerPathProblem(target, `the ownership marker does not describe construct ${slug}`);
+  }
+  return marker;
+}
+
 /**
  * Refuse early if the target exists but is not ours to replace. Called BEFORE any
  * durable write, so an unmanaged directory costs nothing.
@@ -356,7 +444,7 @@ async function assertNoSymlinks(dir) {
 async function assertReplaceable(root, slug) {
   const target = path.join(packsParent(root), slug);
   try {
-    await stat(target);
+    await lstat(target);
   } catch (err) {
     if (err?.code === 'ENOENT') return; // fresh install, nothing to protect
     throw new InstallError(
@@ -365,22 +453,7 @@ async function assertReplaceable(root, slug) {
       { code: 'FILESYSTEM_LOOKUP_FAILED', fix: 'fix the path or filesystem permissions, then retry' }
     );
   }
-  try {
-    await access(path.join(target, '.construct-meta.json'));
-  } catch (err) {
-    if (err?.code !== 'ENOENT') {
-      throw new InstallError(
-        `cannot inspect ownership marker for ${target}: ${err?.message ?? err}`,
-        EXIT.TOOL_FAILURE,
-        { code: 'FILESYSTEM_LOOKUP_FAILED', fix: 'fix the path or filesystem permissions, then retry' }
-      );
-    }
-    throw new InstallError(
-      `${target} exists but has no .construct-meta.json marker — refusing to overwrite something this tool does not manage`,
-      EXIT.REFUSED,
-      { fix: 'move the directory aside, or remove it if it is yours to remove' }
-    );
-  }
+  await assertOwnedInstallTarget(target, slug);
 }
 
 /**
@@ -398,7 +471,7 @@ async function swapPackIn({ root, slug, stage, transactionId }) {
 
   let replacing = false;
   try {
-    await stat(target);
+    await lstat(target);
     replacing = true;
   } catch (err) {
     if (err?.code === 'ENOENT') replacing = false;
@@ -434,7 +507,7 @@ async function swapPackIn({ root, slug, stage, transactionId }) {
   // would otherwise be replaced without ever being checked. Validating the moved
   // backup closes the window — there is nothing left to substitute.
   try {
-    await access(path.join(backup, '.construct-meta.json'));
+    await assertOwnedInstallTarget(backup, slug);
   } catch (err) {
     let restoreError = null;
     await rename(backup, target).catch((restoreErr) => {
@@ -447,18 +520,7 @@ async function swapPackIn({ root, slug, stage, transactionId }) {
         { code: 'ROLLBACK_FAILED', fix: `your previous pack is intact at ${backup} — move it back to ${target}` }
       );
     }
-    if (err?.code !== 'ENOENT') {
-      throw new InstallError(
-        `cannot inspect ownership marker for ${target} at the commit point: ${err?.message ?? err}`,
-        EXIT.TOOL_FAILURE,
-        { code: 'FILESYSTEM_LOOKUP_FAILED', fix: 'fix the path or filesystem permissions, then retry' }
-      );
-    }
-    throw new InstallError(
-      `${target} changed under us and has no .construct-meta.json marker — refusing to overwrite something this tool does not manage`,
-      EXIT.REFUSED,
-      { fix: 'move the directory aside, or remove it if it is yours to remove, then retry' }
-    );
+    throw err;
   }
 
   try {
@@ -1081,8 +1143,10 @@ export async function install({
           // updated (found by the T3.2b TOFU fixture).
           await writeFile(
             path.join(packStage, '.construct-meta.json'),
-            JSON.stringify({ slug, version: null, source_type: 'git', commit: gitInfo.head, tree_hash: computedHash, installed_at: nowIso() }, null, 2)
+            JSON.stringify({ slug, version: null, source_type: 'git', commit: gitInfo.head, tree_hash: computedHash, installed_at: nowIso() }, null, 2),
+            { mode: 0o600 }
           );
+          await chmod(packStage, 0o700);
         }
       } else {
         acquisition = rung === 'payload' || payloadFile ? await acquirePayloadFile(payloadFile) : await acquireApi(slug);
@@ -1127,14 +1191,15 @@ export async function install({
 
         if (!dryRun) {
           const packStage = path.join(stagingDir, 'pack');
-          await mkdir(packStage, { recursive: true });
+          await mkdir(packStage, { recursive: true, mode: 0o700 });
           await stageFileList(packStage, acquisition.files);
           if (acquisition.license) {
             await writeFile(path.join(packStage, '.license.json'), JSON.stringify(acquisition.license, null, 2));
           }
           await writeFile(
             path.join(packStage, '.construct-meta.json'),
-            JSON.stringify({ slug, version: acquisition.version, source_type: 'registry', tree_hash: computedHash, installed_at: nowIso() }, null, 2)
+            JSON.stringify({ slug, version: acquisition.version, source_type: 'registry', tree_hash: computedHash, installed_at: nowIso() }, null, 2),
+            { mode: 0o600 }
           );
         }
       }
