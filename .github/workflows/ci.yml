@@ -385,11 +385,38 @@ jobs:
   # --- Loa Constructs CI Jobs ---
   # @see sprint.md T1.5: CI/CD Pipeline
 
+  source-presence:
+    name: Detect optional source trees
+    runs-on: ubuntu-latest
+    outputs:
+      workspaces: ${{ steps.detect.outputs.workspaces }}
+      packs: ${{ steps.detect.outputs.packs }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect optional source trees
+        id: detect
+        shell: bash
+        run: |
+          if [ -d apps ] || [ -d packages ]; then
+            echo "workspaces=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "workspaces=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -d .claude/constructs/packs ]; then
+            echo "packs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "packs=false" >> "$GITHUB_OUTPUT"
+          fi
+
   registry-lint:
     name: Registry - Lint & Type Check
     runs-on: ubuntu-latest
+    needs: source-presence
     # Only run if apps/ or packages/ directories exist
-    if: hashFiles('apps/**') != '' || hashFiles('packages/**') != ''
+    if: needs.source-presence.outputs.workspaces == 'true'
 
     steps:
       - name: Checkout repository
@@ -418,8 +445,8 @@ jobs:
   registry-test:
     name: Registry - Unit Tests
     runs-on: ubuntu-latest
-    needs: registry-lint
-    if: hashFiles('apps/**') != '' || hashFiles('packages/**') != ''
+    needs: [source-presence, registry-lint]
+    if: needs.source-presence.outputs.workspaces == 'true' && needs.registry-lint.result == 'success'
 
     steps:
       - name: Checkout repository
@@ -451,8 +478,8 @@ jobs:
   registry-build:
     name: Registry - Build
     runs-on: ubuntu-latest
-    needs: [registry-lint, registry-test]
-    if: hashFiles('apps/**') != '' || hashFiles('packages/**') != ''
+    needs: [source-presence, registry-lint, registry-test]
+    if: needs.source-presence.outputs.workspaces == 'true' && needs.registry-lint.result == 'success' && needs.registry-test.result == 'success'
 
     steps:
       - name: Checkout repository
@@ -497,8 +524,8 @@ jobs:
   validate-packs:
     name: Validate Skill Packs
     runs-on: ubuntu-latest
-    needs: template-guard
-    if: hashFiles('.claude/constructs/packs/**') != ''
+    needs: [template-guard, source-presence]
+    if: needs.source-presence.outputs.packs == 'true' && needs.template-guard.result == 'success'
 
     steps:
       - name: Checkout repository
