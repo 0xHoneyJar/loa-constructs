@@ -3,6 +3,7 @@ name: CI
 # Least-privilege permissions (CI-004)
 permissions:
   contents: read
+  issues: read
   pull-requests: read
 
 on:
@@ -10,6 +11,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 jobs:
   # =============================================================================
@@ -29,21 +31,42 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
           GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_LABEL_APPROVED: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'template-guard-approved') }}
         id: check-forbidden
         run: |
           echo "Checking for forbidden template files..."
 
-          guard_approved="$PR_LABEL_APPROVED"
-          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            approved_pr="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
-              --jq 'map(select(.merged_at != null and ([.labels[].name] | index("template-guard-approved"))))[0].number // empty')"
-            [[ -n "$approved_pr" ]] && guard_approved="true"
+          candidate_pr=""
+          if [[ "$PR_LABEL_APPROVED" == "true" ]]; then
+            candidate_pr="$PR_NUMBER"
+          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            if ! candidate_pr="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+              --jq 'map(select(.merged_at != null and ([.labels[].name] | index("template-guard-approved"))))[0].number // empty' 2>/dev/null)"; then
+              echo "::warning title=Template approval lookup unavailable::Could not resolve an associated approved PR; continuing with normal template scanning"
+              candidate_pr=""
+            fi
           fi
 
-          if [[ "$guard_approved" == "true" ]]; then
-            echo "::warning title=Template guard bypassed::Maintainer-controlled template-guard-approved label authorizes this governed artifact change"
-            exit 0
+          if [[ -n "$candidate_pr" ]]; then
+            label_actor=""
+            permission=""
+            if ! label_actor="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${candidate_pr}/events?per_page=100" \
+              --jq '[.[] | select(.event == "labeled" and .label.name == "template-guard-approved")][-1].actor.login // empty' 2>/dev/null)"; then
+              echo "::warning title=Template label audit unavailable::Could not resolve who applied template-guard-approved; continuing with normal template scanning"
+            elif [[ -n "$label_actor" ]] && permission="$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${label_actor}/permission" --jq '.permission' 2>/dev/null)"; then
+              case "$permission" in
+                admin|maintain|write)
+                  echo "::warning title=Template guard bypassed::${label_actor} (${permission}) applied template-guard-approved to PR #${candidate_pr}"
+                  exit 0
+                  ;;
+                *)
+                  echo "::warning title=Template approval refused::${label_actor} has ${permission:-unknown} permission; write, maintain, or admin is required"
+                  ;;
+              esac
+            else
+              echo "::warning title=Template permission audit unavailable::Could not verify the label actor's repository permission; continuing with normal template scanning"
+            fi
           fi
 
           if [[ -z "$BASE_SHA" ]]; then
