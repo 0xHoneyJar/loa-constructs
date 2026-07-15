@@ -170,7 +170,7 @@ jobs:
         if: |
           steps.summary.outputs.drift_detected == 'true' &&
           (github.event.inputs.open_pr != 'false')
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: bot/discover-constructs
