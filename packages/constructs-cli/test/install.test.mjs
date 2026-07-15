@@ -637,7 +637,7 @@ test('S229-5: a prepared-receipt failure leaves the working pack untouched', asy
 
 // ── review pass 2 (sprint-229): ordering IS the transaction ───────────────────
 
-test('S229-P2: failed landing leaves only a prepared receipt and does not rotate TOFU', async () => {
+test('S229-P2: failed landing pairs its prepared receipt with aborted and does not rotate TOFU', async () => {
   const root = await makeRoot();
   const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
   const packsDir = path.join(root, '.claude', 'constructs', 'packs');
@@ -668,11 +668,58 @@ test('S229-P2: failed landing leaves only a prepared receipt and does not rotate
   }));
 
   const records = (await readdir(receiptsDir)).filter((name) => name.endsWith('.json'));
-  assert.equal(records.length, 1, 'a failed landing records one prepared fact, never completion');
-  const prepared = JSON.parse(await readFile(path.join(receiptsDir, records[0]), 'utf8'));
-  assert.equal(prepared.install.transaction_state, 'prepared');
+  assert.equal(records.length, 2, 'a failed landing records both prepared and terminal aborted facts');
+  const lifecycle = await Promise.all(records.map(async (record) => JSON.parse(await readFile(path.join(receiptsDir, record), 'utf8'))));
+  assert.deepEqual(lifecycle.map((record) => record.install.transaction_state).sort(), ['aborted', 'prepared']);
+  assert.equal(new Set(lifecycle.map((record) => record.install.transaction_id)).size, 1);
+  for (const record of records) {
+    const verdict = await verifyReceipt(path.join(receiptsDir, record));
+    assert.equal(verdict.valid, true, verdict.problems.join('; '));
+  }
   await assert.rejects(readFile(path.join(root, 'grimoires', 'loa', 'territory', 'anchors', 'goodpack.json')));
   await assert.rejects(readdir(path.join(packsDir, 'goodpack')));
+});
+
+test('S229-P2: repeated failed attempts each have one explicit terminal state', async () => {
+  const root = await makeRoot();
+  const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
+  const packsDir = path.join(root, '.claude', 'constructs', 'packs');
+  await mkdir(receiptsDir, { recursive: true });
+  await mkdir(packsDir, { recursive: true });
+  const basePayload = {
+    record_version: '1.0',
+    kind: 'install',
+    actor: 'test',
+    construct: 'goodpack',
+    install: {
+      rung: 'registry-git',
+      tree_hash: `sha256:${'0'.repeat(64)}`,
+      outcome: 'verified',
+      anchor: `first-seen:${'a'.repeat(40)}`,
+    },
+  };
+
+  for (const [attempt, ts] of ['2026-07-14T00:00:01Z', '2026-07-14T00:00:02Z'].entries()) {
+    await assert.rejects(commitInstallTransaction({
+      root,
+      slug: 'goodpack',
+      stage: path.join(packsDir, `missing-attempt-${attempt}`),
+      receiptsDir,
+      receiptPayload: { ...basePayload, ts },
+    }));
+  }
+
+  const records = (await readdir(receiptsDir)).filter((name) => name.endsWith('.json'));
+  assert.equal(records.length, 4);
+  const byTransaction = new Map();
+  for (const record of records) {
+    const payload = JSON.parse(await readFile(path.join(receiptsDir, record), 'utf8'));
+    const states = byTransaction.get(payload.install.transaction_id) ?? [];
+    states.push(payload.install.transaction_state);
+    byTransaction.set(payload.install.transaction_id, states);
+  }
+  assert.equal(byTransaction.size, 2);
+  for (const states of byTransaction.values()) assert.deepEqual(states.sort(), ['aborted', 'prepared']);
 });
 
 test('S229-P4: committed-metadata failure restores both the previous pack and TOFU anchor', async () => {
@@ -728,12 +775,14 @@ test('S229-P4: committed-metadata failure restores both the previous pack and TO
   assert.equal(await readFile(path.join(target, '.construct-meta.json'), 'utf8'), '{"generation":"old"}\n');
   assert.equal(await readFile(anchorFile, 'utf8'), priorAnchor);
   const records = (await readdir(receiptsDir)).filter((name) => name.endsWith('.json'));
-  assert.equal(records.length, 1);
-  assert.equal(JSON.parse(await readFile(path.join(receiptsDir, records[0]), 'utf8')).install.transaction_state, 'prepared');
+  assert.equal(records.length, 2);
+  const lifecycle = await Promise.all(records.map(async (record) => JSON.parse(await readFile(path.join(receiptsDir, record), 'utf8'))));
+  assert.deepEqual(lifecycle.map((record) => record.install.transaction_state).sort(), ['prepared', 'rolled_back']);
+  assert.equal(new Set(lifecycle.map((record) => record.install.transaction_id)).size, 1);
   assert.deepEqual((await readdir(packsDir)).filter((name) => name.startsWith('.backup-')), []);
 });
 
-test('S229-P4: rollback quarantines a concurrently substituted target and preserves the recoverable backup', async () => {
+test('S229-P4: rollback leaves a concurrently substituted target canonical and preserves the recoverable backup', async () => {
   const root = await makeRoot();
   const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
   const packsDir = path.join(root, '.claude', 'constructs', 'packs');
@@ -775,13 +824,15 @@ test('S229-P4: rollback quarantines a concurrently substituted target and preser
     commitInstallTransaction({ root, slug: 'goodpack', stage, receiptsDir, receiptPayload, recordWriter: substituteThenFail }),
     (err) => err instanceof InstallError && err.code === 'ROLLBACK_FAILED'
   );
-  await assert.rejects(readFile(path.join(target, 'user-work.md'), 'utf8'));
+  assert.equal(await readFile(path.join(target, 'user-work.md'), 'utf8'), 'preserve me\n');
   const backups = (await readdir(packsDir)).filter((name) => name.startsWith('.backup-'));
   assert.equal(backups.length, 1);
   assert.equal(await readFile(path.join(packsDir, backups[0], '.construct-meta.json'), 'utf8'), '{"generation":"old"}\n');
   const quarantines = (await readdir(packsDir)).filter((name) => name.startsWith('.rollback-'));
-  assert.equal(quarantines.length, 1);
-  assert.equal(await readFile(path.join(packsDir, quarantines[0], 'user-work.md'), 'utf8'), 'preserve me\n');
+  assert.equal(quarantines.length, 0);
+  const records = (await readdir(receiptsDir)).filter((name) => name.endsWith('.json'));
+  const lifecycle = await Promise.all(records.map(async (record) => JSON.parse(await readFile(path.join(receiptsDir, record), 'utf8'))));
+  assert.deepEqual(lifecycle.map((record) => record.install.transaction_state).sort(), ['prepared', 'rollback_failed']);
 });
 
 test('S229-P4: rollback never deletes a target created after quarantine validation', async () => {

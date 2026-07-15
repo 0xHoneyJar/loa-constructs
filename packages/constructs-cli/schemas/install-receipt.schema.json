@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://0xhoneyjar.github.io/loa-constructs/schemas/install-receipt.schema.json",
   "title": "Install Receipt",
-  "description": "One lifecycle fact about an integrity-verified acquisition, as a content-addressed file (same record model as stationing receipts — the writer is shared). Prepared and committed records share a transaction_id so interrupted work never masquerades as a completed install. Records enough for retroactive audit: what was verified, against which anchor, through which rung, and any override with its stated reason (SDD §5).",
+  "description": "One lifecycle fact about an integrity-verified acquisition, as a content-addressed file (same record model as stationing receipts — the writer is shared). Prepared and terminal records share a transaction_id so interrupted work never masquerades as a completed, aborted, or reconciled install. Records enough for retroactive audit: what was verified, against which anchor, through which rung, and any override with its stated reason (SDD §5).",
   "type": "object",
   "required": ["record_version", "kind", "ts", "actor", "construct", "install"],
   "additionalProperties": false,
@@ -35,11 +35,11 @@
         "transaction_id": {
           "type": "string",
           "pattern": "^sha256:[0-9a-f]{64}$",
-          "description": "Stable identifier shared by the prepared and committed lifecycle records for one install attempt."
+          "description": "Stable identifier shared by every lifecycle record for one install attempt."
         },
         "transaction_state": {
-          "enum": ["prepared", "committed"],
-          "description": "Prepared is a write-ahead fact and never claims installation; committed is emitted only after the pack is visible and any TOFU rotation has landed."
+          "enum": ["prepared", "committed", "aborted", "rolled_back", "rollback_failed"],
+          "description": "Prepared is the write-ahead fact. Committed is emitted only after the pack and trust state land. Aborted means the pack never landed. Rolled_back means a landed pack was fully restored. Rollback_failed is a terminal attempt requiring operator reconciliation."
         },
         "override_reason": { "type": "string", "minLength": 8, "maxLength": 500 },
         "key_id": { "type": "string", "maxLength": 64 }

@@ -605,6 +605,29 @@ async function stampStageTransaction(stage, transactionId) {
 }
 
 async function rollbackPackSwap({ target, backup }, transactionId, onQuarantined = null) {
+  // Fast fail for the ordinary stale-writer case: if a newer install or user
+  // directory is already visible, leave its canonical path untouched. This is
+  // not the destructive safety check—the same marker is revalidated after the
+  // atomic rename below—but it preserves availability for replacements that
+  // happened before rollback began.
+  let observed;
+  try {
+    observed = JSON.parse(await readFile(path.join(target, '.construct-meta.json'), 'utf8'));
+  } catch (err) {
+    throw new InstallError(
+      `rollback conflict at ${target}: the visible transaction marker cannot be read (${err?.message ?? err}); preserving the current target${backup ? ` and backup ${backup}` : ''}`,
+      EXIT.TOOL_FAILURE,
+      { code: 'ROLLBACK_CONFLICT' }
+    );
+  }
+  if (observed?.transaction_id !== transactionId) {
+    throw new InstallError(
+      `rollback conflict at ${target}: expected transaction ${transactionId}, found ${observed?.transaction_id ?? 'no transaction marker'}; preserving the current target${backup ? ` and backup ${backup}` : ''}`,
+      EXIT.TOOL_FAILURE,
+      { code: 'ROLLBACK_CONFLICT' }
+    );
+  }
+
   // Take ownership of one exact filesystem object before inspecting or deleting
   // it. The target path can be replaced by an external actor at any time; an
   // unguessable, transaction-scoped rename keeps all later destructive work on
@@ -710,9 +733,22 @@ export async function commitInstallTransaction({
   const preparedPayload = installTransactionPayload(receiptPayload, 'prepared');
   const preparedRecord = await recordWriter(receiptsDir, preparedPayload);
   const transactionId = preparedPayload.install.transaction_id;
-  await stampStageTransaction(stage, transactionId);
-
-  const swap = await swapPackIn({ root, slug, stage, transactionId });
+  let swap;
+  try {
+    await stampStageTransaction(stage, transactionId);
+    swap = await swapPackIn({ root, slug, stage, transactionId });
+  } catch (err) {
+    try {
+      await recordWriter(receiptsDir, installTransactionPayload(receiptPayload, 'aborted'));
+    } catch (terminalErr) {
+      throw new InstallError(
+        `install aborted before landing (${err?.message ?? err}) AND its terminal receipt could not be written (${terminalErr?.message ?? terminalErr})`,
+        EXIT.TOOL_FAILURE,
+        { code: 'ABORT_RECORD_FAILED', fix: `inspect prepared transaction ${transactionId} before retrying` }
+      );
+    }
+    throw err;
+  }
   try {
     if (pendingAnchor) await writeTofuAnchor(root, slug, pendingAnchor);
 
@@ -726,6 +762,10 @@ export async function commitInstallTransaction({
     if (pendingAnchor) {
       await restoreTofuAnchor(root, slug, priorAnchorRaw).catch((rollbackErr) => rollbackErrors.push(`anchor: ${rollbackErr?.message ?? rollbackErr}`));
     }
+    const terminalState = rollbackErrors.length > 0 ? 'rollback_failed' : 'rolled_back';
+    await recordWriter(receiptsDir, installTransactionPayload(receiptPayload, terminalState)).catch((terminalErr) => {
+      rollbackErrors.push(`terminal receipt: ${terminalErr?.message ?? terminalErr}`);
+    });
     if (rollbackErrors.length > 0) {
       throw new InstallError(
         `install metadata commit failed (${err?.message ?? err}) AND rollback was incomplete (${rollbackErrors.join('; ')})`,
@@ -1095,6 +1135,9 @@ export async function install({
         receiptPayload,
         installTransactionPayload(receiptPayload, 'prepared'),
         installTransactionPayload(receiptPayload, 'committed'),
+        installTransactionPayload(receiptPayload, 'aborted'),
+        installTransactionPayload(receiptPayload, 'rolled_back'),
+        installTransactionPayload(receiptPayload, 'rollback_failed'),
       ]) {
         const { valid, errors } = validateSchema(schema, candidate);
         if (!valid) throw new InstallError(`install receipt failed its own schema: ${errors.join('; ')}`, EXIT.TOOL_FAILURE);
