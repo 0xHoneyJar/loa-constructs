@@ -29,7 +29,11 @@ set -uo pipefail
 HOOK_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${HOOK_DIR}/../../.." && pwd)"
 LIB="${REPO_ROOT}/.claude/scripts/lib/soul-identity-lib.sh"
+REALPATH_LIB="${REPO_ROOT}/.claude/scripts/lib/portable-realpath.sh"
 [[ -f "$LIB" ]] || exit 0
+[[ -f "$REALPATH_LIB" ]] || exit 0
+# shellcheck source=/dev/null
+source "$REALPATH_LIB" 2>/dev/null || exit 0
 
 # Cache scoped to session — re-source no-ops (FR-L7-5).
 [[ "${LOA_L7_SURFACED:-0}" == "1" ]] && exit 0
@@ -126,10 +130,11 @@ fi
 # <untrusted-content>. Test-mode is exempt because tests legitimately use
 # fixtures under TEST_DIR (mktemp outside REPO_ROOT). Mirrors the cycle-099
 # sprint-1E.c.3.b allowlist-tree-restriction pattern.
+canonical_root="$REPO_ROOT"
 if ! _l7_test_mode_active; then
-    canonical_root="$(realpath -m "$REPO_ROOT" 2>/dev/null || echo "$REPO_ROOT")"
-    canonical_path="$(realpath -m "$soul_path" 2>/dev/null || echo "")"
-    if [[ -z "$canonical_path" ]]; then
+    canonical_root="$(resolve_path_portable "$REPO_ROOT" 2>/dev/null || echo "")"
+    canonical_path="$(resolve_path_portable "$soul_path" 2>/dev/null || echo "")"
+    if [[ -z "$canonical_root" || -z "$canonical_path" ]]; then
         exit 0
     fi
     case "$canonical_path" in
@@ -141,6 +146,31 @@ fi
 # Silent on missing file (FR-L7-6) — no audit event for "the file just
 # wasn't there"; that's not an L7 lifecycle event worth chaining.
 [[ -f "$soul_path" ]] || exit 0
+
+# Cross-process single-fire. Environment exports cannot propagate from a hook
+# child back to the runner, so use the host session id (env or hook JSON stdin)
+# as the retry-boundary identity. The marker is local ephemeral state, owned by
+# this user, and scoped by repository.
+session_id="${LOA_L7_SESSION_ID:-}"
+if ! _l7_test_mode_active && [[ -z "$session_id" ]]; then
+    session_id="${CLAUDE_SESSION_ID:-${CODEX_SESSION_ID:-}}"
+fi
+if ! _l7_test_mode_active && [[ -z "$session_id" && ! -t 0 && -x "$(command -v jq 2>/dev/null)" ]]; then
+    hook_input="$(cat 2>/dev/null || true)"
+    session_id="$(printf '%s' "$hook_input" | jq -r '.session_id // empty' 2>/dev/null || true)"
+fi
+if [[ "$session_id" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
+    marker_base="${TMPDIR:-/tmp}/loa-l7-surface-${UID:-$(id -u)}"
+    if [[ -e "$marker_base" && ( ! -d "$marker_base" || -L "$marker_base" || ! -O "$marker_base" ) ]]; then
+        exit 0
+    fi
+    umask 077
+    mkdir -p "$marker_base" 2>/dev/null || exit 0
+    chmod 700 "$marker_base" 2>/dev/null || exit 0
+    repo_scope="$(printf '%s' "$canonical_root" | cksum | awk '{print $1}')"
+    marker="${marker_base}/${session_id}-${repo_scope}.done"
+    mkdir "$marker" 2>/dev/null || exit 0
+fi
 
 # Source lib (after preflight gates pass — keeps no-op exit fast).
 # shellcheck source=/dev/null

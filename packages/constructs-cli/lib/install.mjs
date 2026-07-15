@@ -362,7 +362,7 @@ async function assertReplaceable(root, slug) {
  * trust anchor. The staged pack carries its own provenance marker, so recovery can
  * always identify what crossed the filesystem commit point.
  */
-async function swapPackIn({ root, slug, stage }) {
+async function swapPackIn({ root, slug, stage, transactionId }) {
   const parent = packsParent(root);
   const target = path.join(parent, slug);
 
@@ -381,13 +381,22 @@ async function swapPackIn({ root, slug, stage }) {
     }
   }
 
+  const recoveryPrefix = `.backup-${slug}-`;
+  const recoveryState = (await readdir(parent)).filter((name) => name.startsWith(recoveryPrefix));
+  if (recoveryState.length > 0) {
+    throw new InstallError(
+      `recovery state exists for ${slug}: ${recoveryState.join(', ')} — refusing to overwrite or discard an ambiguous prior backup`,
+      EXIT.REFUSED,
+      { code: 'RECOVERY_STATE_EXISTS', fix: `reconcile or move ${path.join(parent, recoveryState[0])}, then retry` }
+    );
+  }
+
   if (!replacing) {
     await rename(stage, target);
     return { target, backup: null };
   }
 
-  const backup = path.join(parent, `.backup-${slug}-${process.pid}`);
-  await rm(backup, { recursive: true, force: true });
+  const backup = path.join(parent, `${recoveryPrefix}${transactionId.replace(/^sha256:/, '')}`);
   await rename(target, backup);
 
   // Revalidate the EXACT directory we just moved (review pass 3). assertReplaceable
@@ -516,11 +525,19 @@ async function readTofuAnchor(root, slug) {
       { code: 'TOFU_MALFORMED', fix: 'delete the anchor to knowingly re-establish first-use trust' }
     );
   }
-  if (typeof doc?.commit !== 'string' || !/^[0-9a-f]{40}$/.test(doc.commit)) {
+  if (typeof doc?.commit !== 'string' || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(doc.commit)) {
     throw new InstallError(
       `TOFU anchor ${file} has no valid pinned commit`,
       EXIT.INTEGRITY_MISMATCH,
       { code: 'TOFU_MALFORMED', fix: 'delete the anchor to knowingly re-establish first-use trust' }
+    );
+  }
+  const inferredFormat = doc.commit.length === 64 ? 'sha256' : 'sha1';
+  if (doc.object_format !== undefined && doc.object_format !== inferredFormat) {
+    throw new InstallError(
+      `TOFU anchor ${file} declares ${doc.object_format} but its commit is ${inferredFormat}-shaped`,
+      EXIT.INTEGRITY_MISMATCH,
+      { code: 'TOFU_MALFORMED', fix: 'repair the anchor metadata or delete it to knowingly re-establish first-use trust' }
     );
   }
   return doc;
@@ -531,7 +548,8 @@ async function writeTofuAnchor(root, slug, commit) {
   const file = tofuAnchorPath(root, slug);
   await mkdir(path.dirname(file), { recursive: true });
   const tmp = `${file}.tmp-${process.pid}`;
-  await writeFile(tmp, `${JSON.stringify({ slug, commit, first_seen_at: nowIso() }, null, 2)}\n`, 'utf8');
+  const objectFormat = commit.length === 64 ? 'sha256' : 'sha1';
+  await writeFile(tmp, `${JSON.stringify({ slug, commit, object_format: objectFormat, first_seen_at: nowIso() }, null, 2)}\n`, 'utf8');
   await rename(tmp, file);
 }
 
@@ -645,7 +663,7 @@ export async function commitInstallTransaction({
   const transactionId = preparedPayload.install.transaction_id;
   await stampStageTransaction(stage, transactionId);
 
-  const swap = await swapPackIn({ root, slug, stage });
+  const swap = await swapPackIn({ root, slug, stage, transactionId });
   try {
     if (pendingAnchor) await writeTofuAnchor(root, slug, pendingAnchor);
 
@@ -769,7 +787,8 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
   let head;
   if (anchor.commit) {
     await mkdir(stagingDir, { recursive: true });
-    await run('git', ['init', '-q', stagingDir], { timeoutMs: 15_000 });
+    const objectFormat = anchor.commit.length === 64 ? 'sha256' : 'sha1';
+    await run('git', ['init', '-q', `--object-format=${objectFormat}`, stagingDir], { timeoutMs: 15_000 });
     try {
       await run('git', ['-C', stagingDir, 'fetch', '-q', '--depth=1', '--filter=blob:none', '--no-tags', gitUrl, anchor.commit], { timeoutMs: 120_000 });
     } catch {

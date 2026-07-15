@@ -300,6 +300,18 @@ async function makeUpstream() {
   return { dir, head: stdout.trim() };
 }
 
+async function makeSha256Upstream() {
+  const dir = await mkdtemp(path.join(tmpdir(), 'install-upstream-sha256-'));
+  const git = (args) => run('git', args, { cwd: dir, allowNonZero: false, timeoutMs: 20_000 });
+  await git(['init', '-q', '--object-format=sha256']);
+  await git(['symbolic-ref', 'HEAD', 'refs/heads/main']);
+  await writeFile(path.join(dir, 'construct.yaml'), 'name: goodpack\nslug: goodpack\n');
+  await git(['add', '-A']);
+  await git(['-c', 'user.email=f@t', '-c', 'user.name=f', 'commit', '-q', '-m', 'sha256 genesis']);
+  const { stdout } = await run('git', ['rev-parse', 'HEAD'], { cwd: dir });
+  return { dir, head: stdout.trim() };
+}
+
 test('git rung: anchored to the registry-recorded commit', async () => {
   const upstream = await makeUpstream();
   const root = await makeRoot({ gitUrl: upstream.dir, commit: upstream.head });
@@ -329,6 +341,23 @@ test('git rung: executable bits are cleared before the pack lands', async () => 
   const root = await makeRoot({ gitUrl: upstream.dir });
   const result = await install({ slug: 'goodpack', root, rung: 'git' });
   assert.equal((await stat(path.join(result.path, 'run-me.sh'))).mode & 0o111, 0);
+});
+
+test('git rung: SHA-256 commit identities work for pinned and persisted TOFU anchors', async () => {
+  const upstream = await makeSha256Upstream();
+  assert.equal(upstream.head.length, 64);
+
+  const pinnedRoot = await makeRoot({ gitUrl: upstream.dir, commit: upstream.head });
+  const pinned = await install({ slug: 'goodpack', root: pinnedRoot, rung: 'git' });
+  assert.equal(pinned.payload.install.anchor, `registry-commit:${upstream.head}`);
+
+  const tofuRoot = await makeRoot({ gitUrl: upstream.dir });
+  await install({ slug: 'goodpack', root: tofuRoot, rung: 'git' });
+  const second = await install({ slug: 'goodpack', root: tofuRoot, rung: 'git' });
+  assert.equal(second.mode, 'installed');
+  const anchor = JSON.parse(await readFile(path.join(tofuRoot, 'grimoires', 'loa', 'territory', 'anchors', 'goodpack.json'), 'utf8'));
+  assert.equal(anchor.commit, upstream.head);
+  assert.equal(anchor.object_format, 'sha256');
 });
 
 test('git rung: absent commit pin → TOFU, recorded as first-seen and surfaced', async () => {
@@ -447,6 +476,21 @@ test('T3.2b: replacing an installed pack is a SWAP — the old pack is never del
   const parent = path.join(root, '.claude', 'constructs', 'packs');
   const residue = (await readdir(parent)).filter((f) => f.startsWith('.backup-'));
   assert.deepEqual(residue, []);
+});
+
+test('T3.2b: stale backup recovery state is preserved and blocks a new install', async () => {
+  const expected = treeHash(GOOD_FILES);
+  const root = await makeRoot({ treeHashValue: expected });
+  const payload = await writePayload(root, GOOD_FILES);
+  const first = await install({ slug: 'goodpack', root, payloadFile: payload });
+  const parent = path.dirname(first.path);
+  const stale = path.join(parent, '.backup-goodpack-stale-transaction');
+  await mkdir(stale);
+  await writeFile(path.join(stale, 'recover-me.md'), 'old pack recovery state\n');
+
+  await rejectsInstall(install({ slug: 'goodpack', root, payloadFile: payload }), EXIT.REFUSED, 'RECOVERY_STATE_EXISTS');
+  assert.equal(await readFile(path.join(stale, 'recover-me.md'), 'utf8'), 'old pack recovery state\n');
+  assert.equal((await readdir(first.path)).includes('.construct-meta.json'), true);
 });
 
 // ── review pass 1 (sprint-229) regressions ───────────────────────────────────

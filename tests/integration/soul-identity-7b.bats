@@ -288,6 +288,21 @@ EOF
     [[ -z "$output" ]] || { echo "expected single-fire suppress, got: $output"; false; }
 }
 
+@test "T-HOOK-12b (FR-L7-5) separate hook processes share a host-session marker" {
+    _write_config "true" "warn" "2000"
+    _write_valid_soul
+    local session_id="bats-l7-${BATS_TEST_NUMBER}-${RANDOM}"
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "expected cross-process single-fire suppress, got: $output"; false; }
+    [[ "$(wc -l < "$LOA_SOUL_LOG" | tr -d ' ')" -eq 1 ]]
+}
+
 # ---------------------------------------------------------------------------
 # T-HOOK-INJECT group: prompt-injection defense in body
 # ---------------------------------------------------------------------------
