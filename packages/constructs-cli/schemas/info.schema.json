@@ -32,6 +32,7 @@
         "mechanics": {
           "type": "object",
           "required": ["kind", "authority_effect", "skills", "commands"],
+          "additionalProperties": false,
           "properties": {
             "kind": { "type": "string", "enum": ["declared", "unavailable"] },
             "authority_effect": { "const": "none" },
@@ -42,12 +43,33 @@
               "items": {
                 "type": "object",
                 "required": ["slug", "path", "metadata_status", "entry", "capabilities"],
+                "additionalProperties": false,
                 "properties": {
                   "slug": { "type": "string", "minLength": 1 },
                   "path": { "type": ["string", "null"] },
                   "metadata_status": { "type": "string", "enum": ["declared", "missing", "invalid", "inaccessible", "invalid-path"] },
                   "entry": { "type": ["string", "null"] },
-                  "capabilities": { "type": ["object", "null"] }
+                  "capabilities": {
+                    "type": ["object", "null"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "model_tier": { "type": "string", "minLength": 1 },
+                      "danger_level": { "type": "string", "minLength": 1 },
+                      "effort_hint": { "type": "string", "minLength": 1 },
+                      "downgrade_allowed": { "type": "boolean" },
+                      "execution_hint": { "type": "string", "minLength": 1 },
+                      "requires": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "native_runtime": { "type": "boolean" },
+                          "tool_calling": { "type": "boolean" },
+                          "thinking_traces": { "type": "boolean" },
+                          "vision": { "type": "boolean" }
+                        }
+                      }
+                    }
+                  }
                 }
               }
             },
@@ -56,6 +78,7 @@
               "items": {
                 "type": "object",
                 "required": ["name", "path", "path_status"],
+                "additionalProperties": false,
                 "properties": {
                   "name": { "type": "string", "minLength": 1 },
                   "path": { "type": ["string", "null"] },

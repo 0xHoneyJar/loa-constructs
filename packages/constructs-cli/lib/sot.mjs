@@ -31,6 +31,21 @@ export class SotError extends Error {
 
 const DEFAULT_API = 'https://api.constructs.network/v1';
 const CACHE_TTL_MS = 15 * 60 * 1000;
+const manifestSnapshots = new WeakMap();
+
+const CAPABILITY_STRING_FIELDS = Object.freeze([
+  'model_tier',
+  'danger_level',
+  'effort_hint',
+  'execution_hint',
+]);
+const CAPABILITY_BOOLEAN_FIELDS = Object.freeze(['downgrade_allowed']);
+const CAPABILITY_REQUIRE_FIELDS = Object.freeze([
+  'native_runtime',
+  'tool_calling',
+  'thinking_traces',
+  'vision',
+]);
 
 function sha256(text) {
   return createHash('sha256').update(text).digest('hex');
@@ -110,6 +125,52 @@ function normalizeDeclaredRef(value, key) {
   };
 }
 
+function normalizeSkillCapabilities(value) {
+  if (value == null) return { valid: true, value: null };
+  if (typeof value !== 'object' || Array.isArray(value)) return { valid: false, value: null };
+
+  const allowed = new Set([
+    ...CAPABILITY_STRING_FIELDS,
+    ...CAPABILITY_BOOLEAN_FIELDS,
+    'requires',
+  ]);
+  if (Object.keys(value).some((key) => !allowed.has(key))) {
+    return { valid: false, value: null };
+  }
+
+  const normalized = {};
+  for (const key of CAPABILITY_STRING_FIELDS) {
+    if (!(key in value)) continue;
+    if (typeof value[key] !== 'string' || value[key].length === 0) {
+      return { valid: false, value: null };
+    }
+    normalized[key] = value[key];
+  }
+  for (const key of CAPABILITY_BOOLEAN_FIELDS) {
+    if (!(key in value)) continue;
+    if (typeof value[key] !== 'boolean') return { valid: false, value: null };
+    normalized[key] = value[key];
+  }
+
+  if ('requires' in value) {
+    const requirements = value.requires;
+    if (!requirements || typeof requirements !== 'object' || Array.isArray(requirements)) {
+      return { valid: false, value: null };
+    }
+    if (Object.keys(requirements).some((key) => !CAPABILITY_REQUIRE_FIELDS.includes(key))) {
+      return { valid: false, value: null };
+    }
+    normalized.requires = {};
+    for (const key of CAPABILITY_REQUIRE_FIELDS) {
+      if (!(key in requirements)) continue;
+      if (typeof requirements[key] !== 'boolean') return { valid: false, value: null };
+      normalized.requires[key] = requirements[key];
+    }
+  }
+
+  return { valid: true, value: normalized };
+}
+
 function isInside(root, candidate) {
   return candidate === root || candidate.startsWith(`${root}${path.sep}`);
 }
@@ -176,6 +237,10 @@ async function readSkillMechanics(packDir, declared) {
     if (!index || typeof index !== 'object' || typeof index.entry !== 'string') {
       return { ...skill, path: skillDir.path, metadata_status: 'invalid', entry: null, capabilities: null };
     }
+    const capabilities = normalizeSkillCapabilities(index.capabilities);
+    if (!capabilities.valid) {
+      return { ...skill, path: skillDir.path, metadata_status: 'invalid', entry: null, capabilities: null };
+    }
     const entryFile = await resolvePackPath(packDir, index.entry, { baseDir: skillDir.actual });
     if (entryFile.status !== 'declared') {
       return {
@@ -191,9 +256,7 @@ async function readSkillMechanics(packDir, declared) {
       path: skillDir.path,
       metadata_status: 'declared',
       entry: path.relative(skillDir.actual, entryFile.actual).split(path.sep).join('/'),
-      capabilities: index?.capabilities && typeof index.capabilities === 'object'
-        ? index.capabilities
-        : null,
+      capabilities: capabilities.value,
     };
   } catch (error) {
     return {
@@ -225,12 +288,12 @@ async function readCommandMechanics(packDir, declared) {
  * `mechanics` is a declaration read from construct.yaml + skill index.yaml and
  * grants no authority. Territory/L4 are the only authority surfaces.
  */
-export async function inspectLocalConstruct(slug, root = packsRoot()) {
-  const local = await readLocalPacks(root);
-  const summary = local.packs.find((pack) => pack.slug === slug);
-  if (!summary) return null;
-
-  const manifest = parseYaml(await readFile(path.join(summary.source, 'construct.yaml'), 'utf8'));
+async function inspectLocalSummary(summary) {
+  const manifestRaw = manifestSnapshots.get(summary);
+  if (typeof manifestRaw !== 'string') {
+    throw new SotError('local construct manifest snapshot is unavailable', EXIT.TOOL_FAILURE);
+  }
+  const manifest = parseYaml(manifestRaw);
   const declaredSkills = Array.isArray(manifest?.skills) ? manifest.skills : [];
   const declaredCommands = Array.isArray(manifest?.commands) ? manifest.commands : [];
   const skills = (await Promise.all(declaredSkills.map((skill) => readSkillMechanics(summary.source, skill))))
@@ -258,14 +321,19 @@ export async function inspectLocalConstruct(slug, root = packsRoot()) {
   };
 }
 
+export async function inspectLocalConstruct(slug, root = packsRoot()) {
+  const local = await readLocalPacks(root);
+  const summary = local.packs.find((pack) => pack.slug === slug);
+  return summary ? inspectLocalSummary(summary) : null;
+}
+
 export async function inspectConstruct(slug, opts = {}) {
   const result = await listConstructs(opts);
   const found = result.data.find((construct) => construct.slug === slug) ?? null;
   if (!found) return { ...result, data: null };
 
   if (result.provenance.rung === RUNGS.LOCAL) {
-    const detailed = await inspectLocalConstruct(slug, opts.localRoot ?? packsRoot());
-    if (detailed) return { ...result, data: detailed };
+    return { ...result, data: await inspectLocalSummary(found) };
   }
 
   return {
@@ -324,14 +392,16 @@ export async function readLocalPacks(root = packsRoot()) {
         }
       }
 
-      packs.push({
+      const summary = {
         slug: manifest.slug || manifest.name || entry.name,
         name: manifest.name ?? entry.name,
         version: String(manifest.version ?? '0.0.0'),
         description: manifest.description ?? '',
         skills_count: Array.isArray(manifest.skills) ? manifest.skills.length : 0,
         source: dir,
-      });
+      };
+      manifestSnapshots.set(summary, raw);
+      packs.push(summary);
     } catch (err) {
       if (err?.code === 'YAML_OUT_OF_SUBSET') {
         corrupt.push({ slug: entry.name, reason: err.message });

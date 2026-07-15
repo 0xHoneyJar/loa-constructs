@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
-import { inspectConstruct, inspectLocalConstruct, RUNGS } from '../lib/sot.mjs';
+import { inspectConstruct, inspectLocalConstruct, readLocalPacks, RUNGS } from '../lib/sot.mjs';
 import { validate } from '../lib/vendor/schema-subset.mjs';
 
 const run = promisify(execFile);
@@ -110,6 +110,44 @@ test('programmatic info honors an explicit localRoot across listing and inspecti
   assert.equal(result.data.slug, 'fixture');
   assert.equal(result.data.mechanics.kind, 'declared');
   assert.equal(result.data.mechanics.skills[0].slug, 'inspect-fixture');
+});
+
+test('local pack listings do not expose their integrity-checked manifest snapshot', async (t) => {
+  const root = await makePack();
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const local = await readLocalPacks(root);
+  assert.equal(local.packs.length, 1);
+  assert.equal(JSON.stringify(local.packs[0]).includes('schema_version'), false);
+  assert.deepEqual(Object.keys(local.packs[0]).sort(), [
+    'description',
+    'name',
+    'skills_count',
+    'slug',
+    'source',
+    'version',
+  ]);
+});
+
+test('unknown capability claims invalidate skill mechanics instead of reaching consumers', async (t) => {
+  const index = `${SKILL_INDEX}  authority_effect: full\n`;
+  const root = await makePack(MANIFEST, index);
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const info = await inspectLocalConstruct('fixture', root);
+  assert.equal(info.mechanics.skills[0].metadata_status, 'invalid');
+  assert.equal(info.mechanics.skills[0].entry, null);
+  assert.equal(info.mechanics.skills[0].capabilities, null);
+});
+
+test('malformed capability requirements invalidate skill mechanics', async (t) => {
+  const index = SKILL_INDEX.replace('tool_calling: true', 'tool_calling: write-all');
+  const root = await makePack(MANIFEST, index);
+  t.after(() => rm(root, { recursive: true, force: true }));
+
+  const info = await inspectLocalConstruct('fixture', root);
+  assert.equal(info.mechanics.skills[0].metadata_status, 'invalid');
+  assert.equal(info.mechanics.skills[0].capabilities, null);
 });
 
 test('a skill metadata path cannot escape the installed pack', async (t) => {
@@ -226,4 +264,28 @@ test('the info schema rejects prose that claims authority', async (t) => {
   const validation = validate(INFO_SCHEMA, payload);
   assert.equal(validation.valid, false);
   assert.match(validation.errors.join('\n'), /authoritative/);
+});
+
+test('the info schema rejects undeclared mechanics and capability fields', async (t) => {
+  const root = await makePack();
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const data = await inspectLocalConstruct('fixture', root);
+  const payload = {
+    data,
+    provenance: {
+      rung: 'local-packs',
+      pinned: true,
+      cache: 'n/a',
+      rungs_consulted: ['local-packs'],
+      vantage: 'operator-local',
+    },
+    drift: [],
+  };
+
+  payload.data.mechanics.permission_grant = 'write-all';
+  payload.data.mechanics.skills[0].capabilities.authority_effect = 'full';
+  const validation = validate(INFO_SCHEMA, payload);
+  assert.equal(validation.valid, false);
+  assert.match(validation.errors.join('\n'), /permission_grant/);
+  assert.match(validation.errors.join('\n'), /authority_effect/);
 });
