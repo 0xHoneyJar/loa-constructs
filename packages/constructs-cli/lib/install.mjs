@@ -14,7 +14,7 @@
 // registry compromise — the receipt records enough for retroactive audit.
 
 import { createHash, createPublicKey, randomUUID, verify as cryptoVerify } from 'node:crypto';
-import { readFile, writeFile, mkdir, rename, rm, stat, lstat, readdir, chmod, mkdtemp } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, rm, stat, lstat, readdir, chmod, mkdtemp, open } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { jcsCanonicalize } from './vendor/jcs.mjs';
@@ -415,9 +415,9 @@ async function assertOwnedInstallTarget(target, slug) {
   assertOwnerControlled(targetInfo, target, 'target directory');
 
   const markerFile = path.join(target, '.construct-meta.json');
-  let markerInfo;
+  let markerHandle;
   try {
-    markerInfo = await lstat(markerFile);
+    markerHandle = await open(markerFile, 'r');
   } catch (err) {
     if (err?.code === 'ENOENT') throw markerPathProblem(target, 'the ownership marker is missing');
     throw new InstallError(
@@ -426,16 +426,34 @@ async function assertOwnedInstallTarget(target, slug) {
       { code: 'FILESYSTEM_LOOKUP_FAILED', fix: 'fix the path or filesystem permissions, then retry' }
     );
   }
-  if (markerInfo.isSymbolicLink() || !markerInfo.isFile()) {
-    throw markerPathProblem(target, 'the ownership marker is not a real regular file');
-  }
-  assertOwnerControlled(markerInfo, target, 'ownership marker');
 
   let marker;
   try {
-    marker = JSON.parse(await readFile(markerFile, 'utf8'));
+    // Inspect and read through one open handle. The two path snapshots bind
+    // that handle to the current directory entry before and after the read,
+    // closing the lstat(path) -> readFile(path) race while remaining portable
+    // on platforms where O_NOFOLLOW is unavailable.
+    const openedInfo = await markerHandle.stat();
+    const pathInfoBefore = await lstat(markerFile);
+    const sameEntryBefore = openedInfo.dev === pathInfoBefore.dev && openedInfo.ino === pathInfoBefore.ino;
+    if (pathInfoBefore.isSymbolicLink() || !openedInfo.isFile() || !pathInfoBefore.isFile() || !sameEntryBefore) {
+      throw markerPathProblem(target, 'the ownership marker is not one stable real regular file');
+    }
+    assertOwnerControlled(openedInfo, target, 'ownership marker');
+    assertOwnerControlled(pathInfoBefore, target, 'ownership marker path');
+
+    const markerRaw = await markerHandle.readFile('utf8');
+    const pathInfoAfter = await lstat(markerFile);
+    const sameEntryAfter = openedInfo.dev === pathInfoAfter.dev && openedInfo.ino === pathInfoAfter.ino;
+    if (pathInfoAfter.isSymbolicLink() || !pathInfoAfter.isFile() || !sameEntryAfter) {
+      throw markerPathProblem(target, 'the ownership marker changed while it was being read');
+    }
+    marker = JSON.parse(markerRaw);
   } catch (err) {
+    if (err instanceof InstallError) throw err;
     throw markerPathProblem(target, `the ownership marker is malformed (${err?.message ?? err})`);
+  } finally {
+    await markerHandle.close();
   }
   if (
     marker?.slug !== slug ||

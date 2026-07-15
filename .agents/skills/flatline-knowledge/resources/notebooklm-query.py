@@ -15,6 +15,7 @@ import argparse
 import asyncio
 import json
 import os
+import stat
 import sys
 import time
 from pathlib import Path
@@ -87,6 +88,48 @@ def check_auth_session_valid(auth_dir: Path) -> bool:
         return False
 
 
+def secure_auth_profile(auth_dir: Path, create: bool = False) -> None:
+    """Enforce the owner-only credential-profile invariant recursively."""
+    auth_dir = Path(auth_dir)
+    if auth_dir.is_symlink():
+        raise RuntimeError(f"authentication profile must not be a symlink: {auth_dir}")
+    if create:
+        auth_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    if not auth_dir.exists() or not auth_dir.is_dir():
+        raise RuntimeError(f"authentication profile is not a directory: {auth_dir}")
+
+    expected_uid = os.getuid() if hasattr(os, "getuid") else None
+    paths = [auth_dir]
+    for root, directories, files in os.walk(auth_dir, topdown=True, followlinks=False):
+        root_path = Path(root)
+        paths.extend(root_path / name for name in directories)
+        paths.extend(root_path / name for name in files)
+
+    for profile_path in paths:
+        before = profile_path.lstat()
+        if stat.S_ISLNK(before.st_mode):
+            raise RuntimeError(f"authentication profile contains a symlink: {profile_path}")
+        if expected_uid is not None and before.st_uid != expected_uid:
+            raise RuntimeError(f"authentication profile path is not owned by the current user: {profile_path}")
+        if stat.S_ISDIR(before.st_mode):
+            required_mode = 0o700
+        elif stat.S_ISREG(before.st_mode):
+            required_mode = 0o600
+        else:
+            raise RuntimeError(f"authentication profile contains an unsupported file type: {profile_path}")
+
+        os.chmod(profile_path, required_mode, follow_symlinks=False)
+        after = profile_path.lstat()
+        if (
+            stat.S_ISLNK(after.st_mode)
+            or (expected_uid is not None and after.st_uid != expected_uid)
+            or stat.S_IMODE(after.st_mode) != required_mode
+            or before.st_dev != after.st_dev
+            or before.st_ino != after.st_ino
+        ):
+            raise RuntimeError(f"authentication profile path changed or remained unsafe: {profile_path}")
+
+
 async def setup_authentication(auth_dir: Path) -> NotebookLMQueryResult:
     """
     Launch browser for manual Google authentication.
@@ -114,12 +157,13 @@ async def setup_authentication(auth_dir: Path) -> NotebookLMQueryResult:
     print(f"Session will be saved to: {auth_dir}")
     print()
 
-    # Ensure auth directory exists with secure permissions (0700)
-    auth_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
-    # Enforce permissions even if directory already existed
-    os.chmod(auth_dir, 0o700)
-
+    # Chromium inherits this process-wide creation mask, so every cookie,
+    # database, and nested directory starts owner-only. A recursive close-time
+    # pass then verifies ownership, rejects symlinks, and repairs exact modes.
+    previous_umask = os.umask(0o077)
+    result = None
     try:
+        secure_auth_profile(auth_dir, create=True)
         async with async_playwright() as p:
             # Launch visible browser with persistent context
             browser = await p.chromium.launch_persistent_context(
@@ -147,13 +191,26 @@ async def setup_authentication(auth_dir: Path) -> NotebookLMQueryResult:
 
         print()
         print("Authentication session saved successfully!")
-        return NotebookLMQueryResult(status="auth_complete")
+        result = NotebookLMQueryResult(status="auth_complete")
 
     except Exception as e:
-        return NotebookLMQueryResult(
+        result = NotebookLMQueryResult(
             status="error",
             error=f"Authentication setup failed: {str(e)}"
         )
+    finally:
+        try:
+            if auth_dir.exists() or auth_dir.is_symlink():
+                secure_auth_profile(auth_dir)
+        except Exception as e:
+            result = NotebookLMQueryResult(
+                status="error",
+                error=f"Authentication profile hardening failed: {str(e)}"
+            )
+        finally:
+            os.umask(previous_umask)
+
+    return result
 
 
 async def query_notebooklm(

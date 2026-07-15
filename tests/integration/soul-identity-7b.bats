@@ -373,8 +373,9 @@ EOF
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]] || { echo "failed load committed done: $output"; false; }
 
-    # A completed load with a failed audit is still retryable and surfaces
-    # nothing; the user-facing result and done marker commit together.
+    # A completed delivery with a failed audit is still retryable. Output is
+    # intentionally at-least-once across this crash window, while no terminal
+    # audit event or done marker may claim the transaction completed.
     cat >"$fixture_lib" <<'EOF'
 soul_validate() { return 0; }
 soul_compute_surface_payload() { printf '%s\n' '{"outcome":"surfaced"}'; }
@@ -383,7 +384,7 @@ soul_load() { printf '%s\n' '<untrusted-content source="L7">retry</untrusted-con
 EOF
     LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
     [[ "$status" -eq 0 ]]
-    [[ -z "$output" ]]
+    [[ "$output" == *"<untrusted-content"* ]]
     run find "$marker_base" -name '*.done' -print
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]] || { echo "failed audit committed done: $output"; false; }
@@ -484,6 +485,11 @@ EOF
     run find "$marker_base" -name '*.claim' -print
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]] || { echo "failed delivery left claim: $output"; false; }
+    if [[ -f "$LOA_SOUL_LOG" ]]; then
+        run jq -s '[.[] | select(.event_type == "soul.surface")] | length' "$LOA_SOUL_LOG"
+        [[ "$status" -eq 0 ]]
+        [[ "$output" = "0" ]] || { echo "failed delivery recorded a false soul.surface event"; false; }
+    fi
 
     LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
     [[ "$status" -eq 0 ]]

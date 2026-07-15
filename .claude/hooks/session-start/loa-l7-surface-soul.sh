@@ -347,13 +347,9 @@ if [[ "$outcome" != "schema-refused" ]]; then
     [[ "$surface_status" -eq 0 ]] || exit 0
 fi
 
-# The audit record is part of a completed surface transaction. A transient
-# audit failure stays silent but retryable; it must not consume this session.
-soul_emit "soul.surface" "$payload" >/dev/null 2>&1 || exit 0
-
 # Assemble the completed result before touching stdout. Delivery is one checked
 # write: a closed/rejected output stream leaves the claim uncommitted and
-# retryable instead of recording a false done marker.
+# retryable instead of recording a false audit outcome or done marker.
 completed_output=""
 if [[ "$outcome" != "schema-refused" ]]; then
     if [[ "$outcome" == "schema-warning" && -n "$validate_out" ]]; then
@@ -368,7 +364,13 @@ if [[ -n "$completed_output" ]] && ! printf '%s' "$completed_output" 2>/dev/null
     exit 0
 fi
 
-# Commit only after the terminal outcome has been audited and surfaced. Stdout
+# The terminal audit follows successful output delivery: soul.surface means the
+# surface was emitted, not merely attempted. A transient audit failure remains
+# retryable and may cause at-least-once output, but can never claim false
+# delivery or emit duplicate terminal records for a rejected stdout write.
+soul_emit "soul.surface" "$payload" >/dev/null 2>&1 || exit 0
+
+# Commit only after the terminal outcome has been surfaced and audited. Stdout
 # and a filesystem rename cannot be one atomic transaction: interruption after
 # output but before this rename can cause one duplicate on retry. FR-L7-5 is
 # therefore at-least-once across crashes and single-fire after committed done.
