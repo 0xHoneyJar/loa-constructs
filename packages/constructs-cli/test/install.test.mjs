@@ -55,7 +55,7 @@ async function makeRoot({ treeHashValue = null, attested = false, commit = null,
   ];
   if (treeHashValue) lines.push(`    tree_hash: ${JSON.stringify(treeHashValue)}`);
   if (attested) lines.push('    attested: true');
-  if (commit) lines.push(`    commit: ${JSON.stringify(commit)}`);
+  if (commit !== null) lines.push(`    commit: ${JSON.stringify(commit)}`);
   await writeFile(path.join(root, 'registry.yaml'), lines.join('\n') + '\n');
   return root;
 }
@@ -394,6 +394,14 @@ test('git rung: registry pin that does not exist in the repo → integrity misma
   const upstream = await makeUpstream();
   const root = await makeRoot({ gitUrl: upstream.dir, commit: '0'.repeat(40) });
   await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'ANCHOR_MISMATCH');
+});
+
+test('git rung: registry commit pins must be immutable full lowercase object ids', async () => {
+  const upstream = await makeUpstream();
+  for (const commit of ['main', 'v1.0.0', 'abcdef0', 'a'.repeat(39), 'a'.repeat(41), 'A'.repeat(40), 'A'.repeat(64), '']) {
+    const root = await makeRoot({ gitUrl: upstream.dir, commit });
+    await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'ANCHOR_MALFORMED');
+  }
 });
 
 test('git rung: option-shaped or unsupported registry URLs are rejected before clone', async () => {

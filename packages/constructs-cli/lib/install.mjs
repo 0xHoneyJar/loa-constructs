@@ -45,6 +45,7 @@ export const BUDGETS = Object.freeze({
 });
 
 const CONTROL_BYTES_RE = /[\x00-\x1f\x7f]/; // C0 + DEL in a file NAME are never legitimate
+const GIT_OBJECT_ID_RE = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
 function canonicalBase64ByteLength(value) {
   if (typeof value !== 'string') return null;
@@ -532,7 +533,7 @@ async function readTofuAnchor(root, slug) {
       { code: 'TOFU_MALFORMED', fix: 'delete the anchor to knowingly re-establish first-use trust' }
     );
   }
-  if (typeof doc?.commit !== 'string' || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/.test(doc.commit)) {
+  if (typeof doc?.commit !== 'string' || !GIT_OBJECT_ID_RE.test(doc.commit)) {
     throw new InstallError(
       `TOFU anchor ${file} has no valid pinned commit`,
       EXIT.INTEGRITY_MISMATCH,
@@ -833,6 +834,16 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
       `registry.yaml has an unsafe or unsupported git_url for ${slug}: ${JSON.stringify(gitUrl)}`,
       EXIT.INTEGRITY_MISMATCH,
       { code: 'UNSAFE_GIT_URL', fix: 'use an absolute local path, https://, ssh://, git://, file://, or user@host:path URL' }
+    );
+  }
+  if (anchor.commit !== null && anchor.commit !== undefined && (typeof anchor.commit !== 'string' || !GIT_OBJECT_ID_RE.test(anchor.commit))) {
+    throw new InstallError(
+      `registry commit pin for ${slug} is not an immutable full Git object id: ${JSON.stringify(anchor.commit)}`,
+      EXIT.INTEGRITY_MISMATCH,
+      {
+        code: 'ANCHOR_MALFORMED',
+        fix: 'pin the registry entry to a lowercase 40-character SHA-1 or 64-character SHA-256 commit id; branches, tags, abbreviations, and uppercase hashes are mutable or ambiguous',
+      }
     );
   }
   let head;
