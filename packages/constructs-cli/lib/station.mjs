@@ -18,9 +18,14 @@ import { readFile, writeFile, mkdir, rename, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { readManifest } from './territory.mjs';
-import { git, run } from './exec.mjs';
+import { run } from './exec.mjs';
 import { validate as validateSchema } from './vendor/schema-subset.mjs';
 import { EXIT } from './contract.mjs';
+import {
+  gitFacts as inspectGitFacts,
+  ratificationBlockers,
+  TERRITORY_MANIFEST_REL,
+} from './ratification.mjs';
 
 export class StationError extends Error {
   constructor(message, exitCode = EXIT.REFUSED, { details = [], fix = null } = {}) {
@@ -118,112 +123,13 @@ export function assertMounted(probe, regionRoot) {
 
 // ── git facts ─────────────────────────────────────────────────────────────────
 
-async function defaultBranch(regionRoot) {
-  // The remote's HEAD is the truth when a remote exists.
-  const origin = await run('git', ['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], {
-    cwd: regionRoot,
-    allowNonZero: true,
-  });
-  if (origin.exitCode === 0) return origin.stdout.trim().replace(/^origin\//, '');
-  // No remote: main, then master — the documented local fallback.
-  for (const name of ['main', 'master']) {
-    const ref = await run('git', ['show-ref', '--verify', '--quiet', `refs/heads/${name}`], {
-      cwd: regionRoot,
-      allowNonZero: true,
-    });
-    if (ref.exitCode === 0) return name;
-  }
-  return null;
-}
-
-async function gitFacts(regionRoot, manifestRel) {
-  const inRepo = await run('git', ['rev-parse', '--is-inside-work-tree'], { cwd: regionRoot, allowNonZero: true });
-  if (inRepo.exitCode !== 0 || inRepo.stdout.trim() !== 'true') {
-    throw new StationError(
-      `region at ${regionRoot} is not a git repository — a stationing is a COMMITTED manifest edit, so there is nothing here to ratify it`,
-      EXIT.CALLER_ERROR,
-      { fix: 'run this from inside the region\'s clone' }
-    );
-  }
-
-  const head = await run('git', ['rev-parse', 'HEAD'], { cwd: regionRoot, allowNonZero: true });
-  if (head.exitCode !== 0) {
-    throw new StationError(`region at ${regionRoot} has no commits yet — commit the territory manifest first`, EXIT.CALLER_ERROR);
-  }
-
-  const branch = await git(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: regionRoot });
-  const def = await defaultBranch(regionRoot);
-  const tracked = await run('git', ['ls-files', '--error-unmatch', '--', manifestRel], { cwd: regionRoot, allowNonZero: true });
-  const dirty = await git(['status', '--porcelain', '--', manifestRel], { cwd: regionRoot });
-
-  // HIGH-1 (review pass 1): a local commit alone never exercises the region's
-  // git permissions. When an origin remote is CONFIGURED, HEAD must be contained
-  // in the last-fetched origin/<default> for the act to count as ratified —
-  // and a configured origin whose default-branch ref is unfetched FAILS CLOSED
-  // rather than downgrading to local-only (review pass 2). Only a repo with no
-  // origin at all is local-only mode. Containment is judged against the
-  // last-fetched state: a stale ref can only under-approve (conservative),
-  // except across a remote force-push rewrite — that residual is accepted and
-  // named here; live `git ls-remote` verification is the v2 affordance.
-  let anchor = 'local-only';
-  let containedInRemote = null;
-  const originConfigured = await run('git', ['remote', 'get-url', 'origin'], { cwd: regionRoot, allowNonZero: true });
-  if (originConfigured.exitCode === 0 && def !== null) {
-    anchor = `origin/${def}`;
-    const originRef = `refs/remotes/origin/${def}`;
-    const hasRef = await run('git', ['show-ref', '--verify', '--quiet', originRef], { cwd: regionRoot, allowNonZero: true });
-    if (hasRef.exitCode === 0) {
-      const contained = await run('git', ['merge-base', '--is-ancestor', 'HEAD', originRef], { cwd: regionRoot, allowNonZero: true });
-      containedInRemote = contained.exitCode === 0;
-    } else {
-      containedInRemote = false; // configured origin, unverifiable state: fail closed
-    }
-  }
-
-  return {
-    head: head.stdout.trim(),
-    branch,
-    default_branch: def,
-    manifest_tracked: tracked.exitCode === 0,
-    manifest_clean: dirty === '',
-    anchor,
-    contained_in_remote: containedInRemote,
-  };
-}
-
-/**
- * The ratification predicate, in ONE place: every reason this act is not (yet)
- * a committed, remote-landed manifest edit. Empty array = ratified. It is
- * re-run IN FULL immediately before the write (HIGH-2, review pass 1) — a
- * partial recheck is how a same-commit branch switch slips through.
- */
-function ratificationBlockers(facts) {
-  const blockers = [];
-  if (!facts.manifest_tracked) {
-    blockers.push('the territory manifest is not tracked by git — writability is not ratification');
-  } else if (!facts.manifest_clean) {
-    blockers.push('the territory manifest has uncommitted edits — a worktree-only edit is --dry-run territory, not a ratified act');
-  }
-  if (facts.branch !== facts.default_branch) {
-    blockers.push(
-      `HEAD is on ${JSON.stringify(facts.branch)}, but ratification means committed on the default branch (${JSON.stringify(facts.default_branch)})`
-    );
-  }
-  if (facts.contained_in_remote === false) {
-    blockers.push(
-      `HEAD is not contained in origin/${facts.default_branch} (or that ref has never been fetched) — the manifest edit has not verifiably landed on the region's remote default branch. Push or merge it, fetch, then record`
-    );
-  }
-  return blockers;
-}
-
 // ── T2.6 · the authorization snapshot ─────────────────────────────────────────
 //
 // Snapshot the FULL input set at validation — manifest hash, HEAD, resolved default
 // branch, L4 ledger tip — and re-verify ALL of them immediately before the write.
 // Manifest-hash-only rechecking left HEAD/branch/ledger racing (FL-SPRINT HIGH).
 
-const MANIFEST_REL = path.join('grimoires', 'territory.yaml');
+const MANIFEST_REL = TERRITORY_MANIFEST_REL;
 const LEDGER_REL = path.join('.run', 'trust-ledger.jsonl');
 
 export async function snapshotAuthInputs(regionRoot = '.', { manifestRaw = null } = {}) {
@@ -238,7 +144,12 @@ export async function snapshotAuthInputs(regionRoot = '.', { manifestRaw = null 
   } catch {
     // no ledger yet — 'absent' is itself part of the snapshot
   }
-  const facts = await gitFacts(regionRoot, MANIFEST_REL);
+  let facts;
+  try {
+    facts = await inspectGitFacts(regionRoot, MANIFEST_REL);
+  } catch (error) {
+    throw new StationError(error.message, error.exitCode ?? EXIT.CALLER_ERROR, { fix: error.fix ?? null });
+  }
   return {
     manifest_hash: `sha256:${sha256(manifestBytes)}`,
     head: facts.head,

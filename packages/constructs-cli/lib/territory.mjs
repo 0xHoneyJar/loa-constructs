@@ -17,6 +17,7 @@ import { validate } from './vendor/schema-subset.mjs';
 import { match, overlaps, specificity, GlobError } from './vendor/glob.mjs';
 import { readLocalPacks, packsRoot } from './sot.mjs';
 import { EXIT } from './contract.mjs';
+import { inspectRatification } from './ratification.mjs';
 
 export const ATLAS_VERSION = '1.0';
 export const MAX_SOURCES = 32;
@@ -227,7 +228,26 @@ export async function atlas({ sources = ['.'], timeoutMs = DEFAULT_TIMEOUT_MS } 
         timer = setTimeout(() => reject(new Error(`source timed out after ${timeoutMs}ms`)), timeoutMs);
       });
       try {
-        return { src, manifest: await Promise.race([readManifest(src), deadline]) };
+        const load = async () => {
+          const manifest = await readManifest(src);
+          if (!manifest) return { src, manifest, ratification: null };
+          try {
+            const ratification = await inspectRatification(src);
+            return { src, manifest, ratification };
+          } catch (error) {
+            return {
+              src,
+              manifest,
+              ratification: {
+                status: 'unchecked',
+                ratification: `unchecked — ratification could not be verified: ${error?.message ?? error}`,
+                blockers: [error?.message ?? String(error)],
+                verification: null,
+              },
+            };
+          }
+        };
+        return await Promise.race([load(), deadline]);
       } catch (err) {
         return { src, error: err?.message ?? String(err) };
       } finally {
@@ -241,7 +261,7 @@ export async function atlas({ sources = ['.'], timeoutMs = DEFAULT_TIMEOUT_MS } 
       failed.push({ source: r.src, error: r.error });
       continue;
     }
-    if (r.manifest) regions.push(r.manifest);
+    if (r.manifest) regions.push({ ...r.manifest, _ratification: r.ratification });
   }
 
   const zones = await readZones(sources[0] ?? '.');
@@ -278,8 +298,14 @@ export async function atlas({ sources = ['.'], timeoutMs = DEFAULT_TIMEOUT_MS } 
         }))
         .sort((a, b) => a.construct.localeCompare(b.construct)),
       trust: r.trust ?? null,
+      ratification_status: r._ratification?.status ?? 'unchecked',
+      ratification: r._ratification?.ratification ?? 'unchecked — ratification was not inspected',
+      ratification_verification: r._ratification?.verification ?? null,
     }))
     .sort((a, b) => a.region.localeCompare(b.region));
+
+  const ratified = regionBlocks.length > 0
+    && regionBlocks.every((region) => region.ratification_status === 'ratified');
 
   return {
     atlas_version: ATLAS_VERSION,
@@ -288,12 +314,17 @@ export async function atlas({ sources = ['.'], timeoutMs = DEFAULT_TIMEOUT_MS } 
       'This is this machine\'s honest view of the estate — the same altitude as `loa census`, not a claim of shared truth. Sources are local paths; a source this machine cannot see is reported, never silently omitted.',
     partial: failed.length > 0,
     failed_sources: failed,
-    // Honesty marker (MEDIUM-6, review pass 1): loadout rows here reflect the
-    // WORKING TREE of each source. A stationing is live only when the manifest
-    // edit is committed on the region's default branch — this map does not
-    // verify that, and says so rather than letting a preview pass as ratified.
-    ratification_status: 'unchecked',
-    ratification: 'unchecked — loadout rows reflect the working tree; liveness requires the committed manifest on the region default branch',
+    // The same fail-closed predicate guards station writes and atlas reads.
+    // Tool source and region authority stay separate: each source is inspected
+    // from its own root, and the aggregate is ratified only when every declared
+    // region is clean, tracked, on its default branch, and remotely anchored
+    // whenever an origin is configured.
+    ratification_status: ratified ? 'ratified' : 'unchecked',
+    ratification: ratified
+      ? `ratified — ${regionBlocks.length} declared region manifest(s) passed default-branch verification`
+      : regionBlocks.length === 0
+        ? 'unchecked — no declared region manifest was available to verify'
+        : 'unchecked — one or more declared region manifests did not pass default-branch verification',
     zones: zones.map((z) => ({ name: z.name, tracked_paths: [...z.tracked_paths].sort() })).sort((a, b) => a.name.localeCompare(b.name)),
     regions: regionBlocks,
     conflicts: detectConflicts(regions),
