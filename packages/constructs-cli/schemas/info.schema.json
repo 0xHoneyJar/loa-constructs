@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://0xhoneyjar.github.io/loa-constructs/schemas/info.schema.json",
+  "title": "Construct Info Surface",
+  "description": "The read-only construct expertise projection. Orientation is non-authoritative prose; mechanics are declared callable routes and runtime hints; neither grants authority.",
+  "type": "object",
+  "required": ["data", "provenance", "drift"],
+  "additionalProperties": false,
+  "properties": {
+    "data": {
+      "type": "object",
+      "required": ["slug", "name", "version", "info_schema_version", "orientation", "mechanics"],
+      "additionalProperties": false,
+      "properties": {
+        "slug": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+        "name": { "type": "string", "minLength": 1 },
+        "version": { "type": "string", "minLength": 1 },
+        "info_schema_version": { "const": "1.0" },
+        "orientation": {
+          "type": "object",
+          "required": ["kind", "authoritative", "description", "short_description", "domains", "persona_ref", "expertise_ref"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "const": "prose" },
+            "authoritative": { "const": false },
+            "description": { "type": "string" },
+            "short_description": { "type": ["string", "null"] },
+            "domains": { "type": "array", "items": { "type": "string" } },
+            "persona_ref": { "type": ["string", "null"] },
+            "expertise_ref": { "type": ["string", "null"] }
+          }
+        },
+        "mechanics": {
+          "type": "object",
+          "required": ["kind", "authority_effect", "skills", "commands"],
+          "additionalProperties": false,
+          "properties": {
+            "kind": { "type": "string", "enum": ["declared", "unavailable"] },
+            "authority_effect": { "const": "none" },
+            "reason": { "type": "string" },
+            "source_refs": { "type": "array", "items": { "type": "string" } },
+            "skills": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["slug", "path", "metadata_status", "entry", "capabilities"],
+                "additionalProperties": false,
+                "properties": {
+                  "slug": { "type": "string", "minLength": 1 },
+                  "path": { "type": ["string", "null"] },
+                  "metadata_status": { "type": "string", "enum": ["declared", "missing", "invalid", "inaccessible", "invalid-path"] },
+                  "entry": { "type": ["string", "null"] },
+                  "capabilities": {
+                    "type": ["object", "null"],
+                    "additionalProperties": false,
+                    "properties": {
+                      "model_tier": { "type": "string", "minLength": 1 },
+                      "danger_level": { "type": "string", "minLength": 1 },
+                      "effort_hint": { "type": "string", "minLength": 1 },
+                      "downgrade_allowed": { "type": "boolean" },
+                      "execution_hint": { "type": "string", "minLength": 1 },
+                      "requires": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                          "native_runtime": { "type": "boolean" },
+                          "tool_calling": { "type": "boolean" },
+                          "thinking_traces": { "type": "boolean" },
+                          "vision": { "type": "boolean" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "commands": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["name", "path", "path_status"],
+                "additionalProperties": false,
+                "properties": {
+                  "name": { "type": "string", "minLength": 1 },
+                  "path": { "type": ["string", "null"] },
+                  "path_status": { "type": "string", "enum": ["declared", "missing", "invalid", "inaccessible", "invalid-path"] }
+                }
+              }
+            },
+            "streams": { "type": ["object", "null"] },
+            "events": { "type": ["object", "null"] }
+          }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["rung", "pinned", "rungs_consulted", "vantage"],
+      "additionalProperties": false,
+      "properties": {
+        "rung": { "type": "string" },
+        "pinned": { "type": "boolean" },
+        "cache": { "type": "string" },
+        "rungs_consulted": { "type": "array", "items": { "type": "string" } },
+        "vantage": { "type": "string" }
+      }
+    },
+    "drift": { "type": "array", "items": { "type": "object" } }
+  }
+}

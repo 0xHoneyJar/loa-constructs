@@ -19,6 +19,16 @@ rung of the new binary's source-of-truth ladder (`constructs install --rung git`
 | `npx constructs-cli list` | `constructs list --json` (deterministic JSON, provenance, drift surfacing) |
 | `npx constructs-cli` (human tables only) | `constructs capabilities --json` · `constructs robot-docs guide` (self-describing) |
 | — | `constructs atlas --json` · `constructs where <path>` (territory, computed) |
+| — | `constructs info <slug> --json --rung local` (`orientation` prose separated from declared `mechanics`, with pinned provenance) |
+
+The detailed info surface deliberately does not flatten expertise into one description.
+`orientation.authoritative` is always false; `mechanics` is derived from
+`construct.yaml` plus each skill's `index.yaml` capability stanza and has
+`authority_effect: none`. Territory stationing and the graduated-trust ledger remain
+the only authority surfaces. If a selected source rung cannot expose detailed
+mechanics, the JSON says `mechanics.kind: unavailable` instead of fabricating them.
+Atlas consumers use the structured `ratification_status` field for gating; the
+neighboring `ratification` sentence is orientation for the operator, not a state machine.
 
 ## The npm reality (PRD assumption corrected)
 

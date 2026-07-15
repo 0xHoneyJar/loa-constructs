@@ -292,6 +292,7 @@ export async function atlas({ sources = ['.'], timeoutMs = DEFAULT_TIMEOUT_MS } 
     // WORKING TREE of each source. A stationing is live only when the manifest
     // edit is committed on the region's default branch — this map does not
     // verify that, and says so rather than letting a preview pass as ratified.
+    ratification_status: 'unchecked',
     ratification: 'unchecked — loadout rows reflect the working tree; liveness requires the committed manifest on the region default branch',
     zones: zones.map((z) => ({ name: z.name, tracked_paths: [...z.tracked_paths].sort() })).sort((a, b) => a.name.localeCompare(b.name)),
     regions: regionBlocks,

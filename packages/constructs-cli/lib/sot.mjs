@@ -13,7 +13,7 @@
 // provenance says whether the answer came from cache, the wire, or a bypass.
 
 import { createHash } from 'node:crypto';
-import { readFile, writeFile, mkdir, readdir, stat } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { parse as parseYaml } from './vendor/yaml-subset.mjs';
@@ -31,6 +31,21 @@ export class SotError extends Error {
 
 const DEFAULT_API = 'https://api.constructs.network/v1';
 const CACHE_TTL_MS = 15 * 60 * 1000;
+const manifestSnapshots = new WeakMap();
+
+const CAPABILITY_STRING_FIELDS = Object.freeze([
+  'model_tier',
+  'danger_level',
+  'effort_hint',
+  'execution_hint',
+]);
+const CAPABILITY_BOOLEAN_FIELDS = Object.freeze(['downgrade_allowed']);
+const CAPABILITY_REQUIRE_FIELDS = Object.freeze([
+  'native_runtime',
+  'tool_calling',
+  'thinking_traces',
+  'vision',
+]);
 
 function sha256(text) {
   return createHash('sha256').update(text).digest('hex');
@@ -76,6 +91,280 @@ export function packsRoot() {
   return process.env.CONSTRUCTS_DIR || path.join('.claude', 'constructs', 'packs');
 }
 
+function unavailableMechanics(reason) {
+  return {
+    kind: 'unavailable',
+    authority_effect: 'none',
+    reason,
+    skills: [],
+    commands: [],
+  };
+}
+
+function orientationFromManifest(manifest, summary) {
+  const identity = manifest?.identity ?? {};
+  return {
+    kind: 'prose',
+    authoritative: false,
+    description: manifest?.description ?? summary.description ?? '',
+    short_description: manifest?.short_description ?? null,
+    domains: Array.isArray(manifest?.domain) ? manifest.domain : [],
+    persona_ref: typeof identity?.persona === 'string' ? identity.persona : null,
+    expertise_ref: typeof identity?.expertise === 'string' ? identity.expertise : null,
+  };
+}
+
+function normalizeDeclaredRef(value, key) {
+  if (typeof value === 'string') return { [key]: value, path: null };
+  if (!value || typeof value !== 'object') return null;
+  const id = value[key] ?? value.slug ?? value.name;
+  if (typeof id !== 'string' || id.length === 0) return null;
+  return {
+    [key]: id,
+    path: typeof value.path === 'string' ? value.path : null,
+  };
+}
+
+function normalizeSkillCapabilities(value) {
+  if (value == null) return { valid: true, value: null };
+  if (typeof value !== 'object' || Array.isArray(value)) return { valid: false, value: null };
+
+  const allowed = new Set([
+    ...CAPABILITY_STRING_FIELDS,
+    ...CAPABILITY_BOOLEAN_FIELDS,
+    'requires',
+  ]);
+  if (Object.keys(value).some((key) => !allowed.has(key))) {
+    return { valid: false, value: null };
+  }
+
+  const normalized = {};
+  for (const key of CAPABILITY_STRING_FIELDS) {
+    if (!(key in value)) continue;
+    if (typeof value[key] !== 'string' || value[key].length === 0) {
+      return { valid: false, value: null };
+    }
+    normalized[key] = value[key];
+  }
+  for (const key of CAPABILITY_BOOLEAN_FIELDS) {
+    if (!(key in value)) continue;
+    if (typeof value[key] !== 'boolean') return { valid: false, value: null };
+    normalized[key] = value[key];
+  }
+
+  if ('requires' in value) {
+    const requirements = value.requires;
+    if (!requirements || typeof requirements !== 'object' || Array.isArray(requirements)) {
+      return { valid: false, value: null };
+    }
+    if (Object.keys(requirements).some((key) => !CAPABILITY_REQUIRE_FIELDS.includes(key))) {
+      return { valid: false, value: null };
+    }
+    normalized.requires = {};
+    for (const key of CAPABILITY_REQUIRE_FIELDS) {
+      if (!(key in requirements)) continue;
+      if (typeof requirements[key] !== 'boolean') return { valid: false, value: null };
+      normalized.requires[key] = requirements[key];
+    }
+  }
+
+  return { valid: true, value: normalized };
+}
+
+function isInside(root, candidate) {
+  return candidate === root || candidate.startsWith(`${root}${path.sep}`);
+}
+
+function fsFailureStatus(error) {
+  if (error?.code === 'ENOENT' || error?.code === 'ENOTDIR') return 'missing';
+  if (error?.code === 'EACCES' || error?.code === 'EPERM') return 'inaccessible';
+  return 'invalid';
+}
+
+async function resolvePackPath(packDir, declaredPath, { baseDir = packDir, expect = 'file' } = {}) {
+  if (typeof declaredPath !== 'string' || declaredPath.length === 0 || path.isAbsolute(declaredPath)) {
+    return { status: 'invalid-path', path: null, actual: null };
+  }
+
+  const packRoot = await realpath(packDir);
+  const baseRoot = await realpath(baseDir);
+  const lexical = path.resolve(baseRoot, declaredPath);
+  if (!isInside(baseRoot, lexical) || !isInside(packRoot, lexical)) {
+    return { status: 'invalid-path', path: null, actual: null };
+  }
+
+  try {
+    const actual = await realpath(lexical);
+    if (!isInside(packRoot, actual) || !isInside(baseRoot, actual)) {
+      return { status: 'invalid-path', path: null, actual: null };
+    }
+    const info = await stat(actual);
+    if ((expect === 'file' && !info.isFile()) || (expect === 'directory' && !info.isDirectory())) {
+      return { status: 'invalid', path: null, actual: null };
+    }
+    return {
+      status: 'declared',
+      path: path.relative(packRoot, actual).split(path.sep).join('/'),
+      actual,
+    };
+  } catch (error) {
+    return { status: fsFailureStatus(error), path: null, actual: null };
+  }
+}
+
+async function readSkillMechanics(packDir, declared) {
+  const skill = normalizeDeclaredRef(declared, 'slug');
+  if (!skill) return null;
+  if (!skill.path && typeof declared === 'string') {
+    if (!/^[a-z][a-z0-9-]*$/.test(skill.slug)) {
+      return { ...skill, metadata_status: 'invalid-path', entry: null, capabilities: null };
+    }
+    skill.path = `skills/${skill.slug}`;
+  }
+  if (!skill.path) return { ...skill, metadata_status: 'missing', entry: null, capabilities: null };
+
+  const skillDir = await resolvePackPath(packDir, skill.path, { expect: 'directory' });
+  if (skillDir.status !== 'declared') {
+    return { ...skill, path: null, metadata_status: skillDir.status, entry: null, capabilities: null };
+  }
+
+  try {
+    const indexFile = await resolvePackPath(packDir, 'index.yaml', { baseDir: skillDir.actual });
+    if (indexFile.status !== 'declared') {
+      return {
+        ...skill,
+        path: skillDir.path,
+        metadata_status: indexFile.status,
+        entry: null,
+        capabilities: null,
+      };
+    }
+    const index = parseYaml(await readFile(indexFile.actual, 'utf8'));
+    if (!index || typeof index !== 'object' || typeof index.entry !== 'string') {
+      return { ...skill, path: skillDir.path, metadata_status: 'invalid', entry: null, capabilities: null };
+    }
+    const capabilities = normalizeSkillCapabilities(index.capabilities);
+    if (!capabilities.valid) {
+      return { ...skill, path: skillDir.path, metadata_status: 'invalid', entry: null, capabilities: null };
+    }
+    const entryFile = await resolvePackPath(packDir, index.entry, { baseDir: skillDir.actual });
+    if (entryFile.status !== 'declared') {
+      return {
+        ...skill,
+        path: skillDir.path,
+        metadata_status: entryFile.status,
+        entry: null,
+        capabilities: null,
+      };
+    }
+    return {
+      ...skill,
+      path: skillDir.path,
+      metadata_status: 'declared',
+      entry: path.relative(skillDir.actual, entryFile.actual).split(path.sep).join('/'),
+      capabilities: capabilities.value,
+    };
+  } catch (error) {
+    return {
+      ...skill,
+      path: skillDir.path,
+      metadata_status: fsFailureStatus(error),
+      entry: null,
+      capabilities: null,
+    };
+  }
+}
+
+async function readCommandMechanics(packDir, declared) {
+  const command = normalizeDeclaredRef(declared, 'name');
+  if (!command) return null;
+  if (!command.path) return { ...command, path_status: 'missing' };
+  const resolved = await resolvePackPath(packDir, command.path);
+  return {
+    ...command,
+    path: resolved.path,
+    path_status: resolved.status,
+  };
+}
+
+/**
+ * Resolve the full local info surface for one installed construct.
+ *
+ * The split is deliberate: `orientation` is prose and can only orient;
+ * `mechanics` is a declaration read from construct.yaml + skill index.yaml and
+ * grants no authority. Territory/L4 are the only authority surfaces.
+ */
+async function inspectLocalSummary(summary) {
+  const manifestRaw = manifestSnapshots.get(summary);
+  if (typeof manifestRaw !== 'string') {
+    throw new SotError('local construct manifest snapshot is unavailable', EXIT.TOOL_FAILURE);
+  }
+  const manifest = parseYaml(manifestRaw);
+  const declaredSkills = Array.isArray(manifest?.skills) ? manifest.skills : [];
+  const declaredCommands = Array.isArray(manifest?.commands) ? manifest.commands : [];
+  const skills = (await Promise.all(declaredSkills.map((skill) => readSkillMechanics(summary.source, skill))))
+    .filter(Boolean)
+    .sort((a, b) => a.slug.localeCompare(b.slug));
+  const commands = (await Promise.all(declaredCommands.map((command) => readCommandMechanics(summary.source, command))))
+    .filter(Boolean)
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return {
+    slug: summary.slug,
+    name: summary.name,
+    version: summary.version,
+    info_schema_version: '1.0',
+    orientation: orientationFromManifest(manifest, summary),
+    mechanics: {
+      kind: 'declared',
+      authority_effect: 'none',
+      source_refs: ['construct.yaml', ...skills
+        .filter((skill) => skill.metadata_status === 'declared' && skill.path)
+        .map((skill) => path.posix.join(skill.path, 'index.yaml'))],
+      skills,
+      commands,
+      streams: manifest?.streams && typeof manifest.streams === 'object' ? manifest.streams : null,
+      events: manifest?.events && typeof manifest.events === 'object' ? manifest.events : null,
+    },
+  };
+}
+
+export async function inspectLocalConstruct(slug, root = packsRoot()) {
+  const local = await readLocalPacks(root);
+  const summary = local.packs.find((pack) => pack.slug === slug);
+  return summary ? inspectLocalSummary(summary) : null;
+}
+
+export async function inspectConstruct(slug, opts = {}) {
+  const result = await listConstructs(opts);
+  const found = result.data.find((construct) => construct.slug === slug) ?? null;
+  if (!found) return { ...result, data: null };
+
+  if (result.provenance.rung === RUNGS.LOCAL) {
+    return { ...result, data: await inspectLocalSummary(found) };
+  }
+
+  return {
+    ...result,
+    data: {
+      slug: found.slug,
+      name: found.name,
+      version: found.version,
+      info_schema_version: '1.0',
+      orientation: {
+        kind: 'prose',
+        authoritative: false,
+        description: found.description ?? '',
+        short_description: null,
+        domains: [],
+        persona_ref: null,
+        expertise_ref: null,
+      },
+      mechanics: unavailableMechanics(`source rung ${result.provenance.rung} does not expose construct mechanics`),
+    },
+  };
+}
+
 /**
  * Read the installed packs. A pack whose recorded content hash no longer matches
  * its meta is CORRUPT: we skip it and flag it, rather than answering from it.
@@ -113,14 +402,16 @@ export async function readLocalPacks(root = packsRoot()) {
         }
       }
 
-      packs.push({
+      const summary = {
         slug: manifest.slug || manifest.name || entry.name,
         name: manifest.name ?? entry.name,
         version: String(manifest.version ?? '0.0.0'),
         description: manifest.description ?? '',
         skills_count: Array.isArray(manifest.skills) ? manifest.skills.length : 0,
         source: dir,
-      });
+      };
+      manifestSnapshots.set(summary, raw);
+      packs.push(summary);
     } catch (err) {
       if (err?.code === 'YAML_OUT_OF_SUBSET') {
         corrupt.push({ slug: entry.name, reason: err.message });
@@ -243,11 +534,16 @@ export function detectDrift(answers) {
 /**
  * Answer a listing query by walking the ladder.
  *
- * @param {{noCache?: boolean, rung?: string, timeoutMs?: number}} opts
+ * @param {{noCache?: boolean, rung?: string, timeoutMs?: number, localRoot?: string}} opts
  * @returns {Promise<{data: any[], provenance: object, drift: any[], corrupt: any[], exitCode: number}>}
  */
 export async function listConstructs(opts = {}) {
-  const { noCache = false, rung: pinned = null, timeoutMs = 10_000 } = opts;
+  const {
+    noCache = false,
+    rung: pinned = null,
+    timeoutMs = 10_000,
+    localRoot = packsRoot(),
+  } = opts;
   const answers = [];
   const corrupt = [];
   let cacheState = 'n/a';
@@ -257,7 +553,7 @@ export async function listConstructs(opts = {}) {
   const wantRegistry = !pinned || pinned === RUNGS.REGISTRY;
 
   if (wantLocal) {
-    const local = await readLocalPacks();
+    const local = await readLocalPacks(localRoot);
     corrupt.push(...local.corrupt);
     if (local.present && local.packs.length) answers.push({ rung: RUNGS.LOCAL, items: local.packs });
   }
@@ -311,4 +607,14 @@ export async function listConstructs(opts = {}) {
   };
 }
 
-export default { RUNGS, listConstructs, readLocalPacks, readRegistryYaml, detectDrift, apiFetch, SotError };
+export default {
+  RUNGS,
+  listConstructs,
+  inspectConstruct,
+  inspectLocalConstruct,
+  readLocalPacks,
+  readRegistryYaml,
+  detectDrift,
+  apiFetch,
+  SotError,
+};

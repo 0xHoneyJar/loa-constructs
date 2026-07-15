@@ -298,5 +298,6 @@ test('HIGH-4: a permission-denied manifest is a failed source, not an undeclared
 test('MEDIUM-6: the atlas says its ratification honesty out loud', async () => {
   const dir = await mkdtemp(path.join(tmpdir(), 'atlas-honesty-'));
   const map = await atlas({ sources: [dir] });
+  assert.equal(map.ratification_status, 'unchecked');
   assert.match(map.ratification, /unchecked/);
 });
