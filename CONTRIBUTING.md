@@ -190,6 +190,11 @@ git rebase upstream/main
    - At least one maintainer approval required
    - Address review feedback promptly
 
+Intentional governed template artifacts require the `template-guard-approved`
+label. CI accepts that label only when its latest applier has `write`,
+`maintain`, or `admin` repository permission; commit-message tokens and
+triage-only labels do not bypass template protection.
+
 ### Developer Certificate of Origin (DCO)
 
 All contributions to Loa must include a DCO sign-off. This certifies that you wrote the code or have the right to submit it.

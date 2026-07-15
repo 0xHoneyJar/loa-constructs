@@ -111,6 +111,19 @@ EOF
     '
 }
 
+@test "CRIT-1 spoofed out-of-repo BATS filename does NOT activate test-mode" {
+    local fake_test="$TEST_DIR/spoof.bats"
+    printf '#!/usr/bin/env bats\n' > "$fake_test"
+    bash -c '
+        export LOA_SOUL_TEST_MODE=1 BATS_VERSION=1.10.0 BATS_TEST_FILENAME="$1"
+        # shellcheck source=/dev/null
+        source "$2"
+        if _soul_test_mode_active; then
+            echo "BYPASS: out-of-repo BATS filename activated test-mode"; exit 1
+        fi
+    ' -- "$fake_test" "$LIB"
+}
+
 # ---------------------------------------------------------------------------
 # HIGH-1 closure — realpath REPO_ROOT containment for config.path
 # ---------------------------------------------------------------------------
@@ -188,6 +201,60 @@ EOF
     [[ "$status" -eq 0 ]]
     [[ "$output" != *"root:"* ]] || { echo "BYPASS: /etc/passwd surfaced via traversal"; false; }
     [[ "$output" != *"<untrusted-content"* ]] || { echo "BYPASS: surface from outside REPO_ROOT"; false; }
+}
+
+@test "HIGH-1b BSD realpath without -m still surfaces a contained production SOUL" {
+    mkdir -p "$TEST_DIR/.claude/hooks/session-start" "$TEST_DIR/bin"
+    cp "$HOOK" "$TEST_DIR/.claude/hooks/session-start/loa-l7-surface-soul.sh"
+    ln -sf "$PROJECT_ROOT/.claude/scripts" "$TEST_DIR/.claude/scripts"
+    ln -sf "$PROJECT_ROOT/.claude/data" "$TEST_DIR/.claude/data"
+    ln -sf "$PROJECT_ROOT/.claude/skills" "$TEST_DIR/.claude/skills"
+    ln -sf "$PROJECT_ROOT/.claude/loa" "$TEST_DIR/.claude/loa"
+    cat > "$TEST_DIR/bin/realpath" <<'STUB'
+#!/usr/bin/env bash
+if [[ "$1" == "-m" ]]; then
+    echo "realpath: illegal option -- m" >&2
+    exit 1
+fi
+target="$1"
+if [[ -d "$target" ]]; then
+    cd "$target" 2>/dev/null && pwd
+elif [[ -e "$target" ]]; then
+    parent="$(cd "$(dirname "$target")" 2>/dev/null && pwd)"
+    [[ -n "$parent" ]] && echo "$parent/$(basename "$target")"
+else
+    exit 1
+fi
+STUB
+    chmod +x "$TEST_DIR/bin/realpath"
+    cat > "$TEST_DIR/.loa.config.yaml" <<'EOF'
+soul_identity_doc:
+  enabled: true
+  schema_mode: warn
+  surface_max_chars: 2000
+  path: SOUL.md
+EOF
+    cat > "$TEST_DIR/SOUL.md" <<'EOF'
+---
+schema_version: '1.0'
+identity_for: 'this-repo'
+---
+## What I am
+BSD portable surface proof.
+## What I am not
+y
+## Voice
+z
+## Discipline
+w
+## Influences
+v
+EOF
+
+    run env -i HOME="$HOME" PATH="$TEST_DIR/bin:$PATH" TMPDIR="$TEST_DIR" LOA_L7_SESSION_ID="bsd-realpath-proof" \
+        bash "$TEST_DIR/.claude/hooks/session-start/loa-l7-surface-soul.sh"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"BSD portable surface proof"* ]]
 }
 
 # ---------------------------------------------------------------------------

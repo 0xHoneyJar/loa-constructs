@@ -1,0 +1,5 @@
+{
+  "rel_ceiling": "casual",
+  "capabilities": ["constructs"],
+  "network_allowed": true
+}

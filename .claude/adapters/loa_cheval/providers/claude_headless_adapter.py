@@ -55,12 +55,15 @@ from typing import Any, Dict, List, Optional
 
 from loa_cheval.providers.base import (
     ProviderAdapter,
+    SubprocessOutputCapExceeded,
     build_headless_subprocess_env,
     enforce_context_window,
+    run_subprocess_pgkill,
 )
 from loa_cheval.types import (
     CompletionRequest,
     CompletionResult,
+    AuthRevokedError,
     ConfigError,
     ProviderUnavailableError,
     RateLimitError,
@@ -147,15 +150,15 @@ class ClaudeHeadlessAdapter(ProviderAdapter):
         try:
             with _acquire_slot("claude-headless", n_slots=n_slots):
                 try:
-                    proc = subprocess.run(
+                    # #982: process-group-killing drop-in for subprocess.run —
+                    # on timeout the whole CLI tree dies and the fallback
+                    # chain advances instead of hanging on orphaned pipes.
+                    # claude -p reads the prompt from argv (passed via the cmd
+                    # array); without `input=` the helper keeps stdin on
+                    # DEVNULL to avoid hangs.
+                    proc = run_subprocess_pgkill(
                         cmd,
-                        capture_output=True,
-                        text=True,
                         timeout=timeout_s,
-                        check=False,
-                        # claude -p reads prompt from argv (we passed it via the cmd
-                        # array). Stdin stays closed to avoid hangs.
-                        stdin=subprocess.DEVNULL,
                         # cycle-109 follow-up (#879 / #880): strip ANTHROPIC_API_KEY
                         # so claude -p uses OAuth subscription, not API mode.
                         env=build_headless_subprocess_env(),
@@ -165,10 +168,32 @@ class ClaudeHeadlessAdapter(ProviderAdapter):
                         self.provider,
                         f"claude -p timed out after {timeout_s:.0f}s",
                     )
+                except SubprocessOutputCapExceeded as exc:
+                    # Iter-1 B2: truncated output is a provider failure, not a
+                    # successful completion — chain advances like a timeout.
+                    raise ProviderUnavailableError(
+                        self.provider,
+                        f"claude -p {exc}",
+                    ) from exc
                 except FileNotFoundError as exc:
                     raise ConfigError(
                         f"claude CLI not found on PATH (set CLAUDE_HEADLESS_BIN to override). "
                         f"Install with: npm install -g @anthropic-ai/claude-code. Original: {exc}"
+                    ) from exc
+                except OSError as exc:
+                    # Spawn failure: ARG_MAX/E2BIG (oversized prompt on argv), ENOMEM,
+                    # "Exec format error", etc. → WALK the chain, never crash raw (bd-q0o;
+                    # FileNotFoundError handled above maps to ConfigError).
+                    raise ProviderUnavailableError(
+                        self.provider,
+                        f"claude -p spawn failed (ARG_MAX / ENOMEM / exec error?): {exc}",
+                    ) from exc
+                except ValueError as exc:
+                    # Untrusted prompt with an embedded NUL → subprocess raises ValueError
+                    # (NOT an OSError) → WALK, don't crash the chain (bd-q0o).
+                    raise ProviderUnavailableError(
+                        self.provider,
+                        f"claude -p got un-executable argv (embedded NUL in the prompt?): {exc}",
                     ) from exc
         except _SemaphoreExhausted as exc:
             # C12 closure: distinct exit class so MODELINV records
@@ -549,6 +574,25 @@ class ClaudeHeadlessAdapter(ProviderAdapter):
         ):
             raise RateLimitError(self.provider)
 
+        # Runtime auth revocation → WALKABLE (KF-017/#1071). Ambiguous
+        # "unauthorized"/"401" walkable only when no static-misconfig marker.
+        _static_auth = (
+            "not logged in" in diag_lower
+            or "/login" in diag_lower
+        )
+        if (
+            "invalidated" in diag_lower
+            or "session expired" in diag_lower
+            or "token expired" in diag_lower
+            or (("unauthorized" in diag_lower or "401" in full_diag) and not _static_auth)
+        ):
+            raise AuthRevokedError(
+                self.provider,
+                f"claude token revoked/expired — re-auth with {_CLAUDE_LOGIN_HINT}. "
+                f"(diagnostic: {full_diag[:300]})",
+            )
+
+        # Static misconfig (never authenticated / no key) → hard-abort.
         # Auth failure — Claude Code's most common first-run failure
         if (
             "not logged in" in diag_lower

@@ -77,4 +77,5 @@ jobs:
           bats tests/unit/butterfreezone-construct-gen.bats \
                tests/unit/butterfreezone-gen.bats \
                tests/unit/butterfreezone-validate.bats \
-               tests/unit/construct-validate.bats
+               tests/unit/construct-validate.bats \
+               tests/unit/session-cap-regressions.bats

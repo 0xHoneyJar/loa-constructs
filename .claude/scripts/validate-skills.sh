@@ -9,7 +9,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 SKILLS_DIR="$PROJECT_ROOT/.claude/skills"
-PACKS_DIR="$PROJECT_ROOT/.claude/constructs/packs"
 SCHEMA_FILE="$PROJECT_ROOT/.claude/schemas/skill-index.schema.json"
 
 # Source safe yq library
@@ -21,130 +20,6 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
-
-# Parse flags
-STANDALONE_MODE=false
-for arg in "$@"; do
-    case "$arg" in
-        --standalone) STANDALONE_MODE=true ;;
-    esac
-done
-
-# --- Standalone Audit Mode ---
-if [[ "$STANDALONE_MODE" == "true" ]]; then
-    echo "STANDALONE AUDIT"
-    echo "================"
-    echo ""
-
-    sa_total=0
-    sa_pass=0
-    sa_warn=0
-    sa_fail=0
-    context_warnings=()
-    grimoire_warnings=()
-
-    # Scan all pack skills
-    for pack_dir in "$PACKS_DIR"/*/; do
-        [[ -d "$pack_dir" ]] || continue
-        pack_name=$(basename "$pack_dir")
-
-        for skill_dir in "$pack_dir"/skills/*/; do
-            [[ -d "$skill_dir" ]] || continue
-            skill_name=$(basename "$skill_dir")
-            skill_md="$skill_dir/SKILL.md"
-
-            [[ -f "$skill_md" ]] || continue
-            ((sa_total++))
-
-            skill_label="$pack_name/$skill_name"
-            issues=()
-
-            # Check 1: {context:...} slots without "Required context" header
-            if grep -q '{context:' "$skill_md" 2>/dev/null; then
-                if ! grep -qi 'required context' "$skill_md" 2>/dev/null; then
-                    issues+=("context slot without Required Context header")
-                    context_warnings+=("  - $skill_label: has {context:} slots but no Required Context documentation")
-                fi
-            fi
-
-            # Check 2: Hard reads from grimoires/ without guards
-            if grep -q 'grimoires/' "$skill_md" 2>/dev/null; then
-                # Check if references are in optional/output context (acceptable) vs hard deps
-                grimoire_refs=$(grep -c 'grimoires/' "$skill_md" 2>/dev/null || echo "0")
-                has_guard=$(grep -ci 'if.*exist\|optional\|when available\|if present' "$skill_md" 2>/dev/null || echo "0")
-                if [[ "$grimoire_refs" -gt 0 && "$has_guard" -eq 0 ]]; then
-                    grimoire_warnings+=("  - $skill_label: $grimoire_refs grimoire ref(s) without guards")
-                fi
-            fi
-
-            # Check 3: Pack-level file references as runtime deps
-            if grep -qE '(persona\.yaml|construct\.yaml)' "$skill_md" 2>/dev/null; then
-                if grep -qE 'read|load|parse|require.*\.(persona|construct)\.yaml' "$skill_md" 2>/dev/null; then
-                    issues+=("runtime dependency on pack-level manifest")
-                fi
-            fi
-
-            if [[ ${#issues[@]} -eq 0 ]]; then
-                ((sa_pass++))
-            else
-                ((sa_warn++))
-                echo -e "${YELLOW}WARN${NC}: $skill_label"
-                for issue in "${issues[@]}"; do
-                    echo "       - $issue"
-                done
-            fi
-        done
-    done
-
-    # Also scan framework skills
-    for skill_dir in "$SKILLS_DIR"/*/; do
-        [[ -d "$skill_dir" ]] || continue
-        skill_name=$(basename "$skill_dir")
-        skill_md="$skill_dir/SKILL.md"
-
-        [[ -f "$skill_md" ]] || continue
-        ((sa_total++))
-
-        # Framework skills are expected to be standalone — just count
-        if grep -q '{context:' "$skill_md" 2>/dev/null; then
-            if ! grep -qi 'required context' "$skill_md" 2>/dev/null; then
-                ((sa_warn++))
-                context_warnings+=("  - (framework) $skill_name: has {context:} slots but no Required Context documentation")
-                continue
-            fi
-        fi
-        ((sa_pass++))
-    done
-
-    echo ""
-    echo "PASS: $sa_pass/$sa_total skills are fully standalone"
-
-    if [[ ${#context_warnings[@]} -gt 0 ]]; then
-        echo -e "${YELLOW}WARN${NC}: ${#context_warnings[@]} skill(s) have context slots needing defaults"
-        for w in "${context_warnings[@]}"; do
-            echo "$w"
-        done
-    fi
-
-    if [[ ${#grimoire_warnings[@]} -gt 0 ]]; then
-        echo ""
-        echo "INFO: ${#grimoire_warnings[@]} skill(s) reference grimoires/ (typically acceptable)"
-        for w in "${grimoire_warnings[@]}"; do
-            echo "$w"
-        done
-    fi
-
-    echo ""
-    if [[ $sa_warn -eq 0 ]]; then
-        echo -e "${GREEN}All skills are standalone-compatible!${NC}"
-        exit 0
-    else
-        echo -e "${YELLOW}$sa_warn skill(s) need attention for standalone compatibility${NC}"
-        exit 0  # Warnings don't fail the audit
-    fi
-fi
-
-# --- Standard Validation Mode ---
 
 # Counters
 total=0

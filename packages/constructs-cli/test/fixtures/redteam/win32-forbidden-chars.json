@@ -1,0 +1,13 @@
+{
+  "pack": {
+    "files": [
+      { "path": "skills/name<payload.md", "content": "eA==" },
+      { "path": "skills/name>payload.md", "content": "eA==" },
+      { "path": "skills/name:payload.md", "content": "eA==" },
+      { "path": "skills/name\"payload.md", "content": "eA==" },
+      { "path": "skills/name|payload.md", "content": "eA==" },
+      { "path": "skills/name?payload.md", "content": "eA==" },
+      { "path": "skills/name*payload.md", "content": "eA==" }
+    ]
+  }
+}

@@ -242,6 +242,68 @@ EOF
     [[ -z "$output" ]]
 }
 
+@test "C15b production hook ignores ambient LOA_OPERATORS_FILE identity redirection" {
+    local fake_repo="$TEST_DIR/identity-repo"
+    local hook="$fake_repo/.claude/hooks/session-start/loa-l6-surface-handoffs.sh"
+    local external_operators="$TEST_DIR/attacker-operators.md"
+    mkdir -p "$fake_repo/.claude/hooks/session-start" "$fake_repo/.claude/scripts/lib" "$fake_repo/grimoires/loa"
+    cp "$PROJECT_ROOT/.claude/hooks/session-start/loa-l6-surface-handoffs.sh" "$hook"
+    cat > "$fake_repo/.loa.config.yaml" <<'EOF'
+structured_handoff:
+  enabled: true
+EOF
+    cat > "$fake_repo/grimoires/loa/operators.md" <<'EOF'
+canonical operators fixture
+EOF
+    cat > "$external_operators" <<'EOF'
+ambient attacker fixture
+EOF
+    cat > "$fake_repo/.claude/scripts/operator-identity.sh" <<'EOF'
+_oi_parse_yaml_to_json() {
+    if [[ "$1" == "$REPO_ROOT/grimoires/loa/operators.md" ]]; then
+        printf '%s\n' '{"operators":[{"id":"legitimate","git_email":"operator@example.test"}]}'
+    else
+        printf '%s\n' '{"operators":[{"id":"attacker","git_email":"operator@example.test"}]}'
+    fi
+}
+EOF
+    cat > "$fake_repo/.claude/scripts/lib/structured-handoff-lib.sh" <<'EOF'
+surface_unread_handoffs() { printf 'surfaced:%s\n' "$1"; }
+EOF
+    git -C "$fake_repo" init -q
+    git -C "$fake_repo" config user.email operator@example.test
+
+    LOA_OPERATORS_FILE="$external_operators" run "$hook"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == "surfaced:legitimate" ]]
+}
+
+@test "C15c duplicate operator emails fail closed instead of selecting the first identity" {
+    local fake_repo="$TEST_DIR/duplicate-identity-repo"
+    local hook="$fake_repo/.claude/hooks/session-start/loa-l6-surface-handoffs.sh"
+    mkdir -p "$fake_repo/.claude/hooks/session-start" "$fake_repo/.claude/scripts/lib" "$fake_repo/grimoires/loa"
+    cp "$PROJECT_ROOT/.claude/hooks/session-start/loa-l6-surface-handoffs.sh" "$hook"
+    cat > "$fake_repo/.loa.config.yaml" <<'EOF'
+structured_handoff:
+  enabled: true
+EOF
+    printf '%s\n' 'duplicate operators fixture' > "$fake_repo/grimoires/loa/operators.md"
+    cat > "$fake_repo/.claude/scripts/operator-identity.sh" <<'EOF'
+_oi_parse_yaml_to_json() {
+    printf '%s\n' '{"operators":[{"id":"alice","git_email":"shared@example.test"},{"id":"bob","git_email":"shared@example.test"}]}'
+}
+EOF
+    cat > "$fake_repo/.claude/scripts/lib/structured-handoff-lib.sh" <<'EOF'
+surface_unread_handoffs() { printf 'unexpected:%s\n' "$1"; }
+EOF
+    git -C "$fake_repo" init -q
+    git -C "$fake_repo" config user.email shared@example.test
+
+    run "$hook"
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "ambiguous identity surfaced private handoffs: $output"; false; }
+}
+
 # -----------------------------------------------------------------------------
 # LOA_HANDOFF_SUPPRESS_SURFACE_AUDIT
 # -----------------------------------------------------------------------------

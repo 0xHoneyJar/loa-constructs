@@ -997,3 +997,39 @@ describe('Substrate-Construct: type + executable + runtime + requirements + stre
     expect(result.success).toBe(false);
   });
 });
+
+// ── Territory Stanza Tests (cycle constructs-launcher-cli, PRD FR-13) ─────────
+
+describe('FR-13: additive territory stanza', () => {
+  it('existing manifests without a territory stanza still validate (no breaking bump)', () => {
+    const result = packManifestSchema.safeParse(MINIMAL_MANIFEST);
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a manifest declaring serviceable outcomes and seams', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      territory: {
+        serviceable_outcomes: ['registry-sot-coherence', 'topology-health'],
+        seams: ['pre-release', 'post-sync'],
+      },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.territory?.serviceable_outcomes).toEqual([
+        'registry-sot-coherence',
+        'topology-health',
+      ]);
+    }
+  });
+
+  it('rejects an out-of-bounds territory stanza (empty outcome id)', () => {
+    const manifest = {
+      ...MINIMAL_MANIFEST,
+      territory: { serviceable_outcomes: [''] },
+    };
+    const result = packManifestSchema.safeParse(manifest);
+    expect(result.success).toBe(false);
+  });
+});

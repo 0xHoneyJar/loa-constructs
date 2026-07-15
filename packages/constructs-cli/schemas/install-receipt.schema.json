@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://0xhoneyjar.github.io/loa-constructs/schemas/install-receipt.schema.json",
+  "title": "Install Receipt",
+  "description": "One lifecycle fact about an integrity-verified acquisition, as a content-addressed file (same record model as stationing receipts — the writer is shared). Prepared and terminal records share a transaction_id so interrupted work never masquerades as a completed, aborted, or reconciled install. Records enough for retroactive audit: what was verified, against which anchor, through which rung, and any override with its stated reason (SDD §5).",
+  "type": "object",
+  "required": ["record_version", "kind", "ts", "actor", "construct", "install"],
+  "additionalProperties": false,
+  "properties": {
+    "record_version": { "type": "string", "pattern": "^1\\." },
+    "kind": { "enum": ["install"] },
+    "ts": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$" },
+    "actor": { "type": "string", "pattern": "^[A-Za-z0-9._@-]{1,64}$" },
+    "construct": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "version": { "type": "string", "maxLength": 64 },
+    "install": {
+      "type": "object",
+      "required": ["rung", "tree_hash", "outcome", "anchor"],
+      "additionalProperties": false,
+      "properties": {
+        "rung": {
+          "enum": ["api", "registry-git", "payload-file"],
+          "description": "Acquisition path. payload-file is the offline/air-gapped lane: a saved file-list verified through the identical pipeline."
+        },
+        "tree_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Hash of the verified source payload or inspected Git tree. Installer-owned metadata is additive and source payloads are forbidden from occupying those reserved roots."
+        },
+        "outcome": {
+          "enum": ["verified", "attested-verified", "hash-overridden"],
+          "description": "hash-overridden = --allow-integrity-mismatch bypassed the HASH check only; signature and containment checks are never overridable."
+        },
+        "anchor": {
+          "type": "string",
+          "maxLength": 240,
+          "description": "What the verification was anchored to: 'registry:<expected-hash>' | 'registry-commit:<sha>' | 'first-seen:<sha>' (TOFU, surfaced never silent) | 'declared-hash:api'."
+        },
+        "transaction_id": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "description": "Stable identifier shared by every lifecycle record for one install attempt."
+        },
+        "attempt_nonce": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "description": "Per-attempt UUID persisted in every lifecycle record so deterministic receipt content cannot conflate distinct retries."
+        },
+        "transaction_state": {
+          "enum": ["prepared", "committed", "aborted", "rolled_back", "rollback_failed"],
+          "description": "Prepared is the write-ahead fact. Committed is emitted only after the pack and trust state land. Aborted means the pack never landed. Rolled_back means a landed pack was fully restored. Rollback_failed is a terminal attempt requiring operator reconciliation."
+        },
+        "override_reason": { "type": "string", "minLength": 8, "maxLength": 500 },
+        "key_id": { "type": "string", "maxLength": 64 }
+      }
+    }
+  }
+}

@@ -184,6 +184,23 @@ Two simultaneous cron firings of the same schedule serialize at the flock — se
 
 `flock -w <lock_timeout> 9` on `${lock_dir}/<schedule_id>.lock` (default `lock_dir=.run/cycles/`, `lock_timeout=30s`). Acquire failure emits `cycle.lock_failed{schedule_id, cycle_id, lock_path, acquire_timeout_seconds, attempted_at, diagnostic}` and exits 4.
 
+## Session-cap Bridgebuilder specialization
+
+`session-cap-fanout.sh` materializes a bounded Bridgebuilder DispatchContract for the exact repository and PR captured when a session limit interrupts active work. Its delivery lifecycle is `pending -> claimed -> completed | retryable_failure -> failed`:
+
+- The reset-window cron owns the initial `pending` delivery.
+- One five-minute `session-cap-reconcile.sh` cron owns wakeups for due `retryable_failure` records and expired `claimed` leases. It ignores pending and terminal records, and evaluates its wake predicate from one immutable snapshot copied under the shared capture-state lock.
+- `capture_id` is a SHA-256 fingerprint of a canonical versioned identity document containing an event nonce, capture/reset epochs, raw cap signal, exact repository and PR, and the captured sprint/bridge/simstim state. Retries reuse that durable ID; distinct capture events cannot alias merely because they occurred in the same second.
+- The authorization snapshot lives in an owner-controlled 0700 state directory and is atomically replaced as an owner-owned 0600 regular file. Capture enforces those modes; reader, dispatcher, and reconciler independently fail closed on ownership, symlink, or mode drift.
+- The claim lease defaults to 3600 seconds and cannot be configured below 2100 seconds, keeping it above the generated Bridgebuilder phase timeout of 1800 seconds plus a safety margin. A killed dispatcher therefore cannot be reclaimed while its review may still be live.
+- Bridgebuilder nonzero exits are recorded as typed `bb_exit_code` and `delivery_state` data while the dispatcher itself returns success. This lets the L3 awaiter and logger record the failed delivery before the reconciler performs the next bounded attempt.
+- The reader derives every field from one immutable snapshot copied under the capture-state lock. At claim time the dispatcher independently re-establishes target identity, interrupted-state evidence, reset freshness, retry budget, and lease eligibility from durable state; phase handoffs are requests, never authorization.
+- Cross-phase scratch directories are created exclusively with mode 0700, must be owned by the current user, and receive atomic mode-0600 handoff files. A pre-existing reader directory or group/world-accessible phase directory fails closed.
+- Capture ID, repository, and PR number must still match under the state lock before claim and acknowledgement. A newer capture is never overwritten.
+- Uninstall stages the generated `session-cap-fanout-w*.yaml` files, removes the owned crontab block, restores the schedules if crontab mutation fails, and deletes the staged schedules only after success. Unrelated schedules remain untouched.
+
+The relevant controls are `LOA_SESSION_CAP_MAX_ATTEMPTS` (default 3), `LOA_SESSION_CAP_RETRY_DELAY_SECONDS` (default 300), `LOA_SESSION_CAP_CLAIM_LEASE_SECONDS` (default 3600, minimum 2100), and `LOA_SESSION_CAP_MAX_RESET_AGE_SECONDS` (default 21600).
+
 ## Configuration (.loa.config.yaml)
 
 ```yaml
@@ -253,7 +270,8 @@ A working ScheduleConfig referencing them lives at `.claude/skills/scheduled-cyc
 | **Audit envelope (Sprint 1A)** | All five `cycle.*` events flow through `audit_emit` → JSONL with hash chain |
 | **Trust store auto-verify (Sprint 1.5 #690)** | Inherited via `audit_emit`'s pre-write check |
 | **Cost-budget enforcer L2 (Sprint 2)** | Compose-when-available pre-read gate; `budget_estimate_usd` flows from ScheduleConfig |
-| **`/schedule` (existing Loa)** | Cron registration; the L3 lib provides the *invocable* — `/schedule` provides the *firing* |
+| **`/schedule` (existing Loa)** | Cron registration; the L3 lib provides the *invocable* — `/schedule` provides the *firing*. Caveat (cycle-117): `/schedule`'s and `CronCreate`'s backing stores are session-scoped/non-durable on this platform — consumers needing a firing mechanism that survives past the authoring session should register a real crontab entry instead (see `session-cap-fanout.sh` below). |
+| **`session-cap-fanout.sh` (cycle-117 Wave-2 item B)** | Translates `session_cap.reset_windows × post_reset_fanout.phases` into one ScheduleConfig YAML per pair (validated via `register`) plus a real, marker-delimited crontab entry — v1 dispatch_contract is the shipped no-op example scripts (placeholder; real dispatch is bd-fanout-real-dispatch-9jv6) |
 | **Future L4 graduated-trust** | Will gate dispatcher phases by tier; not wired in 3D |
 
 ## Engineering invariants

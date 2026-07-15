@@ -150,21 +150,12 @@ cmd_setup() {
 cmd_validate() {
     local api_key
     api_key=$(get_api_key 2>/dev/null || echo "")
-
+    
     if [[ -z "$api_key" ]]; then
         echo "❌ No API key configured" >&2
-        echo "" >&2
-        echo "Free packs install without authentication — only premium packs need a key." >&2
-        echo "" >&2
-        echo "To configure:" >&2
-        echo "  1. Visit https://www.constructs.network/account" >&2
-        echo "  2. Copy your API key (sk_...)" >&2
-        echo "  3. Run:    .claude/scripts/constructs-auth.sh setup <key>" >&2
-        echo "     or set: export LOA_CONSTRUCTS_API_KEY=sk_your_key" >&2
         return 1
     fi
-
-
+    
     local registry_url
     registry_url=$(get_registry_url)
     

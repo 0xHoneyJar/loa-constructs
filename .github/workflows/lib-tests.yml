@@ -35,11 +35,23 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: Install tsx
-        run: npm install --no-save tsx@4.21.0
+      - name: Setup Bun for workspace-safe tool installation
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install tsx outside the workspace
+        run: |
+          mkdir -p "$RUNNER_TEMP/tsx"
+          cd "$RUNNER_TEMP/tsx"
+          bun init -y
+          bun add --exact tsx@4.21.0
+          echo "$RUNNER_TEMP/tsx/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Run lib tests
+        env:
+          LOA_LIB_TEST_SKIP_BUN: '1'
         run: .claude/scripts/run-lib-tests.sh
 
       - name: Run barrel smoke test
+        env:
+          LOA_LIB_TEST_SKIP_BUN: '1'
         run: .claude/scripts/run-lib-tests.sh --smoke

@@ -1379,7 +1379,7 @@ validate_pack_manifest() {
     fi
 
     # 7. Try full schema validation with schema-validator.sh if available
-    local schema_file="$MANIFEST_SCHEMA_DIR/network/pack-manifest.schema.json"
+    local schema_file="$MANIFEST_SCHEMA_DIR/pack-manifest.schema.json"
     if [[ -f "$schema_file" ]] && command -v ajv &>/dev/null; then
         if ! ajv validate -s "$schema_file" -d "$manifest_file" 2>/dev/null; then
             errors+=("Full schema validation failed (ajv)")

@@ -95,29 +95,23 @@ else
   if [[ -z "$PACK_JSON" ]]; then
     emit_finding critical construct_yaml "construct.yaml failed to parse" "$PACK_YAML"
   else
+    # The manifest contract names this field compose_with. Accepting the old
+    # composes_with typo silently makes the generator and validator disagree.
+    if echo "$PACK_JSON" | jq -e 'has("composes_with")' >/dev/null; then
+      emit_finding high compose_with \
+        "construct.yaml uses deprecated 'composes_with'; rename it to canonical 'compose_with'" \
+        "$PACK_YAML"
+    fi
+
     # Required fields
     for field in schema_version slug name version description; do
       val=$(echo "$PACK_JSON" | jq -r --arg f "$field" '.[$f] // empty')
       [[ -z "$val" ]] && emit_finding high required_field "construct.yaml missing required field '$field'" "$PACK_YAML"
     done
 
-    # Field-name drift gate (issue #244 bug #1): canonical schema field is
-    # `compose_with` (no trailing s). The legacy typo `composes_with` was
-    # silently honored by older butterfreezone-construct-gen.sh; flag it at
-    # validation time so authors fix it before publish.
-    if echo "$PACK_JSON" | jq -e '.composes_with != null' >/dev/null 2>&1; then
-      emit_finding high field_name \
-        "construct.yaml uses 'composes_with' (typo). Canonical field is 'compose_with' (no trailing s). See .claude/schemas/network/construct.schema.json." \
-        "$PACK_YAML"
-    fi
-
     # skills[].path resolution
-    # macOS default bash is 3.2 (no mapfile/readarray) — use portable while-read.
-    skills=()
-    while IFS= read -r _line; do
-      [[ -n "$_line" ]] && skills+=("$_line")
-    done < <(echo "$PACK_JSON" | jq -r '(.skills // [])[] | .path // empty')
-    for s in ${skills[@]+"${skills[@]}"}; do
+    mapfile -t skills < <(echo "$PACK_JSON" | jq -r '(.skills // [])[] | .path // empty')
+    for s in "${skills[@]}"; do
       [[ -z "$s" ]] && continue
       if [[ ! -d "$PACK_PATH/$s" && ! -L "$PACK_PATH/$s" ]]; then
         emit_finding high skill_path "skills[].path does not resolve: $s" "$PACK_YAML"
@@ -125,11 +119,8 @@ else
     done
 
     # Commands consistency (if declared) — every commands[].path must exist
-    cmd_paths=()
-    while IFS= read -r _line; do
-      [[ -n "$_line" ]] && cmd_paths+=("$_line")
-    done < <(echo "$PACK_JSON" | jq -r '(.commands // [])[] | .path // empty')
-    for c in ${cmd_paths[@]+"${cmd_paths[@]}"}; do
+    mapfile -t cmd_paths < <(echo "$PACK_JSON" | jq -r '(.commands // [])[] | .path // empty')
+    for c in "${cmd_paths[@]}"; do
       [[ -z "$c" ]] && continue
       if [[ ! -f "$PACK_PATH/$c" ]]; then
         emit_finding high command_path "commands[].path does not resolve: $c" "$PACK_YAML"
@@ -183,9 +174,8 @@ else
 fi
 
 # Exit-code calculation
-# bash 3.2 + set -u: ${array[@]} on empty array errors. Use safe guard.
 worst="info"
-for row in ${FINDINGS[@]+"${FINDINGS[@]}"}; do
+for row in "${FINDINGS[@]}"; do
   sev=$(echo "$row" | jq -r '.severity')
   case "$sev" in
     critical) worst="critical" ;;

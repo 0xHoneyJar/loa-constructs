@@ -83,30 +83,24 @@ print_error() {
 list_schemas() {
     local json_output="${1:-false}"
 
-    # Recurse into subdirs (network/ runtime/ workflow/) added 2026-04-27.
-    # `find` portably resolves nested .schema.json files; the SCHEMA_DIR
-    # itself stays the canonical root.
-    local -a schema_files
-    while IFS= read -r f; do
-        schema_files+=("$f")
-    done < <(find "$SCHEMA_DIR" -type f -name "*.schema.json" | sort)
-
     if [[ "$json_output" == "true" ]]; then
         echo "{"
         echo "  \"schemas\": ["
         local first=true
-        for schema_file in "${schema_files[@]}"; do
-            local name
-            name=$(basename "$schema_file" .schema.json)
-            local title
-            title=$(jq -r '.title // "Unknown"' "$schema_file" 2>/dev/null || echo "Unknown")
+        for schema_file in "$SCHEMA_DIR"/*.schema.json; do
+            if [[ -f "$schema_file" ]]; then
+                local name
+                name=$(basename "$schema_file" .schema.json)
+                local title
+                title=$(jq -r '.title // "Unknown"' "$schema_file" 2>/dev/null || echo "Unknown")
 
-            if [[ "$first" == "true" ]]; then
-                first=false
-            else
-                echo ","
+                if [[ "$first" == "true" ]]; then
+                    first=false
+                else
+                    echo ","
+                fi
+                printf '    {"name": "%s", "title": "%s", "path": "%s"}' "$name" "$title" "$schema_file"
             fi
-            printf '    {"name": "%s", "title": "%s", "path": "%s"}' "$name" "$title" "$schema_file"
         done
         echo ""
         echo "  ]"
@@ -117,12 +111,14 @@ list_schemas() {
         printf "%-20s %-35s %s\n" "NAME" "TITLE" "PATH"
         printf "%-20s %-35s %s\n" "----" "-----" "----"
 
-        for schema_file in "${schema_files[@]}"; do
-            local name
-            name=$(basename "$schema_file" .schema.json)
-            local title
-            title=$(jq -r '.title // "Unknown"' "$schema_file" 2>/dev/null || echo "Unknown")
-            printf "%-20s %-35s %s\n" "$name" "$title" "$schema_file"
+        for schema_file in "$SCHEMA_DIR"/*.schema.json; do
+            if [[ -f "$schema_file" ]]; then
+                local name
+                name=$(basename "$schema_file" .schema.json)
+                local title
+                title=$(jq -r '.title // "Unknown"' "$schema_file" 2>/dev/null || echo "Unknown")
+                printf "%-20s %-35s %s\n" "$name" "$title" "$schema_file"
+            fi
         done
     fi
 }
@@ -167,9 +163,6 @@ detect_schema() {
     elif [[ "$file_path" == *"grimoires/loa/sprint"* ]]; then
         echo "sprint"
         return 0
-    elif [[ "$file_path" == *"grimoires/compositions/"*.yaml ]] || [[ "$file_path" == *"compositions/"*.yaml ]]; then
-        echo "composition"
-        return 0
     fi
 
     # No match
@@ -181,20 +174,10 @@ detect_schema() {
 #######################################
 get_schema_path() {
     local schema_name="$1"
+    local schema_path="$SCHEMA_DIR/${schema_name}.schema.json"
 
-    # Top-level lookup (cheapest, hits ~31 uncategorized schemas).
-    local top_path="$SCHEMA_DIR/${schema_name}.schema.json"
-    if [[ -f "$top_path" ]]; then
-        echo "$top_path"
-        return 0
-    fi
-
-    # Subdir lookup (network/ runtime/ workflow/) added 2026-04-27.
-    # Returns the first match; schema names are unique across the family.
-    local found
-    found=$(find "$SCHEMA_DIR" -type f -name "${schema_name}.schema.json" -print -quit 2>/dev/null)
-    if [[ -n "$found" ]]; then
-        echo "$found"
+    if [[ -f "$schema_path" ]]; then
+        echo "$schema_path"
         return 0
     fi
 
@@ -534,23 +517,6 @@ run_assertions() {
         *.jsonl)
             head -1 "$file_path" > "$temp_json"
             ;;
-        *.yaml|*.yml)
-            # Convert YAML document to JSON for schema validation
-            if command -v yq >/dev/null 2>&1; then
-                yq eval -o=json '.' "$file_path" > "$temp_json" || {
-                    [[ "$json_output" == "true" ]] && echo '{"status":"error","message":"yq YAML→JSON conversion failed","assertions":[]}' || print_error "yq conversion failed for: $file_path"
-                    return 1
-                }
-            elif command -v python3 >/dev/null 2>&1; then
-                python3 -c 'import sys, yaml, json; json.dump(yaml.safe_load(open(sys.argv[1])), sys.stdout, default=str)' "$file_path" > "$temp_json" || {
-                    [[ "$json_output" == "true" ]] && echo '{"status":"error","message":"python YAML→JSON conversion failed","assertions":[]}' || print_error "python conversion failed for: $file_path"
-                    return 1
-                }
-            else
-                [[ "$json_output" == "true" ]] && echo '{"status":"error","message":"No YAML parser available (need yq or python3 with PyYAML)","assertions":[]}' || print_error "No YAML parser available"
-                return 1
-            fi
-            ;;
         *.md)
             if ! extract_frontmatter "$file_path" > "$temp_json"; then
                 if [[ "$json_output" == "true" ]]; then
@@ -748,23 +714,6 @@ validate_file() {
         *.jsonl)
             # Validate first line for trajectory entries
             head -1 "$file_path" > "$temp_json"
-            ;;
-        *.yaml|*.yml)
-            # Convert YAML document to JSON for schema validation
-            if command -v yq >/dev/null 2>&1; then
-                yq eval -o=json '.' "$file_path" > "$temp_json" || {
-                    [[ "$json_output" == "true" ]] && echo '{"status":"error","message":"yq YAML→JSON conversion failed","assertions":[]}' || print_error "yq conversion failed for: $file_path"
-                    return 1
-                }
-            elif command -v python3 >/dev/null 2>&1; then
-                python3 -c 'import sys, yaml, json; json.dump(yaml.safe_load(open(sys.argv[1])), sys.stdout, default=str)' "$file_path" > "$temp_json" || {
-                    [[ "$json_output" == "true" ]] && echo '{"status":"error","message":"python YAML→JSON conversion failed","assertions":[]}' || print_error "python conversion failed for: $file_path"
-                    return 1
-                }
-            else
-                [[ "$json_output" == "true" ]] && echo '{"status":"error","message":"No YAML parser available (need yq or python3 with PyYAML)","assertions":[]}' || print_error "No YAML parser available"
-                return 1
-            fi
             ;;
         *.md)
             if ! extract_frontmatter "$file_path" > "$temp_json"; then

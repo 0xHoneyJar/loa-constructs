@@ -4,8 +4,8 @@
 #
 # cycle-098 Sprint 7B — L7 SessionStart hook tests.
 # Covers FR-L7-1 (hook loads SOUL.md at session start), FR-L7-4 (surface
-# respects surface_max_chars), FR-L7-5 (cache scoped to session — single-fire
-# semantics validated by hook idempotence), FR-L7-6 (silent on enabled:false /
+# respects surface_max_chars), FR-L7-5 (completed runs deduplicate per session;
+# crash-window delivery is at-least-once), FR-L7-6 (silent on enabled:false /
 # file missing / strict-mode failure).
 # =============================================================================
 
@@ -174,6 +174,25 @@ EOF
     _write_valid_soul
     run "$HOOK"
     [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "expected silent on malformed config, got: $output"; false; }
+}
+
+@test "T-HOOK-4b config parse failure discards partial yq stdout atomically" {
+    _write_config "true" "strict" "2000"
+    _write_invalid_soul_prescriptive
+    mkdir -p "$TEST_DIR/bin"
+    cat > "$TEST_DIR/bin/yq" <<'EOF'
+#!/usr/bin/env bash
+# Model a parser that emits a partial document before reporting failure.
+printf '{"enabled":true'
+exit 1
+EOF
+    chmod +x "$TEST_DIR/bin/yq"
+
+    PATH="$TEST_DIR/bin:$PATH" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "partial config output reached the session: $output"; false; }
+    [[ ! -e "$LOA_SOUL_LOG" ]]
 }
 
 # ---------------------------------------------------------------------------
@@ -236,6 +255,32 @@ EOF
     [[ "$output" == *"truncated"* ]]
 }
 
+@test "T-HOOK-8b (FR-L7-4) unsafe and non-canonical surface limits fall back to 2000" {
+    # Each value must default to 2000. If a leading-zero value were interpreted
+    # arithmetically as 10, the output would be far shorter than this assertion.
+    for configured in "0" "10001" "999999999999999999999999999999" "'010'"; do
+        cat > "$LOA_SOUL_TEST_CONFIG" <<EOF
+soul_identity_doc:
+  enabled: true
+  schema_mode: warn
+  surface_max_chars: $configured
+EOF
+        {
+            printf -- '---\n'
+            printf -- "schema_version: '1.0'\n"
+            printf -- "identity_for: 'this-repo'\n"
+            printf -- '---\n\n## What I am\n\n'
+            python3 -c 'print("x" * 2500)'
+            printf -- '\n## What I am not\ny\n## Voice\nz\n## Discipline\nw\n## Influences\nv\n'
+        } > "$LOA_SOUL_TEST_PATH"
+
+        run "$HOOK"
+        [[ "$status" -eq 0 ]]
+        [[ "$output" == *"truncated"* ]]
+        [[ "${#output}" -gt 1000 ]] || { echo "unsafe limit $configured did not fall back to 2000"; false; }
+    done
+}
+
 # ---------------------------------------------------------------------------
 # T-HOOK-MODE group: schema_mode strict vs warn (FR-L7-2)
 # ---------------------------------------------------------------------------
@@ -280,12 +325,194 @@ EOF
 # T-HOOK-CACHE group: cache scoped to session (FR-L7-5)
 # ---------------------------------------------------------------------------
 
-@test "T-HOOK-12 (FR-L7-5) hook is single-fire when LOA_L7_SURFACED is set" {
+@test "T-HOOK-12 (FR-L7-5) completed hook is suppressed when LOA_L7_SURFACED is set" {
     _write_config "true" "warn" "2000"
     _write_valid_soul
     LOA_L7_SURFACED=1 run "$HOOK"
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]] || { echo "expected single-fire suppress, got: $output"; false; }
+}
+
+@test "T-HOOK-12b (FR-L7-5) separate hook processes share a committed done marker" {
+    _write_config "true" "warn" "2000"
+    _write_valid_soul
+    local session_id="bats-l7-${BATS_TEST_NUMBER}-${RANDOM}"
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "expected cross-process single-fire suppress, got: $output"; false; }
+    [[ "$(wc -l < "$LOA_SOUL_LOG" | tr -d ' ')" -eq 1 ]]
+}
+
+@test "T-HOOK-12c (FR-L7-5) transient load and audit failures release the session claim" {
+    local fixture="$TEST_DIR/retry-fixture"
+    local fixture_hook="$fixture/.claude/hooks/session-start/loa-l7-surface-soul.sh"
+    local fixture_lib="$fixture/.claude/scripts/lib/soul-identity-lib.sh"
+    local marker_base="$TEST_DIR/loa-l7-surface-$(id -u)"
+    local session_id="bats-l7-retry-${BATS_TEST_NUMBER}-${RANDOM}"
+
+    mkdir -p "$fixture/.claude/hooks/session-start" "$fixture/.claude/scripts/lib"
+    cp "$HOOK" "$fixture_hook"
+    cp "$PROJECT_ROOT/.claude/scripts/lib/portable-realpath.sh" "$fixture/.claude/scripts/lib/portable-realpath.sh"
+    cat >"$fixture/.loa.config.yaml" <<'EOF'
+soul_identity_doc:
+  enabled: true
+  schema_mode: warn
+  surface_max_chars: 2000
+EOF
+    cat >"$fixture/SOUL.md" <<'EOF'
+---
+schema_version: '1.0'
+identity_for: 'this-repo'
+---
+
+## What I am
+
+Retry fixture.
+EOF
+
+    # Loading fails after a successful validation. The claim must disappear.
+    cat >"$fixture_lib" <<'EOF'
+soul_validate() { return 0; }
+soul_compute_surface_payload() { printf '%s\n' '{"outcome":"surfaced"}'; }
+soul_emit() { return 0; }
+soul_load() { return 2; }
+EOF
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]]
+    run find "$marker_base" -name '*.claim' -print
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "failed load left a claim: $output"; false; }
+    run find "$marker_base" -name '*.done' -print
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "failed load committed done: $output"; false; }
+
+    # A completed delivery with a failed audit is still retryable. Output is
+    # intentionally at-least-once across this crash window, while no terminal
+    # audit event or done marker may claim the transaction completed.
+    cat >"$fixture_lib" <<'EOF'
+soul_validate() { return 0; }
+soul_compute_surface_payload() { printf '%s\n' '{"outcome":"surfaced"}'; }
+soul_emit() { return 2; }
+soul_load() { printf '%s\n' '<untrusted-content source="L7">retry</untrusted-content>'; }
+EOF
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
+    run find "$marker_base" -name '*.done' -print
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "failed audit committed done: $output"; false; }
+
+    # Once every stage succeeds, the hook surfaces exactly once and commits.
+    cat >"$fixture_lib" <<'EOF'
+soul_validate() { return 0; }
+soul_compute_surface_payload() { printf '%s\n' '{"outcome":"surfaced"}'; }
+soul_emit() { return 0; }
+soul_load() { printf '%s\n' '<untrusted-content source="L7">retry</untrusted-content>'; }
+EOF
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
+    run find "$marker_base" -name '*.done' -print
+    [[ "$status" -eq 0 ]]
+    [[ -n "$output" ]]
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "expected committed session to suppress retry, got: $output"; false; }
+}
+
+@test "T-HOOK-12d (FR-L7-5) crash-stale claim is atomically quarantined and reclaimed" {
+    _write_config "true" "warn" "2000"
+    _write_valid_soul
+    local marker_base="$TEST_DIR/loa-l7-surface-$(id -u)"
+    local session_id="bats-l7-stale-${BATS_TEST_NUMBER}-${RANDOM}"
+    local repo_scope claim_dir dead_pid
+    repo_scope="$(printf '%s' "$PROJECT_ROOT" | cksum | awk '{print $1}')"
+    claim_dir="$marker_base/${session_id}-${repo_scope}.claim"
+
+    sh -c 'exit 0' &
+    dead_pid=$!
+    wait "$dead_pid"
+    mkdir -p "$claim_dir"
+    printf '%s\n' "$dead_pid" >"$claim_dir/owner-$dead_pid-fixture"
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
+    [[ ! -e "$claim_dir" ]]
+    run find "$marker_base" -name '*.stale.*' -print
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "stale claim quarantine was not removed: $output"; false; }
+    run find "$marker_base" -name '*.done' -print
+    [[ "$status" -eq 0 ]]
+    [[ -n "$output" ]]
+}
+
+@test "T-HOOK-12d.1 (FR-L7-5) reused live PID with a different birth identity is reclaimed" {
+    _write_config "true" "warn" "2000"
+    _write_valid_soul
+    local marker_base="$TEST_DIR/loa-l7-surface-$(id -u)"
+    local session_id="bats-l7-pid-reuse-${BATS_TEST_NUMBER}-${RANDOM}"
+    local repo_scope claim_dir
+    repo_scope="$(printf '%s' "$PROJECT_ROOT" | cksum | awk '{print $1}')"
+    claim_dir="$marker_base/${session_id}-${repo_scope}.claim"
+
+    mkdir -p "$claim_dir"
+    printf '%s ps-forged %s\n' "$$" "$(date +%s)" >"$claim_dir/owner-$$-fixture"
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
+    [[ ! -e "$claim_dir" ]]
+}
+
+@test "T-HOOK-12d.2 (FR-L7-5) expired lease is reclaimed even when PID still exists" {
+    _write_config "true" "warn" "2000"
+    _write_valid_soul
+    local marker_base="$TEST_DIR/loa-l7-surface-$(id -u)"
+    local session_id="bats-l7-lease-${BATS_TEST_NUMBER}-${RANDOM}"
+    local repo_scope claim_dir
+    repo_scope="$(printf '%s' "$PROJECT_ROOT" | cksum | awk '{print $1}')"
+    claim_dir="$marker_base/${session_id}-${repo_scope}.claim"
+
+    mkdir -p "$claim_dir"
+    printf '%s - 1\n' "$$" >"$claim_dir/owner-$$-fixture"
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
+    [[ ! -e "$claim_dir" ]]
+}
+
+@test "T-HOOK-12e (FR-L7-5) failed stdout delivery does not commit the done marker" {
+    _write_config "true" "warn" "2000"
+    _write_valid_soul
+    local marker_base="$TEST_DIR/loa-l7-surface-$(id -u)"
+    local session_id="bats-l7-output-${BATS_TEST_NUMBER}-${RANDOM}"
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run bash -c '"$1" >&-' _ "$HOOK"
+    [[ "$status" -eq 0 ]]
+    run find "$marker_base" -name '*.done' -print
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "failed delivery committed done: $output"; false; }
+    run find "$marker_base" -name '*.claim' -print
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "failed delivery left claim: $output"; false; }
+    if [[ -f "$LOA_SOUL_LOG" ]]; then
+        run jq -s '[.[] | select(.event_type == "soul.surface")] | length' "$LOA_SOUL_LOG"
+        [[ "$status" -eq 0 ]]
+        [[ "$output" = "0" ]] || { echo "failed delivery recorded a false soul.surface event"; false; }
+    fi
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
 }
 
 # ---------------------------------------------------------------------------

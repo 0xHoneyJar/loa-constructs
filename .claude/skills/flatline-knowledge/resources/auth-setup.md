@@ -68,9 +68,10 @@ Authentication sessions are stored in:
 ### Security Considerations
 
 - **Local storage only**: Session data stays on your machine
-- **Encrypted cookies**: Chromium encrypts cookies at rest
-- **No credential storage**: Your Google password is NOT stored
+- **Platform-dependent protection**: Chromium cookie encryption depends on the host OS and keychain configuration; do not assume every copied or headless profile is encrypted at rest
+- **Active-session credentials**: Your Google password is not stored, but the profile's session cookies can grant equivalent account access while valid
 - **Session expiry**: Google sessions may expire after extended periods
+- **Host protection**: Keep the profile on an encrypted disk and retain the restrictive permissions below
 
 ### Protecting Session Data
 
@@ -96,10 +97,14 @@ Error (auth_expired): Google authentication expired. Run with --setup-auth
 
 ### Refresh Process
 
-1. Delete old session (optional but recommended):
+1. Move the old session aside as a timestamped backup (optional but recommended):
    ```bash
-   rm -rf ~/.claude/notebooklm-auth
+   mv ~/.claude/notebooklm-auth ~/.claude/notebooklm-auth.backup.$(date +%Y%m%dT%H%M%S)
    ```
+
+   This example intentionally names the default profile. If you supplied a custom
+   `--auth-dir`, verify that exact path before moving it. Delete the backup only
+   after the replacement session works.
 
 2. Re-run setup:
    ```bash

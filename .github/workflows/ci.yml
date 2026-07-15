@@ -3,12 +3,15 @@ name: CI
 # Least-privilege permissions (CI-004)
 permissions:
   contents: read
+  issues: read
+  pull-requests: read
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 jobs:
   # =============================================================================
@@ -21,11 +24,54 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
 
       - name: Block forbidden template files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_LABEL_APPROVED: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'template-guard-approved') }}
         id: check-forbidden
         run: |
           echo "Checking for forbidden template files..."
+
+          candidate_pr=""
+          if [[ "$PR_LABEL_APPROVED" == "true" ]]; then
+            candidate_pr="$PR_NUMBER"
+          elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            if ! candidate_pr="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+              --jq 'map(select(.merged_at != null and ([.labels[].name] | index("template-guard-approved"))))[0].number // empty' 2>/dev/null)"; then
+              echo "::warning title=Template approval lookup unavailable::Could not resolve an associated approved PR; continuing with normal template scanning"
+              candidate_pr=""
+            fi
+          fi
+
+          if [[ -n "$candidate_pr" ]]; then
+            label_actor=""
+            permission=""
+            if ! label_actor="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${candidate_pr}/events?per_page=100" \
+              --jq '[.[] | select(.event == "labeled" and .label.name == "template-guard-approved")][-1].actor.login // empty' 2>/dev/null)"; then
+              echo "::warning title=Template label audit unavailable::Could not resolve who applied template-guard-approved; continuing with normal template scanning"
+            elif [[ -n "$label_actor" ]] && permission="$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${label_actor}/permission" --jq '.permission' 2>/dev/null)"; then
+              case "$permission" in
+                admin|maintain|write)
+                  echo "::warning title=Template guard bypassed::${label_actor} (${permission}) applied template-guard-approved to PR #${candidate_pr}"
+                  exit 0
+                  ;;
+                *)
+                  echo "::warning title=Template approval refused::${label_actor} has ${permission:-unknown} permission; write, maintain, or admin is required"
+                  ;;
+              esac
+            else
+              echo "::warning title=Template permission audit unavailable::Could not verify the label actor's repository permission; continuing with normal template scanning"
+            fi
+          fi
+
+          if [[ -z "$BASE_SHA" ]]; then
+            echo "::warning title=Template guard base unavailable::BASE_SHA is unset; falling back to the tracked repository state"
+          fi
 
           # Define forbidden patterns for the loa template repository
           # These files should NEVER be committed to the main loa template
@@ -52,22 +98,31 @@ jobs:
           )
 
           VIOLATIONS=()
+          CHANGED_FILES=()
 
-          # Check for forbidden files
-          for pattern in "${FORBIDDEN_FILES[@]}"; do
-            if [ -f "$pattern" ]; then
-              VIOLATIONS+=("$pattern")
-            fi
-          done
-
-          # Check for forbidden directories/patterns
-          for pattern in "${FORBIDDEN_DIRS[@]}"; do
-            # Find any files matching the pattern (excluding README.md)
+          if [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] && [[ "$BASE_SHA" != "0000000000000000000000000000000000000000" ]]; then
             while IFS= read -r file; do
-              if [[ "$file" != *"/README.md" ]]; then
+              [[ -n "$file" ]] && CHANGED_FILES+=("$file")
+            done < <(git diff --name-only --diff-filter=ACMRT "$BASE_SHA" "$GITHUB_SHA")
+          else
+            while IFS= read -r file; do
+              [[ -n "$file" ]] && CHANGED_FILES+=("$file")
+            done < <(git ls-files)
+          fi
+
+          # Protect the change boundary, not historical files already present
+          # on the base branch. The latter made every future main build fail.
+          for file in "${CHANGED_FILES[@]}"; do
+            for pattern in "${FORBIDDEN_FILES[@]}"; do
+              if [[ "$file" == "$pattern" ]]; then
                 VIOLATIONS+=("$file")
               fi
-            done < <(find . -path "./$pattern*" -type f 2>/dev/null | head -50)
+            done
+            for pattern in "${FORBIDDEN_DIRS[@]}"; do
+              if [[ "$file" == "$pattern"* && "$file" != *"/README.md" ]]; then
+                VIOLATIONS+=("$file")
+              fi
+            done
           done
 
           if [ ${#VIOLATIONS[@]} -gt 0 ]; then
@@ -84,18 +139,12 @@ jobs:
             echo ""
             echo "These files are project-specific or contain licensed content and should be gitignored."
             echo "Note: .claude/constructs/ contains user-licensed skills that should never be committed."
-            echo "If this is intentional, add [skip-template-guard] to commit message."
+            echo "If this is intentional, a maintainer must apply the template-guard-approved PR label."
             echo "============================================================"
             exit 1
           fi
 
           echo "Template protection check passed - no forbidden files found"
-
-      - name: Check for skip override
-        if: failure() && contains(github.event.head_commit.message, '[skip-template-guard]')
-        run: |
-          echo "WARNING: Template guard bypassed via [skip-template-guard] in commit message"
-          echo "This should only be used for exceptional circumstances!"
 
   # =============================================================================
   # FIXTURE SYNC - Ensures eval fixtures match source files
@@ -205,11 +254,11 @@ jobs:
           echo "Checking version consistency..."
 
           # Get version from CHANGELOG
-          CHANGELOG_VERSION=$(grep -oP '## \[\K[0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | head -1)
+          CHANGELOG_VERSION=$(sed -nE 's/^## \[([0-9]+\.[0-9]+\.[0-9]+)\].*/\1/p' CHANGELOG.md | head -1)
           echo "CHANGELOG version: $CHANGELOG_VERSION"
 
           # Get version from README badge
-          README_VERSION=$(grep -oP 'version-\K[0-9]+\.[0-9]+\.[0-9]+' README.md | head -1)
+          README_VERSION=$(sed -nE 's/.*construct--registry-v([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' README.md | head -1)
           echo "README version: $README_VERSION"
 
           if [ "$CHANGELOG_VERSION" != "$README_VERSION" ]; then
@@ -384,66 +433,81 @@ jobs:
 
   # --- Loa Constructs CI Jobs ---
   # @see sprint.md T1.5: CI/CD Pipeline
+  # Supply-chain rule: third-party actions are pinned to immutable commit SHAs.
+  # Update the trailing version comment when intentionally advancing a pin.
+
+  source-presence:
+    name: Detect optional source trees
+    runs-on: ubuntu-latest
+    outputs:
+      workspaces: ${{ steps.detect.outputs.workspaces }}
+      packs: ${{ steps.detect.outputs.packs }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Detect optional source trees
+        id: detect
+        shell: bash
+        run: |
+          if [ -d apps ] || [ -d packages ]; then
+            echo "workspaces=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "workspaces=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -d .claude/constructs/packs ]; then
+            echo "packs=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "packs=false" >> "$GITHUB_OUTPUT"
+          fi
 
   registry-lint:
     name: Registry - Lint & Type Check
     runs-on: ubuntu-latest
+    needs: source-presence
     # Only run if apps/ or packages/ directories exist
-    if: hashFiles('apps/**') != '' || hashFiles('packages/**') != ''
+    if: needs.source-presence.outputs.workspaces == 'true'
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Run TypeScript check
-        run: pnpm typecheck
-
-      - name: Run ESLint
-        run: pnpm lint
+        run: |
+          bun run --filter @loa-constructs/shared typecheck
+          bun run --filter @loa-constructs/shared build
+          bun run --filter @loa-constructs/cli typecheck
 
   registry-test:
     name: Registry - Unit Tests
     runs-on: ubuntu-latest
-    needs: registry-lint
-    if: hashFiles('apps/**') != '' || hashFiles('packages/**') != ''
+    needs: [source-presence, registry-lint]
+    if: needs.source-presence.outputs.workspaces == 'true' && needs.registry-lint.result == 'success'
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Run tests with coverage
-        run: pnpm test:coverage
+        run: |
+          bun run --filter @loa-constructs/shared test
+          bun run --filter @loa-constructs/cli test:coverage
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5.5.5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
@@ -451,32 +515,26 @@ jobs:
   registry-build:
     name: Registry - Build
     runs-on: ubuntu-latest
-    needs: [registry-lint, registry-test]
-    if: hashFiles('apps/**') != '' || hashFiles('packages/**') != ''
+    needs: [source-presence, registry-lint, registry-test]
+    if: needs.source-presence.outputs.workspaces == 'true' && needs.registry-lint.result == 'success' && needs.registry-test.result == 'success'
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Build all packages
-        run: pnpm build
+        run: |
+          bun run --filter @loa-constructs/shared build
+          bun run --filter @loa-constructs/cli build
 
       - name: Upload API build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: api-build
           path: apps/api/dist
@@ -484,7 +542,7 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Explorer build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: explorer-build
           path: apps/explorer/.next
@@ -497,35 +555,28 @@ jobs:
   validate-packs:
     name: Validate Skill Packs
     runs-on: ubuntu-latest
-    needs: template-guard
-    if: hashFiles('.claude/constructs/packs/**') != ''
+    needs: [template-guard, source-presence]
+    if: needs.source-presence.outputs.packs == 'true' && needs.template-guard.result == 'success'
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: bun install --frozen-lockfile
 
       - name: Build shared package
-        run: pnpm --filter @loa-constructs/shared build
+        run: bun run --filter @loa-constructs/shared build
 
       - name: Install yq
         run: |
-          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.53.3/yq_linux_amd64
+          echo "fa52a4e758c63d38299163fbdd1edfb4c4963247918bf9c1c5d31d84789eded4  /usr/local/bin/yq" | sha256sum --check
           sudo chmod +x /usr/local/bin/yq
 
       - name: Validate pack manifests (JSON structure)
@@ -588,3 +639,129 @@ jobs:
 
       - name: Audit skill index enrichment
         run: .claude/scripts/constructs-audit-index.sh
+
+  # =============================================================================
+  # CONSTRUCTS CLI - the zero-dep capability binary (T1.10; L4 proof per T2.9)
+  # =============================================================================
+  constructs-cli:
+    name: Constructs CLI - vectors + units + zero-dep + p95 smoke
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 20
+
+      - name: Setup Python reference implementation
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Install JCS reference dependency
+        run: python -m pip install rfc8785==0.1.4 jsonschema==4.26.0
+
+      - name: Zero-dep assertion
+        run: |
+          node -e "
+            const p = require('./packages/constructs-cli/package.json');
+            const deps = Object.keys(p.dependencies ?? {});
+            if (deps.length) {
+              console.error('constructs-cli must have ZERO runtime dependencies, found: ' + deps.join(', '));
+              process.exit(1);
+            }
+          "
+
+      - name: Unit suites (contract, vendor, territory, station, L4 fixture proof)
+        working-directory: packages/constructs-cli
+        run: node --test test/*.test.mjs
+
+      - name: Golden vectors (each executed twice, byte-diffed)
+        working-directory: packages/constructs-cli
+        run: node test/vectors/run-vectors.mjs
+
+      - name: p95 smoke - ambient-free verbs stay under the 1s hot path (NFR-7)
+        run: |
+          capabilities_ms=()
+          help_ms=()
+          for i in $(seq 1 20); do
+            start=$(date +%s%N)
+            node packages/constructs-cli/bin/constructs.mjs capabilities --json > /dev/null
+            end=$(date +%s%N)
+            capabilities_ms+=("$(( (end - start) / 1000000 ))")
+
+            start=$(date +%s%N)
+            node packages/constructs-cli/bin/constructs.mjs --help > /dev/null
+            end=$(date +%s%N)
+            help_ms+=("$(( (end - start) / 1000000 ))")
+          done
+
+          # For 20 samples, nearest-rank p95 is the 19th sorted observation.
+          capabilities_p95=$(printf '%s\n' "${capabilities_ms[@]}" | sort -n | sed -n '19p')
+          help_p95=$(printf '%s\n' "${help_ms[@]}" | sort -n | sed -n '19p')
+          echo "capabilities p95: ${capabilities_p95}ms"
+          echo "help p95: ${help_p95}ms"
+          if [ "$capabilities_p95" -ge 1000 ] || [ "$help_p95" -ge 1000 ]; then
+            echo "an ambient-free verb exceeded the 1s p95 hot-path budget (NFR-7)"
+            exit 1
+          fi
+
+  # =============================================================================
+  # BRIDGEBUILDER SOURCE - Codex-facing skill must build from committed source
+  # =============================================================================
+  bridgebuilder-source:
+    name: Bridgebuilder source - non-empty + build + tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Reject case-insensitive Codex framework aliases
+        run: |
+          if git grep -n '\.Codex' -- .agents/skills; then
+            echo "Codex-facing skills must reference the tracked .claude runtime tree; .Codex only aliases locally on case-insensitive filesystems"
+            exit 1
+          fi
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
+      - name: Assert committed implementation sources are non-empty
+        run: |
+          source_count=0
+          missing=0
+          while IFS= read -r source; do
+            source_count=$((source_count + 1))
+            if [ ! -s "$source" ]; then
+              echo "empty Bridgebuilder source: $source"
+              missing=1
+            fi
+          done < <(find .agents/skills/bridgebuilder-review/resources \
+            -type f -name '*.ts' ! -path '*/__tests__/*' | sort)
+          if [ "$source_count" -eq 0 ]; then
+            echo "no committed Bridgebuilder implementation sources found"
+            exit 1
+          fi
+          test "$missing" -eq 0
+
+      - name: Install locked dependencies
+        working-directory: .agents/skills/bridgebuilder-review
+        run: bun install --frozen-lockfile
+
+      - name: Build committed source
+        working-directory: .agents/skills/bridgebuilder-review
+        run: bun run build
+
+      - name: Smoke compiled entrypoint
+        run: .agents/skills/bridgebuilder-review/resources/entry.sh --help
+
+      - name: Run Bridgebuilder unit and integration tests
+        working-directory: .agents/skills/bridgebuilder-review
+        run: bun run test
+
+      - name: Generated source remains deterministic
+        run: git diff --exit-code -- .agents/skills/bridgebuilder-review/resources

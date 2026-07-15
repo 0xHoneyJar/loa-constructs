@@ -24,7 +24,14 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# perf(pass-5): dirname → parameter expansion (fork+exec eliminated).
+_cu_src="${BASH_SOURCE[0]}"
+case "${_cu_src}" in
+    */*) _cu_dir="${_cu_src%/*}"; [[ -n "${_cu_dir}" ]] || _cu_dir="/" ;;
+    *)   _cu_dir="." ;;
+esac
+SCRIPT_DIR="$(cd "${_cu_dir}" && pwd)"
+unset _cu_src _cu_dir
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Configuration defaults
@@ -99,13 +106,30 @@ load_config() {
     # Load from .loa.config.yaml if yq is available and values not set
     local config_file="$PROJECT_ROOT/.loa.config.yaml"
     if [[ -f "$config_file" ]] && command -v yq &> /dev/null; then
-        [[ -z "$TTL_HOURS" ]] && TTL_HOURS=$(yq -r '.update_check.cache_ttl_hours // ""' "$config_file" 2>/dev/null || echo "")
-        [[ -z "$UPSTREAM_REPO" ]] && UPSTREAM_REPO=$(yq -r '.update_check.upstream_repo // ""' "$config_file" 2>/dev/null || echo "")
-        [[ -z "$NOTIFICATION_STYLE" ]] && NOTIFICATION_STYLE=$(yq -r '.update_check.notification_style // ""' "$config_file" 2>/dev/null || echo "")
-        [[ -z "$DISABLED" ]] && DISABLED=$(yq -r '.update_check.enabled // "true"' "$config_file" 2>/dev/null || echo "true")
-        [[ "$DISABLED" == "false" ]] && DISABLED="1"
-        [[ "$DISABLED" == "true" ]] && DISABLED=""
-        INCLUDE_PRERELEASES=$(yq -r '.update_check.include_prereleases // "false"' "$config_file" 2>/dev/null || echo "false")
+        # perf(pass-5): single-probe fast path. When the config has no
+        # update_check key (probe yields "" with rc 0 — covers missing, null,
+        # and empty-string values; probed on yq 4.44.1), every per-key read
+        # below provably returns its default, so the 5 yq spawns are skipped
+        # and those defaults applied directly (including the pre-existing
+        # unconditional INCLUDE_PRERELEASES overwrite and the DISABLED
+        # true/false mapping, both replicated bit-for-bit). Any other probe
+        # outcome (key present, scalar, parse error) falls through to the
+        # original per-key reads unchanged.
+        local _uc_probe
+        if _uc_probe=$(yq -r '.update_check // ""' "$config_file" 2>/dev/null) && [[ -z "$_uc_probe" ]]; then
+            [[ -z "$DISABLED" ]] && DISABLED="true"
+            [[ "$DISABLED" == "false" ]] && DISABLED="1"
+            [[ "$DISABLED" == "true" ]] && DISABLED=""
+            INCLUDE_PRERELEASES="false"
+        else
+            [[ -z "$TTL_HOURS" ]] && TTL_HOURS=$(yq -r '.update_check.cache_ttl_hours // ""' "$config_file" 2>/dev/null || echo "")
+            [[ -z "$UPSTREAM_REPO" ]] && UPSTREAM_REPO=$(yq -r '.update_check.upstream_repo // ""' "$config_file" 2>/dev/null || echo "")
+            [[ -z "$NOTIFICATION_STYLE" ]] && NOTIFICATION_STYLE=$(yq -r '.update_check.notification_style // ""' "$config_file" 2>/dev/null || echo "")
+            [[ -z "$DISABLED" ]] && DISABLED=$(yq -r '.update_check.enabled // "true"' "$config_file" 2>/dev/null || echo "true")
+            [[ "$DISABLED" == "false" ]] && DISABLED="1"
+            [[ "$DISABLED" == "true" ]] && DISABLED=""
+            INCLUDE_PRERELEASES=$(yq -r '.update_check.include_prereleases // "false"' "$config_file" 2>/dev/null || echo "false")
+        fi
     fi
 
     # Apply defaults
@@ -245,7 +269,9 @@ is_major_update() {
 # =============================================================================
 
 init_cache() {
-    mkdir -p "$CACHE_DIR"
+    # perf(pass-5): skip the fork when the dir already exists (hot path);
+    # missing-dir and dir-is-a-file behavior unchanged.
+    [[ -d "$CACHE_DIR" ]] || mkdir -p "$CACHE_DIR"
 }
 
 # Get file modification time (cross-platform)
@@ -267,7 +293,7 @@ is_cache_valid() {
     local cache_time
     cache_time=$(get_file_mtime "$CACHE_FILE")
     local current_time
-    current_time=$(date +%s)
+    printf -v current_time '%(%s)T' -1  # perf(pass-5): builtin epoch
     local cache_age_hours=$(( (current_time - cache_time) / 3600 ))
 
     if [[ $cache_age_hours -ge $TTL_HOURS ]]; then
@@ -279,7 +305,11 @@ is_cache_valid() {
 
 read_cache() {
     if [[ -f "$CACHE_FILE" ]]; then
-        cat "$CACHE_FILE"
+        # perf(pass-5): builtin $(<file) replaces cat (fork+exec eliminated);
+        # read failure still propagates through the assignment under set -e.
+        local _c
+        _c=$(<"$CACHE_FILE")
+        printf '%s' "$_c"
     else
         echo "{}"
     fi
@@ -385,10 +415,14 @@ show_banner_notification() {
     local remote_url="$3"
     local is_major="$4"
 
-    local width=61
+    local width=61 _hr _pad
+    # perf(pass-5): rule built with builtins (2 seq fork+execs eliminated);
+    # probed byte-identical to the seq form.
+    printf -v _pad '%*s' "$width" ''
+    _hr="${_pad// /─}"
 
     echo ""
-    printf "%s\n" "$(printf '%.0s─' $(seq 1 $width))"
+    printf "%s\n" "$_hr"
 
     if [[ "$is_major" == "true" ]]; then
         printf "  ${YELLOW}Loa v%s available${NC} (current: v%s)\n" "$remote_version" "$local_version"
@@ -399,7 +433,7 @@ show_banner_notification() {
 
     printf "     Run ${CYAN}/update-loa${NC} to upgrade\n"
     printf "     %s\n" "$remote_url"
-    printf "%s\n" "$(printf '%.0s─' $(seq 1 $width))"
+    printf "%s\n" "$_hr"
     echo ""
 }
 
@@ -547,10 +581,26 @@ main() {
         # Use cached data
         local cache_data
         cache_data=$(read_cache)
-        remote_version=$(echo "$cache_data" | jq -r '.remote_version // ""')
-        remote_url=$(echo "$cache_data" | jq -r '.remote_url // ""')
-        update_available=$(echo "$cache_data" | jq -r '.update_available // false')
-        is_major=$(echo "$cache_data" | jq -r '.is_major_update // false')
+        # perf(pass-5): 4 jq spawns → 1. SOH-delimited multi-field extraction
+        # (pass-3 idiom); per-field tostring + trailing-newline strip replicate
+        # the byte semantics of four $(jq -r) captures for the cache contract
+        # (scalar fields). jq parse failure aborts here under set -e exactly
+        # like the old first per-key jq call (same stderr, same exit class).
+        local _fields
+        _fields=$(printf '%s\n' "$cache_data" | jq -r '
+            [ (.remote_version   // ""    | tostring | gsub("\u0001";"") | sub("\n+$";"")),
+              (.remote_url       // ""    | tostring | gsub("\u0001";"") | sub("\n+$";"")),
+              ((.update_available // false) | tostring | gsub("\u0001";"") | sub("\n+$";"")),
+              ((.is_major_update  // false) | tostring | gsub("\u0001";"") | sub("\n+$";""))
+            ] | join("\u0001")')
+        if [[ -n "$_fields" ]]; then
+            IFS=$'\x01' read -rd '' remote_version remote_url update_available is_major <<< "$_fields" || true
+            is_major="${is_major%$'\n'}"
+        else
+            # zero JSON documents in the cache (empty/whitespace file): the
+            # old per-key $(jq -r) captures all yielded "" — replicate.
+            remote_version=""; remote_url=""; update_available=""; is_major=""
+        fi
     else
         # Fetch from GitHub
         local release_data

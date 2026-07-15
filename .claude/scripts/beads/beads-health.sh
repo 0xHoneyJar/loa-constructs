@@ -27,7 +27,15 @@ set -euo pipefail
 # -----------------------------------------------------------------------------
 # Configuration
 # -----------------------------------------------------------------------------
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# perf(pass-5): dirname → parameter expansion (fork+exec eliminated);
+# cd+pwd subshell kept. Edge cases (no slash / root) handled explicitly.
+_bh_src="${BASH_SOURCE[0]}"
+case "${_bh_src}" in
+    */*) _bh_dir="${_bh_src%/*}"; [[ -n "${_bh_dir}" ]] || _bh_dir="/" ;;
+    *)   _bh_dir="." ;;
+esac
+SCRIPT_DIR="$(cd "${_bh_dir}" && pwd)"
+unset _bh_src _bh_dir
 
 # Require bash 4.0+ (associative arrays)
 # shellcheck source=../bash-version-guard.sh
@@ -107,8 +115,16 @@ declare -a RECOMMENDATIONS=()  # Initialize empty array
 
 check_binary() {
     if command -v br &>/dev/null; then
-        local version
-        version=$(br --version 2>/dev/null | head -n1 || echo "unknown")
+        local version _raw
+        # perf(pass-5): capture once; first line via expansion (head exec +
+        # pipeline forks eliminated). Failure shape replicated: old pipeline
+        # captured head's output THEN "unknown" on non-zero br exit.
+        if _raw=$(br --version 2>/dev/null); then
+            version="${_raw%%$'\n'*}"
+        else
+            version="${_raw%%$'\n'*}"
+            version="${version:+${version}$'\n'}unknown"
+        fi
         CHECKS["binary"]="installed"
         CHECKS["version"]="${version}"
         return 0
@@ -142,7 +158,9 @@ check_database() {
 
     # Check file size
     local db_size_bytes
-    db_size_bytes=$(stat -f%z "${db_path}" 2>/dev/null || stat -c%s "${db_path}" 2>/dev/null || echo "0")
+    # perf(pass-5): GNU-first stat (Linux hot path — BSD form was a guaranteed
+    # failed spawn); fallback chain otherwise identical.
+    db_size_bytes=$(stat -c%s "${db_path}" 2>/dev/null || stat -f%z "${db_path}" 2>/dev/null || echo "0")
     local db_size_mb=$((db_size_bytes / 1024 / 1024))
     CHECKS["db_size_mb"]="${db_size_mb}"
 
@@ -200,10 +218,21 @@ check_dirty_issues_migration() {
     # PRAGMA table_info row format: cid|name|type|notnull|dflt_value|pk
     # The bug: marked_at column with notnull=1 and dflt_value empty/NULL.
     # Match the marked_at row exactly and check the notnull + default fields.
-    local row
-    row=$(sqlite3 "${db_path}" "PRAGMA table_info(dirty_issues);" 2>/dev/null \
-          | awk -F'|' '$2 == "marked_at" { print }' \
-          | head -1 || true)
+    local row _pragma _line _name
+    # perf(pass-5): single sqlite3 capture + bash field scan replaces the
+    # awk|head pipeline (2 execs + pipeline forks eliminated). First row whose
+    # 2nd |-field == "marked_at" — identical to awk $2 match + head -1.
+    _pragma=$(sqlite3 "${db_path}" "PRAGMA table_info(dirty_issues);" 2>/dev/null) || true
+    row=""
+    while IFS= read -r _line; do
+        [[ "${_line}" == *"|"* ]] || continue
+        _name="${_line#*|}"
+        _name="${_name%%|*}"
+        if [[ "${_name}" == "marked_at" ]]; then
+            row="${_line}"
+            break
+        fi
+    done <<< "${_pragma}"
 
     if [[ -z "$row" ]]; then
         # Table or column doesn't exist — older schema, no bug
@@ -212,9 +241,11 @@ check_dirty_issues_migration() {
     fi
 
     # Parse fields
-    local notnull dflt
-    notnull=$(echo "$row" | awk -F'|' '{print $4}')
-    dflt=$(echo "$row" | awk -F'|' '{print $5}')
+    # perf(pass-5): IFS split replaces two echo|awk pipelines (2 execs +
+    # 4 forks). read assigns the 4th/5th |-fields exactly like awk $4/$5
+    # (missing fields → empty; 6th+ fields land in _rest).
+    local notnull dflt _c1 _c2 _c3 _rest
+    IFS='|' read -r _c1 _c2 _c3 notnull dflt _rest <<< "${row}" || true
 
     if [[ "$notnull" == "1" && -z "$dflt" ]]; then
         CHECKS["dirty_issues_migration"]="needs_repair"
@@ -257,7 +288,7 @@ check_jsonl_sync() {
 
     # Check file size
     local jsonl_size_bytes
-    jsonl_size_bytes=$(stat -f%z "${jsonl_path}" 2>/dev/null || stat -c%s "${jsonl_path}" 2>/dev/null || echo "0")
+    jsonl_size_bytes=$(stat -c%s "${jsonl_path}" 2>/dev/null || stat -f%z "${jsonl_path}" 2>/dev/null || echo "0")  # perf(pass-5): GNU-first
     local jsonl_size_mb=$((jsonl_size_bytes / 1024 / 1024))
     CHECKS["jsonl_size_mb"]="${jsonl_size_mb}"
 
@@ -270,9 +301,9 @@ check_jsonl_sync() {
 
     # Check staleness
     local jsonl_mtime
-    jsonl_mtime=$(stat -f%m "${jsonl_path}" 2>/dev/null || stat -c%Y "${jsonl_path}" 2>/dev/null || echo "0")
+    jsonl_mtime=$(stat -c%Y "${jsonl_path}" 2>/dev/null || stat -f%m "${jsonl_path}" 2>/dev/null || echo "0")  # perf(pass-5): GNU-first
     local now
-    now=$(date +%s)
+    printf -v now '%(%s)T' -1  # perf(pass-5): builtin epoch (date fork+exec eliminated)
     local age_hours=$(( (now - jsonl_mtime) / 3600 ))
     CHECKS["jsonl_age_hours"]="${age_hours}"
 
@@ -353,7 +384,18 @@ output_json() {
     local exit_code="$2"
 
     # Build JSON output
-    cat <<EOF
+    # perf(pass-5): jq -R|jq -s pipeline → single jq -nR '[inputs]' (probed
+    # byte-identical on this host); date -u → builtin %()T under TZ=UTC0
+    # (pass-2 idiom); heredoc consumed by builtin read instead of cat
+    # (fork+exec eliminated). Interpolated bytes unchanged.
+    local recs_json="[]"
+    if [[ ${#RECOMMENDATIONS[@]} -gt 0 ]]; then
+        recs_json=$(printf '%s\n' "${RECOMMENDATIONS[@]}" | jq -nR '[inputs]') || true
+    fi
+    local ts
+    TZ=UTC0 printf -v ts '%(%Y-%m-%dT%H:%M:%SZ)T' -1
+    local _out
+    IFS= read -rd '' _out <<EOF || true
 {
   "status": "${status}",
   "exit_code": ${exit_code},
@@ -372,10 +414,11 @@ output_json() {
     "jsonl_age_hours": ${CHECKS[jsonl_age_hours]:-0},
     "jsonl_stale": ${CHECKS[jsonl_stale]:-false}
   },
-  "recommendations": $(if [[ ${#RECOMMENDATIONS[@]} -gt 0 ]]; then printf '%s\n' "${RECOMMENDATIONS[@]}" | jq -R . | jq -s .; else echo "[]"; fi),
-  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  "recommendations": ${recs_json},
+  "timestamp": "${ts}"
 }
 EOF
+    printf '%s' "${_out}"
 }
 
 output_text() {

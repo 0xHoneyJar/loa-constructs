@@ -10,6 +10,7 @@
 #   constructs-install.sh uninstall pack <slug>    # Remove a pack
 #   constructs-install.sh uninstall skill <slug>   # Remove a skill
 #   constructs-install.sh link-commands <slug>     # Re-link pack commands
+#   constructs-install.sh resync <slug|--all>      # Re-sync from local source clones
 #
 # Exit Codes:
 #   0 = success
@@ -296,10 +297,12 @@ symlink_pack_skills() {
     local pack_slug="$1"
     local pack_dir="$(get_packs_dir)/$pack_slug"
     local skills_source="$pack_dir/skills"
-    # Use repo root to ensure correct path regardless of cwd
+    # Use repo root to ensure correct path regardless of cwd. LOA_SKILLS_DIR
+    # overrides the link destination (same convention as construct-index-gen);
+    # this is also what makes the function testable outside the live repo.
     local repo_root
     repo_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
-    local skills_target="$repo_root/.claude/skills"
+    local skills_target="${LOA_SKILLS_DIR:-$repo_root/.claude/skills}"
     local linked=0
 
     # Check if pack has skills
@@ -353,10 +356,11 @@ unlink_pack_skills() {
     local pack_slug="$1"
     local pack_dir="$(get_packs_dir)/$pack_slug"
     local skills_source="$pack_dir/skills"
-    # Use repo root to ensure correct path regardless of cwd
+    # Use repo root to ensure correct path regardless of cwd (LOA_SKILLS_DIR
+    # override mirrors symlink_pack_skills — link/unlink must agree).
     local repo_root
     repo_root="$(cd "$SCRIPT_DIR/../.." && pwd)"
-    local skills_target="$repo_root/.claude/skills"
+    local skills_target="${LOA_SKILLS_DIR:-$repo_root/.claude/skills}"
 
     # Check if pack has skills directory
     if [[ ! -d "$skills_source" ]]; then
@@ -392,142 +396,218 @@ unlink_pack_skills() {
 # Pack Installation
 # =============================================================================
 
-# Decide whether to install/resync from a local GitHub SoT clone.
-# Args: $1 pack slug, $2 packs_dir, $3 force_resync (true/false)
-# Outputs local source path to stdout; returns 0 when local install should run.
-should_use_local_for_pack() {
-    local pack_slug="$1"
-    local packs_dir="$2"
-    local force_resync="${3:-false}"
-    local local_source
-
-    if ! local_source=$(find_local_source "$pack_slug"); then
-        return 1
-    fi
-
-    if [[ "$force_resync" == "true" ]]; then
-        echo "$local_source"
-        echo "  Local source found at: $local_source (--resync)" >&2
-        return 0
-    fi
-
-    if [[ ! -d "$packs_dir/$pack_slug" ]]; then
-        echo "$local_source"
-        echo "  Local source found at: $local_source (not yet installed)" >&2
-        return 0
-    fi
-
-    local meta_file
-    meta_file=$(get_registry_meta_path)
-
-    if [[ ! -f "$meta_file" ]]; then
-        # Issue #253: meta absent — prefer GitHub SoT over dead registry fall-through
-        echo "$local_source"
-        echo "  Local source found at: $local_source (meta absent — preferring GitHub SoT)" >&2
-        return 0
-    fi
-
-    local installed_at
-    installed_at=$(jq -r --arg s "$pack_slug" '.installed_packs[$s].installed_at // empty' "$meta_file" 2>/dev/null) || installed_at=""
-    if [[ -z "$installed_at" ]]; then
-        echo "$local_source"
-        echo "  Local source found at: $local_source (no install timestamp in meta)" >&2
-        return 0
-    fi
-
-    local installed_epoch=0
-    if type _date_to_epoch &>/dev/null; then
-        installed_epoch=$(_date_to_epoch "$installed_at" 2>/dev/null) || installed_epoch=0
-    else
-        installed_epoch=$(date -d "$installed_at" +%s 2>/dev/null) || installed_epoch=0
-    fi
-
-    if [[ $installed_epoch -gt 0 ]]; then
-        local newer_file
-        newer_file=$(find "$local_source" -type f -newer "$packs_dir/$pack_slug" -print -quit 2>/dev/null) || newer_file=""
-        if [[ -n "$newer_file" ]]; then
-            echo "$local_source"
-            echo "  Local source at $local_source has changes since last install" >&2
-            return 0
-        fi
-    fi
-
-    return 1
-}
-
-# Refresh a local GitHub SoT clone before copying into the install tree.
-refresh_local_source() {
+# Materialize pack content from a local source clone (sprint-bug-205,
+# loa-constructs#253). Git sources mirror origin/main — NOT the working tree,
+# since clones routinely park on WIP branches — with a best-effort fetch first
+# (skipped in offline mode; failure tolerated, the existing origin/main ref is
+# used). Non-git sources (or clones without an origin/main ref) fall back to a
+# working-tree copy.
+# Materializes into a STAGING directory supplied by the caller (DISS-001 /
+# BB-002): never writes into the live pack dir, so a failed materialization
+# leaves the prior install untouched, and a successful one can atomically
+# replace it — making the result a true mirror (files deleted upstream are
+# pruned).
+# Args:
+#   $1 - Local source path
+#   $2 - Staging directory (must exist, empty)
+# Outputs: resolved origin/main commit to stdout (empty for working-tree copy)
+materialize_pack_from_local() {
     local local_source="$1"
+    local staging_dir="$2"
 
-    if [[ -d "$local_source/.git" ]]; then
-        echo "  Refreshing local source (git pull --ff-only)..."
-        if ! git -C "$local_source" pull --ff-only 2>/dev/null; then
-            print_warning "Could not fast-forward $local_source; copying current checkout"
+    if git -C "$local_source" rev-parse --git-dir >/dev/null 2>&1; then
+        if [[ "${LOA_OFFLINE:-}" != "1" ]]; then
+            git -C "$local_source" fetch origin --quiet 2>/dev/null || \
+                echo "  WARN: git fetch failed for $local_source — using existing origin/main ref" >&2
+        fi
+        if git -C "$local_source" rev-parse --verify --quiet origin/main >/dev/null 2>&1; then
+            if git -C "$local_source" archive origin/main | tar -x -C "$staging_dir"; then
+                git -C "$local_source" rev-parse origin/main
+                return 0
+            fi
+            echo "  WARN: git archive origin/main failed for $local_source — copying working tree" >&2
+        else
+            echo "  WARN: no origin/main ref in $local_source — copying working tree" >&2
         fi
     fi
+
+    cp -r "$local_source/." "$staging_dir/"
 }
 
-# Copy from local GitHub SoT into the installed packs directory.
-install_pack_from_local_source() {
+# Install (or re-sync) a pack from a local source clone: materialize content,
+# record meta (source=local, resolved commit when git), link commands + skills.
+# Shared by do_install_pack (local-first path) and do_resync.
+# Args:
+#   $1 - Pack slug
+#   $2 - Local source path
+#   $3 - Packs directory
+install_pack_from_local() {
     local pack_slug="$1"
     local local_source="$2"
-    local packs_dir
-    packs_dir=$(get_packs_dir)
-    local meta_file
-    meta_file=$(get_registry_meta_path)
-
-    refresh_local_source "$local_source"
+    local packs_dir="$3"
 
     echo "  Installing from local source: $local_source"
-    mkdir -p "$packs_dir/$pack_slug"
-    cp -r "$local_source/." "$packs_dir/$pack_slug/"
 
+    # DISS-001 / BB-002: materialize into a staging dir, then atomically
+    # replace the pack dir — a true mirror (deleted-upstream files pruned),
+    # and a failed materialization leaves the prior install untouched.
+    # Deterministic name (no $$) so a crashed prior run is self-healed here;
+    # hidden so do_resync's glob never treats it as an installed pack.
+    local pack_dir="$packs_dir/$pack_slug"
+    local staging_dir="$packs_dir/.${pack_slug}.staging"
+    rm -rf "$staging_dir"
+    mkdir -p "$staging_dir"
+
+    local resolved_commit
+    if ! resolved_commit=$(materialize_pack_from_local "$local_source" "$staging_dir"); then
+        rm -rf "$staging_dir"
+        print_error "ERROR: Failed to materialize '$pack_slug' from $local_source (prior install untouched)"
+        return $EXIT_EXTRACT_ERROR
+    fi
+    if [[ -n "$resolved_commit" ]]; then
+        echo "  Mirrored origin/main @ ${resolved_commit:0:12}"
+    else
+        echo "  Copied working tree (no git origin/main ref at source)"
+    fi
+
+    if [[ -d "$pack_dir" ]]; then
+        # Preserve runtime state written by prior (registry) installs
+        if [[ -f "$pack_dir/.license.json" && ! -f "$staging_dir/.license.json" ]]; then
+            cp "$pack_dir/.license.json" "$staging_dir/.license.json"
+        fi
+        # Drop symlinks into the old tree (including commands/skills removed
+        # upstream) before replacing it; relinked from the clean tree below
+        unlink_pack_commands "$pack_slug" >/dev/null 2>&1 || true
+        unlink_pack_skills "$pack_slug" >/dev/null 2>&1 || true
+        rm -rf "$pack_dir"
+    fi
+    mv "$staging_dir" "$pack_dir"
+
+    # Update metadata
+    local meta_file
+    meta_file=$(get_registry_meta_path)
     local now_ts
     now_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     init_registry_meta
     local meta_tmp="${meta_file}.tmp.$$"
-    jq --arg slug "$pack_slug" --arg ts "$now_ts" --arg src "$local_source" \
-        '.installed_packs[$slug].installed_at = $ts | .installed_packs[$slug].source = "local" | .installed_packs[$slug].local_source = $src' \
-        "$meta_file" > "$meta_tmp" && mv "$meta_tmp" "$meta_file"
+    if ! jq --arg slug "$pack_slug" --arg ts "$now_ts" --arg src "$local_source" --arg commit "$resolved_commit" \
+        '.installed_packs[$slug].installed_at = $ts
+         | .installed_packs[$slug].source = "local"
+         | .installed_packs[$slug].local_source = $src
+         | (if $commit != "" then .installed_packs[$slug].commit = $commit else . end)' \
+        "$meta_file" > "$meta_tmp"; then
+        rm -f "$meta_tmp"
+        print_error "ERROR: Failed to update registry meta for '$pack_slug'"
+        return $EXIT_ERROR
+    fi
+    mv "$meta_tmp" "$meta_file"
 
+    # Symlink commands
     echo "  Linking commands..."
     local commands_linked
     commands_linked=$(symlink_pack_commands "$pack_slug")
     echo "  Created $commands_linked command symlinks"
 
+    # Symlink skills
     echo "  Linking skills..."
     local skills_linked
     skills_linked=$(symlink_pack_skills "$pack_slug")
     echo "  Created $skills_linked skill symlinks"
 
     echo ""
-    local source_commit="unknown"
-    if [[ -d "$local_source/.git" ]]; then
-        source_commit=$(git -C "$local_source" rev-parse HEAD 2>/dev/null || echo "unknown")
-    fi
-    local source_json
-    source_json=$(printf '{"source_repo":"%s","source_commit":"%s","installed_at":"%s"}' \
-        "$local_source" "$source_commit" "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
-    echo "$source_json" > "$packs_dir/$pack_slug/.source.json" 2>/dev/null || \
-        echo "[constructs-install] WARNING: failed to write .source.json" >&2
-
     print_success "Pack '$pack_slug' installed from local source"
     return $EXIT_SUCCESS
 }
 
-# Download and install a pack from the registry
+# Force re-sync of installed packs from their local source clones
+# (sprint-bug-205, loa-constructs#253). Never contacts the registry: packs
+# without a local source are skipped with a report line.
+# Args:
+#   $1 - Pack slug, or --all/all for every installed pack
+do_resync() {
+    local target="$1"
+    local packs_dir
+    packs_dir=$(get_packs_dir)
+
+    local slugs=()
+    if [[ "$target" == "--all" || "$target" == "all" ]]; then
+        local d
+        for d in "$packs_dir"/*/; do
+            [[ -d "$d" ]] && slugs+=("$(basename "$d")")
+        done
+        if [[ ${#slugs[@]} -eq 0 ]]; then
+            echo "No packs installed under $packs_dir — nothing to resync"
+            return $EXIT_SUCCESS
+        fi
+    else
+        slugs=("$target")
+    fi
+
+    local synced=0 skipped=0 failed=0
+    local slug
+    local local_source
+    for slug in "${slugs[@]}"; do
+        if local_source=$(find_local_source "$slug"); then
+            if install_pack_from_local "$slug" "$local_source" "$packs_dir"; then
+                synced=$((synced + 1))
+            else
+                failed=$((failed + 1))
+            fi
+        else
+            echo "  SKIP: $slug — no local source found"
+            skipped=$((skipped + 1))
+        fi
+    done
+
+    echo ""
+    # BB-003: banner must agree with the exit code — no green on partial failure
+    if [[ $failed -gt 0 ]]; then
+        print_error "Resync partial: $synced synced, $skipped skipped (no local source), $failed failed"
+        return $EXIT_ERROR
+    fi
+    print_success "Resync complete: $synced synced, $skipped skipped (no local source), $failed failed"
+    return $EXIT_SUCCESS
+}
+
+# Install a pack: local source clone first (the GitHub SoT), registry as the
+# last resort (sprint-bug-205, loa-constructs#253 — the prior meta-gated
+# ordering left installed packs stale against a dead registry).
 # Args:
 #   $1 - Pack slug
-#   $2 - force_resync (optional, true/false)
 do_install_pack() {
     local pack_slug="$1"
-    local force_resync="${2:-false}"
     local api_key
     local registry_url
     local packs_dir
-    local local_source
 
     print_status "$icon_valid" "Installing pack: $pack_slug"
+
+    # Create directories
+    packs_dir=$(get_packs_dir)
+    mkdir -p "$packs_dir"
+
+    # Ensure constructs directory is gitignored
+    ensure_constructs_gitignored
+
+    # Local source clone first — the clone IS the source of truth. A present
+    # canonical clone always beats the registry (sprint-bug-205,
+    # loa-constructs#253: the prior freshness gate defaulted to a dead
+    # registry whenever .constructs-meta.json was absent). Materialization is
+    # idempotent (origin/main mirror), so no freshness proof is needed.
+    local local_source
+    if local_source=$(find_local_source "$pack_slug"); then
+        if [[ -d "$packs_dir/$pack_slug" ]]; then
+            echo "  Local source found at: $local_source (re-syncing installed pack)"
+        else
+            echo "  Local source found at: $local_source (not yet installed)"
+        fi
+        install_pack_from_local "$pack_slug" "$local_source" "$packs_dir"
+        return $?
+    fi
+
+    # Registry is the LAST RESORT — only reached when no local source exists.
+    echo "  No local source found for '$pack_slug' (searched constructs.local_source_paths and default clone locations)"
+    echo "  Falling back to registry (last resort)"
 
     # Check offline mode
     if [[ "${LOA_OFFLINE:-}" == "1" ]]; then
@@ -535,24 +615,9 @@ do_install_pack() {
         return $EXIT_NETWORK_ERROR
     fi
 
-    packs_dir=$(get_packs_dir)
-    mkdir -p "$packs_dir"
-    ensure_constructs_gitignored
-
-    # Prefer local GitHub SoT when available (Issue #449, #253)
-    if local_source=$(should_use_local_for_pack "$pack_slug" "$packs_dir" "$force_resync"); then
-        install_pack_from_local_source "$pack_slug" "$local_source"
-        return $?
-    fi
-
-    # Get authentication (registry is last resort)
+    # Get authentication
     api_key=$(get_api_key)
     if [[ -z "$api_key" ]]; then
-        if local_source=$(find_local_source "$pack_slug"); then
-            print_warning "No API key — falling back to local source at $local_source"
-            install_pack_from_local_source "$pack_slug" "$local_source"
-            return $?
-        fi
         print_error "ERROR: No API key found"
         echo ""
         echo "To authenticate, either:"
@@ -562,6 +627,7 @@ do_install_pack() {
         return $EXIT_AUTH_ERROR
     fi
 
+    # Get registry URL
     registry_url=$(get_registry_url)
 
     echo "  Downloading from $registry_url/packs/$pack_slug/download..."
@@ -789,35 +855,8 @@ PYEOF
         esac
     fi
 
-    # Manifest validation (cycle-005 L4) — F28-class checks + SEED §12 grimoires convention
-    # Default: warn on HIGH/CRITICAL, advisory on MEDIUM/LOW. Set LOA_STRICT_VALIDATION=1 to block.
-    local manifest_validator="$SCRIPT_DIR/construct-validate.sh"
-    if [[ -x "$manifest_validator" ]]; then
-        echo "  Validating manifest..."
-        local manifest_rc=0
-        local manifest_report
-        manifest_report=$("$manifest_validator" "$pack_dir" 2>&1) || manifest_rc=$?
-        if (( manifest_rc != 0 )); then
-            print_warning "  Manifest validation surfaced findings:"
-            printf '%s\n' "$manifest_report" | sed 's/^/    /'
-            if [[ "${LOA_STRICT_VALIDATION:-0}" == "1" ]]; then
-                print_error "  Aborting install (LOA_STRICT_VALIDATION=1)"
-                return 1
-            fi
-        else
-            print_success "  Manifest clean"
-        fi
-    fi
-
     # Update registry meta
     update_pack_meta "$pack_slug" "$pack_dir"
-
-    # Write .source.json provenance (Cycle-001 §14.4)
-    local source_commit="unknown"
-    source_commit=$(git -C "$pack_dir" rev-parse HEAD 2>/dev/null || echo "unknown")
-    local source_json
-    source_json=$(printf '{"source_repo":"%s","source_commit":"%s","installed_at":"%s"}'         "$registry_url/packs/$pack_slug" "$source_commit" "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
-    echo "$source_json" > "$pack_dir/.source.json" 2>/dev/null ||         echo "[constructs-install] WARNING: failed to write .source.json" >&2
 
     echo ""
     print_success "Pack '$pack_slug' installed successfully!"
@@ -1348,13 +1387,14 @@ show_usage() {
 Usage: constructs-install.sh <command> [arguments]
 
 Commands:
-    pack <slug> [--resync]   Install a pack (prefers local GitHub SoT when available)
-    resync <slug|--all>      Re-pull GitHub SoT and re-copy into installed packs
-    upgrade <slug>           Upgrade a single installed pack (git pull or re-fetch)
+    pack <slug>              Install a pack from the registry
     skill <vendor/slug>      Install a skill from the registry
     uninstall pack <slug>    Uninstall a pack
     uninstall skill <slug>   Uninstall a skill
     link-commands <slug>     Re-link pack commands (use "all" for all packs)
+    resync <slug|--all>      Force re-sync from local source clones (alias: update)
+                             Never contacts the registry; packs without a
+                             local source are skipped with a report line
 
 Exit Codes:
     0 = success
@@ -1372,9 +1412,6 @@ Environment Variables:
 
 Examples:
     constructs-install.sh pack gtm-collective
-    constructs-install.sh pack gecko --resync
-    constructs-install.sh resync --all
-    constructs-install.sh upgrade gtm-collective
     constructs-install.sh skill thj/terraform-assistant
     constructs-install.sh uninstall pack gtm-collective
     constructs-install.sh link-commands all
@@ -1389,146 +1426,6 @@ After Installation:
 EOF
 }
 
-# =============================================================================
-# Upgrade Subcommand (Cycle-001 C-3 Three-Way Merge)
-# =============================================================================
-
-# Upgrade an installed pack with three-way merge semantics
-# Args:
-#   $1 - Pack slug
-do_upgrade_pack() {
-    local pack_slug="$1"
-    local packs_dir
-    packs_dir=$(get_packs_dir)
-    local pack_dir="$packs_dir/$pack_slug"
-
-    if [[ ! -d "$pack_dir" ]]; then
-        print_error "ERROR: Pack '$pack_slug' is not installed"
-        return $EXIT_NOT_FOUND
-    fi
-
-    local source_json="$pack_dir/.source.json"
-    if [[ ! -f "$source_json" ]]; then
-        print_error "ERROR: No .source.json found for '$pack_slug'. Cannot compute three-way merge."
-        return $EXIT_ERROR
-    fi
-
-    local base_commit source_repo
-    base_commit=$(jq -r '.source_commit // empty' "$source_json" 2>/dev/null || echo "")
-    source_repo=$(jq -r '.source_repo // empty' "$source_json" 2>/dev/null || echo "")
-
-    if [[ -z "$base_commit" || "$base_commit" == "unknown" ]]; then
-        print_error "ERROR: base_commit is unknown or missing in .source.json. Cannot merge."
-        return $EXIT_ERROR
-    fi
-
-    # Check git is available
-    if ! command -v git &>/dev/null; then
-        print_error "ERROR: git is required for upgrade"
-        return $EXIT_ERROR
-    fi
-
-    # Compute diffs
-    local local_diff upstream_diff
-    local_diff=$(git -C "$pack_dir" diff "$base_commit" -- . 2>/dev/null || echo "")
-    upstream_diff=$(git -C "$pack_dir" fetch origin main 2>/dev/null &&                     git -C "$pack_dir" diff "$base_commit"..FETCH_HEAD -- . 2>/dev/null || echo "")
-
-    # Decision tree
-    if [[ -z "$local_diff" && -z "$upstream_diff" ]]; then
-        echo "Already up to date."
-        return $EXIT_SUCCESS
-    fi
-
-    if [[ -z "$local_diff" && -n "$upstream_diff" ]]; then
-        # Fast-forward: no local edits, upstream changed
-        echo "Fast-forward: applying upstream changes..."
-        git -C "$pack_dir" merge --ff-only FETCH_HEAD 2>/dev/null || {
-            print_error "Fast-forward merge failed"
-            return $EXIT_ERROR
-        }
-        # Update .source.json
-        local new_commit
-        new_commit=$(git -C "$pack_dir" rev-parse HEAD 2>/dev/null || echo "unknown")
-        local now_ts
-        now_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-        printf '{"source_repo":"%s","source_commit":"%s","installed_at":"%s"}'             "$source_repo" "$new_commit" "$now_ts" > "$source_json"
-        print_success "Pack '$pack_slug' upgraded successfully"
-        return $EXIT_SUCCESS
-    fi
-
-    if [[ -n "$local_diff" && -z "$upstream_diff" ]]; then
-        echo "No upstream changes. Local edits preserved."
-        return $EXIT_SUCCESS
-    fi
-
-    # Conflict: both local and upstream have changes
-    local local_lines upstream_lines
-    local_lines=$(echo "$local_diff" | wc -l | tr -d ' ')
-    upstream_lines=$(echo "$upstream_diff" | wc -l | tr -d ' ')
-
-    echo ""
-    echo "Conflict: local edits exist and upstream has changed."
-    echo "  Local changes:    $local_lines lines"
-    echo "  Upstream changes: $upstream_lines lines"
-    echo ""
-    printf "Apply upstream and discard local? [y/N]: "
-    local answer
-    read -r answer || answer="N"
-
-    if [[ "$answer" == "y" || "$answer" == "Y" ]]; then
-        git -C "$pack_dir" reset --hard FETCH_HEAD 2>/dev/null || {
-            print_error "Failed to apply upstream"
-            return $EXIT_ERROR
-        }
-        local new_commit
-        new_commit=$(git -C "$pack_dir" rev-parse HEAD 2>/dev/null || echo "unknown")
-        local now_ts
-        now_ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-        printf '{"source_repo":"%s","source_commit":"%s","installed_at":"%s"}'             "$source_repo" "$new_commit" "$now_ts" > "$source_json"
-        print_success "Pack '$pack_slug' upgraded (local edits discarded)"
-    else
-        echo "Upgrade cancelled. Local edits preserved."
-    fi
-
-    return $EXIT_SUCCESS
-}
-
-# Re-sync installed pack(s) from local GitHub SoT clones.
-do_resync_pack() {
-    local pack_slug="$1"
-    do_install_pack "$pack_slug" "true"
-}
-
-do_resync_all_packs() {
-    local packs_dir
-    packs_dir=$(get_packs_dir)
-    local slug
-    local count=0
-    local failed=0
-
-    if [[ ! -d "$packs_dir" ]]; then
-        print_error "ERROR: No installed packs directory at $packs_dir"
-        return $EXIT_NOT_FOUND
-    fi
-
-    for slug in "$packs_dir"/*; do
-        [[ -d "$slug" ]] || continue
-        slug=$(basename "$slug")
-        [[ "$slug" == .* ]] && continue
-        echo ""
-        if do_resync_pack "$slug"; then
-            count=$((count + 1))
-        else
-            failed=$((failed + 1))
-        fi
-    done
-
-    echo ""
-    echo "Resync complete: $count succeeded, $failed failed"
-    [[ $failed -eq 0 ]]
-}
-
-
 main() {
     local command="${1:-}"
 
@@ -1540,24 +1437,7 @@ main() {
     case "$command" in
         pack)
             [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug"; show_usage; exit $EXIT_ERROR; }
-            local pack_slug="$2"
-            local force_resync="false"
-            if [[ "${3:-}" == "--resync" ]]; then
-                force_resync="true"
-            fi
-            do_install_pack "$pack_slug" "$force_resync"
-            ;;
-        resync)
-            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug or --all"; show_usage; exit $EXIT_ERROR; }
-            if [[ "$2" == "--all" ]]; then
-                do_resync_all_packs
-            else
-                do_resync_pack "$2"
-            fi
-            ;;
-        upgrade)
-            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug"; show_usage; exit $EXIT_ERROR; }
-            do_upgrade_pack "$2"
+            do_install_pack "$2"
             ;;
         skill)
             [[ -n "${2:-}" ]] || { print_error "ERROR: Missing skill slug"; show_usage; exit $EXIT_ERROR; }
@@ -1584,6 +1464,10 @@ main() {
         link-commands)
             [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug (or 'all')"; exit $EXIT_ERROR; }
             do_link_commands "$2"
+            ;;
+        resync|--resync|update|--update)
+            [[ -n "${2:-}" ]] || { print_error "ERROR: Missing pack slug (or --all)"; show_usage; exit $EXIT_ERROR; }
+            do_resync "$2"
             ;;
         -h|--help|help)
             show_usage

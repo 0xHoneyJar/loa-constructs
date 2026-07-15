@@ -418,6 +418,18 @@ export const substrateStreamsSchema = z.object({
 }).passthrough();
 
 /**
+ * Territory stanza (cycle constructs-launcher-cli, PRD FR-13) — additive only,
+ * no schema_version bump. A construct MAY advertise which region outcomes it can
+ * service and the seams where it expects to be stationed. Purely declarative:
+ * an actual stationing lives in the REGION's own grimoires/territory.yaml and is
+ * gated by that region's git permissions — never by this manifest.
+ */
+export const territoryStanzaSchema = z.object({
+  serviceable_outcomes: z.array(z.string().min(1).max(100)).max(50).optional(),
+  seams: z.array(z.string().min(1).max(200)).max(50).optional(),
+}).passthrough();
+
+/**
  * Lifecycle hooks — constrained to safe script paths to prevent supply-chain attacks.
  * Only allows relative paths matching: scripts/<name>.sh or npm run <script>
  * @see Bridgebuilder Review CRITICAL-1: arbitrary command execution via hooks
@@ -524,6 +536,9 @@ export const packManifestSchema = z.object({
   composition_paths: compositionPathsSchema.optional(),
   governs: z.array(slugSchema).max(20).optional(),
   governed_by: z.array(slugSchema).max(20).optional(),
+
+  // Territory stanza (cycle constructs-launcher-cli, PRD FR-13)
+  territory: territoryStanzaSchema.optional(),
 
   // Inter-construct relationships (used in actual construct.yaml files)
   // Accepts: [{slug}], {optional: [{slug}]}, or {required: [{slug}], optional: [{slug}]}

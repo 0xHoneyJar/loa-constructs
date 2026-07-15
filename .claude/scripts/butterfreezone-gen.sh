@@ -30,12 +30,14 @@ SCRIPT_VERSION="1.0.0"
 # =============================================================================
 
 OUTPUT="BUTTERFREEZONE.md"
+OUTPUT_EXPLICIT="false"
 CONFIG_FILE=".loa.config.yaml"
 FORCED_TIER=""
 DRY_RUN="false"
 JSON_OUTPUT="false"
 VERBOSE="false"
 LOCK_FILE=""
+TO_STDOUT="false"
 
 # Detect project root
 PROJECT_ROOT=""
@@ -174,6 +176,7 @@ parse_args() {
         case "$1" in
             --output)
                 OUTPUT="$2"
+                OUTPUT_EXPLICIT="true"
                 shift 2
                 ;;
             --config)
@@ -189,6 +192,11 @@ parse_args() {
                 shift 2
                 ;;
             --dry-run)
+                DRY_RUN="true"
+                shift
+                ;;
+            --stdout)
+                TO_STDOUT="true"
                 DRY_RUN="true"
                 shift
                 ;;
@@ -423,7 +431,7 @@ describe_from_name() {
         sed 's/_/ /g' | \
         sed 's/\([a-z]\)\([A-Z]\)/\1 \2/g' | \
         tr '[:upper:]' '[:lower:]' | \
-        awk '{print toupper(substr($0,1,1)) substr($0,2)}' | \
+        ucfirst | \
         head -c 80
 }
 
@@ -442,12 +450,18 @@ extract_project_description() {
 
     # Strategy 2: README.md first real paragraph (skip title, badges, quotes, HTML comments)
     if [[ -z "$desc" || "$desc" == "null" ]] && [[ -f "README.md" ]]; then
+        # #1069 bug 3: skip markdown horizontal rules (---, ***, ___ and spaced
+        # variants) so a rule following a badge row is not captured as the
+        # description (observed downstream: "purpose: ---").
         desc=$(awk '
             /^#/{next}
             /^\[!\[/{next}
             /^>/{next}
             /<!--/{skip=1; next} /-->/{skip=0; next}
             skip{next}
+            /^[[:space:]]*-[[:space:]]*-[[:space:]]*-([[:space:]]*-)*[[:space:]]*$/{next}
+            /^[[:space:]]*\*[[:space:]]*\*[[:space:]]*\*([[:space:]]*\*)*[[:space:]]*$/{next}
+            /^[[:space:]]*_[[:space:]]*_[[:space:]]*_([[:space:]]*_)*[[:space:]]*$/{next}
             /^[[:space:]]*$/{if(found) exit; next}
             {found=1; printf "%s ", $0}
         ' README.md 2>/dev/null | sed 's/ *$//' | cut -c1-220 | sed 's/ [^ ]*$//' | \
@@ -582,9 +596,8 @@ infer_module_purpose() {
     fi
 
     # Strategy 4: Capitalize directory name as last resort
-    # Use portable awk (BSD sed has no `\U` capitalize escape — issue #244 bug 3a).
     if [[ -z "$purpose" ]]; then
-        purpose=$(echo "$dname" | sed 's/[-_]/ /g' | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+        purpose=$(echo "$dname" | sed 's/[-_]/ /g' | ucfirst)
     fi
 
     echo "$purpose"
@@ -982,8 +995,26 @@ extract_capabilities() {
         local grimoire_dir
         grimoire_dir=$(get_config_value "paths.grimoire" "grimoires/loa")
         if [[ -f "${grimoire_dir}/reality/api-surface.md" ]]; then
+            # #1069 bug 1: reality/api-surface.md is frequently authored as
+            # markdown TABLES (rows start with '|'). The old grep kept only
+            # bullet/header lines, dropping every table row -> empty
+            # capabilities -> sparse output that failed min_words. Include table
+            # rows and lift each into a bullet, skipping the |---|---| separator.
             caps=$(head -50 "${grimoire_dir}/reality/api-surface.md" 2>/dev/null | \
-                grep -E '^[-*]|^#+' | head -20) || true
+                grep -E '^[-*]|^#+|^\|' | \
+                sed -E 's/^(#+) /##\1 /' | \
+                awk '
+                    /^[[:space:]|:-]+$/ { next }
+                    /^\|/ {
+                        line = $0
+                        sub(/^\|[[:space:]]*/, "", line)
+                        sub(/[[:space:]]*\|[[:space:]]*$/, "", line)
+                        gsub(/[[:space:]]*\|[[:space:]]*/, " — ", line)
+                        print "- " line
+                        next
+                    }
+                    { print }
+                ' | head -20) || true
         fi
     fi
 
@@ -1339,7 +1370,7 @@ extract_interfaces() {
         local grimoire_dir
         grimoire_dir=$(get_config_value "paths.grimoire" "grimoires/loa")
         if [[ -f "${grimoire_dir}/reality/contracts.md" ]]; then
-            ifaces=$(head -50 "${grimoire_dir}/reality/contracts.md" 2>/dev/null) || true
+            ifaces=$(head -50 "${grimoire_dir}/reality/contracts.md" 2>/dev/null | sed -E 's/^(#+) /##\1 /') || true
         fi
     fi
 
@@ -1408,7 +1439,7 @@ extract_interfaces() {
 
                 # Strategy 3: Synthesize from directory name
                 if [[ -z "$skill_desc" ]]; then
-                    skill_desc=$(echo "$sname" | sed 's/-/ /g' | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+                    skill_desc=$(echo "$sname" | sed 's/-/ /g' | ucfirst)
                 fi
 
                 local provenance_class
@@ -1803,7 +1834,7 @@ extract_persona_agents() {
 
         # Extract heading
         agent_name=$(grep -m1 '^# ' "$pf" 2>/dev/null | sed 's/^# //') || true
-        [[ -z "$agent_name" ]] && agent_name=$(basename "$pf" | sed 's/-persona\.md//' | sed 's/-/ /g' | awk '{print toupper(substr($0,1,1)) substr($0,2)}')
+        [[ -z "$agent_name" ]] && agent_name=$(basename "$pf" | sed 's/-persona\.md//' | sed 's/-/ /g' | ucfirst)
 
         # Extract Identity first sentence (sentence boundary, then char safety limit)
         identity=$(awk '/^## Identity/{f=1;next} f && /^##/{exit} f && /^[[:space:]]*$/{next} f{print;exit}' \
@@ -2179,7 +2210,7 @@ generate_ground_truth_meta() {
         content=$(extract_section_content "$document" "$section")
         if [[ -n "$content" ]]; then
             local hash
-            hash=$(printf '%s' "$content" | sha256sum | awk '{print $1}')
+            hash=$(printf '%s' "$content" | sha256_portable | awk '{print $1}')
             checksums="${checksums}
   ${section}: ${hash}"
         fi
@@ -2318,29 +2349,26 @@ assemble_sections() {
 # =============================================================================
 
 main() {
-    # Skill-pack auto-routing (issue #244 bug #3 + Ask #1):
-    # When invoked in a construct repo (construct.yaml at root with
-    # `type: skill-pack`), the generic generator produces wrong-shape
-    # output for every field. Detect and delegate to construct-gen with
-    # the user's args passed through verbatim. `exec` replaces the
-    # current process so stdin/stdout/exit code flow through cleanly.
-    if [[ -f "construct.yaml" ]] && command -v yq >/dev/null 2>&1; then
-        if yq -e '.type == "skill-pack"' construct.yaml >/dev/null 2>&1; then
-            local _self_dir
-            _self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-            local _construct_gen="$_self_dir/butterfreezone-construct-gen.sh"
-            if [[ -x "$_construct_gen" ]]; then
-                # Construct-gen expects the pack directory as its first
-                # positional argument, not the same flag shape as the
-                # generic gen. Default to `.` (cwd) but forward any user
-                # flags so --stdout / --dry-run / --timestamp / --output
-                # still apply.
-                exec "$_construct_gen" "." "$@"
-            fi
+    parse_args "$@"
+
+    # A repository-level skill pack has a different operator contract from a
+    # generic codebase. Route it to the construct generator before generic
+    # extraction so the output preserves construct identity and composition.
+    if [[ -f "$PROJECT_ROOT/construct.yaml" ]] \
+        && command -v yq >/dev/null 2>&1 \
+        && [[ "$(yq -r '.type // ""' "$PROJECT_ROOT/construct.yaml" 2>/dev/null || true)" == "skill-pack" ]]; then
+        construct_args=("$PROJECT_ROOT")
+        if [[ "$TO_STDOUT" == "true" ]]; then
+            construct_args+=(--stdout)
+        elif [[ "$DRY_RUN" == "true" ]]; then
+            construct_args+=(--dry-run)
         fi
+        if [[ "$OUTPUT_EXPLICIT" == "true" ]]; then
+            construct_args+=(--output "$OUTPUT")
+        fi
+        exec "${SCRIPT_DIR}/butterfreezone-construct-gen.sh" "${construct_args[@]}"
     fi
 
-    parse_args "$@"
     load_config
 
     # Concurrency lock (skip for dry-run)

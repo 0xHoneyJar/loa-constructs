@@ -22,6 +22,13 @@
 # A jq failure must result in exit 0 (allow), not an error.
 # Fail-open with logging is the standard pattern for inline security hooks.
 #
+# perf pass-2 (2026-07-05, skill-loop): jq reads the hook's stdin directly
+# (no cat spawn / echo-pipe); the C-TEAM-003 grep is a bash [[ =~ ]] over
+# grep's per-line model (a file_path containing a newline must keep matching
+# per line — the pattern is ^…$-anchored). git rev-parse and realpath are
+# KEPT (repo-root discovery and symlink resolution are load-bearing); jq is
+# untouched (pass-3 scope).
+#
 # Registered in settings.hooks.json as PreToolUse matcher: "Write", "Edit"
 # Part of Agent Teams Compatibility (cycle-020, issue #337)
 # Source: Bridgebuilder Horizon Review Section VI.1 (PR #341)
@@ -33,9 +40,12 @@ if [[ -z "${LOA_TEAM_MEMBER:-}" ]]; then
   exit 0
 fi
 
+# perf pass-2: pin byte-oriented ASCII regex semantics (pattern is pure
+# ASCII; matches what the test/golden harness already pins).
+export LC_ALL=C
+
 # Read tool input from stdin (JSON with tool_input.file_path)
-input=$(cat)
-file_path=$(echo "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null) || true
+file_path=$(jq -r '.tool_input.file_path // empty' 2>/dev/null) || true
 
 # If we can't parse the file path, allow (don't block on parse errors)
 if [[ -z "$file_path" ]]; then
@@ -115,12 +125,24 @@ fi
 # Does NOT match: .run/bugs/*/state.json (teammate-owned subdirectories)
 # Does NOT match: .run/audit.jsonl (append-only, but Write tool is full replace)
 # Does NOT match: .run/bridge-reviews/*.md (review output files)
+# perf pass-2: was `echo | grep -qE`. The [[ =~ ]] test runs over grep's
+# per-line model (pattern is ^…$-anchored; a newline-embedded path must
+# still match on the line that IS a state-file path, exactly as grep did).
 # ---------------------------------------------------------------------------
-if echo "$file_path" | grep -qE '^\.run/[^/]+\.json$' 2>/dev/null; then
-  echo "BLOCKED [team-role-guard-write]: Writing to .run/ state files is lead-only in Agent Teams mode (C-TEAM-003)." >&2
-  echo "Teammate '$LOA_TEAM_MEMBER' cannot modify state files. Report status to the lead via SendMessage." >&2
-  exit 2
+_re_run_state='^\.run/[^/]+\.json$'
+_fp_lines=()
+if [[ "$file_path" == *$'\n'* ]]; then
+  mapfile -t _fp_lines <<<"${file_path%$'\n'}"
+else
+  _fp_lines=("$file_path")
 fi
+for _l in "${_fp_lines[@]}"; do
+  if [[ "$_l" =~ $_re_run_state ]]; then
+    echo "BLOCKED [team-role-guard-write]: Writing to .run/ state files is lead-only in Agent Teams mode (C-TEAM-003)." >&2
+    echo "Teammate '$LOA_TEAM_MEMBER' cannot modify state files. Report status to the lead via SendMessage." >&2
+    exit 2
+  fi
+done
 
 # ---------------------------------------------------------------------------
 # Append-Only File Protection

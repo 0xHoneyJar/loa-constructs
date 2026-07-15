@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://0xhoneyjar.github.io/loa-constructs/schemas/observation.schema.json",
+  "title": "Governed Observation (payload)",
+  "description": "The payload of one governed observation — the afferent nerve (PRD FR-14). The row itself rides the audit substrate's envelope (emitted via the REGION's own audit-envelope.sh into a per-actor JSONL segment; one writer per file, so appends are always local and merges always clean). This schema governs the payload the envelope carries.",
+  "type": "object",
+  "required": ["region", "outcome_id", "construct", "evidence", "body", "confidence", "actor"],
+  "additionalProperties": false,
+  "properties": {
+    "region": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "outcome_id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$",
+      "description": "MUST resolve against the region manifest's declared outcomes — an observation about an undeclared outcome is refused at the door."
+    },
+    "construct": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "description": "file:line citations. An observation without evidence is an opinion.",
+      "items": { "type": "string", "pattern": "^[^\\s:]+:[0-9]+$", "maxLength": 300 }
+    },
+    "body": { "type": "string", "minLength": 8, "maxLength": 2000 },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "actor": { "type": "string", "pattern": "^[A-Za-z0-9._@-]{1,64}$" }
+  }
+}

@@ -1423,3 +1423,86 @@ Result: `bats / ubuntu-latest: pass` (46s) + `bats / macos-latest: pass` (47s).
 PR #245 statusCheckRollup shows `Vercel: failure` for the `loa-constructs-explorer` deployment. Confirmed via `gh api .../commits/main/status` that this was failing on main HEAD BEFORE this PR. Out of sprint scope.
 
 Sprint reviewer report: `grimoires/loa/a2a/bug-20260517-i244-9c87bf/reviewer.md` (AC verification inline).
+
+## Session Continuity — 2026-07-12 (/ride --enriched refresh)
+
+Full enriched ride of loa-constructs (branch `implement/backlog-triage`, HEAD 473bf19c, Loa 1.196.0). Prior ride was 68 days stale. All 15 artifacts verified on disk.
+
+**What the code IS** (grounded): Turbo+bun monorepo. `apps/api` = Hono/Railway registry API, ~116 endpoints / 21 routers under `/v1`, 35 Drizzle Postgres tables. `packages/loa-registry` = standalone `constructs` CLI. Auth: HS256 session JWT + bcrypt(12) + API keys + OAuth + Dynamic wallet; RS256 only on license/public-key path. External: Redis/Upstash, R2, Stripe(+Connect), Convex(fire-and-forget), Resend, Sentry, GitHub git-sync.
+
+**Drift score: moderate-high (41% aligned)** — concentrated in release/version tooling, NOT app logic.
+
+**Decision Log (this ride):**
+- Reconciled route count 236 (naive grep incl. tests) → ~116 (hand-count excl. tests) across reality files + drift report.
+- Disproved stale MEMORY.md claim "packs has no category column" — column exists (schema.ts:594).
+- 6 ride artifacts (drift/consistency/governance/gaps/decisions/INVENTORY) were pre-existing from a concurrent/prior ride today; spot-verified their distinctive claims against code, adopted + reconciled (added 3rd migration dir, D-16 Dockerfile/nixpacks conflict).
+
+**Technical Debt / gaps surfaced (see gaps.md GAP-001..016, hygiene H-1..13):**
+- GAP-001: THREE migration dirs with colliding numbers + snapshot/journal mismatch — which set is prod's? (HIGH)
+- GAP-002: Stripe layer in-repo vs README N-rails "NONE live here" invariant — DISPUTED (HIGH)
+- GAP-004: version-sync pipeline stalled — README badge/CHANGELOG at v2.41.0, tags at v2.50.4 (~9 minors) (HIGH)
+- GAP-010: /update-loa force-restore removed ~10 `constructs-*.sh` + feedback scripts (in .claude.backup.*) — restore route undecided (HIGH)
+- D-16: Dockerfile(bun) vs nixpacks.toml(npm) — dual build systems, which does Railway use?
+- H-4/H-5/H-6: committed local.db (SQLite in Postgres app), apps/api/package-lock.json (npm in bun repo), 9 tracked .pyc
+- Dead code: top-level `api/{checkout,subscription,webhook}` Stripe stubs (orphaned, superseded by apps/api/src/routes/).
+
+**Artifacts**: grimoires/loa/{prd,sdd,drift-report,consistency-report,governance-report,trajectory-audit,gaps}.md + reality/{index,architecture-overview,structure,api-surface,types,interfaces,entry-points,terminology,decisions,over-engineering,hygiene-report}.md. Query via /reality.
+
+## Discovery — constructs launcher CLI (2026-07-12, /plan-and-analyze in flight)
+
+**Phase 1 CONFIRMED + EXPANDED by operator.** Problem is not just CLI fragmentation — it is territory legibility for agents ahead of massive onboarding/data intake: zones (who writes where) × topology (what composes) × environment (what may I do here). Vision: constructs that OWN regions (SAATY→score-api; EVANS at seams), CLI as the navigation/stationing organ. Full synthesis: `context/territory-model-addendum.md` (supplements `context/constructs-launcher-cli-brief.md`).
+
+**Live evidence this cycle**: v1.196 update swap deleted 392 project-zone files despite zones.yaml declaring them protected (restored, commit 917fc6a7) — the zone stratum's prose-wall failure, in vivo. Upstream #818 (zone-aware update filter) is the missing tooth.
+
+- [ ] [DECISION PENDING] Phase 2: success metrics for this cycle
+- [ ] Forks for Phase 4/5: seed-vs-greenfield · constructs-cli repo fate · SoT collision (registry.yaml/API/index) · scope (CLI-only vs +24 shell scripts) · territory: stanza (additive schema)
+
+## [BLOCKER] Red-team infra defective (2026-07-12, simstim phase 4.5)
+
+Two independent failures found while red-teaming the constructs-CLI SDD:
+1. **Silent mock fallback**: `red-team-pipeline.sh::resolve_adapter_mode()` (+ the
+   twin in `red-team-model-adapter.sh::detect_default_mode`) gates live mode on
+   `has_any_api_key` — an env API key. On CLI-subscription auth (our whole flatline
+   bench) this is FALSE, so red-team silently ran **fixture data** (ATK-F01 "SQL
+   Injection via Personality Field") and the grounding guard then halted on the
+   off-target fixtures. This is the pre-T3.7 legacy path CLAUDE.md documents as
+   pending removal — but it currently produces a CONFIDENT WRONG ARTIFACT, not a
+   refusal. Fix: gate on model-invoke reachability, not key presence.
+2. **Live path yields zero attacks**: with red_team models pinned to the CLI bench
+   (codex/cursor/claude-headless) + `hounfour.flatline_routing: true`, the run
+   completes exit 0 with 0 attacks, 0 tokens (`phase1_attacks_ms: 0`) — the
+   attacker's output isn't parsed/passed through. Zero attacks reads as "secure"
+   in the summary table; it is actually "tool did not run" (never-silent-fail
+   violation).
+
+Red-team was SKIPPED for this cycle (advisory phase). Security coverage for the
+SDD came from: Flatline PRD ×2 (24 blockers), Bridgebuilder design review (7),
+Flatline SDD (19 blockers incl. 5 CRITICAL supply-chain/authority). File upstream.
+
+## Decision Log — 2026-07-13 (sprint-229, T3.8)
+
+**T3.8 fold is ⚠ Partial by deliberate scope-split, not by omission.**
+
+- **PRD assumption corrected**: FR-16 planned `npm deprecate` on `constructs-cli`.
+  The package was **never published** (`npm view constructs-cli` → E404). There is
+  nothing on npm to deprecate and no npm consumer to warn. The "final redirect
+  release" reduces to the in-repo pointer, which is authored.
+- **Done autonomously** (reversible, reviewable): deprecation pointer in
+  `constructs-cli/src/index.ts` (stderr-only, behavior unchanged, silenceable),
+  README archive banner, migration note with rollback criteria
+  (`docs/migration-constructs-cli-fold.md`). Committed locally as `7a56e0a` on
+  that repo's `main`, **unpushed**.
+- **Deferred to the operator** (public, hard-to-reverse, on an EXTERNAL repo — outside
+  this run's draft-PR safety model): `git push origin main` in constructs-cli, and
+  `gh repo archive 0xHoneyJar/constructs-cli`. Tracked: **bd-7jx7**.
+- **Rollback is cheap by construction**: archive is reversible, the redirect is one
+  revertable commit, and the absorbed git-native install lane lives in
+  `lib/install.mjs` regardless of the old repo's state.
+
+**Other cycle discoveries filed upstream**: `bd-mcyn` (graduated-trust-lib token regex
+`{1,256}` exceeds macOS `RE_DUP_MAX=255` — every token rejected on macOS), `bd-ccnu`
+(operator-identity.sh repo-root off-by-one makes strict-mode L6 verify_operators always
+reject), `bd-jtns` (trust-store declares a signature cutoff with zero writer keys, so
+post-cutoff envelopes are unverifiable in default mode until key bootstrap; envelope
+schema has no TERRITORY primitive — observations ride L5), `bd-3t9k` (sprint-227 T1.9
+left no launcher artifacts in-tree).

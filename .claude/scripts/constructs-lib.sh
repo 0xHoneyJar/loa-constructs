@@ -22,6 +22,10 @@ set -euo pipefail
 #   $1 - Config key under registry section (e.g., "enabled", "default_url")
 #   $2 - Default value if key not found
 # Returns: Config value or default
+
+# sprint-bug-172 / bug-911: sha256_portable from compat-lib
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/compat-lib.sh"
+
 get_registry_config() {
     local key="$1"
     local default="${2:-}"
@@ -584,12 +588,47 @@ find_local_source() {
 
     for path in "${search_paths[@]}"; do
         if [[ -d "$path" && ( -f "$path/construct.yaml" || -f "$path/manifest.json" ) ]]; then
-            echo "$path"
-            return 0
+            # bd-mjd: a candidate dir must MATCH the requested slug — without
+            # this, every configured local_source_paths entry satisfied every
+            # slug, and the first existing dir won (post-#1021 that mirrors
+            # the WRONG pack's content over an installed pack). Default paths
+            # embed the slug, so they pass the basename check unchanged.
+            if _local_source_matches_slug "$path" "$slug"; then
+                echo "$path"
+                return 0
+            fi
         fi
     done
 
     return 1
+}
+
+# Does a candidate local-source dir belong to the requested slug? (bd-mjd)
+# Accepts: basename `construct-<slug>` or `<slug>` (case-insensitive), OR a
+# declared name/slug in the dir's construct.yaml (.name) / manifest.json
+# (.slug, falling back to .name) equal to the slug case-insensitively.
+# Args: $1 = candidate dir, $2 = requested slug
+_local_source_matches_slug() {
+    local path="$1"
+    local slug="$2"
+
+    local slug_lc base_lc
+    slug_lc=$(printf '%s' "$slug" | tr '[:upper:]' '[:lower:]')
+    base_lc=$(basename "$path" | tr '[:upper:]' '[:lower:]')
+    if [[ "$base_lc" == "construct-$slug_lc" || "$base_lc" == "$slug_lc" ]]; then
+        return 0
+    fi
+
+    local declared=""
+    if [[ -f "$path/construct.yaml" ]]; then
+        declared=$(yq eval '.name // ""' "$path/construct.yaml" 2>/dev/null) || declared=""
+    fi
+    if [[ -z "$declared" && -f "$path/manifest.json" ]]; then
+        declared=$(jq -r '.slug // .name // ""' "$path/manifest.json" 2>/dev/null) || declared=""
+    fi
+    declared=$(printf '%s' "$declared" | tr '[:upper:]' '[:lower:]')
+
+    [[ -n "$declared" && "$declared" == "$slug_lc" ]]
 }
 
 # Update registry meta file
@@ -900,14 +939,10 @@ verify_content_hash() {
         return 1
     fi
 
-    # Calculate SHA256 (portable: works on Linux and macOS)
+    # sprint-bug-172: sha256_portable handles GNU/BSD/fail-loud dispatch.
     local actual_hash
-    if command -v sha256sum &>/dev/null; then
-        # Linux
-        actual_hash=$(sha256sum "$file" | cut -d' ' -f1)
-    elif command -v shasum &>/dev/null; then
-        # macOS
-        actual_hash=$(shasum -a 256 "$file" | cut -d' ' -f1)
+    if [[ -n "${_COMPAT_SHA256_CMD:-}" ]]; then
+        actual_hash=$(sha256_portable "$file" | cut -d' ' -f1)
     else
         print_warning "  No SHA256 tool available, skipping verification"
         return 0
@@ -936,10 +971,9 @@ calculate_file_hash() {
         return 1
     fi
 
-    if command -v sha256sum &>/dev/null; then
-        sha256sum "$file" | cut -d' ' -f1
-    elif command -v shasum &>/dev/null; then
-        shasum -a 256 "$file" | cut -d' ' -f1
+    # sprint-bug-172: sha256_portable handles GNU/BSD/fail-loud dispatch.
+    if [[ -n "${_COMPAT_SHA256_CMD:-}" ]]; then
+        sha256_portable "$file" | cut -d' ' -f1
     else
         echo ""
         return 1
@@ -1156,362 +1190,4 @@ secure_write_json() {
     local formatted
     formatted=$(echo "$content" | jq '.')
     secure_write_file "$file_path" "$formatted" "$mode"
-}
-
-# ── .construct/ Shadow Directory Helpers (cycle-032, FR-1) ──────────────────
-
-# Get the .construct directory path for the current project
-get_construct_dir() {
-    echo ".construct"
-}
-
-# Lazy-initialize the .construct directory structure
-# Creates: .construct/{shadow,links,cache/merkle,cache/tmp}
-# Creates: .construct/state.json with schema_version 1
-# Adds .construct/ to .gitignore if in a git repo
-ensure_construct_dir() {
-    local construct_dir
-    construct_dir="$(get_construct_dir)"
-
-    if [[ -d "$construct_dir" ]]; then
-        return 0
-    fi
-
-    mkdir -p "$construct_dir/shadow"
-    mkdir -p "$construct_dir/links"
-    mkdir -p "$construct_dir/cache/merkle"
-    mkdir -p "$construct_dir/cache/tmp"
-
-    # Initialize state.json
-    local state_json
-    state_json=$(cat <<'STATEEOF'
-{
-  "schema_version": 1,
-  "linked": {},
-  "shadow": {},
-  "last_updated": null
-}
-STATEEOF
-)
-    secure_write_json "$construct_dir/state.json" "$state_json" "600"
-
-    # Add to .gitignore if in a git repo
-    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        local gitignore
-        gitignore="$(git rev-parse --show-toplevel)/.gitignore"
-        if [[ -f "$gitignore" ]]; then
-            if ! grep -qxF '.construct/' "$gitignore" 2>/dev/null; then
-                echo '.construct/' >> "$gitignore"
-            fi
-        else
-            echo '.construct/' > "$gitignore"
-        fi
-    fi
-
-    print_status "Initialized .construct/ directory"
-}
-
-# Copy installed pack version to shadow for divergence detection
-# Usage: preserve_shadow <slug> <source_dir>
-preserve_shadow() {
-    local slug="$1"
-    local source_dir="$2"
-
-    validate_safe_identifier "$slug" || return 1
-
-    ensure_construct_dir
-
-    local construct_dir
-    construct_dir="$(get_construct_dir)"
-    local shadow_dir="$construct_dir/shadow/$slug"
-
-    # Remove existing shadow
-    rm -rf "$shadow_dir"
-    mkdir -p "$shadow_dir"
-
-    # Copy files (excluding .git)
-    if command -v rsync >/dev/null 2>&1; then
-        rsync -a --exclude='.git' "$source_dir/" "$shadow_dir/"
-    else
-        # Fallback: cp -R with manual .git exclusion
-        cp -R "$source_dir/." "$shadow_dir/"
-        rm -rf "$shadow_dir/.git"
-    fi
-
-    # Compute and cache Merkle root hash
-    local hash
-    hash=$(compute_merkle_hash "$shadow_dir")
-    echo "$hash" > "$construct_dir/cache/merkle/$slug.hash"
-
-    # Update shadow metadata in state.json
-    update_state_shadow "$slug" "$hash"
-
-    print_status "Shadow preserved for $slug (hash: ${hash:0:12}...)"
-}
-
-# Compute deterministic SHA-256 Merkle root hash for a directory
-# Produces identical hashes cross-platform (GNU/BSD)
-# Usage: compute_merkle_hash <directory>
-compute_merkle_hash() {
-    local dir="$1"
-
-    if [[ ! -d "$dir" ]]; then
-        print_error "Directory not found: $dir"
-        return 1
-    fi
-
-    # Collect all file hashes in deterministic order (LC_ALL=C sort)
-    local hash_input=""
-    while IFS= read -r -d '' file; do
-        local rel_path="${file#$dir/}"
-        local file_hash
-        file_hash=$(compute_file_sha256 "$file")
-        hash_input="${hash_input}${rel_path}:${file_hash}\n"
-    done < <(find "$dir" -type f -not -path '*/.git/*' -print0 | LC_ALL=C sort -z)
-
-    # Hash the concatenated file list
-    if [[ -z "$hash_input" ]]; then
-        echo "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-        return 0
-    fi
-
-    local root_hash
-    root_hash=$(printf '%b' "$hash_input" | compute_sha256_stdin)
-    echo "sha256:$root_hash"
-}
-
-# Internal: compute SHA-256 of a file (cross-platform)
-compute_file_sha256() {
-    local file="$1"
-    if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum "$file" | cut -d' ' -f1
-    elif command -v shasum >/dev/null 2>&1; then
-        shasum -a 256 "$file" | cut -d' ' -f1
-    else
-        print_error "No SHA-256 tool available"
-        return 1
-    fi
-}
-
-# Internal: compute SHA-256 of stdin
-compute_sha256_stdin() {
-    if command -v sha256sum >/dev/null 2>&1; then
-        sha256sum | cut -d' ' -f1
-    elif command -v shasum >/dev/null 2>&1; then
-        shasum -a 256 | cut -d' ' -f1
-    else
-        print_error "No SHA-256 tool available"
-        return 1
-    fi
-}
-
-# Update state.json with link information
-# Usage: update_state_link <slug> <target_path>
-update_state_link() {
-    local slug="$1"
-    local target_path="$2"
-    local construct_dir
-    construct_dir="$(get_construct_dir)"
-    local state_file="$construct_dir/state.json"
-
-    if [[ ! -f "$state_file" ]]; then
-        ensure_construct_dir
-    fi
-
-    local now
-    now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-    local updated
-    updated=$(jq \
-        --arg slug "$slug" \
-        --arg path "$target_path" \
-        --arg now "$now" \
-        '.linked[$slug] = {"path": $path, "linked_at": $now} | .last_updated = $now' \
-        "$state_file")
-
-    secure_write_json "$state_file" "$updated" "600"
-}
-
-# Remove a link from state.json
-# Usage: remove_state_link <slug>
-remove_state_link() {
-    local slug="$1"
-    local construct_dir
-    construct_dir="$(get_construct_dir)"
-    local state_file="$construct_dir/state.json"
-
-    if [[ ! -f "$state_file" ]]; then
-        return 0
-    fi
-
-    local now
-    now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-    local updated
-    updated=$(jq \
-        --arg slug "$slug" \
-        --arg now "$now" \
-        'del(.linked[$slug]) | .last_updated = $now' \
-        "$state_file")
-
-    secure_write_json "$state_file" "$updated" "600"
-}
-
-# Update shadow metadata in state.json
-# Usage: update_state_shadow <slug> <hash>
-update_state_shadow() {
-    local slug="$1"
-    local hash="$2"
-    local construct_dir
-    construct_dir="$(get_construct_dir)"
-    local state_file="$construct_dir/state.json"
-
-    if [[ ! -f "$state_file" ]]; then
-        ensure_construct_dir
-    fi
-
-    local now
-    now=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-    local updated
-    updated=$(jq \
-        --arg slug "$slug" \
-        --arg hash "$hash" \
-        --arg now "$now" \
-        '.shadow[$slug] = {"hash": $hash, "preserved_at": $now} | .last_updated = $now' \
-        "$state_file")
-
-    secure_write_json "$state_file" "$updated" "600"
-}
-
-# =============================================================================
-# Output Format Routing (cycle-037, SDD §2.2)
-# =============================================================================
-
-# Read output_format.tabular from config
-# Returns: "md" (default), "toon", or "json"
-get_output_format() {
-    local config_file=".loa.config.yaml"
-    local default="md"
-
-    if [[ ! -f "$config_file" ]] || ! command -v yq &>/dev/null; then
-        echo "$default"
-        return 0
-    fi
-
-    local value
-    value=$(yq eval '.output_format.tabular // "md"' "$config_file" 2>/dev/null) || {
-        echo "$default"
-        return 0
-    }
-
-    # Validate enum
-    case "$value" in
-        md|toon|json) echo "$value" ;;
-        *) echo "$default" ;;
-    esac
-}
-
-# Route tabular output through the configured format
-# Args:
-#   $1 = label (e.g., "packs")
-#   $2 = JSON array of uniform objects (TOON-shaped: flat keys, uniform)
-#   $3 = original payload (passed to fallback_fn unchanged — preserves input contract)
-#   $4 = fallback function name (called when format is "md" or TOON fails)
-# Stdout: formatted output
-format_tabular_output() {
-    local label="$1"
-    local tabular_json="$2"
-    local original_payload="$3"
-    local fallback_fn="$4"
-
-    local fmt
-    fmt=$(get_output_format)
-
-    case "$fmt" in
-        toon)
-            # Source toon-lib if not already loaded (guard prevents re-parsing)
-            local script_dir
-            script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-            if [[ -f "$script_dir/lib/toon-lib.sh" ]]; then
-                if [[ -z "${_TOON_LIB_LOADED:-}" ]]; then
-                    # shellcheck source=lib/toon-lib.sh
-                    source "$script_dir/lib/toon-lib.sh"
-                    _TOON_LIB_LOADED=1
-                fi
-                toon_encode_tabular "$label" "$tabular_json" && return 0
-            fi
-            # Fallback: TOON failed or lib missing — use original payload
-            "$fallback_fn" "$original_payload"
-            ;;
-        json)
-            echo "$tabular_json" | jq '.'
-            ;;
-        md|*)
-            "$fallback_fn" "$original_payload"
-            ;;
-    esac
-}
-
-# =============================================================================
-# CTA Emission (cycle-037, SDD §2.3)
-# =============================================================================
-
-# Check if CTAs are enabled in config
-# Returns: 0 if enabled, 1 if disabled
-is_cta_enabled() {
-    local config_file=".loa.config.yaml"
-
-    if [[ ! -f "$config_file" ]] || ! command -v yq &>/dev/null; then
-        return 1
-    fi
-
-    local enabled
-    enabled=$(yq eval '.cta.enabled // false' "$config_file" 2>/dev/null) || return 1
-
-    [[ "$enabled" == "true" ]]
-}
-
-# Emit context-sensitive CTA block after command output
-# Args:
-#   $1 = current command context (e.g., "browse", "status", "install")
-#   $2 = pack slug (optional — for pack-specific CTAs)
-# Stdout: Next: block with up to 3 CTAs
-emit_cta() {
-    is_cta_enabled || return 0
-
-    local context="$1"
-    local pack_slug="${2:-}"
-
-    echo ""
-    echo "Next:"
-
-    case "$context" in
-        browse)
-            echo "/constructs install <slug> — Install a construct pack"
-            echo "/constructs status — Check installed pack versions"
-            echo "/loa — View workflow status"
-            ;;
-        status)
-            echo "/constructs browse — Browse available packs"
-            echo "/constructs install <slug> — Install or update a pack"
-            echo "/loa — View workflow status"
-            ;;
-        install)
-            # Post-install: suggest the pack's quick_start if available
-            if [[ -n "$pack_slug" ]]; then
-                local pack_dir
-                pack_dir="$(get_registry_install_dir)/$pack_slug"
-                local quick_cmd=""
-                if [[ -f "$pack_dir/construct.yaml" ]] && command -v yq &>/dev/null; then
-                    quick_cmd=$(yq eval '.quick_start.command // ""' "$pack_dir/construct.yaml" 2>/dev/null)
-                fi
-                if [[ -n "$quick_cmd" ]]; then
-                    echo "$quick_cmd — Get started with $pack_slug"
-                fi
-            fi
-            echo "/constructs status — Verify installation"
-            echo "/loa — View workflow status"
-            ;;
-    esac
 }

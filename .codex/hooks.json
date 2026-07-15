@@ -1,0 +1,144 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Skill(plan-and-analyze.*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/scripts/cleanup-context.sh --prompt"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/safety/block-destructive-bash.sh'"
+          },
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/safety/team-role-guard.sh'"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/safety/team-role-guard-write.sh'"
+          },
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/safety/spiral-dispatch-guard.sh'"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/safety/team-role-guard-write.sh'"
+          },
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/safety/spiral-dispatch-guard.sh'"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/safety/team-skill-guard.sh'"
+          },
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/safety/spiral-skill-sentinel.sh'"
+          },
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/trajectory/skill-pre.sh'"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/audit/mutation-logger.sh'"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/audit/write-mutation-logger.sh'"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/audit/write-mutation-logger.sh'"
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/trajectory/skill-post.sh'"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/pre-compact-marker.sh'"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/post-compact-reminder.sh'"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/safety/run-mode-stop-guard.sh'"
+          },
+          {
+            "type": "command",
+            "command": "'/Users/zksoju/Documents/GitHub/loa-constructs/.codex/hooks/hygiene/settings-cleanup.sh'"
+          }
+        ]
+      }
+    ]
+  }
+}

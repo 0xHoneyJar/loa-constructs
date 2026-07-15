@@ -1,5 +1,7 @@
 # Loa Constructs API
 
+> **⚠️ STALE DOC NOTICE (/ride 2026-07-12)**: The Quick Start below uses `pnpm`, which violates the repo's bun-only rule (`CLAUDE.md`). Use `bun install` / `bun run dev` etc. Current system truth lives in `grimoires/loa/prd.md` + `grimoires/loa/sdd.md`; discrepancies catalogued in `grimoires/loa/drift-report.md` (D-6).
+
 Backend API for the Loa Constructs Registry - a skill and pack marketplace for the Loa Framework.
 
 **Stack**: Hono + Drizzle ORM + PostgreSQL + TypeScript

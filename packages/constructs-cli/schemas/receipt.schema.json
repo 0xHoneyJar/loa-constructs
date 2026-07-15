@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://0xhoneyjar.github.io/loa-constructs/schemas/receipt.schema.json",
+  "title": "Stationing Receipt",
+  "description": "One ratified act, as one content-addressed file (the L6 pattern). The file's own name is the SHA-256 of its canonical payload, so every receipt is independently verifiable and two clones adding receipts can never merge-conflict. There is deliberately NO cross-record chain: ordering is by the ts field, and nothing exists for a union merge to break. Receipts live in the REGION's own tree under grimoires/loa/territory/receipts/.",
+  "type": "object",
+  "required": ["record_version", "kind", "ts", "actor", "region", "construct", "outcomes", "authority_tier", "manifest_hash", "verification"],
+  "additionalProperties": false,
+  "properties": {
+    "record_version": {
+      "type": "string",
+      "pattern": "^1\\.",
+      "description": "Additive-only within a major."
+    },
+    "kind": {
+      "enum": ["station", "unstation", "install"],
+      "description": "What act this receipt records. Install receipts reuse this writer (sprint-229)."
+    },
+    "ts": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "description": "UTC, second precision. Ordering across receipts is by this field, never by chain position. SOURCE_DATE_EPOCH honored."
+    },
+    "actor": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._@-]{1,64}$",
+      "description": "OS user who ran the recording. Locally spoofable, rate-visible in audit — stated honestly (SDD §5)."
+    },
+    "region": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "construct": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]*$"
+    },
+    "outcomes": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The outcome ids this stationing answers for, sorted. Copied from the ratified loadout row.",
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" }
+    },
+    "authority_tier": {
+      "enum": ["observe", "advise", "gate"],
+      "description": "The CEILING declared in the manifest at recording time — never the earned tier. Earned lives in the L4 ledger."
+    },
+    "manifest_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Hash of the region's territory.yaml bytes at validation — one of the four snapshotted authorization inputs."
+    },
+    "key_id": {
+      "type": "string",
+      "maxLength": 64,
+      "description": "Present only when a network-registry key participated. Stationing itself is keyless."
+    },
+    "verification": {
+      "type": "object",
+      "required": ["head", "default_branch", "l4_ledger_tip", "anchor"],
+      "additionalProperties": false,
+      "description": "The remaining snapshotted authorization inputs, re-verified immediately before the write (TOCTOU guard).",
+      "properties": {
+        "head": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "default_branch": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "l4_ledger_tip": {
+          "type": "string",
+          "pattern": "^(sha256:[0-9a-f]{64}|absent)$",
+          "description": "Hash of the region's trust ledger at validation, or 'absent' when no ledger exists yet."
+        },
+        "anchor": {
+          "type": "string",
+          "pattern": "^(origin/.+|local-only)$",
+          "description": "'origin/<branch>' when HEAD was contained in the remote default branch at recording; 'local-only' when the region has no remote. A local-only receipt never claims remote ratification."
+        }
+      }
+    }
+  }
+}

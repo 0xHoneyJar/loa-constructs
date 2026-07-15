@@ -1,0 +1,21 @@
+# Pinned rubric — the acceptance bar cannot drift between passes (PRD §7, NFR-8).
+rubric_version: "1.0.0"
+rubric_source: "skills/agent-ergonomics-and-intuitiveness-maximization-for-cli-tools/references/rubric/SCORING-RUBRIC.md"
+rubric_sha256: "99fe382939759b40d5050c6bcc3e5dc31e88bd4cca3fd05881438473568e88e5"
+pinned_at: "2026-07-13T07:22:39Z"
+pinned_for: "packages/constructs-cli @ cycle constructs-launcher-cli (sprint-229 T3.10)"
+dimensions:
+  - agent_intuitiveness
+  - agent_ergonomics
+  - agent_ease_of_use
+  - output_parseability
+  - error_pedagogy
+  - intent_inference
+  - safety_with_recovery
+  - determinism_and_reproducibility
+  - self_documentation
+  - composability
+  - regression_resistance
+note: >
+  Bumping rubric_version invalidates prior scores. Every score > 700 cites evidence
+  (file:line or an invocation transcript) per Axiom 16.

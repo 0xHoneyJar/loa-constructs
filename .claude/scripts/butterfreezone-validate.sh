@@ -19,6 +19,7 @@ export TZ=UTC
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/compat-lib.sh"
 SCRIPT_VERSION="1.0.0"
 
 # =============================================================================
@@ -284,6 +285,16 @@ validate_references() {
         [[ "$file" == "head_sha" ]] && continue
         [[ "$file" == "generated_at" ]] && continue
         [[ "$file" == "generator" ]] && continue
+        # #938: skip Express/Fastify-style route patterns. Routes always
+        # start with `/` and don't carry filesystem extensions; real
+        # filesystem references either start with `./`, `../`, or a
+        # relative segment (e.g., `src/foo.ts`). Real absolute paths
+        # would have extensions (e.g., `/usr/bin/foo.sh:42`); those
+        # still match below. Heuristic chosen for low blast radius —
+        # see issue #938 candidate-fix-A.
+        if [[ "$file" == /* && "$file" != *.* ]]; then
+            continue
+        fi
 
         checked=$((checked + 1))
 
@@ -455,53 +466,6 @@ validate_no_description_available() {
     fi
 }
 
-# Portable ISO8601 → Unix-epoch parser.
-# Accepts forms like "2026-05-17T19:02:14Z" (validator's canonical form) and
-# returns the epoch seconds on stdout. Falls back to "0" only when all three
-# adapters fail (a true parse failure, not a missing-tool failure).
-# Issue #244 bug #4: `date -d` is GNU-only — macOS BSD `date` errored out
-# silently and the `|| echo 0` swallowed it.
-_parse_iso8601_to_epoch() {
-    local ts="$1"
-    local epoch=""
-
-    # Adapter 1: python3 — already a Loa dependency, behaves identically on
-    # Darwin and Linux. fromisoformat accepts the trailing-Z form on 3.11+;
-    # for older Pythons we normalize Z → +00:00.
-    if command -v python3 >/dev/null 2>&1; then
-        epoch=$(python3 -c '
-import sys
-from datetime import datetime
-ts = sys.argv[1]
-if ts.endswith("Z"):
-    ts = ts[:-1] + "+00:00"
-try:
-    print(int(datetime.fromisoformat(ts).timestamp()))
-except Exception:
-    sys.exit(1)
-' "$ts" 2>/dev/null) || epoch=""
-    fi
-
-    # Adapter 2: GNU coreutils `gdate` (Homebrew install on macOS).
-    if [[ -z "$epoch" ]] && command -v gdate >/dev/null 2>&1; then
-        epoch=$(gdate -d "$ts" +%s 2>/dev/null) || epoch=""
-    fi
-
-    # Adapter 3: BSD `date -j -f` (macOS default).
-    if [[ -z "$epoch" ]]; then
-        epoch=$(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$ts" +%s 2>/dev/null) || epoch=""
-    fi
-
-    # Adapter 4 (last-ditch): GNU `date -d` (Linux). On macOS this errors out,
-    # which is the original failure mode — but on Linux it succeeds.
-    if [[ -z "$epoch" ]]; then
-        epoch=$(date -u -d "$ts" +%s 2>/dev/null) || epoch=""
-    fi
-
-    [[ -z "$epoch" ]] && epoch=0
-    echo "$epoch"
-}
-
 # Check 8: Freshness
 validate_freshness() {
     local generated_at
@@ -516,13 +480,9 @@ validate_freshness() {
     local staleness_days
     staleness_days=$(get_config_value "butterfreezone.staleness_days" "7")
 
-    # Parse the timestamp and compare with current time.
-    # Portable ISO8601→epoch helper (issue #244 bug #4): `date -d` is GNU-only;
-    # macOS BSD `date` errors out and `|| echo 0` swallowed it, yielding
-    # gen_epoch=0 → diff_days ≈ 20590. Try python3 first (already a Loa
-    # dependency), then GNU coreutils `gdate` (Homebrew), then BSD `date -j`.
-    local gen_epoch=0
-    gen_epoch=$(_parse_iso8601_to_epoch "$generated_at")
+    # Parse the timestamp and compare with current time
+    local gen_epoch
+    gen_epoch=$(_date_to_epoch "$generated_at" 2>/dev/null || echo 0)
     local now_epoch
     now_epoch=$(date +%s)
     local diff_days=$(( (now_epoch - gen_epoch) / 86400 ))
