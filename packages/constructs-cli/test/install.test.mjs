@@ -439,6 +439,12 @@ test('git rung: registry pin that does not exist in the repo → integrity misma
   await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'ANCHOR_MISMATCH');
 });
 
+test('git rung: inaccessible pinned repository is a tool failure, not an anchor mismatch', async () => {
+  const missingRepo = path.join(await mkdtemp(path.join(tmpdir(), 'install-missing-upstream-')), 'gone.git');
+  const root = await makeRoot({ gitUrl: missingRepo, commit: '0'.repeat(40) });
+  await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.TOOL_FAILURE, 'GIT_FETCH_FAILED');
+});
+
 test('git rung: registry commit pins must be immutable full lowercase object ids', async () => {
   const upstream = await makeUpstream();
   for (const commit of ['main', 'v1.0.0', 'abcdef0', 'a'.repeat(39), 'a'.repeat(41), 'A'.repeat(40), 'A'.repeat(64), '']) {
@@ -700,7 +706,7 @@ test('S229-P2: failed landing pairs its prepared receipt with aborted and does n
   await assert.rejects(readdir(path.join(packsDir, 'goodpack')));
 });
 
-test('S229-P2: repeated failed attempts each have one explicit terminal state', async () => {
+test('S229-P2: identical deterministic retries keep distinct attempt identities and terminal states', async () => {
   const root = await makeRoot();
   const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
   const packsDir = path.join(root, '.claude', 'constructs', 'packs');
@@ -719,13 +725,13 @@ test('S229-P2: repeated failed attempts each have one explicit terminal state', 
     },
   };
 
-  for (const [attempt, ts] of ['2026-07-14T00:00:01Z', '2026-07-14T00:00:02Z'].entries()) {
+  for (const attempt of [0, 1]) {
     await assert.rejects(commitInstallTransaction({
       root,
       slug: 'goodpack',
       stage: path.join(packsDir, `missing-attempt-${attempt}`),
       receiptsDir,
-      receiptPayload: { ...basePayload, ts },
+      receiptPayload: { ...basePayload, ts: '2026-07-14T00:00:01Z' },
     }));
   }
 
@@ -740,6 +746,11 @@ test('S229-P2: repeated failed attempts each have one explicit terminal state', 
   }
   assert.equal(byTransaction.size, 2);
   for (const states of byTransaction.values()) assert.deepEqual(states.sort(), ['aborted', 'prepared']);
+  const attemptNonces = await Promise.all(records.map(async (record) => {
+    const payload = JSON.parse(await readFile(path.join(receiptsDir, record), 'utf8'));
+    return payload.install.attempt_nonce;
+  }));
+  assert.equal(new Set(attemptNonces).size, 2);
 });
 
 test('S229-P4: committed-metadata failure restores both the previous pack and TOFU anchor', async () => {

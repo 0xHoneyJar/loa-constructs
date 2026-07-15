@@ -15,6 +15,28 @@ setup() {
     LOGGER="$REPO_ROOT/.claude/skills/scheduled-cycle-template/contracts/session-cap-bb/logger.sh"
 }
 
+file_mode() {
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        stat -f '%Lp' "$1"
+    else
+        stat -c '%a' "$1"
+    fi
+}
+
+@test "session-limit reset parsing is portable for an injected UTC instant" {
+    run bash -c 'source "$1"; session_limit_parse_reset "$2" "$3"' -- \
+        "$REPO_ROOT/.claude/scripts/lib/session-limit-lib.sh" \
+        "You've hit your session limit; resets 02:00 (UTC)" 1767225600
+    [ "$status" -eq 0 ]
+    [ "$output" = "2026-01-01T02:00:00+00:00" ]
+
+    run bash -c 'source "$1"; session_limit_parse_reset_epoch "$2" "$3"' -- \
+        "$REPO_ROOT/.claude/scripts/lib/session-limit-lib.sh" \
+        "You've hit your session limit; resets 02:00 (UTC)" 1767225600
+    [ "$status" -eq 0 ]
+    [ "$output" = "1767232800" ]
+}
+
 @test "final-time normalization rechecks collisions after nudging" {
     run bash -c 'source "$1"; _available_final_time 23 59 1 "|0:1|"' -- "$FANOUT"
     [ "$status" -eq 0 ]
@@ -43,9 +65,6 @@ setup() {
 }
 
 @test "capture defaults to its repository root instead of caller cwd" {
-    if [[ "$(uname -s)" == "Darwin" ]]; then
-        skip "session-limit parser is explicitly GNU-date-only"
-    fi
     fake_repo="$BATS_TEST_TMPDIR/fake-repo"
     elsewhere="$BATS_TEST_TMPDIR/elsewhere"
     mkdir -p "$fake_repo/.claude/scripts/lib" "$elsewhere"
@@ -53,9 +72,11 @@ setup() {
     cp "$REPO_ROOT/.claude/scripts/compat-lib.sh" "$fake_repo/.claude/scripts/"
     cp "$REPO_ROOT/.claude/scripts/lib/session-limit-lib.sh" "$fake_repo/.claude/scripts/lib/"
     cp "$REPO_ROOT/.claude/scripts/lib/session-cap-state-lib.sh" "$fake_repo/.claude/scripts/lib/"
-    reset_time="$(date -u -d '+2 hours' +%H:%M)"
+    now_epoch=1767225600
+    reset_time="02:00"
 
     run env LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fake-repo" LOA_SESSION_CAP_BB_PR=99 \
+        LOA_SESSION_CAP_NOW_EPOCH="$now_epoch" \
         bash -c 'cd "$1" && "$2" --raw "$3"' -- \
         "$elsewhere" "$fake_repo/.claude/scripts/session-limit-capture.sh" \
         "You've hit your session limit; resets ${reset_time} (UTC)"
@@ -65,22 +86,19 @@ setup() {
     jq -e '.capture_id | startswith("sha256:")' "$fake_repo/.run/session-limit-state.json"
     [ "$(jq -r '.lifecycle' "$fake_repo/.run/session-limit-state.json")" = "pending" ]
     jq -e '.review_target == {repo:"0xHoneyJar/fake-repo", pr_number:99}' "$fake_repo/.run/session-limit-state.json"
-    [ "$(stat -c '%a' "$fake_repo/.run")" = "700" ]
-    [ "$(stat -c '%a' "$fake_repo/.run/session-limit-state.json")" = "600" ]
+    [ "$(file_mode "$fake_repo/.run")" = "700" ]
+    [ "$(file_mode "$fake_repo/.run/session-limit-state.json")" = "600" ]
 }
 
 @test "capture identity includes the exact review target" {
-    if [[ "$(uname -s)" == "Darwin" ]]; then
-        skip "session-limit parser is explicitly GNU-date-only"
-    fi
     fake_repo="$BATS_TEST_TMPDIR/identity-repo"
     mkdir -p "$fake_repo/.claude/scripts/lib"
     cp "$REPO_ROOT/.claude/scripts/session-limit-capture.sh" "$fake_repo/.claude/scripts/"
     cp "$REPO_ROOT/.claude/scripts/compat-lib.sh" "$fake_repo/.claude/scripts/"
     cp "$REPO_ROOT/.claude/scripts/lib/session-limit-lib.sh" "$fake_repo/.claude/scripts/lib/"
     cp "$REPO_ROOT/.claude/scripts/lib/session-cap-state-lib.sh" "$fake_repo/.claude/scripts/lib/"
-    now_epoch="$(date +%s)"
-    reset_time="$(date -u -d '@'"$((now_epoch + 7200))" +%H:%M)"
+    now_epoch=1767225600
+    reset_time="02:00"
 
     run env LOA_SESSION_CAP_BB_REPO="0xHoneyJar/fake-repo" LOA_SESSION_CAP_BB_PR=42 \
         LOA_SESSION_CAP_NOW_EPOCH="$now_epoch" LOA_SESSION_CAP_EVENT_NONCE="fixed-event" \

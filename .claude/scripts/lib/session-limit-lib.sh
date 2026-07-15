@@ -21,15 +21,9 @@
 # failure must return non-zero to the caller, never abort the caller's process
 # (mirrors run-mode-stop-guard.sh's no-set-e rationale and compliance-lib.sh).
 #
-# loa:shortcut: GNU-date only. The TZ-name reset math uses GNU date's free-text
-# `date -d` grammar, which BSD/macOS date does not implement the same way.
-# Ceiling: on a Darwin host session_limit_matches still DETECTS the shape, but
-# session_limit_parse_reset(_epoch) returns non-zero (PARSE_FAIL) and capture
-# silently no-ops. Upgrade trigger: if a fleet member runs the harness on macOS,
-# add the BSD `date -j -f` / perl Time::Piece tier mirroring
-# .claude/scripts/compat-lib.sh:_date_to_epoch (441-475). Not built now: no
-# Darwin host was available to verify BSD-date behavior against, and bats CI
-# (bats-tests.yml) runs ubuntu-latest exclusively.
+# GNU date is the primary parser. macOS/BSD hosts use the core-Perl POSIX tier,
+# which performs the same timezone-local wall-clock calculation without relying
+# on GNU's free-text `date -d` grammar.
 #
 # loa:shortcut: never build the reset instant with a "<date> <time> +1 day"
 # compound string — GNU date's fuzzy grammar can consume "+1" as a UTC-offset
@@ -79,6 +73,24 @@ _session_limit_resolve() {
     [[ "$h" -ge 0 && "$h" -le 23 && "$m" -ge 0 && "$m" -le 59 ]] || return 1
     local hhmm
     printf -v hhmm '%02d:%02d' "$h" "$m"
+
+    if ! date -u -d "@$now_epoch" +%s >/dev/null 2>&1; then
+        command -v perl >/dev/null 2>&1 || return 1
+        TZ="$tz" perl -MPOSIX=mktime,strftime,tzset -e '
+            my ($now, $hour, $minute) = @ARGV;
+            POSIX::tzset();
+            my @today = localtime($now);
+            my $candidate = POSIX::mktime(0, $minute, $hour, $today[3], $today[4], $today[5], 0, 0, -1);
+            if ($candidate <= $now) {
+                $candidate = POSIX::mktime(0, $minute, $hour, $today[3] + 1, $today[4], $today[5], 0, 0, -1);
+            }
+            my @resolved = localtime($candidate);
+            my $iso = POSIX::strftime("%Y-%m-%dT%H:%M:%S%z", @resolved);
+            $iso =~ s/([+-][0-9]{2})([0-9]{2})$/$1:$2/;
+            print "$candidate $iso";
+        ' "$now_epoch" "$h" "$m" 2>/dev/null
+        return $?
+    fi
 
     # "Today" in the target zone, derived from the injected now-epoch.
     local day cand_epoch iso

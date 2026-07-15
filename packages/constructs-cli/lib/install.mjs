@@ -583,14 +583,15 @@ async function writeTofuAnchor(root, slug, commit) {
   await rename(tmp, file);
 }
 
-function installTransactionPayload(receiptPayload, transactionState) {
+function installTransactionPayload(receiptPayload, transactionState, attemptNonce = randomUUID()) {
   const transactionId = `sha256:${createHash('sha256')
-    .update(jcsCanonicalize(receiptPayload), 'utf8')
+    .update(jcsCanonicalize({ receipt: receiptPayload, attempt_nonce: attemptNonce }), 'utf8')
     .digest('hex')}`;
   return {
     ...receiptPayload,
     install: {
       ...receiptPayload.install,
+      attempt_nonce: attemptNonce,
       transaction_id: transactionId,
       transaction_state: transactionState,
     },
@@ -738,7 +739,12 @@ export async function commitInstallTransaction({
     }
   }
 
-  const preparedPayload = installTransactionPayload(receiptPayload, 'prepared');
+  // Content identity and event identity are different: SOURCE_DATE_EPOCH may
+  // deliberately make otherwise-identical receipts reproducible, but every
+  // real install attempt still needs its own lifecycle join key.
+  const attemptNonce = randomUUID();
+  const lifecyclePayload = (state) => installTransactionPayload(receiptPayload, state, attemptNonce);
+  const preparedPayload = lifecyclePayload('prepared');
   const preparedRecord = await recordWriter(receiptsDir, preparedPayload);
   const transactionId = preparedPayload.install.transaction_id;
   let swap;
@@ -747,7 +753,7 @@ export async function commitInstallTransaction({
     swap = await swapPackIn({ root, slug, stage, transactionId });
   } catch (err) {
     try {
-      await recordWriter(receiptsDir, installTransactionPayload(receiptPayload, 'aborted'));
+      await recordWriter(receiptsDir, lifecyclePayload('aborted'));
     } catch (terminalErr) {
       throw new InstallError(
         `install aborted before landing (${err?.message ?? err}) AND its terminal receipt could not be written (${terminalErr?.message ?? terminalErr})`,
@@ -760,7 +766,7 @@ export async function commitInstallTransaction({
   try {
     if (pendingAnchor) await writeTofuAnchor(root, slug, pendingAnchor);
 
-    const committedPayload = installTransactionPayload(receiptPayload, 'committed');
+    const committedPayload = lifecyclePayload('committed');
     const committedRecord = await recordWriter(receiptsDir, committedPayload);
     await finishPackSwap(swap, slug);
     return { landed: swap.target, preparedRecord, committedRecord, committedPayload };
@@ -771,7 +777,7 @@ export async function commitInstallTransaction({
       await restoreTofuAnchor(root, slug, priorAnchorRaw).catch((rollbackErr) => rollbackErrors.push(`anchor: ${rollbackErr?.message ?? rollbackErr}`));
     }
     const terminalState = rollbackErrors.length > 0 ? 'rollback_failed' : 'rolled_back';
-    await recordWriter(receiptsDir, installTransactionPayload(receiptPayload, terminalState)).catch((terminalErr) => {
+    await recordWriter(receiptsDir, lifecyclePayload(terminalState)).catch((terminalErr) => {
       rollbackErrors.push(`terminal receipt: ${terminalErr?.message ?? terminalErr}`);
     });
     if (rollbackErrors.length > 0) {
@@ -904,6 +910,14 @@ async function normalizeGitFileModes(dir) {
   }
 }
 
+function pinnedObjectDefinitelyMissing(err, commit) {
+  const diagnostic = `${err?.stderr ?? ''}\n${err?.message ?? ''}`.toLowerCase();
+  // `not our ref <oid>` is the server/upload-pack's positive statement that
+  // the requested immutable object is unavailable. Authentication, transport,
+  // timeout, local-tool, and repository-access failures prove no such thing.
+  return diagnostic.includes(`not our ref ${commit.toLowerCase()}`);
+}
+
 async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrityMismatch = false, dryRun = false }) {
   if (!anchor?.git_url) {
     throw new InstallError(`registry.yaml has no git_url for ${slug} — the git rung cannot answer`, EXIT.CALLER_ERROR, { fix: 'constructs list --json    # what the registry knows' });
@@ -942,8 +956,18 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
     await run('git', ['init', '-q', `--object-format=${objectFormat}`, stagingDir], { timeoutMs: 15_000 });
     try {
       await run('git', ['-C', stagingDir, 'fetch', '-q', '--depth=1', '--filter=blob:none', '--no-tags', gitUrl, anchor.commit], { timeoutMs: 120_000 });
-    } catch {
-      throw new InstallError(`registry pins ${slug} to ${anchor.commit}, which does not exist in ${anchor.git_url}`, EXIT.INTEGRITY_MISMATCH, { code: 'ANCHOR_MISMATCH' });
+    } catch (err) {
+      if (pinnedObjectDefinitelyMissing(err, anchor.commit)) {
+        throw new InstallError(`registry pins ${slug} to ${anchor.commit}, which does not exist in ${anchor.git_url}`, EXIT.INTEGRITY_MISMATCH, { code: 'ANCHOR_MISMATCH' });
+      }
+      throw new InstallError(
+        `could not verify registry-pinned commit ${anchor.commit} from ${anchor.git_url}: ${err?.message ?? err}`,
+        EXIT.TOOL_FAILURE,
+        {
+          code: 'GIT_FETCH_FAILED',
+          fix: 'restore Git, authentication, network, or repository access, then retry without changing the trust anchor',
+        }
+      );
     }
     head = anchor.commit;
   } else {

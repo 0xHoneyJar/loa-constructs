@@ -41,6 +41,11 @@
           "pattern": "^sha256:[0-9a-f]{64}$",
           "description": "Stable identifier shared by every lifecycle record for one install attempt."
         },
+        "attempt_nonce": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+          "description": "Per-attempt UUID persisted in every lifecycle record so deterministic receipt content cannot conflate distinct retries."
+        },
         "transaction_state": {
           "enum": ["prepared", "committed", "aborted", "rolled_back", "rollback_failed"],
           "description": "Prepared is the write-ahead fact. Committed is emitted only after the pack and trust state land. Aborted means the pack never landed. Rolled_back means a landed pack was fully restored. Rollback_failed is a terminal attempt requiring operator reconciliation."

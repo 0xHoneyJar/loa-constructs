@@ -55,7 +55,7 @@ if ! [[ "$NOW_EPOCH" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 RESET_ISO="$(session_limit_parse_reset "$RAW" "$NOW_EPOCH")" || {
-    echo "session-limit-capture: could not parse reset time (GNU-date-only; see session-limit-lib.sh)" >&2
+    echo "session-limit-capture: could not parse reset time (see session-limit-lib.sh)" >&2
     exit 1
 }
 RESET_EPOCH="$(session_limit_parse_reset_epoch "$RAW" "$NOW_EPOCH")" || {
