@@ -14,7 +14,7 @@
 // registry compromise — the receipt records enough for retroactive audit.
 
 import { createHash, createPublicKey, verify as cryptoVerify } from 'node:crypto';
-import { readFile, writeFile, mkdir, rename, rm, stat, lstat, readdir, access } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, rm, stat, lstat, readdir, access, chmod } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { jcsCanonicalize } from './vendor/jcs.mjs';
@@ -549,7 +549,39 @@ function installTransactionPayload(receiptPayload, transactionState) {
   };
 }
 
-async function rollbackPackSwap({ target, backup }) {
+async function stampStageTransaction(stage, transactionId) {
+  const marker = path.join(stage, '.construct-meta.json');
+  let meta;
+  try {
+    meta = JSON.parse(await readFile(marker, 'utf8'));
+  } catch (err) {
+    throw new InstallError(
+      `cannot bind staged pack to install transaction ${transactionId}: ${err?.message ?? err}`,
+      EXIT.TOOL_FAILURE,
+      { code: 'TRANSACTION_MARKER_FAILED' }
+    );
+  }
+  await writeFile(marker, `${JSON.stringify({ ...meta, transaction_id: transactionId }, null, 2)}\n`, 'utf8');
+}
+
+async function rollbackPackSwap({ target, backup }, transactionId) {
+  let current;
+  try {
+    current = JSON.parse(await readFile(path.join(target, '.construct-meta.json'), 'utf8'));
+  } catch (err) {
+    throw new InstallError(
+      `rollback conflict at ${target}: the landed transaction marker cannot be read (${err?.message ?? err}); preserving the current target`,
+      EXIT.TOOL_FAILURE,
+      { code: 'ROLLBACK_CONFLICT' }
+    );
+  }
+  if (current?.transaction_id !== transactionId) {
+    throw new InstallError(
+      `rollback conflict at ${target}: expected transaction ${transactionId}, found ${current?.transaction_id ?? 'no transaction marker'}; preserving the current target`,
+      EXIT.TOOL_FAILURE,
+      { code: 'ROLLBACK_CONFLICT' }
+    );
+  }
   await rm(target, { recursive: true, force: true });
   if (backup) await rename(backup, target);
 }
@@ -610,6 +642,8 @@ export async function commitInstallTransaction({
 
   const preparedPayload = installTransactionPayload(receiptPayload, 'prepared');
   const preparedRecord = await recordWriter(receiptsDir, preparedPayload);
+  const transactionId = preparedPayload.install.transaction_id;
+  await stampStageTransaction(stage, transactionId);
 
   const swap = await swapPackIn({ root, slug, stage });
   try {
@@ -621,7 +655,7 @@ export async function commitInstallTransaction({
     return { landed: swap.target, preparedRecord, committedRecord, committedPayload };
   } catch (err) {
     const rollbackErrors = [];
-    await rollbackPackSwap(swap).catch((rollbackErr) => rollbackErrors.push(`pack: ${rollbackErr?.message ?? rollbackErr}`));
+    await rollbackPackSwap(swap, transactionId).catch((rollbackErr) => rollbackErrors.push(`pack: ${rollbackErr?.message ?? rollbackErr}`));
     if (pendingAnchor) {
       await restoreTofuAnchor(root, slug, priorAnchorRaw).catch((rollbackErr) => rollbackErrors.push(`anchor: ${rollbackErr?.message ?? rollbackErr}`));
     }
@@ -637,6 +671,73 @@ export async function commitInstallTransaction({
       EXIT.TOOL_FAILURE,
       { code: 'METADATA_COMMIT_FAILED', fix: 'fix the receipt or anchor storage failure, then retry' }
     );
+  }
+}
+
+async function inspectGitTree(stagingDir, ref) {
+  const { stdout } = await run('git', ['-C', stagingDir, 'ls-tree', '-r', '-l', '-z', ref], { timeoutMs: 30_000 });
+  const records = stdout.split('\0').filter(Boolean);
+  if (records.length > BUDGETS.max_entry_count) {
+    throw new InstallError(
+      `git tree has ${records.length} entries, over the budget of ${BUDGETS.max_entry_count}`,
+      EXIT.INTEGRITY_MISMATCH,
+      { code: 'GIT_BUDGET_EXCEEDED' }
+    );
+  }
+
+  const paths = [];
+  let totalBytes = 0n;
+  for (const record of records) {
+    const match = /^(\d{6})\s+(\S+)\s+([0-9a-f]+)\s+(-|\d+)\t([\s\S]+)$/.exec(record);
+    if (!match) {
+      throw new InstallError(`cannot parse git tree entry ${JSON.stringify(record)}`, EXIT.INTEGRITY_MISMATCH, { code: 'GIT_TREE_MALFORMED' });
+    }
+    const [, mode, type, , sizeText, filePath] = match;
+    if (mode === '120000' || type !== 'blob') {
+      throw new InstallError(
+        `git tree entry ${JSON.stringify(filePath)} has unsupported mode/type ${mode} ${type}`,
+        EXIT.INTEGRITY_MISMATCH,
+        { code: 'CONTAINMENT' }
+      );
+    }
+    if (sizeText === '-') {
+      throw new InstallError(
+        `git tree entry ${JSON.stringify(filePath)} has no verifiable blob size`,
+        EXIT.INTEGRITY_MISMATCH,
+        { code: 'GIT_BUDGET_UNVERIFIABLE' }
+      );
+    }
+    const bytes = BigInt(sizeText);
+    if (bytes > BigInt(BUDGETS.max_single_file_bytes)) {
+      throw new InstallError(
+        `git tree entry ${JSON.stringify(filePath)} is ${bytes} bytes, over the single-file budget of ${BUDGETS.max_single_file_bytes}`,
+        EXIT.INTEGRITY_MISMATCH,
+        { code: 'GIT_BUDGET_EXCEEDED' }
+      );
+    }
+    totalBytes += bytes;
+    paths.push({ path: filePath, content: '' });
+  }
+  if (totalBytes > BigInt(BUDGETS.max_total_bytes)) {
+    throw new InstallError(
+      `git tree totals ${totalBytes} bytes, over the budget of ${BUDGETS.max_total_bytes}`,
+      EXIT.INTEGRITY_MISMATCH,
+      { code: 'GIT_BUDGET_EXCEEDED' }
+    );
+  }
+  const { problems } = validateFileList(paths);
+  if (problems.length > 0) {
+    throw new InstallError(`git tree containment failed:\n  · ${problems.join('\n  · ')}`, EXIT.INTEGRITY_MISMATCH, { code: 'CONTAINMENT' });
+  }
+}
+
+async function normalizeGitFileModes(dir) {
+  const entries = await readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    if (entry.name === '.git') continue;
+    const file = path.join(dir, entry.name);
+    if (entry.isDirectory()) await normalizeGitFileModes(file);
+    else if (entry.isFile()) await chmod(file, 0o644);
   }
 }
 
@@ -661,7 +762,26 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
       { code: 'UNSAFE_GIT_URL', fix: 'use an absolute local path, https://, ssh://, git://, file://, or user@host:path URL' }
     );
   }
-  await run('git', ['clone', '-q', '--', gitUrl, stagingDir], { timeoutMs: 120_000 });
+  let head;
+  if (anchor.commit) {
+    await mkdir(stagingDir, { recursive: true });
+    await run('git', ['init', '-q', stagingDir], { timeoutMs: 15_000 });
+    try {
+      await run('git', ['-C', stagingDir, 'fetch', '-q', '--depth=1', '--filter=blob:none', '--no-tags', gitUrl, anchor.commit], { timeoutMs: 120_000 });
+    } catch {
+      throw new InstallError(`registry pins ${slug} to ${anchor.commit}, which does not exist in ${anchor.git_url}`, EXIT.INTEGRITY_MISMATCH, { code: 'ANCHOR_MISMATCH' });
+    }
+    head = anchor.commit;
+  } else {
+    await run(
+      'git',
+      ['clone', '-q', '--no-checkout', '--depth=1', '--filter=blob:none', '--no-tags', '--', gitUrl, stagingDir],
+      { timeoutMs: 120_000 }
+    );
+    const resolved = await run('git', ['-C', stagingDir, 'rev-parse', 'HEAD'], { timeoutMs: 15_000 });
+    head = resolved.stdout.trim();
+  }
+  await inspectGitTree(stagingDir, head);
   let tofu = null;
   // The anchor a successful landing WOULD persist. A --dry-run must never mutate
   // trust state (review pass 1), so nothing is written from inside acquisition.
@@ -670,15 +790,8 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
   // that leaves no trace in the receipt is not forensics, it is a rumour (audit).
   let rotatedFrom = null;
   if (anchor.commit) {
-    // T3.3: pin to the commit the TRACKED registry records.
-    try {
-      await run('git', ['-C', stagingDir, 'checkout', '-q', '--detach', anchor.commit], { timeoutMs: 30_000 });
-    } catch {
-      throw new InstallError(`registry pins ${slug} to ${anchor.commit}, which does not exist in ${anchor.git_url}`, EXIT.INTEGRITY_MISMATCH, { code: 'ANCHOR_MISMATCH' });
-    }
+    // T3.3: the exact tracked commit was fetched and inspected above.
   } else {
-    const { stdout } = await run('git', ['-C', stagingDir, 'rev-parse', 'HEAD'], { timeoutMs: 15_000 });
-    const head = stdout.trim();
     const pinned = await readTofuAnchor(root, slug);
     if (pinned && pinned.commit !== head) {
       if (!allowIntegrityMismatch) {
@@ -689,13 +802,10 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
         );
       }
       process.stderr.write(`warning: rotating the TOFU anchor for ${slug}: ${pinned.commit} -> ${head}\n`);
-      await run('git', ['-C', stagingDir, 'checkout', '-q', '--detach', head], { timeoutMs: 30_000 });
       tofu = head;
       pendingAnchor = head; // persisted only on a successful, non-dry-run landing
       rotatedFrom = pinned.commit; // an override happened: the receipt MUST say so (audit)
     } else if (pinned) {
-      // Pinned and matching: check out the pin explicitly, never "whatever HEAD is".
-      await run('git', ['-C', stagingDir, 'checkout', '-q', '--detach', pinned.commit], { timeoutMs: 30_000 });
       tofu = pinned.commit;
     } else {
       tofu = head;
@@ -707,14 +817,15 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
       );
     }
   }
+  await run('git', ['-C', stagingDir, 'checkout', '-q', '--detach', head], { timeoutMs: 30_000 });
   try {
     await readFile(path.join(stagingDir, 'construct.yaml'), 'utf8');
   } catch {
     throw new InstallError(`${anchor.git_url} has no construct.yaml at its root — not a construct`, EXIT.INTEGRITY_MISMATCH, { code: 'NOT_A_CONSTRUCT' });
   }
   await assertNoSymlinks(stagingDir);
+  await normalizeGitFileModes(stagingDir);
   await rm(path.join(stagingDir, '.git'), { recursive: true, force: true });
-  const head = anchor.commit ?? tofu ?? 'unknown';
   return { rung: 'registry-git', head, tofu: tofu !== null, pendingAnchor, rotatedFrom };
 }
 

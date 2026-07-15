@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign as cryptoSign, createHash } from 'node:crypto';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, symlink, chmod, stat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -307,6 +307,27 @@ test('git rung: anchored to the registry-recorded commit', async () => {
   assert.equal(result.payload.install.anchor, `registry-commit:${upstream.head}`);
 });
 
+test('git rung: tree budgets are enforced before checkout', async () => {
+  const upstream = await makeUpstream();
+  await writeFile(path.join(upstream.dir, 'oversized.bin'), Buffer.alloc(BUDGETS.max_single_file_bytes + 1));
+  await run('git', ['add', '-A'], { cwd: upstream.dir });
+  await run('git', ['-c', 'user.email=f@t', '-c', 'user.name=f', 'commit', '-q', '-m', 'oversized blob'], { cwd: upstream.dir });
+  const root = await makeRoot({ gitUrl: upstream.dir });
+  await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'GIT_BUDGET_EXCEEDED');
+});
+
+test('git rung: executable bits are cleared before the pack lands', async () => {
+  const upstream = await makeUpstream();
+  const script = path.join(upstream.dir, 'run-me.sh');
+  await writeFile(script, '#!/usr/bin/env bash\nexit 0\n');
+  await chmod(script, 0o755);
+  await run('git', ['add', '-A'], { cwd: upstream.dir });
+  await run('git', ['-c', 'user.email=f@t', '-c', 'user.name=f', 'commit', '-q', '-m', 'executable file'], { cwd: upstream.dir });
+  const root = await makeRoot({ gitUrl: upstream.dir });
+  const result = await install({ slug: 'goodpack', root, rung: 'git' });
+  assert.equal((await stat(path.join(result.path, 'run-me.sh'))).mode & 0o111, 0);
+});
+
 test('git rung: absent commit pin → TOFU, recorded as first-seen and surfaced', async () => {
   const upstream = await makeUpstream();
   const root = await makeRoot({ gitUrl: upstream.dir });
@@ -602,6 +623,54 @@ test('S229-P4: committed-metadata failure restores both the previous pack and TO
   assert.equal(records.length, 1);
   assert.equal(JSON.parse(await readFile(path.join(receiptsDir, records[0]), 'utf8')).install.transaction_state, 'prepared');
   assert.deepEqual((await readdir(packsDir)).filter((name) => name.startsWith('.backup-')), []);
+});
+
+test('S229-P4: rollback preserves a concurrently substituted target and the recoverable backup', async () => {
+  const root = await makeRoot();
+  const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
+  const packsDir = path.join(root, '.claude', 'constructs', 'packs');
+  const target = path.join(packsDir, 'goodpack');
+  const stage = path.join(packsDir, '.stage-goodpack');
+  await mkdir(receiptsDir, { recursive: true });
+  await mkdir(target, { recursive: true });
+  await mkdir(stage, { recursive: true });
+  await writeFile(path.join(target, '.construct-meta.json'), '{"generation":"old"}\n');
+  await writeFile(path.join(stage, '.construct-meta.json'), '{"generation":"new"}\n');
+  const receiptPayload = {
+    record_version: '1.0',
+    kind: 'install',
+    ts: '2026-07-14T00:00:00Z',
+    actor: 'test',
+    construct: 'goodpack',
+    install: {
+      rung: 'payload-file',
+      tree_hash: `sha256:${'0'.repeat(64)}`,
+      outcome: 'verified',
+      anchor: `registry:sha256:${'0'.repeat(64)}`,
+    },
+  };
+  let writes = 0;
+  const substituteThenFail = async (...args) => {
+    writes++;
+    if (writes === 2) {
+      const { rm: rmFs } = await import('node:fs/promises');
+      await rmFs(target, { recursive: true, force: true });
+      await mkdir(target, { recursive: true });
+      await writeFile(path.join(target, 'user-work.md'), 'preserve me\n');
+      await writeFile(path.join(target, '.construct-meta.json'), '{"generation":"concurrent"}\n');
+      throw Object.assign(new Error('simulated committed-record I/O failure'), { code: 'EIO' });
+    }
+    return writeRecordUnlocked(...args);
+  };
+
+  await assert.rejects(
+    commitInstallTransaction({ root, slug: 'goodpack', stage, receiptsDir, receiptPayload, recordWriter: substituteThenFail }),
+    (err) => err instanceof InstallError && err.code === 'ROLLBACK_FAILED'
+  );
+  assert.equal(await readFile(path.join(target, 'user-work.md'), 'utf8'), 'preserve me\n');
+  const backups = (await readdir(packsDir)).filter((name) => name.startsWith('.backup-'));
+  assert.equal(backups.length, 1);
+  assert.equal(await readFile(path.join(packsDir, backups[0], '.construct-meta.json'), 'utf8'), '{"generation":"old"}\n');
 });
 
 test('S229-P4: non-ENOENT target lookup failures are surfaced, not treated as absence', async () => {
