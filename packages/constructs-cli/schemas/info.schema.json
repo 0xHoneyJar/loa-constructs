@@ -10,6 +10,7 @@
     "data": {
       "type": "object",
       "required": ["slug", "name", "version", "info_schema_version", "orientation", "mechanics"],
+      "additionalProperties": false,
       "properties": {
         "slug": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
         "name": { "type": "string", "minLength": 1 },
@@ -95,6 +96,7 @@
     "provenance": {
       "type": "object",
       "required": ["rung", "pinned", "rungs_consulted", "vantage"],
+      "additionalProperties": false,
       "properties": {
         "rung": { "type": "string" },
         "pinned": { "type": "boolean" },

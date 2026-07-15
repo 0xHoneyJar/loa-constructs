@@ -81,6 +81,15 @@ test('local info separates prose orientation from declared mechanics', async (t)
   ]);
   assert.equal(info.mechanics.skills[0].metadata_status, 'declared');
   assert.equal(info.mechanics.skills[0].capabilities.danger_level, 'safe');
+  assert.equal('source' in info, false);
+  assert.deepEqual(Object.keys(info).sort(), [
+    'info_schema_version',
+    'mechanics',
+    'name',
+    'orientation',
+    'slug',
+    'version',
+  ]);
 });
 
 test('info --json --rung local emits the split with pinned provenance', async (t) => {
@@ -266,7 +275,7 @@ test('the info schema rejects prose that claims authority', async (t) => {
   assert.match(validation.errors.join('\n'), /authoritative/);
 });
 
-test('the info schema rejects undeclared mechanics and capability fields', async (t) => {
+test('the info schema rejects undeclared data, provenance, mechanics, and capability fields', async (t) => {
   const root = await makePack();
   t.after(() => rm(root, { recursive: true, force: true }));
   const data = await inspectLocalConstruct('fixture', root);
@@ -284,8 +293,12 @@ test('the info schema rejects undeclared mechanics and capability fields', async
 
   payload.data.mechanics.permission_grant = 'write-all';
   payload.data.mechanics.skills[0].capabilities.authority_effect = 'full';
+  payload.data.source = '/Users/operator/private/constructs/fixture';
+  payload.provenance.permission_grant = 'write-all';
   const validation = validate(INFO_SCHEMA, payload);
   assert.equal(validation.valid, false);
+  assert.match(validation.errors.join('\n'), /source/);
+  assert.match(validation.errors.join('\n'), /provenance.*permission_grant/);
   assert.match(validation.errors.join('\n'), /permission_grant/);
   assert.match(validation.errors.join('\n'), /authority_effect/);
 });

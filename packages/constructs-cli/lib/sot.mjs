@@ -304,7 +304,9 @@ async function inspectLocalSummary(summary) {
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return {
-    ...summary,
+    slug: summary.slug,
+    name: summary.name,
+    version: summary.version,
     info_schema_version: '1.0',
     orientation: orientationFromManifest(manifest, summary),
     mechanics: {
@@ -339,7 +341,9 @@ export async function inspectConstruct(slug, opts = {}) {
   return {
     ...result,
     data: {
-      ...found,
+      slug: found.slug,
+      name: found.name,
+      version: found.version,
       info_schema_version: '1.0',
       orientation: {
         kind: 'prose',
