@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPairSync, sign as cryptoSign, createHash } from 'node:crypto';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, symlink, chmod, stat, open } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, symlink, chmod, stat, open, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -1025,6 +1025,124 @@ test('S229-P4: committed-metadata failure restores both the previous pack and TO
   assert.deepEqual(lifecycle.map((record) => record.install.transaction_state).sort(), ['prepared', 'rolled_back']);
   assert.equal(new Set(lifecycle.map((record) => record.install.transaction_id)).size, 1);
   assert.deepEqual((await readdir(packsDir)).filter((name) => name.startsWith('.backup-')), []);
+});
+
+test('TOFU CAS: a stale rotation preserves the concurrently replaced anchor', async () => {
+  const root = await makeRoot();
+  const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
+  const packsDir = path.join(root, '.claude', 'constructs', 'packs');
+  const target = path.join(packsDir, 'goodpack');
+  const stage = path.join(packsDir, '.stage-goodpack');
+  const anchorFile = path.join(root, 'grimoires', 'loa', 'territory', 'anchors', 'goodpack.json');
+  await mkdir(receiptsDir, { recursive: true });
+  await mkdir(target, { recursive: true });
+  await mkdir(stage, { recursive: true });
+  await mkdir(path.dirname(anchorFile), { recursive: true });
+  await writeFile(path.join(target, '.construct-meta.json'), OLD_MARKER);
+  await writeFile(path.join(stage, '.construct-meta.json'), '{"generation":"new"}\n');
+  const priorAnchor = `${JSON.stringify({ slug: 'goodpack', commit: 'a'.repeat(40), first_seen_at: '2026-07-14T00:00:00Z' }, null, 2)}\n`;
+  const concurrentAnchor = `${JSON.stringify({ slug: 'goodpack', commit: 'c'.repeat(40), first_seen_at: '2026-07-14T00:00:01Z', transaction_id: 'concurrent-writer' }, null, 2)}\n`;
+  await writeFile(anchorFile, priorAnchor, { mode: 0o600 });
+
+  const receiptPayload = {
+    record_version: '1.0',
+    kind: 'install',
+    ts: '2026-07-14T00:00:00Z',
+    actor: 'test',
+    construct: 'goodpack',
+    install: {
+      rung: 'registry-git',
+      tree_hash: `sha256:${'0'.repeat(64)}`,
+      outcome: 'hash-overridden',
+      anchor: `first-seen:${'b'.repeat(40)} (rotated from ${'a'.repeat(40)})`,
+      override_reason: 'fixture rotation',
+    },
+  };
+  const replaceAfterSnapshot = async (dir, payload) => {
+    const record = await writeRecordUnlocked(dir, payload);
+    if (payload.install.transaction_state === 'prepared') {
+      const replacement = `${anchorFile}.concurrent`;
+      await writeFile(replacement, concurrentAnchor, { mode: 0o600 });
+      await rename(replacement, anchorFile);
+    }
+    return record;
+  };
+
+  await assert.rejects(
+    commitInstallTransaction({
+      root,
+      slug: 'goodpack',
+      stage,
+      receiptsDir,
+      receiptPayload,
+      pendingAnchor: 'b'.repeat(40),
+      recordWriter: replaceAfterSnapshot,
+    }),
+    (err) => err instanceof InstallError && err.code === 'METADATA_COMMIT_FAILED' && /changed after it was read/.test(err.message)
+  );
+  assert.equal(await readFile(anchorFile, 'utf8'), concurrentAnchor);
+  assert.equal(await readFile(path.join(target, '.construct-meta.json'), 'utf8'), OLD_MARKER);
+});
+
+test('TOFU CAS: rollback never deletes a concurrently substituted anchor', async () => {
+  const root = await makeRoot();
+  const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
+  const packsDir = path.join(root, '.claude', 'constructs', 'packs');
+  const target = path.join(packsDir, 'goodpack');
+  const stage = path.join(packsDir, '.stage-goodpack');
+  const anchorsDir = path.join(root, 'grimoires', 'loa', 'territory', 'anchors');
+  const anchorFile = path.join(anchorsDir, 'goodpack.json');
+  await mkdir(receiptsDir, { recursive: true });
+  await mkdir(target, { recursive: true });
+  await mkdir(stage, { recursive: true });
+  await mkdir(anchorsDir, { recursive: true });
+  await writeFile(path.join(target, '.construct-meta.json'), OLD_MARKER);
+  await writeFile(path.join(stage, '.construct-meta.json'), '{"generation":"new"}\n');
+  const priorAnchor = `${JSON.stringify({ slug: 'goodpack', commit: 'a'.repeat(40), first_seen_at: '2026-07-14T00:00:00Z' }, null, 2)}\n`;
+  const concurrentAnchor = `${JSON.stringify({ slug: 'goodpack', commit: 'c'.repeat(40), first_seen_at: '2026-07-14T00:00:02Z', transaction_id: 'concurrent-writer' }, null, 2)}\n`;
+  await writeFile(anchorFile, priorAnchor, { mode: 0o600 });
+
+  const receiptPayload = {
+    record_version: '1.0',
+    kind: 'install',
+    ts: '2026-07-14T00:00:00Z',
+    actor: 'test',
+    construct: 'goodpack',
+    install: {
+      rung: 'registry-git',
+      tree_hash: `sha256:${'0'.repeat(64)}`,
+      outcome: 'hash-overridden',
+      anchor: `first-seen:${'b'.repeat(40)} (rotated from ${'a'.repeat(40)})`,
+      override_reason: 'fixture rotation',
+    },
+  };
+  const failAfterConcurrentReplacement = async (dir, payload) => {
+    if (payload.install.transaction_state === 'committed') {
+      const replacement = `${anchorFile}.concurrent`;
+      await writeFile(replacement, concurrentAnchor, { mode: 0o600 });
+      await rename(replacement, anchorFile);
+      throw Object.assign(new Error('simulated committed-record I/O failure'), { code: 'EIO' });
+    }
+    return writeRecordUnlocked(dir, payload);
+  };
+
+  await assert.rejects(
+    commitInstallTransaction({
+      root,
+      slug: 'goodpack',
+      stage,
+      receiptsDir,
+      receiptPayload,
+      pendingAnchor: 'b'.repeat(40),
+      recordWriter: failAfterConcurrentReplacement,
+    }),
+    (err) => err instanceof InstallError && err.code === 'ROLLBACK_FAILED' && /newer anchor replaced transaction/.test(err.message)
+  );
+  assert.equal(await readFile(anchorFile, 'utf8'), concurrentAnchor);
+  assert.equal(await readFile(path.join(target, '.construct-meta.json'), 'utf8'), OLD_MARKER);
+  const preservedPrior = (await readdir(anchorsDir)).filter((name) => name.startsWith('.goodpack.prior-'));
+  assert.equal(preservedPrior.length, 1);
+  assert.equal(await readFile(path.join(anchorsDir, preservedPrior[0]), 'utf8'), priorAnchor);
 });
 
 test('S229-P4: rollback leaves a concurrently substituted target canonical and preserves the recoverable backup', async () => {

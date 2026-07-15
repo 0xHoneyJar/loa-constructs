@@ -14,7 +14,7 @@
 // registry compromise — the receipt records enough for retroactive audit.
 
 import { createHash, createPublicKey, randomUUID, verify as cryptoVerify } from 'node:crypto';
-import { readFile, writeFile, mkdir, rename, rm, stat, lstat, readdir, chmod, mkdtemp, open } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, rm, stat, lstat, readdir, chmod, mkdtemp, open, link } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { jcsCanonicalize } from './vendor/jcs.mjs';
@@ -763,15 +763,12 @@ function tofuStorageProblem(file, message) {
   );
 }
 
-async function readSecureTofuAnchorRaw(root, slug) {
-  const parent = await ensureSafeTofuParent(root, { missingOk: true });
-  if (!parent) return null;
-  const file = path.join(parent, `${slug}.json`);
+async function readSecureTofuFile(file, { missingOk = false } = {}) {
   let handle;
   try {
     handle = await open(file, 'r');
   } catch (err) {
-    if (err?.code === 'ENOENT') return null;
+    if (missingOk && err?.code === 'ENOENT') return null;
     throw tofuStorageProblem(file, `cannot open it (${err?.message ?? err})`);
   }
 
@@ -800,24 +797,175 @@ async function readSecureTofuAnchorRaw(root, slug) {
   }
 }
 
-async function writeSecureTofuAnchorRaw(root, slug, raw) {
-  const parent = await ensureSafeTofuParent(root, { create: true });
-  const file = path.join(parent, `${slug}.json`);
-  const tmp = path.join(parent, `.${slug}.${randomUUID()}.tmp`);
+async function readSecureTofuAnchorRaw(root, slug) {
+  const parent = await ensureSafeTofuParent(root, { missingOk: true });
+  if (!parent) return null;
+  return readSecureTofuFile(path.join(parent, `${slug}.json`), { missingOk: true });
+}
+
+async function publishTofuRawExclusive(parent, file, raw) {
+  const tmp = path.join(parent, `.${path.basename(file)}.${randomUUID()}.tmp`);
   let handle;
+  let writeError = null;
   try {
     handle = await open(tmp, 'wx', 0o600);
     await handle.writeFile(raw, 'utf8');
     await handle.chmod(0o600);
     await handle.sync();
+  } catch (err) {
+    writeError = err;
   } finally {
     if (handle) await handle.close();
   }
-  await rename(tmp, file);
-  const info = await lstat(file);
-  if (info.isSymbolicLink() || !info.isFile() || (info.mode & 0o777) !== 0o600 || (typeof process.getuid === 'function' && info.uid !== process.getuid())) {
-    throw tofuStorageProblem(file, 'the committed file failed its owner/mode check');
+  if (writeError) {
+    await rm(tmp, { force: true }).catch(() => {});
+    throw tofuStorageProblem(file, `cannot prepare it for exclusive publication (${writeError?.message ?? writeError})`);
   }
+
+  try {
+    // A hard link is the portable same-filesystem form of exclusive publish:
+    // unlike rename(), it fails with EEXIST instead of overwriting a writer
+    // that won the canonical pathname after our snapshot.
+    await link(tmp, file);
+  } catch (err) {
+    if (err?.code === 'EEXIST') {
+      throw new InstallError(
+        `TOFU anchor ${file} changed while an install was committing; refusing a stale overwrite`,
+        EXIT.INTEGRITY_MISMATCH,
+        { code: 'TOFU_CONFLICT', fix: 'inspect the current anchor and retry from fresh trust state' }
+      );
+    }
+    throw tofuStorageProblem(file, `cannot publish it exclusively (${err?.message ?? err})`);
+  } finally {
+    await rm(tmp, { force: true }).catch(() => {});
+  }
+
+  const committedRaw = await readSecureTofuFile(file);
+  if (committedRaw !== raw) {
+    throw new InstallError(
+      `TOFU anchor ${file} changed during exclusive publication`,
+      EXIT.INTEGRITY_MISMATCH,
+      { code: 'TOFU_CONFLICT', fix: 'inspect the current anchor and retry from fresh trust state' }
+    );
+  }
+}
+
+async function restoreTofuClaimExclusive(claim, file) {
+  try {
+    await link(claim, file);
+  } catch (err) {
+    if (err?.code === 'EEXIST') {
+      throw new InstallError(
+        `TOFU anchor conflict: ${file} was occupied while restoring claimed state preserved at ${claim}`,
+        EXIT.INTEGRITY_MISMATCH,
+        { code: 'TOFU_CONFLICT', fix: `reconcile ${file} with preserved anchor ${claim}` }
+      );
+    }
+    throw err;
+  }
+  await rm(claim, { force: true });
+}
+
+function tofuAnchorRaw(slug, commit, transactionId) {
+  const objectFormat = commit.length === 64 ? 'sha256' : 'sha1';
+  return `${JSON.stringify({ slug, commit, object_format: objectFormat, first_seen_at: nowIso(), transaction_id: transactionId }, null, 2)}\n`;
+}
+
+async function beginTofuAnchorMutation(root, slug, commit, transactionId, expectedRaw) {
+  const parent = await ensureSafeTofuParent(root, { create: true });
+  const file = path.join(parent, `${slug}.json`);
+  const priorClaim = expectedRaw === null
+    ? null
+    : path.join(parent, `.${slug}.prior-${transactionId.replace(/^sha256:/, '')}-${randomUUID()}`);
+
+  if (priorClaim) {
+    try {
+      await rename(file, priorClaim);
+    } catch (err) {
+      throw new InstallError(
+        `TOFU anchor ${file} changed before commit and could not be claimed (${err?.message ?? err})`,
+        EXIT.INTEGRITY_MISMATCH,
+        { code: 'TOFU_CONFLICT', fix: 'inspect the current anchor and retry from fresh trust state' }
+      );
+    }
+    let claimedRaw;
+    try {
+      claimedRaw = await readSecureTofuFile(priorClaim);
+    } catch (err) {
+      await restoreTofuClaimExclusive(priorClaim, file).catch((restoreErr) => {
+        throw new InstallError(
+          `TOFU anchor claim validation failed (${err?.message ?? err}) and claimed state remains preserved at ${priorClaim} because it could not reclaim ${file} (${restoreErr?.message ?? restoreErr})`,
+          EXIT.TOOL_FAILURE,
+          { code: 'TOFU_ROLLBACK_FAILED', fix: `reconcile ${file} with ${priorClaim}` }
+        );
+      });
+      throw err;
+    }
+    if (claimedRaw !== expectedRaw) {
+      await restoreTofuClaimExclusive(priorClaim, file);
+      throw new InstallError(
+        `TOFU anchor ${file} changed after it was read; refusing a stale rotation`,
+        EXIT.INTEGRITY_MISMATCH,
+        { code: 'TOFU_CONFLICT', fix: 'inspect the current anchor and retry from fresh trust state' }
+      );
+    }
+  }
+
+  const newRaw = tofuAnchorRaw(slug, commit, transactionId);
+  try {
+    await publishTofuRawExclusive(parent, file, newRaw);
+  } catch (err) {
+    if (priorClaim) {
+      await restoreTofuClaimExclusive(priorClaim, file).catch((restoreErr) => {
+        throw new InstallError(
+          `TOFU mutation failed (${err?.message ?? err}) and prior state remains preserved at ${priorClaim} because it could not reclaim ${file} (${restoreErr?.message ?? restoreErr})`,
+          EXIT.TOOL_FAILURE,
+          { code: 'TOFU_ROLLBACK_FAILED', fix: `reconcile ${file} with ${priorClaim}` }
+        );
+      });
+    }
+    throw err;
+  }
+  return { file, priorClaim, newRaw, transactionId };
+}
+
+async function rollbackTofuAnchorMutation(mutation) {
+  const { file, priorClaim, newRaw, transactionId } = mutation;
+  const failedClaim = path.join(
+    path.dirname(file),
+    `.${path.basename(file)}.rollback-${transactionId.replace(/^sha256:/, '')}-${randomUUID()}`
+  );
+  try {
+    await rename(file, failedClaim);
+  } catch (err) {
+    throw new InstallError(
+      `TOFU rollback conflict at ${file}: the transaction anchor could not be claimed (${err?.message ?? err})`,
+      EXIT.TOOL_FAILURE,
+      { code: 'TOFU_ROLLBACK_CONFLICT', fix: `inspect ${file}${priorClaim ? ` and ${priorClaim}` : ''}` }
+    );
+  }
+
+  const currentRaw = await readSecureTofuFile(failedClaim);
+  if (currentRaw !== newRaw) {
+    await restoreTofuClaimExclusive(failedClaim, file);
+    throw new InstallError(
+      `TOFU rollback conflict at ${file}: a newer anchor replaced transaction ${transactionId} and was preserved`,
+      EXIT.TOOL_FAILURE,
+      { code: 'TOFU_ROLLBACK_CONFLICT', fix: `inspect ${file}${priorClaim ? ` and ${priorClaim}` : ''}` }
+    );
+  }
+
+  if (priorClaim) await restoreTofuClaimExclusive(priorClaim, file);
+  await rm(failedClaim, { force: true });
+}
+
+async function finishTofuAnchorMutation(mutation) {
+  if (!mutation?.priorClaim) return;
+  // The committed receipt is the metadata commit point. Cleanup of the old
+  // claim must not turn committed reality into a rollback attempt.
+  await rm(mutation.priorClaim, { force: true }).catch(() => {
+    process.stderr.write(`warning: committed TOFU rotation, but the prior anchor claim could not be removed: ${mutation.priorClaim}\n`);
+  });
 }
 
 /**
@@ -854,16 +1002,6 @@ async function readTofuAnchor(root, slug) {
     );
   }
   return doc;
-}
-
-/** Atomic: an interrupted write must not leave a half-anchor that reads as absent. */
-async function writeTofuAnchor(root, slug, commit) {
-  const objectFormat = commit.length === 64 ? 'sha256' : 'sha1';
-  await writeSecureTofuAnchorRaw(
-    root,
-    slug,
-    `${JSON.stringify({ slug, commit, object_format: objectFormat, first_seen_at: nowIso() }, null, 2)}\n`
-  );
 }
 
 function installTransactionPayload(receiptPayload, transactionState, attemptNonce = randomUUID()) {
@@ -976,16 +1114,6 @@ async function finishPackSwap({ backup }, slug) {
   });
 }
 
-async function restoreTofuAnchor(root, slug, priorRaw) {
-  const file = tofuAnchorPath(root, slug);
-  if (priorRaw === null) {
-    await readSecureTofuAnchorRaw(root, slug);
-    await rm(file, { force: true });
-    return;
-  }
-  await writeSecureTofuAnchorRaw(root, slug, priorRaw);
-}
-
 /**
  * Commit one install while the caller holds the receipts lock.
  *
@@ -1018,6 +1146,7 @@ export async function commitInstallTransaction({
   const preparedRecord = await recordWriter(receiptsDir, preparedPayload);
   const transactionId = preparedPayload.install.transaction_id;
   let swap;
+  let anchorMutation = null;
   try {
     await stampStageTransaction(stage, transactionId);
     swap = await swapPackIn({ root, slug, stage, transactionId });
@@ -1034,17 +1163,20 @@ export async function commitInstallTransaction({
     throw err;
   }
   try {
-    if (pendingAnchor) await writeTofuAnchor(root, slug, pendingAnchor);
+    if (pendingAnchor) {
+      anchorMutation = await beginTofuAnchorMutation(root, slug, pendingAnchor, transactionId, priorAnchorRaw);
+    }
 
     const committedPayload = lifecyclePayload('committed');
     const committedRecord = await recordWriter(receiptsDir, committedPayload);
+    await finishTofuAnchorMutation(anchorMutation);
     await finishPackSwap(swap, slug);
     return { landed: swap.target, preparedRecord, committedRecord, committedPayload };
   } catch (err) {
     const rollbackErrors = [];
     await rollbackPackSwap(swap, transactionId, rollbackOwnershipHook).catch((rollbackErr) => rollbackErrors.push(`pack: ${rollbackErr?.message ?? rollbackErr}`));
-    if (pendingAnchor) {
-      await restoreTofuAnchor(root, slug, priorAnchorRaw).catch((rollbackErr) => rollbackErrors.push(`anchor: ${rollbackErr?.message ?? rollbackErr}`));
+    if (anchorMutation) {
+      await rollbackTofuAnchorMutation(anchorMutation).catch((rollbackErr) => rollbackErrors.push(`anchor: ${rollbackErr?.message ?? rollbackErr}`));
     }
     const terminalState = rollbackErrors.length > 0 ? 'rollback_failed' : 'rolled_back';
     await recordWriter(receiptsDir, lifecyclePayload(terminalState)).catch((terminalErr) => {

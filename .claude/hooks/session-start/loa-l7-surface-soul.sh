@@ -79,18 +79,27 @@ fi
 command -v yq >/dev/null 2>&1 || exit 0
 [[ -f "$config_path" ]] || exit 0
 
-# Read enable / mode / max-chars / path keys. Silent on malformed YAML
-# (each yq returns the default).
-enabled="$(yq '.soul_identity_doc.enabled // false' "$config_path" 2>/dev/null || echo false)"
+# Parse the source document once as one checked boundary. A failed yq command
+# may have emitted partial stdout before its non-zero status; never combine
+# that fragment with per-field defaults and accidentally treat it as config.
+config_doc="$(yq -o=json -I=0 '{
+  "enabled": (.soul_identity_doc.enabled // false),
+  "schema_mode": (.soul_identity_doc.schema_mode // "warn"),
+  "surface_max_chars": (.soul_identity_doc.surface_max_chars // 2000),
+  "path": (.soul_identity_doc.path // "")
+}' "$config_path" 2>/dev/null)" || exit 0
+[[ -n "$config_doc" ]] || exit 0
+
+enabled="$(printf '%s' "$config_doc" | yq '.enabled' 2>/dev/null)" || exit 0
 [[ "$enabled" == "true" ]] || exit 0
 
-schema_mode="$(yq '.soul_identity_doc.schema_mode // "warn"' "$config_path" 2>/dev/null || echo warn)"
+schema_mode="$(printf '%s' "$config_doc" | yq '.schema_mode' 2>/dev/null)" || exit 0
 case "$schema_mode" in
     strict|warn) ;;
     *) schema_mode="warn" ;;
 esac
 
-max_chars="$(yq '.soul_identity_doc.surface_max_chars // 2000' "$config_path" 2>/dev/null || echo 2000)"
+max_chars="$(printf '%s' "$config_doc" | yq '.surface_max_chars' 2>/dev/null)" || exit 0
 # Repository configuration may select a smaller presentation budget, but the
 # hard context-safety ceiling is code-owned. Require canonical decimal syntax
 # so leading zeros cannot trigger shell arithmetic ambiguity.
@@ -106,7 +115,7 @@ soul_path="${REPO_ROOT}/SOUL.md"
 if _l7_test_mode_active && [[ -n "${LOA_SOUL_TEST_PATH:-}" ]]; then
     soul_path="$LOA_SOUL_TEST_PATH"
 else
-    cfg_path="$(yq '.soul_identity_doc.path // ""' "$config_path" 2>/dev/null || echo "")"
+    cfg_path="$(printf '%s' "$config_doc" | yq '.path' 2>/dev/null)" || exit 0
     if [[ -n "$cfg_path" && "$cfg_path" != "null" ]]; then
         # cycle-098 sprint-7 cypherpunk HIGH-1 remediation: reject `..`
         # substrings in the configured path before any resolution. The

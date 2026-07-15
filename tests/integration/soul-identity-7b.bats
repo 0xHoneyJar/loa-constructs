@@ -174,6 +174,25 @@ EOF
     _write_valid_soul
     run "$HOOK"
     [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "expected silent on malformed config, got: $output"; false; }
+}
+
+@test "T-HOOK-4b config parse failure discards partial yq stdout atomically" {
+    _write_config "true" "strict" "2000"
+    _write_invalid_soul_prescriptive
+    mkdir -p "$TEST_DIR/bin"
+    cat > "$TEST_DIR/bin/yq" <<'EOF'
+#!/usr/bin/env bash
+# Model a parser that emits a partial document before reporting failure.
+printf '{"enabled":true'
+exit 1
+EOF
+    chmod +x "$TEST_DIR/bin/yq"
+
+    PATH="$TEST_DIR/bin:$PATH" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "partial config output reached the session: $output"; false; }
+    [[ ! -e "$LOA_SOUL_LOG" ]]
 }
 
 # ---------------------------------------------------------------------------
