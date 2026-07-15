@@ -149,31 +149,37 @@ jobs:
       - name: Validate grader trust boundary
         run: |
           echo "Scanning trusted eval scripts for source-injection vectors..."
-          violations=0
+          mapfile -d '' trusted_scripts < <(
+            find pr/evals/graders/ pr/evals/harness/ \
+              -name '*.sh' -type f -not -path '*/tests/*' -print0 2>/dev/null
+          )
+          if [[ ${#trusted_scripts[@]} -eq 0 ]]; then
+            echo "::error::No trusted grader or harness scripts found to validate"
+            exit 1
+          fi
 
-          # Scan all .sh files in trusted eval directories (exclude tests/)
-          for f in $(find pr/evals/graders/ pr/evals/harness/ -name '*.sh' -type f -not -path '*/tests/*' 2>/dev/null); do
-            # Check for source/dot directives with variable expansion or paths outside evals/
-            while IFS= read -r line; do
-              # Skip comments
-              [[ "$line" =~ ^[[:space:]]*# ]] && continue
-
-              # Detect: source $VAR, . $VAR, source $(cmd), eval $(...), eval "$var"
-              if printf '%s\n' "$line" | grep -qE '(^|[;&|])[[:space:]]*(source|\.)[ \t]+.{0,500}(\$|`)'; then
-                echo "::error file=$f::Source directive with variable expansion: $line"
-                violations=$((violations + 1))
-              fi
-
-              # Detect: eval with variable expansion
-              if printf '%s\n' "$line" | grep -qE '(^|[;&|])[[:space:]]*eval[ \t]+.{0,500}(\$|`)'; then
-                echo "::error file=$f::Eval with variable expansion: $line"
-                violations=$((violations + 1))
-              fi
-            done < "$f"
-          done
-
-          if [[ $violations -gt 0 ]]; then
-            echo "::error::Found $violations trust boundary violations in eval scripts"
+          # One awk process scans the complete trusted tree. The former nested
+          # shell loop forked two grep processes per source line and exhausted
+          # the 30-minute job budget before any eval suite could run.
+          if ! awk '
+            /^[[:space:]]*#/ { next }
+            {
+              if ($0 ~ /(^|[;&|])[[:space:]]*(source|\.)[ \t]+.*(\$|`)/) {
+                printf "::error file=%s,line=%d::Source directive with variable expansion: %s\n", FILENAME, FNR, $0
+                violations++
+              }
+              if ($0 ~ /(^|[;&|])[[:space:]]*eval[ \t]+.*(\$|`)/) {
+                printf "::error file=%s,line=%d::Eval with variable expansion: %s\n", FILENAME, FNR, $0
+                violations++
+              }
+            }
+            END {
+              if (violations > 0) {
+                printf "::error::Found %d trust boundary violations in eval scripts\n", violations
+                exit 1
+              }
+            }
+          ' "${trusted_scripts[@]}"; then
             exit 1
           fi
           echo "Trust boundary check passed"
