@@ -77,8 +77,8 @@ export function buildEnv(extra = {}) {
  *
  * @param {string} bin  binary name or absolute path
  * @param {string[]} args  arguments — passed verbatim to the child, never parsed by a shell
- * @param {{cwd?: string, timeoutMs?: number, env?: object, maxBuffer?: number, allowNonZero?: boolean}} opts
- * @returns {Promise<{stdout: string, stderr: string, exitCode: number}>}
+ * @param {{cwd?: string, timeoutMs?: number, env?: object, maxBuffer?: number, allowNonZero?: boolean, encoding?: string|'buffer'}} opts
+ * @returns {Promise<{stdout: string|Buffer, stderr: string|Buffer, exitCode: number}>}
  */
 export async function run(bin, args = [], opts = {}) {
   if (!Array.isArray(args)) {
@@ -92,7 +92,13 @@ export async function run(bin, args = [], opts = {}) {
     env = {},
     maxBuffer = 16 * 1024 * 1024,
     allowNonZero = false,
+    encoding = 'utf8',
   } = opts;
+
+  const preserveOutput = (value) => {
+    if (encoding === 'buffer') return Buffer.isBuffer(value) ? value : Buffer.from(value ?? '');
+    return String(value ?? '');
+  };
 
   const absolute = await resolveBinary(bin);
 
@@ -106,6 +112,9 @@ export async function run(bin, args = [], opts = {}) {
         killSignal: 'SIGKILL',
         env: buildEnv(env),
         maxBuffer,
+        // Byte-sensitive callers (for example Git path inspection) opt out of
+        // text decoding so validation observes the exact bytes the child emitted.
+        encoding: encoding === 'buffer' ? null : encoding,
         // shell: false is execFile's default and is the whole point — stated
         // explicitly so a future edit can't quietly flip it.
         shell: false,
@@ -124,7 +133,7 @@ export async function run(bin, args = [], opts = {}) {
           }
           const exitCode = typeof err.code === 'number' ? err.code : 1;
           if (allowNonZero) {
-            return resolve({ stdout: String(stdout ?? ''), stderr: String(stderr ?? ''), exitCode });
+            return resolve({ stdout: preserveOutput(stdout), stderr: preserveOutput(stderr), exitCode });
           }
           return reject(
             new ExecError(`${bin} exited ${exitCode}: ${String(stderr ?? '').trim().slice(0, 300)}`, {
@@ -135,7 +144,7 @@ export async function run(bin, args = [], opts = {}) {
             })
           );
         }
-        resolve({ stdout: String(stdout ?? ''), stderr: String(stderr ?? ''), exitCode: 0 });
+        resolve({ stdout: preserveOutput(stdout), stderr: preserveOutput(stderr), exitCode: 0 });
       }
     );
   });

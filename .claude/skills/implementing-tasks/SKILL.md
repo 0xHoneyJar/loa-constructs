@@ -47,7 +47,9 @@ Otherwise: write the user's invocation prompt/args to a temp file (Write tool), 
 |---------|--------|
 | JSON `action: "BLOCK"` | HALT; report the script's `reason` to the user |
 | JSON `action: "PROCEED"` or `"WARN"` | Continue (logging is handled by the script) |
-| Script missing, non-zero exit, or unparseable output | Continue — fail-open, preserving pre-cycle-119 semantics |
+| Script missing, non-zero exit, or unparseable output | HALT before skill execution; log the guardrail failure and report it to the operator |
+
+Continue after a guardrail-system failure only when the operator explicitly disables input guardrails in configuration or environment and re-invokes the skill. Record that override in trajectory; never infer or self-author it.
 
 Never pass prompt text as a bash argv (quote-blindness FP class) — always via `--file`.
 </input_guardrails>
@@ -237,8 +239,8 @@ See `resources/templates/implementation-report.md` for the structured
 Exit 0 → proceed. Exit 1 → fix the reported AC rows (exact repair text) and
 re-run before writing the marker. Exit 2 (usage error / file not found) →
 treat as a validator FAILURE, do NOT proceed: fix the report/sprint path and
-re-run. Script missing entirely → fall back to the manual walk above
-(fail-open, pre-cycle-119 semantics).
+re-run. Script missing entirely → HALT before writing `COMPLETED`; restore the
+validator or obtain an explicit operator override and record it in trajectory.
 
 ## Reproducibility (R - Reproducible Results)
 - Write tests with specific assertions: NOT "it works" → "returns 200 status, response includes user.id field"
@@ -606,7 +608,7 @@ Key sections:
 
 **MUST**, immediately before writing any `COMPLETED` marker: run
 `.claude/scripts/validate-ac-verification.sh --report <reviewer.md> --sprint grimoires/loa/sprint.md`
-(see AC Verification Gate above for the full contract and fail-open fallback).
+(see AC Verification Gate above for the full fail-closed contract).
 
 ## Phase 4: Feedback Integration Loop
 

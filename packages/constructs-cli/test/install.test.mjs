@@ -20,6 +20,7 @@ import {
   attestationBytes,
   readRegistryAnchor,
   commitInstallTransaction,
+  validateGitTreeBytes,
   BUDGETS,
   InstallError,
 } from '../lib/install.mjs';
@@ -342,6 +343,15 @@ test('git rung: tree budgets are enforced before checkout', async () => {
   await run('git', ['-c', 'user.email=f@t', '-c', 'user.name=f', 'commit', '-q', '-m', 'oversized blob'], { cwd: upstream.dir });
   const root = await makeRoot({ gitUrl: upstream.dir });
   await rejectsInstall(install({ slug: 'goodpack', root, rung: 'git' }), EXIT.INTEGRITY_MISMATCH, 'GIT_BUDGET_EXCEEDED');
+});
+
+test('git rung: non-UTF-8 path bytes are refused before checkout', () => {
+  const header = Buffer.from(`100644 blob ${'a'.repeat(40)} 1\tinvalid-`, 'ascii');
+  const rawTree = Buffer.concat([header, Buffer.from([0xff, 0x00])]);
+  assert.throws(
+    () => validateGitTreeBytes(rawTree),
+    (err) => err instanceof InstallError && err.exitCode === EXIT.INTEGRITY_MISMATCH && err.code === 'GIT_PATH_ENCODING'
+  );
 });
 
 test('git rung: executable bits are cleared before the pack lands', async () => {

@@ -28,7 +28,9 @@ Otherwise: write the user's invocation prompt/args to a temp file (Write tool), 
 |---------|--------|
 | JSON `action: "BLOCK"` | HALT; report the script's `reason` to the user |
 | JSON `action: "PROCEED"` or `"WARN"` | Continue (logging is handled by the script) |
-| Script missing, non-zero exit, or unparseable output | Continue — fail-open, preserving pre-cycle-119 semantics |
+| Script missing, non-zero exit, or unparseable output | HALT before skill execution; log the guardrail failure and report it to the operator |
+
+Continue after a guardrail-system failure only when the operator explicitly disables input guardrails in configuration or environment and re-invokes the skill. Record that override in trajectory; never infer or self-author it.
 
 Never pass prompt text as a bash argv (quote-blindness FP class) — always via `--file`.
 </input_guardrails>

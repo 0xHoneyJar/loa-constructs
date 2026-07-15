@@ -700,8 +700,29 @@ export async function commitInstallTransaction({
 }
 
 async function inspectGitTree(stagingDir, ref) {
-  const { stdout } = await run('git', ['-C', stagingDir, 'ls-tree', '-r', '-l', '-z', ref], { timeoutMs: 30_000 });
-  const records = stdout.split('\0').filter(Boolean);
+  const { stdout } = await run('git', ['-C', stagingDir, 'ls-tree', '-r', '-l', '-z', ref], {
+    timeoutMs: 30_000,
+    encoding: 'buffer',
+  });
+  return validateGitTreeBytes(stdout);
+}
+
+/** Validate the exact NUL-delimited bytes emitted by `git ls-tree -z`. */
+export function validateGitTreeBytes(stdout) {
+  if (!Buffer.isBuffer(stdout)) {
+    throw new InstallError('git tree inspection did not return raw bytes', EXIT.TOOL_FAILURE, { code: 'GIT_TREE_MALFORMED' });
+  }
+
+  const records = [];
+  let recordStart = 0;
+  for (let i = 0; i < stdout.length; i += 1) {
+    if (stdout[i] !== 0) continue;
+    records.push(stdout.subarray(recordStart, i));
+    recordStart = i + 1;
+  }
+  if (recordStart !== stdout.length) {
+    throw new InstallError('git tree output is missing its final NUL delimiter', EXIT.INTEGRITY_MISMATCH, { code: 'GIT_TREE_MALFORMED' });
+  }
   if (records.length > BUDGETS.max_entry_count) {
     throw new InstallError(
       `git tree has ${records.length} entries, over the budget of ${BUDGETS.max_entry_count}`,
@@ -713,11 +734,34 @@ async function inspectGitTree(stagingDir, ref) {
   const paths = [];
   let totalBytes = 0n;
   for (const record of records) {
-    const match = /^(\d{6})\s+(\S+)\s+([0-9a-f]+)\s+(-|\d+)\t([\s\S]+)$/.exec(record);
-    if (!match) {
-      throw new InstallError(`cannot parse git tree entry ${JSON.stringify(record)}`, EXIT.INTEGRITY_MISMATCH, { code: 'GIT_TREE_MALFORMED' });
+    const tab = record.indexOf(0x09);
+    if (tab <= 0 || tab === record.length - 1) {
+      throw new InstallError(`cannot parse git tree entry bytes ${record.toString('hex').slice(0, 160)}`, EXIT.INTEGRITY_MISMATCH, { code: 'GIT_TREE_MALFORMED' });
     }
-    const [, mode, type, , sizeText, filePath] = match;
+    const headerBytes = record.subarray(0, tab);
+    if (headerBytes.some((byte) => byte > 0x7f)) {
+      throw new InstallError('git tree entry header contains non-ASCII bytes', EXIT.INTEGRITY_MISMATCH, { code: 'GIT_TREE_MALFORMED' });
+    }
+    const header = headerBytes.toString('ascii');
+    const match = /^(\d{6})\s+(\S+)\s+([0-9a-f]+)\s+(-|\d+)$/.exec(header);
+    if (!match) {
+      throw new InstallError(`cannot parse git tree entry header ${JSON.stringify(header)}`, EXIT.INTEGRITY_MISMATCH, { code: 'GIT_TREE_MALFORMED' });
+    }
+    const pathBytes = record.subarray(tab + 1);
+    let filePath;
+    try {
+      filePath = new TextDecoder('utf-8', { fatal: true }).decode(pathBytes);
+    } catch {
+      throw new InstallError(
+        `git tree path is not canonical UTF-8 (hex prefix ${pathBytes.toString('hex').slice(0, 80)})`,
+        EXIT.INTEGRITY_MISMATCH,
+        { code: 'GIT_PATH_ENCODING', fix: 'rename the repository entry to a valid UTF-8 path before installing' }
+      );
+    }
+    if (!Buffer.from(filePath, 'utf8').equals(pathBytes)) {
+      throw new InstallError('git tree path does not round-trip as canonical UTF-8', EXIT.INTEGRITY_MISMATCH, { code: 'GIT_PATH_ENCODING' });
+    }
+    const [, mode, type, , sizeText] = match;
     if (mode === '120000' || type !== 'blob') {
       throw new InstallError(
         `git tree entry ${JSON.stringify(filePath)} has unsupported mode/type ${mode} ${type}`,
@@ -757,7 +801,7 @@ async function inspectGitTree(stagingDir, ref) {
   // Git's own object IDs may be SHA-1 or SHA-256. Receipts use one stable
   // algorithm over the exact inspected tree representation so `tree_hash`
   // always means a computed claim, never a placeholder.
-  return `sha256:${createHash('sha256').update(stdout, 'utf8').digest('hex')}`;
+  return `sha256:${createHash('sha256').update(stdout).digest('hex')}`;
 }
 
 async function normalizeGitFileModes(dir) {

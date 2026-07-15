@@ -4,8 +4,8 @@
 #
 # cycle-098 Sprint 7B — L7 SessionStart hook tests.
 # Covers FR-L7-1 (hook loads SOUL.md at session start), FR-L7-4 (surface
-# respects surface_max_chars), FR-L7-5 (cache scoped to session — single-fire
-# semantics validated by hook idempotence), FR-L7-6 (silent on enabled:false /
+# respects surface_max_chars), FR-L7-5 (completed runs deduplicate per session;
+# crash-window delivery is at-least-once), FR-L7-6 (silent on enabled:false /
 # file missing / strict-mode failure).
 # =============================================================================
 
@@ -280,7 +280,7 @@ EOF
 # T-HOOK-CACHE group: cache scoped to session (FR-L7-5)
 # ---------------------------------------------------------------------------
 
-@test "T-HOOK-12 (FR-L7-5) hook is single-fire when LOA_L7_SURFACED is set" {
+@test "T-HOOK-12 (FR-L7-5) completed hook is suppressed when LOA_L7_SURFACED is set" {
     _write_config "true" "warn" "2000"
     _write_valid_soul
     LOA_L7_SURFACED=1 run "$HOOK"
@@ -288,7 +288,7 @@ EOF
     [[ -z "$output" ]] || { echo "expected single-fire suppress, got: $output"; false; }
 }
 
-@test "T-HOOK-12b (FR-L7-5) separate hook processes share a host-session marker" {
+@test "T-HOOK-12b (FR-L7-5) separate hook processes share a committed done marker" {
     _write_config "true" "warn" "2000"
     _write_valid_soul
     local session_id="bats-l7-${BATS_TEST_NUMBER}-${RANDOM}"

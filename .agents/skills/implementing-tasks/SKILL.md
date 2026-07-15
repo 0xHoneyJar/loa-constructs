@@ -84,7 +84,7 @@ Write to `grimoires/loa/a2a/trajectory/guardrails-{date}.jsonl`.
 
 ### Error Handling
 
-On error: Log to trajectory, **fail-open** (continue to skill).
+On a missing guardrail script, non-zero exit, or unparseable result: log the failure to trajectory and **HALT before skill execution**. Continue only after the operator explicitly disables input guardrails in configuration or environment and re-invokes the skill; record that override in trajectory. Never infer or self-author a bypass.
 </input_guardrails>
 
 <prompt_enhancement_prelude>

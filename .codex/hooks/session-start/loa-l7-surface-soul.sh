@@ -12,12 +12,13 @@
 #   - schema_mode=strict and validation fails (NFR-Sec3 prescriptive
 #     rejection or required-section absence)
 #
-# Always emits a soul.surface audit event (when enabled) capturing the
-# outcome (surfaced | schema-warning | schema-refused | file-missing).
+# For an enabled, present SOUL.md that reaches a terminal outcome, emits a
+# soul.surface audit event capturing surfaced | schema-warning | schema-refused.
+# A missing file is intentionally silent and unobserved (FR-L7-6).
 #
 # FR-L7-1 (load at session start), FR-L7-2 (warn|strict), FR-L7-4 (cap +
-# reference path), FR-L7-5 (single-fire — re-source no-ops via LOA_L7_SURFACED
-# env marker), FR-L7-6 (silent on disabled / missing / refused).
+# reference path), FR-L7-5 (completed invocations deduplicate; crash delivery
+# is at-least-once), FR-L7-6 (silent on disabled / missing / refused).
 #
 # Trust boundary: the SOUL.md body is OPERATOR-AUTHORED but UNTRUSTED at
 # surfacing. soul_load wraps the body via sanitize_for_session_start("L7",
@@ -147,7 +148,7 @@ fi
 # wasn't there"; that's not an L7 lifecycle event worth chaining.
 [[ -f "$soul_path" ]] || exit 0
 
-# Cross-process single-fire. Environment exports cannot propagate from a hook
+# Cross-process completion deduplication. Environment exports cannot propagate from a hook
 # child back to the runner, so use the host session id (env or hook JSON stdin)
 # as the retry-boundary identity. This is a tiny claim/commit transaction: a
 # live claim excludes concurrent hooks, while the durable done marker appears
@@ -272,8 +273,11 @@ if [[ "$outcome" != "schema-refused" ]]; then
     [[ -n "$surface_output" ]] && printf '%s\n' "$surface_output"
 fi
 
-# Commit only after the terminal outcome has been audited and surfaced. If
-# marker persistence fails, the EXIT trap removes the claim and permits retry.
+# Commit only after the terminal outcome has been audited and surfaced. Stdout
+# and a filesystem rename cannot be one atomic transaction: interruption after
+# output but before this rename can cause one duplicate on retry. FR-L7-5 is
+# therefore at-least-once across crashes and single-fire after committed done.
+# If marker persistence fails, the EXIT trap removes the claim and permits retry.
 if [[ -n "$marker_claim" ]]; then
     if mv "$marker_claim" "$marker_done" 2>/dev/null; then
         marker_committed=1
