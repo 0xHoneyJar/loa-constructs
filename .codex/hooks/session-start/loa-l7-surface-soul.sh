@@ -158,25 +158,46 @@ fi
 # only after validation and surfacing reach a terminal outcome. Recoverable
 # failures release the claim so a later hook invocation can retry.
 marker_claim=""
+marker_claim_token=""
 marker_done=""
 marker_committed=0
 
 # shellcheck disable=SC2329  # invoked indirectly by the EXIT trap
 _l7_release_marker_claim() {
-    if [[ -n "$marker_claim" && "$marker_committed" -ne 1 ]]; then
-        rm -f "$marker_claim" 2>/dev/null || true
+    if [[ -n "$marker_claim" && -n "$marker_claim_token" && "$marker_committed" -ne 1 ]]; then
+        # Remove only this process's unguessable owner token. If a stale-claim
+        # reclaimer already moved our directory and another process acquired the
+        # canonical path, its different token keeps rmdir from deleting it.
+        rm -f "$marker_claim/$marker_claim_token" 2>/dev/null || true
+        rmdir "$marker_claim" 2>/dev/null || true
     fi
 }
 
 _l7_try_marker_claim() {
-    local token="${marker_claim}.$$.$RANDOM.token"
-    (umask 077; printf '%s\n' "$$" >"$token") 2>/dev/null || return 1
-    if ln "$token" "$marker_claim" 2>/dev/null; then
-        rm -f "$token" 2>/dev/null || true
-        return 0
+    marker_claim_token="owner-$$-$RANDOM-$RANDOM"
+    (umask 077; mkdir "$marker_claim") 2>/dev/null || {
+        marker_claim_token=""
+        return 1
+    }
+    if ! (umask 077; printf '%s\n' "$$" >"$marker_claim/$marker_claim_token") 2>/dev/null; then
+        rmdir "$marker_claim" 2>/dev/null || true
+        marker_claim_token=""
+        return 1
     fi
-    rm -f "$token" 2>/dev/null || true
-    return 1
+    return 0
+}
+
+_l7_read_claim_pid() {
+    local claim_dir="$1" owner_file="" candidate count=0
+    [[ -d "$claim_dir" && ! -L "$claim_dir" && -O "$claim_dir" ]] || return 1
+    for candidate in "$claim_dir"/owner-*; do
+        [[ -e "$candidate" ]] || continue
+        [[ -f "$candidate" && ! -L "$candidate" && -O "$candidate" ]] || return 1
+        owner_file="$candidate"
+        count=$((count + 1))
+    done
+    [[ "$count" -eq 1 ]] || return 1
+    cat "$owner_file" 2>/dev/null
 }
 
 session_id="${LOA_L7_SESSION_ID:-}"
@@ -203,16 +224,27 @@ if [[ "$session_id" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
     if ! _l7_try_marker_claim; then
         # A completed peer wins. A live peer still owns the in-flight work.
         [[ -e "$marker_done" ]] && exit 0
-        if [[ -L "$marker_claim" || ! -f "$marker_claim" || ! -O "$marker_claim" ]]; then
+        if [[ -L "$marker_claim" || ! -d "$marker_claim" || ! -O "$marker_claim" ]]; then
             exit 0
         fi
-        claim_pid="$(cat "$marker_claim" 2>/dev/null || true)"
+        claim_pid="$(_l7_read_claim_pid "$marker_claim" 2>/dev/null || true)"
         if [[ ! "$claim_pid" =~ ^[1-9][0-9]*$ ]] || kill -0 "$claim_pid" 2>/dev/null; then
             exit 0
         fi
 
-        # The recorded owner no longer exists: reclaim a crash-stale claim.
-        rm -f "$marker_claim" 2>/dev/null || exit 0
+        # The recorded owner no longer exists. Atomically take ownership of the
+        # exact stale claim directory, then revalidate that quarantined object
+        # before deleting it. A new claim created at the canonical path is never
+        # touched by this reclamation.
+        stale_claim="${marker_claim}.stale.$$.$RANDOM-$RANDOM"
+        mv "$marker_claim" "$stale_claim" 2>/dev/null || exit 0
+        quarantined_pid="$(_l7_read_claim_pid "$stale_claim" 2>/dev/null || true)"
+        if [[ "$quarantined_pid" != "$claim_pid" ]] || kill -0 "$quarantined_pid" 2>/dev/null; then
+            # The claimed object changed under inspection. Preserve it for
+            # operator reconciliation instead of deleting uncertain state.
+            exit 0
+        fi
+        rm -rf "$stale_claim" 2>/dev/null || exit 0
         _l7_try_marker_claim || exit 0
     fi
     trap _l7_release_marker_claim EXIT

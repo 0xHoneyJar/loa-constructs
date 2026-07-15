@@ -366,10 +366,10 @@ EOF
     LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]]
-    run find "$marker_base" -type f -name '*.claim' -print
+    run find "$marker_base" -name '*.claim' -print
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]] || { echo "failed load left a claim: $output"; false; }
-    run find "$marker_base" -type f -name '*.done' -print
+    run find "$marker_base" -name '*.done' -print
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]] || { echo "failed load committed done: $output"; false; }
 
@@ -384,7 +384,7 @@ EOF
     LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]]
-    run find "$marker_base" -type f -name '*.done' -print
+    run find "$marker_base" -name '*.done' -print
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]] || { echo "failed audit committed done: $output"; false; }
 
@@ -398,13 +398,40 @@ EOF
     LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
     [[ "$status" -eq 0 ]]
     [[ "$output" == *"<untrusted-content"* ]]
-    run find "$marker_base" -type f -name '*.done' -print
+    run find "$marker_base" -name '*.done' -print
     [[ "$status" -eq 0 ]]
     [[ -n "$output" ]]
 
     LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
     [[ "$status" -eq 0 ]]
     [[ -z "$output" ]] || { echo "expected committed session to suppress retry, got: $output"; false; }
+}
+
+@test "T-HOOK-12d (FR-L7-5) crash-stale claim is atomically quarantined and reclaimed" {
+    _write_config "true" "warn" "2000"
+    _write_valid_soul
+    local marker_base="$TEST_DIR/loa-l7-surface-$(id -u)"
+    local session_id="bats-l7-stale-${BATS_TEST_NUMBER}-${RANDOM}"
+    local repo_scope claim_dir dead_pid
+    repo_scope="$(printf '%s' "$PROJECT_ROOT" | cksum | awk '{print $1}')"
+    claim_dir="$marker_base/${session_id}-${repo_scope}.claim"
+
+    sh -c 'exit 0' &
+    dead_pid=$!
+    wait "$dead_pid"
+    mkdir -p "$claim_dir"
+    printf '%s\n' "$dead_pid" >"$claim_dir/owner-$dead_pid-fixture"
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
+    [[ ! -e "$claim_dir" ]]
+    run find "$marker_base" -name '*.stale.*' -print
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "stale claim quarantine was not removed: $output"; false; }
+    run find "$marker_base" -name '*.done' -print
+    [[ "$status" -eq 0 ]]
+    [[ -n "$output" ]]
 }
 
 # ---------------------------------------------------------------------------

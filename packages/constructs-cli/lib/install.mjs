@@ -13,7 +13,7 @@
 // path escapes, stale local state. Does NOT defend a full API-origin or
 // registry compromise — the receipt records enough for retroactive audit.
 
-import { createHash, createPublicKey, verify as cryptoVerify } from 'node:crypto';
+import { createHash, createPublicKey, randomUUID, verify as cryptoVerify } from 'node:crypto';
 import { readFile, writeFile, mkdir, rename, rm, stat, lstat, readdir, access, chmod, mkdtemp } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -592,26 +592,52 @@ async function stampStageTransaction(stage, transactionId) {
   await writeFile(marker, `${JSON.stringify({ ...meta, transaction_id: transactionId }, null, 2)}\n`, 'utf8');
 }
 
-async function rollbackPackSwap({ target, backup }, transactionId) {
-  let current;
+async function rollbackPackSwap({ target, backup }, transactionId, onQuarantined = null) {
+  // Take ownership of one exact filesystem object before inspecting or deleting
+  // it. The target path can be replaced by an external actor at any time; an
+  // unguessable, transaction-scoped rename keeps all later destructive work on
+  // the directory that this rollback actually claimed.
+  const quarantine = path.join(
+    path.dirname(target),
+    `.rollback-${path.basename(target)}-${transactionId.replace(/^sha256:/, '')}-${randomUUID()}`
+  );
   try {
-    current = JSON.parse(await readFile(path.join(target, '.construct-meta.json'), 'utf8'));
+    await rename(target, quarantine);
   } catch (err) {
     throw new InstallError(
-      `rollback conflict at ${target}: the landed transaction marker cannot be read (${err?.message ?? err}); preserving the current target`,
+      `rollback conflict at ${target}: the landed target could not be quarantined (${err?.message ?? err}); preserving the current target${backup ? ` and backup ${backup}` : ''}`,
+      EXIT.TOOL_FAILURE,
+      { code: 'ROLLBACK_CONFLICT' }
+    );
+  }
+
+  let current;
+  try {
+    current = JSON.parse(await readFile(path.join(quarantine, '.construct-meta.json'), 'utf8'));
+  } catch (err) {
+    throw new InstallError(
+      `rollback conflict at ${target}: the quarantined transaction marker cannot be read (${err?.message ?? err}); preserving ${quarantine}${backup ? ` and ${backup}` : ''}`,
       EXIT.TOOL_FAILURE,
       { code: 'ROLLBACK_CONFLICT' }
     );
   }
   if (current?.transaction_id !== transactionId) {
     throw new InstallError(
-      `rollback conflict at ${target}: expected transaction ${transactionId}, found ${current?.transaction_id ?? 'no transaction marker'}; preserving the current target`,
+      `rollback conflict at ${target}: expected transaction ${transactionId}, found ${current?.transaction_id ?? 'no transaction marker'}; preserving ${quarantine}${backup ? ` and ${backup}` : ''}`,
       EXIT.TOOL_FAILURE,
       { code: 'ROLLBACK_CONFLICT' }
     );
   }
-  await rm(target, { recursive: true, force: true });
+
+  // Fault-injection seam used to prove that a new target created after
+  // ownership validation is never deleted. Production callers leave it null.
+  if (onQuarantined) await onQuarantined({ target, backup, quarantine, transactionId });
+
+  // Restore the prior pack before deleting the failed landing. If an external
+  // actor has already created a new target, rename fails closed and both the
+  // backup and quarantined landing remain available for reconciliation.
   if (backup) await rename(backup, target);
+  await rm(quarantine, { recursive: true, force: true });
 }
 
 async function finishPackSwap({ backup }, slug) {
@@ -652,6 +678,7 @@ export async function commitInstallTransaction({
   receiptPayload,
   pendingAnchor = null,
   recordWriter = writeRecordUnlocked,
+  rollbackOwnershipHook = null,
 }) {
   let priorAnchorRaw = null;
   if (pendingAnchor) {
@@ -683,7 +710,7 @@ export async function commitInstallTransaction({
     return { landed: swap.target, preparedRecord, committedRecord, committedPayload };
   } catch (err) {
     const rollbackErrors = [];
-    await rollbackPackSwap(swap, transactionId).catch((rollbackErr) => rollbackErrors.push(`pack: ${rollbackErr?.message ?? rollbackErr}`));
+    await rollbackPackSwap(swap, transactionId, rollbackOwnershipHook).catch((rollbackErr) => rollbackErrors.push(`pack: ${rollbackErr?.message ?? rollbackErr}`));
     if (pendingAnchor) {
       await restoreTofuAnchor(root, slug, priorAnchorRaw).catch((rollbackErr) => rollbackErrors.push(`anchor: ${rollbackErr?.message ?? rollbackErr}`));
     }

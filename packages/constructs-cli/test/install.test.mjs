@@ -710,7 +710,7 @@ test('S229-P4: committed-metadata failure restores both the previous pack and TO
   assert.deepEqual((await readdir(packsDir)).filter((name) => name.startsWith('.backup-')), []);
 });
 
-test('S229-P4: rollback preserves a concurrently substituted target and the recoverable backup', async () => {
+test('S229-P4: rollback quarantines a concurrently substituted target and preserves the recoverable backup', async () => {
   const root = await makeRoot();
   const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
   const packsDir = path.join(root, '.claude', 'constructs', 'packs');
@@ -752,7 +752,68 @@ test('S229-P4: rollback preserves a concurrently substituted target and the reco
     commitInstallTransaction({ root, slug: 'goodpack', stage, receiptsDir, receiptPayload, recordWriter: substituteThenFail }),
     (err) => err instanceof InstallError && err.code === 'ROLLBACK_FAILED'
   );
-  assert.equal(await readFile(path.join(target, 'user-work.md'), 'utf8'), 'preserve me\n');
+  await assert.rejects(readFile(path.join(target, 'user-work.md'), 'utf8'));
+  const backups = (await readdir(packsDir)).filter((name) => name.startsWith('.backup-'));
+  assert.equal(backups.length, 1);
+  assert.equal(await readFile(path.join(packsDir, backups[0], '.construct-meta.json'), 'utf8'), '{"generation":"old"}\n');
+  const quarantines = (await readdir(packsDir)).filter((name) => name.startsWith('.rollback-'));
+  assert.equal(quarantines.length, 1);
+  assert.equal(await readFile(path.join(packsDir, quarantines[0], 'user-work.md'), 'utf8'), 'preserve me\n');
+});
+
+test('S229-P4: rollback never deletes a target created after quarantine validation', async () => {
+  const root = await makeRoot();
+  const receiptsDir = path.join(root, 'grimoires', 'loa', 'territory', 'receipts');
+  const packsDir = path.join(root, '.claude', 'constructs', 'packs');
+  const target = path.join(packsDir, 'goodpack');
+  const stage = path.join(packsDir, '.stage-goodpack');
+  await mkdir(receiptsDir, { recursive: true });
+  await mkdir(target, { recursive: true });
+  await mkdir(stage, { recursive: true });
+  await writeFile(path.join(target, '.construct-meta.json'), '{"generation":"old"}\n');
+  await writeFile(path.join(stage, '.construct-meta.json'), '{"generation":"new"}\n');
+  const receiptPayload = {
+    record_version: '1.0',
+    kind: 'install',
+    ts: '2026-07-14T00:00:00Z',
+    actor: 'test',
+    construct: 'goodpack',
+    install: {
+      rung: 'payload-file',
+      tree_hash: `sha256:${'0'.repeat(64)}`,
+      outcome: 'verified',
+      anchor: `registry:sha256:${'0'.repeat(64)}`,
+    },
+  };
+  let writes = 0;
+  const failCommittedRecord = async (...args) => {
+    writes++;
+    if (writes === 2) throw Object.assign(new Error('simulated committed-record I/O failure'), { code: 'EIO' });
+    return writeRecordUnlocked(...args);
+  };
+  let claimedQuarantine = null;
+  const createConcurrentTarget = async ({ quarantine }) => {
+    claimedQuarantine = quarantine;
+    await mkdir(target, { recursive: true });
+    await writeFile(path.join(target, 'user-work.md'), 'created after validation\n');
+  };
+
+  await assert.rejects(
+    commitInstallTransaction({
+      root,
+      slug: 'goodpack',
+      stage,
+      receiptsDir,
+      receiptPayload,
+      recordWriter: failCommittedRecord,
+      rollbackOwnershipHook: createConcurrentTarget,
+    }),
+    (err) => err instanceof InstallError && err.code === 'ROLLBACK_FAILED'
+  );
+
+  assert.equal(await readFile(path.join(target, 'user-work.md'), 'utf8'), 'created after validation\n');
+  assert.ok(claimedQuarantine, 'rollback must transfer the exact failed landing into quarantine');
+  assert.match(await readFile(path.join(claimedQuarantine, '.construct-meta.json'), 'utf8'), /transaction_id/);
   const backups = (await readdir(packsDir)).filter((name) => name.startsWith('.backup-'));
   assert.equal(backups.length, 1);
   assert.equal(await readFile(path.join(packsDir, backups[0], '.construct-meta.json'), 'utf8'), '{"generation":"old"}\n');
