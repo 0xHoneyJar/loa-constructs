@@ -39,8 +39,9 @@ OI="${REPO_ROOT}/.claude/scripts/operator-identity.sh"
 # shellcheck source=/dev/null
 source "$OI" 2>/dev/null || exit 0
 
-# Find an operator whose declared git_email matches.
-OPERATORS_FILE="${LOA_OPERATORS_FILE:-${REPO_ROOT}/grimoires/loa/operators.md}"
+# Find an operator whose declared git_email matches. Identity is a production
+# trust input: ambient environment variables must not redirect its authority.
+OPERATORS_FILE="${REPO_ROOT}/grimoires/loa/operators.md"
 [[ -f "$OPERATORS_FILE" ]] || exit 0
 operator_slug="$(_oi_parse_yaml_to_json "$OPERATORS_FILE" \
     | jq -r --arg em "$git_email" \

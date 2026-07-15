@@ -448,6 +448,12 @@ test('T3.2b: attestation expiry is INSIDE the signed bytes — stripping it brea
   const ok = await verifyAttestation({ manifest, tree_hash: hash, attestation: { signature: sig, key_id: 'k1', expiry }, keyProvider });
   assert.equal(ok.verified, true);
 
+  // Expiry is exclusive: equality is already expired, not one last valid tick.
+  await assert.rejects(
+    verifyAttestation({ manifest, tree_hash: hash, attestation: { signature: sig, key_id: 'k1', expiry }, keyProvider, now: new Date(expiry) }),
+    (err) => err.code === 'ATTESTATION_EXPIRED'
+  );
+
   // Same signature, expiry STRIPPED → the signed bytes change → signature fails.
   await assert.rejects(
     verifyAttestation({ manifest, tree_hash: hash, attestation: { signature: sig, key_id: 'k1' }, keyProvider }),

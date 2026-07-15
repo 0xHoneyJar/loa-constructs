@@ -236,6 +236,32 @@ EOF
     [[ "$output" == *"truncated"* ]]
 }
 
+@test "T-HOOK-8b (FR-L7-4) unsafe and non-canonical surface limits fall back to 2000" {
+    # Each value must default to 2000. If a leading-zero value were interpreted
+    # arithmetically as 10, the output would be far shorter than this assertion.
+    for configured in "0" "10001" "999999999999999999999999999999" "'010'"; do
+        cat > "$LOA_SOUL_TEST_CONFIG" <<EOF
+soul_identity_doc:
+  enabled: true
+  schema_mode: warn
+  surface_max_chars: $configured
+EOF
+        {
+            printf -- '---\n'
+            printf -- "schema_version: '1.0'\n"
+            printf -- "identity_for: 'this-repo'\n"
+            printf -- '---\n\n## What I am\n\n'
+            python3 -c 'print("x" * 2500)'
+            printf -- '\n## What I am not\ny\n## Voice\nz\n## Discipline\nw\n## Influences\nv\n'
+        } > "$LOA_SOUL_TEST_PATH"
+
+        run "$HOOK"
+        [[ "$status" -eq 0 ]]
+        [[ "$output" == *"truncated"* ]]
+        [[ "${#output}" -gt 1000 ]] || { echo "unsafe limit $configured did not fall back to 2000"; false; }
+    done
+}
+
 # ---------------------------------------------------------------------------
 # T-HOOK-MODE group: schema_mode strict vs warn (FR-L7-2)
 # ---------------------------------------------------------------------------

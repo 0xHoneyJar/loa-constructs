@@ -91,9 +91,12 @@ case "$schema_mode" in
 esac
 
 max_chars="$(yq '.soul_identity_doc.surface_max_chars // 2000' "$config_path" 2>/dev/null || echo 2000)"
-case "$max_chars" in
-    ''|*[!0-9]*) max_chars=2000 ;;
-esac
+# Repository configuration may select a smaller presentation budget, but the
+# hard context-safety ceiling is code-owned. Require canonical decimal syntax
+# so leading zeros cannot trigger shell arithmetic ambiguity.
+if [[ ! "$max_chars" =~ ^[1-9][0-9]{0,4}$ ]] || (( 10#$max_chars > 10000 )); then
+    max_chars=2000
+fi
 
 # Resolve SOUL.md path:
 #   1) LOA_SOUL_TEST_PATH (test-mode only)

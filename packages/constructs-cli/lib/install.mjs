@@ -258,7 +258,9 @@ export async function verifyAttestation({ manifest, tree_hash, attestation, keyP
     if (Number.isNaN(at)) {
       throw new InstallError(`attestation expiry ${JSON.stringify(attestation.expiry)} is not a date`, EXIT.INTEGRITY_MISMATCH, { code: 'ATTESTATION_MALFORMED' });
     }
-    if (at < now.getTime()) {
+    // Expiry is an exclusive upper bound: at the named instant the credential
+    // is already invalid, matching JWT/OAuth-style temporal semantics.
+    if (at <= now.getTime()) {
       throw new InstallError(`attestation expired at ${attestation.expiry}`, EXIT.INTEGRITY_MISMATCH, { code: 'ATTESTATION_EXPIRED' });
     }
   }
