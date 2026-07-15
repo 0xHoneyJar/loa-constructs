@@ -146,6 +146,17 @@ test('redteam: total-bytes budget enforced across entries', () => {
   assert.match(problems.join(' '), /totals .* over the budget/);
 });
 
+test('containment rejects overlong encoded components and relative paths before staging', () => {
+  const longComponent = 'a'.repeat(BUDGETS.max_path_component_bytes + 1);
+  const componentVerdict = validateFileList([{ path: `${longComponent}.md`, content: b64('x') }]);
+  assert.match(componentVerdict.problems.join(' '), /portable component budget/);
+
+  const segment = 'b'.repeat(200);
+  const longPath = Array.from({ length: Math.ceil((BUDGETS.max_path_bytes + 1) / 201) }, () => segment).join('/');
+  const pathVerdict = validateFileList([{ path: longPath, content: b64('x') }]);
+  assert.match(pathVerdict.problems.join(' '), /portable path budget/);
+});
+
 test('zero archive-parsing code ships (asserted)', async () => {
   const src = await readFile(new URL('../lib/install.mjs', import.meta.url), 'utf8');
   // Import-specifier smells — comments legitimately SAY "tarball" while explaining why none is parsed.
@@ -351,6 +362,18 @@ test('git rung: non-UTF-8 path bytes are refused before checkout', () => {
   assert.throws(
     () => validateGitTreeBytes(rawTree),
     (err) => err instanceof InstallError && err.exitCode === EXIT.INTEGRITY_MISMATCH && err.code === 'GIT_PATH_ENCODING'
+  );
+});
+
+test('git rung: path-length budgets are enforced during no-checkout tree inspection', () => {
+  const longPath = Array.from({ length: 6 }, () => 'p'.repeat(200)).join('/');
+  const rawTree = Buffer.from(`100644 blob ${'a'.repeat(40)} 1\t${longPath}\0`, 'utf8');
+  assert.throws(
+    () => validateGitTreeBytes(rawTree),
+    (err) => err instanceof InstallError
+      && err.exitCode === EXIT.INTEGRITY_MISMATCH
+      && err.code === 'CONTAINMENT'
+      && /portable path budget/.test(err.message)
   );
 });
 

@@ -434,6 +434,26 @@ EOF
     [[ -n "$output" ]]
 }
 
+@test "T-HOOK-12e (FR-L7-5) failed stdout delivery does not commit the done marker" {
+    _write_config "true" "warn" "2000"
+    _write_valid_soul
+    local marker_base="$TEST_DIR/loa-l7-surface-$(id -u)"
+    local session_id="bats-l7-output-${BATS_TEST_NUMBER}-${RANDOM}"
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run bash -c '"$1" >&-' _ "$HOOK"
+    [[ "$status" -eq 0 ]]
+    run find "$marker_base" -name '*.done' -print
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "failed delivery committed done: $output"; false; }
+    run find "$marker_base" -name '*.claim' -print
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "failed delivery left claim: $output"; false; }
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$HOOK"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
+}
+
 # ---------------------------------------------------------------------------
 # T-HOOK-INJECT group: prompt-injection defense in body
 # ---------------------------------------------------------------------------

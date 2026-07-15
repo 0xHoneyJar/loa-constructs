@@ -43,11 +43,16 @@ source "$OI" 2>/dev/null || exit 0
 # trust input: ambient environment variables must not redirect its authority.
 OPERATORS_FILE="${REPO_ROOT}/grimoires/loa/operators.md"
 [[ -f "$OPERATORS_FILE" ]] || exit 0
-operator_slug="$(_oi_parse_yaml_to_json "$OPERATORS_FILE" \
+operator_matches="$(_oi_parse_yaml_to_json "$OPERATORS_FILE" \
     | jq -r --arg em "$git_email" \
-        '.operators[]? | select(.git_email == $em) | .id' \
-    | head -n 1)"
-[[ -n "$operator_slug" ]] || exit 0
+        '[.operators[]? | select(.git_email == $em and ((.id | type) == "string") and ((.id | length) > 0)) | .id]')"
+# Identity is an authorization boundary: exactly one match succeeds. Zero or
+# multiple matches are both ambiguous and must fail closed rather than selecting
+# whichever registry entry happens to appear first.
+operator_count="$(printf '%s' "$operator_matches" | jq -r 'length' 2>/dev/null || echo 0)"
+[[ "$operator_count" == "1" ]] || exit 0
+operator_slug="$(printf '%s' "$operator_matches" | jq -r '.[0]' 2>/dev/null || echo '')"
+[[ -n "$operator_slug" && "$operator_slug" != "null" ]] || exit 0
 
 # shellcheck source=/dev/null
 source "$LIB" 2>/dev/null || exit 0

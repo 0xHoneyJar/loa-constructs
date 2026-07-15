@@ -297,15 +297,21 @@ fi
 # audit failure stays silent but retryable; it must not consume this session.
 soul_emit "soul.surface" "$payload" >/dev/null 2>&1 || exit 0
 
-# Surface the completed result.
+# Assemble the completed result before touching stdout. Delivery is one checked
+# write: a closed/rejected output stream leaves the claim uncommitted and
+# retryable instead of recording a false done marker.
+completed_output=""
 if [[ "$outcome" != "schema-refused" ]]; then
     if [[ "$outcome" == "schema-warning" && -n "$validate_out" ]]; then
-        # Print only the SCHEMA-WARNING lines; skip any noise.
+        # Include only the SCHEMA-WARNING lines; skip any noise.
         while IFS= read -r line; do
-            [[ "$line" == *"SCHEMA-WARNING"* ]] && printf '%s\n' "$line"
+            [[ "$line" == *"SCHEMA-WARNING"* ]] && completed_output+="${line}"$'\n'
         done <<<"$validate_out"
     fi
-    [[ -n "$surface_output" ]] && printf '%s\n' "$surface_output"
+    [[ -n "$surface_output" ]] && completed_output+="${surface_output}"$'\n'
+fi
+if [[ -n "$completed_output" ]] && ! printf '%s' "$completed_output" 2>/dev/null; then
+    exit 0
 fi
 
 # Commit only after the terminal outcome has been audited and surfaced. Stdout

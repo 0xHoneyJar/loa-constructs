@@ -42,6 +42,10 @@ export const BUDGETS = Object.freeze({
   max_total_bytes: 32 * 1024 * 1024,
   max_entry_count: 2048,
   max_single_file_bytes: 4 * 1024 * 1024,
+  // Conservative relative-name envelope shared by payload and git rungs.
+  // Bytes, not JS code units: destination filesystems enforce encoded names.
+  max_path_component_bytes: 255,
+  max_path_bytes: 1024,
 });
 
 const CONTROL_BYTES_RE = /[\x00-\x1f\x7f]/; // C0 + DEL in a file NAME are never legitimate
@@ -121,6 +125,10 @@ export function validateFileList(files) {
       problems.push(`${where}: absolute path ${JSON.stringify(f.path)} rejected`);
     }
     const segments = f.path.split('/');
+    const encodedPathBytes = Buffer.byteLength(f.path, 'utf8');
+    if (encodedPathBytes > BUDGETS.max_path_bytes) {
+      problems.push(`${where}: path is ${encodedPathBytes} bytes, over the portable path budget of ${BUDGETS.max_path_bytes}`);
+    }
     if (segments.includes('..') || segments.includes('') || segments.includes('.')) {
       problems.push(`${where}: traversal-shaped path ${JSON.stringify(f.path)} rejected`);
     }
@@ -128,6 +136,10 @@ export function validateFileList(files) {
       problems.push(`${where}: control bytes or backslashes in path rejected`);
     }
     for (const seg of segments) {
+      const encodedSegmentBytes = Buffer.byteLength(seg, 'utf8');
+      if (encodedSegmentBytes > BUDGETS.max_path_component_bytes) {
+        problems.push(`${where}: path component ${JSON.stringify(seg)} is ${encodedSegmentBytes} bytes, over the portable component budget of ${BUDGETS.max_path_component_bytes}`);
+      }
       if (WIN32_FORBIDDEN.test(seg)) {
         problems.push(`${where}: ${JSON.stringify(f.path)} contains a character forbidden in Windows filenames (< > : " | ? *)`);
       }
