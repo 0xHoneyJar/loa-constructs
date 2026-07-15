@@ -14,7 +14,7 @@
 // registry compromise — the receipt records enough for retroactive audit.
 
 import { createHash, createPublicKey, verify as cryptoVerify } from 'node:crypto';
-import { readFile, writeFile, mkdir, rename, rm, stat, lstat, readdir, access, chmod } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, rm, stat, lstat, readdir, access, chmod, mkdtemp } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { jcsCanonicalize } from './vendor/jcs.mjs';
@@ -729,6 +729,10 @@ async function inspectGitTree(stagingDir, ref) {
   if (problems.length > 0) {
     throw new InstallError(`git tree containment failed:\n  · ${problems.join('\n  · ')}`, EXIT.INTEGRITY_MISMATCH, { code: 'CONTAINMENT' });
   }
+  // Git's own object IDs may be SHA-1 or SHA-256. Receipts use one stable
+  // algorithm over the exact inspected tree representation so `tree_hash`
+  // always means a computed claim, never a placeholder.
+  return `sha256:${createHash('sha256').update(stdout, 'utf8').digest('hex')}`;
 }
 
 async function normalizeGitFileModes(dir) {
@@ -781,7 +785,7 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
     const resolved = await run('git', ['-C', stagingDir, 'rev-parse', 'HEAD'], { timeoutMs: 15_000 });
     head = resolved.stdout.trim();
   }
-  await inspectGitTree(stagingDir, head);
+  const inspectedTreeHash = await inspectGitTree(stagingDir, head);
   let tofu = null;
   // The anchor a successful landing WOULD persist. A --dry-run must never mutate
   // trust state (review pass 1), so nothing is written from inside acquisition.
@@ -826,7 +830,7 @@ async function acquireGit({ slug, anchor, stagingDir, root = '.', allowIntegrity
   await assertNoSymlinks(stagingDir);
   await normalizeGitFileModes(stagingDir);
   await rm(path.join(stagingDir, '.git'), { recursive: true, force: true });
-  return { rung: 'registry-git', head, tofu: tofu !== null, pendingAnchor, rotatedFrom };
+  return { rung: 'registry-git', head, treeHash: inspectedTreeHash, tofu: tofu !== null, pendingAnchor, rotatedFrom };
 }
 
 // ── the install flow ──────────────────────────────────────────────────────────
@@ -852,11 +856,12 @@ export async function install({
   // NOT .catch(() => null): a registry that exists but cannot be validated must
   // fail closed, and readRegistryAnchor throws exactly then (review pass 1).
   const anchor = await readRegistryAnchor(slug, path.join(root, registryFile));
-  const parent = packsParent(root);
-  await mkdir(parent, { recursive: true });
+  const dryRunRoot = dryRun ? await mkdtemp(path.join(os.tmpdir(), 'constructs-dry-run-')) : null;
+  const parent = dryRunRoot ?? packsParent(root);
+  if (!dryRun) await mkdir(parent, { recursive: true });
   const stagingDir = path.join(parent, `.staging-${slug}-${process.pid}`);
 
-  return withReceiptLock(parent, async () => {
+  const executeInstall = async () => {
     await rm(stagingDir, { recursive: true, force: true });
     try {
       let acquisition;
@@ -871,6 +876,7 @@ export async function install({
         const packStage = path.join(stagingDir, 'pack');
         gitInfo = await acquireGit({ slug, anchor, stagingDir: packStage, root, allowIntegrityMismatch, dryRun });
         acquisition = { rung: 'registry-git', files: null, manifest: null, version: null, attestation: null, declaredHash: null };
+        computedHash = gitInfo.treeHash;
         // A rotated TOFU pin IS an integrity override — the receipt must say so, and
         // must carry the operator's reason. Recording it as a plain `verified` install
         // would erase the only trace of the act (audit).
@@ -881,7 +887,7 @@ export async function install({
           // updated (found by the T3.2b TOFU fixture).
           await writeFile(
             path.join(packStage, '.construct-meta.json'),
-            JSON.stringify({ slug, version: null, source_type: 'git', commit: gitInfo.head, installed_at: nowIso() }, null, 2)
+            JSON.stringify({ slug, version: null, source_type: 'git', commit: gitInfo.head, tree_hash: computedHash, installed_at: nowIso() }, null, 2)
           );
         }
       } else {
@@ -948,7 +954,7 @@ export async function install({
         ...(acquisition.version ? { version: String(acquisition.version) } : {}),
         install: {
           rung: acquisition.rung,
-          tree_hash: computedHash ?? `sha256:${'0'.repeat(64)}`,
+          tree_hash: computedHash,
           outcome,
           anchor: gitInfo
             ? gitInfo.rotatedFrom
@@ -1002,7 +1008,16 @@ export async function install({
     } finally {
       await rm(stagingDir, { recursive: true, force: true });
     }
-  });
+  };
+
+  if (dryRun) {
+    try {
+      return await executeInstall();
+    } finally {
+      await rm(dryRunRoot, { recursive: true, force: true });
+    }
+  }
+  return withReceiptLock(parent, executeInstall);
 }
 
 function nowIso() {

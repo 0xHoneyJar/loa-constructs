@@ -27,7 +27,7 @@ python -m patchright install chromium
 ### Step 1: Run Setup Command
 
 ```bash
-cd .claude/skills/flatline-knowledge/resources
+cd .agents/skills/flatline-knowledge/resources
 python notebooklm-query.py --setup-auth
 ```
 

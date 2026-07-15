@@ -84,7 +84,8 @@ test('containment accepts uppercase names and rejects the exact C0 plus DEL byte
   const uppercase = validateFileList([{ path: 'Skills/README.md', content: b64('ok') }]);
   assert.deepEqual(uppercase.problems, []);
 
-  for (const control of ['\n', '\t', '\u0000', '\u001f', '\u007f']) {
+  const controls = [...Array.from({ length: 32 }, (_, i) => String.fromCharCode(i)), String.fromCharCode(0x7f)];
+  for (const control of controls) {
     const verdict = validateFileList([{ path: `skills/bad${control}name.md`, content: b64('bad') }]);
     assert.match(verdict.problems.join(' '), /control bytes/);
   }
@@ -305,6 +306,8 @@ test('git rung: anchored to the registry-recorded commit', async () => {
   const result = await install({ slug: 'goodpack', root, rung: 'git' });
   assert.equal(result.mode, 'installed');
   assert.equal(result.payload.install.anchor, `registry-commit:${upstream.head}`);
+  assert.match(result.payload.install.tree_hash, /^sha256:[0-9a-f]{64}$/);
+  assert.notEqual(result.payload.install.tree_hash, `sha256:${'0'.repeat(64)}`);
 });
 
 test('git rung: tree budgets are enforced before checkout', async () => {
@@ -456,6 +459,7 @@ test('S229-1: a --dry-run git install NEVER writes trust state', async () => {
   const dry = await install({ slug: 'goodpack', root, rung: 'git', dryRun: true });
   assert.equal(dry.mode, 'dry-run');
   await assert.rejects(readFile(anchorFile, 'utf8'), 'a dry run must not pin an anchor');
+  await assert.rejects(readdir(path.join(root, '.claude')), 'a dry run must not create install directories');
 
   // And the real install still pins it.
   await install({ slug: 'goodpack', root, rung: 'git' });
