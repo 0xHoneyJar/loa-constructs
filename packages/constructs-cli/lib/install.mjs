@@ -238,7 +238,9 @@ export function attestationBytes(manifest, tree_hash, expiry = null) {
 export async function fetchPublisherKey(keyId, { fetchImpl = null } = {}) {
   const res = fetchImpl ? await fetchImpl(keyId) : (await apiFetch(`/public-keys/${encodeURIComponent(keyId)}`, { noCache: true })).data;
   const key = res?.public_key ?? res?.key ?? res?.data?.public_key ?? null;
-  const status = res?.status ?? res?.data?.status ?? 'active';
+  // Status is part of the trust decision, not optional metadata. A response
+  // that omits it must fail closed rather than silently manufacturing active.
+  const status = res?.status ?? res?.data?.status ?? null;
   return { pem: key, status };
 }
 
@@ -263,11 +265,16 @@ export async function verifyAttestation({ manifest, tree_hash, attestation, keyP
   if (!pem) {
     throw new InstallError(`publisher key ${attestation.key_id} not found — cannot verify an attested pack`, EXIT.INTEGRITY_MISMATCH, { code: 'KEY_UNKNOWN' });
   }
-  if (status === 'retired' || status === 'revoked') {
+  if (status !== 'active') {
+    const reportedStatus = typeof status === 'string' && status.length > 0 ? status : 'missing';
+    const revoked = reportedStatus === 'retired' || reportedStatus === 'revoked';
     throw new InstallError(
-      `publisher key ${attestation.key_id} is ${status} — a revoked key verifies nothing`,
+      `publisher key ${attestation.key_id} is ${reportedStatus}, not active — an inactive key verifies nothing`,
       EXIT.INTEGRITY_MISMATCH,
-      { code: 'KEY_REVOKED', fix: 'the publisher must re-sign with a live key; do not install this payload' }
+      {
+        code: revoked ? 'KEY_REVOKED' : 'KEY_INACTIVE',
+        fix: 'the publisher must re-sign with an explicitly active key; do not install this payload',
+      }
     );
   }
   let ok = false;

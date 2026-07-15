@@ -303,6 +303,84 @@ EOF
     [[ "$(wc -l < "$LOA_SOUL_LOG" | tr -d ' ')" -eq 1 ]]
 }
 
+@test "T-HOOK-12c (FR-L7-5) transient load and audit failures release the session claim" {
+    local fixture="$TEST_DIR/retry-fixture"
+    local fixture_hook="$fixture/.claude/hooks/session-start/loa-l7-surface-soul.sh"
+    local fixture_lib="$fixture/.claude/scripts/lib/soul-identity-lib.sh"
+    local marker_base="$TEST_DIR/loa-l7-surface-$(id -u)"
+    local session_id="bats-l7-retry-${BATS_TEST_NUMBER}-${RANDOM}"
+
+    mkdir -p "$fixture/.claude/hooks/session-start" "$fixture/.claude/scripts/lib"
+    cp "$HOOK" "$fixture_hook"
+    cp "$PROJECT_ROOT/.claude/scripts/lib/portable-realpath.sh" "$fixture/.claude/scripts/lib/portable-realpath.sh"
+    cat >"$fixture/.loa.config.yaml" <<'EOF'
+soul_identity_doc:
+  enabled: true
+  schema_mode: warn
+  surface_max_chars: 2000
+EOF
+    cat >"$fixture/SOUL.md" <<'EOF'
+---
+schema_version: '1.0'
+identity_for: 'this-repo'
+---
+
+## What I am
+
+Retry fixture.
+EOF
+
+    # Loading fails after a successful validation. The claim must disappear.
+    cat >"$fixture_lib" <<'EOF'
+soul_validate() { return 0; }
+soul_compute_surface_payload() { printf '%s\n' '{"outcome":"surfaced"}'; }
+soul_emit() { return 0; }
+soul_load() { return 2; }
+EOF
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]]
+    run find "$marker_base" -type f -name '*.claim' -print
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "failed load left a claim: $output"; false; }
+    run find "$marker_base" -type f -name '*.done' -print
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "failed load committed done: $output"; false; }
+
+    # A completed load with a failed audit is still retryable and surfaces
+    # nothing; the user-facing result and done marker commit together.
+    cat >"$fixture_lib" <<'EOF'
+soul_validate() { return 0; }
+soul_compute_surface_payload() { printf '%s\n' '{"outcome":"surfaced"}'; }
+soul_emit() { return 2; }
+soul_load() { printf '%s\n' '<untrusted-content source="L7">retry</untrusted-content>'; }
+EOF
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]]
+    run find "$marker_base" -type f -name '*.done' -print
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "failed audit committed done: $output"; false; }
+
+    # Once every stage succeeds, the hook surfaces exactly once and commits.
+    cat >"$fixture_lib" <<'EOF'
+soul_validate() { return 0; }
+soul_compute_surface_payload() { printf '%s\n' '{"outcome":"surfaced"}'; }
+soul_emit() { return 0; }
+soul_load() { printf '%s\n' '<untrusted-content source="L7">retry</untrusted-content>'; }
+EOF
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
+    [[ "$status" -eq 0 ]]
+    [[ "$output" == *"<untrusted-content"* ]]
+    run find "$marker_base" -type f -name '*.done' -print
+    [[ "$status" -eq 0 ]]
+    [[ -n "$output" ]]
+
+    LOA_L7_SESSION_ID="$session_id" TMPDIR="$TEST_DIR" run "$fixture_hook"
+    [[ "$status" -eq 0 ]]
+    [[ -z "$output" ]] || { echo "expected committed session to suppress retry, got: $output"; false; }
+}
+
 # ---------------------------------------------------------------------------
 # T-HOOK-INJECT group: prompt-injection defense in body
 # ---------------------------------------------------------------------------

@@ -68,9 +68,10 @@ Authentication sessions are stored in:
 ### Security Considerations
 
 - **Local storage only**: Session data stays on your machine
-- **Encrypted cookies**: Chromium encrypts cookies at rest
-- **No credential storage**: Your Google password is NOT stored
+- **Platform-dependent protection**: Chromium cookie encryption depends on the host OS and keychain configuration; do not assume every copied or headless profile is encrypted at rest
+- **Active-session credentials**: Your Google password is not stored, but the profile's session cookies can grant equivalent account access while valid
 - **Session expiry**: Google sessions may expire after extended periods
+- **Host protection**: Keep the profile on an encrypted disk and retain the restrictive permissions below
 
 ### Protecting Session Data
 

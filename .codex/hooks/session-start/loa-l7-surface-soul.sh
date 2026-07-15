@@ -149,8 +149,32 @@ fi
 
 # Cross-process single-fire. Environment exports cannot propagate from a hook
 # child back to the runner, so use the host session id (env or hook JSON stdin)
-# as the retry-boundary identity. The marker is local ephemeral state, owned by
-# this user, and scoped by repository.
+# as the retry-boundary identity. This is a tiny claim/commit transaction: a
+# live claim excludes concurrent hooks, while the durable done marker appears
+# only after validation and surfacing reach a terminal outcome. Recoverable
+# failures release the claim so a later hook invocation can retry.
+marker_claim=""
+marker_done=""
+marker_committed=0
+
+# shellcheck disable=SC2329  # invoked indirectly by the EXIT trap
+_l7_release_marker_claim() {
+    if [[ -n "$marker_claim" && "$marker_committed" -ne 1 ]]; then
+        rm -f "$marker_claim" 2>/dev/null || true
+    fi
+}
+
+_l7_try_marker_claim() {
+    local token="${marker_claim}.$$.$RANDOM.token"
+    (umask 077; printf '%s\n' "$$" >"$token") 2>/dev/null || return 1
+    if ln "$token" "$marker_claim" 2>/dev/null; then
+        rm -f "$token" 2>/dev/null || true
+        return 0
+    fi
+    rm -f "$token" 2>/dev/null || true
+    return 1
+}
+
 session_id="${LOA_L7_SESSION_ID:-}"
 if ! _l7_test_mode_active && [[ -z "$session_id" ]]; then
     session_id="${CLAUDE_SESSION_ID:-${CODEX_SESSION_ID:-}}"
@@ -168,8 +192,26 @@ if [[ "$session_id" =~ ^[A-Za-z0-9._-]{1,128}$ ]]; then
     mkdir -p "$marker_base" 2>/dev/null || exit 0
     chmod 700 "$marker_base" 2>/dev/null || exit 0
     repo_scope="$(printf '%s' "$canonical_root" | cksum | awk '{print $1}')"
-    marker="${marker_base}/${session_id}-${repo_scope}.done"
-    mkdir "$marker" 2>/dev/null || exit 0
+    marker_done="${marker_base}/${session_id}-${repo_scope}.done"
+    marker_claim="${marker_base}/${session_id}-${repo_scope}.claim"
+    [[ -e "$marker_done" ]] && exit 0
+
+    if ! _l7_try_marker_claim; then
+        # A completed peer wins. A live peer still owns the in-flight work.
+        [[ -e "$marker_done" ]] && exit 0
+        if [[ -L "$marker_claim" || ! -f "$marker_claim" || ! -O "$marker_claim" ]]; then
+            exit 0
+        fi
+        claim_pid="$(cat "$marker_claim" 2>/dev/null || true)"
+        if [[ ! "$claim_pid" =~ ^[1-9][0-9]*$ ]] || kill -0 "$claim_pid" 2>/dev/null; then
+            exit 0
+        fi
+
+        # The recorded owner no longer exists: reclaim a crash-stale claim.
+        rm -f "$marker_claim" 2>/dev/null || exit 0
+        _l7_try_marker_claim || exit 0
+    fi
+    trap _l7_release_marker_claim EXIT
 fi
 
 # Source lib (after preflight gates pass — keeps no-op exit fast).
@@ -182,6 +224,14 @@ set +e
 # Validate (capture stdout+stderr together; status separately).
 validate_out="$(soul_validate "$soul_path" --"$schema_mode" 2>&1)"
 validate_status=$?
+
+# Warn-mode validation failures and missing validator dependencies are
+# operational failures, not completed policy decisions. Leave them retryable.
+if [[ "$validate_status" -ne 0 ]]; then
+    if [[ "$schema_mode" == "warn" || "$validate_out" == *"pyyaml-missing"* || "$validate_out" == *"jsonschema-missing"* ]]; then
+        exit 0
+    fi
+fi
 
 # Outcome resolution:
 #   strict + non-zero → schema-refused (no surface; audit event recorded)
@@ -198,10 +248,20 @@ fi
 payload="$(soul_compute_surface_payload "$soul_path" "$schema_mode" "$outcome" 2>/dev/null)"
 [[ -z "$payload" ]] && payload='{"file_path":"SOUL.md","schema_version":"1.0","schema_mode":"warn","identity_for":"this-repo","outcome":"surfaced"}'
 
-# Emit audit event (silent — stderr/stdout suppressed; failures non-fatal).
-soul_emit "soul.surface" "$payload" >/dev/null 2>&1 || true
+# Prepare the body unless strict-refused. Buffer it so a failed load cannot
+# partially surface content and then poison this session's retry boundary.
+surface_output=""
+if [[ "$outcome" != "schema-refused" ]]; then
+    surface_output="$(soul_load "$soul_path" --max-chars "$max_chars" 2>/dev/null)"
+    surface_status=$?
+    [[ "$surface_status" -eq 0 ]] || exit 0
+fi
 
-# Surface body unless strict-refused.
+# The audit record is part of a completed surface transaction. A transient
+# audit failure stays silent but retryable; it must not consume this session.
+soul_emit "soul.surface" "$payload" >/dev/null 2>&1 || exit 0
+
+# Surface the completed result.
 if [[ "$outcome" != "schema-refused" ]]; then
     if [[ "$outcome" == "schema-warning" && -n "$validate_out" ]]; then
         # Print only the SCHEMA-WARNING lines; skip any noise.
@@ -209,7 +269,17 @@ if [[ "$outcome" != "schema-refused" ]]; then
             [[ "$line" == *"SCHEMA-WARNING"* ]] && printf '%s\n' "$line"
         done <<<"$validate_out"
     fi
-    soul_load "$soul_path" --max-chars "$max_chars" 2>/dev/null || true
+    [[ -n "$surface_output" ]] && printf '%s\n' "$surface_output"
+fi
+
+# Commit only after the terminal outcome has been audited and surfaced. If
+# marker persistence fails, the EXIT trap removes the claim and permits retry.
+if [[ -n "$marker_claim" ]]; then
+    if mv "$marker_claim" "$marker_done" 2>/dev/null; then
+        marker_committed=1
+    else
+        exit 0
+    fi
 fi
 
 export LOA_L7_SURFACED=1

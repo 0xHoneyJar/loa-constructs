@@ -230,7 +230,7 @@ test('attestation: signed pack verifies; STRIP-ATTACK refused with NO override',
   );
 });
 
-test('attestation: revoked key refuses; wrong signature refuses', async () => {
+test('attestation: only explicitly active publisher keys verify', async () => {
   const { publicKey, privateKey } = generateKeyPairSync('ed25519');
   const pem = publicKey.export({ type: 'spki', format: 'pem' });
   const manifest = { name: 'goodpack' };
@@ -241,6 +241,19 @@ test('attestation: revoked key refuses; wrong signature refuses', async () => {
     verifyAttestation({ manifest, tree_hash: expected, attestation: { signature, key_id: 'pub-1' }, keyProvider: async () => ({ public_key: pem, status: 'revoked' }) }),
     (err) => err.code === 'KEY_REVOKED'
   );
+
+  for (const status of ['retired', 'disabled', 'suspended', 'unknown', null, undefined]) {
+    await assert.rejects(
+      verifyAttestation({
+        manifest,
+        tree_hash: expected,
+        attestation: { signature, key_id: 'pub-1' },
+        keyProvider: async () => ({ public_key: pem, ...(status === undefined ? {} : { status }) }),
+      }),
+      (err) => err.code === (status === 'retired' ? 'KEY_REVOKED' : 'KEY_INACTIVE'),
+      `expected publisher status ${String(status)} to fail closed`
+    );
+  }
 
   const { privateKey: otherKey } = generateKeyPairSync('ed25519');
   const wrongSig = cryptoSign(null, attestationBytes(manifest, expected), otherKey).toString('base64');
