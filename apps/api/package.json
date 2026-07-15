@@ -45,7 +45,7 @@
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
+    "@types/bcryptjs": "^3.0.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.10.0",
     "@types/semver": "^7.7.1",
