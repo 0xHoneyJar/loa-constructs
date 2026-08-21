@@ -6,119 +6,150 @@
 # Private/premium constructs are not listed and require separate access.
 
 version: 1
-
 constructs:
   artisan:
     git_url: https://github.com/0xHoneyJar/construct-artisan.git
     description: "Taste made measurable — design physics, animation, accessibility"
     category: design
     author: 0xHoneyJar
-
   beacon:
     git_url: https://github.com/0xHoneyJar/construct-beacon.git
     description: "AI-retrievable trust signals"
     category: operations
     author: 0xHoneyJar
-
   beehive:
     git_url: https://github.com/0xHoneyJar/construct-beehive.git
     description: "User research + feedback pipeline"
     category: analytics
     author: 0xHoneyJar
-
   fagan:
     git_url: https://github.com/0xHoneyJar/construct-fagan.git
     description: "Strict adversarial code review — cross-model council, structured findings, convergence loop (formerly codex-review)"
     category: code-review
     author: 0xHoneyJar
-
   gecko:
     git_url: https://github.com/0xHoneyJar/construct-gecko.git
     description: "Ecosystem intelligence — patrol, observe, diagnose, report"
     category: observability
     author: 0xHoneyJar
-
   gtm-collective:
     git_url: https://github.com/0xHoneyJar/construct-gtm-collective.git
     description: "Go-to-market operations"
     category: marketing
     author: 0xHoneyJar
-
   hardening:
     git_url: https://github.com/0xHoneyJar/construct-hardening.git
     description: "Full-stack security — API audit, auth audit, postmortem, triage"
     category: security
     author: 0xHoneyJar
-
   herald:
     git_url: https://github.com/0xHoneyJar/construct-herald.git
     description: "Grounded product communications"
     category: operations
     author: 0xHoneyJar
-
   k-hole:
     git_url: https://github.com/0xHoneyJar/construct-k-hole.git
     description: "Deep research engine — grounded search, source synthesis"
     category: analytics
     author: 0xHoneyJar
-
   kansei:
     git_url: https://github.com/0xHoneyJar/construct-kansei.git
     description: "Animation, interaction + haptic design"
     category: design
     author: 0xHoneyJar
-
   mibera-codex:
     git_url: https://github.com/0xHoneyJar/construct-mibera-codex.git
     description: "Living lore for 10,000 Beras"
     category: documentation
     author: 0xHoneyJar
-
   noether:
     git_url: https://github.com/0xHoneyJar/construct-noether.git
     description: "Contract engineering — patterns, audits, deploy ceremonies"
     category: smart-contracts
     author: 0xHoneyJar
-
   protocol:
     git_url: https://github.com/0xHoneyJar/construct-protocol.git
     description: "Verify the chain, not the frontend"
     category: web3
     author: 0xHoneyJar
-
   rosenzu:
     git_url: https://github.com/0xHoneyJar/construct-rosenzu.git
     description: "Navigation + page transition design"
     category: design
     author: 0xHoneyJar
-
   showcase:
     git_url: https://github.com/0xHoneyJar/construct-showcase.git
     description: "Landing page visual intelligence"
     category: design
     author: 0xHoneyJar
-
   the-arcade:
     git_url: https://github.com/0xHoneyJar/construct-the-arcade.git
     description: "Game design as operating philosophy"
     category: game-design
     author: 0xHoneyJar
-
   the-easel:
     git_url: https://github.com/0xHoneyJar/construct-the-easel.git
     description: "Aesthetic direction studio"
     category: design
     author: 0xHoneyJar
-
   vocabulary-bank:
     git_url: https://github.com/0xHoneyJar/construct-vocabulary-bank.git
     description: "Voice + copy consistency"
     category: documentation
     author: 0xHoneyJar
-
   # External constructs (community)
   hypha:
     git_url: https://github.com/0xElCapitan/hypha.git
     description: "Berachain PoL historian"
     category: analytics
     author: El Capitan (apDAO)
+  ruggy:
+    git_url: https://github.com/0xHoneyJar/construct-ruggy.git
+    description: Remembers what every project forgot. Cross-project institutional memory for the HoneyJar ecosystem.
+    category: uncategorized
+    author: 0xHoneyJar
+  boehm:
+    git_url: https://github.com/0xHoneyJar/construct-boehm.git
+    description: 'Replaces ''what does it cost?'' with ''how does cost behave as the driver scales?'' — draws the fixed-vs-marginal, bounded-vs-recurring cost curve, finds the crossover, and structures risky bets as gated spiral cycles. Refuses ''cheap.'' Persona: BOEHM.'
+    category: uncategorized
+    author: 0xHoneyJar
+  keeper:
+    git_url: https://github.com/0xHoneyJar/construct-keeper.git
+    description: Builds the hive so the colony can thrive. Patient observation and insightful probing for products people actually use.
+    category: uncategorized
+    author: 0xHoneyJar
+  arneson:
+    git_url: https://github.com/0xHoneyJar/construct-arneson.git
+    description: TTRPG narrative instrument — voice characters, stage scenes, and playtest tabletop RPG fiction. A Loa construct. Pairs with construct-gygax; works standalone.
+    category: uncategorized
+    author: 0xHoneyJar
+  gygax:
+    git_url: https://github.com/0xHoneyJar/construct-gygax.git
+    description: Game systems analyst — design, balance, and stress-test mechanics across 20 game traditions, plus parametric engine tuning and agent-incentive analysis (reward hacking, game theory). A Loa construct.
+    category: uncategorized
+    author: 0xHoneyJar
+  creator:
+    git_url: https://github.com/0xHoneyJar/construct-creator.git
+    description: Construct apprentice-teacher — authors new constructs, finds existing ones. A Loa construct.
+    category: uncategorized
+    author: 0xHoneyJar
+  the-orchard:
+    git_url: https://github.com/0xHoneyJar/construct-the-orchard.git
+    description: 'Tend collections after deploy — substrate, grafting, cultivation cycles. Persona: LUTHER BURBANK'
+    category: uncategorized
+    author: 0xHoneyJar
+  lore-essay-grader:
+    git_url: https://github.com/0xHoneyJar/construct-lore-essay-grader.git
+    description: Substrate-construct (instance-1). BORGES-personified subjective essay grader for substrate-graded activity steps. NEW pack type for executable Effect programs in the Loa construct network.
+    category: uncategorized
+    author: 0xHoneyJar
+  honeycomb-substrate:
+    git_url: https://github.com/0xHoneyJar/construct-honeycomb-substrate.git
+    description: A pure, deferred-execution architectural substrate unifying EffectTS, ECS, and Hexagonal patterns. Bounded by contract, packed for performance, and infinitely scalable.
+    category: uncategorized
+    author: 0xHoneyJar
+  scar:
+    git_url: https://github.com/0xHoneyJar/construct-scar.git
+    description: Every scar becomes armor — forensic incident analysis turning failures into compounding defenses across auth, data, secrets, and API surfaces.
+    category: uncategorized
+    author: 0xHoneyJar
